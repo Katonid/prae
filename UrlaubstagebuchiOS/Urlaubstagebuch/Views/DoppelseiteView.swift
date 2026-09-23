@@ -19,10 +19,31 @@ struct DoppelseiteView: View {
 
     private var bogenmass: CGSize { werk.reise.gestaltung.bogen(werk.reise.format) }
 
+    // DER UMSCHLAGBOGEN (ab 1.0.50): Er ist daran zu erkennen, dass links
+    // die Seite mit der Nummer 0 liegt — die Rückseite des Buches. Die
+    // Paarung selbst kommt unverändert aus `Bogenlage`: Eine gerade Nummer
+    // liegt links, und 0 ist gerade. Eine zweite Regel daneben gibt es
+    // nicht.
+    private var istUmschlagbogen: Bool { bogen.links?.nummer == 0 }
+
+    private var rueckentext: String {
+        werk.reise.umschlag.rueckenbeschriftung(titel: werk.reise.titel)
+    }
+
+    private var rueckenbreite: Double {
+        guard istUmschlagbogen else { return 0 }
+        return Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
+                                            innenseiten: werk.reise.innenseiten)
+    }
+
     var body: some View {
         VStack(spacing: Buehnenmasse.beschriftungsabstand) {
             HStack(alignment: .top, spacing: 0) {
                 seite(bogen.links, umschlag: bogen.beginntMitUmschlag, vorn: true)
+                if rueckenbreite > 0.5 {
+                    Ruecken(text: rueckentext, breite: rueckenbreite,
+                            hoehe: bogenmass.height, massstab: massstab)
+                }
                 seite(bogen.rechts, umschlag: bogen.endetMitUmschlag, vorn: false)
             }
             beschriftung
@@ -54,6 +75,16 @@ struct DoppelseiteView: View {
     }
 
     private var zeile: String {
+        if istUmschlagbogen {
+            let mm = Umschlagmass.rueckenbreite(werk.reise.umschlag,
+                                                innenseiten: werk.reise.innenseiten)
+            var text = "Umschlag \u{00B7} Rückseite und Titelseite"
+            if mm > 0.05 {
+                let zahl = String(format: "%.1f", mm).replacingOccurrences(of: ".", with: ",")
+                text += " \u{00B7} Rücken \(zahl) mm"
+            }
+            return text
+        }
         let links = bogen.links.map { "\($0.nummer)" }
         let rechts = bogen.rechts.map { "\($0.nummer)" }
         switch (links, rechts) {
@@ -102,6 +133,58 @@ struct UmschlagInnenseite: View {
             Rectangle()
                 .strokeBorder(style: StrokeStyle(lineWidth: 0.8, dash: [5, 4]))
                 .foregroundStyle(.quaternary)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// DER RÜCKEN — der Streifen, der die Dicke des Buches ausmacht.
+//
+// Ansage des Nutzers, 09/2026: „Vielleicht findest du auch noch eine
+// Lösung dafür, dass bei Saal Digital normalerweise beim Umschlag auch
+// festgelegt werden kann, was an die Seite des Buches … drauf gedruckt
+// werden kann. Bislang habe ich dort immer den Titel des Buches
+// untergebracht."
+//
+// Wie breit er ist, rechnet `Umschlagmass` — dieselbe Funktion, die auch
+// das PDF fragt. Gezeichnet wird er zwischen den beiden Umschlagseiten,
+// also genau dort, wo er im fertigen Buch liegt.
+//
+// Die Schrift läuft von OBEN nach UNTEN: Ein Buch, das flach auf dem Tisch
+// liegt, soll sich mit dem Titel nach oben lesen lassen — die deutsche
+// Gepflogenheit. Gedreht wird mit `rotationEffect`, nicht mit einem
+// gedrehten Text pro Buchstabe.
+struct Ruecken: View {
+    let text: String
+    let breite: Double
+    let hoehe: Double
+    let massstab: Double
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color(.tertiarySystemGroupedBackground))
+            Text(text)
+                .font(.system(size: max(6, min(breite * 0.6, 13))))
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+                .fixedSize()
+                .rotationEffect(.degrees(90))
+        }
+        .frame(width: breite * massstab, height: hoehe * massstab)
+        // Ein langer Titel auf einem schmalen Rücken ragte sonst über die
+        // Nachbarseiten — auf dem Papier ist der Rücken genau so breit,
+        // wie er breit ist.
+        .clipped()
+        .overlay {
+            // Die beiden Falze. Sie sind keine Schnittkanten — der Bogen
+            // wird dort GEFALTET —, und deshalb sind sie punktiert und
+            // nicht rot gestrichelt wie die Schnittkante.
+            HStack(spacing: 0) {
+                Rectangle().frame(width: 0.7).foregroundStyle(.quaternary)
+                Spacer(minLength: 0)
+                Rectangle().frame(width: 0.7).foregroundStyle(.quaternary)
+            }
         }
         .allowsHitTesting(false)
     }

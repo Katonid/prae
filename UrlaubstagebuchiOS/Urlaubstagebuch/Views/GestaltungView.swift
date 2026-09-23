@@ -36,7 +36,7 @@ struct GestaltungView: View {
                     // ganzen Buches. Hier bleibt es als Auskunft stehen —
                     // dieselbe Einstellung an zwei Stellen zu bedienen wäre
                     // genau das, was dieses Haus sonst verbietet.
-                    Text("Geändert wird das Format unter \u{201E}Gestalten → Seitenformat\u{201C} — dort stehen die Vorlagen, das freie Maß und die Umrechnung des ganzen Buches.\n\nDas Endformat ist die Seite, wie sie nach dem Schneiden in der Hand liegt. Der Bogen ist das, was im PDF steht — Endformat plus Anschnitt. Beide Maße stehen als TrimBox und BleedBox in der Datei, daran erkennt der Druckdienst, wo geschnitten wird.")
+                    Text("Geändert wird das Format unter \u{201E}Ganzes Buch → Seitenformat\u{201C} — dort stehen die Vorlagen, das freie Maß und die Umrechnung des ganzen Buches.\n\nDas Endformat ist die Seite, wie sie nach dem Schneiden in der Hand liegt. Der Bogen ist das, was im PDF steht — Endformat plus Anschnitt. Beide Maße stehen als TrimBox und BleedBox in der Datei, daran erkennt der Druckdienst, wo geschnitten wird.")
                 }
 
                 Section {
@@ -79,10 +79,10 @@ struct GestaltungView: View {
                         Label("Fotos: Schatten, Rand, Linie", systemImage: "photo.stack")
                     }
                 } footer: {
-                    Text("Steht auch unter Buch \u{2192} Fotos.")
+                    Text("Steht auch unter Ganzes Buch \u{2192} Fotos.")
                 }
 
-                Section("Satzspiegel") {
+                Section {
                     mmRegler("Rand außen", $werk.reise.gestaltung.randAussen, 5...45)
                     mmRegler("Rand oben", $werk.reise.gestaltung.randOben, 5...45)
                     mmRegler("Rand unten", $werk.reise.gestaltung.randUnten, 5...45)
@@ -92,6 +92,15 @@ struct GestaltungView: View {
                              schritt: 0.5)
                     Toggle("Seitenzahlen", isOn: $werk.reise.gestaltung.seitenzahlen)
                     Toggle("Kopfzeile mit Datum", isOn: $werk.reise.gestaltung.kopfzeile)
+                } header: {
+                    Text("Satzspiegel")
+                } footer: {
+                    // Bis 1.0.49 gab es Seitenzahl und Kopfzeile NUR im PDF
+                    // (gemeldet 09/2026: „Diese kommen auf dem Dokument aber
+                    // niemals zum Vorschein."). Seit 1.0.50 stehen sie auch
+                    // auf der Seite in der App — gerechnet von derselben
+                    // Stelle. Wo sie trotzdem fehlen, sagt der Satz.
+                    Text("Seitenzahl und Kopfzeile stehen auf der Seite und im PDF. Nicht auf der Titelseite, nicht auf der Rückseite und nicht auf einer Seite, die ein Bild ganz ausfüllt: Dort stünde die Zahl auf dem Foto.")
                 }
 
                 // DIE BREITE DER TEXTSPALTE (ab 1.0.37). Sie steht in einem

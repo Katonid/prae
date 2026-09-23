@@ -18,6 +18,8 @@ struct TagInhaltView: View {
                     Section {
                         TextField("z. B. Ankunft in Lissabon",
                                   text: binden(stelle, \.ueberschrift))
+                        TextField("Zweite Überschrift, z. B. Lissabon — Alfama",
+                                  text: binden(stelle, \.unterueberschrift))
                         TextField(werk.reise.gestaltung.datumsstil
                             .text(werk.reise.tage[stelle].datum,
                                   nummer: stelle + 1),
@@ -27,9 +29,9 @@ struct TagInhaltView: View {
                         ))
                         Toggle("Diesen Tag ausblenden", isOn: binden(stelle, \.ausgeblendet))
                     } header: {
-                        Text("Überschrift und Datumszeile")
+                        Text("Überschriften und Datumszeile")
                     } footer: {
-                        Text("Bleibt die Datumszeile leer, gilt das Format des Buches. Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht ins Buch.")
+                        Text("Die zweite Überschrift ist für den Ort oder ein Schlagwort gedacht. Sie steht unter der ersten, kleiner und kursiv — beim Einlesen eines Tagebuchtextes findet die App sie in der Zeile nach dem Datum. Bleibt die Datumszeile leer, gilt das Format des Buches. Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht ins Buch.")
                     }
                     Section {
                         TextEditor(text: binden(stelle, \.text))

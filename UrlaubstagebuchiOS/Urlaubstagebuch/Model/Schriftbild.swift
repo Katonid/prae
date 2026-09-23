@@ -353,6 +353,7 @@ struct Schriftabweichung: Codable, Hashable {
 
 enum Schriftrolle: String, Codable, CaseIterable, Identifiable {
     case titel
+    case unterueberschrift
     case datum
     case flieText
     case bildunterschrift
@@ -362,9 +363,23 @@ enum Schriftrolle: String, Codable, CaseIterable, Identifiable {
     var name: String {
         switch self {
         case .titel: return "Überschrift"
+        case .unterueberschrift: return "Zweite Überschrift"
         case .datum: return "Datumszeile"
         case .flieText: return "Fließtext"
         case .bildunterschrift: return "Bildunterschrift"
+        }
+    }
+
+    // Für die Segmentleiste. Dort stehen fünf Felder nebeneinander, und
+    // „Zweite Überschrift" drückte die anderen vier zu Bruchstücken
+    // zusammen — auf einem iPhone wäre keines mehr zu lesen.
+    var kurzname: String {
+        switch self {
+        case .titel: return "Titel"
+        case .unterueberschrift: return "2. Ebene"
+        case .datum: return "Datum"
+        case .flieText: return "Text"
+        case .bildunterschrift: return "Bildtext"
         }
     }
 }
@@ -388,11 +403,54 @@ struct Typografie: Codable, Hashable {
         familie: .system, groesse: 7.5, zeilenabstand: 1.25,
         absatzabstand: 0, ausrichtung: .links, farbe: .leise, kursiv: true
     )
+    // Die ZWEITE Überschrift — der Ort oder das Schlagwort unter dem Datum
+    // (ab 1.0.48). `nil` heißt NICHT „leer", sondern „aus der Überschrift
+    // abgeleitet": dieselbe Familie, gut halb so groß, kursiv, in der
+    // Akzentfarbe. Der Grund ist derselbe wie bei `Schriftabweichung` — die
+    // sechs Buchstile setzen `titel` je einzeln, und ein fest eingetragener
+    // Vorgabewert stünde in jedem davon in einer fremden Schrift. Wer sie
+    // ausdrücklich einstellt, löst sie damit aus der Ableitung; das
+    // Schrift-Blatt sagt es und nimmt es auf Knopfdruck zurück.
+    var unterueberschrift: Schriftbild?
+
+    init() {}
+
+    // Ein Leser von Hand, aus demselben Grund wie bei `Gestaltung` und
+    // `Seitenhintergrund` (siehe `Model/Nachsicht.swift`): `Reise` holt die
+    // Typografie über `b.wert(.typografie, Typografie())` — ein Feld, das
+    // der erzeugte Leser vermisst, säße jedes vorhandene Buch mit den
+    // Vorgabeschriften da, und zwar still.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        titel = b.wert(.titel, Typografie().titel)
+        datum = b.wert(.datum, Typografie().datum)
+        flieText = b.wert(.flieText, Typografie().flieText)
+        bildunterschrift = b.wert(.bildunterschrift, Typografie().bildunterschrift)
+        unterueberschrift = b.wahlweise(.unterueberschrift)
+    }
+
+    // Wie die zweite Überschrift aussieht, solange niemand sie eingestellt
+    // hat. Gerechnet aus der Überschrift, damit sie in JEDEM Buchstil dazu
+    // passt — und deutlich genug daneben, dass man zwei Ebenen sieht:
+    // kleiner, kursiv, nicht fett, in der Akzentfarbe.
+    static func abgeleitet(aus titel: Schriftbild) -> Schriftbild {
+        var bild = titel
+        bild.groesse = (titel.groesse * 0.58 * 10).rounded() / 10
+        bild.zeilenabstand = 1.18
+        bild.absatzabstand = 0
+        bild.fett = false
+        bild.kursiv = true
+        bild.versalien = false
+        bild.farbe = .akzent
+        return bild
+    }
 
     subscript(rolle: Schriftrolle) -> Schriftbild {
         get {
             switch rolle {
             case .titel: return titel
+            case .unterueberschrift:
+                return unterueberschrift ?? Typografie.abgeleitet(aus: titel)
             case .datum: return datum
             case .flieText: return flieText
             case .bildunterschrift: return bildunterschrift
@@ -401,6 +459,7 @@ struct Typografie: Codable, Hashable {
         set {
             switch rolle {
             case .titel: titel = newValue
+            case .unterueberschrift: unterueberschrift = newValue
             case .datum: datum = newValue
             case .flieText: flieText = newValue
             case .bildunterschrift: bildunterschrift = newValue
@@ -412,12 +471,25 @@ struct Typografie: Codable, Hashable {
     // größer"), und von Hand an vier Stellen nachzuziehen wäre die Art
     // Fleißarbeit, für die es eine App gibt.
     mutating func groessenSkalieren(_ faktor: Double) {
-        for rolle in Schriftrolle.allCases {
+        for rolle in gesetzteRollen {
             self[rolle].groesse = (self[rolle].groesse * faktor * 10).rounded() / 10
         }
     }
 
     mutating func familieUeberall(_ familie: Schriftfamilie) {
-        for rolle in Schriftrolle.allCases { self[rolle].familie = familie }
+        for rolle in gesetzteRollen { self[rolle].familie = familie }
+    }
+
+    // Eine ABGELEITETE zweite Überschrift wird hier übersprungen — nicht
+    // aus Bequemlichkeit: Beide Griffe oben rechnen über das Schreiben des
+    // Wertes, und ein Schreiben macht aus der Ableitung eine Kopie. Am
+    // Ergebnis änderte das zwar nichts (beide wirken gleichmäßig auf alle
+    // Rollen, und die Ableitung nimmt Größe und Familie aus dem Titel) —
+    // aber ab da folgte die zweite Überschrift dem Titel nicht mehr, und
+    // das fällt erst beim nächsten Stilwechsel auf. Dieselbe Regel wie bei
+    // `Schriftabweichung`: eine Abweichung entsteht nur, wenn jemand sie
+    // ausdrücklich setzt.
+    private var gesetzteRollen: [Schriftrolle] {
+        Schriftrolle.allCases.filter { $0 != .unterueberschrift || unterueberschrift != nil }
     }
 }

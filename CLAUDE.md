@@ -3938,7 +3938,7 @@ Befunde, und keiner davon war Geschmack:
   Rettung. **Merke: Ein Decoder, der nie scheitert, darf nie vor einem stehen,
   der scheitern kann.**
 - **Der Bildschirm sagt, was angekommen ist** — Art, Dateiname, Seiten,
-  Absätze, Kodierung, Zeichenzahl, dazu die entfernten Rand­zeilen. Dieselbe
+  Absätze, Kodierung, Zeichenzahl, dazu die entfernten Randzeilen. Dieselbe
   Regel wie beim Einfuhrbericht der Fotos: Ein stummer Import lässt die Frage
   offen, ob überhaupt die richtige Datei gewählt wurde.
 - **Nicht gemessen:** Keine der vier Wege ist an einer echten Datei des
@@ -6401,6 +6401,341 @@ Befunde, und keiner davon war Geschmack:
     Umschlags fällt (erster und letzter Bogen), wird eigens genannt und
     nicht als Fehler gezählt: Sie wird nie gedruckt, und das ist das Buch
     und kein Versehen.
+- **DIE ZWEITE ÜBERSCHRIFT KOMMT AUS DER ZEILE NACH DEM DATUM**
+  (`Textimport.zweiteUeberschrift`, `Reisetag.unterueberschrift`,
+  `Blockinhalt.unterueberschrift`, `Schriftrolle.unterueberschrift`, ab
+  1.0.48; Ansage des Nutzers 09/2026: „In dem zu importierenden Text … ist
+  es so, dass nach dem Datum eine zweite Überschrift kommt, in der der Ort
+  des Geschehens aufgeführt wird oder ein bestimmtes Schlagwort. Erst dann
+  beginnt der Fließtext … Diese soll nicht genauso aussehen wie die
+  Datumsüberschrift, sondern es soll erkennbar sein, dass es eine zweite
+  Ebene … sein soll.“). Bis 1.0.47 wurde diese Zeile Fließtext — sie ging
+  also nicht verloren, sie stand nur als erster Absatz im Tagebuchtext.
+  - **Erkannt wird die KÜRZE, und das ist in BEIDEN Textsorten ein
+    Merkmal.** In einem hart umbrochenen Text reicht eine gewöhnliche Zeile
+    bis nahe an die Umbruchspalte (gemessen in 1.0.12: rund 88 Zeichen), in
+    einem frei geschriebenen ist ein ganzer Absatz EINE sehr lange Zeile.
+    Eine kurze Zeile unmittelbar nach dem Datum ist damit in keinem der
+    beiden Fälle Fließtext. Dazu vier Bedingungen: höchstens 42 Zeichen
+    und sechs Wörter, groß oder mit einer Ziffer anfangend, kein
+    Satzzeichen am Ende (der Doppelpunkt ausgenommen und abgeschnitten),
+    und kein Datum darin.
+  - **Die wichtigste Bedingung ist, dass DANACH noch Text kommt.** Ein Tag,
+    der nur aus dieser einen Zeile besteht, hat keine Überschrift — er hat
+    einen sehr kurzen Text, und den als Überschrift zu setzen hieße, ihn
+    aus dem Tagebuch zu nehmen. **Der Fehler in diese Richtung ist der
+    teure**: Was als Überschrift gesetzt wird, fehlt danach im Fließtext.
+  - **Behauptet wird nichts, gezeigt wird** — dieselbe Bauweise wie bei der
+    Absatzerkennung seit 1.0.12: Die Vorschau nennt die gefundene Zeile je
+    Tag eigens (und anders aussehend als die erste Überschrift, denn sie
+    wird dem Fließtext WEGGENOMMEN), die Fußzeile zählt „an n von m Tagen
+    gefunden“, **und auch der Fall „nirgends“ steht da** samt der Regel im
+    Klartext. Ein Schalter stellt die Erkennung ab.
+  - **Das Feld steht am TAG, nicht im Block** (`Reisetag.unterueberschrift`),
+    wie Überschrift und Datumszeile: Der Block ist ein Vorschlag über dem
+    Inhalt und wird beim Neuanordnen neu gerechnet. Eintippen lässt es sich
+    deshalb auch ohne Einlesen — im Tagesmenü unter „Überschriften und
+    Datumszeile“ — und auf der Seite mit dem Doppeltipp wie jeder Textkasten.
+  - **`Typografie.unterueberschrift` ist OPTIONAL, und `nil` heißt
+    „abgeleitet“ — nicht „leer“.** Abgeleitet wird aus der Überschrift:
+    dieselbe Familie, 58 % der Größe, kursiv, nicht fett, in der
+    Akzentfarbe. Der Grund ist derselbe wie bei `Schriftabweichung` — die
+    sechs Buchstile setzen `titel` je einzeln, und ein fest eingetragener
+    Vorgabewert stünde in jedem davon in einer fremden Schrift; ein siebter
+    Stil vergäße ihn obendrein. Der erste Griff an einen Regler löst sie
+    aus der Ableitung, und ein Knopf nimmt das zurück; das Schrift-Blatt
+    sagt beides.
+  - **`groessenSkalieren` und `familieUeberall` überspringen eine
+    abgeleitete zweite Überschrift** (`Typografie.gesetzteRollen`). Beide
+    rechnen über das SCHREIBEN des Wertes, und ein Schreiben macht aus der
+    Ableitung eine Kopie. Am Ergebnis änderte das nichts (beide wirken
+    gleichmäßig, und die Ableitung nimmt Größe und Familie aus dem Titel)
+    — aber ab da folgte sie dem Titel nicht mehr, und das fällt erst beim
+    nächsten Stilwechsel auf.
+  - **`Typografie` liest sich seit 1.0.48 von Hand.** Die Regel steht seit
+    1.0.3 im Papier und galt für diesen Typ noch nicht: `Reise` holt ihn
+    über `b.wert(.typografie, Typografie())` — ein Feld, das der erzeugte
+    Leser vermisst, hätte in jedem vorhandenen Buch ALLE vier Schriften auf
+    die Vorgaben zurückgesetzt, und zwar still.
+  - **Gesetzt wird sie nur auf dem AUFMACHER** (`Layoutautomat.kopfzeile`
+    unter `!knapp`, und auf der ganzseitigen Aufmacherseite in Weiß). Auf
+    der Fortsetzungsseite wäre sie dieselbe Angabe ein zweites Mal —
+    dieselbe Regel wie beim Titel. Auf der ganzseitigen Aufmacherseite geht
+    ihre Höhe in die Rechnung ein, BEVOR `y` gesetzt wird: Der Kopf wird
+    dort von unten aufgebaut, und eine nachträglich eingeschobene Zeile
+    schöbe den Titel aus dem Satzspiegel. Abgewichen wird dort nur die
+    FARBE — Schrift und Größe holt der Satz über die Rolle des Blocks; sie
+    zu kopieren machte aus der Ableitung wieder eine Kopie.
+  - **Ein leerer Fund überschreibt nichts** (`Fotoeinfuhr.textVerteilen`),
+    auch beim Ersetzen: Wer die zweite Überschrift von Hand eingetippt hat
+    und denselben Text noch einmal einliest, verlöre sie sonst.
+- **SEITENZAHLEN GAB ES NUR IM PDF** (`Model/Seitenbeiwerk.swift`, ab 1.0.50;
+  gemeldet 09/2026: „Im Menü kann ich Seitenzahlen aktivieren. Diese kommen auf
+  dem Dokument aber niemals zum Vorschein."). **Am Quelltext abzuzählen und
+  keine Vermutung:** `Buchausgabe.zeichneFusszeile` war die EINZIGE Stelle im
+  ganzen Quelltext, die `gestaltung.seitenzahlen` überhaupt las, und sie läuft
+  nur beim Schreiben des PDF. Auf dem Bildschirm wurde nichts davon gezeichnet
+  — der Schalter im Menü war dort seit 1.0.0 ohne jede Wirkung. Dasselbe galt
+  für die Kopfzeile.
+  - **Das verstieß gegen die erste Regel dieser App** („Seite und PDF zeichnet
+    DERSELBE Setzer"), und zwar an der einen Stelle, an der eine Seite nicht
+    aus Blöcken besteht. Blöcke sind Seitenzahl und Kopfzeile bewusst nicht:
+    Sie gehören dem BUCH und nicht dem Tag; als Block lägen sie im Satz herum,
+    wo sie jemand verschöbe und der Layoutautomat sie beim nächsten
+    Neuanordnen wegräumte. Gerechnet wird jetzt in `Seitenbeiwerk`, und beide
+    Zeichner holen sich dieselben Rechtecke — auf dem Bildschirm über denselben
+    `Textkasten`, mit dem auch jeder andere Text gesetzt wird.
+  - **Merke: Wer etwas beim Zeichnen einer Seite ergänzt, ergänzt es an BEIDEN
+    Zeichnern.** Sonst steht es entweder nur auf dem Bildschirm oder nur im
+    Druck, und beides sieht für den Menschen davor nach einem Fehler aus.
+  - Die Fußzeile der Einstellung sagt seither auch, wo sie NICHT stehen:
+    Titelseite, Rückseite und jede Seite, die ein Bild ganz ausfüllt
+    (`ohneSeitenzahl`). Ein Schalter, der an drei Stellen wirkungslos ist,
+    ohne dass es dabeisteht, führt wieder auf dieselbe Frage.
+- **DER UMSCHLAG IST EIN BOGEN, KEINE SEITE** (`Model/Umschlag.swift`,
+  `Model/Umschlagmass.swift`, ab 1.0.50; Ansage des Nutzers 09/2026: „Die
+  Gestaltung der Titelseite. Diese soll völlig unabhängig von der Gestaltung
+  der restlichen Seiten sein. … In meiner Erinnerung ist es bei Saal Digital
+  beispielsweise so, dass die Titelseite bzw. der Umschlag des Buches so
+  dargestellt wird, dass die rechte Hälfte einer Doppelseite die tatsächliche
+  Titelseite ist und die linke Seite die Rückseite des Buches.").
+  - **Er hat recht, und es stand so im Quelltext:** Die Titelseite nahm den
+    Satzspiegel des Buches, seine Schrift, seinen Hintergrund und seinen Stil.
+    Wer den Innenteil umgestaltete, gestaltete den Umschlag mit — bei einem
+    gebundenen Buch schlicht falsch: Der Umschlag ist ein eigenes Stück Papier
+    und läuft an der Druckerei durch eine eigene Maschine.
+  - **Die Rückseite trägt die NUMMER 0, und damit paart sich der Bogen von
+    selbst.** `Bogenlage` sagt seit 1.0.47: gerade Nummer links, ungerade
+    rechts. 0 ist gerade, 1 ist die Titelseite — also liegt links die
+    Rückseite und rechts der Titel, ohne eine einzige zusätzliche Regel.
+    **Das ist der ganze Trick**, und er ist der Grund, warum die
+    Doppelseitenansicht, die Hintergrundhälften und der Umschlag dieselbe
+    Rechnung benutzen. Gezählt wird der Innenteil trotzdem ab 1: Der Umschlag
+    gehört nicht zum Buchblock.
+  - **Im vollständigen PDF fällt die Rückseite WEG** (`nummer > 0`). Sie
+    stünde sonst als erste Seite vor dem Titel — eine Reihenfolge, die es im
+    gebundenen Buch nirgends gibt. „Umschlag als eigene Datei" gibt dafür
+    genau EINEN breiten Bogen aus.
+  - **Keine TrimBox in der Mitte.** Sie sagt einer Druckerei, wo geschnitten
+    wird; auf einem Bogen mit zwei Seiten und einem Rücken gäbe es dafür keine
+    einzige richtige Stelle — geschnitten wird außen, gefalzt wird am Rücken.
+    Dieselbe Überlegung wie bei der Broschüre seit 1.0.27.
+  - **Jede Hälfte wird BESCHNITTEN gezeichnet** (`clip` auf ihre Fläche plus
+    den außen liegenden Anschnitt). Ohne das liefe ein randabfallendes
+    Titelfoto über den Rücken — also genau über die Beschriftung, die dort
+    stehen soll.
+- **DER RÜCKEN: gerechnet, nicht gemessen** (`Umschlagmass.rueckenbreite`, ab
+  1.0.50; Ansage des Nutzers: „was an die Seite des Buches, also den Bereich,
+  der die Dicke des Buches ausmacht, drauf gedruckt werden kann. Bislang habe
+  ich dort immer den Titel des Buches untergebracht."). Blätter mal
+  Papierstärke, beim Hardcover plus die beiden Deckel. **Beide Zahlen sind
+  einstellbar, und daneben steht der Satz, dass die Angabe des Druckdienstes
+  gilt** — wie dick ein Blatt aufträgt, weiß diese App nicht. Leer heißt: der
+  Titel des Buches; ein Feld, das man erst füllen muss, um das Naheliegende zu
+  bekommen, ist eine Hürde ohne Gewinn.
+  - **Die Schrift läuft von OBEN nach UNTEN**, wie es hierzulande üblich ist:
+    Ein Buch, das flach auf dem Tisch liegt, soll sich mit dem Titel nach oben
+    lesen lassen. Im schon umgedrehten Zeichensystem ist das eine Drehung um
+    +90 Grad.
+  - **Der Rücken macht den Bogen BREITER**, und das gehört in jede Rechnung,
+    die die Bühne einpasst (`ReiseView.breitesterBogen`). Ohne ihn wäre der
+    Inhalt schmaler als das, was darin steht, und das letzte Stück des
+    Umschlags ließe sich nicht heranschieben — dieselbe Falle wie 1.0.22.
+- **Was am Umschlag `nil` ist, folgt weiter dem BUCH** (ab 1.0.50). Hintergrund,
+  Rand, Schrift und Titelgröße sind Abweichungen und keine Kopien — dieselbe
+  Regel wie bei `Schriftabweichung` seit 1.0.0 und bei `Block.wirkung` seit
+  1.0.9, und aus demselben Grund: Kopierte der Umschlag beim ersten Antippen
+  alle Werte des Buches, wäre jede spätere Änderung am Buchganzen an ihm
+  wirkungslos, und zwar unsichtbar. Der Hintergrund läuft über denselben
+  Bildschirm wie der des Buches und der einer Seite (`HintergrundView`,
+  drittes Ziel) — drei Bildschirme für dieselbe Entscheidung liefen
+  auseinander.
+- **Was 1.0.50 NICHT baut: der Umschlag lässt sich nicht von Hand
+  umbauen.** Titelseite und Rückseite werden gerechnet und bei jeder Änderung
+  neu gesetzt; ein verschobener Block darauf wäre beim nächsten Durchgang
+  weg. Das war bei der Titelseite seit 1.0.0 so und bleibt es. **Nicht als
+  gelöst darstellen** — wer es baut, legt beide Seiten als echte `Seite` in
+  der Reise ab und nimmt sie aus `alleNeuAnordnen` heraus.
+- **EINE EINSTELLUNG, DIE ES NUR GLOBAL GIBT, IST HALB GEBAUT**
+  (`Model/Kartenwahl.swift`, `Block.kartenbild`, `.kartenausschnitt`, ab
+  1.0.51; Befund des Nutzers 09/2026: „Hier wollte ich gerade speziell nur
+  für diese Karte Änderungen in den Einstellungen treffen. Zum Beispiel,
+  dass Standortpunkte doch angezeigt werden und nicht nur die Linien.
+  Offenbar kann ich das aber nicht für einzelne Karten, sondern nur
+  global."). Er hat recht, und es war seit 1.0.0 so: Das Buch trug eine
+  Karteneinstellung, ein TAG durfte sie überschreiben — die einzelne Karte
+  auf der Seite nicht. Seit 1.0.39 lässt sich eine Karte auf eine zweite
+  Seite KOPIEREN; damit gab es zwei Karten, die sich nicht auseinanderhalten
+  ließen.
+  - **Drei Ebenen, aufgelöst an EINER Stelle** (`Kartenwahl.geltend`):
+    Block vor Tag vor Buch. Bildschirm (`KartenKachel`) und PDF
+    (`Buchausgabe.kartenbilder`) fragen dieselbe Funktion — zwei Fassungen
+    ergäben ein gedrucktes Buch, das anders aussieht als die Vorschau, und
+    zwar erst dann anders, wenn es gedruckt ist. Dieselbe Regel wie bei
+    `Block.wirkung` und `Bildausschnitt.zielrechteck`.
+  - **Abweichung, keine Kopie.** `nil` heißt „wie der Tag", und wo der Tag
+    nichts sagt, „wie das Buch". Kopierte der Block beim Anlegen die Werte,
+    wäre jede spätere Änderung am Buchganzen an jeder schon einmal
+    angefassten Karte wirkungslos — dieselbe Bauweise wie
+    `Schriftabweichung` und der Fotostil seit 1.0.9.
+  - **Der Abschnitt fragte den FALSCHEN Tag** (behoben in 1.0.51,
+    `BlockInspektor.kartenstelle`). Er hing an `werk.tag`, also am gerade
+    gewählten Tag — und der folgt seit 1.0.28 dem, was oben im Bild steht,
+    nicht dem angetippten Block. Wer eine Karte antippte, während über ihr
+    noch die letzte Seite des Vortags stand, stellte am VORTAG etwas um.
+    Und zeigte `gewaehlterTag` auf einen Tag, den es nicht mehr gibt, fiel
+    der ganze Abschnitt weg — dann war von der Karte aus GAR KEINE
+    Karteneinstellung erreichbar. **Wer einen Abschnitt zu einem BLOCK
+    baut, fragt den Tag des Blocks und nie den gewählten.**
+  - **Die Kennung der `KartenKachel` nannte nur die SPANNE** (behoben in
+    1.0.51). Wer die Karte verschob, ohne den Maßstab zu ändern, sah auf
+    dem Bildschirm weiter den alten Ausschnitt; im PDF stand der neue. Der
+    Schlüssel kommt jetzt aus `Kartenwahl.Geltend.merkmal` und nennt Mitte,
+    Spanne und alles aus `Kartenbild.merkmal`. **Ein Zwischenspeicher-
+    Schlüssel muss ALLES nennen, was das Bild verändert** — die Regel steht
+    seit 1.0.37 an `Kartenbild.merkmal` und galt für die Ansicht daneben
+    nicht.
+  - **Die Einstellung überlebt das Neuanordnen** (`Reisewerk.seitenNeuSetzen`).
+    Der Layoutautomat baut den Kartenblock frisch und weiß von der
+    Abweichung nichts; ohne diese Stelle wäre sie nach jedem Neuanordnen
+    weg, und zwar STILL — die Seite steht ja danach da. Es gibt seither
+    genau EINEN Weg, der Seiten setzt (vorher sechs gleichlautende Zeilen);
+    **wer einen zweiten baut, ruft diesen hier**, sonst ist derselbe stille
+    Verlust wieder eingebaut. Dasselbe Muster wie `wortlautSichern` seit
+    1.0.38.
+  - **Eine Karteneinstellung ist keine Handarbeit am Satz**
+    (`Reisewerk.karteAendern`). `aendere` setzt `vonHand`, und das ist
+    richtig, wo jemand einen Block schiebt, dreht oder zieht. Wer die
+    Reisepunkte einer Karte umstellt, hat an der ANORDNUNG nichts getan —
+    der Tag fiele sonst wegen einer Farbe für immer aus dem automatischen
+    Neuanordnen heraus.
+- **Nicht gemessen (1.0.51):** Keine Karte ist damit gesehen worden.
+  Gerechnet und am Quelltext abgezählt ist die URSACHE (es gab schlicht kein
+  Feld am Block, und der Abschnitt fragte den falschen Tag). **Ungeprüft
+  bleibt, ob der Befund des Nutzers denselben Grund hatte** — auf seinem
+  Bildschirmfoto fehlte der Kartenabschnitt ganz, und das passt zum zweiten
+  Fall („`gewaehlterTag` zeigt ins Leere"), ist aber nicht nachgewiesen.
+  **Nicht als erledigt darstellen.**
+- **Nicht gemessen (1.0.50):** Kein Umschlag ist damit gedruckt worden.
+  Gerechnet und am Quelltext abgezählt ist die URSACHE der fehlenden
+  Seitenzahlen; die Geometrie des Bogens ist gerechnet und nicht gesehen.
+  **Gewählt und nicht gemessen** sind die Vorgaben 0,13 mm je Blatt und 4 mm
+  Deckelstärke, die Warnschwelle von 4 mm Rückenbreite und der Anteil 0,62,
+  auf den die Rückenschrift gedeckelt wird. **Ungeprüft ist vor allem, ob ein
+  Druckdienst diesen Bogen annimmt** — die Boxen sind gesetzt, die Falze
+  stehen nur als Rückenbreite darin, und das ist die Stelle, an der Anbieter
+  auseinandergehen. Und ein Hintergrundfoto mit „über die Doppelseite" rechnet
+  auf dem Umschlag die Rückenbreite nicht mit; über den Umschlag läuft es
+  ohnehin als EIN Bild. **Nichts davon als erledigt darstellen.**
+- **DER PINSEL GEHÖRT DEM EINZELNEN ELEMENT, DAS BUCH DEM GANZEN BUCH** (ab
+  1.0.49; gemeldet 09/2026: „Bei der Bedienung der App komme ich immer
+  durcheinander mit dem Pinsel-Symbol und dem Symbol für die
+  Einstellungsmöglichkeiten. Irgendwie habe ich fast sogar das Gefühl, dass
+  die beiden Symbole vertauscht sind."). **Sie waren es.** In Pages öffnet
+  der Pinsel die Einstellungen des GEWÄHLTEN Elements; hier tat das der
+  Schieberegler, und der Pinsel führte in die buchweite Gestaltung. Der Nutzer
+  hat also nicht eine fremde Gewohnheit mitgebracht, sondern eine verbreitete
+  benannt — und in einer App, die Seiten setzt, ist Pages der Vergleich, den
+  jeder im Kopf hat.
+  - **Der Tausch allein hätte es nicht gerichtet.** „Ausgewähltes" und
+    „Gestalten" sagen beide etwas über die TÄTIGKEIT — und der Unterschied
+    zwischen diesen beiden Knöpfen ist nicht die Tätigkeit, sondern der
+    GELTUNGSBEREICH. Sie heißen seither **„Auswahl"** (Pinsel) und **„Ganzes
+    Buch"** (Buchsymbol), und im Menü steht der Abschnittstitel „Gilt für das
+    ganze Buch" darüber. **Merke: Wo zwei Wege dasselbe TUN und sich nur
+    darin unterscheiden, WORAUF sie wirken, gehört der Geltungsbereich in
+    die Beschriftung und nicht die Tätigkeit.**
+  - **Wer eine Beschriftung ändert, zieht die Bedienungskarte mit.** In
+    `BedienungView` stand siebenmal „Gestalten (Pinsel)" und „Der Pinsel →" —
+    eine Karte, die einen Knopf bei einem Namen nennt, den es nicht mehr
+    gibt, ist schlimmer als gar keine. Dasselbe gilt für die Querverweise in
+    `GestaltungView`, `BlockInspektor` und der Druckprüfung.
+  - **Nicht gemessen:** Ob die Verwechslung damit aufhört, sagt erst der
+    nächste Befund. Geändert sind Symbole und Namen, und das ist keine
+    Messung — dieselbe Einschränkung wie bei den Menüs in 1.0.20.
+- **Die Punktekarte war nicht klein gebaut, sie war ein BLATT IN EINEM
+  BLATT** (ab 1.0.49; gemeldet 09/2026: „Zum einen möchte ich die Punkte auf
+  der Karte auswählen und merke, dass diese viel zu klein öffnet. Diese Karte
+  könnte sich ja tatsächlich über einen großen Teil des Bildschirms
+  erstrecken."). `SpurView` ist selbst ein `.sheet`, und auf dem iPad ist ein
+  Sheet ein Kärtchen in der Bildschirmmitte; `PunktwahlView` hing als zweites
+  daran und konnte damit nie größer werden als das erste. **Dieselbe Lehre
+  wie beim Platz-Editor in Tafelbild**, wo der Grundriss aus genau diesem
+  Grund ein Drittel der Höhe bekam — dort war sie aufgeschrieben und hier
+  nicht gezogen. Ein `fullScreenCover` hängt sich nicht in das Kärtchen,
+  sondern über alles.
+  - **Die Vorschau oben ist seither ein BILD** (`interactionModes: []`) und
+    zugleich der Weg zur Karte: Ein Tipp darauf öffnet die volle. Sie war
+    schieb- und zoombar — auf 240 Punkten Höhe in einem Kärtchen ist das
+    eine Karte, an der sich nichts machen lässt, und sie schluckte
+    ausgerechnet den Tipp, mit dem man die richtige öffnen wollte. Dieselbe
+    Regel wie überall: **Was auf einer Karte liegt, ist ein Bild; was etwas
+    tut, ist ein Knopf.**
+- **PUNKTE, DIE AUS DER LINIE SPRINGEN** (`Dienste/Ausreisser.swift`, ab
+  1.0.49; gemeldet 09/2026: „Mein Gerät hat den Standort zuweilen sehr
+  ungenau aufgezeichnet und somit sind Punkte mit einer Linie verbunden
+  worden, die sehr weit auseinander sind. In diesem Fall sticht die Linie
+  sehr hervor, obwohl sie gar nicht dem Reiseverlauf entspricht."). Gegen die
+  MESSUNG lässt sich nichts tun — ein GPS-Empfänger zwischen zwei Häuserwänden
+  meldet zuweilen eine Stelle einige Kilometer daneben. Gegen die LINIE schon.
+  - **Gemessen wird der UMWEG, nicht die Entfernung zum Nachbarn.**
+    `hin + zurück − direkt` ist genau das, was der Punkt an zusätzlicher
+    Linie KOSTET, also genau der Schaden, um den es geht: Bei einem Sprung
+    hin und gleich zurück ist er das Doppelte der Abweichung, bei einer
+    Kurve unterwegs fast null. Eine senkrechte Entfernung zur Verbindungslinie
+    wäre die naheliegende Alternative, bräuchte eine Projektion in eine Ebene
+    (über hundert Kilometer hinweg schief) und brächte im einzigen Fall, um
+    den es geht, dasselbe Ergebnis.
+  - **Die Schwelle hängt an der SPUR selbst.** Zwei Kilometer sind in einer
+    Stadtbesichtigung ein Ausreißer und auf einer Fahrt durch Kanada nichts.
+    Verglichen wird gegen den MEDIAN der Schrittweiten dieser Spur — nicht
+    gegen den Mittelwert, denn den verderben genau die Ausreißer, die gesucht
+    werden. Dazu ein absoluter Boden (1,5 km): Was darunter liegt, sticht auf
+    einer Buchseite nicht heraus.
+  - **Ein unmögliches TEMPO zählt nur in BEIDE Richtungen.** Über 1200 km/h
+    fährt und fliegt nichts; ein echter Linienflug ist aber auch schnell, und
+    er unterscheidet sich vom Messfehler genau darin, dass er nicht in
+    derselben Minute zurückkommt. Fehlt eine der beiden Uhrzeiten, heißt das
+    „weiß ich nicht" und nicht „ja" — ein Handpunkt ohne Zeit darf nicht
+    auffällig werden, bloß weil er keine trägt.
+  - **Der erste und der letzte Punkt werden nicht geprüft**, und das steht
+    auch da: Ein Ausreißer wird an seinen NACHBARN erkannt, und die beiden
+    haben nur einen. Geraten wird nichts.
+  - **GELÖSCHT WIRD NICHTS VON SELBST.** Ein Abstecher zum Aussichtspunkt und
+    zurück sieht von außen genauso aus wie ein Messfehler, und welcher von
+    beidem es war, weiß nur, wer dabei war. Der Abschnitt über der Punkteliste
+    nennt Stelle, Namen und die zusätzliche Linie in Kilometern und bietet
+    zweierlei an: alle auf einmal entfernen (mit Rückfrage) oder nur
+    auswählen und einzeln ansehen — Letzteres über den Auswahlmodus, den es
+    seit 1.0.21 gibt. **Kein zweiter Weg zu derselben Sache.**
+  - **Markiert wird an DREI Stellen** — in der Punkteliste, auf der kleinen
+    Vorschau und auf der großen Karte —, und immer mit Zeichen UND Farbe: Ein
+    farbfehlsichtiger Mensch sieht Orange allein nicht. Auf der großen Karte
+    steht unter dem gewählten Punkt im Klartext, warum er auffällt; ein
+    Zeichen ohne Erklärung ist ein Rätsel.
+  - **Gerechnet wird in `.task(id:)`, nicht als berechnete Eigenschaft.** Der
+    Lauf geht über jeden Punkt und misst je drei Entfernungen; der Körper
+    dieser Ansichten läuft bei jeder Meldung des Werks und bei jeder
+    Kamerabewegung noch einmal. Vierte Auflage derselben Falle — **eine
+    berechnete Eigenschaft sieht billig aus.**
+- **Nicht gemessen (1.0.49):** Keine Spur ist damit angesehen worden. **Alle
+  drei Zahlen der Ausreißererkennung sind GEWÄHLT und nicht gemessen** (Boden
+  1,5 km, Faktor 8 auf den Median, 1200 km/h) — ob sie an der Spur des Nutzers
+  das Richtige treffen, sagt erst sein nächster Befund, und weil die App die
+  Zahlen hinschreibt, sagt er es mit Zahlen. Gerechnet ist, warum die Karte
+  nicht größer werden konnte (ein Sheet in einem Sheet); gesehen hat es
+  niemand. **Zwei aufeinanderfolgende Ausreißer kann diese Erkennung nicht
+  trennen** — der zweite ist der Nachbar des ersten, und dann ist der Umweg
+  klein; das nicht als gelöst darstellen. **Nicht als erledigt darstellen.**
+- **Nicht gemessen (1.0.48):** Keine Seite ist damit gesetzt worden, und
+  **an der Vorlage des Nutzers ist die Erkennung nicht gelaufen** — die
+  Datei liegt hier nicht. Gerechnet ist, warum Kürze in beiden Textsorten
+  ein Merkmal ist; **gewählt und nicht gemessen** sind alle vier Zahlen (42
+  Zeichen, sechs Wörter, 58 % der Titelgröße, Zeilenabstand 1,18). Ob die
+  zweite Ebene auf der gedruckten Seite als solche zu lesen ist und ob die
+  Erkennung an seinem Tagebuch trifft, sagt erst der nächste Befund — und
+  seit 1.0.48 sagt er es mit einer Zahl in der Vorschau. **Nicht als
+  erledigt darstellen.**
 - **Nicht gemessen (1.0.47):** Keine Doppelseite ist damit gesehen worden.
   Gerechnet ist die Geometrie — dass die Fläche zwei Endformate plus zwei
   Anschnitte misst und der Versatz eine halbe Seitenbreite beträgt.
@@ -6670,7 +7005,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.47 (Build 48). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.51 (Build 52). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

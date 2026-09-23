@@ -111,6 +111,7 @@ struct ReiseView: View {
         case fotostil
         case textstil
         case gestaltung
+        case umschlag
         case seitenformat
         case bedienung
         case ausgabe
@@ -135,6 +136,7 @@ struct ReiseView: View {
             case .fotostil: return "fotostil"
             case .textstil: return "textstil"
             case .gestaltung: return "gestaltung"
+            case .umschlag: return "umschlag"
             case .seitenformat: return "format"
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
@@ -362,7 +364,7 @@ struct ReiseView: View {
                 // FESTE Höhe, und das ist keine Kosmetik: `Zoomanker`
                 // rechnet mit ihr. Eine Zeile, die sich ihre Höhe selbst
                 // sucht, wäre in dieser Rechnung eine Schätzung.
-                Text("Seite \(buchseite.nummer)")
+                Text(seitenname(buchseite))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .frame(height: Buehnenmasse.beschriftung)
@@ -507,6 +509,15 @@ struct ReiseView: View {
     // bekannt — die eine ist gemessen, die andere ist Bogenbreite mal
     // Maßstab. Damit hängt das Schieben an keiner Zusage mehr, die niemand
     // nachlesen kann.
+    // Wie eine einzelne Seite unter ihrem Blatt heißt. Der Umschlag zählt
+    // nicht mit: „Seite 0" stünde unter der Rückseite, und die ist keine
+    // Seite des Buchblocks, sondern die linke Hälfte des Umschlagbogens.
+    private func seitenname(_ buchseite: Buchseite) -> String {
+        guard buchseite.tag == nil else { return "Seite \(buchseite.nummer)" }
+        if buchseite.nummer == 0 { return "Umschlag: Rückseite" }
+        return werk.reise.umschlag.alsBogen ? "Umschlag: Titelseite" : "Titelseite"
+    }
+
     private var inhaltsbreite: CGFloat {
         return max(CGFloat(buehnenbreite),
                    CGFloat(blattbreite(bei: massstabJetzt)) + 2 * Buehnenmasse.rand)
@@ -517,8 +528,22 @@ struct ReiseView: View {
     // kleinen Seite die BÜHNE und nicht das Blatt. Eine Probe, die etwas
     // anderes misst, als ihre Beschriftung sagt, führt in die Irre.
     private func blattbreite(bei massstab: Double) -> Double {
+        breitesterBogen * massstab
+    }
+
+    // Der breiteste Bogen der Bühne. In der Doppelseitenansicht ist das
+    // seit 1.0.50 der UMSCHLAG: zwei Seiten plus Rücken. Ohne den Rücken
+    // wäre der Inhalt schmaler als das, was darin steht, und das letzte
+    // Stück des Umschlags ließe sich nicht heranschieben.
+    private var breitesterBogen: Double {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
-        return bogen.width * (doppelseiten ? 2 : 1) * massstab
+        guard doppelseiten else { return bogen.width }
+        var breite = bogen.width * 2
+        if werk.reise.hatRueckseite {
+            breite += Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
+                                                   innenseiten: werk.reise.innenseiten)
+        }
+        return breite
     }
 
     // Wohin nach einem Zoom gerollt wird. Die laufende Nummer gehört dazu,
@@ -536,8 +561,7 @@ struct ReiseView: View {
     // In der Doppelseitenansicht zählt die DOPPELTE Breite: Was eingepasst
     // werden soll, ist der aufgeschlagene Bogen und nicht die halbe Seite.
     private var passenderMassstab: Double {
-        let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
-        let breite = bogen.width * (doppelseiten ? 2 : 1)
+        let breite = breitesterBogen
         let platz = max(buehnenbreite - 56, 120)
         return min(max(platz / breite, 0.12), 1.6)
     }
@@ -789,11 +813,25 @@ struct ReiseView: View {
         ToolbarItem(placement: .topBarTrailing) { gestaltenMenue }
         ToolbarItem(placement: .topBarTrailing) { mehrMenue }
 
+        // DER PINSEL GEHÖRT DEM EINZELNEN ELEMENT (ab 1.0.49).
+        //
+        // Bis 1.0.48 trug dieser Knopf das Reglersymbol und das Menü
+        // daneben den Pinsel — also genau andersherum, als es kennt, wer
+        // Pages benutzt: Dort öffnet der Pinsel die Einstellungen des
+        // GEWÄHLTEN Elements. Gemeldet 09/2026: „Irgendwie habe ich fast
+        // sogar das Gefühl, dass die beiden Symbole vertauscht sind." Sie
+        // waren es.
+        //
+        // Der Tausch allein reicht aber nicht, denn schuld war nicht nur
+        // das Bild: „Ausgewähltes" und „Gestalten" sagen beide etwas über
+        // die TÄTIGKEIT und nichts über den GELTUNGSBEREICH — und der ist
+        // hier der ganze Unterschied. Die Beschriftungen nennen ihn seither
+        // beim Namen: „Auswahl" gegen „Ganzes Buch".
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 inspektor.toggle()
             } label: {
-                Label("Ausgewähltes", systemImage: "slider.horizontal.3")
+                Label("Auswahl", systemImage: "paintbrush")
             }
         }
 
@@ -1045,24 +1083,43 @@ struct ReiseView: View {
     }
 
     // WIE SIEHT DAS BUCH AUS?
+    //
+    // Der Abschnittstitel steht hier nicht als Zierde: Er beantwortet die
+    // Frage, mit der der Nutzer vor dem Menü steht — gilt das jetzt für
+    // alles oder nur für das, was ich gerade angetippt habe? Dieselbe
+    // Frage beantwortet der Pinsel daneben andersherum.
     private var gestaltenMenue: some View {
         Menu {
-            Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
-            Button("Schrift und Ausrichtung…", systemImage: "textformat") { blatt = .typografie }
-            Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
-            Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
-            Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
-                blatt = .hintergrund
+            Section("Gilt für das ganze Buch") {
+                Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
+                Button("Schrift und Ausrichtung…", systemImage: "textformat") {
+                    blatt = .typografie
+                }
+                Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
+                Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
+                Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
+                    blatt = .hintergrund
+                }
+                // Das Wasserzeichen steht neben dem Hintergrund, weil es
+                // dieselbe Frage beantwortet: Was liegt auf jeder Seite, ohne
+                // dass es jemand dorthin gestellt hat.
+                Button("Wasserzeichen…", systemImage: "drop") { blatt = .wasserzeichen }
+                Divider()
+                // DER UMSCHLAG HAT SEINE EIGENE GESTALTUNG (ab 1.0.50) —
+                // und deshalb einen eigenen Menüpunkt und keine Unterseite
+                // der Gestaltung. Er ist nicht eine Seite unter Seiten,
+                // sondern das eine Stück Papier, das außen um das Buch
+                // liegt: Rückseite, Rücken, Titelseite.
+                Button("Umschlag und Titelseite…", systemImage: "book.closed.fill") {
+                    blatt = .umschlag
+                }
+                Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
+                Button("Ränder, Karte, Seitenzahlen…", systemImage: "ruler") {
+                    blatt = .gestaltung
+                }
             }
-            // Das Wasserzeichen steht neben dem Hintergrund, weil es
-            // dieselbe Frage beantwortet: Was liegt auf jeder Seite, ohne
-            // dass es jemand dorthin gestellt hat.
-            Button("Wasserzeichen…", systemImage: "drop") { blatt = .wasserzeichen }
-            Divider()
-            Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
-            Button("Ränder, Karte, Seitenzahlen…", systemImage: "ruler") { blatt = .gestaltung }
         } label: {
-            Label("Gestalten", systemImage: "paintbrush")
+            Label("Ganzes Buch", systemImage: "book.closed")
         }
     }
 
@@ -1422,6 +1479,8 @@ struct ReiseView: View {
             TextstilView(werk: werk)
         case .gestaltung:
             GestaltungView(werk: werk)
+        case .umschlag:
+            UmschlagView(werk: werk)
         case .seitenformat:
             FormatView(werk: werk)
         case .bedienung:

@@ -67,11 +67,25 @@ struct AusgabeView: View {
             case .ganzesBuch:
                 return "Eine Datei, Seite für Seite — das, was eine Druckerei oder ein Fotobuchdienst haben will."
             case .getrennt:
-                return "Zwei Dateien: Innenteil und Umschlag. Viele Buchdienste verlangen das so."
+                return "Zwei Dateien: Innenteil und Umschlag. Viele Buchdienste verlangen das so. Der Umschlag ist EIN breiter Bogen — links die Rückseite, in der Mitte der Rücken, rechts die Titelseite."
             case .broschuere:
                 return "Zwei Seiten nebeneinander auf einen Bogen, in Heftfolge. Für den eigenen Drucker: beidseitig ausdrucken, in der Mitte falten, heften."
             }
         }
+    }
+
+    // Was am Umschlagbogen zu wissen ist — die Rückenbreite und dass sie
+    // gerechnet und nicht gemessen ist.
+    private var umschlagzusatz: String {
+        guard werk.reise.hatRueckseite else { return "" }
+        let mm = Umschlagmass.rueckenbreite(werk.reise.umschlag,
+                                            innenseiten: werk.reise.innenseiten)
+        guard mm > 0.05 else { return "" }
+        let zahl = String(format: "%.1f", mm).replacingOccurrences(of: ".", with: ",")
+        var text = " \u{2014} ein Bogen, Rücken \(zahl) mm. "
+        text += "Die Breite ist aus Seitenzahl, Papierstärke und Einband GERECHNET; "
+        text += "verbindlich ist die Angabe des Druckdienstes."
+        return text
     }
 
     enum Bildguete: String, CaseIterable, Identifiable {
@@ -290,7 +304,7 @@ struct AusgabeView: View {
                 befundAmPDF = Druckpruefung.amPDF(innen)
                     + [Druckpruefung.Zeile(
                         stufe: .gut, titel: "Umschlag getrennt gesichert",
-                        text: umschlag.lastPathComponent)]
+                        text: umschlag.lastPathComponent + umschlagzusatz)]
                 teilenliste = [innen, umschlag]
             } else {
                 let ziel = try await Buchausgabe.pdf(

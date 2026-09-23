@@ -103,8 +103,15 @@ struct BlockInspektor: View {
             }
         }
         .sheet(isPresented: $ausschnittOffen) {
-            if let tag = werk.tag {
-                KartenausschnittView(werk: werk, tagID: tag.id)
+            // Der TAG DES BLOCKS, nicht der gerade gewählte: Seit 1.0.28
+            // steht das ganze Buch untereinander, und `werk.tag` folgt
+            // dem, was oben im Bild steht — das muss nicht der Tag sein,
+            // zu dem die angetippte Karte gehört.
+            if let karte = kartenstelle {
+                KartenausschnittView(
+                    werk: werk, tagID: karte.tag.id,
+                    blockID: karte.block.kartenausschnitt == nil ? nil : karte.block.id
+                )
             }
         }
         .sheet(isPresented: $hintergrundOffen) {
@@ -184,33 +191,43 @@ struct BlockInspektor: View {
     // niemandem etwas sagt. Ein Grad Breite sind rund 111 km; das ist eine
     // Umrechnung und keine Messung am Gelände, und für „wie weit sehe ich
     // hier" genügt sie.
-    private func ausschnittstext(_ tag: Reisetag) -> String {
-        let spanne = geltendeSpanne(tag)
+    private func ausschnittstext(_ tag: Reisetag, ausschnitt: Kartenausschnitt?) -> String {
+        let spanne = geltendeSpanne(tag, ausschnitt: ausschnitt)
         let km = spanne * 111.0
         let mass = km < 1
             ? String(format: "%.0f m", km * 1000)
             : (km < 20
                 ? String(format: "%.1f km", km).replacingOccurrences(of: ".", with: ",")
                 : String(format: "%.0f km", km))
-        return tag.kartenausschnitt == nil ? "\(mass) (automatisch)" : mass
+        return ausschnitt == nil ? "\(mass) (automatisch)" : mass
     }
 
     // Der GELTENDE Ausschnitt, nicht der gesetzte: Ohne eigenen rahmt die
     // Karte die Spur selbst, und genau diese Zahl muss der Knopf „weiter"
     // verdoppeln — sonst spränge er beim ersten Tipp auf einen Wert, der
     // mit dem Bild auf der Seite nichts zu tun hat.
-    private func geltendeSpanne(_ tag: Reisetag) -> Double {
-        if let eigener = tag.kartenausschnitt { return eigener.spanne }
+    private func geltendeSpanne(_ tag: Reisetag, ausschnitt: Kartenausschnitt?) -> Double {
+        if let eigener = ausschnitt { return eigener.spanne }
         return Kartenwerk.region(tag.spur.map(\.koordinate), ausschnitt: nil)
             .span.latitudeDelta
     }
 
-    private func ausschnittZoomen(_ tag: Reisetag, stelle: Int, faktor: Double) {
-        let mitte = tag.kartenausschnitt?.mitte
+    // Gezoomt wird DORT, wo der geltende Ausschnitt herkommt: Trägt diese
+    // eine Karte einen eigenen, bleibt der Tag unberührt — sonst zöge ein
+    // Tipp auf „näher" alle Karten des Tages mit.
+    private func ausschnittZoomen(_ block: Block, _ tag: Reisetag, stelle: Int,
+                                  gilt: Kartenwahl.Geltend, faktor: Double)
+    {
+        let mitte = gilt.ausschnitt?.mitte
             ?? Koordinate(Kartenwerk.region(tag.spur.map(\.koordinate), ausschnitt: nil).center)
-        let neu = min(max(geltendeSpanne(tag) * faktor, 0.0006), 90)
-        werk.merken()
-        werk.reise.tage[stelle].kartenausschnitt = Kartenausschnitt(mitte: mitte, spanne: neu)
+        let neu = min(max(geltendeSpanne(tag, ausschnitt: gilt.ausschnitt) * faktor, 0.0006), 90)
+        let feld = Kartenausschnitt(mitte: mitte, spanne: neu)
+        if gilt.ausschnittHerkunft == .block {
+            werk.karteAendern(block.id) { $0.kartenausschnitt = feld }
+        } else {
+            werk.merken()
+            werk.reise.tage[stelle].kartenausschnitt = feld
+        }
     }
 
     private func seite(_ tag: Reisetag, _ stelle: Int) -> Seite? {
@@ -561,7 +578,7 @@ struct BlockInspektor: View {
                             werk.reise.setzeFoto(geaendert)
                         }
                     ), axis: .vertical)
-                    Text("Schrift, Größe und Farbe stellst du unter Buch \u{2192} "
+                    Text("Schrift, Größe und Farbe stellst du unter Ganzes Buch \u{2192} "
                          + "Schrift und Ausrichtung für alle Bildunterschriften auf einmal ein.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -577,27 +594,67 @@ struct BlockInspektor: View {
         }
     }
 
+    // WO DIESE KARTE HINGEHÖRT.
+    //
+    // Gefragt wird der Tag DES BLOCKS und nicht `werk.tag`. Das ist kein
+    // Feinschliff: Seit 1.0.28 steht das ganze Buch untereinander, und der
+    // „gewählte Tag" folgt dem, was oben im Bild steht. Wer eine Karte
+    // antippt, während über ihr noch die letzte Seite des Vortags steht,
+    // bekam bis 1.0.50 den Abschnitt des VORTAGS zu sehen — und stellte
+    // dort etwas um, das er gar nicht gemeint hatte. Zeigte
+    // `gewaehlterTag` auf einen Tag, den es nicht mehr gibt, fiel der
+    // ganze Abschnitt sogar weg, und die Karteneinstellungen waren von
+    // hier aus unerreichbar.
+    private var kartenstelle: (block: Block, tag: Reisetag, stelle: Int)? {
+        guard let block, block.inhalt == .karte,
+              let ort = werk.block(block.id),
+              werk.reise.tage.indices.contains(ort.tag) else { return nil }
+        return (block, werk.reise.tage[ort.tag], ort.tag)
+    }
+
     @ViewBuilder
     private func karteAbschnitt(_ block: Block) -> some View {
-        if let tag = werk.tag, let stelle = werk.tagIndex(tag.id) {
+        if let (_, tag, stelle) = kartenstelle {
+            let gilt = Kartenwahl.geltend(block: block, tag: tag, reise: werk.reise)
+
+            // DIESE EINE KARTE (ab 1.0.51).
+            //
+            // Ansage des Nutzers, 09/2026: „Hier wollte ich gerade
+            // speziell nur für diese Karte Änderungen in den Einstellungen
+            // treffen. Zum Beispiel, dass Standortpunkte doch angezeigt
+            // werden und nicht nur die Linien. Offenbar kann ich das aber
+            // nicht für einzelne Karten, sondern nur global."
+            //
+            // Es ist eine ABWEICHUNG und keine Kopie: Der Schalter aus
+            // heißt „folgt dem Tag" und damit, wo der Tag nichts sagt,
+            // „folgt dem Buch". Wer ihn anlegt, bekommt die geltende
+            // Einstellung als Anfang — und kann sie jederzeit wieder
+            // zurücknehmen.
             Section {
-                // Ein Tag darf die Karte des Buches überschreiben — aber
-                // nur ausdrücklich. Ohne den Schalter wüsste hinterher
-                // niemand mehr, welche Tage der Buchgestaltung folgen und
-                // welche ihr eigenes Bild tragen.
-                Toggle("Eigene Karte für diesen Tag", isOn: Binding(
-                    get: { tag.kartenbild != nil },
+                Toggle("Eigene Einstellung nur für diese Karte", isOn: Binding(
+                    get: { block.kartenbild != nil },
                     set: { an in
-                        werk.merken()
-                        werk.reise.tage[stelle].kartenbild = an ? werk.reise.kartenbild : nil
+                        werk.karteAendern(block.id) { $0.kartenbild = an ? gilt.bild : nil }
                     }
                 ))
+                if block.kartenbild == nil {
+                    LabeledContent("Gilt gerade", value: gilt.bildHerkunft.name)
+                }
                 LabeledContent("Punkte", value: "\(tag.spur.count)")
                 if tag.hatStrecke {
                     LabeledContent("Länge", value: Spurbau.laengeText(tag.spur))
                 }
             } header: {
-                Text("Karte")
+                Text("Diese Karte")
+            } footer: {
+                Text(kartensatz(block))
+            }
+
+            if block.kartenbild != nil {
+                KartenbildWahl(titel: "Nur diese Karte", bild: Binding(
+                    get: { block.kartenbild ?? gilt.bild },
+                    set: { neu in werk.karteAendern(block.id, merken: false) { $0.kartenbild = neu } }
+                ))
             }
 
             // DER AUSSCHNITT.
@@ -610,26 +667,52 @@ struct BlockInspektor: View {
             // (09/2026: „auf der Karte wird ja quasi nichts dargestellt.
             // Der Ort könnte sonst wo sein.").
             Section {
-                LabeledContent("Zeigt", value: ausschnittstext(tag))
+                LabeledContent("Zeigt", value: ausschnittstext(tag, ausschnitt: gilt.ausschnitt))
+                Toggle("Eigener Ausschnitt nur für diese Karte", isOn: Binding(
+                    get: { block.kartenausschnitt != nil },
+                    set: { an in
+                        guard an else {
+                            werk.karteAendern(block.id) { $0.kartenausschnitt = nil }
+                            return
+                        }
+                        let mitte = gilt.ausschnitt?.mitte
+                            ?? Koordinate(Kartenwerk.region(tag.spur.map(\.koordinate),
+                                                            ausschnitt: nil).center)
+                        let feld = Kartenausschnitt(
+                            mitte: mitte,
+                            spanne: geltendeSpanne(tag, ausschnitt: gilt.ausschnitt)
+                        )
+                        werk.karteAendern(block.id) { $0.kartenausschnitt = feld }
+                    }
+                ))
                 Button {
                     ausschnittOffen = true
                 } label: {
                     Label("Ausschnitt auf der Karte wählen …", systemImage: "viewfinder")
                 }
-                // Die beiden Knopfe daneben sind der kurze Weg: Wer nur
+                // Die beiden Knöpfe daneben sind der kurze Weg: Wer nur
                 // „etwas weiter weg" will, soll dafür keinen Bildschirm
                 // öffnen müssen. Sie rechnen vom GELTENDEN Ausschnitt aus —
                 // auch vom automatischen, wenn es noch keinen eigenen gibt.
                 HStack {
                     Text("Maßstab")
                     Spacer()
-                    Button("näher") { ausschnittZoomen(tag, stelle: stelle, faktor: 0.55) }
-                        .buttonStyle(.bordered)
-                    Button("weiter") { ausschnittZoomen(tag, stelle: stelle, faktor: 1.8) }
-                        .buttonStyle(.bordered)
+                    Button("näher") {
+                        ausschnittZoomen(block, tag, stelle: stelle, gilt: gilt, faktor: 0.55)
+                    }
+                    .buttonStyle(.bordered)
+                    Button("weiter") {
+                        ausschnittZoomen(block, tag, stelle: stelle, gilt: gilt, faktor: 1.8)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                if block.kartenausschnitt != nil {
+                    Button("Diese Karte wieder wie der Tag rahmen") {
+                        werk.karteAendern(block.id) { $0.kartenausschnitt = nil }
+                    }
                 }
                 if tag.kartenausschnitt != nil {
-                    Button("Wieder automatisch rahmen") {
+                    Button("Den ganzen Tag wieder automatisch rahmen") {
                         werk.merken()
                         werk.reise.tage[stelle].kartenausschnitt = nil
                     }
@@ -637,8 +720,32 @@ struct BlockInspektor: View {
             } header: {
                 Text("Ausschnitt")
             } footer: {
-                Text("Ohne eigenen Ausschnitt rahmt die Karte die Tagesspur selbst. Bei einem einzigen Punkt ist das ein Umkreis von rund einem Kilometer — dann steht wenig auf der Karte, woran sich der Ort erkennen lässt.")
+                Text(ausschnittsatz(block))
             }
+
+            // DER WEG NACH OBEN. Wer hier steht, hat die Frage gerade
+            // („und für alle?") — dieselbe Überlegung wie beim Fotostil
+            // seit 1.0.10. Der Tag steht dazwischen, weil es ihn gibt: Ein
+            // Tag darf die Karte des Buches überschreiben, und ohne diesen
+            // Schalter wüsste hinterher niemand mehr, welche Tage der
+            // Buchgestaltung folgen und welche ihr eigenes Bild tragen.
+            Section {
+                Toggle("Eigene Karte für diesen Tag", isOn: Binding(
+                    get: { tag.kartenbild != nil },
+                    set: { an in
+                        werk.merken()
+                        werk.reise.tage[stelle].kartenbild = an ? werk.reise.kartenbild : nil
+                    }
+                ))
+                Button {
+                    blatt = .gestaltung
+                } label: {
+                    Label("Für alle Karten im Buch einstellen \u{2026}", systemImage: "map")
+                }
+            } header: {
+                Text("Weiter oben")
+            }
+
             if tag.kartenbild != nil {
                 KartenbildWahl(titel: "Karte dieses Tages", bild: Binding(
                     get: { werk.reise.tage[stelle].kartenbild ?? werk.reise.kartenbild },
@@ -646,6 +753,38 @@ struct BlockInspektor: View {
                 ))
             }
         }
+    }
+
+    // Wohin Maßstab und Kartenwahl schreiben, hängt am Schalter darüber —
+    // und das gehört hingeschrieben, sonst stellt jemand hier etwas um und
+    // findet es an der Karte von gestern wieder.
+    private func ausschnittsatz(_ block: Block) -> String {
+        var satz = "Ohne eigenen Ausschnitt rahmt die Karte die Tagesspur selbst. Bei "
+        satz += "einem einzigen Punkt ist das ein Umkreis von rund einem Kilometer "
+        satz += "\u{2014} dann steht wenig auf der Karte, woran sich der Ort erkennen "
+        satz += "l\u{00E4}sst.\n\n"
+        if block.kartenausschnitt == nil {
+            satz += "Ma\u{00DF}stab und Kartenwahl schreiben gerade an den ganzen TAG. "
+            satz += "Soll nur diese eine Karte anders stehen, zuerst den Schalter "
+            satz += "dar\u{00FC}ber anlegen."
+        } else {
+            satz += "Ma\u{00DF}stab und Kartenwahl schreiben nur in DIESE Karte. Der "
+            satz += "Ausschnitt des Tages bleibt, wie er ist."
+        }
+        return satz
+    }
+
+    // Der Fußtext des Kartenabschnitts — ausgelagert, weil ein `?:` mitten
+    // in einer `+`-Kette den Typprüfer sprengt (die Lehre aus 1.0.38).
+    private func kartensatz(_ block: Block) -> String {
+        guard block.kartenbild == nil else {
+            return "Diese Karte trägt ihre eigene Einstellung. Was am Tag oder am "
+                + "ganzen Buch geändert wird, geht an ihr vorbei, bis der Schalter "
+                + "wieder aus ist."
+        }
+        return "Ohne eigene Einstellung folgt diese Karte dem Tag \u{2014} und wo der "
+            + "nichts sagt, dem ganzen Buch. Eine spätere Änderung am Buchganzen "
+            + "trifft sie damit weiterhin."
     }
 
     private func lageAbschnitt(_ block: Block) -> some View {

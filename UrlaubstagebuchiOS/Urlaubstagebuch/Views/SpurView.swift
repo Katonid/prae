@@ -23,6 +23,17 @@ struct SpurView: View {
     @State private var auswahl: Set<UUID> = []
     @State private var verschieben = false
 
+    // WAS AUS DER LINIE SPRINGT (ab 1.0.49).
+    //
+    // Gerechnet wird in `.task(id:)` und NICHT als berechnete Eigenschaft:
+    // Der Lauf geht über jeden Punkt und misst je drei Entfernungen, und
+    // der Körper dieser Ansicht läuft bei jeder Meldung des Werks noch
+    // einmal. Eine berechnete Eigenschaft sieht billig aus — dieselbe
+    // Falle wie bei der Netzkarte der Abfahrtstafel und bei der
+    // Druckprüfung in 1.0.0.
+    @State private var befunde: [Ausreisser.Befund] = []
+    @State private var ausreisserFrage = false
+
     private var tag: Reisetag? { werk.reise.tage.first { $0.id == tagID } }
 
     var body: some View {
@@ -30,9 +41,32 @@ struct SpurView: View {
             List {
                 if let tag {
                     Section {
-                        vorschau(tag)
-                            .frame(height: 200)
-                            .listRowInsets(EdgeInsets())
+                        // DIE VORSCHAU IST EIN BILD, KEINE KARTE ZUM
+                        // ARBEITEN (ab 1.0.49). Sie war bis dahin schieb-
+                        // und zoombar — auf 200 Punkten Höhe in einem
+                        // Kärtchen ist das eine Karte, an der sich nichts
+                        // machen lässt, und sie schluckte den Tipp, mit dem
+                        // man die richtige öffnen wollte. Jetzt öffnet ein
+                        // Tipp darauf die volle Karte: dieselbe Regel wie
+                        // überall in diesem Repo — was auf einer Karte
+                        // liegt, ist ein Bild, und was etwas tut, ist ein
+                        // Knopf.
+                        Button {
+                            punktwahl = true
+                        } label: {
+                            vorschau(tag)
+                                .frame(height: 240)
+                                .overlay(alignment: .bottomTrailing) {
+                                    Label("Auf der Karte öffnen", systemImage: "arrow.up.left.and.arrow.down.right")
+                                        .font(.caption2)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 5)
+                                        .background(.regularMaterial, in: Capsule())
+                                        .padding(8)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .listRowInsets(EdgeInsets())
                     }
                     Section {
                         // DER WEG ZUR KARTE HEISST JETZT NACH DEM, WAS
@@ -62,6 +96,10 @@ struct SpurView: View {
                              + "Hand gesetzten Punkte erhalten; die Fotopunkte werden ersetzt.")
                     }
 
+                    if !befunde.isEmpty {
+                        ausreisserabschnitt
+                    }
+
                     Section {
                         if tag.spur.isEmpty {
                             Text("Noch keine Punkte. Fotos mit Aufnahmeort bringen sie von selbst mit — sonst setzt du sie auf der Karte.")
@@ -84,7 +122,8 @@ struct SpurView: View {
                                 }
                             } label: {
                                 PunktZeile(punkt: punkt,
-                                           gewaehlt: auswahlmodus ? auswahl.contains(punkt.id) : nil)
+                                           gewaehlt: auswahlmodus ? auswahl.contains(punkt.id) : nil,
+                                           auffaellig: auffaellige.contains(punkt.id))
                             }
                             .buttonStyle(.plain)
                         }
@@ -169,10 +208,24 @@ struct SpurView: View {
                     Button("Fertig") { schliessen() }
                 }
             }
-            .sheet(isPresented: $punktwahl) {
+            // DIE KARTE BEKOMMT DEN GANZEN BILDSCHIRM (ab 1.0.49).
+            //
+            // Gemeldet 09/2026: „Ich möchte die Punkte auf der Karte
+            // auswählen und merke, dass diese viel zu klein öffnet. Diese
+            // Karte könnte sich ja tatsächlich über einen großen Teil des
+            // Bildschirms erstrecken."
+            //
+            // Die Karte war nicht klein gebaut — sie war ein BLATT IN EINEM
+            // BLATT: Diese Liste ist selbst ein `.sheet`, und auf dem iPad
+            // ist ein Sheet ein Kärtchen in der Bildschirmmitte. Ein zweites
+            // darauf ist höchstens so groß wie das erste. Dieselbe Lehre wie
+            // beim Platz-Editor in Tafelbild, wo der Grundriss aus demselben
+            // Grund ein Drittel der Höhe bekam. Ein `fullScreenCover` hängt
+            // sich nicht in das Kärtchen, sondern über alles.
+            .fullScreenCover(isPresented: $punktwahl) {
                 PunktwahlView(werk: werk, tagID: tagID)
             }
-            .sheet(item: $bearbeiten) { wunsch in
+            .fullScreenCover(item: $bearbeiten) { wunsch in
                 PunktwahlView(werk: werk, tagID: tagID, start: wunsch.id)
             }
             .sheet(isPresented: $verschieben) {
@@ -181,6 +234,72 @@ struct SpurView: View {
                     auswahlmodus = false
                 }
             }
+            .task(id: tag?.spur) { befunde = Ausreisser.finden(tag?.spur ?? []) }
+            .alert("\(befunde.count) Punkte entfernen?", isPresented: $ausreisserFrage) {
+                Button("Entfernen", role: .destructive) {
+                    werk.punkteLoeschen(tagID, ids: Set(befunde.map(\.id)))
+                    auswahl = []
+                    auswahlmodus = false
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("Die Punkte werden aus der Tagesspur entfernt. Stammen sie aus Fotos, "
+                     + "kommen sie beim nächsten \u{201E}Aus den Fotos neu bauen\u{201C} wieder "
+                     + "\u{2014} die Fotos selbst bleiben in jedem Fall unberührt.")
+            }
+        }
+    }
+
+    private var auffaellige: Set<UUID> { Set(befunde.map(\.id)) }
+
+    // GEFUNDEN, GEZEIGT, GEZÄHLT — UND NICHT GELÖSCHT.
+    //
+    // Ein Ausreißer kann echt sein: Ein Abstecher zum Aussichtspunkt und
+    // zurück sieht von außen genauso aus wie ein Messfehler, und welcher
+    // von beidem es war, weiß nur, wer dabei war. Deshalb steht hier eine
+    // Liste mit Zahlen und kein Automatismus — dieselbe Regel wie bei
+    // jeder Einfuhr dieser App: erst zeigen, dann übernehmen.
+    private var ausreisserabschnitt: some View {
+        Section {
+            ForEach(befunde) { befund in
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("\(befund.stelle + 1). Punkt \u{2014} \(befund.name)")
+                            .font(.subheadline)
+                        Text("\(befund.grund.satz) \u{00B7} \(befund.umwegtext) zusätzliche Linie")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Button {
+                auswahlmodus = true
+                auswahl = auffaellige
+            } label: {
+                Label("Diese Punkte auswählen", systemImage: "checkmark.circle")
+            }
+            Button(role: .destructive) {
+                ausreisserFrage = true
+            } label: {
+                Label(befunde.count == 1
+                      ? "Diesen Punkt entfernen"
+                      : "Alle \(befunde.count) entfernen",
+                      systemImage: "trash")
+            }
+        } header: {
+            Text(befunde.count == 1
+                 ? "1 Punkt springt aus der Linie"
+                 : "\(befunde.count) Punkte springen aus der Linie")
+        } footer: {
+            Text("Gemessen wird der UMWEG: was der Punkt an zusätzlicher Linie kostet, "
+                 + "verglichen mit dem mittleren Schritt DIESER Spur \u{2014} in einer "
+                 + "Stadtbesichtigung ist ein Kilometer viel, auf einer Autofahrt nichts. "
+                 + "Entfernt wird nichts von selbst: Ein Abstecher hin und zurück sieht "
+                 + "genauso aus wie ein Messfehler, und welcher von beidem es war, weiß "
+                 + "nur, wer dabei war. Der erste und der letzte Punkt haben nur einen "
+                 + "Nachbarn und werden deshalb nicht geprüft.")
         }
     }
 
@@ -196,7 +315,7 @@ struct SpurView: View {
     }
 
     private func vorschau(_ tag: Reisetag) -> some View {
-        Map(initialPosition: .automatic, interactionModes: [.pan, .zoom]) {
+        Map(initialPosition: .automatic, interactionModes: []) {
             if tag.spur.count >= 2 {
                 MapPolyline(coordinates: tag.spur.map(\.koordinate.clLocation))
                     .stroke(werk.reise.akzent.farbe, lineWidth: 3)
@@ -205,7 +324,9 @@ struct SpurView: View {
                 Marker(punkt.name.isEmpty ? "Punkt" : punkt.name,
                        systemImage: punkt.istAusFoto ? "camera.fill" : "mappin",
                        coordinate: punkt.koordinate.clLocation)
-                    .tint(punkt.istAusFoto ? .blue : Color.accentColor)
+                    .tint(auffaellige.contains(punkt.id)
+                          ? .orange
+                          : (punkt.istAusFoto ? .blue : Color.accentColor))
             }
         }
     }
@@ -216,6 +337,10 @@ private struct PunktZeile: View {
     /// Leer heißt: kein Auswahlmodus. Dann steht rechts ein Pfeil, und ein
     /// Tipp öffnet den Punkt.
     var gewaehlt: Bool?
+    /// Ob dieser Punkt aus der Linie springt. Die Marke steht AN der Zeile
+    /// und nicht nur im Abschnitt darüber: Wer die Liste durchgeht, soll
+    /// nicht zwischen zwei Abschnitten hin- und herzählen müssen.
+    var auffaellig = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -226,8 +351,17 @@ private struct PunktZeile: View {
             Image(systemName: punkt.istAusFoto ? "camera.fill" : "mappin.circle.fill")
                 .foregroundStyle(punkt.istAusFoto ? Color.blue : Color.accentColor)
             VStack(alignment: .leading, spacing: 1) {
-                Text(punkt.name.isEmpty ? koordinatentext : punkt.name)
-                    .font(.subheadline)
+                HStack(spacing: 5) {
+                    Text(punkt.name.isEmpty ? koordinatentext : punkt.name)
+                        .font(.subheadline)
+                    if auffaellig {
+                        // Zeichen UND Farbe, nie Farbe allein — ein
+                        // farbfehlsichtiger Mensch sähe sonst nichts.
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                }
                 HStack(spacing: 6) {
                     if let zeit = punkt.zeit {
                         Text(uhr.string(from: zeit))

@@ -118,6 +118,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // zu zeichnen; zwei Wahrheiten für dieselbe Seite laufen auseinander
     // (Lehre aus 1.0.8).
     private var titelblatt: (schluessel: Int, seite: Seite)?
+    // Seit 1.0.50 gilt dasselbe für die RÜCKSEITE des Buches: Auch sie
+    // gibt es nicht, sie wird gerechnet — und sie hängt an denselben
+    // Werten plus dem, was auf ihr steht.
+    private var rueckblatt: (schluessel: Int, seite: Seite)?
 
     // Alles, was in das Titelblatt eingeht — und nichts sonst. Fehlte hier
     // ein Feld, bliebe ein alter Titel stehen, ohne dass etwas darauf
@@ -138,11 +142,30 @@ final class Reisewerk: ObservableObject, Identifiable {
         misch.combine(reise.gestaltung)
         misch.combine(reise.typografie)
         misch.combine(reise.buchstil)
+        // Der Umschlag bringt seit 1.0.50 eigene Gestaltung mit: Rand,
+        // Hintergrund, Schrift, Titelgröße — und den Text der Rückseite.
+        // Fehlte er hier, bliebe ein alter Umschlag stehen, ohne dass
+        // etwas darauf hinwiese.
+        misch.combine(reise.umschlag)
         return misch.finalize()
     }
 
     var seitenfolge: [Buchseite] {
         var folge: [Buchseite] = []
+        if reise.hatRueckseite {
+            let schluessel = titelblattschluessel
+            let seite: Seite
+            if let da = rueckblatt, da.schluessel == schluessel {
+                seite = da.seite
+            } else {
+                seite = messer.sammelt("Titelblatt") {
+                    reise.automat.rueckseite(text: reise.umschlag.rueckseitentext,
+                                             foto: reise.umschlag.rueckseitenfoto)
+                }
+                rueckblatt = (schluessel, seite)
+            }
+            folge.append(Buchseite(seite: seite, tag: nil, nummer: 0))
+        }
         var nummer = 1
         if reise.titelseite {
             let schluessel = titelblattschluessel
@@ -365,12 +388,46 @@ final class Reisewerk: ObservableObject, Identifiable {
         return reise.tage[stelle].seiten.contains { $0.vonHand }
     }
 
+    // SEITEN NEU SETZEN \u{2014} und dabei die Karteneinstellung retten.
+    //
+    // Der Layoutautomat baut den Kartenblock frisch; was an ihm eingestellt
+    // war (`Block.kartenbild`, `.kartenausschnitt`, ab 1.0.51), kennt er
+    // nicht. Ohne diese eine Stelle wäre eine eigene Karteneinstellung nach
+    // jedem Neuanordnen weg, und zwar STILL \u{2014} die Seite steht ja
+    // danach da. Dasselbe Muster wie `wortlautSichern` seit 1.0.38, nur
+    // zusammengezogen: Es gibt genau EINEN Weg, der Seiten setzt, und wer
+    // einen zweiten baut, ruft diesen hier.
+    //
+    // Gerettet wird die Einstellung der ERSTEN Karte des Tages, die eine
+    // trägt, und sie gilt danach für jede Karte des Tages. Mehrere Karten
+    // mit verschiedenen Einstellungen gibt es nur über eine Kopie, und die
+    // ist nach dem Neusetzen ohnehin weg.
+    private func seitenNeuSetzen(_ stelle: Int, mit werkzeug: Layoutautomat) {
+        var bild: Kartenbild?
+        var ausschnitt: Kartenausschnitt?
+        for seite in reise.tage[stelle].seiten {
+            for block in seite.bloecke where block.inhalt == .karte {
+                if bild == nil { bild = block.kartenbild }
+                if ausschnitt == nil { ausschnitt = block.kartenausschnitt }
+            }
+        }
+        reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
+        guard bild != nil || ausschnitt != nil else { return }
+        for nummer in reise.tage[stelle].seiten.indices {
+            for b in reise.tage[stelle].seiten[nummer].bloecke.indices
+            where reise.tage[stelle].seiten[nummer].bloecke[b].inhalt == .karte {
+                reise.tage[stelle].seiten[nummer].bloecke[b].kartenbild = bild
+                reise.tage[stelle].seiten[nummer].bloecke[b].kartenausschnitt = ausschnitt
+            }
+        }
+    }
+
     func neuAnordnen(_ id: UUID, erzwingen: Bool) {
         guard let stelle = tagIndex(id) else { return }
         if !erzwingen, hatHandarbeit(id) { return }
         merken()
         wortlautSichern(stelle)
-        reise.tage[stelle].seiten = automat.seiten(fuer: reise.tage[stelle])
+        seitenNeuSetzen(stelle, mit: automat)
         seitenzeiger = 0
     }
 
@@ -380,7 +437,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         for stelle in reise.tage.indices {
             if nurUnberuehrte, reise.tage[stelle].seiten.contains(where: { $0.vonHand }) { continue }
             wortlautSichern(stelle)
-            reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
+            seitenNeuSetzen(stelle, mit: werkzeug)
         }
     }
 
@@ -449,7 +506,7 @@ final class Reisewerk: ObservableObject, Identifiable {
                 continue
             }
             if wortlautSichern(stelle) { gerettet += 1 }
-            reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
+            seitenNeuSetzen(stelle, mit: werkzeug)
             gesetzt += 1
         }
         sofortSichern()
@@ -504,7 +561,7 @@ final class Reisewerk: ObservableObject, Identifiable {
                 continue
             }
             wortlautSichern(stelle)
-            reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
+            seitenNeuSetzen(stelle, mit: werkzeug)
             gesetzt += 1
         }
         sofortSichern()
@@ -534,7 +591,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         merken()
         reise.tage[stelle].muster = muster
         wortlautSichern(stelle)
-        reise.tage[stelle].seiten = automat.seiten(fuer: reise.tage[stelle])
+        seitenNeuSetzen(stelle, mit: automat)
     }
 
     // Seiten, die noch gar nicht gesetzt sind, werden beim Öffnen gesetzt.
@@ -543,7 +600,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     func fehlendeSeitenNachholen() {
         let werkzeug = automat
         for stelle in reise.tage.indices where reise.tage[stelle].seiten.isEmpty {
-            reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
+            seitenNeuSetzen(stelle, mit: werkzeug)
         }
     }
 
@@ -565,6 +622,21 @@ final class Reisewerk: ObservableObject, Identifiable {
         if merkt { merken() }
         arbeit(&reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block])
         reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
+    }
+
+    // EINE KARTENEINSTELLUNG IST KEINE HANDARBEIT AM SATZ (ab 1.0.51).
+    //
+    // `aendere` setzt `vonHand` — richtig, wo jemand einen Block schiebt,
+    // dreht oder in der Größe zieht: Das Neuanordnen soll ihn danach in
+    // Ruhe lassen. Wer aber die Reisepunkte DIESER einen Karte umstellt,
+    // hat an der Anordnung nichts getan; der Tag fiele sonst für immer aus
+    // dem automatischen Neuanordnen heraus, und zwar wegen einer Farbe.
+    // Die Einstellung selbst übersteht das Neusetzen ohnehin — dafür gibt
+    // es `seitenNeuSetzen`.
+    func karteAendern(_ id: UUID, merken merkt: Bool = true, _ arbeit: (inout Block) -> Void) {
+        guard let stelle = block(id) else { return }
+        if merkt { merken() }
+        arbeit(&reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block])
     }
 
     // Beim Schieben wird NICHT bei jedem Bildpunkt ein Zwischenstand
@@ -709,6 +781,8 @@ final class Reisewerk: ObservableObject, Identifiable {
             }
         case .titel:
             reise.tage[stelle.tag].ueberschrift = text
+        case .unterueberschrift:
+            reise.tage[stelle.tag].unterueberschrift = text
         case .datum:
             // Leer heißt: wieder das Format des Buches.
             reise.tage[stelle.tag].datumstext = text.isEmpty ? nil : text

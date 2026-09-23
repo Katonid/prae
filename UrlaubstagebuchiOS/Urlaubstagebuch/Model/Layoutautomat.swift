@@ -85,8 +85,32 @@ struct Layoutautomat {
     var typografie: Typografie
     var stil: Buchstil
     var fotoIndex: [UUID: Foto]
+    // Der Umschlag hat seine eigene Gestaltung (ab 1.0.50). Was darin
+    // `nil` ist, folgt weiter dem Buch — Abweichung, keine Kopie.
+    var umschlag: Umschlag = Umschlag()
 
     private var satz: CGRect { gestaltung.satzspiegel(format) }
+
+    // Der Satzspiegel des UMSCHLAGS. Er nimmt dessen eigenen Rand, wenn
+    // einer gesetzt ist, und nie den Bundsteg: Ein Umschlag wird nicht
+    // gebunden, er wird umgelegt.
+    private var umschlagsatz: CGRect {
+        Umschlagmass.satzspiegel(format, gestaltung: gestaltung, umschlag: umschlag)
+    }
+
+    // Die Schrift des Umschlags — die des Buchtitels, solange nichts
+    // anderes gesetzt ist.
+    private var umschlagtitel: Schriftbild {
+        var bild = typografie.titel
+        if let familie = umschlag.schriftfamilie { bild.familie = familie }
+        return bild
+    }
+
+    private var umschlagtext: Schriftbild {
+        var bild = typografie.flieText
+        if let familie = umschlag.schriftfamilie { bild.familie = familie }
+        return bild
+    }
     private var fuge: Double { gestaltung.fugePt }
     private var bogen: CGRect { gestaltung.randabfallend(format) }
 
@@ -165,6 +189,7 @@ struct Layoutautomat {
     private func titelseiteMitBild(titel: String, untertitel: String, zeitraum: String,
                                    foto: UUID) -> Seite
     {
+        let satz = umschlagsatz
         var bloecke: [Block] = []
         bloecke.append(Block(
             inhalt: .foto(foto),
@@ -178,12 +203,12 @@ struct Layoutautomat {
         // Titel des Buches, der verschwindet.
         let breite = satz.width * 0.72
         let x = satz.minX
-        var gross = typografie.titel
-        gross.groesse = typografie.titel.groesse * 1.35
+        var gross = umschlagtitel
+        gross.groesse = gross.groesse * 1.35 * umschlag.titelfaktor
         let titelHoehe = Textmass.hoehe(titel, bild: gross, breite: breite - 40)
 
-        var unter = typografie.flieText
-        unter.groesse = typografie.flieText.groesse * 1.15
+        var unter = umschlagtext
+        unter.groesse = unter.groesse * 1.15
         let untertext = [untertitel, zeitraum].filter { !$0.isEmpty }.joined(separator: "\n")
         let unterHoehe = untertext.isEmpty ? 0
             : Textmass.hoehe(untertext, bild: unter, breite: breite - 40)
@@ -200,32 +225,36 @@ struct Layoutautomat {
         bloecke.append(Block(
             inhalt: .titel,
             rahmen: Rahmen(x: x + 22, y: feldY + 20, breite: breite - 44, hoehe: titelHoehe),
-            abweichung: Schriftabweichung(groesse: gross.groesse)
+            abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
+                                          groesse: gross.groesse)
         ))
         if unterHoehe > 0 {
             bloecke.append(Block(
                 inhalt: .text(untertext),
                 rahmen: Rahmen(x: x + 22, y: feldY + 20 + titelHoehe + 12,
                                breite: breite - 44, hoehe: unterHoehe),
-                abweichung: Schriftabweichung(groesse: unter.groesse)
+                abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
+                                              groesse: unter.groesse)
             ))
         }
-        return Seite(bloecke: bloecke, ohneSeitenzahl: true)
+        return Seite(id: Layoutautomat.titelseitenKennung, bloecke: bloecke,
+                     hintergrund: umschlag.hintergrund, ohneSeitenzahl: true)
     }
 
     private func titelseiteSchlicht(titel: String, untertitel: String,
                                     zeitraum: String) -> Seite
     {
+        let satz = umschlagsatz
         var bloecke: [Block] = []
         let breite = satz.width
-        var gross = typografie.titel
-        gross.groesse = typografie.titel.groesse * 1.9
+        var gross = umschlagtitel
+        gross.groesse = gross.groesse * 1.9 * umschlag.titelfaktor
         gross.ausrichtung = .mitte
         let titelHoehe = Textmass.hoehe(titel, bild: gross, breite: breite)
 
-        var unter = typografie.flieText
+        var unter = umschlagtext
         unter.ausrichtung = .mitte
-        unter.groesse = typografie.flieText.groesse * 1.25
+        unter.groesse = unter.groesse * 1.25
         let untertext = [untertitel, zeitraum].filter { !$0.isEmpty }.joined(separator: "\n")
         let unterHoehe = untertext.isEmpty ? 0 : Textmass.hoehe(untertext, bild: unter, breite: breite)
 
@@ -235,7 +264,8 @@ struct Layoutautomat {
         bloecke.append(Block(
             inhalt: .titel,
             rahmen: Rahmen(x: satz.minX, y: y, breite: breite, hoehe: titelHoehe),
-            abweichung: Schriftabweichung(groesse: gross.groesse, ausrichtung: .mitte)
+            abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
+                                          groesse: gross.groesse, ausrichtung: .mitte)
         ))
         y += titelHoehe + 14
         bloecke.append(Block(
@@ -248,11 +278,68 @@ struct Layoutautomat {
             bloecke.append(Block(
                 inhalt: .text(untertext),
                 rahmen: Rahmen(x: satz.minX, y: y, breite: breite, hoehe: unterHoehe),
-                abweichung: Schriftabweichung(groesse: unter.groesse, ausrichtung: .mitte)
+                abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
+                                              groesse: unter.groesse, ausrichtung: .mitte)
             ))
         }
-        return Seite(bloecke: bloecke, ohneSeitenzahl: true)
+        return Seite(id: Layoutautomat.titelseitenKennung, bloecke: bloecke,
+                     hintergrund: umschlag.hintergrund, ohneSeitenzahl: true)
     }
+
+    // MARK: - Die Rückseite des Buches
+
+    // Sie ist die LINKE Hälfte des Umschlagbogens (ab 1.0.50).
+    //
+    // Gebaut wird sie nach denselben zwei Regeln wie die Titelseite: Mit
+    // Foto ist sie ein Plakat, ohne ein ruhiges Textblatt. Was dort steht,
+    // ist Sache des Nutzers — eine Rückseite, die sich ihren Text ausdenkt
+    // (ein Klappentext aus dem Tagebuch etwa), wäre genau die Art
+    // Behauptung, die diese App nicht aufstellt.
+    //
+    // Sie trägt `ohneSeitenzahl` und zählt in `seitenfolge` als Nummer 0.
+    // Beides ist nötig und beides fällt zusammen: Eine gerade Nummer liegt
+    // nach `Bogenlage` LINKS, und damit paart die Doppelseitenansicht den
+    // Umschlagbogen von selbst richtig — Rückseite links, Titelseite
+    // rechts. Gezählt wird der Innenteil trotzdem ab 1, denn der Umschlag
+    // gehört nicht zum Buchblock.
+    func rueckseite(text: String, foto: UUID?) -> Seite {
+        let satz = umschlagsatz
+        var bloecke: [Block] = []
+
+        if let foto, fotoIndex[foto] != nil {
+            bloecke.append(Block(
+                inhalt: .foto(foto),
+                rahmen: Rahmen(bogen),
+                randabfallend: true
+            ))
+        }
+
+        let inhalt = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !inhalt.isEmpty {
+            var bild = umschlagtext
+            bild.ausrichtung = .mitte
+            let hoehe = Textmass.hoehe(inhalt, bild: bild, breite: satz.width)
+            // Unten, nicht mittig: Oben liegt bei einem Foto das Motiv,
+            // und im Buchhandel steht der Text einer Rückseite unten.
+            let y = min(satz.maxY - hoehe, satz.midY)
+            bloecke.append(Block(
+                inhalt: .text(inhalt),
+                rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: hoehe),
+                abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
+                                              ausrichtung: .mitte)
+            ))
+        }
+
+        return Seite(id: Layoutautomat.rueckseitenKennung, bloecke: bloecke,
+                     hintergrund: umschlag.hintergrund, ohneSeitenzahl: true)
+    }
+
+    // Die Rückseite hat eine FESTE Kennung — wie die Titelseite. Woran das
+    // hängt: `Seite.id.saat` bestimmt Papierkorn und Wasserzeichenlage, und
+    // eine Kennung, die bei jedem Neuzeichnen eine andere wäre, ließe den
+    // Grund der Rückseite bei jedem Durchgang anders aussehen.
+    static let rueckseitenKennung = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+    static let titelseitenKennung = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
 
     // MARK: - Musterwahl
 
@@ -1093,7 +1180,17 @@ struct Layoutautomat {
         let titelHoehe = titel.isEmpty ? 0
             : Textmass.hoehe(titel, bild: titelbild, breite: satz.width * 0.8)
         let datumHoehe = typografie.datum.zeilenhoehe + 2
-        var y = satz.maxY - titelHoehe - datumHoehe - 6
+        // Die zweite Überschrift steht auch hier, in Weiß wie der Titel
+        // (ab 1.0.48). Ihre Höhe geht in die Rechnung ein, bevor `y` gesetzt
+        // wird — der Block wird von UNTEN aufgebaut, und eine nachträglich
+        // eingeschobene Zeile schiebe sonst den Titel aus dem Satzspiegel.
+        let zweite = tag.unterueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+        var zweitbild = typografie[.unterueberschrift]
+        zweitbild.farbe = Farbwert(rot: 1, gruen: 1, blau: 1)
+        let zweitHoehe = zweite.isEmpty ? 0
+            : Textmass.hoehe(zweite, bild: zweitbild, breite: satz.width * 0.8)
+        let zweitLuft = zweite.isEmpty ? 0 : zweitHoehe + 4
+        var y = satz.maxY - titelHoehe - datumHoehe - zweitLuft - 6
 
         var datumhell = hell
         datumhell.farbe = Farbwert(rot: 1, gruen: 0.93, blau: 0.86)
@@ -1107,6 +1204,17 @@ struct Layoutautomat {
             bloecke.append(Block(
                 inhalt: .titel,
                 rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width * 0.8, hoehe: titelHoehe),
+                abweichung: hell
+            ))
+            y += titelHoehe + 4
+        }
+        if !zweite.isEmpty {
+            // Nur die FARBE wird abgewichen. Schrift und Größe holt der
+            // Satz über die Rolle des Blocks — sie hier zu kopieren machte
+            // aus der Ableitung eine Kopie und hängte die Seite vom Titel ab.
+            bloecke.append(Block(
+                inhalt: .unterueberschrift,
+                rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width * 0.8, hoehe: zweitHoehe),
                 abweichung: hell
             ))
         }
@@ -1138,6 +1246,21 @@ struct Layoutautomat {
                 rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: hoehe)
             ))
             y += hoehe + 6
+        }
+        // Die ZWEITE Überschrift — der Ort oder das Schlagwort (ab 1.0.48).
+        // Sie steht unter der Überschrift und über der Trennlinie, also da,
+        // wo sie in der Vorlage steht: nach dem Datum, vor dem Fließtext.
+        // Wie der Titel nur auf dem Aufmacher — auf der Fortsetzungsseite
+        // wäre sie dieselbe Angabe ein zweites Mal.
+        let zweite = tag.unterueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !zweite.isEmpty, !knapp {
+            let bild = typografie[.unterueberschrift]
+            let hoehe = Textmass.hoehe(zweite, bild: bild, breite: spaltenbreite)
+            bloecke.append(Block(
+                inhalt: .unterueberschrift,
+                rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: hoehe)
+            ))
+            y += hoehe + 5
         }
         bloecke.append(Block(
             inhalt: .linie,

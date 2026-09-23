@@ -70,6 +70,10 @@ struct PunktwahlView: View {
     @State private var suche = ""
     @State private var treffer: [MKMapItem] = []
     @State private var sucheLaeuft = false
+    // Welche Punkte aus der Linie springen (ab 1.0.49). Gerechnet in
+    // `.task(id:)` und nicht als berechnete Eigenschaft — der Körper dieser
+    // Ansicht läuft bei jeder Kamerabewegung noch einmal.
+    @State private var befunde: [Ausreisser.Befund] = []
 
     // Wie weit ein Tipp danebengehen darf, in BILDSCHIRMPUNKTEN. Apple
     // nennt 44 als Mindestmaß für ein Fingerziel; hier darf es großzügiger
@@ -85,6 +89,11 @@ struct PunktwahlView: View {
         return tag?.spur.first { $0.id == punktID }
     }
     private var aendert: Bool { punktID != nil }
+    private var auffaellige: Set<UUID> { Set(befunde.map(\.id)) }
+    private var befundZumPunkt: Ausreisser.Befund? {
+        guard let punktID else { return nil }
+        return befunde.first { $0.id == punktID }
+    }
 
     var body: some View {
         NavigationStack {
@@ -117,6 +126,7 @@ struct PunktwahlView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)))
             }
             .task { starten() }
+            .task(id: tag?.spur) { befunde = Ausreisser.finden(tag?.spur ?? []) }
             .alert("Punkt löschen?", isPresented: $loeschfrage) {
                 Button("Löschen", role: .destructive) {
                     guard let alt = punktID else { return }
@@ -223,7 +233,9 @@ struct PunktwahlView: View {
             }
             ForEach(tag?.spur ?? []) { eintrag in
                 Annotation(eintrag.name, coordinate: eintrag.koordinate.clLocation) {
-                    Spurmarke(punkt: eintrag, gewaehlt: eintrag.id == punktID)
+                    Spurmarke(punkt: eintrag,
+                              gewaehlt: eintrag.id == punktID,
+                              auffaellig: auffaellige.contains(eintrag.id))
                 }
                 // WAS AUF EINER KARTE LIEGT, IST EIN BILD. Ein antippbarer
                 // Punkt schluckt den Finger der Zoomgeste — die Lehre aus
@@ -276,6 +288,15 @@ struct PunktwahlView: View {
                         Text(stellensatz(punkt))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                        // Warum dieser Punkt orange ist — ein Zeichen ohne
+                        // Erklärung ist ein Rätsel. Die Zahl sagt, worum es
+                        // geht: was er an zusätzlicher Linie kostet.
+                        if let befund = befundZumPunkt {
+                            Label("\(befund.grund.satz) \u{00B7} \(befund.umwegtext) zusätzliche Linie",
+                                  systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
                     }
                     Spacer()
                     // ZURÜCK ZU „NEU". Ohne diesen Weg käme man, einmal auf
@@ -545,6 +566,11 @@ struct PunktwahlView: View {
 private struct Spurmarke: View {
     let punkt: Reisepunkt
     let gewaehlt: Bool
+    /// Ob dieser Punkt aus der Linie springt. Gezeichnet wird orange UND
+    /// mit einem Dreieck — Farbe allein sieht ein farbfehlsichtiger Mensch
+    /// nicht; dieselbe Regel wie beim entfallenden Halt in der
+    /// Abfahrtstafel.
+    var auffaellig = false
 
     var body: some View {
         ZStack {
@@ -554,9 +580,13 @@ private struct Spurmarke: View {
                     .background(Circle().fill(.white.opacity(0.65)))
                     .frame(width: 30, height: 30)
             }
-            Image(systemName: punkt.istAusFoto ? "camera.fill" : "mappin.circle.fill")
+            Image(systemName: auffaellig
+                  ? "exclamationmark.triangle.fill"
+                  : (punkt.istAusFoto ? "camera.fill" : "mappin.circle.fill"))
                 .font(.system(size: gewaehlt ? 15 : 12))
-                .foregroundStyle(punkt.istAusFoto ? Color.blue : Color.accentColor)
+                .foregroundStyle(auffaellig
+                                 ? Color.orange
+                                 : (punkt.istAusFoto ? Color.blue : Color.accentColor))
                 .shadow(color: .white.opacity(0.9), radius: 1.5)
         }
         .allowsHitTesting(false)
