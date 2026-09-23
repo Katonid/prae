@@ -45,7 +45,7 @@ Digital und die üblichen Online-Druckereien, abgerufen 09/2026):
 | **Schriften eingebettet** | Die Prüfung liest die Einbettungserlaubnis aus der Schrift selbst (`fsType`). |
 | **RGB** | Bleibt RGB — genau das verlangen Fotobuchdienste, sie wandeln selbst um. |
 | **Keine Transparenz (PDF/X-1a, X-3)** | Schalter beim Ausgeben; Schatten fallen weg, Verläufe werden zu Feldern. |
-| **Umschlag getrennt** | Wahlweise zwei Dateien: Innenteil und Umschlag. Der Umschlag ist EIN breiter Bogen — Rückseite, Rücken, Titelseite. |
+| **Umschlag getrennt** | Wahlweise zwei Dateien: Innenteil und Umschlag. Der Umschlag ist EIN breiter Bogen — Rückseite, Rücken, Titelseite. Auf Titel- und Rückseite lassen sich eigene Felder und Bilder setzen. |
 | **Rückenbreite** | Aus Seitenzahl, Papierstärke und Einband gerechnet; beide Zahlen einstellbar. Verbindlich ist die Angabe des Druckdienstes. |
 | **Bundsteg** | Einstellbar, auf beide Ränder gerechnet (siehe unten, warum). |
 
@@ -480,6 +480,64 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Eigene Felder auf Titelseite und Rückseite (1.0.64)
+
+Ansage des Nutzers, 09/2026: „Es soll mir zum Beispiel auch möglich sein,
+dort eigene Felder oder Bilder zu positionieren."
+
+Bis 1.0.63 ging das nicht, und der Grund stand seit 1.0.50 im Papier:
+**Titel- und Rückseite werden gerechnet, nicht gesetzt.** Sie entstehen bei
+jedem Durchgang neu aus Titel, Untertitel, Zeitraum, Titelfoto und der
+Gestaltung des Umschlags — ein Block, den jemand hineinschriebe, wäre beim
+nächsten Neuzeichnen weg.
+
+Der naheliegende Ausweg wäre gewesen, beide Seiten als echte Seiten
+einzufrieren. Er ist bewusst **nicht** gegangen worden: Dann hinge der
+Umschlag für immer an dem Stand, den er beim Einfrieren hatte, und ein
+neuer Titel oder ein anderes Titelfoto schlüge nie mehr durch.
+
+Stattdessen liegen die eigenen Blöcke **neben** der gerechneten Seite — als
+zwei Listen am Umschlag (`Umschlag.titelbloecke`, `.rueckbloecke`). Die
+Seitenfolge hängt sie der gerechneten Seite an. Damit bleibt der gerechnete
+Teil lebendig, und die eigenen Felder überstehen jedes Neuanordnen, jeden
+Stilwechsel und jedes Neuverteilen: Sie stehen ja in keinem Tag.
+
+- **Angelegt** werden sie wie überall sonst: Seite antippen (die Umrandung
+  sagt, welche gewählt ist), dann **+ → Textfeld / Bild oder Grafik /
+  Trennlinie / Farbfläche**. Der Abschnitt heißt dort „Auf Umschlag:
+  Titelseite" bzw. „… Rückseite".
+- **Angefasst** werden sie wie jeder andere Block: schieben, an den acht
+  Punkten ziehen, am Drehgriff drehen, Doppeltipp für den Text. Der
+  Inspektor zeigt Schrift, Rand, Grund und Ausschnitt wie gewohnt.
+- **Angehängt heißt oben.** Ein eigenes Feld auf einem randabfallenden
+  Titelfoto wäre darunter unsichtbar. „Nach vorn holen" ist hier schlicht
+  das Ende der eigenen Liste.
+- **Was es auf dem Umschlag nicht gibt:** eine **Karte** (sie zeichnet die
+  Spur eines Tages, und den gibt es dort nicht — es bliebe ein leerer
+  Rahmen), das **Verschieben oder Kopieren auf eine andere Seite** (der
+  Umschlag hat keine Nachbarseite) und **„Rest auf die nächste Seite"**
+  (aus demselben Grund). Diese Einträge stehen dort gar nicht erst: Ein
+  Knopf, der nichts tut, ist für den Menschen davor ein kaputter Knopf.
+- **Bildschirm und PDF holen ihre Seiten aus derselben Stelle.** Angehängt
+  wird in `Reise.seitenfolge`, und beide fragen sie — zwei Fassungen
+  ergäben eine Vorschau, die anders aussieht als die Datei, und der
+  Unterschied fiele erst beim Drucker auf.
+- **Mitgezogen:** Ein Formatwechsel (A4 → A5) rechnet die Rahmen mit; wird
+  ein Foto gelöscht, verschwindet auch ein Umschlagblock, der es zeigte;
+  die Druckprüfung zählt abgeschnittenen Text auch dort; und eine
+  eingesetzte Grafik ist ein gewöhnliches Foto der Reise und reist beim
+  Austausch des Buches mit.
+
+**Nicht gemessen (1.0.64):** Keine Seite ist damit gesehen worden.
+Gerechnet ist, warum ein Block in der gerechneten Seite verschwindet und
+warum er daneben stehen bleibt; die Startmaße eines neuen Umschlagfeldes
+sind gewählt und nicht gemessen. **Eigene Felder oder Bilder auf dem
+BUCHRÜCKEN gibt es weiterhin nicht** — der Rücken ist ein rund zwölf
+Millimeter breiter Streifen mit eigener Geometrie und eigenem Weg ins PDF;
+ein Blockrahmen würde dort auf das Buchformat geklemmt und nicht auf die
+Rückenbreite. Er behält seine eine einstellbare Textzeile. Das nicht als
+erledigt darstellen.
+
 ## Der Umschlag läuft durch — und der Rücken lässt sich setzen (1.0.63)
 
 Befund und Ansage des Nutzers, 09/2026: „Im vorliegenden Beispiel hat es
@@ -529,7 +587,10 @@ zwischen die Falze passt und ob die Lage stimmt —, sagt erst der erste
 Abzug.** Und die eigenen Felder oder Bilder AUF dem Rücken, um die
 ebenfalls gebeten wurde, gibt es noch nicht: Der Umschlag wird gerechnet
 und nicht gesetzt, ein Block darauf wäre beim nächsten Durchgang weg.
-Das nicht als erledigt darstellen.
+Das nicht als erledigt darstellen. (Nachtrag: Für Titel- und Rückseite ist
+das seit 1.0.64 gelöst, und anders als hier vermutet — die Blöcke liegen
+neben der gerechneten Seite, nicht darin. Für den Rücken gilt der Satz
+weiter.)
 
 ## Auch eine Mac-App (1.0.62)
 
@@ -622,10 +683,12 @@ einen Fehler.
   und bietet dort Textfeld, Bild oder Grafik, Karte, Trennlinie und
   Farbfläche an. Der Inspektor zeigt dieselbe Seite und ruft dieselbe
   Stelle — zwei Wege, eine Sache.
-- **Umschlag und Ausgleichsseite werden gar nicht erst angeboten.** Sie
-  werden gerechnet und stehen in keinem Tag; ein Block darauf wäre beim
-  nächsten Durchgang weg, und ein Knopf, der das anbietet, ist ein Knopf,
-  der nichts tut.
+- **Die Ausgleichsseite wird gar nicht erst angeboten.** Sie wird
+  gerechnet und steht in keinem Tag; ein Block darauf wäre beim nächsten
+  Durchgang weg, und ein Knopf, der das anbietet, ist ein Knopf, der
+  nichts tut. (Bis 1.0.63 galt derselbe Satz für Titel- und Rückseite;
+  seit 1.0.64 nehmen die beiden eigene Felder an — sie liegen dort neben
+  der gerechneten Seite.)
 
 **Eine Grafik ist kein Reisefoto** (`Foto.grafik`). Sie geht nicht durch
 die Fotoeinfuhr: Die ordnet einem Tag zu, liest Datum und Ort, baut daraus

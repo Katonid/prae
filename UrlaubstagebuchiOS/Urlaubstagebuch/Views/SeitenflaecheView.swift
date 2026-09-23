@@ -459,10 +459,12 @@ struct SeitenflaecheView: View, Equatable {
     }
 
     private var ueberlaufschluessel: String {
-        guard bearbeitbar, let block = gewaehlterBlock, let tag = buchseite.tag,
-              block.inhalt.istText
+        guard bearbeitbar, let block = gewaehlterBlock, block.inhalt.istText
         else { return "-" }
-        let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
+        // `tag` ist wahlweise: Auf einer Umschlagseite gibt es keinen, und
+        // seit 1.0.64 stehen dort eigene Textfelder — deren Text gehört
+        // dem Block selbst.
+        let text = Seitensatz.inhaltstext(block, tag: buchseite.tag, reise: werk.reise)
         // Der Innenabstand gehört in den Schlüssel: Er nimmt dem Text
         // Breite UND Höhe weg. Ohne ihn bliebe die Marke stehen, wo sie
         // stand, obwohl der Kasten gerade enger geworden ist — ein Hinweis,
@@ -472,8 +474,8 @@ struct SeitenflaecheView: View, Equatable {
     }
 
     private func ueberlaufMessen() -> Double? {
-        guard bearbeitbar, let block = gewaehlterBlock, let tag = buchseite.tag else { return nil }
-        return werk.fehlendeHoehe(block, tag: tag)
+        guard bearbeitbar, let block = gewaehlterBlock else { return nil }
+        return werk.fehlendeHoehe(block, tag: buchseite.tag)
     }
 
     // Der Abstand des Drehgriffs über dem Block — an einer Stelle, weil
@@ -530,7 +532,13 @@ struct SeitenflaecheView: View, Equatable {
     // Erst genau, dann im Umkreis — jeweils von OBEN nach unten, damit bei
     // zwei übereinanderliegenden Blöcken der gewinnt, den man sieht.
     private func blockUnter(_ punkt: CGPoint) -> Block? {
-        let oben = buchseite.seite.sortiert.reversed()
+        // GERECHNETE Blöcke werden übersprungen (ab 1.0.64). Auf der
+        // Titelseite liegen Titel, Zeitraum und Titelfoto — sie entstehen
+        // bei jedem Durchgang neu und lassen sich nicht anfassen. Wäre das
+        // randabfallende Titelfoto wählbar, träfe jeder Tipp auf freie
+        // Fläche es, und der Rahmen verspräche eine Geste, die es nicht
+        // gibt.
+        let oben = buchseite.seite.sortiert.reversed().filter { werk.anfassbar($0.id) }
         if let treffer = oben.first(where: { trifft($0, punkt: punkt, luft: 0) }) {
             return treffer
         }
@@ -562,12 +570,17 @@ struct SeitenflaecheView: View, Equatable {
         return CGPoint(x: stelle.x - block.rahmen.x, y: stelle.y - block.rahmen.y)
     }
 
-    // Eine gerechnete Seite (Umschlag, Ausgleichsseite) steht in keinem
-    // Tag; dort lässt sich nichts einsetzen, also wird sie auch nicht als
-    // Ziel angeboten. Ein Rahmen um ein Blatt, auf das nichts geht, wäre
-    // eine Zusage, die der nächste Knopf nicht hält.
+    // Die AUSGLEICHSSEITE steht in keinem Tag und wird bei jedem
+    // Durchgang neu gerechnet; dort lässt sich nichts einsetzen, also wird
+    // sie auch nicht als Ziel angeboten. Ein Rahmen um ein Blatt, auf das
+    // nichts geht, wäre eine Zusage, die der nächste Knopf nicht hält.
+    //
+    // Titelseite und Rückseite gehörten bis 1.0.63 in dieselbe Zeile.
+    // Seit 1.0.64 nicht mehr: Was dort eingesetzt wird, liegt am Umschlag
+    // und wird der gerechneten Seite nur angehängt — es übersteht damit
+    // jeden Durchgang.
     private var seitenwahlMoeglich: Bool {
-        bearbeitbar && !buchseite.amUmschlag && !buchseite.ausgleich
+        bearbeitbar && !buchseite.ausgleich
     }
 
     private var istGewaehlteSeite: Bool {

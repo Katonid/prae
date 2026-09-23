@@ -507,9 +507,9 @@ struct ReiseView: View {
         let sichtbar = Set(seitenImBlick.values.flatMap { $0 })
         if let da = werk.gewaehlteSeite, sichtbar.contains(da) { return }
         // Von oben nach unten die erste Reihe, die überhaupt ein Blatt
-        // hergibt: Der Umschlag und die Ausgleichsseite stehen in keinem
-        // Tag, auf sie geht nichts, und eine Vorwahl darauf wäre ein Ziel,
-        // das der nächste Knopf nicht annimmt.
+        // hergibt: Die Ausgleichsseite wird gerechnet, auf sie geht
+        // nichts, und eine Vorwahl darauf wäre ein Ziel, das der nächste
+        // Knopf nicht annimmt.
         for schluessel in seitenImBlick.keys.sorted() {
             if let erste = seitenImBlick[schluessel]?.first {
                 werk.gewaehlteSeite = erste
@@ -520,7 +520,10 @@ struct ReiseView: View {
 
     // Welche Blätter einer Reihe sich bearbeiten lassen.
     private func einsetzbar(_ buchseite: Buchseite?) -> [UUID] {
-        guard let buchseite, !buchseite.amUmschlag, !buchseite.ausgleich else { return [] }
+        // Der Umschlag zählt seit 1.0.64 mit: Titel- und Rückseite nehmen
+        // eigene Felder an (`Umschlag.titelbloecke`, `.rueckbloecke`). Die
+        // Ausgleichsseite nicht — sie wird gerechnet und gehört keinem.
+        guard let buchseite, !buchseite.ausgleich else { return [] }
         return [buchseite.seite.id]
     }
 
@@ -600,8 +603,7 @@ struct ReiseView: View {
     }
 
     private func istGewaehlt(_ buchseite: Buchseite) -> Bool {
-        !buchseite.amUmschlag && !buchseite.ausgleich
-            && werk.gewaehlteSeite == buchseite.seite.id
+        !buchseite.ausgleich && werk.gewaehlteSeite == buchseite.seite.id
     }
 
     private var inhaltsbreite: CGFloat {
@@ -1054,10 +1056,17 @@ struct ReiseView: View {
     // Fotostilfeldern (1.0.10).
     @ViewBuilder
     private var blockMenue: some View {
-        if let block = gewaehlterBlock, let lage = werk.seitenlage(block.id) {
+        if let block = gewaehlterBlock {
             Menu {
-                verschiebenAbschnitt(block, lage: lage)
-                kopierenAbschnitt(block, lage: lage)
+                // Verschieben und Kopieren brauchen eine NACHBARSEITE, und
+                // die gibt es nur im Buchblock. Ein Block auf dem Umschlag
+                // (ab 1.0.64) bekommt deshalb nur den letzten Abschnitt —
+                // nach vorn holen und entfernen. Ein ausgegrauter Eintrag
+                // ohne Grund wäre für den Menschen davor ein kaputter Knopf.
+                if let lage = werk.seitenlage(block.id) {
+                    verschiebenAbschnitt(block, lage: lage)
+                    kopierenAbschnitt(block, lage: lage)
+                }
                 restAbschnitt(block)
             } label: {
                 Label(block.inhalt.name, systemImage: "square.on.square")
@@ -1174,8 +1183,16 @@ struct ReiseView: View {
                         werk.blockHinzufuegen(.text("Neuer Text"), aufSeite: seite)
                     }
                     Button("Bild oder Grafik…", systemImage: "photo") { blatt = .grafik }
-                    Button("Karte", systemImage: "map") {
-                        werk.blockHinzufuegen(.karte, aufSeite: seite)
+                    // EINE KARTE BRAUCHT EINEN TAG. Sie zeichnet die Spur
+                    // dieses einen Tages; auf dem Umschlag gibt es keinen,
+                    // und was dort stünde, wäre ein leerer Rahmen mit dem
+                    // Satz „Kartenbild fehlt". Deshalb steht der Eintrag
+                    // dort gar nicht erst — ein Knopf, der nichts tut, ist
+                    // für den Menschen davor ein kaputter Knopf.
+                    if werk.umschlagflaeche(seite) == nil {
+                        Button("Karte", systemImage: "map") {
+                            werk.blockHinzufuegen(.karte, aufSeite: seite)
+                        }
                     }
                     Button("Trennlinie", systemImage: "minus") {
                         werk.blockHinzufuegen(.linie, aufSeite: seite)
@@ -1525,8 +1542,8 @@ struct ReiseView: View {
     // — beim Schieben eines Blocks also bei jedem Bildpunkt. In 1.0.14
     // standen hier zwei solche Suchläufe nebeneinander; einer reicht.
     private var gewaehlterBlock: Block? {
-        guard let id = werk.gewaehlterBlock, let stelle = werk.block(id) else { return nil }
-        return werk.reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block]
+        guard let id = werk.gewaehlterBlock else { return nil }
+        return werk.blockWert(id)
     }
 
     // Das ganze Buch als eine Datei — samt aller Bilder, zum Sichern, zum
