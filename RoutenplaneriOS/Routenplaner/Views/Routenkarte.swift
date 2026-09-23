@@ -115,6 +115,10 @@ struct Kamerawunsch: Equatable {
 /// Rand, nicht auf der Kartenfläche.
 struct Routenkarte: UIViewRepresentable {
     let route: Route?
+    /// Die übrigen Vorschläge: grau UNTER der gewählten Route. Ausgewählt
+    /// wird in der Liste darunter, nicht auf der Karte — auf ihr liegt kein
+    /// Bedienelement, und ein Tipp setzt dort Start oder Ziel.
+    var alternativen: [Route] = []
     let start: Ort?
     let ziel: Ort?
     /// Die gerade angetippte Stelle, solange die Frage dazu offen ist.
@@ -185,7 +189,7 @@ struct Routenkarte: UIViewRepresentable {
         k.tippen = tippen
         guard let karte = k.karte else { return }
         k.ansichtSetzen(ansicht, karte: karte)
-        k.linienSetzen(route: route, belag: ansicht.belag, karte: karte)
+        k.linienSetzen(route: route, alternativen: alternativen, belag: ansicht.belag, karte: karte)
         k.zeichenSetzen(start: start, ziel: ziel, markierung: markierung, route: route, karte: karte)
         if let w = kamerawunsch, w.id != k.letzterWunsch {
             k.letzterWunsch = w.id
@@ -255,8 +259,9 @@ struct Routenkarte: UIViewRepresentable {
             }
         }
 
-        func linienSetzen(route: Route?, belag: Bool, karte: MKMapView) {
+        func linienSetzen(route: Route?, alternativen: [Route], belag: Bool, karte: MKMapView) {
             let schluessel = (route?.abschnitte.map(\.id) ?? []) + (route?.belaege.map(\.id) ?? [])
+                + alternativen.flatMap { $0.abschnitte.map(\.id) }
             guard schluessel != linienSchluessel || belag != linienBelag else { return }
             linienSchluessel = schluessel
             linienBelag = belag
@@ -273,6 +278,9 @@ struct Routenkarte: UIViewRepresentable {
                 return l
             }
             var neu: [Linie] = []
+            // Die Alternativen zuerst, also unten: grau mit heller Kontur.
+            for alt in alternativen { neu.append(linie(alt.punkte, farbe: .white, breite: 8, strich: [])) }
+            for alt in alternativen { neu.append(linie(alt.punkte, farbe: .systemGray, breite: 4.5, strich: [])) }
             if belag && !route.belaege.isEmpty {
                 for b in route.belaege { neu.append(linie(b.punkte, farbe: .white, breite: 9, strich: [])) }
                 for b in route.belaege { neu.append(linie(b.punkte, farbe: b.belag.uiFarbe, breite: 5, strich: b.belag.strich)) }

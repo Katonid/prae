@@ -30,13 +30,32 @@ enum BRouter {
         var belaege: [Belagstueck]
     }
 
-    static func route(von: Punkt, nach: Punkt, profil: Fahrzeugprofil) async throws -> Antwort {
+    static func route(von: Punkt, nach: Punkt, profil: Fahrzeugprofil, alternative: Int = 0) async throws -> Antwort {
         do {
-            return try await anfrage(von: von, nach: nach, profil: profil, kennung: try await regelwerkKennung())
+            return try await anfrage(von: von, nach: nach, profil: profil,
+                                     kennung: try await regelwerkKennung(), alternative: alternative)
         } catch Routenfehler.dienst(_, let text) where text.lowercased().contains("profile") {
             kennung = nil
-            return try await anfrage(von: von, nach: nach, profil: profil, kennung: try await regelwerkKennung())
+            return try await anfrage(von: von, nach: nach, profil: profil,
+                                     kennung: try await regelwerkKennung(), alternative: alternative)
         }
+    }
+
+    /// Die Route und ihre Alternativen. BRouter rechnet sie über
+    /// `alternativeidx` (0 bis 3), JE EINE Anfrage. Gemessen am 23.09.2026
+    /// (Dortmund, 3,6 km): 3573 m, 4350 m, 4964 m, 4246 m — die vierte ist
+    /// also nicht die längste, sortiert wird in der App. Gefragt werden drei;
+    /// schlägt eine Alternative fehl, zählt nur die erste als Fehler.
+    static func routen(von: Punkt, nach: Punkt, profil: Fahrzeugprofil) async throws -> [Antwort] {
+        let erste = try await route(von: von, nach: nach, profil: profil, alternative: 0)
+        var weitere: [(Int, Antwort)] = []
+        await withTaskGroup(of: (Int, Antwort?).self) { gruppe in
+            for i in 1...2 {
+                gruppe.addTask { (i, try? await route(von: von, nach: nach, profil: profil, alternative: i)) }
+            }
+            for await (i, a) in gruppe { if let a { weitere.append((i, a)) } }
+        }
+        return [erste] + weitere.sorted { $0.0 < $1.0 }.map(\.1)
     }
 
     private static func regelwerkKennung() async throws -> String {
@@ -54,12 +73,13 @@ enum BRouter {
         return id
     }
 
-    private static func anfrage(von: Punkt, nach: Punkt, profil: Fahrzeugprofil, kennung: String) async throws -> Antwort {
+    private static func anfrage(von: Punkt, nach: Punkt, profil: Fahrzeugprofil, kennung: String,
+                                alternative: Int) async throws -> Antwort {
         var teile = URLComponents(string: basis)!
         teile.queryItems = [
             URLQueryItem(name: "lonlats", value: "\(von.laenge),\(von.breite)|\(nach.laenge),\(nach.breite)"),
             URLQueryItem(name: "profile", value: kennung),
-            URLQueryItem(name: "alternativeidx", value: "0"),
+            URLQueryItem(name: "alternativeidx", value: String(alternative)),
             URLQueryItem(name: "format", value: "geojson"),
             URLQueryItem(name: "profile:schieben", value: profil.schieben ? "1" : "0"),
         ]

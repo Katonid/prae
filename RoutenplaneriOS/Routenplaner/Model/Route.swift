@@ -128,6 +128,11 @@ struct Route {
     /// steht `surface` in der Antwort. Leer heißt „nicht bekannt", nicht
     /// „asphaltiert". Steht zuletzt, damit es in den Aufrufen fehlen darf.
     var belaege: [Belagstueck] = []
+    /// Staus, die diese Route mit Absicht umfährt (Sperrfläche um die Mitte
+    /// der Meldung). Leer bei jeder gewöhnlichen Route.
+    var staumeidung: [Verkehrsmeldung] = []
+    /// Zeitverlust durch Staus auf DIESER Route, laut Autobahn GmbH.
+    var stauS: Double = 0
 
     var zeitS: Double { posten.reduce(0) { $0 + $1.sekunden } }
 

@@ -19,6 +19,15 @@ Start und Ziel lassen sich eintippen (Knöpfe unten) oder auf der Karte
 antippen: Die Karte lässt sich frei schieben, ein Tipp fragt „Route hierhin
 – von meinem Standort", „Als Ziel" oder „Als Start".
 
+**Jede Planung bringt Alternativen mit** (ab 1.0.4): Unter der Karte stehen
+bis zu drei, beim Auto mit einer Stauumfahrung vier Vorschläge zur Wahl; die
+gewählte Route ist blau, die übrigen liegen grau darunter. Beim Auto steht die
+SCHNELLSTE vorn — gerechnet MIT dem Zeitverlust aus den Staumeldungen der
+Autobahn GmbH, nicht in der Reihenfolge des Dienstes, der ohne Verkehrslage
+rechnet. Liegt auf ihr ein Stau ab 10 Minuten, fragt die App eigens nach einem
+Weg, der die Mitte des Staus meidet, und stellt ihn als weiteren Vorschlag
+daneben („um den Stau"). Beim Rad und zu Fuß steht die kürzeste vorn.
+
 Der Ebenen-Knopf oben links an der Karte (ab 1.0.3) wählt:
 
 - **Karte**: Apple Karten, Apple Satellit, OpenStreetMap, CyclOSM (Radwege,
@@ -41,8 +50,8 @@ Verkehrsmeldungen, Wegbeschreibung, GPX-Ausgabe.
 
 | Wofür | Dienst |
 |---|---|
-| Auto, zu Fuß (Rückfall Rad) | Valhalla, öffentlicher Server der FOSSGIS (`valhalla1.openstreetmap.de`) |
-| Fahrrad | BRouter (`brouter.de`) mit eigenem Regelwerk (`BRouter.regelwerk`) |
+| Auto, zu Fuß (Rückfall Rad), Alternativen über `alternates` | Valhalla, öffentlicher Server der FOSSGIS (`valhalla1.openstreetmap.de`) |
+| Fahrrad | BRouter (`brouter.de`) mit eigenem Regelwerk (`BRouter.regelwerk`), Alternativen über `alternativeidx` 1 und 2 |
 | Verkehrsmeldungen | Autobahn GmbH (`verkehr.autobahn.de`) |
 | Ortssuche | Apple (`MKLocalSearch`) |
 | Kartenkacheln | OpenStreetMap, CyclOSM (auch „lite" als Radweg-Schicht), OpenTopoMap, Waymarked Trails |
@@ -64,9 +73,17 @@ Schlüsselbund, nie im Repo).
 - Eine Durchfahrtshöhe oder -breite wird nur beachtet, wenn sie in
   OpenStreetMap eingetragen ist. Eine Unterführung ohne Eintrag gilt als frei.
 - Das Gewicht wird nicht geprüft.
-- Verkehrsmeldungen gibt es nur für Autobahnen. Ein Stau verlängert die
-  Zeit, verlegt die Route aber nicht; Sperrungen und zu schmale Baustellen
-  werden umfahren (Sperrfläche in beiden Richtungen).
+- Verkehrsmeldungen gibt es nur für Autobahnen. Staus zählen in Fahrzeit und
+  Reihenfolge; ab 10 Minuten kommt ein Umfahrungsvorschlag dazu (Schwelle
+  gewählt, nicht gemessen). Gemieden wird ein Kästchen von rund 250 m um die
+  MITTE des Staus, in beiden Richtungen — die Umfahrung kann also einen
+  Bogen um eine Stelle machen, an der in der eigenen Richtung gar nichts
+  steht, und sie meidet nicht den ganzen Stau, nur seine Mitte. Ob sie sich
+  lohnt, zeigt der Zeitvergleich. Sperrungen und zu schmale Baustellen werden
+  immer umfahren. Meldungen ohne Zeitangabe zählen NICHT in die Zeit; die App
+  sagt dann, wie viele es sind.
+- Die Staumeldungen sind der Stand beim Rechnen. Bis man an der Stelle ist,
+  kann sich der Stau aufgelöst haben oder einer dazugekommen sein.
 - Die Aufschläge fürs Anfahren sind geschätzt, nicht gemessen.
 - Die Verkehrslage auf der Karte ist Apples Anzeige und geht NICHT in die
   Berechnung ein — dafür liefert MapKit keine Daten heraus. In die Route

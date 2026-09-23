@@ -28,7 +28,9 @@ struct PlanerView: View {
     }
 
     var body: some View {
-        Routenkarte(route: planer.route, start: planer.start, ziel: planer.ziel,
+        Routenkarte(route: planer.route,
+                    alternativen: planer.routen.indices.filter { $0 != planer.gewaehlt }.map { planer.routen[$0] },
+                    start: planer.start, ziel: planer.ziel,
                     markierung: angetippt?.punkt, ansicht: ansicht,
                     kamerawunsch: kamerawunsch, tippen: antippen)
             .ignoresSafeArea(edges: .top)
@@ -82,8 +84,11 @@ struct PlanerView: View {
             .sheet(isPresented: $zeigeDetails) {
                 RoutenDetailView().environmentObject(planer)
             }
-            .onChange(of: planer.route?.punkte) { _, punkte in
-                if let punkte, let rect = Geo.rahmen(punkte) {
+            // Gerahmt wird bei einer NEUEN Rechnung, und zwar alle
+            // Vorschläge zusammen — nicht beim Umschalten zwischen ihnen,
+            // sonst spränge die Karte bei jedem Tipp auf eine Alternative.
+            .onChange(of: planer.routen.map(\.laengeM)) { _, _ in
+                if let rect = Geo.rahmen(planer.routen.flatMap(\.punkte)) {
                     kamerawunsch = Kamerawunsch(rahmen: rect)
                 }
             }
@@ -267,6 +272,7 @@ struct PlanerView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else if let r = planer.route {
+            if planer.routen.count > 1 { vorschlaege }
             Button {
                 zeigeDetails = true
             } label: {
@@ -286,6 +292,55 @@ struct PlanerView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// Die Vorschläge zur Auswahl. Die gewählte Route ist blau, die übrigen
+    /// liegen grau auf der Karte. Die schnellste (Auto) bzw. kürzeste (Rad,
+    /// zu Fuß) steht vorn — beim Auto MIT dem Zeitverlust aus Staus.
+    private var vorschlaege: some View {
+        let beste = planer.routen.first
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(planer.routen.enumerated()), id: \.offset) { i, r in
+                    Button {
+                        planer.gewaehlt = i
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                if !r.staumeidung.isEmpty {
+                                    Image(systemName: "arrow.triangle.branch")
+                                }
+                                Text(Anzeige.dauer(r.zeitS)).font(.callout.bold())
+                            }
+                            Text(vorschlagszeile(r, beste: beste, index: i))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 10)
+                        .background(i == planer.gewaehlt ? Color.blue.opacity(0.18) : Color(.secondarySystemBackground),
+                                    in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10)
+                            .stroke(i == planer.gewaehlt ? Color.blue : Color.clear, lineWidth: 1.5))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Vorschlag \(i + 1): \(Anzeige.dauer(r.zeitS)), \(Anzeige.strecke(r.laengeM))")
+                    .accessibilityAddTraits(i == planer.gewaehlt ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private func vorschlagszeile(_ r: Route, beste: Route?, index: Int) -> String {
+        var teile = [Anzeige.strecke(r.laengeM)]
+        if r.stauS >= 60 { teile.append("Stau +\(Int((r.stauS / 60).rounded())) min") }
+        if !r.staumeidung.isEmpty { teile.append("um den Stau") }
+        if index == 0 {
+            teile.append(planer.profil.art == .auto ? "schnellste" : "kürzeste")
+        } else if let beste, planer.profil.art == .auto {
+            teile.append("+\(Int(((r.zeitS - beste.zeitS) / 60).rounded())) min")
+        }
+        return teile.joined(separator: " · ")
     }
 
     @ViewBuilder private func zusammenfassungZeichen(_ r: Route) -> some View {

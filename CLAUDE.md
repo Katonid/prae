@@ -3216,13 +3216,37 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Abschnitt zerfiele jede Schiebestrecke in der Detailansicht an jedem
   Belagwechsel. Die Zuordnung der Stellen (`BRouter.stellen`) teilen sich
   beide Listen. Farbe UND Strichbild, und die Legende nennt die Kilometer.
+- **Jede Planung liefert Alternativen** (ab 1.0.4, Ansage des Nutzers
+  09/2026). Gemessen 23.09.2026: Valhalla `alternates: 2` gibt bei Auto, Rad
+  und zu Fuß je zwei echte andere Wege zurück (Dortmund → Köln 94,3 / 99,7 /
+  106,3 km); BRouter rechnet `alternativeidx` 0 bis 3 als EINZELNE Anfragen
+  (3573 / 4350 / 4964 / 4246 m — nicht nach Länge geordnet, sortiert wird in
+  der App). Gefragt werden 0 bis 2; scheitert eine Alternative, zählt nur die
+  erste als Fehler. Fast gleich lange Vorschläge (unter 0,5 %) fallen weg.
+  Ausgewählt wird in der Leiste unter der Karte, NICHT auf der Karte — dort
+  setzt ein Tipp Start oder Ziel. Gerahmt wird nur bei einer neuen Rechnung.
+- **Staus zählen in die REIHENFOLGE, nicht nur in die Zeit** (ab 1.0.4,
+  gemeldet 09/2026: „dass ein Stau zwar auf der Karte angezeigt wird, aber
+  nicht bei der Berechnung … berücksichtigt wird"). Die Autobahn GmbH meldet
+  `delayTimeValue` in Minuten als TEXT (gemessen: 1 bis 55 min an A1–A9);
+  jede Alternative bekommt ihren eigenen Stauverlust, und die schnellste MIT
+  Stau steht vorn. Ab `Planer.stauSchwelleMin` (10 min, gewählt) wird eigens
+  eine Umfahrung angefragt: Sperrfläche um die MITTE des Staus. Gemessen, dass
+  das wirkt: Dortmund → Wuppertal mit der Mitte des Staus Gevelsberg–Eichenkamp
+  gesperrt, erste Route 48,1 → 49,9 km. Die Umfahrung wird mit derselben
+  Rechnung bewertet wie alle — gerät sie selbst in einen Stau, zählt der mit.
+  Apples Verkehrslage bleibt reine Anzeige; TomTom und HERE hätten Daten für
+  alle Straßen, verlangen aber einen Schlüssel. Staus abseits der Autobahn
+  kennt die App deshalb NICHT — das steht in jedem Auto-Ergebnis.
+- **Meldungen ohne Zeitangabe zählen nicht** — und das wird GESAGT. Nicht
+  schätzen: eine erfundene Minutenzahl stünde als Posten in der Rechnung.
 - **Overpass war aus der Bauumgebung nicht erreichbar**, die OSM-API schon —
   die ist aber zum Bearbeiten da und kein Datendienst für Apps. Die App fragt
   sie deshalb nicht. Offen: Unterführungen OHNE eingetragene Höhe erkennen.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
   hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1),
-  dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4).
+  dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Navigation,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen.

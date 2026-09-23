@@ -30,6 +30,17 @@ enum Valhalla {
 
     static func route(von: Punkt, nach: Punkt, profil: Fahrzeugprofil,
                       sperrflaechen: [[Punkt]] = []) async throws -> Antwort {
+        try await routen(von: von, nach: nach, profil: profil, sperrflaechen: sperrflaechen, alternativen: 0)[0]
+    }
+
+    /// Die Route und bis zu `alternativen` weitere. Gemessen am 23.09.2026
+    /// (Dortmund → Köln, `alternates: 2`): 94,3 km / 74 min, dazu 99,7 km /
+    /// 81 min und 106,3 km / 84 min — echte andere Wege, keine Varianten
+    /// um ein paar Meter. Zu Fuß und mit dem Rad ebenso (je zwei weitere).
+    /// Die Alternativen sind KEINE Garantie: Findet der Dienst keine
+    /// sinnvolle, kommen weniger zurück.
+    static func routen(von: Punkt, nach: Punkt, profil: Fahrzeugprofil,
+                       sperrflaechen: [[Punkt]] = [], alternativen: Int) async throws -> [Antwort] {
         let costing: String
         var optionen: [String: Any] = [:]
         switch profil.art {
@@ -54,6 +65,7 @@ enum Valhalla {
             "language": "de-DE",
         ]
         if !optionen.isEmpty { koerper["costing_options"] = [costing: optionen] }
+        if alternativen > 0 { koerper["alternates"] = alternativen }
         if !sperrflaechen.isEmpty {
             // GeoJSON-Reihenfolge: Länge zuerst.
             koerper["exclude_polygons"] = sperrflaechen.map { flaeche in
@@ -64,11 +76,20 @@ enum Valhalla {
         guard let json = Netz.objekt(daten) else { throw Routenfehler.unlesbar(name) }
         if status != 200 || json["trip"] == nil { throw fehler(json, status: status) }
 
-        guard let trip = json["trip"] as? [String: Any],
-              let legs = trip["legs"] as? [[String: Any]], let leg = legs.first,
+        var liste: [Antwort] = []
+        if let trip = json["trip"] as? [String: Any], let a = lesen(trip) { liste.append(a) }
+        for alt in (json["alternates"] as? [[String: Any]]) ?? [] {
+            if let trip = alt["trip"] as? [String: Any], let a = lesen(trip) { liste.append(a) }
+        }
+        guard !liste.isEmpty else { throw Routenfehler.unlesbar(name) }
+        return liste
+    }
+
+    private static func lesen(_ trip: [String: Any]) -> Antwort? {
+        guard let legs = trip["legs"] as? [[String: Any]], let leg = legs.first,
               let shape = leg["shape"] as? String,
               let summary = trip["summary"] as? [String: Any]
-        else { throw Routenfehler.unlesbar(name) }
+        else { return nil }
 
         var anweisungen: [Anweisung] = []
         var abbiegungen = 0
