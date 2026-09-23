@@ -3164,6 +3164,22 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Profil-Editor — ob geschoben werden darf, entscheidet man je Fahrt.
   Gespeichert wird er am gewählten Profil (`Planer.schiebenSetzen`) und
   schickt `profile:schieben=0` an BRouter; gemessen: dann 0 m Schieben.
+- **Start und Ziel durch Antippen der Karte** (`Routenkarte` mit `MapReader`,
+  `PlanerView.antippen`, ab 1.0.2, Ansage des Nutzers 09/2026). Den Tipp nimmt
+  die KARTE entgegen (`onTapGesture` + `MapProxy.convert`); Schieben und
+  Zoomen bleiben unberührt, und auf der Karte liegt weiter kein Bedienelement.
+  Gefragt wird in einem Dialog: „Route hierhin – von meinem Standort", „Als
+  Ziel", „Als Start". **Erst die Frage, dann der Name** — der Geocoder
+  braucht eine Sekunde und wird nachgetragen, nur wenn noch derselbe Punkt
+  gemeint ist (Lehre aus Abfahrtstafel 1.1.26). **Ohne bekannten Standort
+  wird NICHT von einem alten Start gerechnet**: Das Ziel wird gesetzt, der
+  Start geleert, und die App sagt, was fehlt.
+- **Verkehrslage auf der Karte ist Apples Anzeige** (`.mapStyle(.standard(
+  showsTraffic:))`, Autosymbol unten, ab 1.0.2). Sie geht NICHT in die
+  Berechnung ein — MapKit gibt diese Daten nicht heraus. In die Route gehen
+  nur die Autobahn-Meldungen; ihr Schalter heißt seither „Meldungen" statt
+  „Verkehr", sonst hießen zwei verschiedene Dinge gleich. Wahl in
+  `@AppStorage` (in der VIEW).
 - **CarPlay: nein, und das bleibt so, bis Apple es bewilligt** (Frage des
   Nutzers 09/2026). Eine Karten-App braucht das Entitlement
   `com.apple.developer.carplay-maps`, das Apple nur auf Antrag vergibt, und
@@ -3178,7 +3194,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
   hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1),
-  dann 1.0.1 (Build 2).
+  dann 1.0.1 (Build 2), 1.0.2 (Build 3).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Navigation,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen.
