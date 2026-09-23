@@ -192,10 +192,10 @@ struct Seitenformat: Codable, Hashable, Identifiable {
     // bitte auch die drei von mir gewählten Formate von Saal Digital als
     // Formate für das Fotobuch.").
     //
-    // 21 × 28 cm fehlte bisher ganz — und es ist nachweislich das Format,
-    // in dem dieser Nutzer arbeitet: Sein am 23.09.2026 geschicktes PDF
-    // misst 595 × 793,72 Punkte, also genau 210 × 280 mm. Das Querformat
-    // steht daneben, weil es dasselbe Blatt ist.
+    // 21 × 28 cm fehlte bisher ganz, obwohl es eines der gängigsten
+    // Fotobuchformate ist; das Querformat steht daneben, weil es dasselbe
+    // Blatt ist. **Welche drei Formate der Nutzer meint, ist damit NICHT
+    // beantwortet** — dafür gibt es die eigenen Vorlagen.
     //
     // **Die Maße folgen der Formatangabe des Anbieters und sind nicht
     // gemessen.** Was ein bestimmter Druckdienst annimmt, sagt er selbst;

@@ -6727,11 +6727,19 @@ Befunde, und keiner davon war Geschmack:
     Textschlüssel über `Seitenformat.vorlagen` auf; ein selbst vergebener
     Name stünde dort nie, und ein Buch mit einem Namen, den es beim
     nächsten Öffnen nicht mehr gibt, fiele still auf A4 quer zurück.
-  - **21 × 28 cm und 28 × 21 cm sind dazugekommen**, weil sie fehlten —
-    und weil 21 × 28 nachweislich das Format dieses Nutzers ist: Sein am
-    23.09.2026 geschicktes PDF misst 595 × 793,72 Punkte, also genau
-    210 × 280 mm. **Die Maße folgen der Formatangabe des Anbieters und
-    sind nicht gemessen**; das steht so in der Oberfläche.
+  - **21 × 28 cm und 28 × 21 cm sind dazugekommen**, weil sie zu den
+    gängigsten Fotobuchformaten gehören und bisher fehlten. **Die Maße
+    folgen der Formatangabe des Anbieters und sind nicht gemessen**; das
+    steht so in der Oberfläche.
+  - **Ein Beleg dafür, dass es SEINE Formate sind, gibt es nicht — und der,
+    den ich zu haben glaubte, war keiner.** Das am 23.09.2026 geschickte
+    PDF misst 595 × 793,72 Punkte (also 210 × 280 mm), und genau daraus
+    stand hier kurzzeitig, 21 × 28 sei nachweislich sein Format. Beim
+    Nachsehen enthielt die Datei aber ausschließlich Bilddaten und keinen
+    einzigen Textzug: Es ist eine Zusammenführung von Bildschirmfotos, und
+    ihr Seitenmaß gehört dem Werkzeug, das sie zusammengefügt hat.
+    **Merke: Bevor ein Dateimaß als Beleg für den Inhalt gilt, ist zu
+    prüfen, was in der Datei überhaupt steht.**
 - **Zwei Dateien gab es seit 1.0.50 — gefunden hat sie niemand** (eigener
   Menüpunkt ab 1.0.52; gemeldet 09/2026: „Ich möchte bei der Exportfunktion
   Einbauen, dass automatisch ein Export von zwei PDF-Dateien vorgenommen

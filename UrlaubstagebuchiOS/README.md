@@ -558,8 +558,9 @@ mit Buchseiten nichts zu suchen. Umstellen lässt es sich mit einem Tipp.
 ## Eigene Seitenformate (1.0.52)
 
 Unter **Seitenformat** stehen neben A4, A5 und den drei Quadraten jetzt
-auch **21 × 28 cm** und **28 × 21 cm** — die gängigen Fotobuchformate.
-Die Maße folgen der Formatangabe des Anbieters und sind nicht gemessen.
+auch **21 × 28 cm** und **28 × 21 cm** — zwei der gängigsten
+Fotobuchformate. Die Maße folgen der Formatangabe des Anbieters und sind
+nicht gemessen; verbindlich ist, was der Druckdienst nennt.
 
 Wer ein anderes braucht, tippt es ein und sichert es mit **„Als eigene
 Vorlage sichern"**. Sie liegt danach auf dem Gerät und steht in jedem Buch
