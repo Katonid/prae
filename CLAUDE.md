@@ -2562,6 +2562,57 @@ Auftrag, für Bauten, die niemand angefordert hatte.
     Filter „S-Bahnen" heraus — wer wissen will, ob seine S1 ersetzt wird, sieht
     sie unter „Busse". Markiert ist sie (Symbol und `Linienzusatz`), gefiltert
     nicht.
+- **31 Punkte lagen brach, und trotzdem wurde abgeschnitten** (`AbfahrtsZeile`,
+  ab 1.1.32; gemeldet 09/2026: „Das ist nicht gut lesbar. Da wird vieles
+  abgeschnitten." — in jeder Zeile stand „Dortmund…" und dahinter drei Punkte).
+  **Am Bildschirmfoto nachgemessen** (iPhone, 1206 px = 402 pt, 3×), und der
+  erste Befund war der überraschende:
+  - **Die Titelzeile brach bei 135,3 pt ab — auf den Punkt dort, wo die
+    Detailzeile darunter endet** („01 · 07:42 +7 07:49"), während bis zur
+    Minutenspalte 166,7 pt zur Verfügung standen. **Eine `VStack` in einer
+    `HStack` mit `Spacer` bekommt ihre IDEALBREITE**, und die ist das Maximum
+    dessen, was die Kinder für sich verlangen — hier also die schmale Zeile
+    darunter. Der `Spacer` nahm den Rest. Abhilfe:
+    `.frame(maxWidth: .infinity, alignment: .leading)` an der Spalte, und der
+    `Spacer` fällt ersatzlos weg. **Merke: Wenn Text abgeschnitten wird und
+    daneben Platz frei ist, ist nicht der Text zu lang — die Spalte ist zu
+    schmal.**
+  - **Eine Zeile reicht für ein Fahrtziel nicht.** Jetzt zwei; abgeschnitten
+    wird erst, wo auch zwei nicht reichen.
+  - **Das Liniensymbol ist seit 1.1.29 breiter** (gemessen 70,7 pt statt der
+    52 pt Mindestbreite von vorher) — das Verkehrsmittelsymbol kostet knapp
+    19 pt. Es bleibt: Es ist die Antwort auf den Befund von 1.1.29. Aber es
+    gehört in die Rechnung, wenn wieder einmal etwas nicht passt.
+  - **Die Minutenspalte bleibt bei 62 pt.** Gemessen braucht „8 min" nur 38 pt
+    — der Wert ist aber für „jetzt" in 24 pt gesetzt, und ohne feste Breite
+    wandert die Ziffernspalte, sobald irgendwo „jetzt" auftaucht.
+- **Der Ortsname stand ZWEIMAL da** (`Views/Richtungsname.swift`, ab 1.1.32).
+  Die Haltestelle hieß „Dortmund Neu-Crengeldanz-Str.", das Ziel „Dortmund …"
+  — das zweite „Dortmund" fraß genau den Platz, an dem das Ziel steht.
+  **Nachgemessen am 23.09.2026 an 1680 Abfahrten in zwanzig deutschen
+  Städten: 33 % aller Ziele beginnen mit demselben Wort wie ihre
+  Haltestelle.** Das ist eine Eigenart der Verbünde und verteilt sich
+  entsprechend: Essen 86 %, Frankfurt 84 %, Dortmund 76 %, Bochum 74 %,
+  Wuppertal 69 %, Hannover 67 %, Köln 66 %, Duisburg 60 %, Augsburg 42 %,
+  Berlin 13 %, Kiel 9 %, Dresden 6 %, Hamburg 3 %, Leipzig/Bremen/Mainz 1 % —
+  und **München, Stuttgart, Nürnberg, Düsseldorf 0 %**. Wo die
+  Haltestellennamen den Ort gar nicht tragen, ändert die Regel also nichts.
+  - **Gestrichen wird nur das ERSTE Wort und nur bei Wort-für-Wort-Gleichheit**
+    (Groß/Klein egal, **Umlaute nicht eingeebnet**). An den Gegenproben
+    derselben Messung geprüft: „Dortmund Hbf → **München Hbf**" bleibt stehen —
+    dort ist der Ort die ganze Auskunft —, ebenso „→ Oberhausen Hbf",
+    „→ Enschede", „→ Bochum-Langendreer" (ein Bindestrichname ist EIN Wort)
+    und „→ DO-Walbertstraße/Schulmuseum" (eine Abkürzung ist nicht der
+    Ortsname; sie zu erraten wäre genau das, was diese App nicht tut). Ein
+    Ziel, das NUR aus dem Ort besteht, bleibt ebenfalls stehen.
+  - **Gekürzt wird in der ANSICHT, nicht in den Daten.** `Abfahrt.richtung`
+    trägt weiter den vollen Namen; er steht im Fahrtlauf über der Karte und in
+    der Überschrift der Haltestelle. Gekürzt wird nur die Zeile, in der der
+    Ort ohnehin direkt daneben steht.
+  - **Die Regel lässt sich ansehen** — in der Vorschau von `Richtungsname`, an
+    den gemessenen Paaren samt Gegenproben. NICHT in den Musterdaten: Die
+    Beispieltafel spielt in München, und dort gibt es den Fall nachweislich
+    nicht (0 %).
 
 ### Verbindungsauskunft (ab 1.1.0)
 
@@ -3039,7 +3090,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43), 1.1.31 (Build 44) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43), 1.1.31 (Build 44), 1.1.32 (Build 45) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

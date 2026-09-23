@@ -483,6 +483,38 @@ den Filter und nicht über den Fahrplan.
 In der **Abfahrtstafel** gibt es diesen Filter nicht. Dort ist ein
 Ersatzverkehr ein Bus — markiert, aber nicht filterbar.
 
+## Warum das Fahrtziel abgeschnitten war (ab 1.1.32)
+
+Gemeldet 09/2026 an einer Tafel in Dortmund: In jeder Zeile stand
+„Dortmund…" und dahinter drei Punkte. Am Bildschirmfoto nachgemessen
+(iPhone, 1206 px = 402 pt) — **drei Ursachen**, und die erste war die
+überraschende:
+
+1. **31 pt lagen brach, und trotzdem wurde abgeschnitten.** Die Titelzeile
+   brach bei 135,3 pt ab — auf den Punkt dort, wo die Detailzeile darunter
+   endet —, während bis zur Minutenspalte 166,7 pt frei waren. Eine Spalte
+   neben einem Abstandhalter bekommt in SwiftUI ihre *Idealbreite*, und die
+   war hier die der schmalen Zeile darunter. **Wenn Text abgeschnitten wird
+   und daneben Platz frei ist, ist nicht der Text zu lang — die Spalte ist
+   zu schmal.**
+2. **Eine Zeile reicht für ein Fahrtziel nicht.** Jetzt zwei.
+3. **Der Ortsname stand zweimal da.** Die Haltestelle hieß „Dortmund
+   Neu-Crengeldanz-Str.", das Ziel „Dortmund …".
+
+Zu Punkt 3, nachgemessen am 23.09.2026 an **1680 Abfahrten in zwanzig
+deutschen Städten**: **33 % aller Ziele beginnen mit demselben Wort wie ihre
+Haltestelle** — Essen 86 %, Frankfurt 84 %, Dortmund 76 %, Bochum 74 %,
+Wuppertal 69 %, Hannover 67 %, Köln 66 %, Duisburg 60 %, Augsburg 42 %,
+Berlin 13 %, Hamburg 3 %, und in München, Stuttgart, Nürnberg und Düsseldorf
+**0 %**. Wo die Haltestellennamen den Ort nicht tragen, ändert sich also
+nichts.
+
+Gestrichen wird **nur das erste Wort und nur bei Wort-für-Wort-Gleichheit**:
+„Dortmund Hbf → München Hbf" bleibt stehen, ebenso „→ Oberhausen Hbf",
+„→ Bochum-Langendreer" und „→ DO-Walbertstraße/Schulmuseum". Und gekürzt
+wird nur die **Anzeige** — den vollen Namen zeigen der Fahrtlauf und die
+Überschrift der Haltestelle unverändert.
+
 ## Auf dem iPad
 
 Eine `List` füllt, was da ist — im Querformat sind das gut zweitausend Punkte,
@@ -736,7 +768,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43), 1.1.31 (Build 44) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43), 1.1.31 (Build 44), 1.1.32 (Build 45) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.
