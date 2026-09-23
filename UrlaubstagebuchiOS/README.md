@@ -480,6 +480,33 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Warum der Umschlagbogen ohne Bilder herauskam (1.0.68)
+
+Zweimal gemeldet, zweimal dasselbe Bild: ein Bogen mit Titel, Rückentext und
+weißem Papier. Die Ursache liegt eine Ebene tiefer, als 1.0.67 gesucht hat.
+
+`UIImage.draw(in:)` und die Pfadaufrufe von UIKit (`UIBezierPath.fill()`,
+`.stroke()`, `.addClip()`) zeichnen nicht in den `CGContext`, den man ihnen
+daneben übergibt, sondern in den, der oben auf UIKits eigenem Stapel liegt.
+Ist dort keiner, tun sie nichts — ohne Fehler und ohne Warnung. `umschlagPdf`
+war der einzige der drei Ausgabewege ohne `UIGraphicsPushContext`; damit
+fehlten dort alle Bilder, alle gerundeten Flächen und alle Schatten, während
+Text und Farbflächen ankamen.
+
+Das Pushen steht seit 1.0.68 in `Seitensatz.mitUIKit`, also dort, wo UIKit
+wirklich zeichnet; die sechs betroffenen Zeichenfunktionen legen ihren Körper
+hinein. An drei Aufrufstellen gepflegt, fehlte es an der vierten — und
+aufgefallen ist es erst an der ausgegebenen Datei.
+
+Dazu zählt die Druckprüfung seit 1.0.68 die Bilder, die wirklich in der Datei
+stehen (`bilderImPdf`, die Bild-XObjects der Seiten). Seitenzahl und Maße
+konnten ein Panorama und ein leeres Blatt nicht unterscheiden; eine Null ist
+jetzt ein Befund.
+
+Was 1.0.67 abgestellt hat, bleibt richtig und war nicht der Fehler: Die beiden
+Umschlaghälften übermalten den Bogengrund. Es lagen zwei Fehler übereinander,
+und der sichtbare war der harmlosere.
+
 ## Der Umschlag: Grund, Ausgabe, Titel (1.0.67)
 
 Drei Befunde aus einem Durchgang, alle drei am Umschlag.
