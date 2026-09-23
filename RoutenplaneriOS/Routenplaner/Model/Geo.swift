@@ -131,6 +131,12 @@ enum Anzeige {
         return m == 0 ? "\(h) h" : "\(h) h \(m) min"
     }
 
+    /// Laufende Zeit wie auf einer Stoppuhr: 0:07:42.
+    static func uhr(_ sekunden: Double) -> String {
+        let s = max(0, Int(sekunden))
+        return String(format: "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60)
+    }
+
     static func zahl(_ wert: Double, stellen: Int = 2) -> String {
         String(format: "%.\(stellen)f", wert).replacingOccurrences(of: ".", with: ",")
     }

@@ -186,7 +186,7 @@ enum GPX {
         }
     }
 
-    private static func maskiert(_ s: String) -> String {
+    static func maskiert(_ s: String) -> String {
         s.replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")

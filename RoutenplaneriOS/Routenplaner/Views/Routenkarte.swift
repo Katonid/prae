@@ -125,6 +125,10 @@ struct Routenkarte: UIViewRepresentable {
     let markierung: Punkt?
     let ansicht: Kartenansicht
     let kamerawunsch: Kamerawunsch?
+    /// Die laufende Aufzeichnung (rot) und eine gesicherte, die gerade
+    /// gezeigt wird (violett) — je Abschnitt eine Linie.
+    var spur: [[Punkt]] = []
+    var gezeigteSpur: [[Punkt]] = []
     let tippen: (Punkt) -> Void
 
     func makeCoordinator() -> Koordinator { Koordinator() }
@@ -191,6 +195,8 @@ struct Routenkarte: UIViewRepresentable {
         k.ansichtSetzen(ansicht, karte: karte)
         k.linienSetzen(route: route, alternativen: alternativen, belag: ansicht.belag, karte: karte)
         k.zeichenSetzen(start: start, ziel: ziel, markierung: markierung, route: route, karte: karte)
+        k.spurSetzen(gezeigteSpur, farbe: .systemPurple, name: "gezeigt", karte: karte)
+        k.spurSetzen(spur, farbe: .systemRed, name: "laufend", karte: karte)
         if let w = kamerawunsch, w.id != k.letzterWunsch {
             k.letzterWunsch = w.id
             karte.setVisibleMapRect(w.rahmen, edgePadding: UIEdgeInsets(top: 70, left: 30, bottom: 30, right: 70),
@@ -211,6 +217,7 @@ struct Routenkarte: UIViewRepresentable {
         private var linienSchluessel: [UUID] = []
         private var linienBelag = false
         private var zeichen: [Kartenzeichen] = []
+        private var spurlinien: [String: [MKOverlay]] = [:]
         private var zeichenSchluessel: [String] = []
         private var zentriert = false
 
@@ -295,6 +302,43 @@ struct Routenkarte: UIViewRepresentable {
             }
             linien = neu
             karte.addOverlays(neu, level: .aboveLabels)
+        }
+
+        /// Eine aufgezeichnete Strecke. Sie wächst jede Sekunde um einen
+        /// Punkt — eine Linie aus Tausenden Punkten jede Sekunde neu zu
+        /// zeichnen, wäre die teure Art, das zu tun. Deshalb in Stücken zu
+        /// `stueck` Punkten: Nur das letzte, noch wachsende wird ersetzt.
+        /// Die Stücke überlappen um einen Punkt, sonst klaffte an jeder
+        /// Naht eine Lücke.
+        func spurSetzen(_ abschnitte: [[Punkt]], farbe: UIColor, name: String, karte: MKMapView) {
+            let stueck = 300
+            var gewuenscht: [String: ArraySlice<Punkt>] = [:]
+            for (a, punkte) in abschnitte.enumerated() where punkte.count > 1 {
+                var anfang = 0
+                var i = 0
+                while anfang < punkte.count - 1 {
+                    let ende = min(anfang + stueck, punkte.count - 1)
+                    gewuenscht["\(name)-\(a)-\(i)-\(ende - anfang)"] = punkte[anfang...ende]
+                    anfang = ende
+                    i += 1
+                }
+            }
+            let alt = spurlinien.filter { $0.key.hasPrefix(name + "-") }
+            for (k, overlays) in alt where gewuenscht[k] == nil {
+                karte.removeOverlays(overlays)
+                spurlinien[k] = nil
+            }
+            for (k, punkte) in gewuenscht.sorted(by: { $0.key < $1.key }) where spurlinien[k] == nil {
+                let koordinaten = punkte.map(\.koordinate)
+                let kontur = Linie(coordinates: koordinaten, count: koordinaten.count)
+                kontur.farbe = .white
+                kontur.breite = 7
+                let linie = Linie(coordinates: koordinaten, count: koordinaten.count)
+                linie.farbe = farbe
+                linie.breite = 4
+                karte.addOverlays([kontur, linie], level: .aboveLabels)
+                spurlinien[k] = [kontur, linie]
+            }
         }
 
         func zeichenSetzen(start: Ort?, ziel: Ort?, markierung: Punkt?, route: Route?, karte: MKMapView) {

@@ -6,6 +6,9 @@ import MapKit
 struct PlanerView: View {
     @EnvironmentObject private var planer: Planer
     @EnvironmentObject private var standort: Standort
+    @EnvironmentObject private var aufzeichner: Aufzeichner
+    @State private var zeigeFahrten = false
+    @State private var beendenFragen = false
     @State private var kamerawunsch: Kamerawunsch?
     @State private var ortswahl: Ortsfeld?
     @State private var zeigeProfile = false
@@ -32,11 +35,14 @@ struct PlanerView: View {
                     alternativen: planer.routen.indices.filter { $0 != planer.gewaehlt }.map { planer.routen[$0] },
                     start: planer.start, ziel: planer.ziel,
                     markierung: angetippt?.punkt, ansicht: ansicht,
-                    kamerawunsch: kamerawunsch, tippen: antippen)
+                    kamerawunsch: kamerawunsch,
+                    spur: aufzeichner.linie, gezeigteSpur: aufzeichner.gezeigteLinie,
+                    tippen: antippen)
             .ignoresSafeArea(edges: .top)
             .overlay(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 8) {
                     kartenmenue
+                    aufzeichnungsmenue
                     if belag, let r = planer.route { Belaglegende(route: r) }
                 }
                 .padding(.leading, 12)
@@ -83,6 +89,26 @@ struct PlanerView: View {
             }
             .sheet(isPresented: $zeigeDetails) {
                 RoutenDetailView().environmentObject(planer)
+            }
+            .sheet(isPresented: $zeigeFahrten) {
+                FahrtenView().environmentObject(aufzeichner)
+            }
+            .alert("Aufzeichnung", isPresented: Binding(get: { aufzeichner.hinweis != nil },
+                                                        set: { if !$0 { aufzeichner.hinweis = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(aufzeichner.hinweis ?? "")
+            }
+            .confirmationDialog("Aufzeichnung beenden?", isPresented: $beendenFragen, titleVisibility: .visible) {
+                Button("Beenden und sichern") { aufzeichner.beenden() }
+                Button("Weiter aufzeichnen", role: .cancel) {}
+            }
+            // Eine gesicherte Fahrt, die gerade eingeblendet wurde, kommt
+            // ins Bild — sonst läge sie womöglich außerhalb, und der Tipp
+            // sähe aus, als hätte er nichts getan.
+            .onChange(of: aufzeichner.gezeigt?.id) { _, neu in
+                guard neu != nil, let rect = Geo.rahmen(aufzeichner.gezeigteLinie.flatMap { $0 }) else { return }
+                kamerawunsch = Kamerawunsch(rahmen: rect)
             }
             // Gerahmt wird bei einer NEUEN Rechnung, und zwar alle
             // Vorschläge zusammen — nicht beim Umschalten zwischen ihnen,
@@ -143,6 +169,116 @@ struct PlanerView: View {
         .accessibilityLabel("Kartenansicht")
     }
 
+    // MARK: - Aufzeichnung
+
+    /// Der zweite Knopf an der Karte. Rot gefüllt, solange aufgezeichnet
+    /// wird — das Zeichen in der Statusleiste sieht man nur im Hintergrund.
+    private var aufzeichnungsmenue: some View {
+        Menu {
+            if aufzeichner.zustand == .aus {
+                Button {
+                    aufzeichner.starten(art: planer.profil.art)
+                } label: {
+                    Label("Strecke aufzeichnen (\(planer.profil.art.name))", systemImage: "record.circle")
+                }
+            } else {
+                Button {
+                    beendenFragen = true
+                } label: {
+                    Label("Aufzeichnung beenden", systemImage: "stop.circle")
+                }
+            }
+            Button {
+                zeigeFahrten = true
+            } label: {
+                Label("Aufgezeichnete Strecken (\(aufzeichner.fahrten.count))", systemImage: "list.bullet")
+            }
+            if aufzeichner.gezeigt != nil {
+                Button {
+                    aufzeichner.ausblenden()
+                } label: {
+                    Label("Gezeigte Strecke ausblenden", systemImage: "eye.slash")
+                }
+            }
+        } label: {
+            Image(systemName: aufzeichner.zustand == .aus ? "record.circle" : "record.circle.fill")
+                .font(.title3)
+                .foregroundStyle(aufzeichner.zustand == .aus ? Color.primary : Color.red)
+                .frame(width: 44, height: 44)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        }
+        .accessibilityLabel("Aufzeichnung")
+    }
+
+    /// Die laufende Aufzeichnung im Bedienfeld. Die Genauigkeit steht mit
+    /// drin: „±4 m" heißt, dass gerade gemessen wird, wie es soll; „±65 m"
+    /// heißt, dass diese Stellen NICHT in die Strecke eingehen.
+    @ViewBuilder private var aufnahmefeld: some View {
+        if aufzeichner.zustand != .aus {
+            TimelineView(.periodic(from: .now, by: 1)) { kontext in
+                HStack(spacing: 10) {
+                    Image(systemName: aufzeichner.zustand == .laeuft ? "record.circle.fill" : "pause.circle.fill")
+                        .foregroundStyle(aufzeichner.zustand == .laeuft ? .red : .orange)
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            Text(Anzeige.uhr(aufzeichner.dauer(bis: kontext.date))).font(.headline.monospacedDigit())
+                            Text(Anzeige.strecke(aufzeichner.laengeM)).font(.headline)
+                        }
+                        Text(aufnahmezeile).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    if aufzeichner.zustand == .laeuft {
+                        Button { aufzeichner.pausieren() } label: { Image(systemName: "pause.fill") }
+                            .buttonStyle(.bordered)
+                            .accessibilityLabel("Pause")
+                    } else {
+                        Button { aufzeichner.weiter() } label: { Image(systemName: "play.fill") }
+                            .buttonStyle(.bordered)
+                            .accessibilityLabel("Weiter aufzeichnen")
+                    }
+                    Button { beendenFragen = true } label: { Image(systemName: "stop.fill") }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                        .accessibilityLabel("Aufzeichnung beenden")
+                }
+            }
+            .padding(10)
+            .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        } else if let alt = aufzeichner.unterbrochen {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Die Aufzeichnung \u{201E}\(alt.name)\u{201C} wurde unterbrochen.", systemImage: "exclamationmark.circle")
+                    .font(.callout)
+                HStack {
+                    Button("Fortsetzen") { aufzeichner.fortsetzen(alt) }
+                        .buttonStyle(.borderedProminent)
+                    Button("So abschließen") { aufzeichner.abschliessen(alt) }
+                        .buttonStyle(.bordered)
+                }
+                .font(.callout)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private var aufnahmezeile: String {
+        var teile: [String] = []
+        if aufzeichner.zustand == .pausiert {
+            teile.append("Pause")
+        } else if let g = aufzeichner.genauigkeit {
+            teile.append(g <= Spurrechner.grenzeM ? "±\(Int(g.rounded())) m" : "±\(Int(g.rounded())) m – zählt nicht")
+        } else {
+            teile.append("warte auf Ortung …")
+        }
+        if let v = aufzeichner.tempo, aufzeichner.zustand == .laeuft {
+            teile.append("\(Int((v * 3.6).rounded())) km/h")
+        }
+        teile.append("\(aufzeichner.messungen) Messungen")
+        return teile.joined(separator: " · ")
+    }
+
     // MARK: - Tipp auf die Karte
 
     private func antippen(_ p: Punkt) {
@@ -181,6 +317,7 @@ struct PlanerView: View {
 
     private var bedienfeld: some View {
         VStack(spacing: 10) {
+            aufnahmefeld
             HStack(alignment: .center, spacing: 8) {
                 VStack(spacing: 6) {
                     ortsknopf(.start, planer.start, farbe: .green)
