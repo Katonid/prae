@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- DIE MAC-FASSUNG HAT IHRE EIGENE RECHTE-DATEI (ab 1.0.62).
+	     Ansage des Nutzers, 09/2026: „Jetzt möchte ich tatsächlich doch
+	     noch die Option haben, das Ganze auf dem Mac nutzen zu können, und
+	     zwar als eigenständige Mac-App."
+
+	     ZWEI DATEIEN, weil die Rechte NICHT dieselben sind. macOS verlangt
+	     den Sandkasten samt der Zeilen darunter; iOS kennt diese Schlüssel
+	     gar nicht, und ein Profil, das ein Recht nicht kennt, lässt die
+	     Signierung scheitern. Genau das hat 1.0.44 gekostet — dort stand
+	     ein einziges fremdes Recht in der Datei, und die App war auf kein
+	     Gerät mehr zu bringen. Dieselbe Bauweise wie bei Schulalarm, das
+	     seit 1.0.18 zwei Entitlements-Dateien führt; ausgewählt wird sie
+	     im pbxproj über `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`.
+
+	     WAS HIER STEHT, IST NACHGELESEN UND NICHT GERATEN — mit einer
+	     Ausnahme, die dabeisteht. Keine dieser Zeilen ist eine Fähigkeit
+	     der App-Id in der Entwicklerkonsole: Sandkasten-Rechte werden vom
+	     System ausgewertet und nicht vom Profil bewilligt. Das iCloud-Recht
+	     ist die Ausnahme, und es ist dasselbe wie auf iOS — die App-Id
+	     trägt es bereits, sonst liefe der Abgleich auch dort nicht. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+
+	<!-- Der Dateiwähler gibt eine Datei nur dann wirklich heraus, wenn die
+	     App sie lesen darf. Ohne diese Zeile kommt aus „Bilder aus
+	     Dateien", aus der Grafik-Einfuhr und aus dem Einlesen einer
+	     `.reisebuch`-Datei NICHTS an — und zwar ohne Fehlermeldung. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+
+	<!-- Kartenkacheln, Geocoder, iCloud. Ein Sandkasten ohne diese Zeile
+	     hat kein Netz, und die Karte bliebe leer. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+
+	<!-- Die Fotomediathek. Der Wähler selbst liefe auch ohne — er ist ein
+	     eigener Prozess —, aber die App schlägt den AUFNAHMEORT am
+	     Mediathekseintrag nach, und genau das ist der Zugriff, um den es
+	     geht (siehe `Config/Info.plist`). -->
+	<key>com.apple.security.personal-information.photos-library</key>
+	<true/>
+
+	<!-- Gedruckt wird aus der App heraus (seit 1.0.37, die Broschüre). -->
+	<key>com.apple.security.print</key>
+	<true/>
+
+	<!-- Derselbe Behälter wie auf iOS: Ein Buch, das auf dem iPad liegt,
+	     soll auf dem Mac dasselbe Buch sein. -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.urlaubstagebuch</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.urlaubstagebuch</string>
+	</array>
+</dict>
+</plist>

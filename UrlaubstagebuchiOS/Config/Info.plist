@@ -76,9 +76,27 @@
 	     schickt, soll bei dieser App landen. Nicht „an Ort und Stelle":
 	     Die App kopiert beim Einlesen ohnehin in ihre eigene Ablage, und
 	     ein Buch, das noch in einem fremden Ordner liegt, wäre beim
-	     nächsten Öffnen vielleicht nicht mehr da. -->
+	     nächsten Öffnen vielleicht nicht mehr da.
+
+	     Bis 1.0.61 stand hier `LSSupportsOpeningDocumentsInPlace` mit
+	     `false`. Genau das lehnt macOS ab: „'LSSupportsOpeningDocumentsIn-
+	     Place = NO' is not supported on macOS. Either remove the entry or
+	     set it to YES." Der Bau der Mac-Fassung scheiterte daran, im
+	     ersten Lauf, in dem es ihn gab.
+
+	     Weggelassen genügt nicht: Dann warnt der Bau, die App unterstütze
+	     das Öffnen von Dateien, sage aber nicht, ob an Ort und Stelle —
+	     und eine Warnung ist in diesem Repo keine Nebensache. Es steht
+	     deshalb auf `YES`, und das ist für DIESE App keine Zusage, die sie
+	     nicht hält: Sie liest die Datei und schreibt ihren Inhalt in die
+	     eigene Ablage, das Buch bleibt danach für sich. Das Einlesen
+	     meldet den Zugriff seit 1.0.62 ausdrücklich an
+	     (`startAccessingSecurityScopedResource`), denn an Ort und Stelle
+	     kommt die Datei aus einem fremden Ordner. Und `aufraeumen` löscht
+	     weiterhin NUR im Posteingang — ein Buch, das dem Nutzer gehört,
+	     wird nicht angefasst. -->
 	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<false/>
+	<true/>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

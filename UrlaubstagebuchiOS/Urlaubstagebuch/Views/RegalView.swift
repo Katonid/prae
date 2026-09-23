@@ -48,7 +48,7 @@ struct RegalView: View {
             .onChange(of: regal.angeboteneDatei) { _, ort in
                 guard let ort else { return }
                 do {
-                    angebot = try Buchdatei.pruefen(ort)
+                    angebot = try mitZugriff(ort) { try Buchdatei.pruefen(ort) }
                 } catch {
                     einlesefehler = error.localizedDescription
                     aufraeumen()
@@ -144,12 +144,28 @@ struct RegalView: View {
         guard let ort = regal.angeboteneDatei else { return }
         angebot = nil
         do {
-            _ = try Buchdatei.einlesen(ort, alsKopie: alsKopie)
+            _ = try mitZugriff(ort) { try Buchdatei.einlesen(ort, alsKopie: alsKopie) }
             regal.neuLesen()
         } catch {
             einlesefehler = error.localizedDescription
         }
         aufraeumen()
+    }
+
+    // EINE DATEI AN ORT UND STELLE MUSS ANGEMELDET WERDEN (ab 1.0.62).
+    //
+    // Seit `LSSupportsOpeningDocumentsInPlace = YES` gibt das System nicht
+    // mehr nur eine Kopie im Posteingang heraus, sondern auch die
+    // Originaldatei in einem fremden Ordner — und die lässt sich ohne
+    // angemeldeten Zugriff nicht lesen. Ohne diese Zeilen käme aus „in
+    // Reisebuch öffnen" nichts an, und zwar ohne Fehlermeldung.
+    //
+    // Für eine Datei aus dem Posteingang ist der Aufruf folgenlos: Er
+    // gibt dort `false` zurück, und gelesen wird trotzdem.
+    private func mitZugriff<W>(_ ort: URL, _ arbeit: () throws -> W) rethrows -> W {
+        let offen = ort.startAccessingSecurityScopedResource()
+        defer { if offen { ort.stopAccessingSecurityScopedResource() } }
+        return try arbeit()
     }
 
     // Was iOS in den Posteingang der App gelegt hat, gehört danach nicht

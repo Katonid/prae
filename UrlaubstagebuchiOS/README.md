@@ -480,6 +480,115 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Umschlag läuft durch — und der Rücken lässt sich setzen (1.0.63)
+
+Befund und Ansage des Nutzers, 09/2026: „Im vorliegenden Beispiel hat es
+den Eindruck, dass der Buchrücken in einem dunklen Grau gestaltet ist …
+oder ganz einfach das Hintergrundbild von Deckblatt und Rückseite
+durchlaufen zu lassen. Die im Moment vorhandene Schrift lässt sich auch
+nicht verschieben oder drehen … Im konkreten Fall hätte ich sie nämlich
+gerne um 180 Grad gedreht."
+
+Der erste Teil war ein **Fehler und kein Wunsch**: Im PDF lief der
+Hintergrund schon immer über den ganzen Umschlagbogen, samt Rücken. Auf
+dem Bildschirm zeichnete jede Hälfte ihren eigenen, und dazwischen lag der
+Rücken als graue Fläche. Ansicht und Datei zeigten also Verschiedenes —
+genau die Trennung, die die erste Regel dieser App verbietet.
+
+- **Ein Bild über Rückseite, Rücken und Titelseite.** Die beiden Hälften
+  lassen ihren Grund weg (`ohneGrund`), auch das weiße Papier darunter;
+  gezeichnet wird EIN Hintergrund über den ganzen Bogen, wie ihn das PDF
+  schreibt.
+- **Eine Ungenauigkeit bleibt, und sie steht dabei:** Die Ansicht zeigt
+  beide Hälften mit ihrem eigenen Anschnitt, der gedruckte Umschlag ist
+  innen um zwei Anschnitte schmaler. Das Bild steht auf dem Bildschirm
+  also gut ein Prozent breiter, als es gedruckt wird — eine Ungenauigkeit
+  der Ansicht, nicht der Datei.
+- **Der Rücken wird mit der Schrift des Buches gesetzt.** Bis 1.0.62 gab
+  es ihn zweimal: das PDF mit der Typografie des Buches, die Ansicht mit
+  einer festen Bildschirmschrift („max(6, min(breite · 0,6, 13))") auf
+  grauem Grund. Beides rechnet jetzt `Model/Rueckensatz.swift`, und
+  gezeichnet wird mit demselben `Textkasten`, mit dem jede Seite gesetzt
+  wird.
+- **Lage und Leserichtung sind einstellbar.** Die Lage ist ein **Anteil**
+  (0 = Kopf, 1 = Fuß) und keine Millimeterzahl — so übersteht sie einen
+  Formatwechsel; angezeigt wird sie in Worten („eher oben"), weil „0,35"
+  niemandem etwas sagt. Die Leserichtung ist ein Schalter und keine
+  Regel: Von oben nach unten ist hierzulande üblich, andersherum
+  anderswo.
+- **Verschieben geht nur mit einem Kasten, der schmaler ist als sein
+  Platz.** Ein Kasten über die ganze Rückenlänge sähe mittig zentriert
+  immer gleich aus, wie weit man den Regler auch schöbe; `Textmass.breite`
+  misst deshalb seit dieser Fassung, wie breit ein Text von sich aus
+  wird.
+
+**Nicht gemessen (1.0.63):** Kein Umschlag ist damit gedruckt worden.
+Gerechnet ist die Geometrie, und die Ansicht fragt jetzt dieselbe Stelle
+wie die Datei; **wie der Rücken auf Papier aussieht — ob die Schrift
+zwischen die Falze passt und ob die Lage stimmt —, sagt erst der erste
+Abzug.** Und die eigenen Felder oder Bilder AUF dem Rücken, um die
+ebenfalls gebeten wurde, gibt es noch nicht: Der Umschlag wird gerechnet
+und nicht gesetzt, ein Block darauf wäre beim nächsten Durchgang weg.
+Das nicht als erledigt darstellen.
+
+## Auch eine Mac-App (1.0.62)
+
+Ansage des Nutzers, 09/2026: „Jetzt möchte ich tatsächlich doch noch die
+Option haben, das Ganze auf dem Mac nutzen zu können, und zwar als
+eigenständige Mac-App."
+
+Gebaut ist es als **Mac Catalyst**, also dasselbe Programm für eine zweite
+Plattform und keine zweite App: ein Quelltext, ein Bundle, ein
+iCloud-Behälter. Ein Buch, das auf dem iPad liegt, ist auf dem Mac
+dasselbe Buch.
+
+- **„Optimiert für Mac", nicht „auf iPad-Maß skaliert"**
+  (`SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO`). Die skalierte Fassung
+  zeigt alles um knapp ein Viertel verkleinert; bei einer App, in der man
+  Millimeter setzt, ist das die falsche Wahl.
+- **Die Rechte stehen in einer EIGENEN Datei**
+  (`Config/Urlaubstagebuch-Mac.entitlements`, ausgewählt über
+  `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`). macOS verlangt den Sandkasten
+  samt Zugriff auf gewählte Dateien, Netz, Mediathek und Drucker; iOS
+  kennt diese Schlüssel gar nicht. Sie in die vorhandene Datei zu
+  schreiben hätte die iOS-Fassung unsignierbar gemacht — **genau der
+  Fehler, der 1.0.44 gekostet hat**. Dieselbe Bauweise wie bei Schulalarm,
+  das seit 1.0.18 zwei Rechte-Dateien führt.
+- **Keines dieser Rechte ist eine Fähigkeit der App-Id.**
+  Sandkasten-Rechte wertet das System aus, nicht das Profil. Die einzige
+  Ausnahme ist iCloud, und das ist dasselbe Recht wie auf iOS.
+- **Der Druckdialog braucht auf dem Mac einen Anker**, wie auf dem iPad:
+  Unter Catalyst meldet `userInterfaceIdiom` seit dieser Fassung `.mac`,
+  und ohne die Zeile fiele der Druck in den Zweig für Vollbild-Ansichten.
+- **Der Bau prüft es mit.** `ios-apps-build.yml` übersetzt jede App, deren
+  Projekt `SUPPORTS_MACCATALYST = YES` trägt, zusätzlich gegen das
+  Catalyst-SDK. Das ist kein Beiwerk: Eine Schnittstelle, die es dort
+  nicht gibt, fällt sonst erst auf dem Mac des Nutzers auf. Welche Apps
+  gemeint sind, steht im Projekt und nicht in einer zweiten Liste.
+- **Auf dem iPhone bleibt alles, wie es ist.** Die App startet dort und
+  zeigt die Seiten; umgebaut wird die Bedienung dafür nicht (ausdrücklich
+  so gewünscht).
+- **Der Mac-Bau hat sich sofort bezahlt gemacht.**
+  `LSSupportsOpeningDocumentsInPlace = NO` lehnt macOS ab („Either remove
+  the entry or set it to YES") — gefunden im ersten Lauf, in dem es den
+  Mac-Schritt gab; der iOS-Bau war dabei grün. Weglassen genügt nicht,
+  dann warnt der Bau über die fehlende Angabe. Der Schlüssel steht jetzt
+  auf `YES`, und das Einlesen meldet den Zugriff ausdrücklich an
+  (`startAccessingSecurityScopedResource`): An Ort und Stelle kommt die
+  Datei aus einem fremden Ordner. Gelöscht wird weiterhin nur im
+  Posteingang — ein Buch, das dem Nutzer gehört, wird nicht angefasst.
+
+**Nicht gemessen (1.0.62):** Auf einem Mac hat das niemand gesehen.
+Gerechnet und nachgelesen sind die Einstellungen und die Rechte; der Bau
+beweist, dass sich der Quelltext gegen das Catalyst-SDK übersetzen lässt —
+**er beweist wie immer nicht, dass sich signieren lässt** (er läuft mit
+`CODE_SIGNING_ALLOWED=NO`). Dafür muss die App-Id in der
+Entwicklerkonsole iCloud auch für macOS können, und Xcode muss ein
+Mac-Catalyst-Profil anlegen dürfen. **Ungeprüft bleibt außerdem, wie sich
+die Bühne mit Maus und Trackpad anfühlt:** Zoomen mit zwei Fingern, das
+Ziehen der Blöcke und die Griffe sind für Finger gebaut und auf dem Mac
+nie ausprobiert worden. Das nicht als erledigt darstellen.
+
 ## Bilder und Textfelder von Hand — auf einer sichtbar gewählten Seite (1.0.61)
 
 Ansage des Nutzers, 09/2026: „Ich möchte in das Buch manuell Bilder oder

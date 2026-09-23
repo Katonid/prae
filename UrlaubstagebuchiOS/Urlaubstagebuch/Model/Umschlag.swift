@@ -39,6 +39,20 @@ struct Umschlag: Codable, Hashable {
     // MARK: - Der Rücken
 
     var rueckenZeigen: Bool = true
+    // WO die Schrift auf dem Rücken steht und WOHIN sie läuft (ab 1.0.63).
+    //
+    // Ansage des Nutzers, 09/2026: „Die im Moment vorhandene Schrift lässt
+    // sich auch nicht verschieben oder drehen. Das hätte ich auch gerne.
+    // Die Position auf dem Buchrücken möchte ich frei wählen können und
+    // auch die Ausrichtung. Im konkreten Fall hätte ich sie nämlich gerne
+    // um 180 Grad gedreht."
+    //
+    // `rueckenlage` ist ein ANTEIL und keine Millimeterzahl: 0 heißt am
+    // Kopf des Buches, 1 am Fuß. So übersteht die Einstellung einen
+    // Formatwechsel — dieselbe Überlegung wie bei `kartenanteil` und
+    // `textspaltenanteil`.
+    var rueckenlage: Double = 0.5
+    var rueckenrichtung: Rueckensatz.Richtung = .obenNachUnten
     // Leer heißt: der Titel des Buches. Er steht dort bei diesem Nutzer
     // seit jeher, und ein Feld, das man erst füllen muss, um das
     // Naheliegende zu bekommen, ist eine Hürde ohne Gewinn.
@@ -150,6 +164,8 @@ struct Umschlag: Codable, Hashable {
         let b = try decoder.container(keyedBy: CodingKeys.self)
         alsBogen = b.wert(.alsBogen, true)
         rueckenZeigen = b.wert(.rueckenZeigen, true)
+        rueckenlage = b.wert(.rueckenlage, 0.5)
+        rueckenrichtung = b.wert(.rueckenrichtung, Rueckensatz.Richtung.obenNachUnten)
         rueckentext = b.wert(.rueckentext, "")
         papierstaerke = b.wert(.papierstaerke, 0.13)
         einband = b.wert(.einband, Einband.hardcover)
@@ -202,5 +218,6 @@ struct Umschlag: Codable, Hashable {
 
     var eigeneGestaltung: Bool {
         hintergrund != nil || rand != nil || titelfaktor != 1 || schriftfamilie != nil
+            || abs(rueckenlage - 0.5) > 0.001 || rueckenrichtung != .obenNachUnten
     }
 }

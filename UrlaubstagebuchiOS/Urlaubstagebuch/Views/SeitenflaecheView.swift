@@ -13,6 +13,14 @@ struct SeitenflaecheView: View, Equatable {
     @ObservedObject var werk: Reisewerk
     let buchseite: Buchseite
     var bearbeitbar: Bool = true
+    // OHNE EIGENEN GRUND (ab 1.0.63).
+    //
+    // Der Umschlagbogen zeichnet seinen Hintergrund als EIN Bild über
+    // Rückseite, Rücken und Titelseite — so, wie das PDF ihn schreibt.
+    // Die beiden Hälften dürfen dann nicht noch einmal ihren eigenen
+    // darüberlegen, und auch nicht das weiße Papier darunter: Beides
+    // verdeckte genau das Bild, um das es geht.
+    var ohneGrund: Bool = false
     var massstab: Double
     // Der Maßstab des Bildschirms, an dem DIESE Seite hängt. Zusammen mit
     // dem Maßstab der Bühne sagt er, wie fein gerastert werden muss —
@@ -83,6 +91,7 @@ struct SeitenflaecheView: View, Equatable {
     static func == (links: SeitenflaecheView, rechts: SeitenflaecheView) -> Bool {
         links.werk === rechts.werk
             && links.bearbeitbar == rechts.bearbeitbar
+            && links.ohneGrund == rechts.ohneGrund
             && links.massstab == rechts.massstab
             && links.buchseite == rechts.buchseite
     }
@@ -129,12 +138,15 @@ struct SeitenflaecheView: View, Equatable {
             // Neuzeichnen, und genau das ist die Zahl, die hier niemand
             // nachmessen kann.
             let _ = werk.messer.melde("Seite")
-            HintergrundFlaeche(werk: werk, hintergrund: hintergrund, seite: buchseite.seite,
-                               format: format, anschnitt: anschnitt,
-                               bogen: bogen, liegtRechts: buchseite.liegtRechts,
-                               massstab: massstab)
-                .offset(x: -anschnitt, y: -anschnitt)
-                .allowsHitTesting(false)
+            if !ohneGrund {
+                HintergrundFlaeche(werk: werk, hintergrund: hintergrund,
+                                   seite: buchseite.seite,
+                                   format: format, anschnitt: anschnitt,
+                                   bogen: bogen, liegtRechts: buchseite.liegtRechts,
+                                   massstab: massstab)
+                    .offset(x: -anschnitt, y: -anschnitt)
+                    .allowsHitTesting(false)
+            }
 
             // Das Wasserzeichen: über dem Hintergrund, unter allem
             // anderen. Wo es liegt, rechnet dieselbe Funktion, die auch
@@ -381,7 +393,7 @@ struct SeitenflaecheView: View, Equatable {
         .offset(x: anschnitt, y: anschnitt)
         .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
         .clipped()
-        .background(Color.white)
+        .background(ohneGrund ? Color.clear : Color.white)
         .compositingGroup()
         .scaleEffect(massstab, anchor: .topLeading)
         // `alignment: .topLeading` IST DER GANZE PUNKT (ab 1.0.26).

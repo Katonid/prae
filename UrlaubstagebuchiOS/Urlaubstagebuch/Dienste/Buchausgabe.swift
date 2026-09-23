@@ -684,29 +684,28 @@ enum Buchausgabe {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
-        var bild = reise.typografie.titel
-        if let familie = reise.umschlag.schriftfamilie { bild.familie = familie }
-        bild.ausrichtung = .mitte
-        // Der Rücken ist schmal. Die Schrift darf ihn nicht ausfüllen,
-        // sondern muss hineinpassen, auch wenn jemand einen dicken Titel
-        // gewählt hat — sonst stünde sie halb auf der Titelseite.
-        let platz = rechteck.width * 0.62
-        if bild.zeilenhoehe > platz, bild.zeilenhoehe > 0 {
-            bild.groesse = bild.groesse * platz / bild.zeilenhoehe
-        }
-
-        let laenge = rechteck.height
-        let breite = rechteck.width
-        let hoehe = min(Textmass.hoehe(text, bild: bild, breite: laenge), breite)
+        // Schriftbild und Lage rechnet seit 1.0.63 `Rueckensatz` — dieselbe
+        // Stelle, die auch die Ansicht fragt. Bis 1.0.62 stand das hier und
+        // in `Ruecken` (der Bildschirmfassung) getrennt, und die beiden
+        // hatten nichts miteinander zu tun: Das PDF setzte mit der
+        // Typografie des Buches, der Bildschirm mit einer festen
+        // Bildschirmschrift auf grauem Grund.
+        let laenge = Double(rechteck.height)
+        let breite = Double(rechteck.width)
+        let bild = Rueckensatz.schriftbild(typografie: reise.typografie,
+                                           umschlag: reise.umschlag, breite: breite)
+        let texthoehe = Textmass.hoehe(text, bild: bild, breite: laenge)
+        let textlaenge = Textmass.breite(text, bild: bild, hoechstens: laenge)
+        let platz = Rueckensatz.rechteck(laenge: laenge, breite: breite,
+                                         textlaenge: textlaenge, texthoehe: texthoehe,
+                                         lage: reise.umschlag.rueckenlage)
 
         zusammenhang.saveGState()
         zusammenhang.translateBy(x: rechteck.midX, y: rechteck.midY)
-        zusammenhang.rotate(by: .pi / 2)
+        zusammenhang.rotate(by: reise.umschlag.rueckenrichtung.bogen)
         zusammenhang.translateBy(x: -laenge / 2, y: -breite / 2)
-        Seitensatz.zeichneText(
-            text, bild: bild,
-            rechteck: CGRect(x: 0, y: (breite - hoehe) / 2, width: laenge, height: hoehe),
-            in: zusammenhang, seitenhoehe: breite)
+        Seitensatz.zeichneText(text, bild: bild, rechteck: platz,
+                               in: zusammenhang, seitenhoehe: breite)
         zusammenhang.restoreGState()
     }
 
