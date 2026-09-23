@@ -480,6 +480,52 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Farbenfroh trotz Schleier (1.0.55)
+
+Ein Hintergrundfoto liegt unter einem **Schleier** in der Papierfarbe — ohne
+ihn stünde der Text auf dem Bild und wäre nicht zu lesen. Der Schleier macht
+das Bild aber nicht nur blass, er macht es **grau**: Herauskommt Kanal für
+Kanal `(1 − Deckkraft) · Foto + Deckkraft · Papier`, und damit wird der
+Abstand zwischen dem größten und dem kleinsten Kanal eines Bildpunktes — also
+genau das, was eine Farbe von einem Grau unterscheidet — mit `1 − Deckkraft`
+multipliziert. Beim Vorgabeschleier von 72 % bleibt gut ein Viertel übrig, und
+weil es jede Farbe des Bildes trifft, rücken sie alle zusammen.
+
+Dagegen gibt es genau einen Faktor. Wird das Foto **vor** dem Schleier
+gesättigt, wächst derselbe Abstand wieder — mit `1 / (1 − Deckkraft)` steht er
+hinterher dort, wo er vorher war. Das Bild bleibt blass und wird trotzdem
+bunt: pastell statt grau. Der Regler dafür heißt **Farbkraft** und steht unter
+dem Schleier; 0 % ist der Stand von vorher, 100 % der volle Ausgleich.
+
+**Zwei Dinge sagt die App dazu, statt sie zu verschweigen:**
+
+* **Die Decke.** Sättigung ist Abstand geteilt durch Helligkeit, und die
+  Helligkeit hebt der Schleier mit; dagegen hilft kein Faktor. Der bunteste
+  denkbare Bildpunkt kommt hinter einem Schleier von 72 % auf 28 % Sättigung
+  heraus — und mehr ist dort überhaupt nicht möglich, ganz gleich, was das
+  Foto zeigt. Der Regler führt bis dorthin und keinen Schritt weiter; die
+  Zahl steht unter ihm.
+* **Den Preis.** Was über 1 oder unter 0 gestreckt wird, klemmt ab, und dort
+  verliert das Bild seine Zeichnung. Wie viele Bildpunkte das trifft, wird
+  **gemessen** und nicht geschätzt: an einer verkleinerten Fassung, einmal
+  vorher und einmal nachher gezählt. Berichtet wird die Differenz — ein Foto
+  mit weißem Himmel liegt schon ohne jeden Faktor am Rand.
+
+Gesättigt wird an **einer** Stelle, gefragt von Bildschirm und PDF gemeinsam:
+Zwei Wege ergäben zwei Bilder, und der Unterschied fiele erst auf, wenn das
+Buch beim Drucker liegt.
+
+Bei einer **einfarbigen** Fläche gibt es nichts auszugleichen: Eine Farbe mit
+halber Deckung über weißem Papier ist schlicht eine hellere Farbe — dort wählt
+man gleich die hellere. Grau in Grau wird nur ein Bild.
+
+**Nicht gemessen:** Keine Seite ist damit gesehen worden. Gerechnet ist die
+Ursache und die Wirkung des Faktors; gemessen wird auf dem Gerät allein der
+Randanteil. Gewählt und nicht gemessen sind der Deckel von 3,5 auf den Faktor,
+die Messkante und die Schwellen der Warnzeile. Ob das gedruckte Blatt so
+aussieht wie der Bildschirm, sagt erst der erste Ausdruck — ein gesättigtes
+Bild wirkt auf einem leuchtenden Schirm kräftiger als auf Papier.
+
 ## Die Tabellen von Saal Digital liegen bei (1.0.54)
 
 Wie breit der Buchrücken wird, sagt der Druckdienst — und für drei Formate

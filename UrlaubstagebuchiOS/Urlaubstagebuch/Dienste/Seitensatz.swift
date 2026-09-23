@@ -226,9 +226,14 @@ enum Seitensatz {
             if let bild {
                 zusammenhang.saveGState()
                 zusammenhang.clip(to: rechteck)
-                let ziel = Bildausschnitt.voll.zielrechteck(bildgroesse: bild.size,
+                // Gesättigt wird VOR dem Schleier und mit derselben
+                // Funktion, die auch der Bildschirm ruft (ab 1.0.55) —
+                // zwei Wege ergäben zwei Bilder, und der Unterschied fiele
+                // erst im gedruckten Buch auf.
+                let kraeftig = Farbkraft.verstaerkt(bild, faktor: grund.farbkraftfaktor)
+                let ziel = Bildausschnitt.voll.zielrechteck(bildgroesse: kraeftig.size,
                                                             rahmen: bildflaeche ?? rechteck)
-                bild.draw(in: ziel)
+                kraeftig.draw(in: ziel)
                 zusammenhang.restoreGState()
             }
             zusammenhang.setFillColor(

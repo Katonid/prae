@@ -6940,6 +6940,74 @@ Befunde, und keiner davon war Geschmack:
   Seite wechseln, lässt sich hinschreiben; hier steht es als Zahl und als
   Bild. Das ist die halbe Antwort auf „offenbar hast du mich falsch
   verstanden".
+- **EIN SCHLEIER NIMMT DEN FARBEN IHREN ABSTAND — UND DAS IST AUSZURECHNEN**
+  (`Model/Farbkraft.swift`, `Seitenhintergrund.farbkraft`, ab 1.0.55;
+  Befund des Nutzers 09/2026: „Beim Seitenhintergrund stelle ich fest, dass
+  eine Einstellung von Transparenz dazu führt, dass die Farben sich eher
+  Richtung Grau in Grau verschieben. … ich könnte mir vorstellen, dass man
+  gleichzeitig beim Zurücknehmen der Deckungskraft auch die Kräftigkeit der
+  Farben erhöht."). Er hat recht, und es ist kein Eindruck: Über dem
+  Hintergrundfoto liegt eine Fläche in der Papierfarbe mit der Deckkraft a,
+  herauskommt `(1 − a) · foto + a · papier`. Der ABSTAND zwischen größtem
+  und kleinstem Kanal eines Bildpunktes — also genau das, was eine Farbe
+  von einem Grau unterscheidet — wird damit mit `(1 − a)` multipliziert.
+  Beim Vorgabeschleier von 72 % bleibt gut ein Viertel übrig, und weil das
+  JEDE Farbe des Bildes trifft, rücken sie alle zusammen.
+- **Dagegen hilft genau EIN Faktor.** Wird das Foto VOR dem Schleier
+  gesättigt (`neu = licht + k · (kanal − licht)`), wächst derselbe Abstand
+  um k; mit `k = 1 / (1 − a)` steht er nach dem Schleier wieder dort, wo er
+  war. Das Bild bleibt blass und wird trotzdem bunt — pastell statt grau,
+  also genau das Erbetene.
+- **Was der Faktor NICHT kann, steht in derselben Zeile.** Zurückgeholt wird
+  der ABSTAND der Kanäle, nicht die Sättigung im engeren Sinn: Sättigung ist
+  Abstand geteilt durch Helligkeit, und die Helligkeit hebt der Schleier
+  mit. Rechnerisch kommt der bunteste denkbare Bildpunkt hinter einem
+  Schleier von a auf `1 − a` Sättigung heraus — bei 72 % also 28 %, und
+  mehr ist dort überhaupt nicht möglich, ganz gleich, was das Foto zeigt.
+  Der Regler führt bis an diese Decke und keinen Schritt weiter; die
+  Oberfläche nennt die Zahl. **Eine Grenze, die man verschweigt, wird für
+  einen kaputten Regler gehalten.**
+- **Was er kostet, wird GEMESSEN und nicht geschätzt** (`Farbkraft.randanteil`).
+  Was über 1 oder unter 0 gestreckt wird, klemmt ab, und dort verliert das
+  Bild seine Zeichnung. Gezählt wird an einer 48 Bildpunkte großen Fassung,
+  einmal vorher und einmal nachher — gemessen ist damit das SIEB selbst und
+  keine Annahme darüber, mit welchen Gewichten `CIColorControls` rechnet.
+  Ein Foto mit weißem Himmel liegt schon ohne Faktor am Rand; das dem
+  Schieber anzulasten wäre eine falsche Auskunft, deshalb die Differenz.
+- **Gesättigt wird an EINER Stelle.** `Farbkraft.verstaerkt` ruft der
+  Bildschirm (über `Bildarchiv.vorschau(…farbkraft:)`) und das PDF
+  (`Seitensatz.zeichneHintergrund`); den Faktor nennt beiden
+  `Seitenhintergrund.farbkraftfaktor`. Zwei Wege ergäben zwei Bilder, und
+  der Unterschied fiele erst auf, wenn das Buch beim Drucker liegt — die
+  erste Regel dieser App. Gerundet wird auf Zwanzigstel (`Farbkraft.stufe`),
+  weil der Faktor im Schlüssel des Bildvorrats steht: **Ohne ihn im
+  Schlüssel stünde nach dem Umstellen das Bild von vorhin da, und der
+  Schieber sähe aus, als täte er nichts** — dieselbe Falle wie beim
+  `merkmal` des Kartenbildes in 1.0.51.
+- **Nur beim FOTO, und der Grund gehört dazu.** Eine einfarbige Fläche mit
+  halber Deckung über weißem Papier IST eine hellere Farbe — dort ist
+  nichts auszugleichen, dort wählt man gleich die hellere. Grau in Grau
+  wird nur ein Bild, weil darin viele Farben zugleich zusammenrücken. Das
+  steht so in der Fußzeile, statt einen Regler anzubieten, der dort nichts
+  tut.
+- **Dieselbe Arithmetik gilt für das Wasserzeichen und für einen farbigen
+  Textgrund — dort wird sie bewusst NICHT ausgeglichen.** Ein Wasserzeichen
+  SOLL zurücktreten, und ein Grund unter Schrift soll die Schrift tragen
+  und nicht mit ihr konkurrieren. Wer es dort nachrüstet, sagt vorher, was
+  dadurch besser wird.
+- **Vorgabe 0.** Jedes vorhandene Buch sieht nach dem Update unverändert
+  aus — dieselbe Überlegung wie bei `ueberDoppelseite` in 1.0.47.
+- **Nicht gemessen (1.0.55):** Keine Seite ist damit gesehen worden.
+  Gerechnet und am Quelltext abgezählt ist die URSACHE (der Schleier
+  skaliert den Kanalabstand mit `1 − a`) und die Wirkung des Faktors;
+  gemessen wird auf dem Gerät allein der Randanteil. **Gewählt und nicht
+  gemessen** sind der Deckel von 3,5 auf den Faktor, die 48er-Messkante,
+  die Zwanzigstel-Stufen und die Schwellen der Warnzeile (0,5 % und 8 %).
+  **Ungeprüft ist vor allem, ob das gedruckte Blatt so aussieht wie der
+  Bildschirm**: Ein gesättigtes Bild hinter einem Schleier wirkt auf einem
+  leuchtenden Schirm kräftiger als auf Papier, und wie weit `CIColorControls`
+  im PDF dasselbe tut wie in der Vorschau, ist zwar dieselbe Funktion, aber
+  auf zwei verschiedenen Bildgrößen. **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.54):** Keine Seite ist damit gesehen und keine
   Umschlagdatei gedruckt worden. **Gemessen ist das Ablesen** — die Pixel-
   und dpi-Werte, die Millimeterleiter, die Vorlagenmaße der Innenseiten —,
@@ -7367,7 +7435,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.54 (Build 55). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.55 (Build 56). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
