@@ -3154,12 +3154,31 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `exclude_polygons` (gemessen: wirkt), ein Kästchen von rund 250 m — es
   sperrt beide Richtungen, und die Detailansicht sagt das. Ein Stau
   verlängert die Zeit, verlegt die Route aber nicht.
+- **Der Bildschirm bleibt an, solange die App vorn ist** (ab 1.0.1, Ansage
+  des Nutzers 09/2026). `isIdleTimerDisabled` hängt an `scenePhase` in
+  `RoutenplanerApp`: nur `.active`, im Hintergrund gilt wieder das Gerät.
+  **Im Hintergrund arbeitet die App NICHT weiter** — es gibt keinen
+  Hintergrundmodus, und für einen Planer ohne Zielführung wäre er nicht zu
+  begründen. Nicht als „läuft im Hintergrund" darstellen.
+- **„Ohne Schieben" ist ein Schalter im Bedienfeld** (ab 1.0.1), nicht nur im
+  Profil-Editor — ob geschoben werden darf, entscheidet man je Fahrt.
+  Gespeichert wird er am gewählten Profil (`Planer.schiebenSetzen`) und
+  schickt `profile:schieben=0` an BRouter; gemessen: dann 0 m Schieben.
+- **CarPlay: nein, und das bleibt so, bis Apple es bewilligt** (Frage des
+  Nutzers 09/2026). Eine Karten-App braucht das Entitlement
+  `com.apple.developer.carplay-maps`, das Apple nur auf Antrag vergibt, und
+  zwar für Apps mit Zielführung Schritt für Schritt — die hat diese App
+  nicht. **Ohne Bewilligung nie in eine Entitlements-Datei eintragen**: Das
+  Projekt wäre unsignierbar (dieselbe Lehre wie Reisebuch 1.0.45). Weg, falls
+  gewünscht: erst eine Zielführung bauen, dann den Antrag unter
+  developer.apple.com/carplay stellen, erst danach die CarPlay-Szene.
 - **Overpass war aus der Bauumgebung nicht erreichbar**, die OSM-API schon —
   die ist aber zum Bearbeiten da und kein Datendienst für Apps. Die App fragt
   sie deshalb nicht. Offen: Unterführungen OHNE eingetragene Höhe erkennen.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1),
+  dann 1.0.1 (Build 2).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Navigation,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen.

@@ -10,8 +10,13 @@ Routen für das Fahrzeug plant, mit dem man wirklich unterwegs ist:
 - **Fahrrad** — der kürzeste ERLAUBTE Weg, Belag egal. Autobahnen,
   Kraftfahrstraßen und Wege mit Radverbot sind ausgeschlossen. Gehwege und
   Fußgängerzonen dürfen wahlweise schiebend benutzt werden; sie stehen
-  gestrichelt orange auf der Karte.
+  gestrichelt orange auf der Karte. Der Schalter „Schieben erlaubt / Ohne
+  Schieben" steht im Bedienfeld; ohne Schieben werden Gehwege,
+  Fußgängerzonen und Treppen ohne Radfreigabe umfahren.
 - **Zu Fuß**.
+
+Solange die App vorn ist, sperrt sich der Bildschirm nicht; im Hintergrund
+gilt wieder die Einstellung des Geräts.
 
 Profile (Fahrzeuge) lassen sich anlegen und bearbeiten. Ergebnis: Route auf
 der Karte, Fahrzeit mit Posten (woher jede Minute kommt), Hinweise,
@@ -36,6 +41,11 @@ Verkehrsmeldungen, Wegbeschreibung, GPX-Ausgabe.
   werden umfahren (Sperrfläche in beiden Richtungen).
 - Die Aufschläge fürs Anfahren sind geschätzt, nicht gemessen.
 - Es ist ein Planer, keine Navigation mit Sprachansage.
+- **CarPlay geht nicht.** Eine Karten-App darf nur mit dem Entitlement
+  `com.apple.developer.carplay-maps` auf CarPlay, und das bewilligt Apple
+  auf Antrag — für Apps mit Zielführung Schritt für Schritt. Beides fehlt;
+  ohne Bewilligung darf das Recht nicht in eine Entitlements-Datei, sonst
+  lässt sich die App nicht mehr signieren.
 
 ## Bau
 
