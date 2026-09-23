@@ -6,20 +6,56 @@ import MapKit
 struct PlanerView: View {
     @EnvironmentObject private var planer: Planer
     @EnvironmentObject private var standort: Standort
-    @State private var kamera: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var kamerawunsch: Kamerawunsch?
     @State private var ortswahl: Ortsfeld?
     @State private var zeigeProfile = false
     @State private var zeigeDetails = false
     /// Die angetippte Stelle. Der WUNSCH trägt den Ort — kein Schalter
     /// daneben (Lehre aus Abfahrtstafel 1.0.9).
     @State private var angetippt: Ort?
+    // Die Kartenwahl gehört dem Gerät und steht deshalb in einer VIEW —
+    // nie als `@AppStorage` im `Planer` (dort löste sie kein Neuzeichnen aus).
     @AppStorage("verkehrslageZeigen") private var verkehrslage = true
+    @AppStorage("kartengrund") private var grundkarte: Grundkarte = .apple
+    @AppStorage("kartenhelligkeit") private var helligkeit: Kartenhelligkeit = .geraet
+    @AppStorage("radwegeZeigen") private var radwege = false
+    @AppStorage("radroutenZeigen") private var radrouten = false
+    @AppStorage("belagZeigen") private var belag = false
+
+    private var ansicht: Kartenansicht {
+        Kartenansicht(grundkarte: grundkarte, helligkeit: helligkeit, radwege: radwege,
+                      radrouten: radrouten, belag: belag, verkehrslage: verkehrslage)
+    }
 
     var body: some View {
-        Routenkarte(route: planer.route, start: planer.start, ziel: planer.ziel,
-                    markierung: angetippt?.punkt, verkehrslage: verkehrslage,
-                    kamera: $kamera, tippen: antippen)
+        Routenkarte(route: planer.route,
+                    alternativen: planer.routen.indices.filter { $0 != planer.gewaehlt }.map { planer.routen[$0] },
+                    start: planer.start, ziel: planer.ziel,
+                    markierung: angetippt?.punkt, ansicht: ansicht,
+                    kamerawunsch: kamerawunsch, tippen: antippen)
             .ignoresSafeArea(edges: .top)
+            .overlay(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: 8) {
+                    kartenmenue
+                    if belag, let r = planer.route { Belaglegende(route: r) }
+                }
+                .padding(.leading, 12)
+                .padding(.top, 8)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if let lizenz = ansicht.lizenz {
+                    // Nicht abschaltbar: OSM und CC-BY-SA verlangen den
+                    // Hinweis sichtbar auf der Karte.
+                    Text(lizenz)
+                        .font(.system(size: 9))
+                        .multilineTextAlignment(.trailing)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
+                        .padding(4)
+                        .allowsHitTesting(false)
+                }
+            }
             .confirmationDialog(angetippt?.name ?? "Punkt auf der Karte",
                                 isPresented: Binding(get: { angetippt != nil },
                                                      set: { if !$0 { angetippt = nil } }),
@@ -48,11 +84,63 @@ struct PlanerView: View {
             .sheet(isPresented: $zeigeDetails) {
                 RoutenDetailView().environmentObject(planer)
             }
-            .onChange(of: planer.route?.punkte) { _, punkte in
-                if let punkte, let rect = Geo.rahmen(punkte) {
-                    withAnimation { kamera = .rect(rect) }
+            // Gerahmt wird bei einer NEUEN Rechnung, und zwar alle
+            // Vorschläge zusammen — nicht beim Umschalten zwischen ihnen,
+            // sonst spränge die Karte bei jedem Tipp auf eine Alternative.
+            .onChange(of: planer.routen.map(\.laengeM)) { _, _ in
+                if let rect = Geo.rahmen(planer.routen.flatMap(\.punkte)) {
+                    kamerawunsch = Kamerawunsch(rahmen: rect)
                 }
             }
+    }
+
+    // MARK: - Kartenmenü
+
+    /// Der Schalter an der Karte: Grundkarte, Helligkeit, Einblendungen. Die
+    /// Verkehrslage wohnt seit 1.0.3 hier und nicht mehr im Bedienfeld —
+    /// zwei Schalter für dieselbe Sache wären einer zu viel.
+    private var kartenmenue: some View {
+        Menu {
+            Picker("Karte", selection: $grundkarte) {
+                ForEach(Grundkarte.allCases) { g in
+                    Label(g.name, systemImage: g.symbol).tag(g)
+                }
+            }
+            .pickerStyle(.inline)
+            Picker("Helligkeit", selection: $helligkeit) {
+                ForEach(Kartenhelligkeit.allCases) { h in
+                    Label(h.name, systemImage: h.symbol).tag(h)
+                }
+            }
+            .pickerStyle(.inline)
+            Section("Einblenden") {
+                Toggle(isOn: $radwege) {
+                    Label(grundkarte == .cyclosm ? "Radwege (in CyclOSM enthalten)" : "Radwege und Radstreifen",
+                          systemImage: "bicycle")
+                }
+                .disabled(grundkarte == .cyclosm)
+                Toggle(isOn: $radrouten) {
+                    Label("Ausgeschilderte Radrouten", systemImage: "signpost.right")
+                }
+                Toggle(isOn: $belag) {
+                    Label("Belag der Radroute", systemImage: "road.lanes")
+                }
+                Toggle(isOn: $verkehrslage) {
+                    Label(grundkarte.istApple ? "Verkehrslage" : "Verkehrslage (nur Apple-Karte)",
+                          systemImage: "car.2.fill")
+                }
+                .disabled(!grundkarte.istApple)
+            }
+            Section {
+                Text("Dunkel und Verkehrslage gibt es nur auf Apples Karte — die freien Karten liegen nur hell vor.")
+            }
+        } label: {
+            Image(systemName: "square.3.layers.3d")
+                .font(.title3)
+                .frame(width: 44, height: 44)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        }
+        .accessibilityLabel("Kartenansicht")
     }
 
     // MARK: - Tipp auf die Karte
@@ -118,12 +206,6 @@ struct PlanerView: View {
                 }
                 .buttonStyle(.bordered)
                 Spacer()
-                Toggle(isOn: $verkehrslage) {
-                    Image(systemName: "car.2.fill")
-                }
-                .toggleStyle(.button)
-                .accessibilityLabel("Verkehrslage auf der Karte")
-                .accessibilityValue(verkehrslage ? "an" : "aus")
                 if planer.profil.art == .auto {
                     Toggle(isOn: $planer.verkehrBeachten) {
                         Label("Meldungen", systemImage: "exclamationmark.triangle")
@@ -190,6 +272,7 @@ struct PlanerView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else if let r = planer.route {
+            if planer.routen.count > 1 { vorschlaege }
             Button {
                 zeigeDetails = true
             } label: {
@@ -211,6 +294,55 @@ struct PlanerView: View {
         }
     }
 
+    /// Die Vorschläge zur Auswahl. Die gewählte Route ist blau, die übrigen
+    /// liegen grau auf der Karte. Die schnellste (Auto) bzw. kürzeste (Rad,
+    /// zu Fuß) steht vorn — beim Auto MIT dem Zeitverlust aus Staus.
+    private var vorschlaege: some View {
+        let beste = planer.routen.first
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(planer.routen.enumerated()), id: \.offset) { i, r in
+                    Button {
+                        planer.gewaehlt = i
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                if !r.staumeidung.isEmpty {
+                                    Image(systemName: "arrow.triangle.branch")
+                                }
+                                Text(Anzeige.dauer(r.zeitS)).font(.callout.bold())
+                            }
+                            Text(vorschlagszeile(r, beste: beste, index: i))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 10)
+                        .background(i == planer.gewaehlt ? Color.blue.opacity(0.18) : Color(.secondarySystemBackground),
+                                    in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10)
+                            .stroke(i == planer.gewaehlt ? Color.blue : Color.clear, lineWidth: 1.5))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Vorschlag \(i + 1): \(Anzeige.dauer(r.zeitS)), \(Anzeige.strecke(r.laengeM))")
+                    .accessibilityAddTraits(i == planer.gewaehlt ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private func vorschlagszeile(_ r: Route, beste: Route?, index: Int) -> String {
+        var teile = [Anzeige.strecke(r.laengeM)]
+        if r.stauS >= 60 { teile.append("Stau +\(Int((r.stauS / 60).rounded())) min") }
+        if !r.staumeidung.isEmpty { teile.append("um den Stau") }
+        if index == 0 {
+            teile.append(planer.profil.art == .auto ? "schnellste" : "kürzeste")
+        } else if let beste, planer.profil.art == .auto {
+            teile.append("+\(Int(((r.zeitS - beste.zeitS) / 60).rounded())) min")
+        }
+        return teile.joined(separator: " · ")
+    }
+
     @ViewBuilder private func zusammenfassungZeichen(_ r: Route) -> some View {
         let gefahr = r.hinweise.filter { $0.stufe == .gefahr }.count
         let warnung = r.hinweise.filter { $0.stufe == .warnung }.count
@@ -228,5 +360,38 @@ struct PlanerView: View {
         }
         .font(.callout)
         .labelStyle(.titleAndIcon)
+    }
+}
+
+/// Was der Belag der Radroute bedeutet, samt Strecke je Klasse. Ein Bild,
+/// kein Knopf: Es liegt auf der Karte und nimmt keinen Finger an.
+struct Belaglegende: View {
+    let route: Route
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if route.belaege.isEmpty {
+                Text("Den Belag kennt die App nur bei Radrouten von BRouter.")
+            } else {
+                ForEach(Belag.allCases, id: \.self) { b in
+                    let meter = route.belaege.filter { $0.belag == b }.reduce(0) { $0 + $1.laengeM }
+                    if meter > 0 {
+                        HStack(spacing: 6) {
+                            Capsule().fill(Color(uiColor: b.uiFarbe)).frame(width: 18, height: 5)
+                            Text(b.name)
+                            Spacer(minLength: 4)
+                            Text(Anzeige.strecke(meter)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Text("Schiebestellen stehen in der Übersicht — oder Belag ausblenden.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(.caption2)
+        .padding(8)
+        .frame(maxWidth: 250, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .allowsHitTesting(false)
     }
 }

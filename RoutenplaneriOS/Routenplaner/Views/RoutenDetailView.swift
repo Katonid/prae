@@ -27,7 +27,7 @@ struct RoutenDetailView: View {
                     }
                 }
             }
-            .task(id: planer.route?.punkte.count) { gpx = GPX.datei(planer.route, profil: planer.profil) }
+            .task(id: "\(planer.gewaehlt)-\(planer.route?.punkte.count ?? 0)") { gpx = GPX.datei(planer.route, profil: planer.profil) }
         }
     }
 

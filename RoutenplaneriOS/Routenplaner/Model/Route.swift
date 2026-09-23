@@ -30,6 +30,49 @@ enum Abschnittsart: String, Hashable {
     }
 }
 
+/// Der Belag eines Weges, grob in fünf Klassen — gelesen aus dem
+/// OSM-Merkmal `surface`, das BRouter je Stück mitschickt (gemessen
+/// 23.09.2026 an einer Dortmunder Radroute: asphalt, paving_stones und
+/// Stücke ganz ohne Angabe). Was nicht in der Liste steht, ist „unbekannt"
+/// und wird nicht geraten.
+enum Belag: String, CaseIterable, Hashable {
+    case glatt, pflaster, wassergebunden, unbefestigt, unbekannt
+
+    var name: String {
+        switch self {
+        case .glatt: return "Asphalt, Beton, Platten"
+        case .pflaster: return "Kopfsteinpflaster"
+        case .wassergebunden: return "Schotter, Split (wassergebunden)"
+        case .unbefestigt: return "Erde, Gras, Sand"
+        case .unbekannt: return "Belag nicht eingetragen"
+        }
+    }
+
+    static func aus(_ surface: String?) -> Belag {
+        guard let s = surface?.lowercased(), !s.isEmpty else { return .unbekannt }
+        if s.hasPrefix("concrete") { return .glatt }
+        switch s {
+        case "asphalt", "paved", "paving_stones", "chipseal", "metal", "wood", "rubber":
+            return .glatt
+        case "sett", "cobblestone", "unhewn_cobblestone", "cobblestone:flattened", "grass_paver":
+            return .pflaster
+        case "compacted", "fine_gravel", "gravel", "pebblestone", "rock":
+            return .wassergebunden
+        case "unpaved", "ground", "dirt", "earth", "grass", "sand", "mud", "woodchips":
+            return .unbefestigt
+        default:
+            return .unbekannt
+        }
+    }
+}
+
+struct Belagstueck: Identifiable, Hashable {
+    let id = UUID()
+    var belag: Belag
+    var punkte: [Punkt]
+    var laengeM: Double
+}
+
 struct Abschnitt: Identifiable, Hashable {
     let id = UUID()
     var art: Abschnittsart
@@ -81,6 +124,15 @@ struct Route {
     var quelle: String
     /// Ob Verkehrsmeldungen überhaupt nachgesehen wurden.
     var verkehrGeprueft: Bool
+    /// Der Belag je Stück — nur bei Radrouten über BRouter, denn nur dort
+    /// steht `surface` in der Antwort. Leer heißt „nicht bekannt", nicht
+    /// „asphaltiert". Steht zuletzt, damit es in den Aufrufen fehlen darf.
+    var belaege: [Belagstueck] = []
+    /// Staus, die diese Route mit Absicht umfährt (Sperrfläche um die Mitte
+    /// der Meldung). Leer bei jeder gewöhnlichen Route.
+    var staumeidung: [Verkehrsmeldung] = []
+    /// Zeitverlust durch Staus auf DIESER Route, laut Autobahn GmbH.
+    var stauS: Double = 0
 
     var zeitS: Double { posten.reduce(0) { $0 + $1.sekunden } }
 
