@@ -135,17 +135,48 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             2>&1 | tee /tmp/build.log
 
+      # ALS MAC-APP ÜBERSETZEN — für jede App, die es kann.
+      #
+      # Welche das sind, steht im Projekt selbst (`SUPPORTS_MACCATALYST`)
+      # und nicht in einer Liste hier: Eine zweite Liste liefe auseinander,
+      # sobald eine App dazukommt oder wegfällt.
+      #
+      # Das ist kein Beiwerk. Mac Catalyst übersetzt gegen ein ANDERES SDK,
+      # und eine Schnittstelle, die es dort nicht gibt, fällt erst hier auf
+      # — auf dem Mac des Nutzers wäre es ein roter Bau statt einer App.
+      # Signiert wird auch hier nicht; was mit Profilen und Rechten zu tun
+      # hat, sieht dieser Bau so wenig wie der für iOS.
+      - name: ${{ matrix.app }} als Mac-App übersetzen
+        id: mac
+        run: |
+          projekt="${{ matrix.ordner }}/${{ matrix.app }}.xcodeproj/project.pbxproj"
+          if ! grep -q "SUPPORTS_MACCATALYST = YES" "$projekt"; then
+            echo "Diese App ist nicht für den Mac gebaut - uebersprungen."
+            exit 0
+          fi
+          set -o pipefail
+          xcodebuild build \
+            -project "${{ matrix.ordner }}/${{ matrix.app }}.xcodeproj" \
+            -scheme "${{ matrix.app }}" \
+            -configuration Debug \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee /tmp/mac-build.log
+
       - name: Fehler und Warnungen zusammenfassen
         if: always()
         run: |
           echo "===== Fehler ====="
-          grep -E "error:" /tmp/build.log | sort -u | head -60 || echo "keine"
+          grep -hE "error:" /tmp/build.log /tmp/mac-build.log 2>/dev/null | sort -u | head -60 || echo "keine"
           echo "===== Warnungen ====="
-          grep -E "warning:" /tmp/build.log | grep -v "AppIntents.framework" | sort -u | head -40 || echo "keine"
+          grep -hE "warning:" /tmp/build.log /tmp/mac-build.log 2>/dev/null | grep -v "AppIntents.framework" | sort -u | head -40 || echo "keine"
 
       - name: Vollständiges Protokoll sichern
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-log-${{ matrix.app }}
-          path: /tmp/build.log
+          path: |
+            /tmp/build.log
+            /tmp/mac-build.log

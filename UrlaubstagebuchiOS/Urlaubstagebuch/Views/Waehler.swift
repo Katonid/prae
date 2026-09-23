@@ -129,7 +129,15 @@ enum Druckauftrag {
         // einem Beamer am Gerät griffe es mal die eine und mal die andere
         // (dieselbe Falle wie bei Tafelbilds Dokumentenkamera).
         guard let fenster = aktivesFenster() else { return }
-        if UIDevice.current.userInterfaceIdiom == .pad {
+        // AUF DEM MAC GILT DASSELBE wie auf dem iPad (ab 1.0.62): Der
+        // Dialog ist dort kein Vollbild, sondern hängt an einer Stelle im
+        // Fenster. Unter Mac Catalyst meldet `userInterfaceIdiom` seit der
+        // Mac-Fassung `.mac` und nicht mehr `.pad` — ohne diese Zeile fiele
+        // der Druck in den Zweig ohne Anker, und der ist für eine Ansicht
+        // gedacht, die den ganzen Bildschirm füllt.
+        let brauchtAnker = UIDevice.current.userInterfaceIdiom == .pad
+            || UIDevice.current.userInterfaceIdiom == .mac
+        if brauchtAnker {
             let flaeche = fenster.bounds
             let anker = CGRect(x: flaeche.midX - 1, y: flaeche.midY - 1, width: 2, height: 2)
             auftrag.present(from: anker, in: fenster, animated: true, completionHandler: nil)

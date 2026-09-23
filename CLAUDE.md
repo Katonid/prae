@@ -7241,6 +7241,57 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **DIE APP LÄUFT AUCH AUF DEM MAC — ALS MAC CATALYST** (ab 1.0.62, Ansage
+  des Nutzers 09/2026: „Jetzt möchte ich tatsächlich doch noch die Option
+  haben, das Ganze auf dem Mac nutzen zu können, und zwar als eigenständige
+  Mac-App."). Ein Quelltext, ein Bundle, ein iCloud-Behälter — ein Buch vom
+  iPad ist auf dem Mac dasselbe Buch.
+  - **„Optimiert für Mac", nicht „auf iPad-Maß skaliert"**
+    (`SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO`). Die skalierte Fassung
+    zeigt alles um knapp ein Viertel verkleinert; in einer App, in der man
+    Millimeter setzt, ist das die falsche Wahl.
+  - **ZWEI Rechte-Dateien, und das ist keine Formsache**
+    (`CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`). macOS verlangt den Sandkasten
+    samt `files.user-selected.read-write`, `network.client`,
+    `personal-information.photos-library` und `print`; iOS kennt diese
+    Schlüssel gar nicht. Wer sie in die vorhandene Datei schreibt, macht die
+    iOS-Fassung unsignierbar — **genau der Fehler aus 1.0.44**. Dieselbe
+    Bauweise wie bei Schulalarm seit 1.0.18.
+  - **Keines dieser Rechte ist eine Fähigkeit der App-Id.** Sandkasten-Rechte
+    wertet das System aus, nicht das Profil; die Ausnahme ist iCloud, und das
+    ist dasselbe Recht wie auf iOS.
+  - **Ohne `files.user-selected.read-write` kommt aus dem Dateiwähler NICHTS
+    an** — und zwar ohne Fehlermeldung. Das trifft „Bilder aus Dateien", die
+    Grafik-Einfuhr und das Einlesen einer `.reisebuch`-Datei.
+  - **Der Bau prüft es mit.** `ios-apps-build.yml` übersetzt seither jede App,
+    deren Projekt `SUPPORTS_MACCATALYST = YES` trägt, zusätzlich gegen das
+    Catalyst-SDK; welche das sind, steht im Projekt und nicht in einer zweiten
+    Liste (die liefe auseinander). Eine Schnittstelle, die es dort nicht gibt,
+    fiele sonst erst auf dem Mac des Nutzers auf.
+  - **`userInterfaceIdiom` ist dort `.mac`**, nicht `.pad`. Wer auf `.pad`
+    prüft, um einen Anker für einen Dialog zu setzen, verliert ihn auf dem Mac
+    (getroffen beim Druckdialog).
+  - **Auf dem iPhone bleibt alles, wie es ist** (Ansage des Nutzers): Die App
+    startet dort und zeigt die Seiten; für die Bedienung umgebaut wird sie
+    nicht.
+  - **`LSSupportsOpeningDocumentsInPlace = NO` lehnt macOS AB** — „Either
+    remove the entry or set it to YES". **Gefunden hat das der neue Mac-Bau,
+    im ersten Lauf, in dem es ihn gab**; der iOS-Bau war dabei grün. Genau
+    dafür ist er da. Weggelassen genügt aber nicht: Dann WARNT der Bau, die
+    App unterstütze das Öffnen von Dateien, sage aber nicht, ob an Ort und
+    Stelle. Der Schlüssel steht deshalb auf `YES` — für diese App keine
+    Zusage, die sie nicht hält: Sie liest die Datei und schreibt ihren Inhalt
+    in die eigene Ablage. **Dazu gehört zwingend
+    `startAccessingSecurityScopedResource` beim Einlesen** (an Ort und Stelle
+    kommt die Datei aus einem fremden Ordner und ließe sich sonst nicht
+    lesen, ohne Fehlermeldung) — und `aufraeumen` löscht weiterhin NUR im
+    Posteingang, ein Buch des Nutzers wird nicht angefasst.
+  - **Nicht gemessen:** Auf einem Mac hat das niemand gesehen. Der Bau beweist,
+    dass sich der Quelltext übersetzen lässt — **nicht, dass sich signieren
+    lässt** (`CODE_SIGNING_ALLOWED=NO`); dafür muss die App-Id iCloud auch für
+    macOS können. Und wie sich die Bühne mit Maus und Trackpad anfühlt, ist
+    offen: Zoomen mit zwei Fingern, das Ziehen der Blöcke und die Griffe sind
+    für Finger gebaut.
 - **EIN KNOPF, DER AUF „IRGENDEINE" SEITE WIRKT** (`Reisewerk.gewaehlteSeite`,
   ab 1.0.61; Befund des Nutzers 09/2026: „schwer zu erkennen, ob eine Seite
   ausgewählt wird bzw. auf welcher Seite die Änderungen, die ich vornehmen
@@ -7951,7 +8002,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.61 (Build 62). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.62 (Build 63). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

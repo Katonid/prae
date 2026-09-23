@@ -480,6 +480,64 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Auch eine Mac-App (1.0.62)
+
+Ansage des Nutzers, 09/2026: „Jetzt möchte ich tatsächlich doch noch die
+Option haben, das Ganze auf dem Mac nutzen zu können, und zwar als
+eigenständige Mac-App."
+
+Gebaut ist es als **Mac Catalyst**, also dasselbe Programm für eine zweite
+Plattform und keine zweite App: ein Quelltext, ein Bundle, ein
+iCloud-Behälter. Ein Buch, das auf dem iPad liegt, ist auf dem Mac
+dasselbe Buch.
+
+- **„Optimiert für Mac", nicht „auf iPad-Maß skaliert"**
+  (`SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO`). Die skalierte Fassung
+  zeigt alles um knapp ein Viertel verkleinert; bei einer App, in der man
+  Millimeter setzt, ist das die falsche Wahl.
+- **Die Rechte stehen in einer EIGENEN Datei**
+  (`Config/Urlaubstagebuch-Mac.entitlements`, ausgewählt über
+  `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`). macOS verlangt den Sandkasten
+  samt Zugriff auf gewählte Dateien, Netz, Mediathek und Drucker; iOS
+  kennt diese Schlüssel gar nicht. Sie in die vorhandene Datei zu
+  schreiben hätte die iOS-Fassung unsignierbar gemacht — **genau der
+  Fehler, der 1.0.44 gekostet hat**. Dieselbe Bauweise wie bei Schulalarm,
+  das seit 1.0.18 zwei Rechte-Dateien führt.
+- **Keines dieser Rechte ist eine Fähigkeit der App-Id.**
+  Sandkasten-Rechte wertet das System aus, nicht das Profil. Die einzige
+  Ausnahme ist iCloud, und das ist dasselbe Recht wie auf iOS.
+- **Der Druckdialog braucht auf dem Mac einen Anker**, wie auf dem iPad:
+  Unter Catalyst meldet `userInterfaceIdiom` seit dieser Fassung `.mac`,
+  und ohne die Zeile fiele der Druck in den Zweig für Vollbild-Ansichten.
+- **Der Bau prüft es mit.** `ios-apps-build.yml` übersetzt jede App, deren
+  Projekt `SUPPORTS_MACCATALYST = YES` trägt, zusätzlich gegen das
+  Catalyst-SDK. Das ist kein Beiwerk: Eine Schnittstelle, die es dort
+  nicht gibt, fällt sonst erst auf dem Mac des Nutzers auf. Welche Apps
+  gemeint sind, steht im Projekt und nicht in einer zweiten Liste.
+- **Auf dem iPhone bleibt alles, wie es ist.** Die App startet dort und
+  zeigt die Seiten; umgebaut wird die Bedienung dafür nicht (ausdrücklich
+  so gewünscht).
+- **Der Mac-Bau hat sich sofort bezahlt gemacht.**
+  `LSSupportsOpeningDocumentsInPlace = NO` lehnt macOS ab („Either remove
+  the entry or set it to YES") — gefunden im ersten Lauf, in dem es den
+  Mac-Schritt gab; der iOS-Bau war dabei grün. Weglassen genügt nicht,
+  dann warnt der Bau über die fehlende Angabe. Der Schlüssel steht jetzt
+  auf `YES`, und das Einlesen meldet den Zugriff ausdrücklich an
+  (`startAccessingSecurityScopedResource`): An Ort und Stelle kommt die
+  Datei aus einem fremden Ordner. Gelöscht wird weiterhin nur im
+  Posteingang — ein Buch, das dem Nutzer gehört, wird nicht angefasst.
+
+**Nicht gemessen (1.0.62):** Auf einem Mac hat das niemand gesehen.
+Gerechnet und nachgelesen sind die Einstellungen und die Rechte; der Bau
+beweist, dass sich der Quelltext gegen das Catalyst-SDK übersetzen lässt —
+**er beweist wie immer nicht, dass sich signieren lässt** (er läuft mit
+`CODE_SIGNING_ALLOWED=NO`). Dafür muss die App-Id in der
+Entwicklerkonsole iCloud auch für macOS können, und Xcode muss ein
+Mac-Catalyst-Profil anlegen dürfen. **Ungeprüft bleibt außerdem, wie sich
+die Bühne mit Maus und Trackpad anfühlt:** Zoomen mit zwei Fingern, das
+Ziehen der Blöcke und die Griffe sind für Finger gebaut und auf dem Mac
+nie ausprobiert worden. Das nicht als erledigt darstellen.
+
 ## Bilder und Textfelder von Hand — auf einer sichtbar gewählten Seite (1.0.61)
 
 Ansage des Nutzers, 09/2026: „Ich möchte in das Buch manuell Bilder oder
