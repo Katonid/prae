@@ -388,6 +388,15 @@ struct UmschlagView: View {
                                value: "\(Int((umschlag.titelfaktor * 100).rounded())) %")
                 Slider(value: $werk.reise.umschlag.titelfaktor, in: 0.6...1.8, step: 0.05)
             }
+            VStack(alignment: .leading) {
+                LabeledContent("Titel senkrecht", value: titellagetext)
+                Slider(value: titellageregler, in: 0...1, step: 0.02)
+            }
+            if umschlag.titellage != nil {
+                Button("Titel wieder automatisch setzen") {
+                    werk.reise.umschlag.titellage = nil
+                }
+            }
             Toggle("Eigener Rand", isOn: Binding(
                 get: { umschlag.rand != nil },
                 set: { an in
@@ -410,15 +419,66 @@ struct UmschlagView: View {
                     werk.reise.umschlag.rand = nil
                     werk.reise.umschlag.titelfaktor = 1
                     werk.reise.umschlag.schriftfamilie = nil
+                    werk.reise.umschlag.titellage = nil
                 }
             }
         } header: {
             Text("Gestaltung des Umschlags")
         } footer: {
-            Text(umschlag.eigeneGestaltung
-                 ? "Der Umschlag weicht vom Buch ab. Was hier nicht gesetzt ist, folgt dem Buch weiter — eine Abweichung ist keine Kopie."
-                 : "Noch folgt der Umschlag der Gestaltung des Buches. Sobald hier etwas gesetzt ist, gilt es nur für ihn: Ein Umschlag ist ein eigenes Stück Papier.")
+            Text(gestaltungsfusstext)
         }
+    }
+
+    // DER TITEL LÄSST SICH VERSCHIEBEN — mit einem Regler und nicht mit
+    // dem Finger (ab 1.0.67).
+    //
+    // Gemeldet 09/2026: „Die Schrift auf der Titelseite ragt ziemlich tief
+    // in den dunklen Bereich des Bildes … Ich würde sie gerne auf der Seite
+    // verschieben, erkenne aber nicht, wie das gehen könnte." Zu finden war
+    // es nicht, weil es das nicht gab: Titelseite und Rückseite werden bei
+    // jedem Durchgang gerechnet, ein dort hineingeschobener Block wäre beim
+    // nächsten Durchgang weg — das steht seit 1.0.50 im Papier. Der Regler
+    // verschiebt deshalb die RECHNUNG und nicht den Block; er hält, was ein
+    // Ziehen nicht halten könnte.
+    //
+    // Nur senkrecht: Waagerecht steht der Titel über die volle Satzbreite
+    // (mittig) bzw. in einem Feld am linken Rand — dort gibt es nichts zu
+    // verschieben, was nicht die Breite wäre. Das sagt die Fußzeile auch.
+    private var gestaltungsfusstext: String {
+        var text = umschlag.eigeneGestaltung
+            ? "Der Umschlag weicht vom Buch ab. Was hier nicht gesetzt ist, folgt dem Buch weiter \u{2014} eine Abweichung ist keine Kopie."
+            : "Noch folgt der Umschlag der Gestaltung des Buches. Sobald hier etwas gesetzt ist, gilt es nur f\u{00FC}r ihn: Ein Umschlag ist ein eigenes St\u{00FC}ck Papier."
+        text += "\n\n\u{201E}Titel senkrecht\u{201C} schiebt Titel, Linie und Zeitraum "
+        text += "im Satzspiegel nach oben oder unten \u{2014} der Weg, einen Titel aus "
+        text += "einer dunklen Stelle des Titelbildes zu holen. Mit dem Finger geht das "
+        text += "nicht: Die Titelseite wird bei jedem Durchgang gerechnet, ein dort "
+        text += "hineingeschobener Block w\u{00E4}re beim n\u{00E4}chsten Durchgang weg. "
+        text += "Waagerecht gibt es nichts zu schieben \u{2014} der Titel nimmt ohnehin die "
+        text += "ganze Satzbreite ein."
+        return text
+    }
+
+    private var mitTitelfoto: Bool {
+        guard let id = werk.reise.titelfoto else { return false }
+        return werk.reise.foto(id) != nil
+    }
+
+    private var titellagewert: Double {
+        umschlag.geltendeTitellage(mitTitelfoto: mitTitelfoto)
+    }
+
+    private var titellageregler: Binding<Double> {
+        Binding(
+            get: { titellagewert },
+            set: { werk.reise.umschlag.titellage = $0 }
+        )
+    }
+
+    private var titellagetext: String {
+        let wert = titellagewert
+        var text = "\(Int((wert * 100).rounded())) % von oben"
+        if umschlag.titellage == nil { text += " (automatisch)" }
+        return text
     }
 
     private func zahl(_ wert: Double, _ einheit: String) -> String {

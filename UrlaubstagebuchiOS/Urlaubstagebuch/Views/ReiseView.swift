@@ -126,6 +126,7 @@ struct ReiseView: View {
         case bedienung
         case ausgabe
         case zweiDateien
+        case nurUmschlag
         case broschuere
         case neuverteilen
         case tagInhalt(UUID)
@@ -154,6 +155,7 @@ struct ReiseView: View {
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
             case .zweiDateien: return "zweidateien"
+            case .nurUmschlag: return "nurumschlag"
             case .broschuere: return "broschuere"
             case .neuverteilen: return "neuverteilen"
             case let .tagInhalt(id): return "tag-\(id)"
@@ -1393,6 +1395,17 @@ struct ReiseView: View {
                 Button("Umschlag und Innenteil getrennt…", systemImage: "doc.on.doc") {
                     blatt = .zweiDateien
                 }
+                // NUR DER UMSCHLAG (ab 1.0.67). Ansage des Nutzers,
+                // 09/2026: „damit ich jetzt nicht wieder beide Teile
+                // exportieren muss, denn das PDF für das eigentliche Buch
+                // ist mittlerweile knapp 4 GB groß." Ein eigener Punkt und
+                // nicht nur eine Zeile im Picker: Wer am Umschlag etwas
+                // ändert, sucht genau diesen Weg — und der Picker im Blatt
+                // ist derselbe Ort, an dem in 1.0.52 zehn Fassungen lang
+                // etwas stand, das niemand fand.
+                Button("Nur den Umschlag…", systemImage: "book.closed") {
+                    blatt = .nurUmschlag
+                }
             }
             // EIN EIGENER MENÜPUNKT FÜR DIE BROSCHÜRE (ab 1.0.37).
             //
@@ -1763,6 +1776,8 @@ struct ReiseView: View {
             AusgabeView(werk: werk)
         case .zweiDateien:
             AusgabeView(werk: werk, vorwahl: .getrennt)
+        case .nurUmschlag:
+            AusgabeView(werk: werk, vorwahl: .nurUmschlag)
         case .broschuere:
             AusgabeView(werk: werk, vorwahl: .broschuere)
         case .neuverteilen:

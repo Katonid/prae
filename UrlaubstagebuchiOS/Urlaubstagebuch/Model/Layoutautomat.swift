@@ -214,7 +214,12 @@ struct Layoutautomat {
             : Textmass.hoehe(untertext, bild: unter, breite: breite - 40)
 
         let feldHoehe = titelHoehe + (unterHoehe > 0 ? unterHoehe + 16 : 0) + 44
-        let feldY = satz.maxY - feldHoehe
+        // Wo das Feld senkrecht liegt, sagt seit 1.0.67 der Umschlag. Ohne
+        // eigene Angabe ist das 1, also `satz.maxY - feldHoehe` — genau die
+        // Zeile, die bis dahin hier stand.
+        let luft = Double(satz.height) - feldHoehe
+        let anteil = umschlag.geltendeTitellage(mitTitelfoto: true)
+        let feldY = Double(satz.minY) + luft * anteil
 
         bloecke.append(Block(
             inhalt: .flaeche,
@@ -259,7 +264,11 @@ struct Layoutautomat {
         let unterHoehe = untertext.isEmpty ? 0 : Textmass.hoehe(untertext, bild: unter, breite: breite)
 
         let gesamt = titelHoehe + (unterHoehe > 0 ? 26 + unterHoehe : 0)
-        var y = satz.midY - gesamt / 2
+        // Ohne eigene Angabe ist der Anteil 0,5 — und das ist auf den Punkt
+        // `satz.midY - gesamt / 2`, die Zeile, die bis 1.0.66 hier stand.
+        let luft = Double(satz.height) - gesamt
+        let anteil = umschlag.geltendeTitellage(mitTitelfoto: false)
+        var y = Double(satz.minY) + luft * anteil
 
         bloecke.append(Block(
             inhalt: .titel,

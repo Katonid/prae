@@ -687,7 +687,7 @@ enum Buchausgabe {
         zusammenhang.clip(to: CGRect(x: x, y: -anschnitt, width: breite,
                                      height: seitenmass.height + 2 * anschnitt))
         zeichneSeite(buchseite, reise: reise, karten: karten, auftrag: auftrag,
-                     in: zusammenhang)
+                     ohneGrund: true, in: zusammenhang)
         zusammenhang.restoreGState()
     }
 
@@ -731,8 +731,28 @@ enum Buchausgabe {
 
     // MARK: - Eine Seite
 
+    // DER GRUND EINER UMSCHLAGHÄLFTE WIRD NICHT GEZEICHNET (`ohneGrund`,
+    // ab 1.0.67).
+    //
+    // Gemeldet 09/2026: „Der Export hat leider beim Umschlag PDF nicht das
+    // Bild mitgenommen.“ Am Quelltext abzuzählen und keine Vermutung:
+    // `umschlagPdf` legt seit 1.0.50 den Grund über den GANZEN Bogen —
+    // und rief danach für jede Hälfte diese Funktion, die ihn
+    // bedingungslos noch einmal zeichnete, diesmal in die halbe Fläche.
+    // Zwei Wirkungen, beide falsch: Ein einfarbiger Seitengrund übermalt
+    // das Bogenbild vollständig (dann steht nur noch im Rücken ein
+    // Streifen davon), und ein Fotogrund wird ZWEIMAL eingepasst — mit
+    // einem Zoom und einem Versatz, die für den Bogen gerechnet wurden
+    // und auf einer halben Fläche etwas ganz anderes treffen.
+    //
+    // Der Bildschirm macht es seit 1.0.63 richtig (`SeitenflaecheView.ohneGrund`);
+    // dieselbe Fassung hat das PDF stehen lassen. Damit gilt die Lehre von
+    // damals noch einmal, eine Ebene tiefer: **Zwei Fassungen desselben
+    // Grundes zeigen früher oder später Verschiedenes** — und hier fiel es
+    // erst an der ausgegebenen Datei auf.
     static func zeichneSeite(_ buchseite: Buchseite, reise: Reise, karten: [UUID: UIImage],
-                             auftrag: Auftrag, in zusammenhang: CGContext)
+                             auftrag: Auftrag, ohneGrund: Bool = false,
+                             in zusammenhang: CGContext)
     {
         let endformat = reise.format.groesse
         let anschnitt = reise.gestaltung.anschnittPt
@@ -747,29 +767,34 @@ enum Buchausgabe {
         let bogenrechteck = CGRect(x: -anschnitt, y: -anschnitt,
                                    width: endformat.width + 2 * anschnitt,
                                    height: endformat.height + 2 * anschnitt)
-        var grund = buchseite.seite.hintergrund ?? reise.gestaltung.hintergrund
-        if let eigenes = buchseite.seite.papier {
-            grund.farbe = eigenes
-            grund.art = .einfarbig
+        // GEPRÜFT WIRD VOR DEM LADEN, nicht danach: Ein Hintergrundfoto
+        // wird in voller Ausgabegüte von der Platte geholt, und für eine
+        // Umschlaghälfte wäre das ein ganzes Bild umsonst.
+        if !ohneGrund {
+            var grund = buchseite.seite.hintergrund ?? reise.gestaltung.hintergrund
+            if let eigenes = buchseite.seite.papier {
+                grund.farbe = eigenes
+                grund.art = .einfarbig
+            }
+            var grundbild: UIImage?
+            if grund.art == .foto, let id = grund.fotoID, let foto = reise.foto(id) {
+                grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
+                                                          kante: auftrag.bildkante)
+            }
+            // Geht das Hintergrundfoto über die Doppelseite, wird es in die
+            // Fläche BEIDER Seiten gerechnet und hier die Hälfte davon
+            // gezeichnet. Gerechnet wird das von derselben Funktion, die auch
+            // die Ansicht fragt — zwei Fassungen ergäben eine Vorschau, in
+            // der das Bild anders steht als im Druck.
+            var bildflaeche: CGRect?
+            if grund.art == .foto, grund.ueberDoppelseite {
+                bildflaeche = Bogenlage.bildflaeche(rechts: buchseite.liegtRechts,
+                                                    format: endformat, anschnitt: anschnitt)
+            }
+            Seitensatz.zeichneHintergrund(grund, rechteck: bogenrechteck, bild: grundbild,
+                                          saat: buchseite.seite.id.saat,
+                                          bildflaeche: bildflaeche, in: zusammenhang)
         }
-        var grundbild: UIImage?
-        if grund.art == .foto, let id = grund.fotoID, let foto = reise.foto(id) {
-            grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
-                                                      kante: auftrag.bildkante)
-        }
-        // Geht das Hintergrundfoto über die Doppelseite, wird es in die
-        // Fläche BEIDER Seiten gerechnet und hier die Hälfte davon
-        // gezeichnet. Gerechnet wird das von derselben Funktion, die auch
-        // die Ansicht fragt — zwei Fassungen ergäben eine Vorschau, in
-        // der das Bild anders steht als im Druck.
-        var bildflaeche: CGRect?
-        if grund.art == .foto, grund.ueberDoppelseite {
-            bildflaeche = Bogenlage.bildflaeche(rechts: buchseite.liegtRechts,
-                                                format: endformat, anschnitt: anschnitt)
-        }
-        Seitensatz.zeichneHintergrund(grund, rechteck: bogenrechteck, bild: grundbild,
-                                      saat: buchseite.seite.id.saat,
-                                      bildflaeche: bildflaeche, in: zusammenhang)
 
         // Das Wasserzeichen liegt über dem Hintergrund und unter allem
         // anderen. Ohne Transparenz fällt es WEG und wird nicht etwa
