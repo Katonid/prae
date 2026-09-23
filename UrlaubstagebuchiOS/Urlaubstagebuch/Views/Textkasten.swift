@@ -17,6 +17,13 @@ struct Textkasten: UIViewRepresentable {
     // nur durchgereicht; gerechnet wird er an EINER Stelle
     // (`Block.textrechteck`), die auch das PDF fragt.
     var rand: Double = 0
+    // DER MASSSTAB DER BÜHNE, und er gehört hier herein.
+    //
+    // Die Seite wird in Seitenpunkten gesetzt und mit `scaleEffect`
+    // vergrößert; das ist eine Abbildung und keine neue Zeichnung. Wie
+    // fein diese Ansicht rastert, muss sie deshalb selbst wissen —
+    // `Bildschaerfe` rechnet die Zahl, `schaerfeSetzen` setzt sie.
+    var massstab: Double = 1
 
     func makeUIView(context: Context) -> TextkastenView {
         let ansicht = TextkastenView()
@@ -56,6 +63,7 @@ struct Textkasten: UIViewRepresentable {
         if ansicht.text != text { ansicht.text = text }
         if ansicht.bild != bild { ansicht.bild = bild }
         if ansicht.rand != rand { ansicht.rand = rand }
+        if ansicht.massstab != massstab { ansicht.massstab = massstab }
     }
 }
 
@@ -63,6 +71,49 @@ final class TextkastenView: UIView {
     var text: String = "" { didSet { setNeedsDisplay() } }
     var bild = Schriftbild() { didSet { setNeedsDisplay() } }
     var rand: Double = 0 { didSet { setNeedsDisplay() } }
+    var massstab: Double = 1 { didSet { schaerfeSetzen() } }
+
+    // WARUM DER TEXT BEIM HINEINZOOMEN UNSCHARF WURDE (behoben in 1.0.53).
+    //
+    // Core Animation rastert eine Ebene EINMAL, mit `layer.contentsScale`
+    // Bildpunkten je Punkt, und der Vorgabewert ist der Maßstab des
+    // Bildschirms. Der `scaleEffect` über dieser Ansicht zieht dieses
+    // fertige Bild danach auf — bei 400 % also auf das Vierfache. Gesetzt
+    // wurde der Text damit weiterhin mit zwei Bildpunkten je Seitenpunkt,
+    // gezeigt aber auf acht: ein halber gerasterter Punkt je
+    // Bildschirmpunkt. Nichts daran war falsch gezeichnet, es war zu grob
+    // gezeichnet. **Merke: Wer in einer UIView selbst zeichnet und sie
+    // vergrößern lässt, setzt `contentsScale` — sonst wird das Bild
+    // gedehnt statt neu gesetzt.** Dieselbe Wurzel wie `contentMode`
+    // darüber, eine Ebene tiefer.
+    //
+    // Der Gerätemaßstab kommt aus der eigenen `traitCollection` und nie
+    // aus `UIScreen.main`: Hängt ein zweiter Bildschirm am iPad, wäre das
+    // die falsche Auskunft.
+    private func schaerfeSetzen() {
+        let gemeldet = Double(traitCollection.displayScale)
+        let geraet = gemeldet > 0.5 ? gemeldet : 2
+        let fein = Bildschaerfe.punkteJeSeitenpunkt(geraet: geraet, massstab: massstab,
+                                                    flaeche: bounds.size)
+        Schaerfeprobe.shared.melde(fein: fein, flaeche: bounds.size,
+                                   geraet: geraet, massstab: massstab)
+        guard abs(Double(layer.contentsScale) - fein) > 0.01 else { return }
+        layer.contentsScale = CGFloat(fein)
+        setNeedsDisplay()
+    }
+
+    // Die Fläche geht in das Budget ein, also wird die Schärfe bei jeder
+    // Größenänderung nachgeführt. `contentMode = .redraw` fordert die
+    // Zeichnung ohnehin an; hier kommt nur die Auflösung dazu.
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        schaerfeSetzen()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        schaerfeSetzen()
+    }
 
     override func draw(_ rect: CGRect) {
         guard let zusammenhang = UIGraphicsGetCurrentContext(), !text.isEmpty else { return }

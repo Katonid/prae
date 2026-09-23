@@ -14,6 +14,10 @@ struct SeitenflaecheView: View {
     let buchseite: Buchseite
     var bearbeitbar: Bool = true
     var massstab: Double
+    // Der Maßstab des Bildschirms, an dem DIESE Seite hängt. Zusammen mit
+    // dem Maßstab der Bühne sagt er, wie fein gerastert werden muss —
+    // gerechnet in `Bildschaerfe`.
+    @Environment(\.displayScale) private var geraet
 
     // `schiebt`/`zieht` gab es bis 1.0.7: Beim Verschieben bewegte sich nur
     // ein Versatz beim ZEICHNEN, der Rahmen im Modell blieb stehen und
@@ -64,6 +68,28 @@ struct SeitenflaecheView: View {
         return buchseite.seite.bloecke.first { $0.id == id }
     }
 
+    // GEBAUT WIRD DER PROBENTEXT AUSSERHALB DES KÖRPERS.
+    //
+    // Eine `+`-Kette aus `??`, Text und Interpolation sprengt den
+    // Typprüfer — „unable to type-check this expression in reasonable
+    // time". Genau das ist beim Einbau der Schärfezeile passiert: Drei
+    // Teile gingen, der vierte kippte es. Die Lehre steht seit 1.0.38 im
+    // Papier und gilt auch für eine Kette aus lauter Zeichenketten.
+    private var probentext: String {
+        var zeilen: [String] = []
+        zeilen.append(werk.letzterGriff ?? "noch nichts gegriffen")
+        zeilen.append(werk.letzteBuehne ?? "noch nicht gezoomt")
+        zeilen.append(Schaerfeprobe.shared.befund)
+        zeilen.append(werk.messer.befund)
+        return zeilen.joined(separator: "\n")
+    }
+
+    // Wo das Wasserzeichen liegt. Gerechnet wird es VOR dem Bild, weil
+    // seine Größe sagt, wie fein das Bild geholt werden muss.
+    private func wasserzeichenort(_ zeichen: Wasserzeichen) -> Wasserzeichenlage.Ort? {
+        Wasserzeichenlage.ort(zeichen, satz: satz, seite: buchseite.seite)
+    }
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             // Die Probe meldet sich im KÖRPER an — der läuft bei jedem
@@ -72,7 +98,8 @@ struct SeitenflaecheView: View {
             let _ = werk.messer.melde("Seite")
             HintergrundFlaeche(werk: werk, hintergrund: hintergrund, seite: buchseite.seite,
                                format: format, anschnitt: anschnitt,
-                               bogen: bogen, liegtRechts: buchseite.liegtRechts)
+                               bogen: bogen, liegtRechts: buchseite.liegtRechts,
+                               massstab: massstab)
                 .offset(x: -anschnitt, y: -anschnitt)
                 .allowsHitTesting(false)
 
@@ -81,10 +108,12 @@ struct SeitenflaecheView: View {
             // das PDF fragt — zwei Fassungen ergäben eine Vorschau, die
             // anders aussieht als der Druck.
             if let zeichen = werk.reise.wasserzeichen(fuer: buchseite),
-               let bild = Bildarchiv.shared.vorschau(zeichen.datei, reise: werk.reise.id,
-                                                     kante: 900)
+               let ort = wasserzeichenort(zeichen),
+               let bild = Bildarchiv.shared.vorschau(
+                   zeichen.datei, reise: werk.reise.id,
+                   kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
+                                             massstab: massstab, groesste: 1600))
             {
-                let ort = Wasserzeichenlage.ort(zeichen, satz: satz, seite: buchseite.seite)
                 // Gedreht wird um die Mitte des BILDRAHMENS, und die ist
                 // nach `Wasserzeichenlage.ort` dieselbe wie die des
                 // Platzes: `rotationEffect` dreht ohne weitere Angabe um
@@ -128,7 +157,7 @@ struct SeitenflaecheView: View {
             // über den Blöcken, weil sie es im PDF auch tun — dort werden
             // sie zuletzt gezeichnet.
             ForEach(Seitenbeiwerk.zeilen(buchseite, reise: werk.reise)) { zeile in
-                Textkasten(text: zeile.text, bild: zeile.bild)
+                Textkasten(text: zeile.text, bild: zeile.bild, massstab: massstab)
                     .frame(width: zeile.rechteck.width, height: zeile.rechteck.height)
                     .offset(x: zeile.rechteck.minX, y: zeile.rechteck.minY)
                     .allowsHitTesting(false)
@@ -250,9 +279,7 @@ struct SeitenflaecheView: View {
             // steht nur da, wenn jemand sie eingeschaltet hat, und sie sagt
             // nichts als das Gemessene.
             if bearbeitbar, werk.zeigeGriffprobe {
-                Text((werk.letzterGriff ?? "noch nichts gegriffen")
-                     + "\n" + (werk.letzteBuehne ?? "noch nicht gezoomt")
-                     + "\n" + werk.messer.befund)
+                Text(probentext)
                     .font(.system(size: 9 / massstab, design: .monospaced))
                     .multilineTextAlignment(.leading)
                     .fixedSize()
@@ -399,7 +426,7 @@ struct SeitenflaecheView: View {
         let wirkung = block.wirkung(werk.reise.gestaltung)
         let randPt = Druckmass.pt(wirkung.fotorand)
 
-        BlockInhaltView(werk: werk, block: block, tag: buchseite.tag)
+        BlockInhaltView(werk: werk, block: block, tag: buchseite.tag, massstab: massstab)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
             .padding(randPt)
             .background {
@@ -835,6 +862,8 @@ struct HintergrundFlaeche: View {
     // liegt; `nil` heißt „außerhalb des Buches", und dann gibt es keine
     // Doppelseite, über die etwas gehen könnte.
     var liegtRechts: Bool?
+    var massstab: Double = 1
+    @Environment(\.displayScale) private var geraet
 
     // Wie groß das Hintergrundfoto gezeichnet wird und wie weit gegen die
     // Bogenmitte verschoben — oder `nil`, wenn es schlicht diese eine
@@ -846,6 +875,14 @@ struct HintergrundFlaeche: View {
         return (Double(bogen.width) + Double(format.width),
                 Double(bogen.height),
                 Bogenlage.versatz(rechts: liegtRechts, format: format, anschnitt: anschnitt))
+    }
+
+    private var hintergrundkante: Int {
+        let breite = doppelflaeche?.breite ?? Double(bogen?.width ?? format.width)
+        let hoehe = doppelflaeche?.hoehe ?? Double(bogen?.height ?? format.height)
+        return Bildschaerfe.kante(CGSize(width: breite, height: hoehe),
+                                  geraet: Double(geraet), massstab: massstab,
+                                  kleinste: 600, groesste: doppelflaeche == nil ? 2000 : 2800)
     }
 
     var body: some View {
@@ -864,9 +901,12 @@ struct HintergrundFlaeche: View {
                    // Über die Doppelseite deckt dasselbe Bild die
                    // doppelte Breite ab — mit derselben Kante wäre es auf
                    // dem Bildschirm halb so fein. Das PDF holt ohnehin die
-                   // volle Auflösung (`auftrag.bildkante`).
+                   // volle Auflösung (`auftrag.bildkante`). Wie fein es auf
+                   // dem BILDSCHIRM sein muss, hängt am Maßstab der Bühne
+                   // und steht in `Bildschaerfe` — bis 1.0.52 stand hier
+                   // eine feste Zahl, und die war beim Hineinzoomen zu klein.
                    let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                                         kante: doppelflaeche == nil ? 1400 : 2400)
+                                                         kante: hintergrundkante)
                 {
                     fotoflaeche(bild)
                 }
@@ -929,6 +969,9 @@ struct BlockInhaltView: View {
     @ObservedObject var werk: Reisewerk
     let block: Block
     let tag: Reisetag?
+    // Wie weit die Seite vergrößert ist — gebraucht von allem, was
+    // gerastert wird: Text, Foto, Wasserzeichen. Siehe `Bildschaerfe`.
+    var massstab: Double = 1
 
     private var wirkung: Blockwirkung { block.wirkung(werk.reise.gestaltung) }
 
@@ -955,7 +998,8 @@ struct BlockInhaltView: View {
             Textkasten(
                 text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
                 bild: Seitensatz.schriftbild(block, reise: werk.reise),
-                rand: wirkung.textrand
+                rand: wirkung.textrand,
+                massstab: massstab
             )
         case .bildunterschrift:
             let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
@@ -993,7 +1037,8 @@ struct BlockInhaltView: View {
             } else {
                 Textkasten(text: text,
                            bild: Seitensatz.schriftbild(block, reise: werk.reise),
-                           rand: wirkung.textrand)
+                           rand: wirkung.textrand,
+                           massstab: massstab)
             }
         case .linie:
             Rectangle()
@@ -1011,7 +1056,7 @@ struct BlockInhaltView: View {
                 startPoint: .top, endPoint: .bottom
             )
         case let .foto(id):
-            FotoKachel(werk: werk, block: block, fotoID: id)
+            FotoKachel(werk: werk, block: block, fotoID: id, massstab: massstab)
         case .karte:
             KartenKachel(werk: werk, block: block, tag: tag)
         }
@@ -1022,6 +1067,11 @@ struct FotoKachel: View {
     @ObservedObject var werk: Reisewerk
     let block: Block
     let fotoID: UUID
+    var massstab: Double = 1
+    // Der Maßstab des Bildschirms, an dem DIESE Ansicht hängt — nicht der
+    // von `UIScreen.main`. Hängt ein Beamer am iPad, wäre das die falsche
+    // Auskunft.
+    @Environment(\.displayScale) private var geraet
 
     var body: some View {
         GeometryReader { raum in
@@ -1058,9 +1108,19 @@ struct FotoKachel: View {
 
     // Kein Original auf der Seite: Ein Dutzend 12-Megapixel-Bilder machen
     // aus dem Blättern eine Geduldsprobe.
+    //
+    // Bis 1.0.52 standen hier feste 2,2 Bildpunkte je Seitenpunkt. Das
+    // passte für die unvergrößerte Seite auf einem gewöhnlichen Gerät und
+    // sonst nirgends: Bei 400 % blieb davon ein halber Bildpunkt je
+    // Bildschirmpunkt — dieselbe Ursache wie beim Text, nur eine Ebene
+    // weiter. Gerechnet wird sie jetzt in `Bildschaerfe`, und zwar an
+    // derselben Stelle wie für den Text; die obere Grenze ist von 1600 auf
+    // 2000 gestiegen. Sie greift erst bei einem randabfallenden Bild —
+    // eine Kachel in einer Reihe misst ein paar hundert Punkte und wird
+    // so fein, wie sie darf.
     private func vorschaukante(_ groesse: CGSize) -> Int {
-        let kante = max(groesse.width, groesse.height) * 2.2
-        return min(max(Int(kante), 240), 1600)
+        Bildschaerfe.kante(groesse, geraet: Double(geraet), massstab: massstab,
+                           groesste: 2000)
     }
 }
 

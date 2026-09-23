@@ -6761,6 +6761,74 @@ Befunde, und keiner davon war Geschmack:
   Rückseite die letzte. Bis 1.0.51 lief sie als Heftseite 1 mit, also noch
   vor dem Titel. **Das war schon damals falsch und fiel erst auf, als die
   Zählung selbst zum Thema wurde** — dieselbe Wurzel, eine Ansicht weiter.
+- **EIN `scaleEffect` IST EINE ABBILDUNG, KEINE ZEICHNUNG**
+  (`Model/Bildschaerfe.swift`, ab 1.0.53; gemeldet 09/2026 mit einem
+  Bildschirmfoto bei 400 %: „Wie wird der Text eigentlich gerendert? Er wirkt
+  unscharf."). **Am Quelltext abzuzählen und keine Vermutung:** Core Animation
+  rastert eine Ebene GENAU EINMAL, mit `layer.contentsScale` Bildpunkten je
+  Punkt, und der Vorgabewert ist der Maßstab des Bildschirms. Der
+  `scaleEffect` über der Seite zieht dieses fertige Bild danach auf. Der Text
+  wurde also weiterhin mit zwei Bildpunkten je Seitenpunkt GESETZT und bei
+  400 % auf acht GEZEIGT — ein halber gerasterter Punkt je Bildschirmpunkt.
+  Nichts daran war falsch gezeichnet, es war zu grob gezeichnet.
+  **Merke: Wer in einer UIView selbst zeichnet und sie vergrößern lässt, setzt
+  `contentsScale` — sonst wird das Bild gedehnt statt neu gesetzt.** Dieselbe
+  Wurzel wie `contentMode = .redraw` aus 1.0.8, eine Ebene tiefer: Dort wurde
+  das Bild bei einer Größenänderung gedehnt, hier bei einer Vergrößerung.
+  - **Dasselbe eine Ebene weiter bei den FOTOS.** `vorschaukante` stand auf
+    festen 2,2 Bildpunkten je Seitenpunkt — richtig für die unvergrößerte
+    Seite auf einem gewöhnlichen Gerät und sonst nirgends; bei 400 % blieb ein
+    halber. Es war also nie ein Fehler des Textsatzes, sondern einer, den
+    jedes gerasterte Element auf dieser Seite hatte.
+  - **Die Zahl steht an EINER Stelle** (`Bildschaerfe`) und gilt für Text,
+    Fotos, Wasserzeichen und Hintergrundfoto. Liefen sie auseinander, wäre auf
+    derselben Seite das eine scharf und das andere weich.
+  - **Der GERÄTEMASSSTAB kommt aus der eigenen Ansicht** —
+    `traitCollection.displayScale` bzw. `\.displayScale` —, nie aus
+    `UIScreen.main`: Hängt ein Beamer am iPad, wäre das die falsche Auskunft
+    (dieselbe Lehre wie bei Tafelbilds Dokumentenkamera).
+  - **Gestuft und gedeckelt.** Gestuft, weil jede Zwischengröße sonst ihre
+    eigene Rasterung bekäme — und im `Bildarchiv` einen eigenen Eintrag, denn
+    dessen Schlüssel nennt die Kante. Gedeckelt durch ein Pixelbudget je
+    Fläche, weil ein Textkasten von 430 × 700 Punkten bei achtfacher
+    Rasterung 77 MB wöge und mehrere davon in der Bühne liegen.
+  - **`traitCollectionDidChange` ist seit iOS 17 abgekündigt** und wird
+    deshalb NICHT überschrieben; ein Wechsel des Bildschirms läuft ohnehin
+    durch `didMoveToWindow` und `layoutSubviews`.
+  - **Die KARTE bleibt, wie sie ist**, und das ist kein Vergessen: Sie wird
+    seit jeher mit vier Bildpunkten je Seitenpunkt aufgenommen
+    (`Kartenwerk.massstab` = 2 auf eine doppelt so große Fläche). Weiter
+    hinauf hilft es nicht — `Kachelkarte` ist auf 48 Kacheln gedeckelt (so
+    will es die Nutzungsrichtlinie der OSM Foundation), und eine größere
+    Anforderung zöge nur eine tiefere Zoomstufe nach sich, die an derselben
+    Grenze wieder gröber wird. Bei starker Vergrößerung ist sie damit das
+    gröbste Element auf der Seite; das gehört gesagt und nicht verschwiegen.
+  - **Das Textfeld beim Bearbeiten ist NICHT mitgezogen.** `InlineText` ist
+    ein `UITextView`, und der setzt über TextKit in eigene Unterebenen; ein
+    `contentsScale` an der äußeren Ansicht erreicht sie nicht verlässlich.
+    Wer bei starker Vergrößerung doppeltippt, sieht also weiter weichen Text.
+    Nicht als erledigt darstellen.
+- **Und weil sich das hier nicht nachmessen lässt, sagt es die App**
+  (`Schaerfeprobe`, im Befund unter „Bedienung prüfen", ab 1.0.53). Gemeldet
+  wird, was WIRKLICH gesetzt wurde: Bildpunkte je Seitenpunkt gegen die, die
+  gebraucht würden, dazu Gerätemaßstab, Bühnenmaßstab, die Größe des Kastens
+  und ob das Budget gedeckelt hat. Nach einer Fassung, deren Ursache gerechnet
+  und nicht gesehen ist, ist das der einzige Weg, die nächste Frage mit Zahlen
+  statt mit Vermutungen zu beantworten — dasselbe Muster wie Schulalarms
+  Stufenprobe und der Kartenmesser der Abfahrtstafel. **Ein schlichtes
+  `final class` ohne `@Published`**, aus demselben Grund wie beim
+  `Zeichenmesser`: Wäre es beobachtbar, löste jede Rasterung ein Neuzeichnen
+  aus, das seinerseits gemeldet würde.
+- **Nicht gemessen (1.0.53):** Keine Seite ist damit gesehen worden.
+  Gerechnet und am Quelltext abgezählt ist die URSACHE — dass eine Ebene mit
+  ihrem `contentsScale` rastert und ein `scaleEffect` das Ergebnis dehnt.
+  **Gewählt und nicht gemessen** sind alle Zahlen: das Pixelbudget
+  (6 Millionen), die Stufenliste, die obere Grenze der Vorschaubilder (Fotos
+  2000, Wasserzeichen 1600, Hintergrund 2000 bzw. 2800 über die Doppelseite)
+  und die 200er-Rundung der Kanten. **Ungemessen bleibt der PREIS**: Eine
+  feinere Rasterung kostet Speicher und Zeichenzeit, und wie sich ein Buch
+  mit zweihundert Fotos bei 400 % anfühlt, sagt erst der nächste Befund —
+  seit 1.0.53 sagt er es mit Zahlen. **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.52):** Keine Seite ist damit gesehen worden. Am
   Quelltext abgezählt sind die URSACHEN (der Umschlag in der Zählung, das
   Meldeband hinter dem Vollbild) und die Geometrie der Drehung. **Gewählt
