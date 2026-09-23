@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- Die App ist deutsch und bringt keine Sprachdateien mit. Ohne diese
+	     beiden Schlüssel setzt Xcode „en", und iOS zeigt ALLES Systemeigene
+	     englisch (Ortungsdialog, Teilen-Blatt). Lehre aus Tafelbild 1.0.59. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+	</array>
+
+	<!-- Nur „WhenInUse": Die App plant Routen, sie navigiert nicht im
+	     Hintergrund. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Damit „Mein Standort" als Start oder Ziel gewählt werden kann. Der Standort wird nur als Koordinate an den Routendienst geschickt.</string>
+</dict>
+</plist>

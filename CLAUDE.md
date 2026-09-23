@@ -3105,6 +3105,70 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   pushen, Bau abwarten, Fehler beheben — den PR-Link erst herausgeben,
   wenn der Bau grün ist.**
 
+## Projekt Routenplaner (Auto/Gespann, Fahrrad, zu Fuß — native iOS-App)
+
+- App-Code: `RoutenplaneriOS/` (ein Target: App, iPhone + iPad, iOS 17, keine
+  fremden Abhängigkeiten), Bundle-Id `de.familie.routenplaner`, Homescreen-Name
+  „Routenplaner". Ausführlich: `RoutenplaneriOS/README.md`. Anlass (Ansage des
+  Nutzers, 09/2026): Keine Routen-App plant für ein Gespann mit 2,50 m Breite
+  und 3,20 m Höhe, rechnet Anhängertempo ein oder findet den kürzesten
+  ERLAUBTEN Radweg.
+- **Drei Dienste, alle ohne Schlüssel, jeder an echten Antworten gemessen
+  (23.09.2026):** Valhalla (FOSSGIS) für Auto und zu Fuß, BRouter für das
+  Rad, Autobahn GmbH für Verkehrsmeldungen. Ein Schlüssel in einer App ist
+  keiner — dieselbe Regel wie in der Abfahrtstafel.
+- **Gespann = Valhallas PKW-Profil mit `height`/`width`, NICHT das
+  Lkw-Profil.** Gemessen: `auto` mit 9 m × 6 m wählt einen anderen Weg (49,9
+  statt 48,1 km), die Maße wirken also. Das Lkw-Profil meidet zusätzlich
+  Lkw-Verbote, die für Pkw mit Wohnwagen gar nicht gelten.
+- **Die Fahrzeit rechnet die App selbst**, aus `trace_attributes` (Klasse,
+  Tempo, Tempolimit, Bebauungsdichte je Stück): Anhänger außerorts 80,
+  Autobahn 80/100, dazu Innerorts- und Abbiegeaufschlag aus dem Profil. Sie
+  steht in POSTEN da, jede Zeile mit Grund; die Zeit des Dienstes daneben zum
+  Vergleich. Die Aufschläge und die Innerorts-Schwelle (Dichte ≥ 11) sind
+  gewählt, nicht gemessen — und stehen deshalb im Profil, nicht im Quelltext.
+- **Mit dem Rad fährt Valhalla NIE über einen Gehweg ohne Radfreigabe**
+  (gemessen in der Dortmunder Fußgängerzone — es fährt drumherum). Schieben
+  kennt es nicht; es ist deshalb nur Rückfall, und das steht dann in der App.
+- **BRouters „shortest" reichte NICHT:** Es hält `highway=pedestrian` für
+  befahrbar. Das eigene Regelwerk (`BRouter.regelwerk`) sperrt Gehweg,
+  Fußgängerzone, Treppe und Reitweg für Räder, solange nichts anderes
+  eingetragen ist, und schaltet Schieben über `profile:schieben` ein und aus.
+  Gemessen: 895 m mit, 1345 m ohne Schieben. Hochgeladen wird es über
+  `POST /brouter/profile`; die Kennung verfällt, dann wird neu hochgeladen.
+- **`BRouter.einordnen` ist dieselbe Regel noch einmal auf App-Seite** und
+  entscheidet, was „Schieben" heißt. Wer das Regelwerk ändert, ändert beides —
+  liefen sie auseinander, stünde eine Schiebestrecke als Fahrstrecke da.
+  Geprüft: Ohne Schieben ordnet die App 0 m als Schieben ein.
+- **BRouters eigene Zeit taugt nicht** (641 s für 895 m bei „shortest").
+- **`WayTags` nennt nur Merkmale, die das Regelwerk benutzt.** `name=` und
+  `ref=` kennt BRouter nicht einmal als Suchbegriff (Hochladefehler „unknown
+  lookup name").
+- **Verkehrsmeldungen nur für Autobahnen, und das steht in der App.**
+  `isBlocked` kommt als TEXT, `future` als Wahrheitswert; `CLOSURE` sperrt,
+  `CLOSURE_ENTRY_EXIT` ist nur eine Auf-/Abfahrt. Baustellen nennen
+  „Maximale Durchfahrtsbreite" — ist das Fahrzeug breiter, wird umfahren wie
+  bei einer Sperrung. Zugeordnet wird eine Meldung über Anfang, Mitte und
+  Ende (je höchstens 60 m von der Route) und die RICHTUNG über die Reihenfolge,
+  in der die Route an Anfang und Ende vorbeikommt. Umfahren wird über
+  `exclude_polygons` (gemessen: wirkt), ein Kästchen von rund 250 m — es
+  sperrt beide Richtungen, und die Detailansicht sagt das. Ein Stau
+  verlängert die Zeit, verlegt die Route aber nicht.
+- **Overpass war aus der Bauumgebung nicht erreichbar**, die OSM-API schon —
+  die ist aber zum Bearbeiten da und kein Datendienst für Apps. Die App fragt
+  sie deshalb nicht. Offen: Unterführungen OHNE eingetragene Höhe erkennen.
+- `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
+  im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1).
+  `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Navigation,
+  `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
+  Build-Einstellung — nicht entfernen.
+- Das App-Symbol rechnet `RoutenplaneriOS/scripts/make-icon.py`.
+- Übersetzt wird in GitHub Actions (Eintrag
+  `("RoutenplaneriOS", "Routenplaner")` in `welche-apps.py`). **Erst pushen,
+  Bau abwarten, Fehler beheben — den PR-Link erst herausgeben, wenn der Bau
+  grün ist.**
+
 ## Projekt Urlaubstagebuch (Reisebuch aus Fotos und Text, native iOS-App)
 
 - App-Code: `UrlaubstagebuchiOS/` (ein Target: App, iPhone + iPad, iOS 17,
