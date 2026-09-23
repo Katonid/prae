@@ -3103,9 +3103,14 @@ Stilwahl, und alles zu einem Tag verteilt auf zwei Menüs und die Fußleiste.
 | Ort | Frage |
 | --- | --- |
 | `+` | Was kommt ins Buch hinein? |
-| Pinsel | Wie sieht das Buch aus? |
+| Buchsymbol („Ganzes Buch") | Wie sieht das **ganze Buch** aus? |
 | `…` | Alles Seltene: ausgeben, prüfen, Hilfen beim Anordnen |
+| Pinsel („Auswahl") | Was nur für das **Angetippte** gilt |
 | Unten rechts, mit dem Datum | Alles zu **diesem** Tag |
+
+(Bis 1.0.48 trug der Pinsel die buchweite Gestaltung und ein Schieberegler
+die Auswahl — genau andersherum als in Pages; seit 1.0.49 sind sie
+getauscht und nach ihrem Geltungsbereich benannt.)
 
 **Nichts steht an zwei Stellen.** „Zurück" heißt jetzt „Widerrufen" — es stand
 neben einem Zurück-Pfeil, der das Buch schließt.
