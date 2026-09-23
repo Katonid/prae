@@ -15,6 +15,34 @@ import UIKit
 // nichts weiter tut, als diese Funktionen aufzurufen; der PDF-Ausgeber ruft
 // sie unmittelbar.
 enum Seitensatz {
+    // WER MIT UIKIT ZEICHNET, MUSS UIKIT SAGEN, WOHIN (ab 1.0.68).
+    //
+    // `UIImage.draw(in:)`, `UIBezierPath.fill()`, `.stroke()` und
+    // `.addClip()` fragen NICHT den `CGContext`, den man ihnen daneben
+    // hinstellt — sie zeichnen in den Kontext, der gerade oben auf UIKits
+    // eigenem Stapel liegt (`UIGraphicsGetCurrentContext`). Liegt dort
+    // keiner, tun sie schlicht NICHTS: kein Fehler, keine Warnung, kein
+    // Absturz — die Farbflächen und der Text stehen da, und die Bilder
+    // fehlen.
+    //
+    // Genau das hat der Umschlagbogen zwei Fassungen lang getan (gemeldet
+    // 09/2026, zweimal): `umschlagPdf` schiebt seinen eigenen Zeichenblock
+    // und hatte als einziger der drei Ausgabewege kein
+    // `UIGraphicsPushContext`. Heraus kam ein Bogen mit Titel, Rückentext
+    // und weißem Papier — 53 kB für ein Panorama.
+    //
+    // **Das Pushen gehört deshalb DORTHIN, wo UIKit zeichnet**, und nicht
+    // an die Aufrufstelle: Eine vergessene Aufrufstelle fällt erst an der
+    // ausgegebenen Datei auf, und dann sucht man an der falschen Stelle.
+    // Der Stapel ist schachtelbar, doppeltes Pushen desselben Kontexts ist
+    // also harmlos. **Wer eine siebte Zeichenfunktion mit UIKit baut,
+    // legt ihren Körper hier hinein.**
+    static func mitUIKit(_ zusammenhang: CGContext, _ arbeit: () -> Void) {
+        UIGraphicsPushContext(zusammenhang)
+        defer { UIGraphicsPopContext() }
+        arbeit()
+    }
+
     // Text mit CoreText. `draw(with:)` aus UIKit wäre kürzer und setzte
     // über TextKit — also über einen anderen Zeilenumbruch als den, mit dem
     // `Textmass` gerechnet hat. Ein Text, der beim Messen sechs Zeilen hatte
@@ -50,14 +78,16 @@ enum Seitensatz {
                             in zusammenhang: CGContext, eckenradius: CGFloat)
     {
         zusammenhang.saveGState()
-        if eckenradius > 0.5 {
-            let weg = UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius)
-            weg.addClip()
-        } else {
-            zusammenhang.clip(to: rechteck)
+        mitUIKit(zusammenhang) {
+            if eckenradius > 0.5 {
+                let weg = UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius)
+                weg.addClip()
+            } else {
+                zusammenhang.clip(to: rechteck)
+            }
+            let ziel = ausschnitt.zielrechteck(bildgroesse: bild.size, rahmen: rechteck)
+            bild.draw(in: ziel)
         }
-        let ziel = ausschnitt.zielrechteck(bildgroesse: bild.size, rahmen: rechteck)
-        bild.draw(in: ziel)
         zusammenhang.restoreGState()
     }
 
@@ -84,7 +114,9 @@ enum Seitensatz {
             color: UIColor.black.withAlphaComponent(werte.deckung).cgColor
         )
         zusammenhang.setFillColor(UIColor.white.cgColor)
-        UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius).fill()
+        mitUIKit(zusammenhang) {
+            UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius).fill()
+        }
         zusammenhang.restoreGState()
     }
 
@@ -93,7 +125,9 @@ enum Seitensatz {
     {
         zusammenhang.saveGState()
         zusammenhang.setFillColor(farbe.cgColor)
-        UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius).fill()
+        mitUIKit(zusammenhang) {
+            UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius).fill()
+        }
         zusammenhang.restoreGState()
     }
 
@@ -237,7 +271,7 @@ enum Seitensatz {
                 // hier `.voll`, also immer mittig.
                 let ziel = grund.ausschnitt.gefuelltesZiel(bildgroesse: kraeftig.size,
                                                            rahmen: bildflaeche ?? rechteck)
-                kraeftig.draw(in: ziel)
+                mitUIKit(zusammenhang) { kraeftig.draw(in: ziel) }
                 zusammenhang.restoreGState()
             }
             zusammenhang.setFillColor(
@@ -268,7 +302,9 @@ enum Seitensatz {
             zusammenhang.translateBy(x: -ort.rahmen.midX, y: -ort.rahmen.midY)
         }
         let ziel = Wasserzeichenlage.eingepasst(bildgroesse: bild.size, rahmen: ort.bildrahmen)
-        bild.draw(in: ziel, blendMode: .normal, alpha: CGFloat(min(deckung, 1)))
+        mitUIKit(zusammenhang) {
+            bild.draw(in: ziel, blendMode: .normal, alpha: CGFloat(min(deckung, 1)))
+        }
         zusammenhang.restoreGState()
     }
 
@@ -289,7 +325,7 @@ enum Seitensatz {
                                cornerRadius: max(eckenradius - breite / 2, 0))
         zusammenhang.setStrokeColor(farbe.cgColor)
         weg.lineWidth = breite
-        weg.stroke()
+        mitUIKit(zusammenhang) { weg.stroke() }
         zusammenhang.restoreGState()
     }
 

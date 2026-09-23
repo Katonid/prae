@@ -7249,6 +7249,56 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **OHNE `UIGraphicsPushContext` ZEICHNET `UIImage.draw` IN NICHTS — STILL**
+  (`Seitensatz.mitUIKit`, ab 1.0.68; derselbe Befund zum zweiten Mal gemeldet,
+  09/2026: „Das Bild ist leider wieder nicht mitgekommen.“, dazu ein
+  Bildschirmfoto mit weißem Bogen, Titel und Rückentext). **Das ist die
+  wirkliche Ursache, und 1.0.67 hat sie nicht berührt.**
+  - **`UIImage.draw(in:)`, `UIBezierPath.fill()`, `.stroke()` und `.addClip()`
+    fragen NICHT den `CGContext`, den man ihnen daneben hinstellt.** Sie
+    zeichnen in den Kontext, der oben auf UIKits eigenem Stapel liegt
+    (`UIGraphicsGetCurrentContext`). Liegt dort keiner, tun sie schlicht
+    NICHTS — kein Fehler, keine Warnung, kein Absturz.
+  - **`umschlagPdf` war der einzige der drei Ausgabewege ohne
+    `UIGraphicsPushContext`.** Die Seiten-PDF hatte es seit jeher, die
+    Broschüre auch; der Umschlagbogen schiebt seinen eigenen Zeichenblock und
+    bekam es beim Bau in 1.0.50 nie. Damit fehlten dort ALLE Bilder:
+    Hintergrundfoto, Fotoblöcke, Karten, Wasserzeichen — und zusätzlich jede
+    gerundete Fläche und jeder Schatten (`UIBezierPath.fill`). Was ankam, waren
+    Text (CoreText zeichnet direkt in den `CGContext`) und Farbflächen
+    (`CGContext.fill`). Genau dieses Muster zeigt das Bildschirmfoto.
+  - **Das Pushen gehört DORTHIN, wo UIKit zeichnet, nicht an die
+    Aufrufstelle.** An drei Aufrufstellen gepflegt, fehlte es an der vierten,
+    und aufgefallen ist es erst an der ausgegebenen Datei. Seit 1.0.68 steht es
+    in `Seitensatz.mitUIKit`, und die sechs betroffenen Funktionen legen ihren
+    Zeichenteil hinein (`zeichneBild`, `zeichneSchatten`, `zeichneFlaeche`,
+    `zeichneHintergrund`, `zeichneWasserzeichen`, `zeichneRahmen`). Die beiden
+    Paare in `Buchausgabe` sind dafür ersatzlos raus — zwei Stellen für
+    dieselbe Sache wären wieder eine, die jemand vergisst. Der Stapel ist
+    schachtelbar; dass der Bildschirm (in `draw(_:)` einer `UIView`) denselben
+    Kontext ein zweites Mal pusht, ist harmlos.
+  - **Eine Ursache, die sich am Quelltext abzählen lässt, ist damit noch nicht
+    DIE Ursache.** 1.0.67 hat das Übermalen des Bogengrundes durch die beiden
+    Hälften abgestellt — richtig, nachgerechnet und wirkungslos: Das Bild wurde
+    nie gezeichnet. **Hier lagen zwei Fehler übereinander, und der sichtbare war
+    der harmlosere.** Wer den ersten findet, prüft, ob er den BEFUND erklärt,
+    und nicht nur, ob er ein Fehler ist.
+- **Was in der Datei steht, wird GEZÄHLT** (`Druckpruefung.bilderImPdf`, ab
+  1.0.68). Seitenzahl und Maße konnten „ein Panorama“ und „weißes Papier mit
+  einer Zeile Text“ nicht unterscheiden — beide Meldungen betrafen eine Datei,
+  die von außen tadellos aussah, und die Prüfung sagte zweimal „geschrieben und
+  lesbar“. Gezählt werden jetzt die Bild-XObjects der Seiten; null davon steht
+  als Warnung da, mit dem Zusatz, dass es bei einem reinen Textbogen richtig
+  ist. **Ein Bild in einem Form-XObject sähe die Zählung nicht** — diese App
+  legt keines an, und das steht dort, statt es zu verschweigen.
+- **Nicht gemessen (1.0.68):** Keine Datei ist damit ausgegeben worden.
+  Am Quelltext ABGEZÄHLT ist die Ursache (der eine fehlende Push, und dass
+  genau die UIKit-Aufrufe betroffen sind, deren Ausfall das Bildschirmfoto
+  zeigt) — gesehen hat es niemand. **Ungeprüft ist auch die neue Zählung
+  selbst**: ob `CGPDFDictionaryApplyFunction` in diesem Aufbau die XObjects
+  wirklich findet, sagt erst die Zeile am Gerät. **Nicht als erledigt
+  darstellen** — nach zwei Fassungen an derselben Meldung ist der nächste
+  Befund des Nutzers hier die Messung, und seit 1.0.68 nennt er eine Zahl.
 - **DER UMSCHLAGGRUND WURDE GEZEICHNET UND DANACH ZWEIMAL ÜBERMALT**
   (`Buchausgabe.zeichneSeite(…ohneGrund:)`, ab 1.0.67; gemeldet 09/2026:
   „Der Export hat leider beim Umschlag PDF nicht das Bild mitgenommen.").
@@ -8354,7 +8404,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.67 (Build 68). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.68 (Build 69). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -1029,6 +1029,69 @@ enum Druckpruefung {
                 text: "Endformat laut TrimBox: \(Druckmass.mmText(trim.width)) x \(Druckmass.mmText(trim.height)). Daran erkennt der Druckdienst, wo geschnitten wird."
             ))
         }
+        zeilen.append(bildzeile(papier))
         return zeilen
+    }
+
+    // WIE VIELE BILDER WIRKLICH IN DER DATEI STEHEN (ab 1.0.68).
+    //
+    // Seitenzahl und Maße sagen nichts darüber, ob ein Panorama darin
+    // steht oder weißes Papier mit einer Zeile Text — und genau dieser
+    // Unterschied ist 09/2026 zweimal gemeldet worden, beide Male an einer
+    // Datei, die von außen tadellos aussah. Gezählt werden deshalb die
+    // Bild-XObjects der Seiten: das, was CoreGraphics beim Zeichnen
+    // wirklich angelegt hat. Null davon in einem Buch mit Fotos ist ein
+    // Befund und keine Auslegungssache.
+    //
+    // Was die Zählung NICHT sieht: ein Bild, das in einem Form-XObject
+    // steckt. Diese App legt keines an — sollte eine spätere Fassung es
+    // tun, zählt die Zeile zu niedrig, und das steht hier, statt es zu
+    // verschweigen.
+    static func bildzeile(_ papier: CGPDFDocument) -> Zeile {
+        let anzahl = bilderImPdf(papier)
+        var titel = "\(anzahl) Bilder in der Datei"
+        if anzahl == 1 { titel = "1 Bild in der Datei" }
+        var text = "Gezählt ist, was wirklich in der Datei steht, nicht, "
+        text += "was im Buch angelegt ist."
+        var stufe = Stufe.gut
+        if anzahl == 0 {
+            stufe = .warnung
+            text = "In dieser Datei steht kein einziges Bild. Das ist richtig, "
+            text += "wenn hier nur Text und Farbflächen stehen sollen — und ein "
+            text += "Befund, wenn ein Foto darauf gehört."
+        }
+        return Zeile(stufe: stufe, titel: titel, text: text)
+    }
+
+    static func bilderImPdf(_ papier: CGPDFDocument) -> Int {
+        guard papier.numberOfPages > 0 else { return 0 }
+        var gesamt = 0
+        for nummer in 1...papier.numberOfPages {
+            guard let seite = papier.page(at: nummer),
+                  let blatt = seite.dictionary else { continue }
+            var mittel: CGPDFDictionaryRef?
+            guard CGPDFDictionaryGetDictionary(blatt, "Resources", &mittel),
+                  let mittel else { continue }
+            var xobjekte: CGPDFDictionaryRef?
+            guard CGPDFDictionaryGetDictionary(mittel, "XObject", &xobjekte),
+                  let xobjekte else { continue }
+            // Der Applier von CoreGraphics ist eine C-Funktion und darf
+            // nichts einfangen — gezählt wird deshalb über einen Zeiger
+            // auf eine Zahl daneben.
+            var aufSeite = 0
+            withUnsafeMutablePointer(to: &aufSeite) { merker in
+                CGPDFDictionaryApplyFunction(xobjekte, { _, wert, zeiger in
+                    var strom: CGPDFStreamRef?
+                    guard CGPDFObjectGetValue(wert, .stream, &strom), let strom,
+                          let beschreibung = CGPDFStreamGetDictionary(strom) else { return }
+                    var art: UnsafePointer<CChar>?
+                    guard CGPDFDictionaryGetName(beschreibung, "Subtype", &art),
+                          let art, String(cString: art) == "Image" else { return }
+                    zeiger?.assumingMemoryBound(to: Int.self).pointee += 1
+                }, merker)
+            }
+            gesamt += aufSeite
+        }
+        return gesamt
     }
 }

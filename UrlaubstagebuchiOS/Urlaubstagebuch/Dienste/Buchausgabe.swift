@@ -372,10 +372,12 @@ enum Buchausgabe {
             // Anschnitt ist negativer Raum.
             zusammenhang.translateBy(x: anschnitt, y: anschnitt)
 
-            UIGraphicsPushContext(zusammenhang)
+            // Kein `UIGraphicsPushContext` mehr: Das steht seit 1.0.68 in
+            // `Seitensatz.mitUIKit`, also dort, wo UIKit wirklich zeichnet.
+            // An drei Aufrufstellen gepflegt, fehlte es genau an der
+            // vierten — und der Umschlagbogen kam ohne Bilder heraus.
             zeichneSeite(buchseite, reise: reise, karten: karten, auftrag: auftrag,
                          in: zusammenhang)
-            UIGraphicsPopContext()
 
             zusammenhang.restoreGState()
             zusammenhang.endPDFPage()
@@ -492,10 +494,8 @@ enum Buchausgabe {
                 zusammenhang.saveGState()
                 zusammenhang.translateBy(x: Double(spalte) * end.width, y: 0)
                 zusammenhang.clip(to: CGRect(origin: .zero, size: end))
-                UIGraphicsPushContext(zusammenhang)
                 zeichneSeite(seite, reise: reise, karten: karten, auftrag: auftrag,
                              in: zusammenhang)
-                UIGraphicsPopContext()
                 zusammenhang.restoreGState()
             }
 
@@ -750,6 +750,16 @@ enum Buchausgabe {
     // damals noch einmal, eine Ebene tiefer: **Zwei Fassungen desselben
     // Grundes zeigen früher oder später Verschiedenes** — und hier fiel es
     // erst an der ausgegebenen Datei auf.
+    //
+    // NACHTRAG 1.0.68: Das alles stimmt und war NICHT der gemeldete
+    // Fehler. Der Nutzer hat 1.0.67 ausprobiert, und der Bogen kam
+    // wieder weiß heraus — weil das Bild nie gezeichnet wurde, nicht
+    // weil es übermalt worden wäre: `umschlagPdf` hatte als einziger
+    // Ausgabeweg kein `UIGraphicsPushContext`, und ohne den tut
+    // `UIImage.draw(in:)` schlicht nichts (siehe `Seitensatz.mitUIKit`).
+    // **Eine Ursache, die man am Quelltext abzählen kann, ist damit
+    // noch nicht DIE Ursache** — hier lagen zwei übereinander, und die
+    // sichtbare war die harmlosere.
     static func zeichneSeite(_ buchseite: Buchseite, reise: Reise, karten: [UUID: UIImage],
                              auftrag: Auftrag, ohneGrund: Bool = false,
                              in zusammenhang: CGContext)
