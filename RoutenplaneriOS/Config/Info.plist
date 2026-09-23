@@ -15,9 +15,27 @@
 		<string>de</string>
 	</array>
 
-	<!-- Nur „WhenInUse": Die App plant Routen, sie navigiert nicht im
-	     Hintergrund. -->
+	<!-- Nur „WhenInUse", auch für die Aufzeichnung (ab 1.0.5): Eine im
+	     Vordergrund gestartete Aufzeichnung läuft mit dem Hintergrundmodus
+	     „location" und einer CLBackgroundActivitySession weiter, ohne
+	     „Immer". -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Damit „Mein Standort" als Start oder Ziel gewählt werden kann. Der Standort wird nur als Koordinate an den Routendienst geschickt.</string>
+	<string>Damit „Mein Standort" als Start oder Ziel gewählt werden kann und damit sich die gefahrene Strecke aufzeichnen lässt. Für die Route wird der Standort nur als Koordinate an den Routendienst geschickt; die Aufzeichnung bleibt auf dem Gerät.</string>
+
+	<!-- Die einzige Hintergrundarbeit dieser App: eine laufende
+	     Aufzeichnung. Ohne diesen Eintrag stürzt
+	     `allowsBackgroundLocationUpdates = true` ab. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
+
+	<!-- Ist nur die ungefähre Ortung erlaubt, fragt die Aufzeichnung
+	     einmalig nach der genauen. Der Schlüssel heißt „Aufzeichnung". -->
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>Aufzeichnung</key>
+		<string>Mit der ungefähren Ortung liegt jeder Punkt der Aufzeichnung mehrere hundert Meter daneben. Für die Strecke braucht die App den genauen Standort.</string>
+	</dict>
 </dict>
 </plist>

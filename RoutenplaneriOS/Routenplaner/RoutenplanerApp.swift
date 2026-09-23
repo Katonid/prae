@@ -4,6 +4,7 @@ import SwiftUI
 struct RoutenplanerApp: App {
     @StateObject private var planer = Planer()
     @StateObject private var standort = Standort()
+    @StateObject private var aufzeichner = Aufzeichner()
     @Environment(\.scenePhase) private var phase
 
     var body: some Scene {
@@ -11,6 +12,7 @@ struct RoutenplanerApp: App {
             PlanerView()
                 .environmentObject(planer)
                 .environmentObject(standort)
+                .environmentObject(aufzeichner)
                 .onAppear {
                     standort.anfragen()
                     wachHalten(phase == .active)
@@ -23,7 +25,9 @@ struct RoutenplanerApp: App {
     /// Auto oder am Lenker auf die Karte schaut, soll nicht erst entsperren
     /// müssen. Sobald sie in den Hintergrund geht, gilt wieder die
     /// Einstellung des Geräts; ein vergessenes Telefon in der Tasche soll
-    /// nicht bis zum leeren Akku leuchten.
+    /// nicht bis zum leeren Akku leuchten. Eine laufende Aufzeichnung misst
+    /// im Hintergrund weiter (`Aufzeichner`) — dafür muss der Bildschirm
+    /// nicht an sein.
     private func wachHalten(_ an: Bool) {
         UIApplication.shared.isIdleTimerDisabled = an
     }

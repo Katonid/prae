@@ -3157,9 +3157,35 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Der Bildschirm bleibt an, solange die App vorn ist** (ab 1.0.1, Ansage
   des Nutzers 09/2026). `isIdleTimerDisabled` hängt an `scenePhase` in
   `RoutenplanerApp`: nur `.active`, im Hintergrund gilt wieder das Gerät.
-  **Im Hintergrund arbeitet die App NICHT weiter** — es gibt keinen
-  Hintergrundmodus, und für einen Planer ohne Zielführung wäre er nicht zu
-  begründen. Nicht als „läuft im Hintergrund" darstellen.
+  **Im Hintergrund arbeitet die App nur, solange eine AUFZEICHNUNG läuft**
+  (ab 1.0.5) — Planen, Meldungen und Kacheln nie.
+- **Streckenaufzeichnung** (`Dienste/Aufzeichner.swift`, `Model/Fahrt.swift`,
+  ab 1.0.5, Ansage des Nutzers 09/2026: „möglichst genau, egal wie viel Akku
+  es kostet"). `BestForNavigation`, `distanceFilter = None`,
+  `pausesLocationUpdatesAutomatically = false`, `activityType` je
+  Fortbewegung. Hintergrund über `UIBackgroundModes = location` plus
+  `CLBackgroundActivitySession` — mit „Beim Verwenden", NICHT „Immer".
+  **Ohne den Plist-Eintrag stürzt `allowsBackgroundLocationUpdates = true`
+  ab — nie entfernen.** Bei ungefährer Ortung wird einmalig die genaue
+  erbeten (Schlüssel „Aufzeichnung" in
+  `NSLocationTemporaryUsageDescriptionDictionary`).
+- **Jede Messung wird SOFORT angehängt** (`<Kennung>.spur`, eine Zeile je
+  Messung, in Application Support), der Kopf (`.json`) alle 30 Messungen.
+  Wird die App beendet, bleibt eine Fahrt ohne `ende` liegen; beim nächsten
+  Start steht „Fortsetzen / So abschließen" im Bedienfeld. Fortgesetzt wird
+  als neuer ABSCHNITT — dazwischen hat niemand gemessen, die Linie wird dort
+  nicht durchgezogen; Pausen ebenso. **Neu STARTEN kann iOS eine beendete
+  App nur mit „Immer"** — nicht als „zeichnet immer auf" darstellen.
+- **`Spurrechner` ist die EINE Rechnung** für Live-Anzeige und gesicherte
+  Fahrt. Zwei Regeln, gewählt und nicht gemessen: nur Messungen bis ±30 m,
+  und gezählt wird erst, wenn der Abstand zum letzten gezählten Punkt die
+  Unsicherheit beider übersteigt (sonst wächst die Strecke an jeder Ampel).
+  Die Datei behält JEDE Messung, damit sich die Regeln später ändern lassen.
+  Die GPX-Ausgabe enthält alle Messungen bis ±30 m mit Zeit und Höhe,
+  ungeglättet, ein `trkseg` je Abschnitt.
+- **Auf der Karte in Stücken zu 300 Punkten** (`Routenkarte.spurSetzen`):
+  Nur das letzte, wachsende Stück wird jede Sekunde ersetzt. Eine Linie aus
+  zehntausend Punkten jede Sekunde neu zu bauen wäre der teure Weg.
 - **„Ohne Schieben" ist ein Schalter im Bedienfeld** (ab 1.0.1), nicht nur im
   Profil-Editor — ob geschoben werden darf, entscheidet man je Fahrt.
   Gespeichert wird er am gewählten Profil (`Planer.schiebenSetzen`) und
@@ -3246,7 +3272,8 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
   hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1),
-  dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5).
+  dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
+  1.0.5 (Build 6).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Navigation,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen.

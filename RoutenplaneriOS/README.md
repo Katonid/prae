@@ -39,6 +39,18 @@ Der Ebenen-Knopf oben links an der Karte (ab 1.0.3) wählt:
   berechneten Radroute (farbig, samt Kilometern je Belag) und Apples
   Verkehrslage (nur auf Apples Karte).
 
+**Strecke aufzeichnen** (ab 1.0.5): der runde Knopf unter dem Ebenen-Knopf.
+Gemessen wird so genau, wie das Gerät es kann — GPS dauernd an
+(`BestForNavigation`), jede Messung (meist eine je Sekunde), kein
+automatisches Anhalten beim Stehen — und ohne Rücksicht auf den Akku. Die
+Aufzeichnung läuft im Hintergrund und bei gesperrtem Bildschirm weiter (blaues
+Zeichen in der Statusleiste). Im Bedienfeld stehen Zeit, Strecke, die
+Genauigkeit der letzten Messung, Tempo, Pause und Beenden. Jeder Punkt wird
+sofort auf die Platte geschrieben; wird die App mittendrin beendet, lässt sich
+die Fahrt beim nächsten Öffnen fortsetzen. Gesicherte Fahrten stehen unter
+„Aufgezeichnete Strecken": auf der Karte zeigen (violett), als GPX (mit Zeit
+und Höhe) weitergeben, umbenennen, löschen.
+
 Solange die App vorn ist, sperrt sich der Bildschirm nicht; im Hintergrund
 gilt wieder die Einstellung des Geräts.
 
@@ -54,6 +66,7 @@ Verkehrsmeldungen, Wegbeschreibung, GPX-Ausgabe.
 | Fahrrad | BRouter (`brouter.de`) mit eigenem Regelwerk (`BRouter.regelwerk`), Alternativen über `alternativeidx` 1 und 2 |
 | Verkehrsmeldungen | Autobahn GmbH (`verkehr.autobahn.de`) |
 | Ortssuche | Apple (`MKLocalSearch`) |
+| Aufzeichnung | das GPS des Geräts — nichts verlässt das Gerät, außer man gibt die GPX-Datei weiter |
 | Kartenkacheln | OpenStreetMap, CyclOSM (auch „lite" als Radweg-Schicht), OpenTopoMap, Waymarked Trails |
 
 Alle Kachelquellen antworteten am 23.09.2026 ohne Schlüssel mit PNG
@@ -92,6 +105,14 @@ Schlüsselbund, nie im Repo).
   (`surface`); „nicht eingetragen" heißt nicht „asphaltiert". Gerechnet
   wird die Radroute weiterhin OHNE Rücksicht auf den Belag.
 - Es ist ein Planer, keine Navigation mit Sprachansage.
+- **Aufzeichnung:** In die Strecke gehen nur Messungen mit ±30 m oder besser
+  ein, und weitergezählt wird erst, wenn die Bewegung größer ist als die
+  Messunsicherheit (sonst wüchse die Strecke an jeder Ampel). Beide Regeln
+  sind gewählt, nicht gemessen. Die Datei behält jede Messung. Wird die App
+  vom System ganz beendet (Neustart, leerer Akku, weggewischt), hört die
+  Aufzeichnung auf — iOS kann sie nur mit der Erlaubnis „Immer" neu starten,
+  und die fragt die App nicht an. Im Tunnel gibt es keine Messungen; die
+  Linie springt dort gerade durch.
 - **CarPlay geht nicht.** Eine Karten-App darf nur mit dem Entitlement
   `com.apple.developer.carplay-maps` auf CarPlay, und das bewilligt Apple
   auf Antrag — für Apps mit Zielführung Schritt für Schritt. Beides fehlt;
