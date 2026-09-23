@@ -20,6 +20,10 @@ struct HintergrundView: View {
     // `Model/Farbkraft.swift`). Gerechnet wird in `.task(id:)` und nicht im
     // Körper: Der läuft bei jedem Neuzeichnen.
     @State private var randanteil: Double?
+    // Das Bild für die Ausschnittsprobe. Geholt wird es in `.task(id:)`
+    // und nicht im Körper — der läuft bei jedem Neuzeichnen, und die
+    // Regler darunter zeichnen ihn bei jedem Bildpunkt neu.
+    @State private var ausschnittbild: UIImage?
 
     private var istBuch: Bool { seite == nil && !fuerUmschlag }
 
@@ -144,6 +148,8 @@ struct HintergrundView: View {
                         } footer: {
                             Text(doppelseitenhinweis)
                         }
+
+                        ausschnittabschnitt
                     }
                 }
             }
@@ -159,8 +165,224 @@ struct HintergrundView: View {
                     aendern { $0.fotoID = id }
                 }
             }
-            .task(id: kraftschluessel) { randanteil = gemessenerRandanteil() }
+            .task(id: kraftschluessel) {
+                randanteil = gemessenerRandanteil()
+                ausschnittbild = probenbild()
+            }
         }
+    }
+
+    // MARK: - Bildausschnitt
+
+    // ZOOMEN UND VERSCHIEBEN (ab 1.0.58).
+    //
+    // Es sind REGLER und keine Geste, und das ist eine Entscheidung: Diese
+    // Ansicht steht in einem `Form`, also in einer Liste, die scrollt. Eine
+    // Ziehgeste über der Probe stritte mit dem Scrollen — genau die Lehre
+    // aus 1.0.5 („Wer eine Geste über eine ganze Fläche legt, prüft, was
+    // diese Fläche sonst noch tut"). Ein Regler nimmt der Liste nichts weg
+    // und trifft dazu auf ein Prozent genau.
+    private var ausschnittabschnitt: some View {
+        Section {
+            if let bild = ausschnittbild {
+                ausschnittprobe(bild)
+                    .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+                VStack(alignment: .leading) {
+                    LabeledContent("Zoom", value: zoomtext)
+                    Slider(value: zoomregler(bild), in: 1...3, step: 0.05)
+                }
+                verschieberegler(bild, quer: true)
+                verschieberegler(bild, quer: false)
+                Button("Wieder ganz füllen") {
+                    aendern { $0.ausschnitt = .voll }
+                }
+                .disabled(grund.ausschnitt.istVoll)
+            } else {
+                Text("Erst ein Foto wählen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Bildausschnitt")
+        } footer: {
+            Text(ausschnitthinweis)
+        }
+    }
+
+    // Die Fläche, die das Foto WIRKLICH füllt — dieselbe, die das PDF
+    // bekommt. Beim Buchblock ist das der Bogen (Endformat plus Anschnitt
+    // ringsum) oder, wenn das Bild über die Doppelseite geht, die Fläche
+    // beider Seiten. Beim Umschlag ist es der ganze Umschlagbogen: Der ist
+    // EIN Stück Papier, und so steht er auch im PDF.
+    private var ausschnittflaeche: CGSize {
+        if fuerUmschlag {
+            return Umschlagmass.bogen(werk.reise.format,
+                                      gestaltung: werk.reise.gestaltung,
+                                      umschlag: werk.reise.umschlag,
+                                      innenseiten: werk.reise.innenseiten)
+        }
+        let a = werk.reise.gestaltung.anschnittPt
+        let format = werk.reise.format.groesse
+        var breite = Double(format.width) + 2 * a
+        if grund.ueberDoppelseite { breite += Double(format.width) }
+        return CGSize(width: breite, height: Double(format.height) + 2 * a)
+    }
+
+    private var ausschnittrahmen: CGRect {
+        CGRect(origin: .zero, size: ausschnittflaeche)
+    }
+
+    // Wie viel Spielraum der Ausschnitt in dieser Richtung hat — als
+    // Anteil der Rahmenbreite bzw. -höhe, also in derselben Einheit, in
+    // der `Bildausschnitt` seinen Versatz führt. Ist er null, füllt das
+    // Bild den Rahmen genau und es gibt schlicht nichts zu verschieben.
+    private func spielraum(_ bild: UIImage, quer: Bool) -> Double {
+        let rahmen = ausschnittrahmen
+        let ziel = grund.ausschnitt.zielrechteck(bildgroesse: bild.size, rahmen: rahmen)
+        if quer {
+            return max(Double(ziel.width - rahmen.width) / 2, 0) / max(Double(rahmen.width), 1)
+        }
+        return max(Double(ziel.height - rahmen.height) / 2, 0) / max(Double(rahmen.height), 1)
+    }
+
+    private func zoomregler(_ bild: UIImage) -> Binding<Double> {
+        Binding(
+            get: { grund.ausschnitt.zoom },
+            set: { neu in
+                aendern {
+                    $0.ausschnitt.zoom = neu
+                    // Weniger Zoom heißt weniger Spielraum: Ein Versatz,
+                    // der eben noch im Bild lag, ließe sonst einen weißen
+                    // Keil stehen.
+                    $0.ausschnitt = $0.ausschnitt.begrenzt(bildgroesse: bild.size,
+                                                           rahmen: ausschnittrahmen)
+                }
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func verschieberegler(_ bild: UIImage, quer: Bool) -> some View {
+        let luft = spielraum(bild, quer: quer)
+        let name = quer ? "Nach links/rechts" : "Nach oben/unten"
+        if luft > 0.002 {
+            VStack(alignment: .leading) {
+                LabeledContent(name, value: versatztext(quer: quer))
+                Slider(value: versatzregler(bild, quer: quer), in: -luft...luft)
+            }
+        } else {
+            LabeledContent(name, value: "kein Spielraum")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func versatzregler(_ bild: UIImage, quer: Bool) -> Binding<Double> {
+        Binding(
+            get: { quer ? grund.ausschnitt.versatzX : grund.ausschnitt.versatzY },
+            set: { neu in
+                aendern {
+                    if quer { $0.ausschnitt.versatzX = neu } else { $0.ausschnitt.versatzY = neu }
+                    $0.ausschnitt = $0.ausschnitt.begrenzt(bildgroesse: bild.size,
+                                                           rahmen: ausschnittrahmen)
+                }
+            }
+        )
+    }
+
+    private var zoomtext: String {
+        let zahl = String(format: "%.0f", grund.ausschnitt.zoom * 100)
+        return zahl + " %"
+    }
+
+    private func versatztext(quer: Bool) -> String {
+        let wert = quer ? grund.ausschnitt.versatzX : grund.ausschnitt.versatzY
+        let zahl = String(format: "%+.0f", wert * 100)
+        return zahl + " %"
+    }
+
+    // Die Probe zeigt die Fläche MASSSTÄBLICH — dasselbe Seitenverhältnis,
+    // dieselbe Rechnung. `zielrechteck` misst den Versatz in Anteilen der
+    // Rahmenbreite, ist also vom Maßstab unabhängig: Was hier steht, steht
+    // im PDF an derselben Stelle.
+    @ViewBuilder
+    private func ausschnittprobe(_ bild: UIImage) -> some View {
+        let flaeche = ausschnittflaeche
+        let anteilX = werk.reise.gestaltung.anschnittPt / Double(flaeche.width)
+        let anteilY = werk.reise.gestaltung.anschnittPt / Double(flaeche.height)
+        GeometryReader { raum in
+            let rahmen = CGRect(origin: .zero, size: raum.size)
+            let ziel = grund.ausschnitt.gefuelltesZiel(bildgroesse: bild.size, rahmen: rahmen)
+            ZStack(alignment: .topLeading) {
+                grund.farbe.farbe
+                Image(uiImage: bild)
+                    .resizable()
+                    .frame(width: ziel.width, height: ziel.height)
+                    .offset(x: ziel.minX, y: ziel.minY)
+                grund.farbe.farbe.opacity(grund.schleier)
+                // Die SCHNITTKANTE: Alles außerhalb wird weggeschnitten.
+                // Dieselbe Linie wie auf der Bühne unter „Satzspiegel
+                // zeigen", und derselbe Grund — ohne sie sieht man dem
+                // Bild nicht an, wovon es noch etwas verliert.
+                Rectangle()
+                    .strokeBorder(Color.red.opacity(0.75),
+                                  style: StrokeStyle(lineWidth: 0.8, dash: [4, 3]))
+                    .padding(.horizontal, raum.size.width * anteilX)
+                    .padding(.vertical, raum.size.height * anteilY)
+                if zeigtBund {
+                    bundband(raum.size)
+                }
+            }
+            .clipped()
+        }
+        .aspectRatio(Double(flaeche.width) / Double(flaeche.height), contentMode: .fit)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var zeigtBund: Bool { grund.ueberDoppelseite && !fuerUmschlag }
+
+    // DER BUND — und der Streifen, den er kostet.
+    //
+    // Die beiden Endformate stoßen in der Mitte aneinander; dort wird
+    // gefalzt und geheftet. Links und rechts davon liegt je ein Anschnitt,
+    // und der wird weggeschnitten: Was in diesem Band steht, steht in der
+    // Doppelseitenansicht zweimal da und im gebundenen Buch gar nicht.
+    // Genau darauf saß die Sonne (gemeldet 09/2026).
+    @ViewBuilder
+    private func bundband(_ raum: CGSize) -> some View {
+        let anschnitt = werk.reise.gestaltung.anschnittPt
+        let breite = raum.width * (2 * anschnitt / Double(ausschnittflaeche.width))
+        ZStack {
+            Rectangle().fill(Color.red.opacity(0.14))
+            Rectangle().fill(Color.red.opacity(0.75)).frame(width: 0.8)
+        }
+        .frame(width: max(breite, 1), height: raum.height)
+        .position(x: raum.width / 2, y: raum.height / 2)
+    }
+
+    private var ausschnitthinweis: String {
+        var text = "Gefüllt wird, nicht eingepasst: Das Bild deckt die ganze Fläche ab, "
+        text += "und was über den Rand ragt, wird beschnitten. Der Zoom sagt, wie viel "
+        text += "größer es dafür gezeichnet wird; erst darüber entsteht Spielraum zum "
+        text += "Verschieben. Was innerhalb der roten Linie liegt, bleibt nach dem "
+        text += "Schneiden stehen.\n\nMaßgeblich ist diese Vorschau — sie hat das Maß der "
+        text += "Fläche, die auch ins PDF geht. Die Leiste ganz oben zeigt nur Farben und "
+        text += "Schrift."
+        if zeigtBund {
+            text += "\n\nDas rote Band in der Mitte ist der Bund. Dort stoßen die beiden "
+            text += "Seiten aneinander; die beiden Anschnitte darin werden weggeschnitten. "
+            text += "In der Doppelseitenansicht steht dieser Streifen deshalb ZWEIMAL da — "
+            text += "einmal von jeder Seite. Im gebundenen Buch ist er weg. Was genau dort "
+            text += "liegt, verschiebt man am besten heraus."
+        }
+        return text
+    }
+
+    private func probenbild() -> UIImage? {
+        guard grund.art == .foto, let id = grund.fotoID,
+              let foto = werk.reise.foto(id)
+        else { return nil }
+        return Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id, kante: 900,
+                                          farbkraft: grund.farbkraftfaktor)
     }
 
     // MARK: - Farbkraft

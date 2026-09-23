@@ -120,6 +120,20 @@ struct Bildausschnitt: Codable, Hashable {
         neu.versatzY = min(max(versatzY, -luftY), luftY)
         return neu
     }
+
+    // Erst begrenzen, dann rechnen — in einem Aufruf (ab 1.0.58).
+    //
+    // Der Seitenhintergrund führt seinen Ausschnitt mit sich, und der
+    // Rahmen dafür kann sich hinterher ändern: ein anderes Seitenformat,
+    // ein anderer Anschnitt, der Schalter „über die Doppelseite". Ein
+    // Versatz, der gestern noch im Bild lag, ließe dann einen weißen Keil
+    // stehen. Gefragt wird das von BEIDEN Zeichnern, dem Bildschirm und
+    // dem PDF; zwei Fassungen ergäben eine Vorschau, die anders aussieht
+    // als der Druck.
+    func gefuelltesZiel(bildgroesse: CGSize, rahmen: CGRect) -> CGRect {
+        begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
+            .zielrechteck(bildgroesse: bildgroesse, rahmen: rahmen)
+    }
 }
 
 // Ein Schatten unter einem Foto ist der billigste Weg, eine Seite Tiefe zu

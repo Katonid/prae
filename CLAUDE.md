@@ -7162,6 +7162,80 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **DER BUNDSTEG RÜHRT DEN HINTERGRUND NICHT AN — UND KEINE SCHON GESETZTE
+  SEITE** (ab 1.0.58; gemeldet 09/2026 mit einem Bild der Doppelseitenansicht:
+  „Der Bund soll offenbar tatsächlich bei 0 mm liegen. Das habe ich jetzt so
+  eingestellt. Dennoch sieht es nicht so aus, als ob die App das akzeptiert
+  hätte."). **Sie hat es akzeptiert:** 0 ist der Vorgabewert
+  (`Gestaltung.bundsteg`) und der Anfang des Reglers, und `satzspiegel` addiert
+  ihn schlicht auf `randAussen` — beidseitig, seit 1.0.1. Nicht zu sehen war es
+  aus zwei Gründen, und beide gehören gesagt, statt den Regler zu ändern:
+  - Er verschiebt den **Satzspiegel**, also den Platz, in den NEUE Seiten
+    gesetzt werden. Blöcke stehen als Rechtecke im Buch; eine schon gesetzte
+    Seite rückt kein Randwert nach. Wer sie mitziehen will, ordnet sie neu an.
+  - Ein **Hintergrund** richtet sich gar nicht nach ihm. Er läuft immer bis in
+    den Anschnitt — das ist seit 1.0.1 seine Definition, und eine Fläche, die
+    am Endformat aufhörte, hätte nach dem Schneiden den weißen Faden.
+  **Der Satz steht jetzt unter dem Regler** (`GestaltungView.zugabenhinweis`),
+  also dort, wo die Frage entsteht.
+- **Am Bund liegen ZWEI Anschnitte, und die stehen doppelt da.** Die
+  Doppelseitenansicht zeichnet zwei Bogen ohne Abstand nebeneinander (Regel seit
+  1.0.17), und jeder trägt an seiner Innenkante 3 mm Anschnitt. Bei einem Bild
+  über die Doppelseite ist dieser Streifen deshalb **zweimal** im Bild — einmal
+  von jeder Seite —, und im gebundenen Buch ist er weg. Genau darauf saß die
+  gemeldete Sonne. **Das ist keine Panne der Ansicht**: Der Anschnitt gehört
+  dorthin, und wo er endet, zeigt die rote Schnittkante. Was fehlte, war, dass
+  es irgendwo steht.
+- **EIN HINTERGRUNDFOTO LÄSST SICH ZOOMEN UND VERSCHIEBEN**
+  (`Seitenhintergrund.ausschnitt`, ab 1.0.58, Ansage des Nutzers 09/2026: „mir
+  würde auch die Funktion helfen, das Bild des Seitenhintergrundes etwas zoomen
+  bzw. verschieben zu können. Dann würde ich in diesem Fall die Sonne … etwas
+  verschieben."). Es ist derselbe `Bildausschnitt` wie am Fotoblock und dieselbe
+  Rechnung — kein zweiter Typ für dieselbe Sache. `.voll` ist die Vorgabe und
+  heißt „mittig und ohne Zoom", also genau der Stand von vorher.
+  - **Der Bildschirm rechnete bis 1.0.57 ANDERS als das PDF.** Dort stand
+    `scaledToFill`, hier `Bildausschnitt.voll.zielrechteck` — bei `.voll`
+    dasselbe Ergebnis, mit einem eigenen Ausschnitt nicht mehr. Beide fragen
+    seither `Bildausschnitt.gefuelltesZiel`, und das BEGRENZT vorher: Ein
+    Versatz, der nach einem Formatwechsel oder nach dem Umlegen von „über die
+    Doppelseite" nicht mehr im Bild läge, ließe sonst einen weißen Keil stehen.
+    **Merke: Zwei Zeichner, die zufällig dasselbe tun, sind erst dann eine
+    Rechnung, wenn sie dieselbe Funktion fragen.**
+  - **Der Rahmen ist auf beiden Seiten derselbe**, nur anders ausgedrückt: Das
+    PDF bekommt ihn in Seitenkoordinaten (`Bogenlage.bildflaeche`, Ursprung am
+    Anschnitt), der Bildschirm rechnet ihn am Bogen aus (`bildrahmen(raum:)`).
+    Nachgerechnet geht das auf — die Fläche über die Doppelseite misst
+    2 × Endformat + 2 × Anschnitt, und ihre Mitte liegt genau auf dem Bund.
+  - **REGLER und keine Geste.** Die Einstellung steht in einem `Form`, also in
+    einer scrollenden Liste; eine Ziehgeste über der Probe stritte mit dem
+    Scrollen — dieselbe Lehre wie 1.0.5 („Wer eine Geste über eine ganze Fläche
+    legt, prüft, was diese Fläche sonst noch tut"). Ein Regler trifft dazu auf
+    ein Prozent genau, und nach sieben Fassungen Gestenarbeit an der Bühne ist
+    das hier der billigere Weg.
+  - **Wo kein Spielraum ist, steht kein Regler.** Bei Zoom 100 % füllt das Bild
+    den Rahmen in einer Richtung auf den Punkt; dort steht „kein Spielraum"
+    statt eines Schiebers, der nichts bewirkt — ein Bedienelement ohne Wirkung
+    ist für den Menschen davor ein kaputtes.
+  - **Die Probe ist MASSSTÄBLICH** und zeigt die Fläche, die ins PDF geht, samt
+    roter Schnittkante und — beim Bild über die Doppelseite — dem Band am Bund.
+    `zielrechteck` misst den Versatz in Anteilen der Rahmenbreite und ist damit
+    vom Maßstab unabhängig: Was dort steht, steht im Druck an derselben Stelle.
+    Die Leiste ganz oben im Blatt hat dagegen NICHT das Maß einer Seite; das
+    sagt die Fußzeile auch.
+  - **`Seitenhintergrund` hat seinen Leser seit 1.0.47** — ein neues Feld war
+    deshalb gefahrlos. Beide Initialisierer gehören mitgezogen, der eigene
+    `init(from:)` UND der ausgeschriebene: Wer in einer Struktur einen
+    Initialisierer schreibt, hat danach keinen mitgelieferten mehr.
+- **Nicht gemessen (1.0.58):** Keine Seite ist damit gesehen worden. Gerechnet
+  ist die Geometrie (dass beide Zeichner denselben Rahmen bekommen und die Probe
+  maßstäblich dasselbe zeigt). **Und die Deutung des gemeldeten Bildes ist am
+  Quelltext hergeleitet, nicht an seinem Buch nachgesehen** — dass die doppelte
+  Sonne die beiden Anschnitte sind, folgt aus der Bauweise der
+  Doppelseitenansicht; beweisen würde es erst ein Blick in die ausgegebene
+  Datei. Ungeprüft ist außerdem, ob der Umschlag mit einem eigenen Ausschnitt
+  zusammengeht: Auf dem Bildschirm wird sein Hintergrund je HÄLFTE gezeichnet,
+  im PDF über den ganzen Bogen — die Probe im Blatt nimmt den ganzen Bogen, also
+  die Fassung, die gedruckt wird. **Nichts davon als erledigt darstellen.**
 - **`.frame` BESCHNEIDET NICHT — es stellt ein zu großes Kind MITTIG hinein**
   (`RegalView.Vorschaubild`, ab 1.0.57; gemeldet 09/2026 mit Bildschirmfoto:
   „Die Beschriftung des Projektes ragt in das Bild mit rein. Das sieht nicht
@@ -7648,7 +7722,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.57 (Build 58). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.58 (Build 59). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

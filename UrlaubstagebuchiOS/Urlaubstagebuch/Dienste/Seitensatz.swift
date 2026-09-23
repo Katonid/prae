@@ -231,8 +231,12 @@ enum Seitensatz {
                 // zwei Wege ergäben zwei Bilder, und der Unterschied fiele
                 // erst im gedruckten Buch auf.
                 let kraeftig = Farbkraft.verstaerkt(bild, faktor: grund.farbkraftfaktor)
-                let ziel = Bildausschnitt.voll.zielrechteck(bildgroesse: kraeftig.size,
-                                                            rahmen: bildflaeche ?? rechteck)
+                // Wo im Bild die Fläche liegt, sagt seit 1.0.58 der
+                // Ausschnitt des Hintergrunds — und zwar über dieselbe
+                // Funktion, die auch der Bildschirm fragt. Vorher stand
+                // hier `.voll`, also immer mittig.
+                let ziel = grund.ausschnitt.gefuelltesZiel(bildgroesse: kraeftig.size,
+                                                           rahmen: bildflaeche ?? rechteck)
                 kraeftig.draw(in: ziel)
                 zusammenhang.restoreGState()
             }

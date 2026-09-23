@@ -480,6 +480,58 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Hintergrund lässt sich zoomen und verschieben (1.0.58)
+
+Gemeldet 09/2026, mit einem Bild der Doppelseitenansicht: „Der Bund soll bei
+Saal Digital offenbar tatsächlich bei 0 mm liegen. Das habe ich jetzt so
+eingestellt. Dennoch sieht es nicht so aus, als ob die App das akzeptiert
+hätte." Dazu der Wunsch, das Hintergrundbild verschieben zu können — „dann
+würde ich die Sonne, die genau an der Stelle des Bundsteges ist, etwas
+verschieben".
+
+**Der Bundsteg war angenommen.** 0 mm ist der Vorgabewert und der Anfang des
+Reglers. Er ändert nur zwei Dinge nicht, und das sind genau die, an denen man
+es sehen würde: Er rührt den **Hintergrund** nicht an — der läuft immer bis in
+den Anschnitt —, und er rückt keine Seite um, die schon **gesetzt** ist; Blöcke
+stehen als Rechtecke im Buch und bleiben, wo jemand sie hat. Beides steht jetzt
+als Satz unter dem Regler.
+
+**Was am Bund zu sehen war, sind die beiden Anschnitte.** Die
+Doppelseitenansicht zeichnet zwei Bogen ohne Abstand nebeneinander, und jeder
+trägt an seiner Innenkante 3 mm Anschnitt (so seit 1.0.17). Bei einem Bild über
+die Doppelseite steht dieser Streifen deshalb **zweimal** da — einmal von jeder
+Seite. Im gebundenen Buch ist er weg, die Druckerei schneidet ihn ab. Genau
+darauf saß die Sonne.
+
+**Zoom und Versatz gibt es jetzt** (`Seitenhintergrund.ausschnitt`). Es ist
+derselbe `Bildausschnitt` und dieselbe Rechnung wie beim Fotoblock: gefüllt,
+nicht eingepasst, und was über den Rand ragt, wird beschnitten. `.voll` heißt
+„mittig und ohne Zoom" — jedes vorhandene Buch sieht danach unverändert aus.
+
+- **Eine Rechnung, zwei Zeichner.** Der Bildschirm setzte das Foto bis 1.0.57
+  mit `scaledToFill`, das PDF mit `Bildausschnitt.voll`. Bei `.voll` ist das
+  dasselbe; mit einem eigenen Ausschnitt wäre es das nicht mehr. Beide fragen
+  jetzt `gefuelltesZiel`, und das begrenzt vorher: Ein Versatz, der nach einem
+  Formatwechsel nicht mehr im Bild läge, ließe sonst einen weißen Keil stehen.
+- **Regler, keine Geste.** Der Bildschirm steht in einem `Form`, also in einer
+  scrollenden Liste — eine Ziehgeste darüber stritte mit dem Scrollen (die
+  Lehre aus 1.0.5). Ein Regler nimmt der Liste nichts weg und trifft auf ein
+  Prozent genau.
+- **Verschieben geht erst, wo Spielraum ist.** Bei Zoom 100 % füllt das Bild
+  den Rahmen in einer Richtung genau; dort steht „kein Spielraum" statt eines
+  Reglers, der nichts tut.
+- **Die Probe ist maßstäblich** und zeigt die Fläche, die ins PDF geht — samt
+  der roten Schnittkante und, beim Bild über die Doppelseite, dem Band am Bund.
+
+**Nicht gemessen (1.0.58):** Keine Seite ist damit gesehen worden. Gerechnet
+ist die Geometrie — dass der Rahmen auf dem Bildschirm derselbe ist wie der,
+den das PDF über `Bogenlage.bildflaeche` bekommt, und dass `zielrechteck` vom
+Maßstab unabhängig ist, die Probe also dasselbe zeigt wie der Druck. **Und die
+Deutung des gemeldeten Bildes ist am Quelltext hergeleitet, nicht an seinem
+Buch nachgesehen**: Dass die doppelte Sonne die beiden Anschnitte sind, folgt
+aus der Bauweise der Doppelseitenansicht — beweisen würde es erst ein Blick in
+die ausgegebene Datei.
+
 ## Das Titelfoto bleibt in seinem Rahmen (1.0.57)
 
 Im Regal stand die Beschriftung eines Buches teilweise auf seinem Titelfoto.

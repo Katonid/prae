@@ -63,6 +63,21 @@ struct Seitenhintergrund: Codable, Hashable {
     // Schalter." Ein Muster, ein Himmel, eine Struktur gehört auf jede
     // Seite; eine Landschaft gehört über den Bund.
     var ueberDoppelseite: Bool = false
+    // WO IM BILD DIE FLÄCHE LIEGT (ab 1.0.58).
+    //
+    // Ansage des Nutzers, 09/2026: „mir würde auch die Funktion helfen, das
+    // Bild des Seitenhintergrundes etwas zoomen bzw. verschieben zu können.
+    // Dann würde ich in diesem Fall die Sonne, die genau an der Stelle des
+    // Bundsteges ist, etwas verschieben." Bis dahin füllte ein
+    // Hintergrundfoto seine Fläche und stand dabei immer mittig — was auf
+    // den Bund fiel, fiel eben auf den Bund.
+    //
+    // Es ist derselbe Typ und dieselbe Rechnung wie beim Fotoblock
+    // (`Model/Block.swift`): Gefüllt wird, nicht eingepasst, und was über
+    // den Rand ragt, wird beschnitten. `.voll` heißt „mittig und ohne
+    // Zoom" — also genau der Stand von vorher; jedes vorhandene Buch sieht
+    // danach unverändert aus.
+    var ausschnitt: Bildausschnitt = .voll
 
     static let weiss = Seitenhintergrund(art: .einfarbig, farbe: .papier)
 
@@ -87,6 +102,7 @@ struct Seitenhintergrund: Codable, Hashable {
         koernung = b.wert(.koernung, 0.06)
         farbkraft = b.wert(.farbkraft, 0)
         ueberDoppelseite = b.wert(.ueberDoppelseite, false)
+        ausschnitt = b.wert(.ausschnitt, Bildausschnitt.voll)
     }
 
     // Der eigene Leser oben nimmt den erzeugten Initialisierer mit — wer
@@ -96,7 +112,8 @@ struct Seitenhintergrund: Codable, Hashable {
          zweitfarbe: Farbwert = Farbwert(rot: 0.93, gruen: 0.94, blau: 0.96),
          winkel: Double = 90, fotoID: UUID? = nil,
          schleier: Double = 0.72, koernung: Double = 0.06,
-         farbkraft: Double = 0, ueberDoppelseite: Bool = false)
+         farbkraft: Double = 0, ueberDoppelseite: Bool = false,
+         ausschnitt: Bildausschnitt = .voll)
     {
         self.art = art
         self.farbe = farbe
@@ -107,6 +124,7 @@ struct Seitenhintergrund: Codable, Hashable {
         self.koernung = koernung
         self.farbkraft = farbkraft
         self.ueberDoppelseite = ueberDoppelseite
+        self.ausschnitt = ausschnitt
     }
 
     var istSchlicht: Bool { art == .einfarbig }
