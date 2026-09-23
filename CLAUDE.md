@@ -7146,6 +7146,44 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **`.frame` BESCHNEIDET NICHT — es stellt ein zu großes Kind MITTIG hinein**
+  (`RegalView.Vorschaubild`, ab 1.0.57; gemeldet 09/2026 mit Bildschirmfoto:
+  „Die Beschriftung des Projektes ragt in das Bild mit rein. Das sieht nicht
+  gut aus.“). **Nachgerechnet und keine Vermutung:** Das Titelfoto im Regal
+  steht in einem `ZStack` mit `.frame(width: 52, height: 68)`. `scaledToFill`
+  füllt den vorgeschlagenen Rahmen und wird dabei in einer Richtung GRÖSSER
+  als er — ein Querformat-Foto (4:3) misst bei 68 Punkt Höhe gut 90 Punkt in
+  der Breite und steht links und rechts um je 19 Punkte über. Der Rahmen
+  begrenzt nur das LAYOUT, nicht die Zeichnung; in der `HStack` daneben beginnt
+  die Beschriftung genau dort. Weil die Texte NACH dem Bild gezeichnet werden,
+  liegen sie obenauf — für den Menschen davor ragt also die Beschriftung ins
+  Bild, und genau so ist es gemeldet worden.
+  - **Ein `clipShape` am BILD hilft nicht**, und genau eines stand dort seit
+    1.0.19: Es beschneidet den Rahmen des Bildes, und der ist ja der zu große.
+    Beschnitten wird jetzt der Behälter, also NACH dem `.frame` — dieselbe
+    Reihenfolge, die `TagListeView`, `TagInhaltView` und die Hintergrundfläche
+    der Seite seit jeher benutzen. Der Schatten liegt dahinter und folgt damit
+    der beschnittenen Form.
+  - **Dritte Auflage derselben Falle.** 1.0.2 lernte sie an den Griffen („was
+    außerhalb eines Frames liegt, nimmt keinen Finger an“), 1.0.12 am
+    `TextflaecheBruecke` („`.frame()` beschneidet nicht, es stellt ein zu
+    großes Kind MITTIG hin“) — beide Male beim Bearbeiten einer Seite, und
+    beide Male stand die Lehre danach im Papier. Sie galt für das Regal nicht,
+    weil dort niemand ein zu großes Kind vermutet hat. **Wer `scaledToFill`
+    schreibt, schreibt das Beschneiden in derselben Zeile mit.**
+  - **Die Textspalte nimmt jetzt, was übrig ist** (`.frame(maxWidth: .infinity,
+    alignment: .leading)` statt eines `Spacer` daneben) — die Lehre aus
+    Abfahrtstafel 1.1.32. Das ist eine Vorsichtsmaßnahme und NICHT die
+    gemeldete Ursache: Mit drei Textzeilen in der Spalte ist die Idealbreite
+    die der längsten Zeile, und die geht auf. Es steht trotzdem da, weil eine
+    vierte Zeile es morgen nicht mehr täte.
+- **Nicht gemessen (1.0.57):** Das Regal ist damit auf keinem Gerät gesehen
+  worden. Gerechnet ist der Überstand (90,7 statt 52 Punkte bei einem
+  Titelfoto im Verhältnis 4:3, also 19,3 Punkte je Seite) und die Wirkung des
+  Beschneidens. **Ungeprüft bleibt**, ob das Bildschirmfoto des Nutzers wirklich
+  ein Querformat-Titelfoto zeigt — ein Hochformat (3:4) steht in diesem Rahmen
+  nur um gut einen Punkt über und fällt kaum auf; die Ursache wäre dieselbe,
+  der Betrag ein anderer. **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.56):** Keine Seite ist damit gesehen worden.
   Gerechnet ist die Auswahl und ihre Geometrie; **die Verteilung ist eine
   Wahrscheinlichkeitsaussage und keine Zusage** — wie sie in einem
@@ -7594,7 +7632,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.56 (Build 57). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.57 (Build 58). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -480,6 +480,30 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Das Titelfoto bleibt in seinem Rahmen (1.0.57)
+
+Im Regal stand die Beschriftung eines Buches teilweise auf seinem Titelfoto.
+**Der Grund ist auszurechnen und keine Geschmacksfrage:** Das Vorschaubild ist
+52 × 68 Punkte groß, und `scaledToFill` füllt diesen Rahmen — wird dabei aber
+in einer Richtung größer als er. Ein Titelfoto im Querformat misst bei 68 Punkt
+Höhe gut 90 Punkt in der Breite und steht links und rechts um je 19 Punkte
+über. Ein Rahmen begrenzt in SwiftUI nur das Layout, nicht die Zeichnung: Ein
+zu großes Kind wird mittig hineingestellt und ragt heraus. Daneben beginnt die
+Textspalte, und weil die Texte nach dem Bild gezeichnet werden, liegen sie
+obenauf — es sieht also aus, als ragte die Beschriftung ins Bild.
+
+Beschnitten wird seither der **Behälter** und nicht das Bild. Ein `clipShape`
+am Bild stand dort seit 1.0.19 und half nicht: Es beschneidet den Rahmen des
+Bildes, und der ist ja der zu große. Dieselbe Reihenfolge — erst der Rahmen,
+dann das Beschneiden — benutzen die Tagesliste, die Fotoliste und die
+Hintergrundfläche einer Seite seit jeher.
+
+**Nicht gemessen:** Das Regal ist damit auf keinem Gerät gesehen worden.
+Gerechnet ist der Überstand und die Wirkung des Beschneidens. Ungeprüft bleibt,
+ob das gemeldete Buch wirklich ein Querformat als Titelfoto trägt — ein
+Hochformat steht in diesem Rahmen nur um gut einen Punkt über; die Ursache wäre
+dieselbe, der Betrag ein anderer.
+
 ## Zehn Wasserzeichen statt einem (1.0.56)
 
 Ein Wasserzeichen kann jetzt aus **bis zu zehn Bildern** bestehen. Welches

@@ -240,7 +240,11 @@ private struct ReiseZeile: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
-            Spacer()
+            // Die Spalte nimmt die Breite, die übrig ist, statt sich einen
+            // `Spacer` danebenzustellen: Eine `VStack` in einer `HStack`
+            // bekäme sonst ihre IDEALBREITE, und die ist das Maß des
+            // längsten Kindes — dieselbe Falle wie in der Abfahrtstafel.
+            .frame(maxWidth: .infinity, alignment: .leading)
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -276,7 +280,6 @@ private struct Vorschaubild: View {
                 Image(uiImage: bild)
                     .resizable()
                     .scaledToFill()
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
                 Image(systemName: "photo.on.rectangle.angled")
                     .foregroundStyle(.tertiary)
@@ -285,6 +288,15 @@ private struct Vorschaubild: View {
         // Hochkant wie ein Buchrücken im Regal, nicht quadratisch: Apple
         // Books und jede Bücher-App zeigen ein Buch als Buch.
         .frame(width: 52, height: 68)
+        // BESCHNITTEN wird hier und nicht am Bild. `scaledToFill` füllt den
+        // vorgeschlagenen Rahmen und wird in einer Richtung GRÖSSER als er:
+        // ein Querformat-Titelfoto misst bei 68 Punkt Höhe gut 90 Punkt in
+        // der Breite. Und `.frame` beschneidet nicht — es stellt ein zu
+        // großes Kind mittig hinein, das dann links und rechts um je knapp
+        // zwanzig Punkte übersteht. Genau darauf beginnt die Beschriftung
+        // (gemeldet 09/2026). Ein `clipShape` am BILD half nicht: Es
+        // beschneidet den Rahmen des Bildes, und der ist ja der zu große.
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
     }
 
