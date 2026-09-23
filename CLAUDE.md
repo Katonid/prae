@@ -7241,6 +7241,36 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **DER UMSCHLAG HATTE ZWEI FASSUNGEN, UND SIE ZEIGTEN VERSCHIEDENES**
+  (`Model/Rueckensatz.swift`, ab 1.0.63; Befund des Nutzers 09/2026: „Im
+  vorliegenden Beispiel hat es den Eindruck, dass der Buchrücken in einem
+  dunklen Grau gestaltet ist … oder ganz einfach das Hintergrundbild von
+  Deckblatt und Rückseite durchlaufen zu lassen."). Im PDF lief der Grund
+  schon immer über den GANZEN Bogen samt Rücken (`umschlagPdf`); auf dem
+  Bildschirm zeichnete jede Hälfte ihren eigenen, und dazwischen lag der
+  Rücken als graue Fläche mit einer festen Bildschirmschrift. **Das ist die
+  Trennung, die die erste Regel dieser App verbietet** — und sie war kein
+  Wunsch des Nutzers, sondern ein Fehler.
+  - **Ein Bild über den ganzen Bogen.** Die beiden Hälften lassen ihren
+    Grund weg (`SeitenflaecheView.ohneGrund`) — und zwar auch das WEISSE
+    Papier darunter, sonst deckte es genau das Bild ab, um das es geht.
+  - **Eine Ungenauigkeit bleibt und steht dabei:** Die Ansicht zeigt beide
+    Hälften mit eigenem Anschnitt, der gedruckte Umschlag ist innen um zwei
+    Anschnitte schmaler (dieselbe Sache wie am Bund seit 1.0.58). Das Bild
+    steht auf dem Bildschirm gut ein Prozent breiter als im Druck — eine
+    Ungenauigkeit der ANSICHT, nicht der Datei.
+  - **Lage und Leserichtung des Rückentextes sind einstellbar.** Die Lage
+    ist ein ANTEIL (0 = Kopf, 1 = Fuß) und keine Millimeterzahl, damit sie
+    einen Formatwechsel übersteht; in der Oberfläche steht sie in Worten.
+  - **Verschieben geht nur mit einem Kasten, der SCHMALER ist als sein
+    Platz.** Ein Kasten über die ganze Rückenlänge sähe mittig zentriert
+    immer gleich aus, wie weit man den Regler auch schöbe — deshalb misst
+    `Textmass.breite` seither die natürliche Breite eines Textes.
+  - **Nicht gemessen:** Kein Umschlag ist gedruckt worden. Und die eigenen
+    Felder oder Bilder AUF dem Rücken, um die ebenfalls gebeten wurde, gibt
+    es noch NICHT: Der Umschlag wird gerechnet und nicht gesetzt, ein Block
+    darauf wäre beim nächsten Durchgang weg (der Weg dahin steht seit 1.0.50
+    hier). **Nicht als erledigt darstellen.**
 - **DIE APP LÄUFT AUCH AUF DEM MAC — ALS MAC CATALYST** (ab 1.0.62, Ansage
   des Nutzers 09/2026: „Jetzt möchte ich tatsächlich doch noch die Option
   haben, das Ganze auf dem Mac nutzen zu können, und zwar als eigenständige
@@ -8002,7 +8032,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.62 (Build 63). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.63 (Build 64). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

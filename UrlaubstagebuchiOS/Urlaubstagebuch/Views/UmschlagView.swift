@@ -92,6 +92,18 @@ struct UmschlagView: View {
             Toggle("Rücken bedrucken", isOn: $werk.reise.umschlag.rueckenZeigen)
             if umschlag.rueckenZeigen {
                 TextField("Buchtitel", text: $werk.reise.umschlag.rueckentext)
+                // WO die Schrift steht und WOHIN sie läuft (ab 1.0.63,
+                // Ansage des Nutzers: „Die Position auf dem Buchrücken
+                // möchte ich frei wählen können und auch die Ausrichtung.
+                // Im konkreten Fall hätte ich sie nämlich gerne um 180
+                // Grad gedreht.").
+                Picker("Leserichtung", selection: $werk.reise.umschlag.rueckenrichtung) {
+                    ForEach(Rueckensatz.Richtung.allCases) { r in Text(r.name).tag(r) }
+                }
+                VStack(alignment: .leading) {
+                    LabeledContent("Lage auf dem Rücken", value: lagetext)
+                    Slider(value: $werk.reise.umschlag.rueckenlage, in: 0...1, step: 0.05)
+                }
                 Picker("Einband", selection: $werk.reise.umschlag.einband) {
                     ForEach(Umschlag.Einband.allCases) { art in Text(art.name).tag(art) }
                 }
@@ -112,6 +124,20 @@ struct UmschlagView: View {
             Text("Rücken")
         } footer: {
             Text(rueckenhinweis)
+        }
+    }
+
+    // Die Lage in Worten statt als Zahl: „0,35" sagt niemandem etwas, „eher
+    // oben" schon. Kopf und Fuß heißen am Buch so, und wer den Rücken
+    // gestaltet, hat das Buch vor sich.
+    private var lagetext: String {
+        let wert = werk.reise.umschlag.rueckenlage
+        switch wert {
+        case ..<0.05: return "ganz am Kopf"
+        case ..<0.35: return "eher oben"
+        case ..<0.65: return "Mitte"
+        case ..<0.95: return "eher unten"
+        default: return "ganz am Fuß"
         }
     }
 

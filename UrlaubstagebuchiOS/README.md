@@ -480,6 +480,57 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Umschlag läuft durch — und der Rücken lässt sich setzen (1.0.63)
+
+Befund und Ansage des Nutzers, 09/2026: „Im vorliegenden Beispiel hat es
+den Eindruck, dass der Buchrücken in einem dunklen Grau gestaltet ist …
+oder ganz einfach das Hintergrundbild von Deckblatt und Rückseite
+durchlaufen zu lassen. Die im Moment vorhandene Schrift lässt sich auch
+nicht verschieben oder drehen … Im konkreten Fall hätte ich sie nämlich
+gerne um 180 Grad gedreht."
+
+Der erste Teil war ein **Fehler und kein Wunsch**: Im PDF lief der
+Hintergrund schon immer über den ganzen Umschlagbogen, samt Rücken. Auf
+dem Bildschirm zeichnete jede Hälfte ihren eigenen, und dazwischen lag der
+Rücken als graue Fläche. Ansicht und Datei zeigten also Verschiedenes —
+genau die Trennung, die die erste Regel dieser App verbietet.
+
+- **Ein Bild über Rückseite, Rücken und Titelseite.** Die beiden Hälften
+  lassen ihren Grund weg (`ohneGrund`), auch das weiße Papier darunter;
+  gezeichnet wird EIN Hintergrund über den ganzen Bogen, wie ihn das PDF
+  schreibt.
+- **Eine Ungenauigkeit bleibt, und sie steht dabei:** Die Ansicht zeigt
+  beide Hälften mit ihrem eigenen Anschnitt, der gedruckte Umschlag ist
+  innen um zwei Anschnitte schmaler. Das Bild steht auf dem Bildschirm
+  also gut ein Prozent breiter, als es gedruckt wird — eine Ungenauigkeit
+  der Ansicht, nicht der Datei.
+- **Der Rücken wird mit der Schrift des Buches gesetzt.** Bis 1.0.62 gab
+  es ihn zweimal: das PDF mit der Typografie des Buches, die Ansicht mit
+  einer festen Bildschirmschrift („max(6, min(breite · 0,6, 13))") auf
+  grauem Grund. Beides rechnet jetzt `Model/Rueckensatz.swift`, und
+  gezeichnet wird mit demselben `Textkasten`, mit dem jede Seite gesetzt
+  wird.
+- **Lage und Leserichtung sind einstellbar.** Die Lage ist ein **Anteil**
+  (0 = Kopf, 1 = Fuß) und keine Millimeterzahl — so übersteht sie einen
+  Formatwechsel; angezeigt wird sie in Worten („eher oben"), weil „0,35"
+  niemandem etwas sagt. Die Leserichtung ist ein Schalter und keine
+  Regel: Von oben nach unten ist hierzulande üblich, andersherum
+  anderswo.
+- **Verschieben geht nur mit einem Kasten, der schmaler ist als sein
+  Platz.** Ein Kasten über die ganze Rückenlänge sähe mittig zentriert
+  immer gleich aus, wie weit man den Regler auch schöbe; `Textmass.breite`
+  misst deshalb seit dieser Fassung, wie breit ein Text von sich aus
+  wird.
+
+**Nicht gemessen (1.0.63):** Kein Umschlag ist damit gedruckt worden.
+Gerechnet ist die Geometrie, und die Ansicht fragt jetzt dieselbe Stelle
+wie die Datei; **wie der Rücken auf Papier aussieht — ob die Schrift
+zwischen die Falze passt und ob die Lage stimmt —, sagt erst der erste
+Abzug.** Und die eigenen Felder oder Bilder AUF dem Rücken, um die
+ebenfalls gebeten wurde, gibt es noch nicht: Der Umschlag wird gerechnet
+und nicht gesetzt, ein Block darauf wäre beim nächsten Durchgang weg.
+Das nicht als erledigt darstellen.
+
 ## Auch eine Mac-App (1.0.62)
 
 Ansage des Nutzers, 09/2026: „Jetzt möchte ich tatsächlich doch noch die

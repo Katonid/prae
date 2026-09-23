@@ -50,6 +50,28 @@ enum Textmass {
         return ceil(groesse.height) + 1
     }
 
+    // Wie BREIT ein Text von sich aus wird — höchstens `hoechstens`.
+    //
+    // Gebraucht für den Buchrücken (ab 1.0.63): Dort soll sich die Schrift
+    // verschieben lassen, und verschieben kann man nur einen Kasten, der
+    // schmaler ist als sein Platz. Ein Kasten über die ganze Länge sähe
+    // mittig zentriert immer gleich aus, wie weit man den Regler auch
+    // schöbe.
+    static func breite(_ text: String, bild: Schriftbild, hoechstens: Double) -> Double {
+        guard !text.isEmpty, hoechstens > 1 else { return 0 }
+        let setzer = rahmensetzer(text, bild: bild, breite: hoechstens)
+        var gebraucht = CFRange()
+        let groesse = CTFramesetterSuggestFrameSizeWithConstraints(
+            setzer,
+            CFRange(location: 0, length: 0),
+            nil,
+            CGSize(width: hoechstens, height: .greatestFiniteMagnitude),
+            &gebraucht
+        )
+        // Derselbe Punkt Zuschlag wie bei der Höhe, aus demselben Grund.
+        return min(ceil(groesse.width) + 1, hoechstens)
+    }
+
     // Wie viele Zeichen in den Kasten passen. Gebraucht für den Textfluss
     // über mehrere Seiten: Was hier nicht mehr hineingeht, beginnt die
     // nächste Seite.
