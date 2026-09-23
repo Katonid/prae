@@ -374,6 +374,48 @@ enum Druckpruefung {
 
     // MARK: - Vor dem Ausgeben
 
+    // Das Wasserzeichen — und zwar gemessen, nicht versprochen.
+    //
+    // „Möglichst an Stellen, an denen sonst noch kein Text oder Bild zu
+    // sehen ist“ ist eine Zusage, die sich nur am fertigen Satz einlösen
+    // lässt: Auf einer Seite mit einem randabfallenden Foto gibt es keine
+    // freie Stelle, und dann liegt das Zeichen unter dem Bild und ist dort
+    // schlicht weg. Das steht hier als Zahl, statt dass es jemand im
+    // gedruckten Buch sucht.
+    //
+    // Gezählt werden die Seiten der TAGE. Das Titelblatt bleibt draußen:
+    // Es wird beim Ausgeben erst gerechnet, und für eine Zahl, die eine
+    // Größenordnung nennen soll, wäre das der teuerste Nachschlag.
+    static func wasserzeichen(_ reise: Reise) -> [Zeile] {
+        guard let zeichen = reise.gestaltung.wasserzeichen, zeichen.gueltig else { return [] }
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        var seiten = 0
+        var verdeckt = 0
+        for tag in reise.tage {
+            for seite in tag.seiten {
+                seiten += 1
+                let ort = Wasserzeichenlage.rechteck(zeichen, satz: satz, seite: seite)
+                // Ab einer gewichteten Belegung von 4 liegt mindestens die
+                // halbe Fläche unter einem Foto oder einer Karte. Text
+                // allein käme nie so weit — der wiegt 1.
+                if Wasserzeichenlage.belegung(ort, seite: seite) >= 4 { verdeckt += 1 }
+            }
+        }
+        guard seiten > 0 else { return [] }
+        var text = "Sichtbarkeit \(Int(zeichen.deckung * 100)) %, Breite "
+        text += "\(Int(zeichen.anteil * 100)) % der Satzbreite. "
+        if verdeckt == 0 {
+            text += "Auf allen \(seiten) Tagesseiten liegt es auf freiem Grund."
+        } else {
+            text += "Auf \(verdeckt) von \(seiten) Tagesseiten liegt es unter einem Foto "
+            text += "oder einer Karte und ist dort kaum zu sehen \u{2014} dort war keine freie "
+            text += "Stelle mehr."
+        }
+        text += " Mit „Ohne Transparenz“ fällt es ganz weg."
+        return [Zeile(stufe: verdeckt > seiten / 2 ? .hinweis : .gut,
+                      titel: "Wasserzeichen", text: text)]
+    }
+
     static func vorab(_ reise: Reise) -> [Zeile] {
         var zeilen: [Zeile] = []
         let format = reise.format
@@ -403,6 +445,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: zeilenlaenge(reise))
         zeilen.append(contentsOf: trennungsbefund(reise))
         zeilen.append(contentsOf: mittenImSatz(reise))
+        zeilen.append(contentsOf: wasserzeichen(reise))
 
         // Randabfallendes
         let randab = reise.seitenfolge.reduce(0) { summe, seite in

@@ -14,6 +14,16 @@ struct Buchseite: Identifiable {
 }
 
 extension Reise {
+    // Ob auf DIESER Seite ein Wasserzeichen liegt — gefragt von der
+    // Ansicht und vom PDF. Eine zweite Fassung dieser Prüfung ergäbe eine
+    // Vorschau, die etwas anderes zeigt als der Druck.
+    func wasserzeichen(fuer buchseite: Buchseite) -> Wasserzeichen? {
+        guard let zeichen = gestaltung.wasserzeichen, zeichen.gueltig else { return nil }
+        // Kein Tag heißt Titelblatt.
+        if buchseite.tag == nil, !zeichen.aufTitelblatt { return nil }
+        return zeichen
+    }
+
     var automat: Layoutautomat {
         Layoutautomat(format: format, gestaltung: gestaltung, typografie: typografie,
                       stil: buchstil, fotoIndex: fotoIndex)
@@ -346,6 +356,24 @@ enum Buchausgabe {
         }
         Seitensatz.zeichneHintergrund(grund, rechteck: bogenrechteck, bild: grundbild,
                                       saat: buchseite.seite.id.saat, in: zusammenhang)
+
+        // Das Wasserzeichen liegt über dem Hintergrund und unter allem
+        // anderen. Ohne Transparenz fällt es WEG und wird nicht etwa
+        // deckend gezeichnet: Ein undurchsichtiges Ahornblatt mitten auf
+        // der Seite wäre keine abgeschwächte Fassung, sondern ein Fehler
+        // im Buch. Dieselbe Entscheidung wie beim Schatten daneben — nur
+        // dass der Verlauf dort zu einem geschlossenen Feld wird, weil er
+        // etwas lesbar machen muss und dieses Zeichen nichts.
+        if !auftrag.ohneTransparenz, let zeichen = reise.wasserzeichen(fuer: buchseite),
+           let bild = Bildarchiv.shared.fuerAusgabe(zeichen.datei, reise: reise.id,
+                                                    kante: auftrag.bildkante)
+        {
+            let satz = reise.gestaltung.satzspiegel(reise.format)
+            let rechteck = Wasserzeichenlage.rechteck(zeichen, satz: satz,
+                                                      seite: buchseite.seite)
+            Seitensatz.zeichneWasserzeichen(bild, rechteck: rechteck,
+                                            deckung: zeichen.deckung, in: zusammenhang)
+        }
 
         for block in buchseite.seite.sortiert {
             let rechteck = block.rahmen.rect

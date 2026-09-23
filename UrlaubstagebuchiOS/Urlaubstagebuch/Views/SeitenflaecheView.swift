@@ -75,6 +75,25 @@ struct SeitenflaecheView: View {
                 .offset(x: -anschnitt, y: -anschnitt)
                 .allowsHitTesting(false)
 
+            // Das Wasserzeichen: über dem Hintergrund, unter allem
+            // anderen. Wo es liegt, rechnet dieselbe Funktion, die auch
+            // das PDF fragt — zwei Fassungen ergäben eine Vorschau, die
+            // anders aussieht als der Druck.
+            if let zeichen = werk.reise.wasserzeichen(fuer: buchseite),
+               let bild = Bildarchiv.shared.vorschau(zeichen.datei, reise: werk.reise.id,
+                                                     kante: 900)
+            {
+                let ort = Wasserzeichenlage.rechteck(zeichen, satz: satz,
+                                                     seite: buchseite.seite)
+                Image(uiImage: bild)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: ort.width, height: ort.height)
+                    .opacity(zeichen.deckung)
+                    .offset(x: ort.minX, y: ort.minY)
+                    .allowsHitTesting(false)
+            }
+
             if bearbeitbar, werk.zeigeSatzspiegel {
                 Rectangle()
                     .strokeBorder(style: StrokeStyle(lineWidth: 0.7, dash: [4, 4]))

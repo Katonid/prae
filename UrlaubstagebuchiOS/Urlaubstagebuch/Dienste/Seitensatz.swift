@@ -232,6 +232,22 @@ enum Seitensatz {
         zusammenhang.restoreGState()
     }
 
+    // Das Wasserzeichen. Gezeichnet wird es zwischen Hintergrund und
+    // Blöcken — also unter allem, was auf der Seite steht.
+    //
+    // Die Deckkraft steckt im Zeichenbefehl (`alpha:`) und nicht in einer
+    // zweiten Fläche darüber: Ein Schleier über dem Bild legte sich auch
+    // über den Hintergrund und machte die Seite fleckig.
+    static func zeichneWasserzeichen(_ bild: UIImage, rechteck: CGRect, deckung: Double,
+                                     in zusammenhang: CGContext)
+    {
+        guard deckung > 0.001 else { return }
+        zusammenhang.saveGState()
+        let ziel = Wasserzeichenlage.eingepasst(bildgroesse: bild.size, rahmen: rechteck)
+        bild.draw(in: ziel, blendMode: .normal, alpha: CGFloat(min(deckung, 1)))
+        zusammenhang.restoreGState()
+    }
+
     static func zeichneLinie(_ rechteck: CGRect, farbe: UIColor, in zusammenhang: CGContext) {
         zusammenhang.saveGState()
         zusammenhang.setFillColor(farbe.cgColor)
