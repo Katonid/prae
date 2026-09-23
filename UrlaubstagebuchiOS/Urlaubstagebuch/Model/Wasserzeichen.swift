@@ -1,6 +1,53 @@
 import CoreGraphics
 import Foundation
 
+// Die Schlüssel der Fassungen bis 1.0.55, als es genau EIN Bild gab. Sie
+// werden weiter gelesen und nicht mehr geschrieben — dieselbe Bauweise wie
+// `AlteSchluessel` in `Model/Reise.swift`. Ohne sie verlöre jedes Buch, das
+// vor 1.0.56 gesichert wurde, sein Wasserzeichen, und zwar still: Die
+// Einstellung stünde weiter in der Datei, das Bild fehlte.
+private enum AlteZeichenschluessel: String, CodingKey {
+    case datei
+    case seitenverhaeltnis
+}
+
+// EIN Bild eines Wasserzeichens.
+//
+// Es trägt sein Seitenverhältnis SELBST, und das ist der Grund für den
+// eigenen Typ: Bis 1.0.55 stand die Zahl am Wasserzeichen, weil es nur ein
+// Bild gab. Bei zehn Bildern gilt sie je Bild — und die Lagerechnung
+// braucht genau die des Bildes, das auf DIESER Seite liegt.
+struct Zeichenbild: Codable, Hashable, Identifiable {
+    /// Der Dateiname im Bildarchiv DIESER Reise.
+    var datei: String
+
+    /// Breite geteilt durch Höhe, EINMAL beim Einlesen gemessen.
+    ///
+    /// Ohne diese Zahl müsste die Lagerechnung das Bild von der Platte
+    /// holen, nur um seine Proportion zu erfahren — und das bei jeder
+    /// Seite, bei jedem Neuzeichnen. Dieselbe Falle wie bei den berechneten
+    /// Eigenschaften der Karte in der Abfahrtstafel: Es sieht billig aus.
+    var seitenverhaeltnis: Double = 1
+
+    // Der Dateiname IST die Kennung. Er ist eine UUID samt Endung, also
+    // eindeutig, und er übersteht das Entfernen eines anderen Bildes — eine
+    // Nummer in der Liste täte das nicht.
+    var id: String { datei }
+
+    var gueltig: Bool { !datei.isEmpty }
+
+    init(datei: String, seitenverhaeltnis: Double = 1) {
+        self.datei = datei
+        self.seitenverhaeltnis = seitenverhaeltnis
+    }
+
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        datei = b.wert(.datei, "")
+        seitenverhaeltnis = b.wert(.seitenverhaeltnis, 1.0)
+    }
+}
+
 // Ein WASSERZEICHEN: ein halbdurchsichtiges Bild, das auf jeder Seite
 // wiederkehrt (ab 1.0.46).
 //
@@ -23,18 +70,19 @@ import Foundation
 //    zugleich die Lage, in der sich die Deckkraft überhaupt beurteilen
 //    lässt. Läge es obenauf, läge ein Schleier über jedem Foto.
 struct Wasserzeichen: Codable, Hashable {
-    // Der Dateiname im Bildarchiv DIESER Reise — dieselbe Ablage wie bei
-    // den Fotos, nur ohne `Foto`-Eintrag: Es ist kein Reisefoto, es taucht
-    // in keiner Tagesliste auf und wird von keiner Automatik verteilt.
-    var datei: String
-
-    // Breite geteilt durch Höhe, EINMAL beim Einlesen gemessen.
+    // BIS ZU ZEHN BILDER (ab 1.0.56).
     //
-    // Ohne diese Zahl müsste die Lagerechnung das Bild von der Platte
-    // holen, nur um seine Proportion zu erfahren — und das bei jeder
-    // Seite, bei jedem Neuzeichnen. Dieselbe Falle wie bei den berechneten
-    // Eigenschaften der Karte in der Abfahrtstafel: Es sieht billig aus.
-    var seitenverhaeltnis: Double = 1
+    // Ansage des Nutzers, 09/2026: „Ich möchte die Möglichkeit haben, noch
+    // mehr Bilder für ein Wasserzeichen hochzuladen. Möglich sein sollen
+    // insgesamt bis zu zehn verschiedene. Diese sollen dann nach dem
+    // Zufallsprinzip auf den einzelnen Seiten abgelegt werden."
+    //
+    // Sie liegen im Bildarchiv DIESER Reise — dieselbe Ablage wie bei den
+    // Fotos, nur ohne `Foto`-Eintrag: Es sind keine Reisefotos, sie tauchen
+    // in keiner Tagesliste auf und werden von keiner Automatik verteilt.
+    // Genau deshalb müssen sie in `Buchdatei.schreiben` ausdrücklich
+    // mitgenommen werden.
+    var bilder: [Zeichenbild] = []
 
     // Wie stark es durchscheint. Vorgabe bewusst niedrig: Ein Zeichen, das
     // man beim Lesen bemerkt, ist zu kräftig.
@@ -89,9 +137,8 @@ struct Wasserzeichen: Codable, Hashable {
         }
     }
 
-    init(datei: String, seitenverhaeltnis: Double = 1) {
-        self.datei = datei
-        self.seitenverhaeltnis = seitenverhaeltnis
+    init(bilder: [Zeichenbild] = []) {
+        self.bilder = bilder
     }
 
     // Von Hand gelesen, wie jeder Typ in diesem Modell, der wachsen kann.
@@ -100,8 +147,20 @@ struct Wasserzeichen: Codable, Hashable {
     // Wasserzeichen still verschwinden, und das Buch öffnete sich ja.
     init(from decoder: Decoder) throws {
         let b = try decoder.container(keyedBy: CodingKeys.self)
-        datei = b.wert(.datei, "")
-        seitenverhaeltnis = b.wert(.seitenverhaeltnis, 1.0)
+        bilder = b.wert(.bilder, [Zeichenbild]())
+        // Eine Datei von vor 1.0.56 trägt statt der Liste ein einzelnes
+        // Bild. Gelesen wird es nur, wenn die Liste leer ist — sonst
+        // stünde ein längst entferntes Bild wieder darin.
+        if bilder.isEmpty,
+           let frueher = try? decoder.container(keyedBy: AlteZeichenschluessel.self)
+        {
+            let name = (try? frueher.decodeIfPresent(String.self, forKey: .datei)) ?? nil
+            let verhaeltnis = (try? frueher.decodeIfPresent(Double.self,
+                                                            forKey: .seitenverhaeltnis)) ?? nil
+            if let name, !name.isEmpty {
+                bilder = [Zeichenbild(datei: name, seitenverhaeltnis: verhaeltnis ?? 1)]
+            }
+        }
         deckung = b.wert(.deckung, 0.10)
         anteil = b.wert(.anteil, 0.34)
         lage = b.wert(.lage, Lage.automatisch)
@@ -114,10 +173,23 @@ struct Wasserzeichen: Codable, Hashable {
     // mehr. **Gewählt und nicht gemessen.**
     static let groessteDrehung: Double = 45
 
+    // WIE VIELE BILDER HÖCHSTENS (Ansage des Nutzers, 09/2026: „insgesamt
+    // bis zu zehn verschiedene"). Die Zahl steht hier und nur hier.
+    static let hoechstzahl = 10
+
     // Ein Eintrag ohne Datei ist keiner. Das kann vorkommen, wenn ein Buch
     // aus einer `.reisebuch`-Datei kommt, in der die Bilddatei fehlte —
     // dann gilt es als nicht gesetzt, statt eine leere Fläche zu versprechen.
-    var gueltig: Bool { !datei.isEmpty }
+    var gueltigeBilder: [Zeichenbild] { bilder.filter(\.gueltig) }
+
+    var gueltig: Bool { !gueltigeBilder.isEmpty }
+
+    /// Das Bild mit diesem Dateinamen — oder `nil`, wenn es entfernt
+    /// wurde. Ein Verweis auf ein gelöschtes Bild darf nie eine leere
+    /// Fläche ergeben; er fällt auf die Automatik zurück.
+    func bild(_ datei: String) -> Zeichenbild? {
+        gueltigeBilder.first { $0.datei == datei }
+    }
 }
 
 // EINE KORREKTUR FÜR GENAU EINE SEITE (ab 1.0.54).
@@ -156,8 +228,16 @@ struct Wasserzeichenabweichung: Codable, Hashable {
     var versatzX: Double = 0
     var versatzY: Double = 0
 
+    /// WELCHES Bild auf dieser Seite liegt (ab 1.0.56) — der Dateiname,
+    /// nicht die Nummer in der Liste: Wer ein anderes Bild entfernt,
+    /// verschöbe sonst alle Nummern dahinter, und die Seite zeigte
+    /// plötzlich ein fremdes Zeichen. `nil` heißt: das automatisch
+    /// gezogene. Ein Name, den es nicht mehr gibt, gilt ebenfalls als
+    /// `nil` — ein Verweis ins Leere darf nie eine leere Fläche ergeben.
+    var bild: String?
+
     var gesetzt: Bool {
-        winkel != nil || abs(versatzX) > 0.01 || abs(versatzY) > 0.01
+        winkel != nil || bild != nil || abs(versatzX) > 0.01 || abs(versatzY) > 0.01
     }
 
     init() {}
@@ -167,6 +247,7 @@ struct Wasserzeichenabweichung: Codable, Hashable {
         winkel = b.wahlweise(.winkel)
         versatzX = b.wert(.versatzX, 0.0)
         versatzY = b.wert(.versatzY, 0.0)
+        bild = b.wahlweise(.bild)
     }
 }
 
@@ -198,10 +279,12 @@ enum Wasserzeichenlage {
     // Wie groß das Zeichen wird. Die Breite folgt dem Anteil, die Höhe dem
     // gemessenen Seitenverhältnis — und beides wird gedeckelt, damit ein
     // sehr hohes Bild nicht über den Satzspiegel hinausragt.
-    static func groesse(_ zeichen: Wasserzeichen, satz: CGRect) -> CGSize {
+    static func groesse(_ zeichen: Wasserzeichen, bild: Zeichenbild?,
+                        satz: CGRect) -> CGSize
+    {
         let anteil = min(max(zeichen.anteil, 0.05), 1.0)
         var breite = Double(satz.width) * anteil
-        var hoehe = breite / max(zeichen.seitenverhaeltnis, 0.05)
+        var hoehe = breite / max(bild?.seitenverhaeltnis ?? 1, 0.05)
         let deckel = Double(satz.height)
         if hoehe > deckel, hoehe > 0 {
             let faktor = deckel / hoehe
@@ -224,11 +307,18 @@ enum Wasserzeichenlage {
         var bildrahmen: CGRect
         /// In Grad, im Uhrzeigersinn. 0 heißt: gerade.
         var winkel: Double
+        /// WELCHES Bild hier liegt (ab 1.0.56). Es steht in derselben
+        /// Antwort wie der Rahmen, weil es mit ihm zusammenhängt: Die Höhe
+        /// folgt dem Seitenverhältnis DIESES Bildes. Wer es getrennt
+        /// ermittelte, zeichnete irgendwann ein Bild in den Rahmen eines
+        /// anderen.
+        var bild: Zeichenbild?
     }
 
     static func ort(_ zeichen: Wasserzeichen, satz: CGRect, seite: Seite) -> Ort {
         let winkel = drehwinkel(zeichen, seite: seite)
-        var bild = groesse(zeichen, satz: satz)
+        let gewaehlt = bild(zeichen, seite: seite)
+        var bild = groesse(zeichen, bild: gewaehlt, satz: satz)
         var platz = umschliessend(bild, winkel: winkel)
         // GEDREHT BRAUCHT ES MEHR PLATZ — und was nicht mehr in den
         // Satzspiegel passt, wird KLEINER und ragt nicht heraus. Gedeckelt
@@ -246,7 +336,48 @@ enum Wasserzeichenlage {
         let bildrahmen = CGRect(x: Double(rahmen.midX) - Double(bild.width) / 2,
                                 y: Double(rahmen.midY) - Double(bild.height) / 2,
                                 width: Double(bild.width), height: Double(bild.height))
-        return Ort(rahmen: rahmen, bildrahmen: bildrahmen, winkel: winkel)
+        return Ort(rahmen: rahmen, bildrahmen: bildrahmen, winkel: winkel, bild: gewaehlt)
+    }
+
+    // WELCHES der Bilder auf dieser Seite liegt.
+    //
+    // Eine Korrektur dieser Seite schlägt die Automatik — und ein Name,
+    // den es nicht mehr gibt, zählt nicht: Wer ein Bild entfernt, bekommt
+    // auf den Seiten, die darauf zeigten, wieder ein gezogenes.
+    static func bild(_ zeichen: Wasserzeichen, seite: Seite) -> Zeichenbild? {
+        if let name = seite.wasserzeichen?.bild, let eigen = zeichen.bild(name) {
+            return eigen
+        }
+        return automatischesBild(zeichen, seite: seite)
+    }
+
+    /// Das Bild, das die Automatik dieser Seite gibt — ohne jede Korrektur.
+    /// Gebraucht in der Oberfläche: Wer nachbessern will, muss sehen, wovon
+    /// er abweicht.
+    ///
+    /// Gezogen wird aus der KENNUNG der Seite, nie aus dem Zufall —
+    /// dieselbe Regel wie beim Winkel und bei der Lage: Dasselbe Buch muss
+    /// beim nächsten Öffnen gleich aussehen, und das PDF muss zeigen, was
+    /// auf dem Bildschirm steht.
+    ///
+    /// Es ist die DRITTE Zahl aus derselben Kennung, und sie wird eigens
+    /// gemischt: Die Lage nimmt den Rest zur Feldzahl, der Winkel einen
+    /// anderen Vielfachen-Rest. Nähme das Bild denselben, hinge es an der
+    /// Ecke — jedes Zeichen oben links wäre dann dasselbe.
+    ///
+    /// **Die Kennung der Seite ist das Einzige, worüber sich alle vier
+    /// Aufrufstellen einig sind** (Bildschirm, PDF, Druckprüfung, das
+    /// Blatt für eine Seite). Eine laufende Nummer wäre gleichmäßiger,
+    /// gibt es aber an diesen vier Stellen nicht in derselben Zählung —
+    /// und zwei Zählungen ergäben ein PDF, das anders aussieht als die
+    /// Vorschau. Gleichverteilt ist das Ziehen damit im Erwartungswert und
+    /// nicht gleich OFT; wie oft jedes Bild wirklich vorkommt, zählt die
+    /// Druckprüfung.
+    static func automatischesBild(_ zeichen: Wasserzeichen, seite: Seite) -> Zeichenbild? {
+        let vorrat = zeichen.gueltigeBilder
+        guard vorrat.count > 1 else { return vorrat.first }
+        let wert = (seite.id.saat &* 2_862_933_555_777_941_757) &+ 3_037_000_493
+        return vorrat[Int((wert >> 17) % UInt64(vorrat.count))]
     }
 
     // Der Winkel dieser Seite. Gleichverteilt über die Spanne, gezogen aus
@@ -291,7 +422,8 @@ enum Wasserzeichenlage {
 
     static func rechteck(_ zeichen: Wasserzeichen, satz: CGRect, seite: Seite) -> CGRect {
         rechteck(zeichen, satz: satz, seite: seite,
-                 mass: umschliessend(groesse(zeichen, satz: satz),
+                 mass: umschliessend(groesse(zeichen, bild: bild(zeichen, seite: seite),
+                                             satz: satz),
                                      winkel: drehwinkel(zeichen, seite: seite)))
     }
 

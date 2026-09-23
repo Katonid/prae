@@ -392,10 +392,22 @@ enum Druckpruefung {
         var seiten = 0
         var verdeckt = 0
         var korrigiert = 0
+        // WIE OFT JEDES BILD WIRKLICH VORKOMMT (ab 1.0.56).
+        //
+        // Gezogen wird aus der Kennung der Seite, also gleichverteilt im
+        // ERWARTUNGSWERT und nicht gleich oft. Bei zehn Bildern auf
+        // vierzig Seiten bleibt rechnerisch mit rund einem Siebtel
+        // Wahrscheinlichkeit eines ganz ungenutzt — das gehört gezählt und
+        // nicht behauptet. Dieselbe Lehre wie bei den Linienfarben der
+        // Abfahrtstafel: Ein Streuwert verteilt zufällig, nicht gleichmäßig.
+        var jeBild: [String: Int] = [:]
         for tag in reise.tage {
             for seite in tag.seiten {
                 seiten += 1
                 if seite.wasserzeichen?.gesetzt == true { korrigiert += 1 }
+                if let gewaehlt = Wasserzeichenlage.bild(zeichen, seite: seite) {
+                    jeBild[gewaehlt.datei, default: 0] += 1
+                }
                 // Gefragt wird `ort` und nicht `rechteck`: Seit 1.0.54
                 // kann eine Seite das Zeichen verschieben, und gezählt
                 // werden soll, wo es WIRKLICH liegt — sonst meldete die
@@ -424,8 +436,40 @@ enum Druckpruefung {
             text += " ist es von Hand nachgestellt."
         }
         text += " Mit „Ohne Transparenz“ fällt es ganz weg."
-        return [Zeile(stufe: verdeckt > seiten / 2 ? .hinweis : .gut,
-                      titel: "Wasserzeichen", text: text)]
+        var zeilen = [Zeile(stufe: verdeckt > seiten / 2 ? .hinweis : .gut,
+                            titel: "Wasserzeichen", text: text)]
+        if let verteilung = bildverteilung(zeichen, jeBild: jeBild, seiten: seiten) {
+            zeilen.append(verteilung)
+        }
+        return zeilen
+    }
+
+    // Wie oft jedes der Bilder vorkommt. Nur, wenn es mehrere sind — bei
+    // einem einzigen wäre die Zeile eine Zahl, die man schon kennt.
+    private static func bildverteilung(_ zeichen: Wasserzeichen,
+                                       jeBild: [String: Int], seiten: Int) -> Zeile?
+    {
+        let vorrat = zeichen.gueltigeBilder
+        guard vorrat.count > 1, seiten > 0 else { return nil }
+        var teile: [String] = []
+        var ungenutzt = 0
+        for (stelle, eintrag) in vorrat.enumerated() {
+            let zahl = jeBild[eintrag.datei] ?? 0
+            if zahl == 0 { ungenutzt += 1 }
+            teile.append("Bild \(stelle + 1): \(zahl)")
+        }
+        var text = "Auf \(seiten) Tagesseiten \u{2014} " + teile.joined(separator: ", ") + ". "
+        if ungenutzt > 0 {
+            text += "\(ungenutzt) Bild"
+            text += ungenutzt == 1 ? " kommt" : "er kommen"
+            text += " gar nicht vor. Das ist kein Fehler: Gezogen wird aus der Kennung "
+            text += "der Seite, und das ist gleichverteilt im Erwartungswert, nicht gleich "
+            text += "oft. Wer es genau haben will, stellt einzelne Seiten von Hand um."
+        } else {
+            text += "Jedes Bild kommt mindestens einmal vor."
+        }
+        return Zeile(stufe: ungenutzt > 0 ? .hinweis : .gut,
+                     titel: "Wasserzeichen \u{2014} Verteilung", text: text)
     }
 
     // EINE LINIE, DIE WEIT DANEBENZIEHT, STEHT IM GEDRUCKTEN BUCH (ab

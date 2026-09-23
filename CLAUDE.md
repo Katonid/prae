@@ -6997,6 +6997,82 @@ Befunde, und keiner davon war Geschmack:
   dadurch besser wird.
 - **Vorgabe 0.** Jedes vorhandene Buch sieht nach dem Update unverändert
   aus — dieselbe Überlegung wie bei `ueberDoppelseite` in 1.0.47.
+- **ZEHN WASSERZEICHEN STATT EINEM — und die Kennung der Seite zieht**
+  (`Zeichenbild`, `Wasserzeichen.bilder`, `Wasserzeichenlage.automatischesBild`,
+  ab 1.0.56; Ansage des Nutzers 09/2026: „Ich möchte die Möglichkeit haben,
+  noch mehr Bilder für ein Wasserzeichen hochzuladen. Möglich sein sollen
+  insgesamt bis zu zehn verschiedene. Diese sollen dann nach dem
+  Zufallsprinzip auf den einzelnen Seiten abgelegt werden. Auch hier möchte
+  ich im Nachhinein entscheiden können, welches Symbol auf einer Seite zu
+  liegen kommt.").
+- **Das Seitenverhältnis gehört dem BILD, nicht dem Wasserzeichen.** Bis
+  1.0.55 stand die Zahl an `Wasserzeichen`, weil es nur ein Bild gab; bei
+  zehn gilt sie je Bild — und die Lagerechnung braucht genau die des
+  Bildes, das auf DIESER Seite liegt. Deshalb der eigene Typ `Zeichenbild`.
+  Alles andere (Deckkraft, Größe, Lage, Drehspanne, Titelblatt) bleibt am
+  Wasserzeichen: Das ist eine Entscheidung über das Buch und nicht über
+  ein einzelnes Symbol.
+- **`Ort` sagt seit 1.0.56 auch, WELCHES Bild hier liegt.** Es steht in
+  derselben Antwort wie der Rahmen, weil beides zusammenhängt: Die Höhe
+  folgt dem Seitenverhältnis dieses Bildes. Wer es getrennt ermittelte,
+  zeichnete irgendwann ein Bild in den Rahmen eines anderen — und das
+  fiele erst im gedruckten Buch auf. **Buchausgabe holt deshalb erst die
+  LAGE und dann die Datei**, nicht mehr umgekehrt: Vorher lässt sich gar
+  nicht wissen, welche Datei zu holen ist.
+- **Gezogen wird aus der KENNUNG der Seite, nie aus dem Zufall.** Dritte
+  Auflage derselben Regel nach Papierkorn (1.0.16), Seitenrhythmus (1.0.31)
+  und Zeichenwinkel (1.0.52): Dasselbe Buch muss beim nächsten Öffnen
+  gleich aussehen, und das PDF muss zeigen, was auf dem Bildschirm steht.
+  Es ist die DRITTE Zahl aus derselben Kennung und wird eigens gemischt —
+  die Lage nimmt den Rest zur Feldzahl, der Winkel einen anderen Rest.
+  Nähme das Bild denselben, hinge es an der Ecke, und jedes Zeichen oben
+  links wäre dasselbe.
+- **Eine laufende Nummer wäre gleichmäßiger und ist bewusst NICHT gebaut.**
+  Die Kennung der Seite ist das Einzige, worüber sich alle vier
+  Aufrufstellen einig sind (Bildschirm, PDF, Druckprüfung, das Blatt für
+  eine Seite). `Buchseite.rang` gibt es in zweien davon, in den anderen
+  nicht in derselben Zählung — und zwei Zählungen ergäben ein PDF, das
+  anders aussieht als die Vorschau. **Der Preis steht dafür im Befund:**
+  Gleichverteilt ist das Ziehen im ERWARTUNGSWERT und nicht gleich oft; bei
+  zehn Bildern auf vierzig Seiten bleibt rechnerisch mit rund einem Siebtel
+  Wahrscheinlichkeit eines ganz ungenutzt. Die Druckprüfung zählt deshalb
+  seit 1.0.56, wie oft jedes Bild wirklich vorkommt, und sagt es, wenn
+  eines gar nicht vorkommt. Dieselbe Lehre wie bei den Linienfarben der
+  Abfahrtstafel: **Ein Streuwert verteilt zufällig, nicht gleichmäßig.**
+- **Die Korrektur nennt den DATEINAMEN, nicht die Nummer**
+  (`Wasserzeichenabweichung.bild`). Wer ein anderes Bild entfernt,
+  verschöbe sonst alle Nummern dahinter, und die Seite zeigte plötzlich ein
+  fremdes Zeichen. **Ein Name, den es nicht mehr gibt, zählt als nicht
+  gesetzt** — die Seite fällt auf die Automatik zurück, statt eine leere
+  Fläche zu versprechen; dieselbe Regel gilt im Wähler, sonst stünde dort
+  eine Auswahl, die es nirgends gibt.
+- **Ein alter Schlüssel wird weiter GELESEN** (`AlteZeichenschluessel`,
+  dieselbe Bauweise wie in `Model/Reise.swift`). Jede Datei von vor 1.0.56
+  trägt `datei` und `seitenverhaeltnis` statt der Liste; ohne diesen Weg
+  verlöre jedes vorhandene Buch sein Wasserzeichen, und zwar STILL — die
+  Einstellung stünde weiter in der Datei, das Bild fehlte. Gelesen wird der
+  alte Schlüssel nur, wenn die Liste LEER ist, sonst stünde ein längst
+  entferntes Bild wieder darin.
+- **Hinzugefügt, nicht ersetzt** — und mehrere Dateien auf einmal
+  (`Dateiwahl(mehrere: true)`): Wer zehn Symbole hat, soll nicht zehnmal
+  denselben Weg gehen. Was über die Zehn hinausgeht, wird GEZÄHLT und
+  gemeldet; stillschweigend die Hälfte zu verschlucken wäre der schlimmere
+  Fehler.
+- **Und wer eine neue Bildart anlegt, trägt sie in `Buchdatei.schreiben`
+  ein.** Die Zeichenbilder sind keine Reisefotos und stehen in keiner
+  Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
+  einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
+  seine Zeichen.
+- **Nicht gemessen (1.0.56):** Keine Seite ist damit gesehen worden.
+  Gerechnet ist die Auswahl und ihre Geometrie; **die Verteilung ist eine
+  Wahrscheinlichkeitsaussage und keine Zusage** — wie sie in einem
+  wirklichen Buch ausfällt, sagt erst die neue Zeile im Befund. **Gewählt
+  und nicht gemessen** sind die Höchstzahl zehn (sie ist die Zahl aus der
+  Ansage), der Mischfaktor des Ziehens und die Schwellen von `formtext`
+  (1,08 und 0,93). Ungeprüft ist, ob ein Buch mit zehn Zeichenbildern beim
+  Ausgeben spürbar langsamer wird — je Seite wird weiterhin genau EIN Bild
+  geladen, aber aus zehn verschiedenen Dateien statt aus einer, und der
+  Bildvorrat hält nur 120 Einträge. **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.55):** Keine Seite ist damit gesehen worden.
   Gerechnet und am Quelltext abgezählt ist die URSACHE (der Schleier
   skaliert den Kanalabstand mit `1 − a`) und die Wirkung des Faktors;
@@ -7435,7 +7511,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.55 (Build 56). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.56 (Build 57). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

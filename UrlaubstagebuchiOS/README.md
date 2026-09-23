@@ -480,6 +480,42 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Zehn Wasserzeichen statt einem (1.0.56)
+
+Ein Wasserzeichen kann jetzt aus **bis zu zehn Bildern** bestehen. Welches
+auf einer Seite liegt, zieht die App selbst — und zwar aus der **Kennung der
+Seite**, nicht aus dem Zufall: Dieselbe Seite bekommt beim nächsten Öffnen
+dasselbe Bild, und das PDF zeigt, was auf dem Bildschirm steht. Das ist
+dieselbe Regel wie beim Papierkorn, beim Seitenrhythmus und beim Drehwinkel;
+ein gewürfeltes Buch sähe nach jedem Start anders aus.
+
+Angelegt werden sie unter **Buchsymbol → Wasserzeichen**; mehrere Dateien
+lassen sich auf einmal wählen. Deckkraft, Größe, Lage und Drehung gehören
+weiterhin dem Buch und nicht dem einzelnen Bild — es ist eine Entscheidung
+über das Buch, keine über ein Symbol.
+
+**Eine einzelne Seite lässt sich umstellen:** nichts auswählen → Pinsel →
+Wasserzeichen. Dort steht jetzt neben Winkel und Verschiebung auch das Bild,
+und daneben, welches die Automatik gegeben hätte. Gemerkt wird der
+**Dateiname** und nicht die Nummer in der Liste: Wer ein anderes Bild
+entfernt, verschöbe sonst alle Nummern dahinter. Wird das gewählte Bild
+später entfernt, fällt die Seite auf die Automatik zurück — ein Verweis ins
+Leere darf nie eine leere Fläche ergeben.
+
+**Was das Ziehen nicht kann, steht im Befund.** Aus einer Kennung zu ziehen
+ist gleichverteilt im *Erwartungswert* und nicht gleich *oft*: Bei zehn
+Bildern auf vierzig Seiten bleibt rechnerisch mit rund einem Siebtel
+Wahrscheinlichkeit eines ganz ungenutzt. Die Druckprüfung zählt deshalb, wie
+oft jedes Bild wirklich vorkommt, und sagt es, wenn eines fehlt. Eine
+laufende Seitennummer wäre gleichmäßiger und ist bewusst nicht gebaut: Die
+Kennung der Seite ist das Einzige, worüber sich Bildschirm, PDF, Druckprüfung
+und das Blatt für eine Seite einig sind — zwei Zählungen ergäben ein PDF, das
+anders aussieht als die Vorschau.
+
+**Nicht gemessen:** Keine Seite ist damit gesehen worden. Die Verteilung ist
+eine Wahrscheinlichkeitsaussage und keine Zusage; wie sie in einem wirklichen
+Buch ausfällt, sagt erst die neue Zeile im Befund.
+
 ## Farbenfroh trotz Schleier (1.0.55)
 
 Ein Hintergrundfoto liegt unter einem **Schleier** in der Papierfarbe — ohne

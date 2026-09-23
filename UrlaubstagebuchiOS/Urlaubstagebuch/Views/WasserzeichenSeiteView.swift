@@ -43,6 +43,7 @@ struct WasserzeichenSeiteView: View {
             Form {
                 if let zeichen, let seite {
                     skizzenabschnitt(zeichen, seite)
+                    bildabschnitt(zeichen, seite)
                     drehabschnitt(zeichen, seite)
                     versatzabschnitt
                     ruecksetzabschnitt
@@ -78,6 +79,65 @@ struct WasserzeichenSeiteView: View {
         } footer: {
             Text(skizzenhinweis)
         }
+    }
+
+    // WELCHES der Bilder hier liegt (ab 1.0.56).
+    //
+    // Der Abschnitt zeigt sich nur, wenn es überhaupt mehr als eines gibt:
+    // Ein Wähler mit einem einzigen Eintrag ist kein Wähler, sondern eine
+    // Zeile, die nichts tut.
+    @ViewBuilder
+    private func bildabschnitt(_ zeichen: Wasserzeichen, _ seite: Seite) -> some View {
+        if zeichen.gueltigeBilder.count > 1 {
+            Section {
+                Picker("Bild", selection: bildwahl(zeichen)) {
+                    Text("Automatisch (\(bildname(zeichen, automatisch(zeichen, seite))))")
+                        .tag(String?.none)
+                    ForEach(zeichen.gueltigeBilder) { eintrag in
+                        Text(bildname(zeichen, eintrag)).tag(String?.some(eintrag.datei))
+                    }
+                }
+            } header: {
+                Text("Bild")
+            } footer: {
+                Text(bildhinweis(zeichen, seite))
+            }
+        }
+    }
+
+    private func bildwahl(_ zeichen: Wasserzeichen) -> Binding<String?> {
+        Binding(
+            get: {
+                // Ein Name, den es nicht mehr gibt, gilt als nicht
+                // gesetzt — sonst stünde im Wähler eine Auswahl, die es
+                // nirgends gibt, und er zeigte gar nichts an.
+                guard let name = eigen?.bild, zeichen.bild(name) != nil else { return nil }
+                return name
+            },
+            set: { neu in aendern { $0.bild = neu } }
+        )
+    }
+
+    private func automatisch(_ zeichen: Wasserzeichen, _ seite: Seite) -> Zeichenbild? {
+        Wasserzeichenlage.automatischesBild(zeichen, seite: seite)
+    }
+
+    // Ein Dateiname ist eine UUID und sagt niemandem etwas — gezählt wird
+    // die Stelle in der Liste, wie im Blatt für das ganze Buch.
+    private func bildname(_ zeichen: Wasserzeichen, _ eintrag: Zeichenbild?) -> String {
+        guard let eintrag,
+              let stelle = zeichen.gueltigeBilder.firstIndex(of: eintrag) else { return "keines" }
+        return "Bild \(stelle + 1)"
+    }
+
+    private func bildhinweis(_ zeichen: Wasserzeichen, _ seite: Seite) -> String {
+        var text = "Ohne Auswahl zieht die App eines der \(zeichen.gueltigeBilder.count) "
+        text += "Bilder aus der Kennung dieser Seite \u{2014} nicht aus dem Zufall: "
+        text += "Dieselbe Seite bekommt beim nächsten Öffnen dasselbe Bild, und das PDF "
+        text += "zeigt, was hier steht. Gleichverteilt ist das im Erwartungswert und nicht "
+        text += "gleich oft; wie oft jedes Bild im Buch vorkommt, zählt die Druckprüfung. "
+        text += "Wird ein Bild später entfernt, fällt diese Seite auf die Automatik zurück."
+        return text
     }
 
     private func drehabschnitt(_ zeichen: Wasserzeichen, _ seite: Seite) -> some View {
@@ -298,7 +358,9 @@ private struct Skizze: View {
                             y: Double(ort.bildrahmen.minY) * faktor,
                             width: Double(ort.bildrahmen.width) * faktor,
                             height: Double(ort.bildrahmen.height) * faktor)
-        if let bild = Bildarchiv.shared.vorschau(zeichen.datei, reise: reise, kante: 400) {
+        if let zeichenbild = ort.bild,
+           let bild = Bildarchiv.shared.vorschau(zeichenbild.datei, reise: reise, kante: 400)
+        {
             Image(uiImage: bild)
                 .resizable()
                 .scaledToFit()
