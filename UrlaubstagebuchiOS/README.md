@@ -479,6 +479,89 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die zweite Überschrift — der Ort unter dem Datum (1.0.48)
+
+> „In dem zu importierenden Text … ist es so, dass nach dem Datum eine zweite
+> Überschrift kommt, in der der Ort des Geschehens aufgeführt wird oder ein
+> bestimmtes Schlagwort. Erst dann beginnt der Fließtext mit den Erlebnissen.
+> … Diese soll nicht genauso aussehen wie die Datumsüberschrift, sondern es
+> soll erkennbar sein, dass es eine zweite Ebene … sein soll.“
+
+Bis 1.0.47 wurde diese Zeile Fließtext. Sie ging also nicht verloren — sie
+stand als erster Absatz im Tagebuchtext des Tages.
+
+### Erkannt wird die Kürze
+
+Das ist in BEIDEN Textsorten ein Merkmal, und darauf beruht die ganze Regel:
+In einem hart umbrochenen Text reicht eine gewöhnliche Zeile bis nahe an die
+Umbruchspalte (gemessen in 1.0.12: rund 88 Zeichen), in einem frei
+geschriebenen ist ein ganzer Absatz EINE sehr lange Zeile. Eine kurze Zeile
+unmittelbar nach dem Datum ist damit in keinem der beiden Fälle Fließtext.
+
+Dazu vier Bedingungen: höchstens 42 Zeichen und sechs Wörter, groß oder mit
+einer Ziffer anfangend, kein Satzzeichen am Ende (der Doppelpunkt ausgenommen
+und abgeschnitten), und kein Datum darin.
+
+**Die wichtigste Bedingung ist, dass danach noch Text kommt.** Ein Tag, der nur
+aus dieser einen Zeile besteht, hat keine Überschrift — er hat einen sehr
+kurzen Text, und den als Überschrift zu setzen hieße, ihn aus dem Tagebuch zu
+nehmen. Der Fehler in diese Richtung ist der teure: Was als Überschrift
+gesetzt wird, fehlt danach im Fließtext.
+
+### Behauptet wird nichts, gezeigt wird
+
+Dieselbe Bauweise wie bei der Absatzerkennung seit 1.0.12. Die Vorschau nennt
+die gefundene Zeile je Tag eigens — und sie sieht dort anders aus als die
+erste Überschrift, denn sie wird dem Fließtext weggenommen. Die Fußzeile
+zählt „an n von m Tagen gefunden“, und **auch der Fall „nirgends“ steht da**,
+samt der Regel im Klartext. Ein Schalter stellt die Erkennung ab.
+
+### Wie sie aussieht
+
+`Typografie.unterueberschrift` ist **optional**, und `nil` heißt
+„abgeleitet“ — nicht „leer“: dieselbe Familie wie die Überschrift, 58 % der
+Größe, kursiv, nicht fett, in der Akzentfarbe. Der Grund ist derselbe wie bei
+einer `Schriftabweichung`: Die sechs Buchstile setzen `titel` je einzeln, und
+ein fest eingetragener Vorgabewert stünde in jedem davon in einer fremden
+Schrift — ein siebter Stil vergäße ihn obendrein. Der erste Griff an einen
+Regler löst sie aus der Ableitung, ein Knopf nimmt das zurück, und das
+Schrift-Blatt sagt beides.
+
+### Was daran nicht selbstverständlich ist
+
+* **Das Feld steht am Tag, nicht im Block** (`Reisetag.unterueberschrift`), wie
+  Überschrift und Datumszeile: Der Block ist ein Vorschlag über dem Inhalt und
+  wird beim Neuanordnen neu gerechnet. Eintippen lässt es sich deshalb auch
+  ohne Einlesen — im Tagesmenü — und auf der Seite mit dem Doppeltipp wie
+  jeder Textkasten.
+* **`groessenSkalieren` und `familieUeberall` überspringen eine abgeleitete
+  zweite Überschrift.** Beide rechnen über das Schreiben des Wertes, und ein
+  Schreiben macht aus der Ableitung eine Kopie. Am Ergebnis änderte das nichts
+  — aber ab da folgte sie dem Titel nicht mehr, und das fällt erst beim
+  nächsten Stilwechsel auf.
+* **`Typografie` liest sich jetzt von Hand.** Die Regel gilt seit 1.0.3 und
+  galt für diesen Typ noch nicht: `Reise` holt ihn über
+  `b.wert(.typografie, Typografie())` — ein Feld, das der erzeugte Leser
+  vermisst, hätte in jedem vorhandenen Buch alle vier Schriften auf die
+  Vorgaben zurückgesetzt, und zwar still.
+* **Gesetzt wird sie nur auf dem Aufmacher.** Auf der Fortsetzungsseite wäre
+  sie dieselbe Angabe ein zweites Mal — dieselbe Regel wie beim Titel. Auf der
+  ganzseitigen Aufmacherseite geht ihre Höhe in die Rechnung ein, bevor `y`
+  gesetzt wird: Der Kopf wird dort von unten aufgebaut, und eine nachträglich
+  eingeschobene Zeile schöbe den Titel aus dem Satzspiegel.
+* **Ein leerer Fund überschreibt nichts**, auch beim Ersetzen: Wer die zweite
+  Überschrift von Hand eingetippt hat und denselben Text noch einmal einliest,
+  verlöre sie sonst.
+
+**Nicht gemessen:** Keine Seite ist damit gesetzt worden, und an der Vorlage
+des Nutzers ist die Erkennung nicht gelaufen — die Datei liegt hier nicht.
+Gerechnet ist, warum Kürze in beiden Textsorten ein Merkmal ist; gewählt und
+nicht gemessen sind alle vier Zahlen (42 Zeichen, sechs Wörter, 58 % der
+Titelgröße, Zeilenabstand 1,18). Ob die zweite Ebene auf der gedruckten Seite
+als solche zu lesen ist und ob die Erkennung an seinem Tagebuch trifft, sagt
+erst der nächste Befund — und seit 1.0.48 sagt er es mit einer Zahl in der
+Vorschau.
+
 ## Ein Hintergrundbild über die Doppelseite (1.0.47)
 
 > „Ich möchte einstellen können, dass ein Hintergrundbild über eine

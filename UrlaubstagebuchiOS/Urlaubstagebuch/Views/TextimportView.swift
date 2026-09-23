@@ -17,6 +17,7 @@ struct TextimportView: View {
     @State private var ersetzen = false
     @State private var vorspannUebernehmen = true
     @State private var absaetzeZusammenfuehren = true
+    @State private var zweiteUeberschriftErkennen = true
     @State private var dateiwahl = false
     // Gelesen wird auf Änderung, nicht bei jedem Neuzeichnen: Das Zerlegen
     // geht über jede Zeile des Textes, und die Ansicht zeichnet sich bei
@@ -76,6 +77,8 @@ struct TextimportView: View {
                     Section {
                         Toggle("Harte Zeilenumbrüche zusammenführen",
                                isOn: $absaetzeZusammenfuehren)
+                        Toggle("Zweite Überschrift erkennen",
+                               isOn: $zweiteUeberschriftErkennen)
                         Toggle("Vorhandene Texte ersetzen", isOn: $ersetzen)
                         if befund.hatVorspann {
                             Toggle("Vorspann als Untertitel des Buches", isOn: $vorspannUebernehmen)
@@ -88,6 +91,7 @@ struct TextimportView: View {
                             // Tag: Wo die Umbruchspalte lag, hat der
                             // Schreiber einmal entschieden.
                             Text(umbruchtext)
+                            Text(zweitzeilentext)
                             Text(ersetzen
                                  ? "Der Text der betroffenen Tage wird überschrieben."
                                  : "Vorhandener Text bleibt stehen, der neue wird angehängt.")
@@ -113,6 +117,7 @@ struct TextimportView: View {
             }
             .onChange(of: text) { _, neu in neuLesen(neu) }
             .onChange(of: absaetzeZusammenfuehren) { _, _ in neuLesen(text) }
+            .onChange(of: zweiteUeberschriftErkennen) { _, _ in neuLesen(text) }
             .sheet(isPresented: $dateiwahl) {
                 Dateiwahl(typen: Textquelle.typen) { adressen in
                     ladeDatei(adressen.first)
@@ -148,6 +153,16 @@ struct TextimportView: View {
                         if !abschnitt.ueberschrift.isEmpty {
                             Text(abschnitt.ueberschrift)
                                 .font(.caption.weight(.medium))
+                                .foregroundStyle(Color.accentColor)
+                        }
+                        // Die zweite Überschrift steht in der Vorschau
+                        // eigens da — und sieht auch hier anders aus als die
+                        // erste. Sie wird dem Fließtext WEGGENOMMEN; wer das
+                        // nicht sieht, hält sie für verschluckt.
+                        if !abschnitt.unterueberschrift.isEmpty {
+                            Label(abschnitt.unterueberschrift,
+                                  systemImage: "text.line.first.and.arrowtriangle.forward")
+                                .font(.caption2.italic())
                                 .foregroundStyle(Color.accentColor)
                         }
                         Text(abschnitt.text.isEmpty
@@ -200,10 +215,26 @@ struct TextimportView: View {
         return "Gemessen an der ganzen Vorlage: längste Zeile \(mass.laengste) Zeichen, \(anteil) % der \(mass.zeilen) Zeilen enden an derselben Grenze. Ab 35 % gilt der Text als hart umbrochen — hier also \(hart ? "ja" : "nein")."
     }
 
+    // Wie oft die zweite Überschrift gegriffen hat — als Zahl und nicht
+    // als Zusage. Auch der Fall „nirgends" steht da: Eine Erkennung, die
+    // schweigt, wenn sie nichts findet, lässt einen raten, ob sie überhaupt
+    // gelaufen ist.
+    private var zweitzeilentext: String {
+        guard zweiteUeberschriftErkennen else {
+            return "Zweite Überschrift: abgeschaltet — die Zeile nach dem Datum bleibt Fließtext."
+        }
+        let gefunden = befund.abschnitte.filter { !$0.unterueberschrift.isEmpty }.count
+        if gefunden == 0 {
+            return "Zweite Überschrift: an keinem Tag gefunden. Gesucht wird die erste Zeile nach dem Datum, wenn sie höchstens \(Textimport.hoechsteZweiteUeberschrift) Zeichen und höchstens sechs Wörter hat, groß anfängt, nicht mit einem Satzzeichen endet — und Text darunter folgt."
+        }
+        return "Zweite Überschrift: an \(gefunden) von \(befund.abschnitte.count) Tagen gefunden. Sie wird dem Tagebuchtext entnommen und kleiner und kursiv unter die Überschrift gesetzt."
+    }
+
     private func neuLesen(_ roh: String) {
         mass = Textaufbereitung.vermessen(roh)
         befund = Textimport.lesen(roh, bezugsjahr: bezugsjahr,
-                                  absaetzeZusammenfuehren: absaetzeZusammenfuehren)
+                                  absaetzeZusammenfuehren: absaetzeZusammenfuehren,
+                                  zweiteUeberschriftErkennen: zweiteUeberschriftErkennen)
     }
 
     private func ladeDatei(_ adresse: URL?) {

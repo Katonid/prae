@@ -284,6 +284,10 @@ enum Seitensatz {
         case .titel:
             if let tag { return tag.ueberschrift }
             return reise.titel
+        case .unterueberschrift:
+            // Auf dem Titelblatt gibt es sie nicht — dort steht der
+            // Untertitel des Buches an dieser Stelle.
+            return tag?.unterueberschrift ?? ""
         case .datum:
             guard let tag else { return reise.zeitraum }
             return datumstext(tag, reise: reise)

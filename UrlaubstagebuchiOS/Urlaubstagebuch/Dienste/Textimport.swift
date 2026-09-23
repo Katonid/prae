@@ -28,6 +28,10 @@ enum Textimport {
         var id = UUID()
         var datum: Tagesdatum
         var ueberschrift: String
+        // Die ZWEITE Überschrift — der Ort des Geschehens oder ein
+        // Schlagwort, das in der Vorlage zwischen Datumszeile und Fließtext
+        // steht (ab 1.0.48). Leer heißt: an diesem Tag stand dort keine.
+        var unterueberschrift: String = ""
         var text: String
         var zeilennummer: Int
         var quellzeile: String
@@ -185,8 +189,60 @@ enum Textimport {
         return erstes.isUppercase || erstes.isNumber
     }
 
+    // Wie lang die ZWEITE Überschrift sein darf — enger gefasst als die
+    // erste, und das ist der Kern der Erkennung.
+    //
+    // In einem hart umbrochenen Text reicht eine gewöhnliche Zeile bis
+    // nahe an die Umbruchspalte (gemessen: rund 88 Zeichen, siehe
+    // `Textaufbereitung`), in einem frei geschriebenen ist ein Absatz eine
+    // sehr lange Zeile. In BEIDEN Fällen ist eine kurze Zeile unmittelbar
+    // nach dem Datum also etwas anderes als Fließtext.
+    static let hoechsteZweiteUeberschrift = 42
+
+    // Ob eine Zeile die zweite Überschrift sein kann. Eng gefasst, denn
+    // der Fehler in die andere Richtung ist teuer: Ein Satz, der als
+    // Überschrift gesetzt wird, fehlt danach im Tagebuchtext.
+    static func istZweiteUeberschrift(_ text: String) -> Bool {
+        guard !text.isEmpty, text.count <= hoechsteZweiteUeberschrift else { return false }
+        guard let erstes = text.first, erstes.isUppercase || erstes.isNumber else { return false }
+        // Ein Satzzeichen am Ende macht aus der Zeile einen Satz. Der
+        // Doppelpunkt ist ausgenommen — „Lissabon:" ist eine Überschrift,
+        // und er wird gleich abgeschnitten.
+        guard let letztes = text.last, !".!?,;".contains(letztes) else { return false }
+        // Eine Ortsangabe hat wenige Wörter; ein Satz hat mehr.
+        guard text.split(separator: " ").count <= 6 else { return false }
+        // Ein Datum in dieser Zeile wäre keine Ortsangabe. Die Datumszeile
+        // selbst ist hier schon vorbei.
+        guard sucheDatum(in: text) == nil else { return false }
+        return true
+    }
+
+    // Die erste nicht leere Zeile eines Tages, wenn sie eine Überschrift
+    // sein kann UND danach noch Text kommt.
+    //
+    // Die zweite Bedingung ist die wichtigere: Ein Tag, der NUR aus dieser
+    // einen Zeile besteht, hat keine Überschrift — er hat einen sehr
+    // kurzen Text, und den als Überschrift zu setzen hieße, ihn aus dem
+    // Tagebuch zu nehmen.
+    static func zweiteUeberschrift(aus zeilen: [String]) -> (kopf: String, rest: [String])? {
+        guard let stelle = zeilen.firstIndex(where: {
+            !$0.trimmingCharacters(in: .whitespaces).isEmpty
+        }) else { return nil }
+        let kandidat = zeilen[stelle].trimmingCharacters(in: .whitespaces)
+        guard istZweiteUeberschrift(kandidat) else { return nil }
+        let danach = Array(zeilen[(stelle + 1)...])
+        guard danach.contains(where: {
+            !$0.trimmingCharacters(in: .whitespaces).isEmpty
+        }) else { return nil }
+        let kopf = kandidat.trimmingCharacters(
+            in: CharacterSet(charactersIn: " :\u{2013}\u{2014}-"))
+        guard !kopf.isEmpty else { return nil }
+        return (kopf, danach)
+    }
+
     static func lesen(_ text: String, bezugsjahr: Int,
-                      absaetzeZusammenfuehren: Bool = true) -> Importbefund {
+                      absaetzeZusammenfuehren: Bool = true,
+                      zweiteUeberschriftErkennen: Bool = true) -> Importbefund {
         var befund = Importbefund()
         let zeilen = text.components(separatedBy: .newlines)
         befund.zeilenGesamt = zeilen.count
@@ -206,7 +262,14 @@ enum Textimport {
 
         func abschliessen() {
             guard var offen = laufend else { return }
-            let roh = sammlung
+            var zeilenDesTages = sammlung
+            if zweiteUeberschriftErkennen,
+               let fund = zweiteUeberschrift(aus: zeilenDesTages)
+            {
+                offen.unterueberschrift = fund.kopf
+                zeilenDesTages = fund.rest
+            }
+            let roh = zeilenDesTages
                 .joined(separator: "\n")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if absaetzeZusammenfuehren {

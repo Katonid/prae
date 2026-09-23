@@ -264,6 +264,15 @@ extension Reisewerk {
             if reise.tage[stelle].ueberschrift.isEmpty || ersetzen {
                 reise.tage[stelle].ueberschrift = abschnitt.ueberschrift
             }
+            // Dieselbe Regel wie für die Überschrift — und ein LEERER Fund
+            // überschreibt auch beim Ersetzen nichts: Hat jemand die zweite
+            // Überschrift von Hand eingetippt und liest denselben Text noch
+            // einmal ein, wäre sie sonst weg.
+            if !abschnitt.unterueberschrift.isEmpty,
+               reise.tage[stelle].unterueberschrift.isEmpty || ersetzen
+            {
+                reise.tage[stelle].unterueberschrift = abschnitt.unterueberschrift
+            }
             if ersetzen || reise.tage[stelle].text.isEmpty {
                 reise.tage[stelle].text = abschnitt.text
             } else {

@@ -16,6 +16,11 @@ struct Reisetag: Identifiable, Codable, Hashable {
     var id = UUID()
     var datum: Tagesdatum
     var ueberschrift: String = ""
+    // Die ZWEITE Überschrift — der Ort des Geschehens oder ein Schlagwort
+    // (ab 1.0.48). Sie steht am TAG und nicht im Block, aus demselben Grund
+    // wie Überschrift und Datumszeile: Der Block ist ein Vorschlag über dem
+    // Inhalt und wird beim Neuanordnen neu gerechnet.
+    var unterueberschrift: String = ""
     var text: String = ""
     var fotos: [UUID] = []
     var spur: [Reisepunkt] = []
@@ -50,6 +55,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         id = b.wert(.id, UUID())
         datum = try b.decode(Tagesdatum.self, forKey: .datum)
         ueberschrift = b.wert(.ueberschrift, "")
+        unterueberschrift = b.wert(.unterueberschrift, "")
         text = b.wert(.text, "")
         fotos = b.wert(.fotos, [])
         spur = b.wert(.spur, [])

@@ -68,7 +68,7 @@ struct TypografieView: View {
 
                 Picker("Wofür", selection: $rolle) {
                     ForEach(Schriftrolle.allCases) { rolle in
-                        Text(rolle.name).tag(rolle)
+                        Text(rolle.kurzname).tag(rolle)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -146,6 +146,35 @@ struct TypografieView: View {
                 set: { bild.wrappedValue.farbe = Farbwert($0) }
             ))
             trennungshinweise
+            ableitungshinweis
+        }
+    }
+
+    // DIE ZWEITE ÜBERSCHRIFT WIRD ABGELEITET, SOLANGE NIEMAND SIE
+    // EINSTELLT — und das steht da, statt dass man es merkt.
+    //
+    // Solange sie abgeleitet ist, folgt sie der Überschrift: Wer die
+    // Buchschrift oder den Stil wechselt, bekommt sie passend mit.
+    // Der erste Griff an einen der Regler oben löst sie heraus; ab da ist
+    // sie eine eigene Einstellung. Dieselbe Regel wie bei einer
+    // `Schriftabweichung`, und derselbe Weg zurück.
+    @ViewBuilder
+    private var ableitungshinweis: some View {
+        if rolle == .unterueberschrift {
+            if werk.reise.typografie.unterueberschrift == nil {
+                Label("Abgeleitet aus der Überschrift — dieselbe Schrift, gut halb so groß, kursiv. Sobald du hier etwas änderst, steht sie für sich und folgt der Überschrift nicht mehr.",
+                      systemImage: "arrow.triangle.branch")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Button {
+                    werk.merken()
+                    werk.reise.typografie.unterueberschrift = nil
+                } label: {
+                    Label("Wieder aus der Überschrift ableiten",
+                          systemImage: "arrow.uturn.backward")
+                }
+            }
         }
     }
 
@@ -195,6 +224,7 @@ struct TypografieView: View {
     private var probetext: String {
         switch rolle {
         case .titel: return "Über den Pass nach Süden"
+        case .unterueberschrift: return "Lissabon — Alfama"
         case .datum: return Tagesdatum(Date()).lang
         case .bildunterschrift: return "Blick vom Hafen zurück auf die Altstadt"
         case .flieText:

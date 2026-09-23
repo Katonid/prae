@@ -1093,7 +1093,17 @@ struct Layoutautomat {
         let titelHoehe = titel.isEmpty ? 0
             : Textmass.hoehe(titel, bild: titelbild, breite: satz.width * 0.8)
         let datumHoehe = typografie.datum.zeilenhoehe + 2
-        var y = satz.maxY - titelHoehe - datumHoehe - 6
+        // Die zweite Überschrift steht auch hier, in Weiß wie der Titel
+        // (ab 1.0.48). Ihre Höhe geht in die Rechnung ein, bevor `y` gesetzt
+        // wird — der Block wird von UNTEN aufgebaut, und eine nachträglich
+        // eingeschobene Zeile schiebe sonst den Titel aus dem Satzspiegel.
+        let zweite = tag.unterueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+        var zweitbild = typografie[.unterueberschrift]
+        zweitbild.farbe = Farbwert(rot: 1, gruen: 1, blau: 1)
+        let zweitHoehe = zweite.isEmpty ? 0
+            : Textmass.hoehe(zweite, bild: zweitbild, breite: satz.width * 0.8)
+        let zweitLuft = zweite.isEmpty ? 0 : zweitHoehe + 4
+        var y = satz.maxY - titelHoehe - datumHoehe - zweitLuft - 6
 
         var datumhell = hell
         datumhell.farbe = Farbwert(rot: 1, gruen: 0.93, blau: 0.86)
@@ -1107,6 +1117,17 @@ struct Layoutautomat {
             bloecke.append(Block(
                 inhalt: .titel,
                 rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width * 0.8, hoehe: titelHoehe),
+                abweichung: hell
+            ))
+            y += titelHoehe + 4
+        }
+        if !zweite.isEmpty {
+            // Nur die FARBE wird abgewichen. Schrift und Größe holt der
+            // Satz über die Rolle des Blocks — sie hier zu kopieren machte
+            // aus der Ableitung eine Kopie und hängte die Seite vom Titel ab.
+            bloecke.append(Block(
+                inhalt: .unterueberschrift,
+                rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width * 0.8, hoehe: zweitHoehe),
                 abweichung: hell
             ))
         }
@@ -1138,6 +1159,21 @@ struct Layoutautomat {
                 rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: hoehe)
             ))
             y += hoehe + 6
+        }
+        // Die ZWEITE Überschrift — der Ort oder das Schlagwort (ab 1.0.48).
+        // Sie steht unter der Überschrift und über der Trennlinie, also da,
+        // wo sie in der Vorlage steht: nach dem Datum, vor dem Fließtext.
+        // Wie der Titel nur auf dem Aufmacher — auf der Fortsetzungsseite
+        // wäre sie dieselbe Angabe ein zweites Mal.
+        let zweite = tag.unterueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !zweite.isEmpty, !knapp {
+            let bild = typografie[.unterueberschrift]
+            let hoehe = Textmass.hoehe(zweite, bild: bild, breite: spaltenbreite)
+            bloecke.append(Block(
+                inhalt: .unterueberschrift,
+                rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: hoehe)
+            ))
+            y += hoehe + 5
         }
         bloecke.append(Block(
             inhalt: .linie,

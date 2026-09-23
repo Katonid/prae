@@ -934,7 +934,7 @@ struct BlockInhaltView: View {
     @ViewBuilder
     private var inhalt: some View {
         switch block.inhalt {
-        case .titel, .datum, .text:
+        case .titel, .unterueberschrift, .datum, .text:
             Textkasten(
                 text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
                 bild: Seitensatz.schriftbild(block, reise: werk.reise),

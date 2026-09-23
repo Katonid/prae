@@ -69,7 +69,7 @@ struct NeuverteilenView: View {
                 } header: {
                     Text("Tag für Tag")
                 } footer: {
-                    Text("BLEIBT: Tagebuchtext, Überschrift, Datumszeile, Bildunterschriften, "
+                    Text("BLEIBT: Tagebuchtext, Überschrift, zweite Überschrift, Datumszeile, Bildunterschriften, "
                          + "die Fotos und die Reisepunkte.\n\nFÄLLT WEG: Lage, Größe, Drehung "
                          + "und eigene Schrift der Blöcke, von Hand angelegte oder entfernte "
                          + "Seiten, geteilte Textkästen. Ein Schritt zurück geht über "

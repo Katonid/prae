@@ -6401,6 +6401,83 @@ Befunde, und keiner davon war Geschmack:
     Umschlags fällt (erster und letzter Bogen), wird eigens genannt und
     nicht als Fehler gezählt: Sie wird nie gedruckt, und das ist das Buch
     und kein Versehen.
+- **DIE ZWEITE ÜBERSCHRIFT KOMMT AUS DER ZEILE NACH DEM DATUM**
+  (`Textimport.zweiteUeberschrift`, `Reisetag.unterueberschrift`,
+  `Blockinhalt.unterueberschrift`, `Schriftrolle.unterueberschrift`, ab
+  1.0.48; Ansage des Nutzers 09/2026: „In dem zu importierenden Text … ist
+  es so, dass nach dem Datum eine zweite Überschrift kommt, in der der Ort
+  des Geschehens aufgeführt wird oder ein bestimmtes Schlagwort. Erst dann
+  beginnt der Fließtext … Diese soll nicht genauso aussehen wie die
+  Datumsüberschrift, sondern es soll erkennbar sein, dass es eine zweite
+  Ebene … sein soll.“). Bis 1.0.47 wurde diese Zeile Fließtext — sie ging
+  also nicht verloren, sie stand nur als erster Absatz im Tagebuchtext.
+  - **Erkannt wird die KÜRZE, und das ist in BEIDEN Textsorten ein
+    Merkmal.** In einem hart umbrochenen Text reicht eine gewöhnliche Zeile
+    bis nahe an die Umbruchspalte (gemessen in 1.0.12: rund 88 Zeichen), in
+    einem frei geschriebenen ist ein ganzer Absatz EINE sehr lange Zeile.
+    Eine kurze Zeile unmittelbar nach dem Datum ist damit in keinem der
+    beiden Fälle Fließtext. Dazu vier Bedingungen: höchstens 42 Zeichen
+    und sechs Wörter, groß oder mit einer Ziffer anfangend, kein
+    Satzzeichen am Ende (der Doppelpunkt ausgenommen und abgeschnitten),
+    und kein Datum darin.
+  - **Die wichtigste Bedingung ist, dass DANACH noch Text kommt.** Ein Tag,
+    der nur aus dieser einen Zeile besteht, hat keine Überschrift — er hat
+    einen sehr kurzen Text, und den als Überschrift zu setzen hieße, ihn
+    aus dem Tagebuch zu nehmen. **Der Fehler in diese Richtung ist der
+    teure**: Was als Überschrift gesetzt wird, fehlt danach im Fließtext.
+  - **Behauptet wird nichts, gezeigt wird** — dieselbe Bauweise wie bei der
+    Absatzerkennung seit 1.0.12: Die Vorschau nennt die gefundene Zeile je
+    Tag eigens (und anders aussehend als die erste Überschrift, denn sie
+    wird dem Fließtext WEGGENOMMEN), die Fußzeile zählt „an n von m Tagen
+    gefunden“, **und auch der Fall „nirgends“ steht da** samt der Regel im
+    Klartext. Ein Schalter stellt die Erkennung ab.
+  - **Das Feld steht am TAG, nicht im Block** (`Reisetag.unterueberschrift`),
+    wie Überschrift und Datumszeile: Der Block ist ein Vorschlag über dem
+    Inhalt und wird beim Neuanordnen neu gerechnet. Eintippen lässt es sich
+    deshalb auch ohne Einlesen — im Tagesmenü unter „Überschriften und
+    Datumszeile“ — und auf der Seite mit dem Doppeltipp wie jeder Textkasten.
+  - **`Typografie.unterueberschrift` ist OPTIONAL, und `nil` heißt
+    „abgeleitet“ — nicht „leer“.** Abgeleitet wird aus der Überschrift:
+    dieselbe Familie, 58 % der Größe, kursiv, nicht fett, in der
+    Akzentfarbe. Der Grund ist derselbe wie bei `Schriftabweichung` — die
+    sechs Buchstile setzen `titel` je einzeln, und ein fest eingetragener
+    Vorgabewert stünde in jedem davon in einer fremden Schrift; ein siebter
+    Stil vergäße ihn obendrein. Der erste Griff an einen Regler löst sie
+    aus der Ableitung, und ein Knopf nimmt das zurück; das Schrift-Blatt
+    sagt beides.
+  - **`groessenSkalieren` und `familieUeberall` überspringen eine
+    abgeleitete zweite Überschrift** (`Typografie.gesetzteRollen`). Beide
+    rechnen über das SCHREIBEN des Wertes, und ein Schreiben macht aus der
+    Ableitung eine Kopie. Am Ergebnis änderte das nichts (beide wirken
+    gleichmäßig, und die Ableitung nimmt Größe und Familie aus dem Titel)
+    — aber ab da folgte sie dem Titel nicht mehr, und das fällt erst beim
+    nächsten Stilwechsel auf.
+  - **`Typografie` liest sich seit 1.0.48 von Hand.** Die Regel steht seit
+    1.0.3 im Papier und galt für diesen Typ noch nicht: `Reise` holt ihn
+    über `b.wert(.typografie, Typografie())` — ein Feld, das der erzeugte
+    Leser vermisst, hätte in jedem vorhandenen Buch ALLE vier Schriften auf
+    die Vorgaben zurückgesetzt, und zwar still.
+  - **Gesetzt wird sie nur auf dem AUFMACHER** (`Layoutautomat.kopfzeile`
+    unter `!knapp`, und auf der ganzseitigen Aufmacherseite in Weiß). Auf
+    der Fortsetzungsseite wäre sie dieselbe Angabe ein zweites Mal —
+    dieselbe Regel wie beim Titel. Auf der ganzseitigen Aufmacherseite geht
+    ihre Höhe in die Rechnung ein, BEVOR `y` gesetzt wird: Der Kopf wird
+    dort von unten aufgebaut, und eine nachträglich eingeschobene Zeile
+    schöbe den Titel aus dem Satzspiegel. Abgewichen wird dort nur die
+    FARBE — Schrift und Größe holt der Satz über die Rolle des Blocks; sie
+    zu kopieren machte aus der Ableitung wieder eine Kopie.
+  - **Ein leerer Fund überschreibt nichts** (`Fotoeinfuhr.textVerteilen`),
+    auch beim Ersetzen: Wer die zweite Überschrift von Hand eingetippt hat
+    und denselben Text noch einmal einliest, verlöre sie sonst.
+- **Nicht gemessen (1.0.48):** Keine Seite ist damit gesetzt worden, und
+  **an der Vorlage des Nutzers ist die Erkennung nicht gelaufen** — die
+  Datei liegt hier nicht. Gerechnet ist, warum Kürze in beiden Textsorten
+  ein Merkmal ist; **gewählt und nicht gemessen** sind alle vier Zahlen (42
+  Zeichen, sechs Wörter, 58 % der Titelgröße, Zeilenabstand 1,18). Ob die
+  zweite Ebene auf der gedruckten Seite als solche zu lesen ist und ob die
+  Erkennung an seinem Tagebuch trifft, sagt erst der nächste Befund — und
+  seit 1.0.48 sagt er es mit einer Zahl in der Vorschau. **Nicht als
+  erledigt darstellen.**
 - **Nicht gemessen (1.0.47):** Keine Doppelseite ist damit gesehen worden.
   Gerechnet ist die Geometrie — dass die Fläche zwei Endformate plus zwei
   Anschnitte misst und der Versatz eine halbe Seitenbreite beträgt.
@@ -6670,7 +6747,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.47 (Build 48). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.48 (Build 49). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

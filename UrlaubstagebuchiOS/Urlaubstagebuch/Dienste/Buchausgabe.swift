@@ -416,7 +416,7 @@ enum Buchausgabe {
             }
 
             switch block.inhalt {
-            case .titel, .datum, .text, .bildunterschrift:
+            case .titel, .unterueberschrift, .datum, .text, .bildunterschrift:
                 let bild = Seitensatz.schriftbild(block, reise: reise)
                 let text = Seitensatz.inhaltstext(block, tag: buchseite.tag, reise: reise)
                 Seitensatz.zeichneText(text, bild: bild,

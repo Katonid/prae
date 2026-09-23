@@ -709,6 +709,8 @@ final class Reisewerk: ObservableObject, Identifiable {
             }
         case .titel:
             reise.tage[stelle.tag].ueberschrift = text
+        case .unterueberschrift:
+            reise.tage[stelle.tag].unterueberschrift = text
         case .datum:
             // Leer heißt: wieder das Format des Buches.
             reise.tage[stelle.tag].datumstext = text.isEmpty ? nil : text

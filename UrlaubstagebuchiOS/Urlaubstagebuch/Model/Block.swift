@@ -12,6 +12,10 @@ import Foundation
 // TEXT steht am Foto, der Block trägt nur dessen Kennung.
 enum Blockinhalt: Codable, Hashable {
     case titel
+    // Die ZWEITE Überschrift: der Ort oder das Schlagwort, das in der
+    // Tagebuchvorlage unter dem Datum steht (ab 1.0.48). Wie Titel und
+    // Datum trägt der Block den Text NICHT — der steht am Tag.
+    case unterueberschrift
     case datum
     case text(String)
     case foto(UUID)
@@ -34,7 +38,7 @@ enum Blockinhalt: Codable, Hashable {
     var istFoto: Bool { if case .foto = self { return true }; return false }
     var istText: Bool {
         switch self {
-        case .titel, .datum, .text, .bildunterschrift: return true
+        case .titel, .unterueberschrift, .datum, .text, .bildunterschrift: return true
         default: return false
         }
     }
@@ -42,6 +46,7 @@ enum Blockinhalt: Codable, Hashable {
     var rolle: Schriftrolle {
         switch self {
         case .titel: return .titel
+        case .unterueberschrift: return .unterueberschrift
         case .datum: return .datum
         case .bildunterschrift: return .bildunterschrift
         default: return .flieText
@@ -51,6 +56,7 @@ enum Blockinhalt: Codable, Hashable {
     var name: String {
         switch self {
         case .titel: return "Überschrift"
+        case .unterueberschrift: return "Zweite Überschrift"
         case .datum: return "Datum"
         case .text: return "Text"
         case .foto: return "Foto"
