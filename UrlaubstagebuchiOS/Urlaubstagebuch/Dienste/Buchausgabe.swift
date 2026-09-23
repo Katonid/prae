@@ -264,6 +264,13 @@ enum Buchausgabe {
 
     struct Auftrag {
         var bildkante: Int = 3600
+        // WIE FEIN UND WOMIT (ab 1.0.70). `bildkante` ist die Obergrenze,
+        // `zieldpi` das Maß: Gerechnet wird die Kante je Bild aus dem
+        // Rahmen, in den es gezeichnet wird. `jpegGuete` schreibt es als
+        // JPEG in die Datei statt als unkomprimierte Fläche — das ist der
+        // Unterschied zwischen vier Gigabyte und ein paar hundert Megabyte.
+        var zieldpi: Double = Bildguete.vorgabe.zieldpi
+        var jpegGuete: Double = Bildguete.vorgabe.jpegGuete
         // Für Druckereien, die PDF/X-1a oder X-3 verlangen: Beide erlauben
         // keine Transparenz. Dann fallen Schatten weg, und der Verlauf
         // unter einer Überschrift wird zu einem geschlossenen Feld.
@@ -326,6 +333,7 @@ enum Buchausgabe {
         let karten = await kartenbilder(seiten, reise: reise) { anteil in
             fortschritt(anteil * 0.45)
         }
+        let zeichen = wasserzeichenbilder(reise, auftrag: auftrag)
 
         let ziel = FileManager.default.temporaryDirectory
             .appendingPathComponent(dateiname(reise, auftrag: auftrag))
@@ -377,7 +385,7 @@ enum Buchausgabe {
             // An drei Aufrufstellen gepflegt, fehlte es genau an der
             // vierten — und der Umschlagbogen kam ohne Bilder heraus.
             zeichneSeite(buchseite, reise: reise, karten: karten, auftrag: auftrag,
-                         in: zusammenhang)
+                         zeichen: zeichen, in: zusammenhang)
 
             zusammenhang.restoreGState()
             zusammenhang.endPDFPage()
@@ -453,6 +461,7 @@ enum Buchausgabe {
         let karten = await kartenbilder(alle, reise: reise) { anteil in
             fortschritt(anteil * 0.45)
         }
+        let zeichen = wasserzeichenbilder(reise, auftrag: auftrag)
 
         let ziel = FileManager.default.temporaryDirectory
             .appendingPathComponent(dateiname(reise, auftrag: auftrag, broschuere: true))
@@ -495,7 +504,7 @@ enum Buchausgabe {
                 zusammenhang.translateBy(x: Double(spalte) * end.width, y: 0)
                 zusammenhang.clip(to: CGRect(origin: .zero, size: end))
                 zeichneSeite(seite, reise: reise, karten: karten, auftrag: auftrag,
-                             in: zusammenhang)
+                             zeichen: zeichen, in: zusammenhang)
                 zusammenhang.restoreGState()
             }
 
@@ -595,6 +604,7 @@ enum Buchausgabe {
         let karten = await kartenbilder(seiten, reise: reise) { anteil in
             fortschritt(anteil * 0.45)
         }
+        let zeichen = wasserzeichenbilder(reise, auftrag: auftrag)
 
         let ziel = FileManager.default.temporaryDirectory
             .appendingPathComponent(dateiname(reise, auftrag: auftrag))
@@ -639,17 +649,22 @@ enum Buchausgabe {
         // über eine Doppelseite: Hier ist es EIN Blatt, also wird es auch
         // als eines gezeichnet.
         grund.ueberDoppelseite = false
+        let bogenrechteck = CGRect(x: -anschnitt, y: -anschnitt,
+                                   width: endformat.width + 2 * anschnitt,
+                                   height: endformat.height + 2 * anschnitt)
         var grundbild: UIImage?
         if grund.art == .foto, let id = grund.fotoID, let foto = reise.foto(id) {
-            grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
-                                                      kante: auftrag.bildkante)
+            grundbild = Bildarchiv.shared.fuerAusgabe(
+                foto.datei, reise: reise.id,
+                kante: Ausgabeguete.ausgabekante(foto: foto, rahmen: bogenrechteck.size,
+                                                 ausschnitt: grund.ausschnitt,
+                                                 hoechstens: auftrag.bildkante,
+                                                 dpi: auftrag.zieldpi))
         }
         Seitensatz.zeichneHintergrund(
-            grund,
-            rechteck: CGRect(x: -anschnitt, y: -anschnitt,
-                             width: endformat.width + 2 * anschnitt,
-                             height: endformat.height + 2 * anschnitt),
-            bild: grundbild, saat: reise.id.saat, bildflaeche: nil, in: zusammenhang)
+            grund, rechteck: bogenrechteck,
+            bild: grundbild, saat: reise.id.saat, bildflaeche: nil,
+            jpegGuete: auftrag.jpegGuete, in: zusammenhang)
 
         // Jede Hälfte in ihrem eigenen Koordinatensystem, beschnitten auf
         // ihre Fläche plus den AUSSEN liegenden Anschnitt. Ohne den
@@ -658,12 +673,12 @@ enum Buchausgabe {
         zeichneBogenhaelfte(rueckseite, reise: reise, karten: karten, auftrag: auftrag,
                             ursprung: .zero, aussenLinks: true,
                             seitenmass: seitenmass, anschnitt: anschnitt,
-                            ohneGrund: true, in: zusammenhang)
+                            ohneGrund: true, zeichen: zeichen, in: zusammenhang)
         zeichneBogenhaelfte(titelseite, reise: reise, karten: karten, auftrag: auftrag,
                             ursprung: CGPoint(x: seitenmass.width + ruecken.width, y: 0),
                             aussenLinks: false,
                             seitenmass: seitenmass, anschnitt: anschnitt,
-                            ohneGrund: true, in: zusammenhang)
+                            ohneGrund: true, zeichen: zeichen, in: zusammenhang)
 
         if ruecken.width > 1 {
             zeichneRuecken(reise, rechteck: ruecken, in: zusammenhang)
@@ -697,6 +712,7 @@ enum Buchausgabe {
                                             ursprung: CGPoint, aussenLinks: Bool,
                                             seitenmass: CGSize, anschnitt: Double,
                                             ohneGrund: Bool,
+                                            zeichen: [String: UIImage],
                                             in zusammenhang: CGContext)
     {
         zusammenhang.saveGState()
@@ -706,7 +722,7 @@ enum Buchausgabe {
         zusammenhang.clip(to: CGRect(x: x, y: -anschnitt, width: breite,
                                      height: seitenmass.height + 2 * anschnitt))
         zeichneSeite(buchseite, reise: reise, karten: karten, auftrag: auftrag,
-                     ohneGrund: ohneGrund, in: zusammenhang)
+                     ohneGrund: ohneGrund, zeichen: zeichen, in: zusammenhang)
         zusammenhang.restoreGState()
     }
 
@@ -746,6 +762,39 @@ enum Buchausgabe {
         Seitensatz.zeichneText(text, bild: bild, rechteck: platz,
                                in: zusammenhang, seitenhoehe: breite)
         zusammenhang.restoreGState()
+    }
+
+    // DAS WASSERZEICHEN WIRD EINMAL GELADEN, NICHT JE SEITE (ab 1.0.70).
+    //
+    // Es liegt auf JEDER Seite, und bis 1.0.69 holte `zeichneSeite` es je
+    // Seite frisch von der Platte — mit der vollen Höchstkante der Güte.
+    // Bei 62 Seiten waren das 62 Bilder zu je mehreren Megabyte in EINER
+    // Datei, für ein Zeichen, das auf dem Papier eine Handbreit misst.
+    // Gemeldet 09/2026: vier Gigabyte, die kein Druckdienst annimmt.
+    //
+    // Geladen wird jetzt einmal je Datei, in der Größe, die das Zeichen
+    // auf dem Papier WIRKLICH einnimmt. Dass dasselbe `UIImage` mehrfach
+    // gezeichnet wird, sollte CoreGraphics zu einem einzigen Bild in der
+    // Datei zusammenfassen — das ist die Erwartung und NICHT gemessen; die
+    // kleinere Kante wirkt unabhängig davon.
+    static func wasserzeichenbilder(_ reise: Reise, auftrag: Auftrag) -> [String: UIImage] {
+        guard !auftrag.ohneTransparenz,
+              let zeichen = reise.gestaltung.wasserzeichen, zeichen.gueltig
+        else { return [:] }
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        var vorrat: [String: UIImage] = [:]
+        for zeichenbild in zeichen.gueltigeBilder where vorrat[zeichenbild.datei] == nil {
+            let groesse = Wasserzeichen.groesse(zeichen, bild: zeichenbild, satz: satz)
+            let lang = Double(max(groesse.width, groesse.height))
+            let noetig = Int((lang / 72 * auftrag.zieldpi).rounded(.up))
+            let kante = max(64, min(auftrag.bildkante, noetig))
+            if let bild = Bildarchiv.shared.fuerAusgabe(zeichenbild.datei, reise: reise.id,
+                                                        kante: kante)
+            {
+                vorrat[zeichenbild.datei] = bild
+            }
+        }
+        return vorrat
     }
 
     // MARK: - Doppelseiten
@@ -810,6 +859,7 @@ enum Buchausgabe {
         let karten = await kartenbilder(seiten, reise: reise) { anteil in
             fortschritt(anteil * 0.45)
         }
+        let zeichen = wasserzeichenbilder(reise, auftrag: auftrag)
 
         let ziel = FileManager.default.temporaryDirectory
             .appendingPathComponent(dateiname(reise, auftrag: auftrag, doppelseiten: true))
@@ -854,14 +904,16 @@ enum Buchausgabe {
                 zeichneBogenhaelfte(links, reise: reise, karten: karten, auftrag: auftrag,
                                     ursprung: .zero, aussenLinks: true,
                                     seitenmass: seitenmass, anschnitt: anschnitt,
-                                    ohneGrund: false, in: zusammenhang)
+                                    ohneGrund: false, zeichen: zeichen,
+                                    in: zusammenhang)
             }
             if let rechts = paar.rechts {
                 zeichneBogenhaelfte(rechts, reise: reise, karten: karten, auftrag: auftrag,
                                     ursprung: CGPoint(x: seitenmass.width, y: 0),
                                     aussenLinks: false,
                                     seitenmass: seitenmass, anschnitt: anschnitt,
-                                    ohneGrund: false, in: zusammenhang)
+                                    ohneGrund: false, zeichen: zeichen,
+                                    in: zusammenhang)
             }
 
             zusammenhang.restoreGState()
@@ -920,6 +972,7 @@ enum Buchausgabe {
     // sichtbare war die harmlosere.
     static func zeichneSeite(_ buchseite: Buchseite, reise: Reise, karten: [UUID: UIImage],
                              auftrag: Auftrag, ohneGrund: Bool = false,
+                             zeichen: [String: UIImage] = [:],
                              in zusammenhang: CGContext)
     {
         let endformat = reise.format.groesse
@@ -944,24 +997,31 @@ enum Buchausgabe {
                 grund.farbe = eigenes
                 grund.art = .einfarbig
             }
-            var grundbild: UIImage?
-            if grund.art == .foto, let id = grund.fotoID, let foto = reise.foto(id) {
-                grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
-                                                          kante: auftrag.bildkante)
-            }
-            // Geht das Hintergrundfoto über die Doppelseite, wird es in die
-            // Fläche BEIDER Seiten gerechnet und hier die Hälfte davon
-            // gezeichnet. Gerechnet wird das von derselben Funktion, die auch
-            // die Ansicht fragt — zwei Fassungen ergäben eine Vorschau, in
-            // der das Bild anders steht als im Druck.
+            // Geht das Bild über die Doppelseite, ist sein Rahmen die
+            // Fläche BEIDER Seiten — dieselbe Zahl, mit der auch gezeichnet
+            // wird. Sie wird deshalb vor der Kante gerechnet.
             var bildflaeche: CGRect?
             if grund.art == .foto, grund.ueberDoppelseite {
                 bildflaeche = Bogenlage.bildflaeche(rechts: buchseite.liegtRechts,
                                                     format: endformat, anschnitt: anschnitt)
             }
+            var grundbild: UIImage?
+            if grund.art == .foto, let id = grund.fotoID, let foto = reise.foto(id) {
+                grundbild = Bildarchiv.shared.fuerAusgabe(
+                    foto.datei, reise: reise.id,
+                    kante: Ausgabeguete.ausgabekante(
+                        foto: foto, rahmen: (bildflaeche ?? bogenrechteck).size,
+                        ausschnitt: grund.ausschnitt,
+                        hoechstens: auftrag.bildkante, dpi: auftrag.zieldpi))
+            }
+            // Gezeichnet wird die Hälfte davon, die auf DIESE Seite fällt.
+            // Gerechnet hat das dieselbe Funktion, die auch die Ansicht
+            // fragt — zwei Fassungen ergäben eine Vorschau, in der das Bild
+            // anders steht als im Druck.
             Seitensatz.zeichneHintergrund(grund, rechteck: bogenrechteck, bild: grundbild,
                                           saat: buchseite.seite.id.saat,
-                                          bildflaeche: bildflaeche, in: zusammenhang)
+                                          bildflaeche: bildflaeche,
+                                          jpegGuete: auftrag.jpegGuete, in: zusammenhang)
         }
 
         // Das Wasserzeichen liegt über dem Hintergrund und unter allem
@@ -974,15 +1034,27 @@ enum Buchausgabe {
         // Erst die LAGE, dann das Bild: Seit 1.0.56 sagt `ort`, welches
         // der bis zu zehn Bilder auf dieser Seite liegt — vorher lässt
         // sich gar nicht wissen, welche Datei zu holen ist.
-        if !auftrag.ohneTransparenz, let zeichen = reise.wasserzeichen(fuer: buchseite) {
+        if !auftrag.ohneTransparenz, let wasserzeichen = reise.wasserzeichen(fuer: buchseite) {
             let satz = reise.gestaltung.satzspiegel(reise.format)
-            let ort = Wasserzeichenlage.ort(zeichen, satz: satz, seite: buchseite.seite)
-            if let zeichenbild = ort.bild,
-               let bild = Bildarchiv.shared.fuerAusgabe(zeichenbild.datei, reise: reise.id,
-                                                        kante: auftrag.bildkante)
-            {
-                Seitensatz.zeichneWasserzeichen(bild, ort: ort,
-                                                deckung: zeichen.deckung, in: zusammenhang)
+            let ort = Wasserzeichenlage.ort(wasserzeichen, satz: satz, seite: buchseite.seite)
+            // Aus dem Vorrat — einmal je Datei geladen und nicht je Seite
+            // (siehe `wasserzeichenbilder`). Ist keiner da, wird es geholt:
+            // Der Bildschirm ruft diese Funktion ebenfalls, und dort gibt
+            // es keinen.
+            if let zeichenbild = ort.bild {
+                var bild = zeichen[zeichenbild.datei]
+                if bild == nil {
+                    bild = Bildarchiv.shared.fuerAusgabe(zeichenbild.datei, reise: reise.id,
+                                                         kante: auftrag.bildkante)
+                }
+                if let bild {
+                    // KEIN JPEG für das Wasserzeichen: Es lebt von seinem
+                    // durchsichtigen Grund, und den kann JPEG nicht. Klein
+                    // und einmal geladen ist es ohnehin.
+                    Seitensatz.zeichneWasserzeichen(bild, ort: ort,
+                                                    deckung: wasserzeichen.deckung,
+                                                    in: zusammenhang)
+                }
             }
         }
 
@@ -1036,13 +1108,22 @@ enum Buchausgabe {
                                           in: zusammenhang)
 
             case let .foto(id):
+                // Die Kante kommt aus dem RAHMEN, in den dieses Bild
+                // gezeichnet wird, und nicht aus einer festen Zahl für alle
+                // (ab 1.0.70). Ein Briefmarkenfoto bekam bis dahin dieselben
+                // 3600 Bildpunkte wie ein randabfallendes.
                 if let foto = reise.foto(id),
-                   let bild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
-                                                            kante: auftrag.bildkante)
+                   let bild = Bildarchiv.shared.fuerAusgabe(
+                       foto.datei, reise: reise.id,
+                       kante: Ausgabeguete.ausgabekante(foto: foto, rahmen: rechteck.size,
+                                                        ausschnitt: block.ausschnitt,
+                                                        hoechstens: auftrag.bildkante,
+                                                        dpi: auftrag.zieldpi))
                 {
                     Seitensatz.zeichneBild(bild, ausschnitt: block.ausschnitt,
                                            rechteck: rechteck, in: zusammenhang,
-                                           eckenradius: ecken)
+                                           eckenradius: ecken,
+                                           jpegGuete: auftrag.jpegGuete)
                 }
 
             case .karte:
@@ -1053,7 +1134,8 @@ enum Buchausgabe {
                                                    in: zusammenhang)
                     }
                     Seitensatz.zeichneBild(bild, ausschnitt: .voll, rechteck: rechteck,
-                                           in: zusammenhang, eckenradius: ecken)
+                                           in: zusammenhang, eckenradius: ecken,
+                                           jpegGuete: auftrag.jpegGuete)
                 } else {
                     // Keine Karte ist etwas anderes als eine leere Fläche.
                     // Wer das PDF ohne Netz erzeugt, soll im Buch sehen,

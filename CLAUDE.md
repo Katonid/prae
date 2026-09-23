@@ -7249,6 +7249,62 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **VIER GIGABYTE WAREN DREI FEHLER AUF EINMAL** (ab 1.0.70; gemeldet
+  09/2026: „muss auch einen Link geben, dass die Exportdatei bei 62 Seiten
+  nicht 4 Gigabyte groß wird. Denn das wird von den Druckdiensten leider
+  nicht angenommen.“). Jeder für sich ist unauffällig; zusammen ergeben sie
+  eine Datei, die niemand hochladen kann.
+  - **Jedes Bild bekam dieselbe Höchstkante.** `fuerAusgabe` rechnete alles
+    auf `bildkante` herunter — ein Briefmarkenfoto auf dieselben 3600
+    Bildpunkte wie ein randabfallendes. Gedruckt wird aber eine FLÄCHE, und
+    was mehr Bildpunkte je Zoll trägt, als das Papier auflöst, ist Platz
+    ohne Bild. Gerechnet wird die Kante seit 1.0.70 je Bild aus dem Rahmen,
+    in den es gezeichnet wird (`Ausgabeguete.ausgabekante`): `ziel / 72 *
+    dpi`, gedeckelt durch die Güte. **Wer diese Rechnung ändert, ändert die
+    Prüfung mit** — `Ausgabeguete.dpi` kennt den neuen Deckel, sonst nennt
+    sie wieder eine Zahl, die die Datei nicht hält (die Lehre aus 1.0.59).
+  - **Das Wasserzeichen wurde JE SEITE frisch geladen** — mit voller
+    Höchstkante, auf jeder der 62 Seiten. Das allein sind Dutzende
+    Megabyte für ein Zeichen, das auf dem Papier eine Handbreit misst. Es
+    kommt jetzt einmal je Datei aus `wasserzeichenbilder`, in der Größe,
+    die es wirklich einnimmt. Dass CoreGraphics dasselbe `UIImage` zu
+    einem einzigen Bild in der Datei zusammenfasst, ist die Erwartung und
+    **nicht gemessen**; die kleinere Kante wirkt unabhängig davon.
+  - **`UIImage.draw(in:)` schreibt UNKOMPRIMIERT.** Drei Byte je
+    Bildpunkt — ein seitenfüllendes Foto bei 300 dpi sind rund 25 MB.
+    Stammt ein `CGImage` dagegen aus einem JPEG-Datenstrom, übernimmt
+    CoreGraphics diesen Strom unverändert (DCTDecode), statt ihn zu
+    entpacken (`Seitensatz.jpegEingebettet`). **Erwartung, keine Messung**:
+    Greift es nicht, ist die Datei so groß wie vorher, kaputt ist nichts.
+  - **Ein Bild MIT Alphakanal wird NIE als JPEG geschrieben.** JPEG kennt
+    keine Durchsichtigkeit; eine eingesetzte Grafik mit freigestelltem
+    Grund bekäme einen weißen Kasten. Das ist die eine Stelle, an der
+    diese Abkürzung sichtbar falsch wäre — deshalb wird sie geprüft und
+    nicht angenommen. **Das Wasserzeichen bleibt aus demselben Grund
+    unkomprimiert** und wird gar nicht erst gefragt.
+  - **Gezeichnet wird dann mit `CGContext.draw`, und das rechnet von UNTEN
+    links.** Der Zeichenkontext dieser App ist längst umgedreht, also wird
+    um die Mittellinie des Zielrechtecks noch einmal gespiegelt. Wer das
+    vergisst, bekommt jedes Foto auf dem Kopf — und zwar nur im PDF.
+  - **Die Güte trägt seither DREI Zahlen** (Höchstkante, Ziel-dpi,
+    JPEG-Güte), und der Auftrag wird an EINER Stelle gebaut
+    (`AusgabeView.auftrag(…)`). Sechsmal derselbe Aufruf mit drei Feldern
+    wäre sechsmal die Gelegenheit, eines zu vergessen — und ein vergessenes
+    `jpegGuete` fällt erst an der Dateigröße auf.
+  - **Die Größe steht VOR dem Ausgeben da** (`Ausgabeguete.groessenschaetzung`,
+    Zeile unter der Gütewahl). Bis 1.0.69 stand sie erst danach — nach
+    zwanzig Minuten Rechnen und mit einer Datei, die kein Dienst annimmt.
+    **Es ist eine SCHÄTZUNG und sagt das auch**: Gezählt werden die
+    Bildpunkte, die wirklich geschrieben werden; wie dicht ein JPEG die
+    packt, hängt am Motiv. Danebengestellt wird, was dieselben Bilder
+    unkomprimiert wögen — das ist die Zahl, die der Nutzer gesehen hat.
+  - **Nicht gemessen (1.0.70):** Keine Datei ist damit ausgegeben worden.
+    Gerechnet ist die Geometrie; **die beiden großen Hebel — JPEG-Strom
+    und Zusammenfassen gleicher Bilder — sind Erwartungen an CoreGraphics
+    und keine Messungen**. Was sicher wirkt, ist die kleinere Kante. Ob aus
+    vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
+    Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
+    Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
 - **ZWEI BUCHSEITEN AUF EINE PDF-SEITE, LINKS DIE GERADE**
   (`Buchausgabe.doppelseitenPdf`, ab 1.0.69; Ansage des Nutzers 09/2026:
   „Offenbar will Saal Digital ein Upload eines PDF mit fertig gestalteten
@@ -8452,7 +8508,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.69 (Build 70). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.70 (Build 71). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

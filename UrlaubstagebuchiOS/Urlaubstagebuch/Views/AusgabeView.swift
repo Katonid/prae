@@ -26,6 +26,7 @@ struct AusgabeView: View {
     // Buches, und der Körper einer Ansicht läuft bei jedem Neuzeichnen
     // (dieselbe Falle wie bei der Druckprüfung in 1.0.0).
     @State private var gueteBefund = ""
+    @State private var groessenbefund = ""
     @State private var ohneTransparenz = false
     @State private var umfang: Umfang
     @State private var drucken = false
@@ -184,6 +185,15 @@ struct AusgabeView: View {
                             .font(.caption)
                             .foregroundStyle(.primary)
                     }
+                    // WIE GROSS DIE DATEI WIRD, BEVOR sie geschrieben ist
+                    // (ab 1.0.70). Vorher stand die Zahl erst danach da —
+                    // nach zwanzig Minuten Rechnen und mit einer Datei, die
+                    // kein Druckdienst annimmt.
+                    if !groessenbefund.isEmpty {
+                        Text(groessenbefund)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Picker("Anordnung", selection: $umfang) {
                         ForEach(Umfang.allCases) { u in Text(u.name).tag(u) }
                     }
@@ -286,7 +296,8 @@ struct AusgabeView: View {
             // Bei JEDEM Wechsel der Güte neu, denn genau sie ist die
             // zweite Zahl in der Rechnung.
             .task(id: guete) {
-                gueteBefund = Ausgabeguete.satz(werk.reise, kante: guete.kante)
+                gueteBefund = Ausgabeguete.satz(werk.reise, guete: guete)
+                groessenbefund = Ausgabeguete.groessenschaetzung(werk.reise, guete: guete)
             }
         }
     }
@@ -299,6 +310,7 @@ struct AusgabeView: View {
         case .getrennt: return "Zwei Dateien"
         case .nurUmschlag: return "Nur der Umschlag"
         case .nurInnenteil: return "Nur der Innenteil"
+        case .doppelseiten: return "Doppelseiten"
         case .ganzesBuch: return "Als PDF sichern"
         }
     }
@@ -327,6 +339,25 @@ struct AusgabeView: View {
         String(Int(wert.rounded()))
     }
 
+    // DER AUFTRAG STEHT AN EINER STELLE (ab 1.0.70).
+    //
+    // An der Güte hängen seither drei Zahlen und nicht mehr eine: die
+    // Höchstkante, die Ziel-dpi und die JPEG-Güte. Sechsmal derselbe
+    // Aufruf mit drei Feldern wäre sechsmal die Gelegenheit, eines zu
+    // vergessen — und ein vergessenes `jpegGuete` fällt erst an der
+    // Dateigröße auf.
+    private func auftrag(nurUmschlag: Bool = false, ohneUmschlag: Bool = false,
+                         rueckseitenDrehen: Bool = false) -> Buchausgabe.Auftrag
+    {
+        Buchausgabe.Auftrag(bildkante: guete.kante,
+                            zieldpi: guete.zieldpi,
+                            jpegGuete: guete.jpegGuete,
+                            ohneTransparenz: ohneTransparenz,
+                            nurUmschlag: nurUmschlag,
+                            ohneUmschlag: ohneUmschlag,
+                            rueckseitenDrehen: rueckseitenDrehen)
+    }
+
     private func ausgeben() async {
         laeuft = true
         fehler = nil
@@ -336,8 +367,7 @@ struct AusgabeView: View {
             if umfang == .broschuere {
                 let ziel = try await Buchausgabe.broschuere(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
-                                   rueckseitenDrehen: rueckseitenDrehen),
+                    auftrag: auftrag(rueckseitenDrehen: rueckseitenDrehen),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
                 // KEINE Druckprüfung an der Broschüre: Sie misst TrimBox und
@@ -352,7 +382,7 @@ struct AusgabeView: View {
             } else if umfang == .doppelseiten {
                 let ziel = try await Buchausgabe.doppelseitenPdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz),
+                    auftrag: auftrag(),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
                 befundAmPDF = Druckpruefung.amPDF(ziel) + [doppelseitenzeile]
@@ -364,13 +394,11 @@ struct AusgabeView: View {
                 // und werden zusammen geteilt.
                 let umschlag = try await Buchausgabe.pdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
-                                   nurUmschlag: true),
+                    auftrag: auftrag(nurUmschlag: true),
                     fortschritt: { _ in })
                 let innen = try await Buchausgabe.pdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
-                                   ohneUmschlag: true),
+                    auftrag: auftrag(ohneUmschlag: true),
                     fortschritt: { wert in anteil = wert })
                 fertig = innen
                 befundAmPDF = Druckpruefung.amPDF(innen)
@@ -385,8 +413,7 @@ struct AusgabeView: View {
                 let nur = umfang == .nurUmschlag
                 let ziel = try await Buchausgabe.pdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
-                                   nurUmschlag: nur, ohneUmschlag: !nur),
+                    auftrag: auftrag(nurUmschlag: nur, ohneUmschlag: !nur),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
                 // Am Umschlagbogen misst die Druckprüfung TrimBox und
@@ -413,7 +440,7 @@ struct AusgabeView: View {
             } else {
                 let ziel = try await Buchausgabe.pdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz),
+                    auftrag: auftrag(),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
                 befundAmPDF = Druckpruefung.amPDF(ziel)
