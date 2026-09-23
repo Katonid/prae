@@ -6741,6 +6741,11 @@ Befunde, und keiner davon war Geschmack:
   in 1.0.37: derselbe Bildschirm, nur mit Vorwahl — und ein Name, der die
   Sache nennt („Umschlag und Innenteil getrennt…") statt des Werkzeugs.
   Kein zweiter Bildschirm; zwei Wege zu derselben Sache liefen auseinander.
+  **Und bei einem Umschlagbogen sind zwei Dateien seither die VORWAHL** —
+  das ist das „automatisch" aus der Ansage und nicht bloß Bequemlichkeit:
+  Ein Bogen ist doppelt so breit wie eine Seite und hat mitten in einer
+  Datei mit Buchseiten nichts zu suchen. Weggelassen wird dabei nichts;
+  ausgegeben wird alles, nur eben zweimal.
 - **Nicht gemessen (1.0.52):** Keine Seite ist damit gesehen worden. Am
   Quelltext abgezählt sind die URSACHEN (der Umschlag in der Zählung, das
   Meldeband hinter dem Vollbild) und die Geometrie der Drehung. **Gewählt

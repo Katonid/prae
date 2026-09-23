@@ -544,6 +544,17 @@ nachschlagen (versucht am 23.09.2026), und eine nach Gefühl
 hingeschriebene sähe aus wie eine Auskunft des Anbieters. Wo die Zahl
 herkommt, steht überall dabei, wo sie hingeschrieben wird.
 
+## Zwei Dateien für den Druckdienst (1.0.52)
+
+Viele Fotobuchdienste wollen zwei PDF-Dateien: eine mit den Buchseiten,
+eine mit dem Umschlagbogen. Diesen Weg gibt es seit 1.0.50 — er lag nur als
+eine von drei Zeilen in einem zugeklappten Picker.
+
+Jetzt steht er als eigener Punkt im „…"-Menü (**„Umschlag und Innenteil
+getrennt…"**), und bei einem Buch mit Umschlagbogen ist er die **Vorwahl**:
+Ein Bogen ist doppelt so breit wie eine Seite und hat mitten in einer Datei
+mit Buchseiten nichts zu suchen. Umstellen lässt es sich mit einem Tipp.
+
 ## Eigene Seitenformate (1.0.52)
 
 Unter **Seitenformat** stehen neben A4, A5 und den drei Quadraten jetzt
