@@ -6469,6 +6469,104 @@ Befunde, und keiner davon war Geschmack:
   - **Ein leerer Fund überschreibt nichts** (`Fotoeinfuhr.textVerteilen`),
     auch beim Ersetzen: Wer die zweite Überschrift von Hand eingetippt hat
     und denselben Text noch einmal einliest, verlöre sie sonst.
+- **SEITENZAHLEN GAB ES NUR IM PDF** (`Model/Seitenbeiwerk.swift`, ab 1.0.50;
+  gemeldet 09/2026: „Im Menü kann ich Seitenzahlen aktivieren. Diese kommen auf
+  dem Dokument aber niemals zum Vorschein."). **Am Quelltext abzuzählen und
+  keine Vermutung:** `Buchausgabe.zeichneFusszeile` war die EINZIGE Stelle im
+  ganzen Quelltext, die `gestaltung.seitenzahlen` überhaupt las, und sie läuft
+  nur beim Schreiben des PDF. Auf dem Bildschirm wurde nichts davon gezeichnet
+  — der Schalter im Menü war dort seit 1.0.0 ohne jede Wirkung. Dasselbe galt
+  für die Kopfzeile.
+  - **Das verstieß gegen die erste Regel dieser App** („Seite und PDF zeichnet
+    DERSELBE Setzer"), und zwar an der einen Stelle, an der eine Seite nicht
+    aus Blöcken besteht. Blöcke sind Seitenzahl und Kopfzeile bewusst nicht:
+    Sie gehören dem BUCH und nicht dem Tag; als Block lägen sie im Satz herum,
+    wo sie jemand verschöbe und der Layoutautomat sie beim nächsten
+    Neuanordnen wegräumte. Gerechnet wird jetzt in `Seitenbeiwerk`, und beide
+    Zeichner holen sich dieselben Rechtecke — auf dem Bildschirm über denselben
+    `Textkasten`, mit dem auch jeder andere Text gesetzt wird.
+  - **Merke: Wer etwas beim Zeichnen einer Seite ergänzt, ergänzt es an BEIDEN
+    Zeichnern.** Sonst steht es entweder nur auf dem Bildschirm oder nur im
+    Druck, und beides sieht für den Menschen davor nach einem Fehler aus.
+  - Die Fußzeile der Einstellung sagt seither auch, wo sie NICHT stehen:
+    Titelseite, Rückseite und jede Seite, die ein Bild ganz ausfüllt
+    (`ohneSeitenzahl`). Ein Schalter, der an drei Stellen wirkungslos ist,
+    ohne dass es dabeisteht, führt wieder auf dieselbe Frage.
+- **DER UMSCHLAG IST EIN BOGEN, KEINE SEITE** (`Model/Umschlag.swift`,
+  `Model/Umschlagmass.swift`, ab 1.0.50; Ansage des Nutzers 09/2026: „Die
+  Gestaltung der Titelseite. Diese soll völlig unabhängig von der Gestaltung
+  der restlichen Seiten sein. … In meiner Erinnerung ist es bei Saal Digital
+  beispielsweise so, dass die Titelseite bzw. der Umschlag des Buches so
+  dargestellt wird, dass die rechte Hälfte einer Doppelseite die tatsächliche
+  Titelseite ist und die linke Seite die Rückseite des Buches.").
+  - **Er hat recht, und es stand so im Quelltext:** Die Titelseite nahm den
+    Satzspiegel des Buches, seine Schrift, seinen Hintergrund und seinen Stil.
+    Wer den Innenteil umgestaltete, gestaltete den Umschlag mit — bei einem
+    gebundenen Buch schlicht falsch: Der Umschlag ist ein eigenes Stück Papier
+    und läuft an der Druckerei durch eine eigene Maschine.
+  - **Die Rückseite trägt die NUMMER 0, und damit paart sich der Bogen von
+    selbst.** `Bogenlage` sagt seit 1.0.47: gerade Nummer links, ungerade
+    rechts. 0 ist gerade, 1 ist die Titelseite — also liegt links die
+    Rückseite und rechts der Titel, ohne eine einzige zusätzliche Regel.
+    **Das ist der ganze Trick**, und er ist der Grund, warum die
+    Doppelseitenansicht, die Hintergrundhälften und der Umschlag dieselbe
+    Rechnung benutzen. Gezählt wird der Innenteil trotzdem ab 1: Der Umschlag
+    gehört nicht zum Buchblock.
+  - **Im vollständigen PDF fällt die Rückseite WEG** (`nummer > 0`). Sie
+    stünde sonst als erste Seite vor dem Titel — eine Reihenfolge, die es im
+    gebundenen Buch nirgends gibt. „Umschlag als eigene Datei" gibt dafür
+    genau EINEN breiten Bogen aus.
+  - **Keine TrimBox in der Mitte.** Sie sagt einer Druckerei, wo geschnitten
+    wird; auf einem Bogen mit zwei Seiten und einem Rücken gäbe es dafür keine
+    einzige richtige Stelle — geschnitten wird außen, gefalzt wird am Rücken.
+    Dieselbe Überlegung wie bei der Broschüre seit 1.0.27.
+  - **Jede Hälfte wird BESCHNITTEN gezeichnet** (`clip` auf ihre Fläche plus
+    den außen liegenden Anschnitt). Ohne das liefe ein randabfallendes
+    Titelfoto über den Rücken — also genau über die Beschriftung, die dort
+    stehen soll.
+- **DER RÜCKEN: gerechnet, nicht gemessen** (`Umschlagmass.rueckenbreite`, ab
+  1.0.50; Ansage des Nutzers: „was an die Seite des Buches, also den Bereich,
+  der die Dicke des Buches ausmacht, drauf gedruckt werden kann. Bislang habe
+  ich dort immer den Titel des Buches untergebracht."). Blätter mal
+  Papierstärke, beim Hardcover plus die beiden Deckel. **Beide Zahlen sind
+  einstellbar, und daneben steht der Satz, dass die Angabe des Druckdienstes
+  gilt** — wie dick ein Blatt aufträgt, weiß diese App nicht. Leer heißt: der
+  Titel des Buches; ein Feld, das man erst füllen muss, um das Naheliegende zu
+  bekommen, ist eine Hürde ohne Gewinn.
+  - **Die Schrift läuft von OBEN nach UNTEN**, wie es hierzulande üblich ist:
+    Ein Buch, das flach auf dem Tisch liegt, soll sich mit dem Titel nach oben
+    lesen lassen. Im schon umgedrehten Zeichensystem ist das eine Drehung um
+    +90 Grad.
+  - **Der Rücken macht den Bogen BREITER**, und das gehört in jede Rechnung,
+    die die Bühne einpasst (`ReiseView.breitesterBogen`). Ohne ihn wäre der
+    Inhalt schmaler als das, was darin steht, und das letzte Stück des
+    Umschlags ließe sich nicht heranschieben — dieselbe Falle wie 1.0.22.
+- **Was am Umschlag `nil` ist, folgt weiter dem BUCH** (ab 1.0.50). Hintergrund,
+  Rand, Schrift und Titelgröße sind Abweichungen und keine Kopien — dieselbe
+  Regel wie bei `Schriftabweichung` seit 1.0.0 und bei `Block.wirkung` seit
+  1.0.9, und aus demselben Grund: Kopierte der Umschlag beim ersten Antippen
+  alle Werte des Buches, wäre jede spätere Änderung am Buchganzen an ihm
+  wirkungslos, und zwar unsichtbar. Der Hintergrund läuft über denselben
+  Bildschirm wie der des Buches und der einer Seite (`HintergrundView`,
+  drittes Ziel) — drei Bildschirme für dieselbe Entscheidung liefen
+  auseinander.
+- **Was 1.0.50 NICHT baut: der Umschlag lässt sich nicht von Hand
+  umbauen.** Titelseite und Rückseite werden gerechnet und bei jeder Änderung
+  neu gesetzt; ein verschobener Block darauf wäre beim nächsten Durchgang
+  weg. Das war bei der Titelseite seit 1.0.0 so und bleibt es. **Nicht als
+  gelöst darstellen** — wer es baut, legt beide Seiten als echte `Seite` in
+  der Reise ab und nimmt sie aus `alleNeuAnordnen` heraus.
+- **Nicht gemessen (1.0.50):** Kein Umschlag ist damit gedruckt worden.
+  Gerechnet und am Quelltext abgezählt ist die URSACHE der fehlenden
+  Seitenzahlen; die Geometrie des Bogens ist gerechnet und nicht gesehen.
+  **Gewählt und nicht gemessen** sind die Vorgaben 0,13 mm je Blatt und 4 mm
+  Deckelstärke, die Warnschwelle von 4 mm Rückenbreite und der Anteil 0,62,
+  auf den die Rückenschrift gedeckelt wird. **Ungeprüft ist vor allem, ob ein
+  Druckdienst diesen Bogen annimmt** — die Boxen sind gesetzt, die Falze
+  stehen nur als Rückenbreite darin, und das ist die Stelle, an der Anbieter
+  auseinandergehen. Und ein Hintergrundfoto mit „über die Doppelseite" rechnet
+  auf dem Umschlag die Rückenbreite nicht mit; über den Umschlag läuft es
+  ohnehin als EIN Bild. **Nichts davon als erledigt darstellen.**
 - **DER PINSEL GEHÖRT DEM EINZELNEN ELEMENT, DAS BUCH DEM GANZEN BUCH** (ab
   1.0.49; gemeldet 09/2026: „Bei der Bedienung der App komme ich immer
   durcheinander mit dem Pinsel-Symbol und dem Symbol für die
@@ -6847,7 +6945,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.49 (Build 50). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.50 (Build 51). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -45,7 +45,8 @@ Digital und die üblichen Online-Druckereien, abgerufen 09/2026):
 | **Schriften eingebettet** | Die Prüfung liest die Einbettungserlaubnis aus der Schrift selbst (`fsType`). |
 | **RGB** | Bleibt RGB — genau das verlangen Fotobuchdienste, sie wandeln selbst um. |
 | **Keine Transparenz (PDF/X-1a, X-3)** | Schalter beim Ausgeben; Schatten fallen weg, Verläufe werden zu Feldern. |
-| **Umschlag getrennt** | Wahlweise zwei Dateien: Titelseite und Innenteil. |
+| **Umschlag getrennt** | Wahlweise zwei Dateien: Innenteil und Umschlag. Der Umschlag ist EIN breiter Bogen — Rückseite, Rücken, Titelseite. |
+| **Rückenbreite** | Aus Seitenzahl, Papierstärke und Einband gerechnet; beide Zahlen einstellbar. Verbindlich ist die Angabe des Druckdienstes. |
 | **Bundsteg** | Einstellbar, auf beide Ränder gerechnet (siehe unten, warum). |
 
 **Was die App NICHT kann: CMYK.** Eine klassische Offsetdruckerei, die
@@ -478,6 +479,116 @@ gewählt und nicht gemessen — die Gewichte, das Raster, die Vorgaben (10 %
 Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
+
+## Der Umschlag ist ein Bogen (1.0.50)
+
+Vier Befunde aus einem Durchgang; drei davon betreffen den Umschlag.
+
+### Seitenzahlen gab es nur im PDF
+
+> Im Menü kann ich Seitenzahlen aktivieren. Diese kommen auf dem Dokument
+> aber niemals zum Vorschein.
+
+Das ließ sich am Quelltext abzählen. `Buchausgabe.zeichneFusszeile` war die
+**einzige Stelle im ganzen Quelltext**, die `gestaltung.seitenzahlen`
+überhaupt las — und sie läuft nur beim Schreiben des PDF. Auf dem Bildschirm
+wurde davon nichts gezeichnet; der Schalter war dort seit 1.0.0 ohne jede
+Wirkung. Dasselbe galt für die Kopfzeile.
+
+Das verstieß gegen die erste Regel dieser App: **Seite und PDF zeichnet
+derselbe Setzer.** Wo Seitenzahl und Kopfzeile stehen, rechnet seither
+`Seitenbeiwerk`, und beide Zeichner holen sich dieselben Rechtecke — auf dem
+Bildschirm über denselben `Textkasten`, mit dem auch jeder andere Text
+gesetzt wird.
+
+Blöcke sind die beiden weiterhin nicht, und das ist Absicht: Sie gehören dem
+**Buch** und nicht dem Tag. Als Block lägen sie im Satz herum, wo sie jemand
+verschöbe und der Layoutautomat sie beim nächsten Neuanordnen wegräumte.
+
+Wo sie nicht stehen, sagt die Fußzeile der Einstellung jetzt auch:
+Titelseite, Rückseite und jede Seite, die ein Bild ganz ausfüllt — dort stünde
+die Zahl auf dem Foto.
+
+### Der Umschlag ist ein Bogen, keine Seite
+
+> Die Gestaltung der Titelseite. Diese soll völlig unabhängig von der
+> Gestaltung der restlichen Seiten sein. … In meiner Erinnerung ist es bei
+> Saal Digital beispielsweise so, dass die Titelseite bzw. der Umschlag des
+> Buches so dargestellt wird, dass die rechte Hälfte einer Doppelseite die
+> tatsächliche Titelseite ist und die linke Seite die Rückseite des Buches.
+
+Er hat recht, und bis 1.0.49 war es nicht so: Die Titelseite war eine Seite
+wie jede andere. Sie nahm den Satzspiegel des Buches, seine Schrift, seinen
+Hintergrund und seinen Stil — wer den Innenteil umgestaltete, gestaltete den
+Umschlag mit. Bei einem gebundenen Buch ist das falsch: Der Umschlag ist ein
+eigenes Stück Papier und läuft an der Druckerei durch eine eigene Maschine.
+
+In der Doppelseitenansicht ist der erste Bogen jetzt der Umschlag: links die
+Rückseite, in der Mitte der Rücken, rechts die Titelseite. **Dafür brauchte
+es keine einzige neue Paarungsregel.** `Bogenlage` sagt seit 1.0.47: gerade
+Nummer links, ungerade rechts. Die Rückseite trägt die Nummer 0, die
+Titelseite die 1 — und damit liegen beide von selbst richtig. Gezählt wird
+der Innenteil trotzdem ab 1; der Umschlag gehört nicht zum Buchblock.
+
+Im vollständigen PDF fällt die Rückseite weg. Sie stünde sonst als erste
+Seite vor dem Titel — eine Reihenfolge, die es im gebundenen Buch nirgends
+gibt. „Umschlag als eigene Datei" gibt dafür genau **einen** breiten Bogen
+aus.
+
+**Keine TrimBox in der Mitte.** Sie sagt einer Druckerei, wo geschnitten
+wird; auf einem Bogen mit zwei Seiten und einem Rücken gäbe es dafür keine
+einzige richtige Stelle — geschnitten wird außen, gefalzt wird am Rücken.
+Dieselbe Überlegung wie bei der Broschüre seit 1.0.27.
+
+### Der Rücken
+
+> Vielleicht findest du auch noch eine Lösung dafür, dass bei Saal Digital
+> normalerweise beim Umschlag auch festgelegt werden kann, was an die Seite
+> des Buches, also den Bereich, der die Dicke des Buches ausmacht, drauf
+> gedruckt werden kann. Bislang habe ich dort immer den Titel des Buches
+> untergebracht.
+
+Blätter mal Papierstärke, beim Hardcover plus die beiden Deckel. Leer heißt:
+der Titel des Buches — ein Feld, das man erst füllen muss, um das
+Naheliegende zu bekommen, wäre eine Hürde ohne Gewinn.
+
+**Die Breite ist gerechnet und nicht gemessen**, und das steht in der App
+auch so da: Wie dick ein Blatt aufträgt, weiß der Druckdienst und nicht
+diese App. Beide Zahlen sind deshalb einstellbar.
+
+Die Schrift läuft von oben nach unten, wie es hierzulande üblich ist: Ein
+Buch, das flach auf dem Tisch liegt, soll sich mit dem Titel nach oben lesen
+lassen.
+
+### Was am Umschlag nicht gesetzt ist, folgt weiter dem Buch
+
+Hintergrund, Rand, Schrift und Titelgröße sind **Abweichungen und keine
+Kopien** — dieselbe Regel wie bei der Schrift eines einzelnen Textkastens
+und bei der Wirkung eines einzelnen Fotos, und aus demselben Grund: Kopierte
+der Umschlag beim ersten Antippen alle Werte des Buches, wäre jede spätere
+Änderung am Buchganzen an ihm wirkungslos, und zwar unsichtbar.
+
+Zu finden unter **Ganzes Buch → Umschlag und Titelseite**.
+
+### Was daran nicht selbstverständlich ist
+
+- **Der Rücken macht den Bogen breiter**, und das gehört in jede Rechnung,
+  die die Bühne einpasst. Ohne ihn wäre der Inhalt schmaler als das, was
+  darin steht, und das letzte Stück des Umschlags ließe sich nicht
+  heranschieben — dieselbe Falle wie 1.0.22.
+- **Jede Hälfte wird beschnitten gezeichnet**, auf ihre Fläche plus den außen
+  liegenden Anschnitt. Ohne das liefe ein randabfallendes Titelfoto über den
+  Rücken — also genau über die Beschriftung, die dort stehen soll.
+- **Der Umschlag lässt sich nicht von Hand umbauen.** Titelseite und
+  Rückseite werden gerechnet und bei jeder Änderung neu gesetzt; ein
+  verschobener Block darauf wäre beim nächsten Durchgang weg. Das war bei der
+  Titelseite seit 1.0.0 so und bleibt es.
+- **Nicht gemessen:** Kein Umschlag ist damit gedruckt worden. Gerechnet ist
+  die Geometrie; gewählt und nicht gemessen sind 0,13 mm je Blatt, 4 mm
+  Deckelstärke und die Warnschwelle von 4 mm Rückenbreite. Ungeprüft ist vor
+  allem, ob ein Druckdienst diesen Bogen annimmt — die Boxen sind gesetzt,
+  die Falze stehen nur als Rückenbreite darin, und das ist die Stelle, an der
+  die Anbieter auseinandergehen.
 
 ## Pinsel und Buch, die große Karte, die Ausreißer (1.0.49)
 
