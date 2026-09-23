@@ -156,8 +156,22 @@ struct BlockInspektor: View {
     // gesucht wird sie dort, wo man gerade steht.
     @ViewBuilder
     private var leer: some View {
-        if let tag = werk.tag, !tag.seiten.isEmpty {
-            let stelle = min(max(werk.seitenzeiger, 0), tag.seiten.count - 1)
+        // DIE SEITE IST DIE GEWÄHLTE, NICHT DER SEITENZEIGER (ab 1.0.61).
+        //
+        // Bis 1.0.60 stand hier `werk.seitenzeiger` — ein Zähler, den
+        // Einfügen, Löschen und Verschieben setzen und der mit dem, was
+        // gerade im Bild steht, nichts zu tun hat. Was dieser Abschnitt
+        // anbot, wirkte damit auf irgendeine Seite des gewählten Tages;
+        // gemeldet 09/2026 als „schwer zu erkennen … auf welcher Seite
+        // die Änderungen greifen werden". Jetzt ist es dieselbe Seite,
+        // die auf der Bühne umrandet ist und die auch das Plus-Menü
+        // nennt — eine Wahl, EINE Stelle.
+        if let gewaehlt = werk.einsetzbareSeite,
+           let ort = werk.seitenstelle(gewaehlt),
+           werk.reise.tage.indices.contains(ort.tag)
+        {
+            let tag = werk.reise.tage[ort.tag]
+            let stelle = ort.seite
             Form {
                 Section {
                     Text("Tippe auf ein Foto, einen Text oder die Karte. Was du dann hier änderst, gilt nur an jener Stelle.")
@@ -167,7 +181,7 @@ struct BlockInspektor: View {
                     Text("Kein Block gewählt")
                 }
 
-                Section("Auf die Seite legen") {
+                Section(werk.seitenname(gewaehlt).map { "Auf " + $0 } ?? "Auf die Seite legen") {
                     Button("Textblock", systemImage: "text.alignleft") {
                         werk.blockHinzufuegen(.text("Neuer Text"), tag: tag.id, seite: stelle)
                     }

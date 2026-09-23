@@ -480,6 +480,66 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Bilder und Textfelder von Hand — auf einer sichtbar gewählten Seite (1.0.61)
+
+Ansage des Nutzers, 09/2026: „Ich möchte in das Buch manuell Bilder oder
+Grafiken einfügen können. Dies soll über den Plus-Button geschehen, sowie
+bei den Textfeldern auch. Diese Bilder sollen dann nicht in der Reisespur
+auftauchen und es ist völlig unerheblich, ob sie einen Zeitstempel haben
+oder einen Ort." Und daneben: „schwer zu erkennen, ob eine Seite
+ausgewählt wird bzw. auf welcher Seite die Änderungen, die ich vornehmen
+möchte, greifen werden. Das muss etwas offensichtlicher werden."
+
+Der zweite Satz ist der wichtigere — er beschreibt keinen Wunsch, sondern
+einen Fehler.
+
+- **„Auf die Seite legen" gab es seit 1.0.0**, im Block-Inspektor und nur,
+  wenn gerade kein Block gewählt war. Gefunden hat es niemand (das ist der
+  elfte Fall dieser Art in diesem Papier). Schlimmer war, worauf es wirkte:
+  auf `werk.seitenzeiger` — einen Zähler, den Einfügen, Löschen und
+  Verschieben setzen und der mit dem, was im Bild steht, **nichts** zu tun
+  hat. Der neue Block landete also auf irgendeiner Seite des Tages.
+- **Gewählt wird jetzt eine SEITE**, und man sieht es: ein Rahmen in der
+  Akzentfarbe um das Blatt, dazu „· ausgewählt" unter der Seite. Ein Tipp
+  auf ein Blatt wählt es; ansonsten folgt die Wahl dem, was oben im Bild
+  steht — dieselbe Regel wie beim gewählten Tag seit 1.0.28. Sie wechselt
+  aber **nicht**, solange das gewählte Blatt noch zu sehen ist: Sonst nähme
+  das Scrollen innerhalb einer Doppelseite dem Nutzer das Blatt weg, das er
+  eben angetippt hat.
+- **Der Rahmen ist außerhalb des Maßstabs gezeichnet**, wie der Schatten
+  seit 1.0.20 — eine Linie, die beim Herauszoomen dünner wird, ist genau
+  dann weg, wenn man die Übersicht braucht.
+- **Das Plus-Menü nennt die Seite beim Namen** („Auf 22. Aug., Blatt 2")
+  und bietet dort Textfeld, Bild oder Grafik, Karte, Trennlinie und
+  Farbfläche an. Der Inspektor zeigt dieselbe Seite und ruft dieselbe
+  Stelle — zwei Wege, eine Sache.
+- **Umschlag und Ausgleichsseite werden gar nicht erst angeboten.** Sie
+  werden gerechnet und stehen in keinem Tag; ein Block darauf wäre beim
+  nächsten Durchgang weg, und ein Knopf, der das anbietet, ist ein Knopf,
+  der nichts tut.
+
+**Eine Grafik ist kein Reisefoto** (`Foto.grafik`). Sie geht nicht durch
+die Fotoeinfuhr: Die ordnet einem Tag zu, liest Datum und Ort, baut daraus
+Reisepunkte und meldet hinterher, was gefehlt hat — für eine Grafik ist
+jede dieser Auskünfte Lärm; gemeldet wurde genau das, wörtlich über ein
+eingesetztes Bild: „1 Fotos tragen keinen Ort … 1 Fotos tragen kein Datum
+und stehen jetzt bei 4. Juni 2026." Gelesen werden nur die Maße. Sie
+gehört keinem Tag, steht deshalb in keiner Reisespur (die wird aus
+`tag.fotos` gebaut) und **nicht in der Fotoablage**: Heimatlos ist sie
+nicht, sie liegt genau dort, wo jemand sie hingelegt hat. Der Weg führt in
+die Dateien und nicht in die Mediathek — eine Grafik ist meist ein PNG mit
+durchsichtigem Grund, und den gibt die Mediathek nicht zuverlässig her.
+Die echte Endung bleibt erhalten, aus demselben Grund. Der Rahmen folgt
+dem Seitenverhältnis des Bildes: Ein fester Rahmen schnitte jedes
+Hochformat an, denn gefüllt wird, nicht eingepasst.
+
+**Nicht gemessen (1.0.61):** Auf einem Gerät gesehen hat das niemand.
+Gerechnet ist, worauf die alten Knöpfe gewirkt haben und worauf die neuen
+wirken; **ob die Seitenwahl sich richtig anfühlt — ob sie dem Blick folgt,
+ohne dem Finger zu widersprechen —, sagt erst der nächste Befund.** Und
+eine Oberflächenänderung als gelöstes Bedienproblem auszugeben wäre genau
+die Behauptung, die dieses Papier sonst verbietet.
+
 ## Die letzte Seite ist eine linke (1.0.60)
 
 Ansage des Nutzers, 09/2026: „Natürlich muss die letzte Seite des Buches

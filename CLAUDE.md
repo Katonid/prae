@@ -7241,6 +7241,51 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **EIN KNOPF, DER AUF „IRGENDEINE" SEITE WIRKT** (`Reisewerk.gewaehlteSeite`,
+  ab 1.0.61; Befund des Nutzers 09/2026: „schwer zu erkennen, ob eine Seite
+  ausgewählt wird bzw. auf welcher Seite die Änderungen, die ich vornehmen
+  möchte, greifen werden"). „Auf die Seite legen" gab es seit 1.0.0 — im
+  Block-Inspektor, und nur, wenn gerade KEIN Block gewählt ist; gefunden hat
+  es niemand (elfter Fall von „es war da, man fand es nicht"). Schlimmer war,
+  worauf es wirkte: auf `werk.seitenzeiger`, einen Zähler, den Einfügen,
+  Löschen und Verschieben setzen und der mit dem, was im Bild steht, NICHTS
+  zu tun hat.
+  - **Gewählt wird jetzt eine SEITE, und man sieht es**: ein Rahmen in der
+    Akzentfarbe um das Blatt, dazu „· ausgewählt" unter der Seite. Gezeichnet
+    AUSSERHALB des Maßstabs, wie der Schatten seit 1.0.20 — eine Linie, die
+    beim Herauszoomen dünner wird, ist genau dann weg, wenn man die Übersicht
+    braucht.
+  - **Ein Tipp wählt, sonst folgt die Wahl dem Bild** (dieselbe Regel wie beim
+    gewählten Tag seit 1.0.28) — aber nur, wenn das gewählte Blatt gar nicht
+    mehr zu sehen ist. Sonst nähme das Scrollen innerhalb einer Doppelseite
+    dem Nutzer das Blatt weg, das er eben angetippt hat.
+  - **Umschlag und Ausgleichsseite werden nicht angeboten.** Sie werden
+    gerechnet und stehen in keinem Tag; ein Block darauf wäre beim nächsten
+    Durchgang weg.
+  - **Das Menü nennt die Seite beim Namen.** Ein Menü, das nicht sagt, worauf
+    es wirkt, ist die Frage von vorhin noch einmal. Inspektor und Plus-Menü
+    zeigen dieselbe Seite und rufen dieselbe Stelle.
+- **EINE GRAFIK IST KEIN REISEFOTO** (`Foto.grafik`, `Reisewerk.grafikEinfuegen`,
+  ab 1.0.61; Ansage des Nutzers 09/2026: „Diese Bilder sollen dann nicht in
+  der Reisespur auftauchen und es ist völlig unerheblich, ob sie einen
+  Zeitstempel haben oder einen Ort."). Sie geht NICHT durch die Fotoeinfuhr:
+  Die ordnet einem Tag zu, liest Datum und Ort, baut daraus Reisepunkte und
+  meldet hinterher, was gefehlt hat — für eine Grafik ist jede dieser
+  Auskünfte Lärm, und genau das wurde gemeldet („1 Fotos tragen keinen Ort …
+  1 Fotos tragen kein Datum und stehen jetzt bei 4. Juni 2026"). Gelesen
+  werden nur die MASSE.
+  - **Sie ist nicht heimatlos**, sondern liegt da, wo jemand sie hingelegt
+    hat: `Reise.heimatlose` lässt sie aus, sonst stünde sie in der Fotoablage
+    als Aufgabe, die es nicht gibt. In die Reisespur kommt sie ohnehin nicht —
+    die wird aus `tag.fotos` gebaut, und dort steht sie nicht.
+  - **Der Weg führt in die DATEIEN, nicht in die Mediathek**, und die ECHTE
+    Endung bleibt erhalten: Eine Grafik ist meist ein PNG mit durchsichtigem
+    Grund, und den gibt die Mediathek nicht zuverlässig her — dieselbe
+    Überlegung wie beim Wasserzeichen.
+  - **Der Rahmen folgt dem Seitenverhältnis des Bildes.** Ein fester Rahmen
+    schnitte jedes Hochformat an, denn gefüllt wird, nicht eingepasst.
+  - **Nicht gemessen:** Ob die Seitenwahl sich richtig anfühlt, sagt erst der
+    nächste Befund; geändert sind Wege und Namen, und das ist keine Messung.
 - **DIE LETZTE SEITE EINES BUCHES IST EINE LINKE** (`Reise.brauchtAusgleich`,
   `blockseiten`, ab 1.0.60; Ansage des Nutzers 09/2026: „Natürlich muss die
   letzte Seite des Buches eine linke Seite sein, also eine gerade Seitenzahl
@@ -7906,7 +7951,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.60 (Build 61). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.61 (Build 62). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

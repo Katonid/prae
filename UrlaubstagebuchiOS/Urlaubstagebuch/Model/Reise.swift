@@ -201,7 +201,11 @@ struct Reise: Identifiable, Codable {
     // wenn das Buch gedruckt ist.
     var heimatlose: [Foto] {
         let vergeben = Set(tage.flatMap(\.fotos))
-        return fotos.filter { !vergeben.contains($0.id) }
+        // Eine von Hand eingesetzte GRAFIK ist nicht heimatlos, sondern
+        // steht genau da, wo jemand sie hingelegt hat (ab 1.0.61). Sie
+        // gehört keinem Tag und soll auch keinem zugeordnet werden — in
+        // der Ablage wäre sie eine Aufgabe, die es nicht gibt.
+        return fotos.filter { !vergeben.contains($0.id) && !$0.grafik }
     }
 
     var zeitraum: String {
