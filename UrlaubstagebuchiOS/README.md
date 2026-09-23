@@ -405,6 +405,80 @@ Größenunterschied innerhalb eines Tages, mit Datum und beiden Maßen, und wie
 viel Prozent der Satzhöhe das höchste Foto des Buches nimmt. Gemessen am
 fertigen Satz und nicht an der Absicht.
 
+## Ein Wasserzeichen auf jeder Seite (1.0.46)
+
+Ansage des Nutzers, 09/2026:
+
+> Ich lege einmal eine Bilddatei fest, für die das gelten soll. Und diese
+> erscheint dann auf jeder Seite halbtransparent, möglichst an Stellen, an
+> denen sonst noch kein Text oder Bild zu sehen ist. Da es halbtransparent
+> ist, wäre es aber auch nicht schlimm, wenn ein Teil des Textes über es
+> hinweggehen würde.
+
+**Gestalten → Wasserzeichen…** Eine Bilddatei wählen, Sichtbarkeit und Größe
+einstellen, fertig — es gilt für das ganze Buch.
+
+### Es ist kein Block
+
+Ein Wasserzeichen gehört dem Buch, nicht einer Seite. Es steht deshalb in
+`Gestaltung.wasserzeichen` und wird beim Zeichnen jeder Seite ergänzt —
+dieselbe Regel wie bei Seitenzahl und Kopfzeile. Als Block läge es im Satz
+herum: verschiebbar, löschbar, und beim nächsten Neuanordnen weg.
+
+Gezeichnet wird es **über dem Hintergrund und unter allen Blöcken**. Das ist
+genau die Lage, die der Nutzer beschreibt: Text darf darüber hinweggehen.
+Obenauf läge ein Schleier über jedem Foto.
+
+### „Wo gerade Platz ist" ist gemessen
+
+Für jede Seite geht die App ein Raster von 7 × 7 Lagen im Satzspiegel durch
+und wertet, wie viel der Fläche schon belegt ist. **Die Gewichte sind der
+Kern der Sache:** Ein Foto oder eine Karte **deckt das Zeichen zu** — dort ist
+es schlicht weg und wiegt 8. Text läuft nur darüber hinweg und wiegt 1.
+Gleiche Gewichte legten das Zeichen lieber unter ein Foto als unter drei
+Zeilen Text.
+
+Wo die Suche anfängt, hängt an der Kennung der Seite. Damit landet das Zeichen
+auf zwei gleich leeren Seiten an verschiedenen Stellen — und dieselbe Seite
+bekommt beim nächsten Öffnen dieselbe. Wer es lieber fest hat, stellt eine der
+vier Ecken oder die Mitte ein.
+
+### Warum die Dateien und nicht die Fotos
+
+Ein Wasserzeichen braucht einen **durchsichtigen Grund**. Das kann PNG; die
+Fotomediathek gibt fast nur JPEG und HEIC heraus, und deren weißer Grund legte
+sich als helles Rechteck über die Seite. Deshalb führt der Knopf in die
+Dateien. Das steht auch so in der App — ein Weg, der ohne Begründung enger ist
+als erwartet, sieht wie ein Fehler aus.
+
+### Was daran nicht selbstverständlich ist
+
+* **Die Größe ist ein Anteil der Satzbreite**, keine Millimeterzahl. So
+  übersteht sie den Formatwechsel von A4 auf A5, ohne dass
+  `Formatwechsel` eine eigene Zeile dafür braucht.
+* **Das Seitenverhältnis wird einmal beim Einlesen gemessen.** Ohne diese Zahl
+  müsste die Lagerechnung das Bild von der Platte holen, nur um seine
+  Proportion zu erfahren — je Seite, bei jedem Neuzeichnen.
+* **Eingepasst, nie gefüllt.** Ein beschnittenes Ahornblatt ist kein Zeichen
+  mehr, sondern ein Fleck.
+* **Die Bilddatei reist mit.** `Buchdatei.schreiben` läuft über `reise.fotos`,
+  und dort steht das Wasserzeichen nicht drin — es wird ausdrücklich
+  dazugepackt. Ohne das verlöre ein ausgetauschtes Buch sein Zeichen, und zwar
+  still: Die Einstellung stünde weiter drin, die Datei fehlte.
+* **Mit „Ohne Transparenz" fällt es weg**, statt deckend gezeichnet zu werden.
+  Der Verlauf unter einer Überschrift wird dort zu einem geschlossenen Feld,
+  weil er etwas lesbar machen muss; das Zeichen muss gar nichts.
+* **Die Druckprüfung zählt nach**, auf wie vielen Seiten das Zeichen unter
+  einem Foto liegt und deshalb kaum zu sehen ist. Auf einer Seite mit
+  randabfallendem Bild gibt es keine freie Stelle — das gehört gesagt, nicht
+  versprochen.
+
+**Nicht gemessen:** Keine Seite ist damit gesehen worden. Alle Zahlen sind
+gewählt und nicht gemessen — die Gewichte, das Raster, die Vorgaben (10 %
+Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
+oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
+kräftiger als auf Papier.
+
 ## Das Schriftenrecht ist wieder heraus — die App ließ sich nicht mehr signieren (1.0.45)
 
 Gemeldet 09/2026 mit einem Bildschirmfoto aus Xcode:
@@ -572,7 +646,8 @@ App nach jeder Wahl, was sie vorfindet.
 
 ```
 Urlaubstagebuch/
-  Model/       Reise, Tag, Seite, Block, Schriftbild, Layoutautomat, Einrasten
+  Model/       Reise, Tag, Seite, Block, Schriftbild, Layoutautomat, Einrasten,
+               Wasserzeichen
   Dienste/     EXIF, Textimport, Textquelle (Word/PDF/Text), Zipleser,
                Wordtext, Pdftext, Bildarchiv, Ablage, Wolke, Spurbau,
                Spureinfuhr, Buchdatei, Kartenwerk, Kachelkarte,

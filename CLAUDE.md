@@ -6272,6 +6272,82 @@ Befunde, und keiner davon war Geschmack:
   Liste findet — der Aufbau eines Profils ist nachgelesen, nicht an einer
   Datei geprüft; der Befund sagt es selbst, wenn nichts zu lesen war.
   **Nicht als erledigt darstellen.**
+- **EIN WASSERZEICHEN IST KEIN BLOCK** (`Model/Wasserzeichen.swift`,
+  `Gestaltung.wasserzeichen`, ab 1.0.46; Ansage des Nutzers 09/2026: „Ich
+  lege einmal eine Bilddatei fest, für die das gelten soll. Und diese
+  erscheint dann auf jeder Seite halbtransparent, möglichst an Stellen, an
+  denen sonst noch kein Text oder Bild zu sehen ist."). Es steht deshalb am
+  BUCH und wird beim Zeichnen jeder Seite ergänzt — dieselbe Regel wie bei
+  Seitenzahl und Kopfzeile seit 1.0.0: Als Block läge es im Satz herum, ließe
+  sich verschieben, löschen, und der Layoutautomat räumte es beim nächsten
+  Neuanordnen weg. „Einmal festlegen" verträgt sich mit einem Block nicht.
+- **Es liegt ÜBER dem Hintergrund und UNTER allen Blöcken.** Der Nutzer sagt
+  selbst, dass Text darüber hinweggehen darf; obenauf läge dagegen ein
+  Schleier über jedem Foto, und dann wäre die Deckkraft gar nicht mehr zu
+  beurteilen. Gezeichnet wird es an beiden Stellen, an denen diese App eine
+  Seite zeichnet (`SeitenflaecheView` und `Buchausgabe.zeichneSeite`) — die
+  LAGE aber rechnet nur EINE Funktion (`Wasserzeichenlage.rechteck`): Zwei
+  Fassungen ergäben eine Vorschau, die anders aussieht als der Druck.
+- **„Wo gerade Platz ist" wird GEMESSEN, nicht geraten**
+  (`Wasserzeichenlage`). Ein Raster von sieben mal sieben Lagen im
+  Satzspiegel, gewertet wird die gewichtete Fläche, die schon belegt ist.
+  **Die Gewichte sind der Kern:** Ein Foto (8) oder eine Karte DECKT das
+  Zeichen zu — dort ist es weg; Text (1) läuft nur darüber hinweg, und
+  genau das hat der Nutzer ausdrücklich erlaubt. Gleiche Gewichte legten
+  das Zeichen lieber unter ein Foto als unter drei Zeilen Text. Die
+  Gewichte sind **gewählt und nicht gemessen**.
+- **Der Suchanfang hängt an der SEITE** (`seite.id.saat`, nie `hashValue`
+  — den streut Swift je Programmlauf neu; dieselbe Falle wie beim
+  Papierkorn in 1.0.16 und bei den Linienfarben der Abfahrtstafel). Damit
+  landet das Zeichen auf zwei gleich leeren Seiten an verschiedenen Stellen,
+  und dieselbe Seite bekommt beim nächsten Öffnen dieselbe.
+- **Die Größe ist ein ANTEIL der Satzbreite, keine Millimeterzahl.** So
+  übersteht sie den Formatwechsel von A4 auf A5 ohne eigene Zeile in
+  `Formatwechsel` — dieselbe Überlegung wie bei `kartenanteil` und
+  `textspaltenanteil`.
+- **Das Seitenverhältnis wird EINMAL beim Einlesen gemessen** und steht in
+  der Einstellung. Ohne diese Zahl müsste die Lagerechnung das Bild von der
+  Platte holen, nur um seine Proportion zu erfahren — je Seite, bei jedem
+  Neuzeichnen. Dieselbe Falle wie bei den berechneten Eigenschaften der
+  Netzkarte in der Abfahrtstafel.
+- **Eingepasst, nie gefüllt** (`Wasserzeichenlage.eingepasst`). Beim Foto
+  ist das Füllen richtig, weil dort der Rahmen der Platz auf der Seite ist;
+  hier wäre es ein Ausschnitt — und ein beschnittenes Ahornblatt ist kein
+  Zeichen mehr, sondern ein Fleck (dieselbe Lehre wie beim Aufmacherband in
+  1.0.34).
+- **Der Weg führt in die DATEIEN, nicht in die Fotos**, und der Grund steht
+  in der Oberfläche: Ein Wasserzeichen braucht einen durchsichtigen Grund,
+  das kann PNG — die Mediathek gibt fast nur JPEG und HEIC heraus, und
+  deren weißer Grund legte sich als helles Rechteck über die Seite. Die
+  Datei wandert mit ihrer ECHTEN Endung ins Bildarchiv der Reise; ein
+  `Foto`-Eintrag entsteht dabei nicht (es ist kein Reisefoto und gehört in
+  keine Tagesliste).
+- **Und genau deshalb muss sie in `Buchdatei.schreiben` ausdrücklich mit.**
+  Dort läuft die Schleife über `reise.fotos`; das Wasserzeichen steht da
+  nicht drin. Ohne die Zeile verlöre ein ausgetauschtes Buch sein Zeichen,
+  und zwar STILL: Die Einstellung stünde weiter in der Datei, die Bilddatei
+  fehlte. **Wer eine neue Bildart anlegt, trägt sie dort ein.**
+- **Mit „Ohne Transparenz" fällt es WEG, statt deckend gezeichnet zu
+  werden.** Beim Verlauf unter einer Überschrift ist das anders (dort wird
+  ein geschlossenes Feld daraus), und der Unterschied hat einen Grund: Der
+  Verlauf muss etwas LESBAR machen, das Zeichen muss gar nichts. Ein
+  undurchsichtiges Ahornblatt mitten auf der Seite wäre keine abgeschwächte
+  Fassung, sondern ein Fehler im Buch.
+- **Was die Automatik nicht kann, ZÄHLT die Druckprüfung**
+  (`Druckpruefung.wasserzeichen`). „Möglichst an Stellen, an denen sonst
+  nichts steht" ist eine Zusage, die sich nur am fertigen Satz einlösen
+  lässt: Auf einer Seite mit randabfallendem Foto gibt es keine freie
+  Stelle, und dann liegt das Zeichen unter dem Bild. Die Zeile sagt, auf
+  wie vielen Seiten das so ist — statt dass es jemand im gedruckten Buch
+  sucht.
+- **Nicht gemessen (1.0.46):** Keine Seite ist damit gesehen worden.
+  Gerechnet ist die Geometrie; **gewählt und nicht gemessen** sind alle
+  Zahlen — die Gewichte (Foto 8, Fläche 4, Überschrift 1,5, Text 1, Linie
+  0,5), das Raster (7 × 7), die Vorgaben für Deckkraft (10 %) und Breite
+  (34 % der Satzbreite) und die Schwelle der Befundzeile (gewichtete
+  Belegung 4). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist oder
+  schon stört, sagt erst der erste Ausdruck — auf dem Bildschirm wirkt es
+  kräftiger als auf Papier. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
@@ -6533,7 +6609,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.45 (Build 46). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.46 (Build 47). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

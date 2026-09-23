@@ -353,6 +353,13 @@ struct Gestaltung: Codable, Hashable {
     var kopfzeile: Bool = false
     var datumsstil: Datumsstil = .langMitWochentag
 
+    // EIN WASSERZEICHEN AUF JEDER SEITE (ab 1.0.46).
+    //
+    // `nil` heißt: keines. Es steht hier und nicht an der Seite, weil es
+    // dem Buch gehört — einmal festgelegt, überall sichtbar. Wie es
+    // gezeichnet wird, steht in `Model/Wasserzeichen.swift`.
+    var wasserzeichen: Wasserzeichen?
+
     init() {}
 
     // Von Hand gelesen, und zwar seit dem Tag, an dem hier ein Feld
@@ -390,6 +397,7 @@ struct Gestaltung: Codable, Hashable {
         seitenzahlen = b.wert(.seitenzahlen, true)
         kopfzeile = b.wert(.kopfzeile, false)
         datumsstil = b.wert(.datumsstil, Datumsstil.langMitWochentag)
+        wasserzeichen = b.wahlweise(.wasserzeichen)
     }
 
     var anschnittPt: Double { Druckmass.pt(anschnitt) }

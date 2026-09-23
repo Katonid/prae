@@ -136,7 +136,7 @@ struct AusgabeView: View {
                     }
                     Toggle("Ohne Transparenz (PDF/X-1a, X-3)", isOn: $ohneTransparenz)
                     if ohneTransparenz {
-                        Text("Schatten fallen weg, und der Verlauf unter einer Überschrift auf einem Foto wird zu einem geschlossenen Feld. Nur nötig, wenn die Druckerei ausdrücklich danach fragt.")
+                        Text("Schatten fallen weg, der Verlauf unter einer Überschrift auf einem Foto wird zu einem geschlossenen Feld, und ein Wasserzeichen entfällt ganz — deckend gezeichnet wäre es kein Wasserzeichen mehr. Nur nötig, wenn die Druckerei ausdrücklich danach fragt.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

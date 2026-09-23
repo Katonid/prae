@@ -102,6 +102,7 @@ struct ReiseView: View {
         case aufbau
         case stil
         case hintergrund
+        case wasserzeichen
         case textimport
         case fotos
         case dateien
@@ -125,6 +126,7 @@ struct ReiseView: View {
             case .aufbau: return "aufbau"
             case .stil: return "stil"
             case .hintergrund: return "hintergrund"
+            case .wasserzeichen: return "wasserzeichen"
             case .textimport: return "text"
             case .fotos: return "fotos"
             case .dateien: return "dateien"
@@ -1052,6 +1054,10 @@ struct ReiseView: View {
             Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
                 blatt = .hintergrund
             }
+            // Das Wasserzeichen steht neben dem Hintergrund, weil es
+            // dieselbe Frage beantwortet: Was liegt auf jeder Seite, ohne
+            // dass es jemand dorthin gestellt hat.
+            Button("Wasserzeichen…", systemImage: "drop") { blatt = .wasserzeichen }
             Divider()
             Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
             Button("Ränder, Karte, Seitenzahlen…", systemImage: "ruler") { blatt = .gestaltung }
@@ -1398,6 +1404,8 @@ struct ReiseView: View {
             StilView(werk: werk)
         case .hintergrund:
             HintergrundView(werk: werk)
+        case .wasserzeichen:
+            WasserzeichenView(werk: werk)
         case .textimport:
             TextimportView(werk: werk)
         case .fotos:

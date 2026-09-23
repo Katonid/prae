@@ -71,8 +71,19 @@ enum Buchdatei {
     static func schreiben(_ reise: Reise) throws -> URL {
         var kopf = Kopf(reise: reise)
         var quellen: [URL] = []
-        for foto in reise.fotos {
-            let ort = Bildarchiv.shared.pfad(reise.id, datei: foto.datei)
+        // Das Wasserzeichen ist KEIN Reisefoto und steht deshalb nicht in
+        // `reise.fotos` — es muss hier ausdrücklich mit, sonst verlöre ein
+        // ausgetauschtes Buch sein Zeichen, und zwar still: Die Einstellung
+        // stünde weiter in der Datei, die Bilddatei fehlte. Merke: Wer eine
+        // neue Bildart anlegt, trägt sie hier ein.
+        var namen: [String] = reise.fotos.map(\.datei)
+        if let zeichen = reise.gestaltung.wasserzeichen, zeichen.gueltig,
+           !namen.contains(zeichen.datei)
+        {
+            namen.append(zeichen.datei)
+        }
+        for datei in namen {
+            let ort = Bildarchiv.shared.pfad(reise.id, datei: datei)
             // Nach der GRÖSSE fragen und nicht nach dem ganzen
             // Attributbündel: `attributesOfItem` liest die Zeitstempel mit,
             // und die stehen auf Apples Liste der begründungspflichtigen
@@ -80,7 +91,7 @@ enum Buchdatei {
             guard let werte = try? ort.resourceValues(forKeys: [.fileSizeKey]),
                   let laenge = werte.fileSize
             else { continue }
-            kopf.bilder.append(Kopf.Eintrag(datei: foto.datei, laenge: laenge))
+            kopf.bilder.append(Kopf.Eintrag(datei: datei, laenge: laenge))
             quellen.append(ort)
         }
 
