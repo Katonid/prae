@@ -71,6 +71,17 @@ struct PlanerView: View {
                     .toggleStyle(.button)
                     .onChange(of: planer.verkehrBeachten) { _, _ in planer.berechnen() }
                 }
+                if planer.profil.art == .fahrrad {
+                    // Sichtbar im Bedienfeld und nicht nur im Profil: Ob
+                    // geschoben werden darf, entscheidet man je Fahrt.
+                    Toggle(isOn: Binding(get: { planer.profil.schieben },
+                                         set: { planer.schiebenSetzen($0) })) {
+                        Label(planer.profil.schieben ? "Schieben erlaubt" : "Ohne Schieben",
+                              systemImage: planer.profil.schieben ? "figure.walk" : "bicycle")
+                    }
+                    .toggleStyle(.button)
+                    .accessibilityHint("Schaltet um, ob Gehwege und Fußgängerzonen schiebend benutzt werden dürfen.")
+                }
             }
 
             ergebnis

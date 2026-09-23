@@ -40,6 +40,15 @@ final class Planer: ObservableObject {
 
     var bereit: Bool { start != nil && ziel != nil }
 
+    /// Schieben erlauben oder ausschließen — gespeichert am gewählten
+    /// Profil, denn es ist eine Eigenschaft der Art, wie jemand fährt, und
+    /// soll beim nächsten Öffnen noch gelten. Neu gerechnet wird sofort.
+    func schiebenSetzen(_ an: Bool) {
+        guard let i = profile.firstIndex(where: { $0.id == profil.id }), profile[i].schieben != an else { return }
+        profile[i].schieben = an
+        berechnen()
+    }
+
     func tauschen() {
         (start, ziel) = (ziel, start)
         berechnen()
@@ -141,6 +150,8 @@ final class Planer: ObservableObject {
             hinweise.append(Hinweis(stufe: .warnung, text: "\(schiebe.count) Schiebestrecke(n), zusammen \(Anzeige.strecke(summe)) — auf der Karte gestrichelt orange."))
         } else if quelle == BRouter.name && profil.schieben {
             hinweise.append(Hinweis(stufe: .info, text: "Keine Schiebestrecke: Der kürzeste Weg führt nur über Straßen und freigegebene Wege."))
+        } else if !profil.schieben {
+            hinweise.append(Hinweis(stufe: .info, text: "Schieben ist ausgeschlossen: Gehwege, Fußgängerzonen und Treppen ohne Radfreigabe werden umfahren. Der Weg kann dadurch länger sein."))
         }
         let pflicht = abschnitte.filter { $0.art == .radwegPflicht }
         if !pflicht.isEmpty {
