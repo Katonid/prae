@@ -6,6 +6,34 @@ struct GestaltungView: View {
     @State private var titelfotoWahl = false
     @State private var hintergrundOffen = false
 
+    // WAS DER BUNDSTEG TUT UND WAS NICHT (ab 1.0.58).
+    //
+    // Gemeldet 09/2026: „Der Bund soll bei 0 mm liegen. Das habe ich jetzt
+    // so eingestellt. Dennoch sieht es nicht so aus, als ob die App das
+    // akzeptiert hätte." Sie hat es akzeptiert — 0 ist der Vorgabewert und
+    // der Anfang des Reglers. Nur ändert der Bundsteg zwei Dinge NICHT,
+    // und beide sind genau die, an denen man es sehen würde: Er rührt den
+    // Hintergrund nicht an (der läuft immer bis in den Anschnitt), und er
+    // rückt keine Seite um, die schon gesetzt ist — Blöcke stehen als
+    // Rechtecke im Buch und bleiben, wo jemand sie hat.
+    //
+    // Der Satz steht hier, weil hier die Frage entsteht.
+    private var zugabenhinweis: String {
+        var text = "Anschnitt: 3 mm sind der Standard, manche Buchdienste verlangen 5 mm. "
+        text += "Ohne ihn kann kein Bild bis an die Papierkante laufen.\n\n"
+        text += "Bundsteg: zusätzlicher Rand zur Heftung, 0 mm ist erlaubt und die Vorgabe. "
+        text += "Er wird auf beide Seitenränder gerechnet — welche Seite innen liegt, hängt "
+        text += "an der laufenden Seitenzahl, und die verschiebt sich, sobald ein Tag eine "
+        text += "Seite mehr braucht.\n\n"
+        text += "Er verschiebt nur den SATZSPIEGEL, also den Platz, in den neue Seiten "
+        text += "gesetzt werden. Schon gesetzte Seiten behalten ihre Blöcke dort, wo sie "
+        text += "stehen; wer sie mitziehen will, ordnet sie neu an. Und ein Hintergrund "
+        text += "richtet sich gar nicht nach ihm: Der läuft immer bis in den Anschnitt. "
+        text += "Was in der Doppelseitenansicht am Bund als Streifen stehen bleibt, sind "
+        text += "die beiden Anschnitte — die schneidet die Druckerei weg."
+        return text
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -45,7 +73,7 @@ struct GestaltungView: View {
                 } header: {
                     Text("Druckzugaben")
                 } footer: {
-                    Text("Anschnitt: 3 mm sind der Standard, manche Buchdienste verlangen 5 mm. Ohne ihn kann kein Bild bis an die Papierkante laufen.\n\nBundsteg: zusätzlicher Rand zur Heftung. Er wird auf beide Seitenränder gerechnet — welche Seite innen liegt, hängt an der laufenden Seitenzahl, und die verschiebt sich, sobald ein Tag eine Seite mehr braucht.")
+                    Text(zugabenhinweis)
                 }
 
                 Section {

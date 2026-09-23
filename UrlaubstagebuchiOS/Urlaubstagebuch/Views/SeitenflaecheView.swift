@@ -914,7 +914,12 @@ struct HintergrundFlaeche: View {
                                                          kante: hintergrundkante,
                                                          farbkraft: hintergrund.farbkraftfaktor)
                 {
-                    fotoflaeche(bild)
+                    // Der Raum wird GEMESSEN und nicht angenommen: Die
+                    // Probe im Hintergrund-Blatt hat keinen Bogen, und
+                    // dort ist die Fläche das, was die Zeile hergibt.
+                    GeometryReader { raum in
+                        fotoflaeche(bild, raum: raum.size)
+                    }
                 }
                 hintergrund.farbe.farbe.opacity(hintergrund.schleier)
             }
@@ -928,19 +933,39 @@ struct HintergrundFlaeche: View {
         .clipped()
     }
 
-    @ViewBuilder
-    private func fotoflaeche(_ bild: UIImage) -> some View {
-        if let flaeche = doppelflaeche {
-            Image(uiImage: bild)
-                .resizable()
-                .scaledToFill()
-                .frame(width: CGFloat(flaeche.breite), height: CGFloat(flaeche.hoehe))
-                .offset(x: CGFloat(flaeche.versatz))
-        } else {
-            Image(uiImage: bild)
-                .resizable()
-                .scaledToFill()
+    // Der Rahmen, den das Hintergrundfoto füllt — in den Koordinaten
+    // DIESER Fläche, deren linke obere Ecke bei (0,0) liegt.
+    //
+    // Es ist dieselbe Fläche, die das PDF über `Bogenlage.bildflaeche`
+    // bekommt, nur anders ausgedrückt: dort in Seitenkoordinaten (die am
+    // Anschnitt beginnen), hier am Bogen. Gerechnet wird beides aus
+    // derselben Zahl (`doppelflaeche`), damit die Vorschau nicht anders
+    // steht als der Druck.
+    private func bildrahmen(raum: CGSize) -> CGRect {
+        guard let flaeche = doppelflaeche else {
+            return CGRect(origin: .zero, size: raum)
         }
+        let mitteX = Double(raum.width) / 2 + flaeche.versatz
+        return CGRect(x: mitteX - flaeche.breite / 2,
+                      y: Double(raum.height) / 2 - flaeche.hoehe / 2,
+                      width: flaeche.breite, height: flaeche.hoehe)
+    }
+
+    // Gezeichnet wird über `gefuelltesZiel` und nicht mehr über
+    // `scaledToFill` (ab 1.0.58). Bei `.voll` ist das dasselbe — Füllen
+    // und mittig —, mit einem eigenen Ausschnitt ist es das, was auch im
+    // PDF steht. Zwei Rechnungen für dieselbe Lage liefen auseinander,
+    // und der Unterschied fiele erst im gedruckten Buch auf.
+    //
+    // Der `GeometryReader` darüber richtet seine Kinder oben links aus;
+    // deshalb genügt der Versatz auf die Ecke des Ziels.
+    private func fotoflaeche(_ bild: UIImage, raum: CGSize) -> some View {
+        let rahmen = bildrahmen(raum: raum)
+        let ziel = hintergrund.ausschnitt.gefuelltesZiel(bildgroesse: bild.size, rahmen: rahmen)
+        return Image(uiImage: bild)
+            .resizable()
+            .frame(width: ziel.width, height: ziel.height)
+            .offset(x: ziel.minX, y: ziel.minY)
     }
 }
 
