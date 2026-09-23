@@ -334,7 +334,17 @@ enum Buchausgabe {
                            fortschritt: @escaping @MainActor (Double) -> Void)
         async throws -> URL
     {
-        let alle = reise.seitenfolge
+        // DIE RÜCKSEITE GEHÖRT ANS ENDE, nicht an den Anfang. In der
+        // Seitenfolge steht sie vorn, weil sie dort die LINKE Hälfte des
+        // Umschlagbogens ist — ein gefaltetes Heft hat aber keinen Bogen
+        // und keinen Rücken: Dort ist die Titelseite die erste Seite und
+        // die Rückseite die letzte. Bis 1.0.51 lief sie als Heftseite 1
+        // mit, also noch vor dem Titel; das war schon damals falsch und
+        // fiel erst beim Umbau der Zählung auf.
+        var alle = reise.seitenfolge.filter { $0.teil != .rueckseite }
+        if let rueckseite = reise.seitenfolge.first(where: { $0.teil == .rueckseite }) {
+            alle.append(rueckseite)
+        }
         guard !alle.isEmpty else { throw Fehler.keineSeiten }
 
         // Auf ein Vielfaches von vier auffüllen. `nil` heißt: leere Seite.

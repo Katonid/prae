@@ -6746,6 +6746,13 @@ Befunde, und keiner davon war Geschmack:
   Ein Bogen ist doppelt so breit wie eine Seite und hat mitten in einer
   Datei mit Buchseiten nichts zu suchen. Weggelassen wird dabei nichts;
   ausgegeben wird alles, nur eben zweimal.
+- **Die Broschüre setzte die RÜCKSEITE nach vorn** (behoben in 1.0.52, beim
+  Gegenlesen gefunden). In der Seitenfolge steht sie vorn, weil sie dort die
+  linke Hälfte des Umschlagbogens ist — ein gefaltetes Heft hat aber weder
+  Bogen noch Rücken: Dort ist die Titelseite die erste Seite und die
+  Rückseite die letzte. Bis 1.0.51 lief sie als Heftseite 1 mit, also noch
+  vor dem Titel. **Das war schon damals falsch und fiel erst auf, als die
+  Zählung selbst zum Thema wurde** — dieselbe Wurzel, eine Ansicht weiter.
 - **Nicht gemessen (1.0.52):** Keine Seite ist damit gesehen worden. Am
   Quelltext abgezählt sind die URSACHEN (der Umschlag in der Zählung, das
   Meldeband hinter dem Vollbild) und die Geometrie der Drehung. **Gewählt
