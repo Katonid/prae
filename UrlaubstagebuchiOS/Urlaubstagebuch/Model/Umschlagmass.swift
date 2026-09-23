@@ -28,12 +28,18 @@ enum Umschlagmass {
     // einstellbar: Wie dick ein Blatt aufträgt, weiß der Druckdienst und
     // nicht diese App. Ein Hardcover legt die beiden Deckel obendrauf; bei
     // einem Softcover zählen sie nicht mit.
-    static func rueckenbreite(_ umschlag: Umschlag, innenseiten: Int) -> Double {
+    static func rueckenbreite(_ umschlag: Umschlag, format: Seitenformat,
+                              innenseiten: Int) -> Double
+    {
         guard umschlag.rueckenZeigen else { return 0 }
         // DIE TABELLE DES DRUCKDIENSTES SCHLÄGT DIE RECHNUNG (ab 1.0.52).
         // Sie ist die einzige Angabe, die gilt — gerechnet wird nur, wo
-        // keine eingetragen ist oder wo sie über dieses Buch nichts sagt.
-        if let aus = umschlag.tabellenbreite(innenseiten: innenseiten) { return aus }
+        // keine dasteht oder wo sie über dieses Buch nichts sagt. Seit
+        // 1.0.54 zählt dazu auch eine eingebaute, gemessene Tabelle; das
+        // FORMAT entscheidet, welche das ist.
+        if let aus = umschlag.tabellenbreite(innenseiten: innenseiten, format: format) {
+            return aus
+        }
         let papier = Double(blaetter(innenseiten: innenseiten)) * max(0, umschlag.papierstaerke)
         let decke = umschlag.einband == .hardcover ? max(0, umschlag.deckenstaerke) : 0
         return papier + decke
@@ -42,16 +48,25 @@ enum Umschlagmass {
     /// Woher die Zahl stammt. Gebraucht überall dort, wo die Breite
     /// hingeschrieben wird: Eine gerechnete Zahl als Messung auszugeben
     /// wäre genau die Art Lüge, die diese App nicht erzählen darf.
-    static func rueckenherkunft(_ umschlag: Umschlag, innenseiten: Int) -> String {
+    static func rueckenherkunft(_ umschlag: Umschlag, format: Seitenformat,
+                                innenseiten: Int) -> String
+    {
         guard umschlag.rueckenZeigen else { return "" }
-        if umschlag.tabellenbreite(innenseiten: innenseiten) != nil {
+        if umschlag.eigeneTabellenbreite(innenseiten: innenseiten) != nil {
             return "aus der eingetragenen Tabelle des Druckdienstes"
+        }
+        if let vorlage = umschlag.vorlage(fuer: format),
+           vorlage.breite(innenseiten: innenseiten) != nil
+        {
+            return "aus der gemessenen Tabelle \u{201E}" + vorlage.name + "\u{201C}"
         }
         return "aus Seitenzahl, Papierstärke und Einband GERECHNET"
     }
 
-    static func rueckenbreitePt(_ umschlag: Umschlag, innenseiten: Int) -> Double {
-        Druckmass.pt(rueckenbreite(umschlag, innenseiten: innenseiten))
+    static func rueckenbreitePt(_ umschlag: Umschlag, format: Seitenformat,
+                                innenseiten: Int) -> Double
+    {
+        Druckmass.pt(rueckenbreite(umschlag, format: format, innenseiten: innenseiten))
     }
 
     // Das ENDFORMAT des Umschlagbogens: zwei Buchseiten plus Rücken.
@@ -59,7 +74,7 @@ enum Umschlagmass {
                           innenseiten: Int) -> CGSize
     {
         let seite = format.groesse
-        let ruecken = rueckenbreitePt(umschlag, innenseiten: innenseiten)
+        let ruecken = rueckenbreitePt(umschlag, format: format, innenseiten: innenseiten)
         return CGSize(width: seite.width * 2 + ruecken, height: seite.height)
     }
 
@@ -89,7 +104,7 @@ enum Umschlagmass {
     {
         let seite = format.groesse
         return CGRect(x: seite.width, y: 0,
-                      width: rueckenbreitePt(umschlag, innenseiten: innenseiten),
+                      width: rueckenbreitePt(umschlag, format: format, innenseiten: innenseiten),
                       height: seite.height)
     }
 
@@ -100,7 +115,7 @@ enum Umschlagmass {
                             innenseiten: Int) -> CGRect
     {
         let seite = format.groesse
-        let ruecken = rueckenbreitePt(umschlag, innenseiten: innenseiten)
+        let ruecken = rueckenbreitePt(umschlag, format: format, innenseiten: innenseiten)
         return CGRect(x: seite.width + ruecken, y: 0,
                       width: seite.width, height: seite.height)
     }

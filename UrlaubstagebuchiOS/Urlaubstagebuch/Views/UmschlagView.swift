@@ -26,7 +26,12 @@ struct UmschlagView: View {
     private var umschlag: Umschlag { werk.reise.umschlag }
 
     private var rueckenMm: Double {
-        Umschlagmass.rueckenbreite(umschlag, innenseiten: werk.reise.innenseiten)
+        Umschlagmass.rueckenbreite(umschlag, format: werk.reise.format,
+                                   innenseiten: werk.reise.innenseiten)
+    }
+
+    private var geltendeVorlage: Rueckentabellen.Vorlage? {
+        umschlag.vorlage(fuer: werk.reise.format)
     }
 
     var body: some View {
@@ -44,7 +49,10 @@ struct UmschlagView: View {
 
                 if umschlag.alsBogen {
                     ruecken
-                    if umschlag.rueckenZeigen { rueckentabelle }
+                    if umschlag.rueckenZeigen {
+                        vorlagentabelle
+                        rueckentabelle
+                    }
                     rueckseite
                 }
 
@@ -107,11 +115,99 @@ struct UmschlagView: View {
         }
     }
 
-    // DIE TABELLE DES DRUCKDIENSTES (ab 1.0.52). Eingetragen und nicht
-    // mitgeliefert: Was Saal Digital, epubli oder BoD an Rückenbreiten
-    // nennen, steht in deren Unterlagen und ändert sich mit dem Papier.
-    // Eine Tabelle, die diese App nach Gefühl mitbrächte, sähe aus wie
-    // eine Auskunft des Anbieters und wäre geraten.
+    // DIE GEMESSENEN TABELLEN (ab 1.0.54).
+    //
+    // Sie sind nicht geraten, sondern aus dem PDF abgelesen, das der
+    // Nutzer geschickt hat — deshalb stehen der Anbieter, das Produkt und
+    // der Tag der Ablesung dabei. Welche gilt, entscheidet das
+    // Seitenformat; wer ein eigenes Maß eingetippt hat, wählt sie von
+    // Hand, und wer gar keine will, schaltet sie ab.
+    private var vorlagentabelle: some View {
+        Section {
+            Picker("Tabelle", selection: vorlagenwahl) {
+                Text("Automatisch nach Format").tag(Tabellenwahl.automatisch)
+                ForEach(Rueckentabellen.alle) { vorlage in
+                    Text(vorlage.produkt).tag(Tabellenwahl.vorlage(vorlage.id))
+                }
+                Text("Keine").tag(Tabellenwahl.keine)
+            }
+            if let vorlage = geltendeVorlage {
+                LabeledContent("Stufen",
+                               value: "\(vorlage.stufen.count) \u{00B7} \(vorlage.spanne)")
+                Button("Zeilen in die eigene Tabelle übernehmen") {
+                    vorlageUebernehmen(vorlage)
+                }
+            }
+        } header: {
+            Text("Gemessene Tabelle")
+        } footer: {
+            Text(vorlagenhinweis)
+        }
+    }
+
+    private enum Tabellenwahl: Hashable {
+        case automatisch
+        case keine
+        case vorlage(String)
+    }
+
+    private var vorlagenwahl: Binding<Tabellenwahl> {
+        Binding(
+            get: {
+                if umschlag.ohneVorlage { return .keine }
+                if let id = umschlag.tabellenvorlage { return .vorlage(id) }
+                return .automatisch
+            },
+            set: { neu in
+                switch neu {
+                case .automatisch:
+                    werk.reise.umschlag.ohneVorlage = false
+                    werk.reise.umschlag.tabellenvorlage = nil
+                case .keine:
+                    werk.reise.umschlag.ohneVorlage = true
+                    werk.reise.umschlag.tabellenvorlage = nil
+                case let .vorlage(id):
+                    werk.reise.umschlag.ohneVorlage = false
+                    werk.reise.umschlag.tabellenvorlage = id
+                }
+            }
+        )
+    }
+
+    // Übernommen wird in die EIGENE Tabelle, nicht als zweite Quelle
+    // daneben: Wer die Zahlen ändern will, will sie danach auch vor sich
+    // sehen. Die Vorlage bleibt daneben stehen und tritt nur zurück —
+    // eigene Zeilen haben Vortritt.
+    private func vorlageUebernehmen(_ vorlage: Rueckentabellen.Vorlage) {
+        werk.merken()
+        werk.reise.umschlag.rueckentabelle = vorlage.stufen
+        werk.meldung = .init(text: "\(vorlage.stufen.count) Zeilen übernommen.")
+    }
+
+    private var vorlagenhinweis: String {
+        var text = ""
+        if let vorlage = geltendeVorlage {
+            text += "Es gilt \u{201E}\(vorlage.name)\u{201C}. " + vorlage.quelle + " "
+            text += "Sie sagt etwas zu Büchern von 26 bis \(vorlage.bisSeiten) Innenseiten; "
+            text += "darunter und darüber wird wieder gerechnet. "
+            text += "Dein Buch hat \(werk.reise.innenseiten). "
+        } else if umschlag.ohneVorlage {
+            text += "Abgeschaltet \u{2014} es gilt die eigene Tabelle unten, sonst die Rechnung. "
+        } else {
+            text += "Zum Format \(werk.reise.format.masstext) passt keine der gemessenen "
+            text += "Tabellen. Wähle eine von Hand, wenn dein Druckdienst dieselbe benutzt. "
+        }
+        text += "Abgelesen sind PIXEL: Saal gibt den Rücken als Bildbreite samt Auflösung an "
+        text += "(142 px bei 300 dpi), das sind 12,02 mm. Hier stehen die ganzen Millimeter; "
+        text += "die Rundung beträgt höchstens 0,05 mm. "
+        text += "Verbindlich bleibt die Angabe des Druckdienstes \u{2014} die Maße der Vorlagen "
+        text += "gehen bei Saal um bis zu einen Zentimeter vom Produktnamen ab, "
+        text += "deshalb greift die Zuordnung über das Format großzügig."
+        return text
+    }
+
+    // DIE EIGENE TABELLE (ab 1.0.52). Was hier steht, hat der Nutzer von
+    // seinem Druckdienst — und geht deshalb jeder mitgelieferten vor.
     private var rueckentabelle: some View {
         Section {
             ForEach(umschlag.rueckentabelle.sorted { $0.abSeiten < $1.abSeiten }) { stufe in
@@ -140,7 +236,7 @@ struct UmschlagView: View {
                     .disabled(neueStufe == nil)
             }
         } header: {
-            Text("Tabelle des Druckdienstes")
+            Text("Eigene Tabelle")
         } footer: {
             Text(tabellenhinweis)
         }
@@ -183,11 +279,11 @@ struct UmschlagView: View {
         text += "Genommen wird die letzte Zeile, deren Seitenzahl das Buch erreicht; "
         text += "die geltende steht farbig. "
         if umschlag.rueckentabelle.isEmpty {
-            text += "Noch keine Zeile eingetragen — solange bleibt es bei der Rechnung darüber. "
+            text += "Noch keine eigene Zeile \u{2014} solange gilt die gemessene Tabelle "
+            text += "darüber, und wo auch die nichts sagt, die Rechnung. "
         }
-        text += "Diese Zahlen kommen aus den Unterlagen des Druckdienstes und werden hier "
-        text += "bewusst nicht mitgeliefert: Sie ändern sich mit dem Papier, und eine geratene "
-        text += "Tabelle sähe aus wie eine Auskunft des Anbieters. "
+        text += "Eigene Zeilen gehen jeder mitgelieferten Tabelle vor: Was hier steht, "
+        text += "hast du von deinem Druckdienst. "
         text += "Sie gilt für das Format und die Bindung, für die der Anbieter sie nennt \u{2014} "
         text += "nach einem Formatwechsel also nachsehen; mitgerechnet wird sie nicht."
         return text
@@ -196,9 +292,11 @@ struct UmschlagView: View {
     private var rueckenhinweis: String {
         let seiten = werk.reise.innenseiten
         var text = "Leer heißt: der Titel des Buches. "
-        if umschlag.tabellenbreite(innenseiten: seiten) != nil {
-            text += "Die Rückenbreite kommt gerade aus der Tabelle unten \u{2014} "
-            text += "die Rechnung aus Papierstärke und Einband ruht so lange. "
+        if umschlag.tabellenbreite(innenseiten: seiten, format: werk.reise.format) != nil {
+            text += "Die Rückenbreite kommt gerade "
+            text += Umschlagmass.rueckenherkunft(umschlag, format: werk.reise.format,
+                                                 innenseiten: seiten)
+            text += " \u{2014} die Rechnung aus Papierstärke und Einband ruht so lange. "
             text += "Der Innenteil hat \(seiten) Seiten. "
         } else {
             text += "Der Innenteil hat \(seiten) Seiten, also "

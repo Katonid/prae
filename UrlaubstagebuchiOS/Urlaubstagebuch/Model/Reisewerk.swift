@@ -401,6 +401,14 @@ final class Reisewerk: ObservableObject, Identifiable {
     // trägt, und sie gilt danach für jede Karte des Tages. Mehrere Karten
     // mit verschiedenen Einstellungen gibt es nur über eine Kopie, und die
     // ist nach dem Neusetzen ohnehin weg.
+    //
+    // Seit 1.0.54 hängt dasselbe an der Wasserzeichen-Korrektur. Sie wird
+    // nach der STELLE im Tag übernommen und nicht nach der Kennung: Die
+    // neuen Seiten haben neue Kennungen, und damit zieht die Automatik
+    // ohnehin einen anderen Winkel und sucht eine andere Stelle. Die
+    // Korrektur bleibt also am PLATZ im Tag hängen und nicht am Inhalt —
+    // das ist eine Entscheidung und keine Messung, und die Oberfläche sagt
+    // sie auch.
     private func seitenNeuSetzen(_ stelle: Int, mit werkzeug: Layoutautomat) {
         var bild: Kartenbild?
         var ausschnitt: Kartenausschnitt?
@@ -410,7 +418,11 @@ final class Reisewerk: ObservableObject, Identifiable {
                 if ausschnitt == nil { ausschnitt = block.kartenausschnitt }
             }
         }
+        let zeichen = reise.tage[stelle].seiten.map(\.wasserzeichen)
         reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
+        for nummer in reise.tage[stelle].seiten.indices where zeichen.indices.contains(nummer) {
+            reise.tage[stelle].seiten[nummer].wasserzeichen = zeichen[nummer]
+        }
         guard bild != nil || ausschnitt != nil else { return }
         for nummer in reise.tage[stelle].seiten.indices {
             for b in reise.tage[stelle].seiten[nummer].bloecke.indices

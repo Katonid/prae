@@ -90,12 +90,14 @@ struct AusgabeView: View {
     private var umschlagzusatz: String {
         guard werk.reise.hatRueckseite else { return "" }
         let mm = Umschlagmass.rueckenbreite(werk.reise.umschlag,
+                                            format: werk.reise.format,
                                             innenseiten: werk.reise.innenseiten)
         guard mm > 0.05 else { return "" }
         let zahl = String(format: "%.1f", mm).replacingOccurrences(of: ".", with: ",")
         var text = " \u{2014} ein Bogen, Rücken \(zahl) mm. "
         text += "Die Breite ist "
         text += Umschlagmass.rueckenherkunft(werk.reise.umschlag,
+                                             format: werk.reise.format,
                                              innenseiten: werk.reise.innenseiten)
         text += "; verbindlich ist die Angabe des Druckdienstes."
         return text

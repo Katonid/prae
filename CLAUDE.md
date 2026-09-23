@@ -6819,6 +6819,138 @@ Befunde, und keiner davon war Geschmack:
   `final class` ohne `@Published`**, aus demselben Grund wie beim
   `Zeichenmesser`: Wäre es beobachtbar, löste jede Rasterung ein Neuzeichnen
   aus, das seinerseits gemeldet würde.
+- **DIE TABELLE LAG SCHON HIER — im PDF, das der Nutzer mitgeschickt hatte**
+  (`Model/Rueckentabellen.swift`, ab 1.0.54; Ansage des Nutzers 09/2026:
+  „Ich habe dir bereits eine Tabelle von Saal Digital hochgeladen. Das war
+  das PDF-Dokument mit den eingescannten Bildern. Schau dort bitte rein und
+  übernimm diese Werte."). In 1.0.52 stand an dieser Stelle das Gegenteil:
+  Die Tabelle werde „EINGETRAGEN und nicht mitgeliefert", weil sie sich von
+  hier aus nicht abrufen lasse. Für die Webseite stimmte das; die Zahlen
+  lagen trotzdem längst hier. Dieselbe Datei war in 1.0.52 schon einmal
+  untersucht worden — aber nur auf die Frage, ob ihr Seitenmaß als Beleg für
+  ein Buchformat taugt, und die Antwort („sie enthält nur Bilddaten") wurde
+  zur Auskunft über ihren INHALT verallgemeinert. **Merke: Bevor etwas als
+  unerreichbar gilt, wird nachgesehen, was schon dasteht — und ein Befund
+  über eine Datei beantwortet nur die Frage, die ihm gestellt wurde.**
+- **Gelesen wurde aus den BILDDATEN, nicht aus Textzügen** (23.09.2026). Das
+  PDF trägt neun Bildschirmfotos zu je 2048 × 2732 Bildpunkten, flate-gepackt
+  in einem ICC-RGB-Raum und ohne einen einzigen Textzug. Entpackt und
+  angesehen ergeben sie drei vollständige Tabellen: „Fotobuch 21 × 28
+  (ca. A4)", „Fotobuch 28 × 28" und „Fotobuch 28 × 19 (ca. A4 quer)", jeweils
+  Hardcover, jeweils von 26 bis 160 Innenseiten. **Damit ist auch die Frage
+  aus 1.0.52 beantwortet, welche drei Formate der Nutzer meint.**
+- **Was dort steht, sind PIXEL.** Saal gibt den Buchrücken als Bildbreite
+  samt Auflösung an — 142 px bei 300 dpi, beim Querformat 143 px bei 302 dpi;
+  das sind 12,02 bzw. 12,03 mm. Alle drei Tabellen ergeben dieselbe Leiter
+  aus ganzen Millimetern, und die größte Abweichung dabei ist 0,05 mm. Im
+  Quelltext stehen deshalb die ganzen Millimeter, die Pixelwerte daneben im
+  Kommentar: Das ist eine Rundung und keine Erfindung.
+- **Zwei Eigenarten der Leiter sind übernommen, nicht geglättet.** Sie
+  überspringt 17 und 23 mm (189 → 213 px, 260 → 283 px), und die Formate
+  unterscheiden sich NICHT in den Millimetern, sondern nur darin, bei welcher
+  Seitenzahl eine Stufe anfängt: 21 × 28 ist den beiden anderen um genau eine
+  Stufe voraus (26–28 → 12 mm, dann 30–34 → 13 mm; sonst 26–30 → 12 mm).
+  Warum, sagt die Tabelle nicht, also steht auch keine Erklärung da. Eine
+  Zeile ist nicht unmittelbar abgelesen: 72 fiel in die Lücke zwischen zwei
+  Bildschirmfotos und folgt aus ihrer Dreiergruppe — das steht so im
+  Quelltext.
+- **Über ihrer letzten Zeile schweigt eine Tabelle genauso wie unter ihrer
+  ersten** (`Vorlage.bisSeiten`, 160). Einem Buch mit 200 Seiten die 36 mm
+  der Zeile 158 zu geben wäre kein Nachschlagen mehr, sondern eine
+  Hochrechnung — dort wird wieder gerechnet. Die EIGENE, eingetippte Tabelle
+  hat diese Grenze nicht: Sie gehört dem Nutzer, und was er einträgt, gilt.
+- **Eigene Zeilen gehen jeder mitgelieferten Tabelle vor** (`Umschlag.tabellenbreite`).
+  Was jemand selbst einträgt, hat er von seinem Druckdienst; was hier
+  beiliegt, ist von einem Bildschirmfoto abgelesen. Die Reihenfolge ist
+  damit: eigene Tabelle, eingebaute Tabelle, Rechnung aus Papierstärke und
+  Einband — und `rueckenherkunft` nennt bei jeder Zahl, welche der drei es
+  war. Eine abgelesene Zahl als Rechnung auszugeben (oder umgekehrt) wäre
+  genau die Art Lüge, die diese App nicht erzählt.
+- **Welche Tabelle gilt, entscheidet das SEITENFORMAT — mit großzügiger
+  Toleranz, und die ist gemessen.** Der Produktname und das Maß der
+  mitgelieferten Vorlage gehen bei Saal auseinander: Die Innenseiten-Vorlage
+  des „21 × 28" misst 5031 × 3260 px bei 300 dpi, abzüglich der angegebenen
+  35 px Beschnitt also 420,0 × 270,1 mm — zwei Seiten von **210 × 270**.
+  Beim „28 × 28" sind es 270 × 270, beim „28 × 19" 280 × 188. Eine Toleranz
+  unter einem Zentimeter verfehlte damit genau das Format, für das die
+  Tabelle gedacht ist; sie steht auf 12 mm. **Die Maße der Vorlagen folgen
+  trotzdem dem PRODUKTNAMEN**, und die abweichende Messung steht als Messung
+  daneben: Welches von beidem die Druckerei schneidet, sagt der Anbieter und
+  nicht diese App.
+- **Verglichen wird das ungeordnete PAAR der Kanten.** Ob ein Buch hoch oder
+  quer steht, ändert am Papier nichts, und die Dicke hängt am Papier — Saals
+  eigene Zahlen belegen das, denn 28 × 19 quer trägt dieselbe Millimeterleiter
+  wie 28 × 28.
+- **Der Nutzer kann die Zuordnung übergehen** (`Umschlag.tabellenvorlage`,
+  `.ohneVorlage`). „Nichts gewählt" und „ausdrücklich keine" sind zwei
+  verschiedene Aussagen und stehen deshalb in zwei Feldern — dieselbe Lehre
+  wie bei `Block.ohneGrund` seit 1.0.12. Dazu ein Knopf, der die Zeilen in
+  die eigene Tabelle übernimmt: Wer die Zahlen ändern will, will sie danach
+  auch vor sich sehen.
+- **DIE AUTOMATIK GAB ES, DIE KORREKTUR NICHT** (`Wasserzeichenabweichung`,
+  `Views/WasserzeichenSeiteView.swift`, ab 1.0.54; Ansage des Nutzers
+  09/2026: „Ich habe mich unpräzise ausgedrückt. Bei dem Wasserzeichen hätte
+  ich gerne eine automatische Ausrichtung durch dich im einstellbaren
+  Toleranzbereich … Dennoch soll es mir möglich sein, einzelne Seiten
+  bezüglich des Wasserzeichens noch anzupassen und die Drehung oder eine
+  Verschiebung zu korrigieren. Offenbar hast du mich falsch verstanden.").
+  Die automatische Hälfte war gebaut: Die LAGE wird seit 1.0.46 auf jeder
+  Seite neu gesucht, der WINKEL seit 1.0.52 je Seite aus ihrer Kennung
+  gezogen. Was fehlte, ist die zweite Hälfte — und im Quelltext stand sogar
+  wörtlich das Gegenteil davon („die Seite selbst kann nichts davon
+  abweichen — genau das ist der Sinn eines Wasserzeichens"). **Merke: Wo ein
+  Nutzer sagt, er sei missverstanden worden, ist zuerst zu prüfen, welche
+  Hälfte seiner Bitte schon dasteht — und dann die andere zu bauen, nicht
+  die erste noch einmal.**
+- **Abweichung, keine Kopie.** `Seite.wasserzeichen` ist wahlweise; `nil`
+  heißt „ganz automatisch", ein eigener Winkel `nil` heißt „der gezogene".
+  Würde eine angefasste Seite alle Werte kopieren, wäre jede spätere Änderung
+  an Größe, Deckkraft oder Drehspanne an ihr wirkungslos — und zwar
+  unsichtbar. Dieselbe Regel wie bei `Schriftabweichung`, `Block.wirkung` und
+  `Kartenwahl`. Eine Abweichung, die nichts mehr sagt, wird wieder `nil`:
+  Sonst zählte die Druckprüfung eine Korrektur, die keine ist.
+- **Aufgelöst wird an EINER Stelle** (`Wasserzeichenlage.ort`), gefragt von
+  der Ansicht UND vom PDF. Der eigene Winkel gilt auch dann, wenn die
+  Drehung im Buch ausgeschaltet ist — wer eine einzelne Seite schräg haben
+  will, sagt das dort. Und die Verschiebung bleibt IM SATZSPIEGEL: Dieselbe
+  Grenze gilt für die Automatik, und was darüber hinausginge, wäre im Druck
+  angeschnitten. Die Oberfläche schreibt das hin, statt den Regler ins Leere
+  laufen zu lassen.
+- **Der Versatz ist eine LÄNGE und wird beim Formatwechsel mitgerechnet**,
+  der Winkel nicht — dieselbe Trennung wie zwischen Blockrahmen und
+  Blockdrehung seit 1.0.27.
+- **Ohne Rettung wäre die Korrektur nach dem nächsten Neuanordnen weg**
+  (`Reisewerk.seitenNeuSetzen`). Der Layoutautomat baut die Seiten frisch;
+  übernommen wird die Korrektur nach der STELLE im Tag und nicht nach der
+  Kennung, denn die neuen Seiten haben neue — und damit zieht die Automatik
+  ohnehin einen anderen Winkel. Das ist eine Entscheidung und keine Messung,
+  und die Oberfläche sagt sie auch. Dasselbe Muster wie die Karteneinstellung
+  seit 1.0.51: **Es gibt genau EINEN Weg, der Seiten setzt, und wer einen
+  zweiten baut, ruft diesen hier.**
+- **Eine Wasserzeichen-Korrektur ist KEINE Handarbeit am Satz.** Sie setzt
+  `vonHand` nicht — sonst fiele ein Tag wegen eines halben Grads für immer
+  aus dem automatischen Neuanordnen heraus; dieselbe Überlegung wie bei
+  `karteAendern` seit 1.0.51. Genau deshalb muss die Rettung darüber
+  existieren.
+- **Die Oberfläche zeigt die Automatik, statt sie zu behaupten.** Das Blatt
+  nennt den Winkel, den diese Seite automatisch bekommt, und zeichnet eine
+  SKIZZE: Satzspiegel, die Blöcke als graue Flächen, das Zeichen an seiner
+  gerechneten Stelle und in seinem gerechneten Winkel — gezeichnet aus
+  demselben `ort`, den auch das PDF fragt. Dass Winkel und Lage von Seite zu
+  Seite wechseln, lässt sich hinschreiben; hier steht es als Zahl und als
+  Bild. Das ist die halbe Antwort auf „offenbar hast du mich falsch
+  verstanden".
+- **Nicht gemessen (1.0.54):** Keine Seite ist damit gesehen und keine
+  Umschlagdatei gedruckt worden. **Gemessen ist das Ablesen** — die Pixel-
+  und dpi-Werte, die Millimeterleiter, die Vorlagenmaße der Innenseiten —,
+  und es ist an Bildschirmfotos abgelesen und nicht an einer Datei des
+  Anbieters. Ändert Saal sein Papier, ändert sich die Tabelle, und diese App
+  merkt davon nichts; verbindlich bleibt die Angabe des Druckdienstes.
+  **Gewählt und nicht gemessen** sind die Toleranz der Formatzuordnung
+  (12 mm) und die Reglerweite der Verschiebung (halbe Satzbreite bzw.
+  -höhe). Ungeprüft ist, ob eine per Hand gedrehte Seite im PDF so steht wie
+  auf dem Bildschirm — gerechnet wird es aus derselben Funktion, gesehen hat
+  es niemand. **Nichts davon als erledigt darstellen.**
 - **Nicht gemessen (1.0.53):** Keine Seite ist damit gesehen worden.
   Gerechnet und am Quelltext abgezählt ist die URSACHE — dass eine Ebene mit
   ihrem `contentsScale` rastert und ein `scaleEffect` das Ergebnis dehnt.
@@ -7235,7 +7367,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.52 (Build 53). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.54 (Build 55). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

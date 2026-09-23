@@ -6,8 +6,14 @@ import UniformTypeIdentifiers
 //
 // Ansage des Nutzers, 09/2026: ein Ahornblatt, halbdurchsichtig, möglichst
 // dort, wo sonst nichts steht. Was hier eingestellt wird, gilt für das
-// ganze Buch; die Seite selbst kann nichts davon abweichen — genau das ist
-// der Sinn eines Wasserzeichens.
+// ganze Buch.
+//
+// Bis 1.0.53 stand hier, die Seite selbst könne nichts davon abweichen —
+// „genau das ist der Sinn eines Wasserzeichens". Der Satz ist seit 1.0.54
+// falsch: Lage und Winkel sucht die Automatik weiterhin je Seite, und wo
+// sie danebenliegt, lässt sich EINE Seite nachstellen (nichts auswählen →
+// Pinsel → Wasserzeichen). Dieses Blatt bleibt das Buchganze; die
+// Korrektur ist eine Abweichung davon.
 struct WasserzeichenView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
@@ -143,7 +149,9 @@ struct WasserzeichenView: View {
         text += "Dieselbe Seite steht beim nächsten Öffnen wieder gleich schief, "
         text += "und das PDF zeigt genau das, was hier zu sehen ist. "
         text += "Der Platz für das Zeichen wird dabei mitgerechnet \u{2014} "
-        text += "gedreht braucht es mehr, und sonst ragte es über den Satzspiegel."
+        text += "gedreht braucht es mehr, und sonst ragte es über den Satzspiegel. "
+        text += "Eine einzelne Seite lässt sich nachstellen: nichts auswählen, dann "
+        text += "Pinsel \u{2192} Wasserzeichen."
         return text
     }
 
@@ -156,7 +164,10 @@ struct WasserzeichenView: View {
             text += "und nicht nirgends."
             return text
         }
-        return "Feste Lage im Satzspiegel. Auf Seiten mit einem randabfallenden Foto verschwindet das Zeichen dann unter dem Bild."
+        var text = "Feste Lage im Satzspiegel. Auf Seiten mit einem randabfallenden Foto "
+        text += "verschwindet das Zeichen dann unter dem Bild \u{2014} eine einzelne Seite "
+        text += "lässt sich nachstellen: nichts auswählen, dann Pinsel \u{2192} Wasserzeichen."
+        return text
     }
 
     // MARK: - Probe

@@ -205,9 +205,24 @@ struct Seitenformat: Codable, Hashable, Identifiable {
     static let foto21x28 = Seitenformat(breite: 210, hoehe: 280, vorlage: "foto21x28")
     static let foto28x21 = Seitenformat(breite: 280, hoehe: 210, vorlage: "foto28x21")
 
+    // Welche drei Formate der Nutzer meint, ist seit 1.0.54 beantwortet —
+    // und zwar aus seinem eigenen PDF: Die drei Tabellen darin gehören zu
+    // „Fotobuch 21 × 28 (ca. A4)", „Fotobuch 28 × 28" und „Fotobuch 28 × 19
+    // (ca. A4 quer)". Die ersten beiden gab es hier schon (`foto21x28`,
+    // `quadrat28`), das Querformat fehlte.
+    //
+    // **Die Maße folgen weiterhin dem PRODUKTNAMEN und sind nicht
+    // gemessen** — und diesmal ist bekannt, dass beides auseinandergeht:
+    // Die Innenseiten-Vorlage des „21 × 28" misst abzüglich Beschnitt
+    // 210 × 270 mm, die des „28 × 28" 270 × 270 und die des „28 × 19"
+    // 280 × 188. Welches von beidem die Druckerei schneidet, sagt der
+    // Anbieter und nicht diese App; wer es genau braucht, tippt das Maß
+    // ein und sichert es als eigene Vorlage.
+    static let foto28x19 = Seitenformat(breite: 280, hoehe: 190, vorlage: "foto28x19")
+
     static let vorlagen: [Seitenformat] = [
         .a4hoch, .a4quer, .a5hoch, .a5quer,
-        .foto21x28, .foto28x21,
+        .foto21x28, .foto28x21, .foto28x19,
         .quadrat21, .quadrat28, .quadrat30,
     ]
 
@@ -249,6 +264,7 @@ struct Seitenformat: Codable, Hashable, Identifiable {
         case "quadrat30": return "30 \u{00D7} 30 cm"
         case "foto21x28": return "21 \u{00D7} 28 cm hoch"
         case "foto28x21": return "28 \u{00D7} 21 cm quer"
+        case "foto28x19": return "28 \u{00D7} 19 cm quer"
         default: return "Eigenes Ma\u{00DF}"
         }
     }

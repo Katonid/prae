@@ -120,6 +120,56 @@ struct Wasserzeichen: Codable, Hashable {
     var gueltig: Bool { !datei.isEmpty }
 }
 
+// EINE KORREKTUR FÜR GENAU EINE SEITE (ab 1.0.54).
+//
+// Ansage des Nutzers, 09/2026: „Bei dem Wasserzeichen hätte ich gerne eine
+// automatische Ausrichtung durch dich im einstellbaren Toleranzbereich.
+// Das heißt, das Wasserzeichen soll auf jeder Seite anders zu liegen
+// kommen, damit es nicht langweilig wird. Bis zum eingestellten
+// Drehwinkel. Dennoch soll es mir möglich sein, einzelne Seiten bezüglich
+// des Wasserzeichens noch anzupassen und die Drehung oder eine
+// Verschiebung zu korrigieren."
+//
+// Die automatische Hälfte gab es schon: Die LAGE wird seit 1.0.46 auf
+// jeder Seite neu gesucht, der WINKEL seit 1.0.52 je Seite aus ihrer
+// Kennung gezogen. Was fehlte, ist die zweite Hälfte — von Hand
+// nachbessern zu können, wo die Automatik danebenliegt. In 1.0.52 stand
+// sogar wörtlich das Gegenteil im Quelltext („die Seite selbst kann nichts
+// davon abweichen"), und genau das ist jetzt falsch.
+//
+// **Abweichung, keine Kopie** — dieselbe Regel wie bei
+// `Schriftabweichung`, `Block.wirkung` und `Kartenwahl`: `nil` heißt
+// „automatisch", und wer am Buch etwas ändert, ändert es damit auch hier
+// mit. Würde eine angefasste Seite alle Werte kopieren, wäre jede spätere
+// Änderung an Größe, Deckkraft oder Drehspanne an ihr wirkungslos — und
+// zwar unsichtbar.
+struct Wasserzeichenabweichung: Codable, Hashable {
+    /// Ein eigener Winkel in Grad. `nil` heißt: der automatisch gezogene.
+    /// Gedeckelt wird er beim Lesen, nicht beim Schreiben — eine Datei aus
+    /// einer späteren Fassung darf keine Seite auf den Kopf stellen.
+    var winkel: Double?
+
+    /// Wie weit das Zeichen gegen seine automatische Stelle verschoben
+    /// wird, in MILLIMETERN. Eine Länge, also wird sie beim Formatwechsel
+    /// mitgerechnet — anders als `Wasserzeichen.anteil`, der ein Anteil
+    /// ist, und anders als der Winkel.
+    var versatzX: Double = 0
+    var versatzY: Double = 0
+
+    var gesetzt: Bool {
+        winkel != nil || abs(versatzX) > 0.01 || abs(versatzY) > 0.01
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        winkel = b.wahlweise(.winkel)
+        versatzX = b.wert(.versatzX, 0.0)
+        versatzY = b.wert(.versatzY, 0.0)
+    }
+}
+
 // WO das Zeichen auf einer Seite liegt.
 //
 // Gerechnet an EINER Stelle, gefragt von der Ansicht UND vom PDF. Zwei
@@ -191,7 +241,8 @@ enum Wasserzeichenlage {
                           height: Double(bild.height) * deckel)
             platz = umschliessend(bild, winkel: winkel)
         }
-        let rahmen = rechteck(zeichen, satz: satz, seite: seite, mass: platz)
+        var rahmen = rechteck(zeichen, satz: satz, seite: seite, mass: platz)
+        rahmen = verschoben(rahmen, seite: seite, satz: satz)
         let bildrahmen = CGRect(x: Double(rahmen.midX) - Double(bild.width) / 2,
                                 y: Double(rahmen.midY) - Double(bild.height) / 2,
                                 width: Double(bild.width), height: Double(bild.height))
@@ -201,6 +252,20 @@ enum Wasserzeichenlage {
     // Der Winkel dieser Seite. Gleichverteilt über die Spanne, gezogen aus
     // der Kennung der Seite — dieselbe Seite bekommt immer denselben.
     static func drehwinkel(_ zeichen: Wasserzeichen, seite: Seite) -> Double {
+        // Eine Korrektur dieser Seite schlägt die Automatik — und sie gilt
+        // AUCH DANN, wenn das Buch gar nicht gedreht sein soll: Wer eine
+        // einzelne Seite schräg haben will, sagt das hier.
+        if let eigen = seite.wasserzeichen?.winkel {
+            return min(max(eigen, -Wasserzeichen.groessteDrehung),
+                       Wasserzeichen.groessteDrehung)
+        }
+        return automatischerWinkel(zeichen, seite: seite)
+    }
+
+    /// Der Winkel, den die Automatik dieser Seite gibt — ohne jede
+    /// Korrektur. Gebraucht in der Oberfläche: Wer nachbessern will, muss
+    /// sehen, wovon er abweicht.
+    static func automatischerWinkel(_ zeichen: Wasserzeichen, seite: Seite) -> Double {
         let spanne = min(max(zeichen.drehspanne, 0), Wasserzeichen.groessteDrehung)
         guard spanne > 0.01 else { return 0 }
         // Eine zweite, andere Zahl aus derselben Kennung: Die Lage nimmt
@@ -321,6 +386,29 @@ enum Wasserzeichenlage {
             summe += Double(schnitt.width) * Double(schnitt.height) * gewicht(block.inhalt)
         }
         return summe / flaeche
+    }
+
+    // Die Verschiebung dieser Seite — und sie bleibt IM SATZSPIEGEL.
+    //
+    // Das ist dieselbe Grenze, die für die Automatik gilt: Ein Zeichen,
+    // das über den Satzspiegel ragt, wäre im Druck angeschnitten. Wer es
+    // ganz an den Rand schiebt, bekommt es dort und nicht darüber hinaus;
+    // die Oberfläche schreibt das hin, statt den Regler ins Leere laufen
+    // zu lassen.
+    static func verschoben(_ rahmen: CGRect, seite: Seite, satz: CGRect) -> CGRect {
+        guard let eigen = seite.wasserzeichen, eigen.gesetzt else { return rahmen }
+        let x = Double(rahmen.minX) + Druckmass.pt(eigen.versatzX)
+        let y = Double(rahmen.minY) + Druckmass.pt(eigen.versatzY)
+        let breite = Double(rahmen.width)
+        let hoehe = Double(rahmen.height)
+        // Passt das Zeichen gar nicht mehr in den Satzspiegel — das kann
+        // bei einem sehr großen Anteil vorkommen —, bleibt es, wo es ist:
+        // Ein negativer Spielraum ergäbe sonst eine Klemmung nach hinten.
+        let platzX = Double(satz.width) - breite
+        let platzY = Double(satz.height) - hoehe
+        let neuX = platzX > 0 ? min(max(x, Double(satz.minX)), Double(satz.minX) + platzX) : x
+        let neuY = platzY > 0 ? min(max(y, Double(satz.minY)), Double(satz.minY) + platzY) : y
+        return CGRect(x: neuX, y: neuY, width: breite, height: hoehe)
     }
 
     // Ein Bild wird EINGEPASST und nie gefüllt: Ein beschnittenes
