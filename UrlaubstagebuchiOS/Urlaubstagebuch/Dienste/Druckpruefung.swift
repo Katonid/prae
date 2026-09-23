@@ -856,7 +856,7 @@ enum Druckpruefung {
     // Bild eines Buches; bis 1.0.58 wurde es überhaupt nicht angesehen.
     private static func bildaufloesung(_ reise: Reise) -> [Zeile] {
         let kante = Bildguete.vorgabe.kante
-        let alle = Ausgabeguete.bilder(reise, kante: kante)
+        let alle = Ausgabeguete.bilder(reise, guete: Bildguete.vorgabe)
         guard let schwaechste = alle.min(by: { $0.dpi < $1.dpi }) else { return [] }
         let unterGrenze = alle.filter { $0.dpi < Druckmass.dpiGrenze }.count
         let unterGut = alle.filter { $0.dpi >= Druckmass.dpiGrenze && $0.dpi < Druckmass.dpiGut }.count
@@ -870,7 +870,10 @@ enum Druckpruefung {
         // beheben.
         let gedeckelt = alle.filter { $0.ohneDeckel > $0.dpi + 1 && $0.dpi < Druckmass.dpiGut }.count
         var nachsatz = " Gerechnet mit der Bildgüte \u{201E}\(Bildguete.vorgabe.name)\u{201C} "
-        nachsatz += "(\(kante) Bildpunkte je Kante) — das ist die Vorwahl beim Ausgeben."
+        nachsatz += "(\(Int(Bildguete.vorgabe.zieldpi)) dpi, höchstens \(kante) Bildpunkte "
+        nachsatz += "je Kante) — das ist die Vorwahl beim Ausgeben. Seit 1.0.70 bekommt "
+        nachsatz += "jedes Bild genau so viele Bildpunkte, wie sein Platz auf dem Papier "
+        nachsatz += "trägt; mehr davon wäre Dateigröße ohne Bild."
         if gedeckelt > 0 {
             nachsatz += " Bei \(gedeckelt) Bildern ist diese Grenze der Grund und nicht die "
             nachsatz += "Aufnahme; mit \u{201E}Volle Auflösung\u{201C} werden sie feiner."

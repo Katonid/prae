@@ -26,6 +26,7 @@ struct AusgabeView: View {
     // Buches, und der Körper einer Ansicht läuft bei jedem Neuzeichnen
     // (dieselbe Falle wie bei der Druckprüfung in 1.0.0).
     @State private var gueteBefund = ""
+    @State private var groessenbefund = ""
     @State private var ohneTransparenz = false
     @State private var umfang: Umfang
     @State private var drucken = false
@@ -83,6 +84,7 @@ struct AusgabeView: View {
         case getrennt
         case nurUmschlag
         case nurInnenteil
+        case doppelseiten
         case broschuere
 
         var id: String { rawValue }
@@ -92,6 +94,7 @@ struct AusgabeView: View {
             case .getrennt: return "Umschlag als eigene Datei"
             case .nurUmschlag: return "Nur der Umschlagbogen"
             case .nurInnenteil: return "Nur die Buchseiten"
+            case .doppelseiten: return "Doppelseiten (zwei auf einen Bogen)"
             case .broschuere: return "Broschüre zum Selberfalten"
             }
         }
@@ -106,10 +109,45 @@ struct AusgabeView: View {
                 return "Nur der Umschlagbogen, ohne eine einzige Buchseite. Für den Fall, dass am Umschlag etwas zu ändern war und der Innenteil schon liegt — der ist bei einem vollen Buch mehrere Gigabyte groß und braucht seine Zeit."
             case .nurInnenteil:
                 return "Nur die Buchseiten, ohne den Umschlagbogen. Die Gegenrichtung zu „Nur der Umschlagbogen“: Beide zusammen ergeben dasselbe wie „Umschlag als eigene Datei“, nur eben zu zwei Zeitpunkten."
+            case .doppelseiten:
+                return "Zwei Buchseiten auf eine PDF-Seite, links die gerade Nummer — so, wie das aufgeschlagene Buch aussieht. Der Bogen ist doppelt so breit wie eine Seite. Manche Fotobuchdienste wollen genau das. Der Umschlag gehört nicht hinein; den gibt es einzeln."
             case .broschuere:
                 return "Zwei Seiten nebeneinander auf einen Bogen, in Heftfolge. Für den eigenen Drucker: beidseitig ausdrucken, in der Mitte falten, heften."
             }
         }
+    }
+
+    // WAS AUS DER PAARUNG GEWORDEN IST — als Zahl, nicht als Zusage.
+    //
+    // Ein halber erster und ein halber letzter Bogen sind Buchbinderei und
+    // sehen trotzdem wie ein Fehler aus, wenn niemand sie benennt. Gebaut
+    // wird der Satz Stück für Stück und nicht als Kette aus `?:`, `+` und
+    // Interpolation — daran hat sich in 1.0.38 der Typprüfer verschluckt.
+    private var doppelseitenzeile: Druckpruefung.Zeile {
+        let befund = Buchausgabe.doppelseitenbefund(werk.reise)
+        // `Double(…)` ausdrücklich — die Falle aus 1.0.37: Wo ein Wert
+        // aus einem `CGSize` in eine eigene Größe geht, steht die
+        // Umwandlung in diesem Repo dabei.
+        let breite = Double(werk.reise.format.groesse.width) * 2
+        let hoehe = Double(werk.reise.format.groesse.height)
+        var titel = "\(befund.bogen) Doppelseiten"
+        if befund.bogen == 1 { titel = "1 Doppelseite" }
+        titel += ", je \(Druckmass.mmText(breite)) x \(Druckmass.mmText(hoehe))"
+        var text = "Links steht immer die gerade Seitenzahl, rechts die "
+        text += "ungerade \u{2014} so, wie das Buch aufgeschlagen daliegt. "
+        text += "Der Umschlag steht nicht darin."
+        var stufe = Druckpruefung.Stufe.gut
+        if befund.halbe > 0 {
+            stufe = .hinweis
+            var wieviele = "\(befund.halbe) davon tragen"
+            if befund.halbe == 1 { wieviele = "Eine davon trägt" }
+            text += " " + wieviele
+            text += " nur eine Buchseite: Seite 1 hat links von sich die "
+            text += "Innenseite des Umschlags, und am Ende des Buches ist es "
+            text += "ebenso. Diese Hälfte bleibt weiß \u{2014} sie kommt von der "
+            text += "Druckerei und steht in keinem PDF."
+        }
+        return Druckpruefung.Zeile(stufe: stufe, titel: titel, text: text)
     }
 
     // Was am Umschlagbogen zu wissen ist — die Rückenbreite und dass sie
@@ -146,6 +184,15 @@ struct AusgabeView: View {
                         Text(gueteBefund)
                             .font(.caption)
                             .foregroundStyle(.primary)
+                    }
+                    // WIE GROSS DIE DATEI WIRD, BEVOR sie geschrieben ist
+                    // (ab 1.0.70). Vorher stand die Zahl erst danach da —
+                    // nach zwanzig Minuten Rechnen und mit einer Datei, die
+                    // kein Druckdienst annimmt.
+                    if !groessenbefund.isEmpty {
+                        Text(groessenbefund)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     Picker("Anordnung", selection: $umfang) {
                         ForEach(Umfang.allCases) { u in Text(u.name).tag(u) }
@@ -249,7 +296,8 @@ struct AusgabeView: View {
             // Bei JEDEM Wechsel der Güte neu, denn genau sie ist die
             // zweite Zahl in der Rechnung.
             .task(id: guete) {
-                gueteBefund = Ausgabeguete.satz(werk.reise, kante: guete.kante)
+                gueteBefund = Ausgabeguete.satz(werk.reise, guete: guete)
+                groessenbefund = Ausgabeguete.groessenschaetzung(werk.reise, guete: guete)
             }
         }
     }
@@ -262,6 +310,7 @@ struct AusgabeView: View {
         case .getrennt: return "Zwei Dateien"
         case .nurUmschlag: return "Nur der Umschlag"
         case .nurInnenteil: return "Nur der Innenteil"
+        case .doppelseiten: return "Doppelseiten"
         case .ganzesBuch: return "Als PDF sichern"
         }
     }
@@ -290,6 +339,25 @@ struct AusgabeView: View {
         String(Int(wert.rounded()))
     }
 
+    // DER AUFTRAG STEHT AN EINER STELLE (ab 1.0.70).
+    //
+    // An der Güte hängen seither drei Zahlen und nicht mehr eine: die
+    // Höchstkante, die Ziel-dpi und die JPEG-Güte. Sechsmal derselbe
+    // Aufruf mit drei Feldern wäre sechsmal die Gelegenheit, eines zu
+    // vergessen — und ein vergessenes `jpegGuete` fällt erst an der
+    // Dateigröße auf.
+    private func auftrag(nurUmschlag: Bool = false, ohneUmschlag: Bool = false,
+                         rueckseitenDrehen: Bool = false) -> Buchausgabe.Auftrag
+    {
+        Buchausgabe.Auftrag(bildkante: guete.kante,
+                            zieldpi: guete.zieldpi,
+                            jpegGuete: guete.jpegGuete,
+                            ohneTransparenz: ohneTransparenz,
+                            nurUmschlag: nurUmschlag,
+                            ohneUmschlag: ohneUmschlag,
+                            rueckseitenDrehen: rueckseitenDrehen)
+    }
+
     private func ausgeben() async {
         laeuft = true
         fehler = nil
@@ -299,8 +367,7 @@ struct AusgabeView: View {
             if umfang == .broschuere {
                 let ziel = try await Buchausgabe.broschuere(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
-                                   rueckseitenDrehen: rueckseitenDrehen),
+                    auftrag: auftrag(rueckseitenDrehen: rueckseitenDrehen),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
                 // KEINE Druckprüfung an der Broschüre: Sie misst TrimBox und
@@ -312,6 +379,14 @@ struct AusgabeView: View {
                     stufe: .gut, titel: "Broschüre gesetzt",
                     text: broschuerenbefund)]
                 teilenliste = [ziel]
+            } else if umfang == .doppelseiten {
+                let ziel = try await Buchausgabe.doppelseitenPdf(
+                    werk.reise,
+                    auftrag: auftrag(),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                befundAmPDF = Druckpruefung.amPDF(ziel) + [doppelseitenzeile]
+                teilenliste = [ziel]
             } else if umfang == .getrennt {
                 // Viele Buchdienste wollen Umschlag und Innenteil als zwei
                 // Dateien. Ausgegeben wird dann der Innenteil als Hauptdatei
@@ -319,13 +394,11 @@ struct AusgabeView: View {
                 // und werden zusammen geteilt.
                 let umschlag = try await Buchausgabe.pdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
-                                   nurUmschlag: true),
+                    auftrag: auftrag(nurUmschlag: true),
                     fortschritt: { _ in })
                 let innen = try await Buchausgabe.pdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
-                                   ohneUmschlag: true),
+                    auftrag: auftrag(ohneUmschlag: true),
                     fortschritt: { wert in anteil = wert })
                 fertig = innen
                 befundAmPDF = Druckpruefung.amPDF(innen)
@@ -340,8 +413,7 @@ struct AusgabeView: View {
                 let nur = umfang == .nurUmschlag
                 let ziel = try await Buchausgabe.pdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
-                                   nurUmschlag: nur, ohneUmschlag: !nur),
+                    auftrag: auftrag(nurUmschlag: nur, ohneUmschlag: !nur),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
                 // Am Umschlagbogen misst die Druckprüfung TrimBox und
@@ -368,7 +440,7 @@ struct AusgabeView: View {
             } else {
                 let ziel = try await Buchausgabe.pdf(
                     werk.reise,
-                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz),
+                    auftrag: auftrag(),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
                 befundAmPDF = Druckpruefung.amPDF(ziel)

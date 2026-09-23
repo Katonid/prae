@@ -43,6 +43,62 @@ enum Seitensatz {
         arbeit()
     }
 
+    // EIN BILD ALS JPEG IN DIE DATEI (ab 1.0.70).
+    //
+    // Gemeldet 09/2026: „Die Exportdatei [wird] bei 62 Seiten … 4 Gigabyte
+    // groß. Denn das wird von den Druckdiensten leider nicht angenommen.“
+    //
+    // `UIImage.draw(in:)` schreibt in ein PDF eine UNKOMPRIMIERTE Fläche:
+    // drei Byte je Bildpunkt. Ein seitenfüllendes Foto bei 300 dpi sind so
+    // rund 25 MB, und ein Buch hat Hunderte davon. Stammt ein `CGImage`
+    // dagegen aus einem JPEG-Datenstrom, übernimmt CoreGraphics diesen
+    // Strom unverändert in die Datei, statt ihn zu entpacken.
+    //
+    // **Das ist die Erwartung und keine Messung** — gesehen hat es hier
+    // niemand. Greift es nicht, ist die Datei so groß wie vorher; kaputt
+    // ist nichts, und die kleinere Bildkante (siehe
+    // `Ausgabeguete.ausgabekante`) wirkt unabhängig davon.
+    //
+    // **Ein Bild MIT Alphakanal wird nie so geschrieben.** JPEG kennt keine
+    // Durchsichtigkeit; eine eingesetzte Grafik mit freigestelltem Grund
+    // bekäme einen weißen Kasten. Das ist die eine Stelle, an der diese
+    // Abkürzung sichtbar falsch wäre — deshalb wird sie geprüft und nicht
+    // angenommen.
+    //
+    // Gezeichnet wird mit `CGContext.draw`, und das rechnet von UNTEN
+    // links. Der Zeichenkontext dieser App ist längst umgedreht, also wird
+    // um die Mittellinie des Zielrechtecks noch einmal gespiegelt.
+    private static func jpegEingebettet(_ bild: UIImage, in ziel: CGRect, guete: Double,
+                                        zusammenhang: CGContext) -> Bool
+    {
+        guard guete > 0, let roh = bild.cgImage else { return false }
+        // Ausgeschrieben, weil `.none` sonst mit `Optional.none` streiten
+        // kann. Und: Ob ein Bild aus der Mediathek hier ohne Alphakanal
+        // ankommt, hängt daran, was ImageIO beim Verkleinern baut — das
+        // ist NICHT gemessen. Kommt es mit Alphakanal, bleibt es
+        // unkomprimiert, und die Datei ist größer als geschätzt; falsch
+        // aussehen kann dadurch nichts.
+        switch roh.alphaInfo {
+        case CGImageAlphaInfo.none, CGImageAlphaInfo.noneSkipFirst,
+             CGImageAlphaInfo.noneSkipLast:
+            break
+        default:
+            return false
+        }
+        guard let daten = bild.jpegData(compressionQuality: CGFloat(guete)),
+              let quelle = CGDataProvider(data: daten as CFData),
+              let eingebettet = CGImage(jpegDataProviderSource: quelle, decode: nil,
+                                        shouldInterpolate: true, intent: .defaultIntent)
+        else { return false }
+        zusammenhang.saveGState()
+        zusammenhang.translateBy(x: 0, y: ziel.midY)
+        zusammenhang.scaleBy(x: 1, y: -1)
+        zusammenhang.translateBy(x: 0, y: -ziel.midY)
+        zusammenhang.draw(eingebettet, in: ziel)
+        zusammenhang.restoreGState()
+        return true
+    }
+
     // Text mit CoreText. `draw(with:)` aus UIKit wäre kürzer und setzte
     // über TextKit — also über einen anderen Zeilenumbruch als den, mit dem
     // `Textmass` gerechnet hat. Ein Text, der beim Messen sechs Zeilen hatte
@@ -74,19 +130,31 @@ enum Seitensatz {
         zusammenhang.restoreGState()
     }
 
+    // `jpegGuete` ist NUR für die Ausgabe: `nil` heißt „wie bisher“, und so
+    // ruft der Bildschirm. An der LAGE ändert der Wert nichts — dasselbe
+    // Zielrechteck, derselbe Beschnitt; unterschiedlich ist allein, wie die
+    // Bildpunkte in die Datei kommen. Die erste Regel dieser App (ein
+    // Setzer für Seite und PDF) bleibt damit unangetastet.
     static func zeichneBild(_ bild: UIImage, ausschnitt: Bildausschnitt, rechteck: CGRect,
-                            in zusammenhang: CGContext, eckenradius: CGFloat)
+                            in zusammenhang: CGContext, eckenradius: CGFloat,
+                            jpegGuete: Double? = nil)
     {
         zusammenhang.saveGState()
-        mitUIKit(zusammenhang) {
-            if eckenradius > 0.5 {
-                let weg = UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius)
-                weg.addClip()
-            } else {
-                zusammenhang.clip(to: rechteck)
+        if eckenradius > 0.5 {
+            mitUIKit(zusammenhang) {
+                UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius).addClip()
             }
-            let ziel = ausschnitt.zielrechteck(bildgroesse: bild.size, rahmen: rechteck)
-            bild.draw(in: ziel)
+        } else {
+            zusammenhang.clip(to: rechteck)
+        }
+        let ziel = ausschnitt.zielrechteck(bildgroesse: bild.size, rahmen: rechteck)
+        var geschrieben = false
+        if let jpegGuete {
+            geschrieben = jpegEingebettet(bild, in: ziel, guete: jpegGuete,
+                                          zusammenhang: zusammenhang)
+        }
+        if !geschrieben {
+            mitUIKit(zusammenhang) { bild.draw(in: ziel) }
         }
         zusammenhang.restoreGState()
     }
@@ -216,6 +284,7 @@ enum Seitensatz {
     static func zeichneHintergrund(_ grund: Seitenhintergrund, rechteck: CGRect,
                                    bild: UIImage?, saat: UInt64 = 0,
                                    bildflaeche: CGRect? = nil,
+                                   jpegGuete: Double? = nil,
                                    in zusammenhang: CGContext)
     {
         zusammenhang.saveGState()
@@ -271,7 +340,14 @@ enum Seitensatz {
                 // hier `.voll`, also immer mittig.
                 let ziel = grund.ausschnitt.gefuelltesZiel(bildgroesse: kraeftig.size,
                                                            rahmen: bildflaeche ?? rechteck)
-                mitUIKit(zusammenhang) { kraeftig.draw(in: ziel) }
+                var geschrieben = false
+                if let jpegGuete {
+                    geschrieben = jpegEingebettet(kraeftig, in: ziel, guete: jpegGuete,
+                                                  zusammenhang: zusammenhang)
+                }
+                if !geschrieben {
+                    mitUIKit(zusammenhang) { kraeftig.draw(in: ziel) }
+                }
                 zusammenhang.restoreGState()
             }
             zusammenhang.setFillColor(

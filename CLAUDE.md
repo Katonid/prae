@@ -7249,6 +7249,110 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **VIER GIGABYTE WAREN DREI FEHLER AUF EINMAL** (ab 1.0.70; gemeldet
+  09/2026: „muss auch einen Link geben, dass die Exportdatei bei 62 Seiten
+  nicht 4 Gigabyte groß wird. Denn das wird von den Druckdiensten leider
+  nicht angenommen.“). Jeder für sich ist unauffällig; zusammen ergeben sie
+  eine Datei, die niemand hochladen kann.
+  - **Jedes Bild bekam dieselbe Höchstkante.** `fuerAusgabe` rechnete alles
+    auf `bildkante` herunter — ein Briefmarkenfoto auf dieselben 3600
+    Bildpunkte wie ein randabfallendes. Gedruckt wird aber eine FLÄCHE, und
+    was mehr Bildpunkte je Zoll trägt, als das Papier auflöst, ist Platz
+    ohne Bild. Gerechnet wird die Kante seit 1.0.70 je Bild aus dem Rahmen,
+    in den es gezeichnet wird (`Ausgabeguete.ausgabekante`): `ziel / 72 *
+    dpi`, gedeckelt durch die Güte. **Wer diese Rechnung ändert, ändert die
+    Prüfung mit** — `Ausgabeguete.dpi` kennt den neuen Deckel, sonst nennt
+    sie wieder eine Zahl, die die Datei nicht hält (die Lehre aus 1.0.59).
+  - **Das Wasserzeichen wurde JE SEITE frisch geladen** — mit voller
+    Höchstkante, auf jeder der 62 Seiten. Das allein sind Dutzende
+    Megabyte für ein Zeichen, das auf dem Papier eine Handbreit misst. Es
+    kommt jetzt einmal je Datei aus `wasserzeichenbilder`, in der Größe,
+    die es wirklich einnimmt. Dass CoreGraphics dasselbe `UIImage` zu
+    einem einzigen Bild in der Datei zusammenfasst, ist die Erwartung und
+    **nicht gemessen**; die kleinere Kante wirkt unabhängig davon.
+  - **`UIImage.draw(in:)` schreibt UNKOMPRIMIERT.** Drei Byte je
+    Bildpunkt — ein seitenfüllendes Foto bei 300 dpi sind rund 25 MB.
+    Stammt ein `CGImage` dagegen aus einem JPEG-Datenstrom, übernimmt
+    CoreGraphics diesen Strom unverändert (DCTDecode), statt ihn zu
+    entpacken (`Seitensatz.jpegEingebettet`). **Erwartung, keine Messung**:
+    Greift es nicht, ist die Datei so groß wie vorher, kaputt ist nichts.
+  - **Ein Bild MIT Alphakanal wird NIE als JPEG geschrieben.** JPEG kennt
+    keine Durchsichtigkeit; eine eingesetzte Grafik mit freigestelltem
+    Grund bekäme einen weißen Kasten. Das ist die eine Stelle, an der
+    diese Abkürzung sichtbar falsch wäre — deshalb wird sie geprüft und
+    nicht angenommen. **Das Wasserzeichen bleibt aus demselben Grund
+    unkomprimiert** und wird gar nicht erst gefragt.
+  - **Gezeichnet wird dann mit `CGContext.draw`, und das rechnet von UNTEN
+    links.** Der Zeichenkontext dieser App ist längst umgedreht, also wird
+    um die Mittellinie des Zielrechtecks noch einmal gespiegelt. Wer das
+    vergisst, bekommt jedes Foto auf dem Kopf — und zwar nur im PDF.
+  - **Die Güte trägt seither DREI Zahlen** (Höchstkante, Ziel-dpi,
+    JPEG-Güte), und der Auftrag wird an EINER Stelle gebaut
+    (`AusgabeView.auftrag(…)`). Sechsmal derselbe Aufruf mit drei Feldern
+    wäre sechsmal die Gelegenheit, eines zu vergessen — und ein vergessenes
+    `jpegGuete` fällt erst an der Dateigröße auf.
+  - **Die Größe steht VOR dem Ausgeben da** (`Ausgabeguete.groessenschaetzung`,
+    Zeile unter der Gütewahl). Bis 1.0.69 stand sie erst danach — nach
+    zwanzig Minuten Rechnen und mit einer Datei, die kein Dienst annimmt.
+    **Es ist eine SCHÄTZUNG und sagt das auch**: Gezählt werden die
+    Bildpunkte, die wirklich geschrieben werden; wie dicht ein JPEG die
+    packt, hängt am Motiv. Danebengestellt wird, was dieselben Bilder
+    unkomprimiert wögen — das ist die Zahl, die der Nutzer gesehen hat.
+  - **Nicht gemessen (1.0.70):** Keine Datei ist damit ausgegeben worden.
+    Gerechnet ist die Geometrie; **die beiden großen Hebel — JPEG-Strom
+    und Zusammenfassen gleicher Bilder — sind Erwartungen an CoreGraphics
+    und keine Messungen**. Was sicher wirkt, ist die kleinere Kante. Ob aus
+    vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
+    Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
+    Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **ZWEI BUCHSEITEN AUF EINE PDF-SEITE, LINKS DIE GERADE**
+  (`Buchausgabe.doppelseitenPdf`, ab 1.0.69; Ansage des Nutzers 09/2026:
+  „Offenbar will Saal Digital ein Upload eines PDF mit fertig gestalteten
+  Doppelseiten. … dass nun immer zwei Seiten, angefangen mit einer geraden
+  Seite, zusammen auf ein PDF-Seite gebracht werden, die dann die doppelte
+  Breite hat. Also wenn eine Seite hochkant 21 mal 28 cm wäre, müsste die
+  Doppelseite 42 x 28 cm sein.“).
+  - **Die Paarung wird NICHT nachgebaut.** Links die gerade Nummer, rechts die
+    ungerade — das ist dieselbe Buchbinderei, die seit 1.0.47 in `Bogenlage`
+    steht und nach der die Doppelseitenansicht auf dem Bildschirm paart.
+    Gefragt werden genau die beiden Angaben, die je eine Stelle haben:
+    `Buchseite.bogennummer` und `Buchseite.liegtRechts`. Eine zweite Zählung
+    daneben ergäbe eine Datei, die anders paart als die Vorschau — und das
+    sähe man erst im gebundenen Buch (dieselbe Lehre wie 1.0.52, wo drei
+    Stellen die Nummerierung nachbauten).
+  - **Der erste und der letzte Bogen sind HALB, und das ist richtig so.**
+    Seite 1 ist ein Recto und hat links von sich die Innenseite des Umschlags;
+    die kommt von der Druckerei und steht in keinem PDF. Ausgegeben werden sie
+    trotzdem, sonst fehlten Seite 1 und die letzte. **Die leere Hälfte wird
+    GEZÄHLT und hingeschrieben** (`doppelseitenbefund`): Ein halber Bogen sieht
+    wie ein Fehler aus, wenn niemand ihn benennt.
+  - **Der Anschnitt liegt ringsum AUSSEN, am Bund keiner.** Dort stoßen die
+    beiden Hälften aneinander; ein randabfallendes Bild liefe sonst über die
+    Nachbarseite. Dieselbe Rechnung wie beim Umschlagbogen — und deshalb
+    dieselbe Funktion: `zeichneUmschlagseite` heißt seit 1.0.69
+    `zeichneBogenhaelfte` und nimmt `ohneGrund` entgegen. Der Unterschied ist
+    keine Einstellung, sondern die Sache: Der UMSCHLAG hat EINEN Grund über den
+    ganzen Bogen (samt Rücken), eine DOPPELSEITE besteht aus zwei Buchseiten mit
+    je eigenem Hintergrund — und läuft eines über beide, rechnet
+    `Bogenlage.bildflaeche` in jeder Hälfte ihre Portion aus.
+  - **TrimBox über den GANZEN Bogen**, nicht je Hälfte: Geschnitten wird außen,
+    in der Mitte wird gebunden. Eine Schnittmarke am Bund wäre die Anweisung,
+    das Buch in der Mitte zu zerteilen — dieselbe Überlegung wie beim Umschlag
+    (1.0.50) und bei der Broschüre (1.0.27).
+  - **Nur der Buchblock** (`teil == .innen`). Der Umschlag ist ein eigenes Stück
+    Papier mit eigener Breite und eigenem Rücken und wird mit „Nur den
+    Umschlag“ einzeln ausgegeben. Gibt es keinen Umschlagbogen, ist die
+    Titelseite die gewöhnliche Seite 1 und damit von selbst dabei.
+  - **Eigener Menüpunkt „Doppelseiten ausgeben…“**, nicht nur eine Zeile im
+    Picker — der Picker im Ausgabeblatt ist der Ort, an dem in 1.0.52 zehn
+    Fassungen lang etwas stand, das niemand fand.
+  - **Nicht gemessen (1.0.69):** Keine Datei ist damit hochgeladen worden.
+    Gerechnet ist die Geometrie (zwei Endformate nebeneinander, Anschnitt nur
+    außen) und die Paarung; **ob Saal Digital genau diese Anordnung erwartet,
+    ist NICHT geprüft** — gebaut ist, was der Nutzer beschrieben hat (links die
+    gerade Zahl), und die Befundzeile nennt Zahl und Maß der Bogen, damit sich
+    das gegen die Vorgabe des Dienstes halten lässt. **Nicht als erledigt
+    darstellen.**
 - **OHNE `UIGraphicsPushContext` ZEICHNET `UIImage.draw` IN NICHTS — STILL**
   (`Seitensatz.mitUIKit`, ab 1.0.68; derselbe Befund zum zweiten Mal gemeldet,
   09/2026: „Das Bild ist leider wieder nicht mitgekommen.“, dazu ein
@@ -8404,7 +8508,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.68 (Build 69). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.70 (Build 71). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

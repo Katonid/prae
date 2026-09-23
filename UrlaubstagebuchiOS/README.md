@@ -480,6 +480,65 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Warum die Datei so groß war (1.0.70)
+
+62 Seiten ergaben vier Gigabyte — mehr, als ein Druckdienst annimmt. Daran
+waren drei Dinge schuld, und jedes für sich sah harmlos aus:
+
+1. **Jedes Bild bekam dieselbe Höchstkante.** Ein Briefmarkenfoto dieselben
+   3600 Bildpunkte wie ein randabfallendes. Gerechnet wird die Kante jetzt je
+   Bild aus dem Rahmen, in den es gezeichnet wird: so viele Bildpunkte, wie
+   sein Platz auf dem Papier bei 300 dpi trägt, und keinen mehr.
+2. **Das Wasserzeichen wurde je Seite neu geladen** — 62-mal dasselbe Bild in
+   einer Datei. Es kommt jetzt einmal, und in der Größe, die es wirklich
+   einnimmt.
+3. **Bilder standen unkomprimiert in der Datei.** Drei Byte je Bildpunkt; ein
+   seitenfüllendes Foto sind so rund 25 MB. Geschrieben wird jetzt der
+   JPEG-Strom — außer bei Bildern mit durchsichtigem Grund, denn das kann
+   JPEG nicht.
+
+Unter der Bildgütewahl steht seither eine **Schätzung der Dateigröße**, bevor
+etwas geschrieben ist, samt der Zahl, die dieselben Bilder unkomprimiert
+wögen. Sie ist gerechnet und nicht gemessen: Wie dicht ein JPEG packt, hängt
+am Motiv.
+
+**Nicht gemessen:** Zwei der drei Hebel sind Erwartungen an CoreGraphics —
+dass es einen JPEG-Strom unverändert übernimmt und gleiche Bilder nur einmal
+schreibt. Sicher wirkt die kleinere Kante. Was wirklich herauskommt, sagt die
+nächste Ausgabe.
+
+## Doppelseiten für einen Fotobuchdienst (1.0.69)
+
+Manche Dienste — Saal Digital zum Beispiel — wollen keine einzelnen Seiten,
+sondern fertig gestaltete **Doppelseiten**: je zwei Buchseiten auf einer
+PDF-Seite von doppelter Breite. Aus 21 × 28 cm wird also 42 × 28 cm, plus
+Anschnitt ringsum außen.
+
+„…“ oben rechts → **Doppelseiten ausgeben…**
+
+Links steht immer die gerade Seitenzahl, rechts die ungerade — dieselbe
+Paarung, die die Doppelseitenansicht auf dem Bildschirm zeigt, und dieselbe,
+nach der ein Buch gebunden wird. Gefragt werden dafür `Buchseite.bogennummer`
+und `Buchseite.liegtRechts`; eine zweite Zählung daneben ergäbe eine Datei, die
+anders paart als die Vorschau.
+
+Die **erste und die letzte Doppelseite tragen nur eine Buchseite**: Seite 1 hat
+links von sich die Innenseite des Umschlags, und am Ende des Buches ist es
+ebenso. Diese Hälfte bleibt weiß — sie kommt von der Druckerei und steht in
+keinem PDF. Die Befundzeile vor dem Teilen zählt beides: wie viele Doppelseiten
+entstanden sind und wie viele davon halb sind.
+
+Der **Umschlag steht nicht darin**. Er ist ein eigenes Stück Papier mit eigener
+Breite und eigenem Rücken; den gibt es mit „Nur den Umschlag…“ einzeln.
+
+Am **Bund** gibt es keinen Anschnitt: Dort stoßen die beiden Hälften aneinander.
+Die TrimBox umfasst den ganzen Bogen — geschnitten wird außen, in der Mitte
+wird gebunden.
+
+**Nicht geprüft:** Ob Saal Digital genau diese Anordnung erwartet, hat niemand
+nachgesehen. Gebaut ist, was beschrieben wurde; die Maße stehen im Befund,
+damit sie sich gegen die Vorgabe des Dienstes halten lassen.
+
 ## Warum der Umschlagbogen ohne Bilder herauskam (1.0.68)
 
 Zweimal gemeldet, zweimal dasselbe Bild: ein Bogen mit Titel, Rückentext und
