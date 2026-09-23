@@ -6609,6 +6609,148 @@ Befunde, und keiner davon war Geschmack:
     Reisepunkte einer Karte umstellt, hat an der ANORDNUNG nichts getan —
     der Tag fiele sonst wegen einer Farbe für immer aus dem automatischen
     Neuanordnen heraus.
+- **DER UMSCHLAG ZÄHLTE IM BUCHBLOCK MIT — und schob damit jede Seite auf
+  die falsche Hälfte** (`Buchteil`, ab 1.0.52; gemeldet 09/2026: „die erste
+  wirkliche Seite im Fotobuch ist ja eine rechte Seite, also eine ungerade
+  Seite. Bislang hast du es so dargestellt, dass die Seite 1 eine linke Seite
+  ist. Denn links von der Seite 1 wäre ja praktisch die Innenseite des
+  Umschlags, die nicht bearbeitet bzw. bedruckt wird."). **Er hat recht, und
+  es ist am Quelltext abzuzählen:** `seitenfolge` vergab Rückseite 0,
+  Titelseite 1 und der Buchblock begann bei 2 — und `Bogenlage.rechts` sagt
+  seit 1.0.47, dass eine gerade Nummer LINKS liegt.
+  - **Die Regel von 1.0.47 war richtig, die ZÄHLUNG darunter war falsch.**
+    Der Umschlag ist ein eigenes Stück Papier und läuft an der Druckerei
+    durch eine eigene Maschine (das steht seit 1.0.50 im Papier) — er kann
+    also gar nicht in derselben Folge liegen wie der gebundene Block.
+    **Merke: Wenn eine Paarung an der falschen Stelle beginnt, ist zuerst
+    zu prüfen, was überhaupt mitgezählt wird, und erst danach die
+    Paarungsregel.**
+  - **`Buchteil` trennt die beiden Angaben**, die bis 1.0.51 eine waren:
+    WO eine Seite liegt (`.rueckseite`, `.titel`, `.innen`) und WELCHE Zahl
+    auf ihr steht (`nummer`, ab 1, nur im Block). Gilt der Umschlag als
+    Bogen, tragen seine beiden Seiten die 0 und erscheinen in keiner
+    Seitenzahl; ohne Bogen ist die Titelseite die gewöhnliche Seite 1 und
+    liegt als ungerade Nummer ebenfalls rechts.
+  - **Die Nummer taugt seither nicht mehr als Schlüssel** — Rückseite und
+    Titelseite tragen beide 0. Dafür gibt es `Buchseite.rang` (die Stelle
+    in der Folge, ab 0): Die Bühne bildet damit ab, welcher Tag oben im
+    Bild steht (`imBlick`), und ohne den Rang löschte die eine
+    Umschlagseite beim Verschwinden den Eintrag der anderen. **Wer aus
+    einer Seite einen Schlüssel bildet, nimmt den Rang und nie die Nummer.**
+  - **Die Seitenfolge stand ZWEIMAL da** — in `Reise.seitenfolge` und in
+    `Reisewerk.seitenfolge`, die sich die gesetzten Umschlagseiten merkt,
+    weil ihr Satz zwei CoreText-Messungen kostet. Genau so etwas läuft
+    auseinander, und hier wäre es ein Buch gewesen, dessen Vorschau anders
+    paart als die Datei. Gezählt wird jetzt in
+    `Reise.seitenfolge(titelblatt:rueckblatt:)`; wer die Seiten SETZT,
+    entscheidet der Aufrufer. Dasselbe gilt für `Buchseite.liegtRechts`,
+    `.bogennummer` und `.kurzname` — drei Fragen, je eine Stelle.
+  - **Die Druckprüfung baute die Nummerierung EBENFALLS selbst nach** (der
+    Befund zum Hintergrund über die Doppelseite). Sie hätte nach diesem
+    Umbau lauter Bogen gemeldet, die „nicht aufgehen". **Wer eine Zählung
+    ändert, sucht nach jeder Stelle, die sie nachbaut** — hier waren es
+    drei.
+- **Ein Wasserzeichen darf SCHRÄG stehen** (`Wasserzeichen.drehspanne`, ab
+  1.0.52, Ansage des Nutzers 09/2026: „ob diese Bilddatei so wie sie ist
+  erscheint oder in einem einzustellenden Toleranzbereich gedreht ist,
+  beispielsweise von minus 30 Grad bis plus 30 Grad").
+  - **Der Winkel wird NICHT gewürfelt**, sondern aus `seite.id.saat`
+    gezogen — nie aus `hashValue`, den streut Swift je Programmlauf neu.
+    Dieselbe Seite steht damit beim nächsten Öffnen wieder gleich schief,
+    und das PDF zeigt, was auf dem Bildschirm steht. Dritte Auflage
+    derselben Regel nach dem Papierkorn (1.0.16) und dem Seitenrhythmus
+    (1.0.31).
+  - **Gezogen wird eine ZWEITE Zahl aus derselben Kennung**, nicht
+    dieselbe: Die Lage nimmt den Rest zur Feldzahl, und wer denselben Rest
+    auch für den Winkel nähme, koppelte beide — jedes Zeichen in derselben
+    Ecke stünde gleich schief.
+  - **Der PLATZ wird für den gedrehten Umriss gesucht** (`umschliessend`,
+    `Wasserzeichenlage.Ort`). Ein um 30 Grad gedrehtes Bild braucht mehr
+    Fläche als ein gerades; wer den Winkel erst beim Zeichnen draufsetzt,
+    lässt es über den Satzspiegel ragen. Beide Zeichner drehen um dieselbe
+    Mitte und passen das Bild in denselben inneren Rahmen ein — zwei
+    Fassungen ergäben ein PDF, das anders aussieht als die Vorschau.
+- **WER AUS EINEM VOLLBILD HERAUS MELDET, MELDET IN DIESEM VOLLBILD**
+  (`PunktwahlView.quittung`, ab 1.0.52; gemeldet 09/2026: „Es wäre schön,
+  wenn hier doch noch eine genauere Bestätigung durch die App erfolgen
+  könnte. Ich bekomme zumindest keine Rückmeldung … Normalerweise kann ja
+  dann dieses Fenster im unteren Bereich auch wieder schließen. Das tut es
+  bislang nicht."). Gemeldet hat die App sehr wohl — über `werk.meldung`,
+  und das Band wird in `ReiseView` gezeigt, während die Punktwahl seit
+  1.0.49 als VOLLBILD darüberliegt. Es erschien also hinter der Karte.
+  Dieselbe Lehre wie bei Schulalarm 1.0.26 („Ein Fehlerband unter einem
+  Blatt sieht niemand"), und sie galt für diese Ansicht nicht.
+  - **Die Quittung nennt, was übernommen wurde** — Ort, Name UND Uhrzeit.
+    Wer eine Uhrzeit tippt, will genau diese zurückgelesen bekommen;
+    „Gespeichert" allein ist keine Bestätigung, sondern eine Behauptung.
+    Gelesen wird sie in derselben festen Zone, in der sie geschrieben
+    wurde — mit der Zone des Geräts stünde dort eine andere Zahl als die
+    getippte.
+  - **Sie blendet NICHT von selbst weg.** Ein Band, das während des
+    Nachlesens verschwindet, ist wieder keine Bestätigung. Weggeräumt wird
+    sie durch eine Handlung: einen der beiden Knöpfe oder einen Tipp auf
+    die Karte. Solange sie steht, ist die Eingabe zu und die Karte frei —
+    das ist die zweite Hälfte des Befundes.
+- **DIE TABELLE DES DRUCKDIENSTES SCHLÄGT DIE RECHNUNG**
+  (`Umschlag.rueckentabelle`, ab 1.0.52, Ansage des Nutzers 09/2026: „Bei
+  Saal Digital werden in einer Tabelle Breiten für den Buchrücken
+  angegeben, die in Abhängigkeit der Seitenzahl des Buches zu erwarten
+  sind."). Abhängig von der Seitenzahl war die Breite schon immer —
+  gerechnet aus Blattzahl, Papierstärke und Einband. Was fehlte, ist der
+  Weg, die Zahlen des Anbieters zu NEHMEN statt sie zu rechnen.
+  - **Mitgeliefert wird keine Tabelle.** Versucht am 23.09.2026 (Saals
+    Profi-Bereich und Preisseite) — beide geben die Zahlen nicht als Text
+    heraus, sie stehen hinter einer Oberfläche. Eine nach Gefühl
+    hingeschriebene Tabelle sähe aus wie eine Auskunft des Anbieters und
+    wäre geraten; dieselbe Regel wie bei den Fahrplanquellen der
+    Abfahrtstafel. Eingetragen wird sie unter Umschlag, Zeile für Zeile.
+  - **Gilt die Zeile mit dem größten `abSeiten`, das das Buch erreicht** —
+    und sagt die Tabelle über ein Buch nichts (leer, oder dünner als ihre
+    erste Zeile), wird gerechnet. Die kleinste Zeile zu nehmen wäre
+    falsch: Eine Tabelle, die bei 20 Seiten anfängt, hat über ein Buch mit
+    12 Seiten keine Aussage getroffen.
+  - **Woher die Zahl stammt, steht überall dabei**
+    (`Umschlagmass.rueckenherkunft`). Eine gerechnete Zahl als Angabe des
+    Druckdienstes auszugeben wäre genau die Art Lüge, die diese App nicht
+    erzählt — dieselbe Regel wie bei „Plan" gegen „pünktlich".
+- **Ein eigenes Seitenformat wird GEMERKT, nicht geraten**
+  (`Model/Formatvorlagen.swift`, ab 1.0.52, Ansage des Nutzers 09/2026:
+  „Speichere bitte auch die drei von mir gewählten Formate von Saal Digital
+  als Formate für das Fotobuch."). Welche drei das sind, weiß diese App
+  nicht, und eine Anbieterliste im Quelltext veraltet mit dem nächsten
+  Angebot. Wer ein Maß eintippt, sichert es mit einem Tipp als Vorlage;
+  sie liegt in den VOREINSTELLUNGEN und nicht im Buch — welche Formate ein
+  Druckdienst anbietet, ist keine Eigenschaft dieser einen Reise (dieselbe
+  Überlegung wie bei den selbst installierten Schriften seit 1.0.41).
+  - **Angewandt ergibt eine eigene Vorlage ein FREIES Maß**, keinen neuen
+    Vorlagennamen. `Seitenformat.init(from:)` löst einen alten
+    Textschlüssel über `Seitenformat.vorlagen` auf; ein selbst vergebener
+    Name stünde dort nie, und ein Buch mit einem Namen, den es beim
+    nächsten Öffnen nicht mehr gibt, fiele still auf A4 quer zurück.
+  - **21 × 28 cm und 28 × 21 cm sind dazugekommen**, weil sie fehlten —
+    und weil 21 × 28 nachweislich das Format dieses Nutzers ist: Sein am
+    23.09.2026 geschicktes PDF misst 595 × 793,72 Punkte, also genau
+    210 × 280 mm. **Die Maße folgen der Formatangabe des Anbieters und
+    sind nicht gemessen**; das steht so in der Oberfläche.
+- **Zwei Dateien gab es seit 1.0.50 — gefunden hat sie niemand** (eigener
+  Menüpunkt ab 1.0.52; gemeldet 09/2026: „Ich möchte bei der Exportfunktion
+  Einbauen, dass automatisch ein Export von zwei PDF-Dateien vorgenommen
+  werden soll."). Der Weg lag als eine von drei Zeilen in einem
+  zugeklappten Picker hinter „Als PDF sichern…". **Zehnte Auflage von „es
+  war da, man fand es nicht"**, und dieselbe Antwort wie bei der Broschüre
+  in 1.0.37: derselbe Bildschirm, nur mit Vorwahl — und ein Name, der die
+  Sache nennt („Umschlag und Innenteil getrennt…") statt des Werkzeugs.
+  Kein zweiter Bildschirm; zwei Wege zu derselben Sache liefen auseinander.
+- **Nicht gemessen (1.0.52):** Keine Seite ist damit gesehen worden. Am
+  Quelltext abgezählt sind die URSACHEN (der Umschlag in der Zählung, das
+  Meldeband hinter dem Vollbild) und die Geometrie der Drehung. **Gewählt
+  und nicht gemessen** sind die Höchstdrehung (45 Grad) und die Vorgabe
+  beim Einschalten (12 Grad). **Ungeprüft bleibt**, ob ein Druckdienst den
+  Umschlagbogen annimmt (das stand schon zu 1.0.50 offen), ob die
+  Rückentabelle eines Anbieters mit dieser Lesart zusammenpasst — sie ist
+  hier an keiner echten Tabelle geprüft — und ob ein gedrehtes Zeichen im
+  Druck so steht wie auf dem Bildschirm. **Nichts davon als erledigt
+  darstellen.**
 - **Nicht gemessen (1.0.51):** Keine Karte ist damit gesehen worden.
   Gerechnet und am Quelltext abgezählt ist die URSACHE (es gab schlicht kein
   Feld am Block, und der Abschnitt fragte den falschen Tag). **Ungeprüft
@@ -7005,7 +7147,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.51 (Build 52). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.52 (Build 53). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

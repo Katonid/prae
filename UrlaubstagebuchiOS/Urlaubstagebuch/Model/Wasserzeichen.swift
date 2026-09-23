@@ -178,8 +178,19 @@ enum Wasserzeichenlage {
 
     static func ort(_ zeichen: Wasserzeichen, satz: CGRect, seite: Seite) -> Ort {
         let winkel = drehwinkel(zeichen, seite: seite)
-        let bild = groesse(zeichen, satz: satz)
-        let platz = umschliessend(bild, winkel: winkel)
+        var bild = groesse(zeichen, satz: satz)
+        var platz = umschliessend(bild, winkel: winkel)
+        // GEDREHT BRAUCHT ES MEHR PLATZ — und was nicht mehr in den
+        // Satzspiegel passt, wird KLEINER und ragt nicht heraus. Gedeckelt
+        // wird das Bild, nicht der Platz: Ein Platz, der größer ist als
+        // sein Inhalt, verschöbe nur die Lagesuche.
+        let deckel = min(Double(satz.width) / max(Double(platz.width), 0.01),
+                         Double(satz.height) / max(Double(platz.height), 0.01))
+        if deckel < 1 {
+            bild = CGSize(width: Double(bild.width) * deckel,
+                          height: Double(bild.height) * deckel)
+            platz = umschliessend(bild, winkel: winkel)
+        }
         let rahmen = rechteck(zeichen, satz: satz, seite: seite, mass: platz)
         let bildrahmen = CGRect(x: Double(rahmen.midX) - Double(bild.width) / 2,
                                 y: Double(rahmen.midY) - Double(bild.height) / 2,

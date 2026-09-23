@@ -139,7 +139,7 @@ struct Umschlag: Codable, Hashable {
         papierstaerke = b.wert(.papierstaerke, 0.13)
         einband = b.wert(.einband, Einband.hardcover)
         deckenstaerke = b.wert(.deckenstaerke, 4)
-        rueckentabelle = b.wert(.rueckentabelle, [])
+        rueckentabelle = b.wert(.rueckentabelle, [Rueckenstufe]())
         rueckseitentext = b.wert(.rueckseitentext, "")
         rueckseitenfoto = b.wahlweise(.rueckseitenfoto)
         hintergrund = b.wahlweise(.hintergrund)
