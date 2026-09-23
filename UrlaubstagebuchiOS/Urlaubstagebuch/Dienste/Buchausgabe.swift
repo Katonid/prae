@@ -29,7 +29,12 @@ enum Buchteil: String {
 // Eine Seite des fertigen Buches samt ihrem Zusammenhang. Die Titelseite
 // gehört zu keinem Tag — deshalb ist `tag` freiwillig und nicht etwa ein
 // erfundener leerer Tag, den dann jede Auswertung wieder aussortieren muss.
-struct Buchseite: Identifiable {
+// EQUATABLE, und das ist keine Formsache (ab 1.0.59): Die Bühne hängt
+// `.equatable()` an jede Seitenfläche, damit die Zweifingergeste nicht
+// sechzigmal in der Sekunde jede sichtbare Seite neu aufbaut. Dafür muss
+// sich eine Seite mit ihrer Vorgängerin vergleichen lassen — Block für
+// Block, denn genau daraus wird sie gezeichnet.
+struct Buchseite: Identifiable, Equatable {
     var id: UUID { seite.id }
     var seite: Seite
     var tag: Reisetag?

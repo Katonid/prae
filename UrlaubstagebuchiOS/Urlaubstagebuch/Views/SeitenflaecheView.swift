@@ -9,7 +9,7 @@ import SwiftUI
 //
 // Gezeigt wird der ganze BOGEN, also Endformat plus Anschnitt. Wer nur das
 // Endformat sähe, könnte nicht beurteilen, ob ein Bild weit genug übersteht.
-struct SeitenflaecheView: View {
+struct SeitenflaecheView: View, Equatable {
     @ObservedObject var werk: Reisewerk
     let buchseite: Buchseite
     var bearbeitbar: Bool = true
@@ -53,6 +53,39 @@ struct SeitenflaecheView: View {
     // Kante stehen soll. Der genaue Wert steht daneben im Inspektor.
     // `@AppStorage` gehört in eine VIEW und nie ins `Reisewerk`.
     @AppStorage("einrasten") private var einrastenAn = true
+
+    // DIE SEITE ZEICHNET SICH BEIM ZOOMEN NICHT MEHR MIT (ab 1.0.59).
+    //
+    // Wunsch des Nutzers, 09/2026: „Dennoch würde ich mir wünschen, wenn
+    // Verschiebe- oder Zoom-Aktionen auf dem Bildschirm etwas flüssiger
+    // ablaufen könnten."
+    //
+    // Der Zoom WÄHREND der Geste ist seit 1.0.18 eine reine Skalierung
+    // (`lupe` in `ReiseView`) — gerechnet wird erst am Ende. Nur: `lupe`
+    // ist ein Zustand, der bei JEDEM Bildpunkt der Geste neu gesetzt
+    // wird, und er steht im Körper der Bühne. Damit läuft dort alles
+    // wieder durch, was Seiten aufbaut, und jede sichtbare Seitenfläche
+    // bekommt einen neuen Wert. Ist der nicht vergleichbar, muss SwiftUI
+    // von einer Änderung ausgehen und den ganzen Körper neu bauen: den
+    // Hintergrund, die Lage des Wasserzeichens (ein Suchlauf über 49
+    // Felder), jeden Textkasten und jedes Vorschaubild.
+    //
+    // Verglichen wird deshalb, was das Aussehen wirklich bestimmt. Das
+    // `werk` ist eine KLASSE und wird über die Identität verglichen — was
+    // sich IN ihm ändert, meldet es selbst (`@ObservedObject`), und diese
+    // Meldung geht an `.equatable()` vorbei. Es wird also nichts
+    // abgeschaltet; es fällt nur der Durchgang weg, bei dem sich gar
+    // nichts geändert hat. Dieselbe Bauweise wie bei der Netzkarte der
+    // Abfahrtstafel (1.1.17).
+    //
+    // **Wer eine gespeicherte Eigenschaft hinzufügt, trägt sie hier ein** —
+    // eine vergessene ließe die Seite auf einem alten Stand stehen.
+    static func == (links: SeitenflaecheView, rechts: SeitenflaecheView) -> Bool {
+        links.werk === rechts.werk
+            && links.bearbeitbar == rechts.bearbeitbar
+            && links.massstab == rechts.massstab
+            && links.buchseite == rechts.buchseite
+    }
 
     private var format: CGSize { werk.reise.format.groesse }
     private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
@@ -114,10 +147,15 @@ struct SeitenflaecheView: View {
                // der Rahmen, weil die Höhe am Seitenverhältnis genau
                // dieses Bildes hängt.
                let zeichenbild = ort.bild,
-               let bild = Bildarchiv.shared.vorschau(
-                   zeichenbild.datei, reise: werk.reise.id,
-                   kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
-                                             massstab: massstab, groesste: 1600))
+               // Gezählt wie jedes andere Vorschaubild (ab 1.0.59): Ein
+               // Wasserzeichen liegt auf JEDER Seite, und damit ist es die
+               // Art Bild, die sich am ehesten summiert.
+               let bild = werk.messer.sammelt("Fotos", {
+                   Bildarchiv.shared.vorschau(
+                       zeichenbild.datei, reise: werk.reise.id,
+                       kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
+                                                 massstab: massstab, groesste: 1600))
+               })
             {
                 // Gedreht wird um die Mitte des BILDRAHMENS, und die ist
                 // nach `Wasserzeichenlage.ort` dieselbe wie die des
@@ -910,9 +948,11 @@ struct HintergrundFlaeche: View {
                    // dem BILDSCHIRM sein muss, hängt am Maßstab der Bühne
                    // und steht in `Bildschaerfe` — bis 1.0.52 stand hier
                    // eine feste Zahl, und die war beim Hineinzoomen zu klein.
-                   let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                                         kante: hintergrundkante,
-                                                         farbkraft: hintergrund.farbkraftfaktor)
+                   let bild = werk.messer.sammelt("Fotos", {
+                       Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
+                                                  kante: hintergrundkante,
+                                                  farbkraft: hintergrund.farbkraftfaktor)
+                   })
                 {
                     // Der Raum wird GEMESSEN und nicht angenommen: Die
                     // Probe im Hintergrund-Blatt hat keinen Bogen, und

@@ -738,54 +738,68 @@ enum Druckpruefung {
     // Die wichtigste Zahl, und die einzige, die man einem Foto nicht
     // ansieht: Ein Bild ist scharf, solange es klein steht, und matschig,
     // sobald es über eine halbe Seite läuft.
+    //
+    // GERECHNET WIRD MIT DER KANTE, MIT DER AUCH AUSGEGEBEN WIRD (ab
+    // 1.0.59). Bis 1.0.58 stand hier `foto.breite`, also die Bildpunkte
+    // der Originaldatei — und die kommen so gar nicht ins PDF:
+    // `Bildarchiv.fuerAusgabe` rechnet jedes Bild auf die Höchstkante der
+    // gewählten Bildgüte herunter. Die Prüfung nannte damit eine Zahl, die
+    // die Datei nicht hält. Gerechnet wird mit `Bildguete.vorgabe`, also
+    // mit dem Regelfall — und die Zeile schreibt das auch hin, statt es
+    // vorauszusetzen. Wer eine andere Güte wählt, bekommt seine Zahl im
+    // Ausgabeblatt, dort mit dem gewählten Deckel.
+    //
+    // Mitgezählt wird seither auch das HINTERGRUNDFOTO. Es füllt Seite
+    // oder Doppelseite ganz aus und ist damit fast immer das schwächste
+    // Bild eines Buches; bis 1.0.58 wurde es überhaupt nicht angesehen.
     private static func bildaufloesung(_ reise: Reise) -> [Zeile] {
-        var schlechteste: (dpi: Double, seite: String)?
-        var unterGrenze = 0
-        var unterGut = 0
-        var gezaehlt = 0
-
-        for buchseite in reise.seitenfolge {
-            for block in buchseite.seite.bloecke {
-                guard let id = block.fotoID, let foto = reise.foto(id) else { continue }
-                gezaehlt += 1
-                // Gerechnet wird mit der langen Kante des Rahmens gegen die
-                // entsprechende Pixelzahl — und mit dem Zoom des
-                // Ausschnitts, denn wer in ein Bild hineinzoomt, benutzt
-                // weniger Pixel für dieselbe Fläche.
-                let zoom = max(block.ausschnitt.zoom, 1)
-                let breiteDpi = Druckmass.dpi(pixel: foto.breite / zoom,
-                                              punkte: block.rahmen.breite)
-                let hoeheDpi = Druckmass.dpi(pixel: foto.hoehe / zoom,
-                                             punkte: block.rahmen.hoehe)
-                let wert = min(breiteDpi, hoeheDpi)
-                if wert < Druckmass.dpiGrenze { unterGrenze += 1 }
-                else if wert < Druckmass.dpiGut { unterGut += 1 }
-                if schlechteste == nil || wert < schlechteste!.dpi {
-                    schlechteste = (wert, buchseite.kurzname)
-                }
-            }
+        let kante = Bildguete.vorgabe.kante
+        let alle = Ausgabeguete.bilder(reise, kante: kante)
+        guard let schwaechste = alle.min(by: { $0.dpi < $1.dpi }) else { return [] }
+        let unterGrenze = alle.filter { $0.dpi < Druckmass.dpiGrenze }.count
+        let unterGut = alle.filter { $0.dpi >= Druckmass.dpiGrenze && $0.dpi < Druckmass.dpiGut }.count
+        let wo = schwaechste.hintergrund
+            ? "das Hintergrundfoto auf \(schwaechste.seite)"
+            : "ein Bild auf \(schwaechste.seite)"
+        let wert = Int(schwaechste.dpi.rounded())
+        // Ob der Deckel drückt oder die Aufnahme selbst nicht mehr
+        // hergibt, sind zwei verschiedene Befunde mit zwei verschiedenen
+        // Handgriffen — und nur der erste lässt sich im Ausgabeblatt
+        // beheben.
+        let gedeckelt = alle.filter { $0.ohneDeckel > $0.dpi + 1 && $0.dpi < Druckmass.dpiGut }.count
+        var nachsatz = " Gerechnet mit der Bildgüte \u{201E}\(Bildguete.vorgabe.name)\u{201C} "
+        nachsatz += "(\(kante) Bildpunkte je Kante) — das ist die Vorwahl beim Ausgeben."
+        if gedeckelt > 0 {
+            nachsatz += " Bei \(gedeckelt) Bildern ist diese Grenze der Grund und nicht die "
+            nachsatz += "Aufnahme; mit \u{201E}Volle Auflösung\u{201C} werden sie feiner."
         }
 
-        guard gezaehlt > 0, let schlechteste else { return [] }
+        // Zusammengesetzt wird über `+=` und nicht als eine Kette aus
+        // Literal, Interpolation und `+` — die sprengt den Typprüfer
+        // (die Lehre aus 1.0.38).
+        var schwachtext = "Das schwächste ist \(wo) mit \(wert) dpi."
         if unterGrenze > 0 {
-            return [Zeile(
-                stufe: .warnung,
-                titel: "\(unterGrenze) Bilder unter 150 dpi",
-                text: "Sie werden im Druck sichtbar weich. Das schwächste liegt bei \(Int(schlechteste.dpi)) dpi auf \(schlechteste.seite). Kleiner setzen oder das Bild in höherer Auflösung einlesen."
-            )]
+            var text = "Sie werden im Druck sichtbar weich. "
+            text += schwachtext
+            text += " Kleiner setzen oder das Bild in höherer Auflösung einlesen."
+            text += nachsatz
+            return [Zeile(stufe: .warnung,
+                          titel: "\(unterGrenze) Bilder unter 150 dpi",
+                          text: text)]
         }
         if unterGut > 0 {
-            return [Zeile(
-                stufe: .hinweis,
-                titel: "\(unterGut) Bilder unter 250 dpi",
-                text: "Das reicht für ein Fotobuch meistens noch. Das schwächste liegt bei \(Int(schlechteste.dpi)) dpi auf \(schlechteste.seite)."
-            )]
+            var text = "Das reicht für ein Fotobuch meistens noch. "
+            text += schwachtext
+            text += nachsatz
+            return [Zeile(stufe: .hinweis,
+                          titel: "\(unterGut) Bilder unter 250 dpi",
+                          text: text)]
         }
-        return [Zeile(
-            stufe: .gut,
-            titel: "Alle Bilder über 250 dpi",
-            text: "Das schwächste liegt bei \(Int(schlechteste.dpi)) dpi. 300 dpi sind der Anspruch jeder Druckerei."
-        )]
+        schwachtext += " 300 dpi sind der Anspruch jeder Druckerei."
+        schwachtext += nachsatz
+        return [Zeile(stufe: .gut,
+                      titel: "Alle \(alle.count) Bilder über 250 dpi",
+                      text: schwachtext)]
     }
 
     // MARK: - Schriften

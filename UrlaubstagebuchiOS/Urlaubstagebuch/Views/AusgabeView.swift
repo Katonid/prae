@@ -19,6 +19,13 @@ struct AusgabeView: View {
     @State private var fehler: String?
     @State private var teilen = false
     @State private var guete: Bildguete = .druck
+    // WAS BEI DIESER GÜTE WIRKLICH IN DER DATEI LANDET (ab 1.0.59).
+    //
+    // Gerechnet und nicht behauptet — und gerechnet in einer Aufgabe und
+    // nicht im Körper: Der Lauf geht über jede Seite und jedes Bild des
+    // Buches, und der Körper einer Ansicht läuft bei jedem Neuzeichnen
+    // (dieselbe Falle wie bei der Druckprüfung in 1.0.0).
+    @State private var gueteBefund = ""
     @State private var ohneTransparenz = false
     @State private var umfang: Umfang
     @State private var drucken = false
@@ -103,41 +110,6 @@ struct AusgabeView: View {
         return text
     }
 
-    enum Bildguete: String, CaseIterable, Identifiable {
-        case sparsam
-        case druck
-        case voll
-
-        var id: String { rawValue }
-
-        var kante: Int {
-            switch self {
-            case .sparsam: return 1600
-            case .druck: return 3600
-            case .voll: return 6000
-            }
-        }
-
-        var name: String {
-            switch self {
-            case .sparsam: return "Zum Ansehen"
-            case .druck: return "Für den Druck"
-            case .voll: return "Volle Auflösung"
-            }
-        }
-
-        var erklaerung: String {
-            switch self {
-            case .sparsam:
-                return "Kleine Datei zum Durchsehen und Verschicken. Für den Druck zu wenig."
-            case .druck:
-                return "Bis 3600 Bildpunkte je Kante — das reicht für 300 dpi auf einer ganzen A4-Seite. Der übliche Fall."
-            case .voll:
-                return "So groß, wie die Bilder hergeben. Nötig nur bei Formaten über 30 cm; die Datei kann sehr groß werden."
-            }
-        }
-    }
-
     var body: some View {
         NavigationStack {
             Form {
@@ -150,6 +122,11 @@ struct AusgabeView: View {
                     Text(guete.erklaerung)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if !gueteBefund.isEmpty {
+                        Text(gueteBefund)
+                            .font(.caption)
+                            .foregroundStyle(.primary)
+                    }
                     Picker("Anordnung", selection: $umfang) {
                         ForEach(Umfang.allCases) { u in Text(u.name).tag(u) }
                     }
@@ -249,6 +226,11 @@ struct AusgabeView: View {
                                     beidseitig: umfang == .broschuere)
             }
             .task { befundVorab = Druckpruefung.vorab(werk.reise) }
+            // Bei JEDEM Wechsel der Güte neu, denn genau sie ist die
+            // zweite Zahl in der Rechnung.
+            .task(id: guete) {
+                gueteBefund = Ausgabeguete.satz(werk.reise, kante: guete.kante)
+            }
         }
     }
 
