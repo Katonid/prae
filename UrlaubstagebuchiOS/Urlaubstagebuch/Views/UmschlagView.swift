@@ -187,7 +187,9 @@ struct UmschlagView: View {
         }
         text += "Diese Zahlen kommen aus den Unterlagen des Druckdienstes und werden hier "
         text += "bewusst nicht mitgeliefert: Sie ändern sich mit dem Papier, und eine geratene "
-        text += "Tabelle sähe aus wie eine Auskunft des Anbieters."
+        text += "Tabelle sähe aus wie eine Auskunft des Anbieters. "
+        text += "Sie gilt für das Format und die Bindung, für die der Anbieter sie nennt \u{2014} "
+        text += "nach einem Formatwechsel also nachsehen; mitgerechnet wird sie nicht."
         return text
     }
 

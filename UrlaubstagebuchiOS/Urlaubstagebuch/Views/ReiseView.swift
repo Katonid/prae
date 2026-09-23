@@ -411,10 +411,14 @@ struct ReiseView: View {
         }
     }
 
+    // Gezählt wird der BUCHBLOCK, nicht die Seitenfolge: Der Umschlag ist
+    // seit 1.0.52 ein eigenes Stück Papier und steht in keiner Seitenzahl.
+    // Mit ihm gezählt wäre die Zahl um zwei zu hoch — und die Parität,
+    // auf die es hier ankommt, bliebe zufällig richtig.
     private var ungeradeSeitenzahl: String? {
-        let anzahl = werk.seitenfolge.count
+        let anzahl = werk.seitenfolge.filter { !$0.amUmschlag }.count
         guard anzahl > 0, anzahl % 2 == 1 else { return nil }
-        return "Das Buch hat \(anzahl) Seiten, also eine ungerade Zahl \u{2014} "
+        return "Der Buchblock hat \(anzahl) Seiten, also eine ungerade Zahl \u{2014} "
             + "die letzte Seite hat keine Rückseite. Viele Druckdienste verlangen "
             + "eine gerade Seitenzahl; ob dieser es tut, steht in seinen Angaben."
     }

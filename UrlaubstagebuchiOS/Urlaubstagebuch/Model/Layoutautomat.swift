@@ -296,12 +296,11 @@ struct Layoutautomat {
     // (ein Klappentext aus dem Tagebuch etwa), wäre genau die Art
     // Behauptung, die diese App nicht aufstellt.
     //
-    // Sie trägt `ohneSeitenzahl` und zählt in `seitenfolge` als Nummer 0.
-    // Beides ist nötig und beides fällt zusammen: Eine gerade Nummer liegt
-    // nach `Bogenlage` LINKS, und damit paart die Doppelseitenansicht den
-    // Umschlagbogen von selbst richtig — Rückseite links, Titelseite
-    // rechts. Gezählt wird der Innenteil trotzdem ab 1, denn der Umschlag
-    // gehört nicht zum Buchblock.
+    // Sie trägt `ohneSeitenzahl` und in `seitenfolge` den `Buchteil`
+    // `.rueckseite` — sie liegt damit links auf dem Umschlagbogen, und der
+    // ist seit 1.0.52 ein eigener Bogen außerhalb der Zählung. Bis dahin
+    // hing die Paarung an der Nummer 0, und genau das schob die erste
+    // Seite des Buchblocks auf die linke Hälfte.
     func rueckseite(text: String, foto: UUID?) -> Seite {
         let satz = umschlagsatz
         var bloecke: [Block] = []
