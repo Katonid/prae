@@ -202,10 +202,16 @@ enum Buchausgabe {
         }
 
         var gefiltert = reise.seitenfolge
+        // WAS IN DIE UMSCHLAGDATEI GEHÖRT, ist „alles ohne Tag" und nicht
+        // `amUmschlag`: Ohne Bogen gibt es keine Umschlagseiten, und dann
+        // ist die Titelseite allein der Umschlag — mit `amUmschlag` käme
+        // dort eine LEERE Liste heraus. Beide Zweige fragen dasselbe, nur
+        // andersherum; sonst stünde die Titelseite in beiden Dateien oder
+        // in keiner.
         if auftrag.nurUmschlag {
-            gefiltert = gefiltert.filter(\.amUmschlag)
+            gefiltert = gefiltert.filter { $0.tag == nil }
         } else if auftrag.ohneUmschlag {
-            gefiltert = gefiltert.filter { !$0.amUmschlag }
+            gefiltert = gefiltert.filter { $0.tag != nil }
         } else {
             // Die Rückseite gehört auf den Umschlagbogen, nicht in den
             // Buchblock. Im vollständigen PDF stünde sie sonst als erste
