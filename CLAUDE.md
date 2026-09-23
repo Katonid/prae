@@ -3188,13 +3188,41 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Projekt wäre unsignierbar (dieselbe Lehre wie Reisebuch 1.0.45). Weg, falls
   gewünscht: erst eine Zielführung bauen, dann den Antrag unter
   developer.apple.com/carplay stellen, erst danach die CarPlay-Szene.
+- **Die Karte ist seit 1.0.3 eine `MKMapView` aus UIKit** (`Routenkarte`,
+  Ansage des Nutzers 09/2026: Hell/Dunkel, andere Kartenmodelle, Radwege und
+  Belag ein- und ausblenden, „über einen Menüschalter an der Karte"). Die
+  SwiftUI-`Map` kann unter iOS 17 keine Kachelschicht zeigen. Auf der Karte
+  liegt weiterhin kein Bedienelement: Zeichen sind `isEnabled = false`, den
+  Tipp nimmt ein eigener Erkenner, der auf den Doppeltipp-Zoom wartet.
+  Ortung, Kompass und Maßstab stehen am Rand, der Ebenen-Knopf oben links.
+- **Kachelquellen, alle am 23.09.2026 gemessen** (HTTP 200, PNG 256 px, ohne
+  Schlüssel): OSM, CyclOSM, CyclOSM-lite (durchsichtige Radweg-Schicht),
+  OpenTopoMap, Waymarked Trails cycling. `Kacheln.sitzung` hält die
+  OSM-Richtlinie ein (User-Agent, `URLCache` 256 MB, zwei Verbindungen je
+  Server, kein Vorausladen); über der höchsten Stufe eines Dienstes wird die
+  letzte Kachel vergrößert statt neu angefragt. Der Lizenzhinweis steht auf
+  der Karte und ist nicht abschaltbar. **Thunderforest (OpenCycleMap)
+  antwortete ohne Schlüssel, verlangt laut Bedingungen aber einen — nicht
+  schlüssellos einbauen**; nur mit einem EIGENEN Schlüssel des Nutzers im
+  Schlüsselbund.
+- **Dunkel gibt es nur für Apples Karte** (`overrideUserInterfaceStyle`);
+  die freien Kacheln liegen nur hell vor, und nachträglich umgefärbte
+  Kacheln hätten Farben, die nichts mehr bedeuten. Die Verkehrslage ebenso
+  nur auf Apples Karte; ihr Schalter wohnt seit 1.0.3 im Kartenmenü und
+  nicht mehr im Bedienfeld (keine doppelten Schalter).
+- **Der Belag der Radroute kommt aus `surface` in BRouters WayTags**
+  (`Belag.aus`, fünf Klassen, „nicht eingetragen" wird nicht geraten). Eine
+  EIGENE Liste (`Route.belaege`) neben den Abschnitten — als Feld am
+  Abschnitt zerfiele jede Schiebestrecke in der Detailansicht an jedem
+  Belagwechsel. Die Zuordnung der Stellen (`BRouter.stellen`) teilen sich
+  beide Listen. Farbe UND Strichbild, und die Legende nennt die Kilometer.
 - **Overpass war aus der Bauumgebung nicht erreichbar**, die OSM-API schon —
   die ist aber zum Bearbeiten da und kein Datendienst für Apps. Die App fragt
   sie deshalb nicht. Offen: Unterführungen OHNE eingetragene Höhe erkennen.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
   hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1),
-  dann 1.0.1 (Build 2), 1.0.2 (Build 3).
+  dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Navigation,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen.

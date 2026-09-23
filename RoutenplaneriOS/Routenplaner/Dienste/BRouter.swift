@@ -27,6 +27,7 @@ enum BRouter {
         var punkte: [Punkt]
         var abschnitte: [Abschnitt]
         var laengeM: Double
+        var belaege: [Belagstueck]
     }
 
     static func route(von: Punkt, nach: Punkt, profil: Fahrzeugprofil) async throws -> Antwort {
@@ -82,17 +83,18 @@ enum BRouter {
             return Punkt(breite: la, laenge: lo)
         }
         let meldungen = (eigenschaften["messages"] as? [[Any]]) ?? []
-        let abschnitte = zerlegen(punkte: punkte, meldungen: meldungen)
+        let stuecke = stellen(punkte: punkte, meldungen: meldungen)
+        let abschnitte = zerlegen(punkte: punkte, stellen: stuecke)
+        let belaege = belagZerlegen(punkte: punkte, stellen: stuecke)
         let laenge = Wert.zahl(eigenschaften["track-length"]) ?? Geo.laenge(punkte)
-        return Antwort(punkte: punkte, abschnitte: abschnitte, laengeM: laenge)
+        return Antwort(punkte: punkte, abschnitte: abschnitte, laengeM: laenge, belaege: belaege)
     }
 
     /// Ordnet jedem Stück der Linie seine Art zu. Jede Zeile der `messages`
     /// beschreibt das Stück, das an ihrer Koordinate ENDET; die erste Zeile
     /// ist die Überschrift.
-    private static func zerlegen(punkte: [Punkt], meldungen: [[Any]]) -> [Abschnitt] {
+    private static func zerlegen(punkte: [Punkt], stellen: [(ende: Int, merkmale: [String: String])]) -> [Abschnitt] {
         guard punkte.count > 1 else { return [] }
-        let mikro = punkte.map { (Int(($0.laenge * 1e6).rounded()), Int(($0.breite * 1e6).rounded())) }
         var ergebnis: [Abschnitt] = []
         var anfang = 0
         func anhaengen(bis ende: Int, art: Abschnittsart, wegart: String?) {
@@ -108,28 +110,70 @@ enum BRouter {
             }
             anfang = ende
         }
-        for zeile in meldungen.dropFirst() {
-            guard zeile.count > 9,
-                  let lo = Wert.text(zeile[0]).flatMap(Int.init),
-                  let la = Wert.text(zeile[1]).flatMap(Int.init)
-            else { continue }
-            let merkmale = merkmaleLesen(Wert.text(zeile[9]) ?? "")
-            // Die Koordinate der Zeile in der Linie suchen, ab der Stelle, an
-            // der das letzte Stück endete. Eine Mikrograd Spiel für Rundung.
-            var gefunden: Int?
-            var j = anfang + 1
-            while j < mikro.count {
-                if abs(mikro[j].0 - lo) <= 1 && abs(mikro[j].1 - la) <= 1 { gefunden = j; break }
-                j += 1
-            }
-            guard let ende = gefunden else { continue }
-            let (art, wegart) = einordnen(merkmale)
-            anhaengen(bis: ende, art: art, wegart: wegart)
+        for s in stellen {
+            let (art, wegart) = einordnen(s.merkmale)
+            anhaengen(bis: s.ende, art: art, wegart: wegart)
         }
         // Was übrig bleibt, gehört zum letzten Stück; fand sich gar nichts,
         // ist es eine gewöhnliche Strecke — das sagt die Liste darunter.
         if anfang < punkte.count - 1 {
             anhaengen(bis: punkte.count - 1, art: ergebnis.last?.art ?? .fahren, wegart: ergebnis.last?.wegart)
+        }
+        return ergebnis
+    }
+
+    /// Dieselben Stellen, nach dem Belag zusammengefasst. Eine eigene Liste
+    /// und nicht ein Feld am `Abschnitt`: Sonst zerfiele jede Schiebestrecke
+    /// in der Detailansicht an jedem Belagwechsel in mehrere Zeilen.
+    private static func belagZerlegen(punkte: [Punkt], stellen: [(ende: Int, merkmale: [String: String])]) -> [Belagstueck] {
+        guard punkte.count > 1 else { return [] }
+        var ergebnis: [Belagstueck] = []
+        var anfang = 0
+        func anhaengen(bis ende: Int, belag: Belag) {
+            guard ende > anfang else { return }
+            let stueck = Array(punkte[anfang...ende])
+            let laenge = Geo.laenge(stueck)
+            if var letzter = ergebnis.last, letzter.belag == belag {
+                letzter.punkte.append(contentsOf: stueck.dropFirst())
+                letzter.laengeM += laenge
+                ergebnis[ergebnis.count - 1] = letzter
+            } else {
+                ergebnis.append(Belagstueck(belag: belag, punkte: stueck, laengeM: laenge))
+            }
+            anfang = ende
+        }
+        for s in stellen {
+            anhaengen(bis: s.ende, belag: Belag.aus(s.merkmale["surface"]))
+        }
+        if anfang < punkte.count - 1 {
+            anhaengen(bis: punkte.count - 1, belag: .unbekannt)
+        }
+        return ergebnis
+    }
+
+    /// Jede Zeile der `messages` beschreibt das Stück, das an ihrer
+    /// Koordinate ENDET; die erste Zeile ist die Überschrift. Gesucht wird
+    /// die Koordinate in der Linie ab der Stelle, an der das letzte Stück
+    /// endete — eine Mikrograd Spiel für Rundung.
+    private static func stellen(punkte: [Punkt], meldungen: [[Any]]) -> [(ende: Int, merkmale: [String: String])] {
+        guard punkte.count > 1 else { return [] }
+        let mikro = punkte.map { (Int(($0.laenge * 1e6).rounded()), Int(($0.breite * 1e6).rounded())) }
+        var ergebnis: [(ende: Int, merkmale: [String: String])] = []
+        var letzte = 0
+        for zeile in meldungen.dropFirst() {
+            guard zeile.count > 9,
+                  let lo = Wert.text(zeile[0]).flatMap(Int.init),
+                  let la = Wert.text(zeile[1]).flatMap(Int.init)
+            else { continue }
+            var j = letzte + 1
+            var gefunden: Int?
+            while j < mikro.count {
+                if abs(mikro[j].0 - lo) <= 1 && abs(mikro[j].1 - la) <= 1 { gefunden = j; break }
+                j += 1
+            }
+            guard let ende = gefunden else { continue }
+            ergebnis.append((ende, merkmaleLesen(Wert.text(zeile[9]) ?? "")))
+            letzte = ende
         }
         return ergebnis
     }

@@ -129,9 +129,11 @@ final class Planer: ObservableObject {
         let weg: (abschnitte: [Abschnitt], punkte: [Punkt], laenge: Double)
         var anweisungen: [Anweisung] = []
         var quelle = BRouter.name
+        var belaege: [Belagstueck] = []
         do {
             let a = try await BRouter.route(von: von.punkt, nach: nach.punkt, profil: profil)
             weg = (a.abschnitte, a.punkte, a.laengeM)
+            belaege = a.belaege
         } catch Routenfehler.keinWeg(let text) {
             throw Routenfehler.keinWeg(text)
         } catch {
@@ -163,7 +165,7 @@ final class Planer: ObservableObject {
                      posten: Fahrzeit.rad(abschnitte: abschnitte, profil: profil),
                      zeitDienstS: nil, anweisungen: anweisungen, hinweise: hinweise,
                      meldungen: [], umfahren: [], angekuendigt: [],
-                     quelle: quelle, verkehrGeprueft: false)
+                     quelle: quelle, verkehrGeprueft: false, belaege: belaege)
     }
 
     private static func auto(von: Ort, nach: Ort, profil: Fahrzeugprofil,
