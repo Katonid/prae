@@ -127,6 +127,7 @@ struct ReiseView: View {
         case ausgabe
         case zweiDateien
         case nurUmschlag
+        case doppelseiten
         case broschuere
         case neuverteilen
         case tagInhalt(UUID)
@@ -156,6 +157,7 @@ struct ReiseView: View {
             case .ausgabe: return "ausgabe"
             case .zweiDateien: return "zweidateien"
             case .nurUmschlag: return "nurumschlag"
+            case .doppelseiten: return "doppelseiten"
             case .broschuere: return "broschuere"
             case .neuverteilen: return "neuverteilen"
             case let .tagInhalt(id): return "tag-\(id)"
@@ -1407,6 +1409,15 @@ struct ReiseView: View {
                     blatt = .nurUmschlag
                 }
             }
+            // DOPPELSEITEN (ab 1.0.69). Ansage des Nutzers, 09/2026:
+            // „Offenbar will Saal Digital ein Upload eines PDF mit fertig
+            // gestalteten Doppelseiten." Ein eigener Punkt aus demselben
+            // Grund wie bei den beiden darüber: Der Picker im Blatt ist der
+            // Ort, an dem in 1.0.52 zehn Fassungen lang etwas stand, das
+            // niemand fand.
+            Button("Doppelseiten ausgeben…", systemImage: "rectangle.split.2x1") {
+                blatt = .doppelseiten
+            }
             // EIN EIGENER MENÜPUNKT FÜR DIE BROSCHÜRE (ab 1.0.37).
             //
             // Es gibt sie seit 1.0.27, vollständig gebaut — gefunden hat
@@ -1778,6 +1789,8 @@ struct ReiseView: View {
             AusgabeView(werk: werk, vorwahl: .getrennt)
         case .nurUmschlag:
             AusgabeView(werk: werk, vorwahl: .nurUmschlag)
+        case .doppelseiten:
+            AusgabeView(werk: werk, vorwahl: .doppelseiten)
         case .broschuere:
             AusgabeView(werk: werk, vorwahl: .broschuere)
         case .neuverteilen:

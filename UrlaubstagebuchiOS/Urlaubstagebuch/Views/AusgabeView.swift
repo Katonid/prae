@@ -83,6 +83,7 @@ struct AusgabeView: View {
         case getrennt
         case nurUmschlag
         case nurInnenteil
+        case doppelseiten
         case broschuere
 
         var id: String { rawValue }
@@ -92,6 +93,7 @@ struct AusgabeView: View {
             case .getrennt: return "Umschlag als eigene Datei"
             case .nurUmschlag: return "Nur der Umschlagbogen"
             case .nurInnenteil: return "Nur die Buchseiten"
+            case .doppelseiten: return "Doppelseiten (zwei auf einen Bogen)"
             case .broschuere: return "Broschüre zum Selberfalten"
             }
         }
@@ -106,10 +108,45 @@ struct AusgabeView: View {
                 return "Nur der Umschlagbogen, ohne eine einzige Buchseite. Für den Fall, dass am Umschlag etwas zu ändern war und der Innenteil schon liegt — der ist bei einem vollen Buch mehrere Gigabyte groß und braucht seine Zeit."
             case .nurInnenteil:
                 return "Nur die Buchseiten, ohne den Umschlagbogen. Die Gegenrichtung zu „Nur der Umschlagbogen“: Beide zusammen ergeben dasselbe wie „Umschlag als eigene Datei“, nur eben zu zwei Zeitpunkten."
+            case .doppelseiten:
+                return "Zwei Buchseiten auf eine PDF-Seite, links die gerade Nummer — so, wie das aufgeschlagene Buch aussieht. Der Bogen ist doppelt so breit wie eine Seite. Manche Fotobuchdienste wollen genau das. Der Umschlag gehört nicht hinein; den gibt es einzeln."
             case .broschuere:
                 return "Zwei Seiten nebeneinander auf einen Bogen, in Heftfolge. Für den eigenen Drucker: beidseitig ausdrucken, in der Mitte falten, heften."
             }
         }
+    }
+
+    // WAS AUS DER PAARUNG GEWORDEN IST — als Zahl, nicht als Zusage.
+    //
+    // Ein halber erster und ein halber letzter Bogen sind Buchbinderei und
+    // sehen trotzdem wie ein Fehler aus, wenn niemand sie benennt. Gebaut
+    // wird der Satz Stück für Stück und nicht als Kette aus `?:`, `+` und
+    // Interpolation — daran hat sich in 1.0.38 der Typprüfer verschluckt.
+    private var doppelseitenzeile: Druckpruefung.Zeile {
+        let befund = Buchausgabe.doppelseitenbefund(werk.reise)
+        // `Double(…)` ausdrücklich — die Falle aus 1.0.37: Wo ein Wert
+        // aus einem `CGSize` in eine eigene Größe geht, steht die
+        // Umwandlung in diesem Repo dabei.
+        let breite = Double(werk.reise.format.groesse.width) * 2
+        let hoehe = Double(werk.reise.format.groesse.height)
+        var titel = "\(befund.bogen) Doppelseiten"
+        if befund.bogen == 1 { titel = "1 Doppelseite" }
+        titel += ", je \(Druckmass.mmText(breite)) x \(Druckmass.mmText(hoehe))"
+        var text = "Links steht immer die gerade Seitenzahl, rechts die "
+        text += "ungerade \u{2014} so, wie das Buch aufgeschlagen daliegt. "
+        text += "Der Umschlag steht nicht darin."
+        var stufe = Druckpruefung.Stufe.gut
+        if befund.halbe > 0 {
+            stufe = .hinweis
+            var wieviele = "\(befund.halbe) davon tragen"
+            if befund.halbe == 1 { wieviele = "Eine davon trägt" }
+            text += " " + wieviele
+            text += " nur eine Buchseite: Seite 1 hat links von sich die "
+            text += "Innenseite des Umschlags, und am Ende des Buches ist es "
+            text += "ebenso. Diese Hälfte bleibt weiß \u{2014} sie kommt von der "
+            text += "Druckerei und steht in keinem PDF."
+        }
+        return Druckpruefung.Zeile(stufe: stufe, titel: titel, text: text)
     }
 
     // Was am Umschlagbogen zu wissen ist — die Rückenbreite und dass sie
@@ -311,6 +348,14 @@ struct AusgabeView: View {
                 befundAmPDF = [Druckpruefung.Zeile(
                     stufe: .gut, titel: "Broschüre gesetzt",
                     text: broschuerenbefund)]
+                teilenliste = [ziel]
+            } else if umfang == .doppelseiten {
+                let ziel = try await Buchausgabe.doppelseitenPdf(
+                    werk.reise,
+                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                befundAmPDF = Druckpruefung.amPDF(ziel) + [doppelseitenzeile]
                 teilenliste = [ziel]
             } else if umfang == .getrennt {
                 // Viele Buchdienste wollen Umschlag und Innenteil als zwei

@@ -542,13 +542,15 @@ enum Buchausgabe {
     }
 
     static func dateiname(_ reise: Reise, auftrag: Auftrag,
-                          broschuere: Bool = false) -> String {
+                          broschuere: Bool = false,
+                          doppelseiten: Bool = false) -> String {
         let roh = reise.titel.isEmpty ? "Reisetagebuch" : reise.titel
         let erlaubt = roh.components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
             .joined(separator: "-")
         let grund = erlaubt.isEmpty ? "Reisetagebuch" : erlaubt
         if broschuere { return grund + "-Broschuere.pdf" }
+        if doppelseiten { return grund + "-Doppelseiten.pdf" }
         if auftrag.nurUmschlag { return grund + "-Umschlag.pdf" }
         if auftrag.ohneUmschlag { return grund + "-Innenteil.pdf" }
         return grund + ".pdf"
@@ -653,15 +655,15 @@ enum Buchausgabe {
         // ihre Fläche plus den AUSSEN liegenden Anschnitt. Ohne den
         // Beschnitt liefe ein randabfallendes Titelfoto über den Rücken —
         // also genau über die Beschriftung, die dort stehen soll.
-        zeichneUmschlagseite(rueckseite, reise: reise, karten: karten, auftrag: auftrag,
-                             ursprung: .zero, aussenLinks: true,
-                             seitenmass: seitenmass, anschnitt: anschnitt,
-                             in: zusammenhang)
-        zeichneUmschlagseite(titelseite, reise: reise, karten: karten, auftrag: auftrag,
-                             ursprung: CGPoint(x: seitenmass.width + ruecken.width, y: 0),
-                             aussenLinks: false,
-                             seitenmass: seitenmass, anschnitt: anschnitt,
-                             in: zusammenhang)
+        zeichneBogenhaelfte(rueckseite, reise: reise, karten: karten, auftrag: auftrag,
+                            ursprung: .zero, aussenLinks: true,
+                            seitenmass: seitenmass, anschnitt: anschnitt,
+                            ohneGrund: true, in: zusammenhang)
+        zeichneBogenhaelfte(titelseite, reise: reise, karten: karten, auftrag: auftrag,
+                            ursprung: CGPoint(x: seitenmass.width + ruecken.width, y: 0),
+                            aussenLinks: false,
+                            seitenmass: seitenmass, anschnitt: anschnitt,
+                            ohneGrund: true, in: zusammenhang)
 
         if ruecken.width > 1 {
             zeichneRuecken(reise, rechteck: ruecken, in: zusammenhang)
@@ -674,11 +676,28 @@ enum Buchausgabe {
         return ziel
     }
 
-    private static func zeichneUmschlagseite(_ buchseite: Buchseite, reise: Reise,
-                                             karten: [UUID: UIImage], auftrag: Auftrag,
-                                             ursprung: CGPoint, aussenLinks: Bool,
-                                             seitenmass: CGSize, anschnitt: Double,
-                                             in zusammenhang: CGContext)
+    // EINE HÄLFTE EINES BREITEN BOGENS — benutzt vom Umschlag (ab 1.0.50)
+    // und von der Doppelseitenausgabe (ab 1.0.69).
+    //
+    // Beschnitten wird auf die eigene Fläche plus den AUSSEN liegenden
+    // Anschnitt. Innen gibt es keinen: Dort stoßen die beiden Hälften
+    // aneinander, und ein randabfallendes Bild liefe sonst über die
+    // Nachbarseite — beim Umschlag über den Rücken, also genau über die
+    // Beschriftung, die dort stehen soll.
+    //
+    // `ohneGrund` unterscheidet die beiden Fälle, und der Unterschied ist
+    // keine Einstellung, sondern die Sache selbst: Der UMSCHLAG hat EINEN
+    // Grund über den ganzen Bogen (samt Rücken), die Hälften dürfen also
+    // keinen eigenen zeichnen. Eine DOPPELSEITE besteht dagegen aus zwei
+    // Buchseiten, und jede trägt ihren eigenen Hintergrund; läuft eines
+    // über beide, rechnet `Bogenlage.bildflaeche` in jeder Hälfte ihre
+    // Portion aus — zusammengesetzt ergibt das dasselbe Bild.
+    private static func zeichneBogenhaelfte(_ buchseite: Buchseite, reise: Reise,
+                                            karten: [UUID: UIImage], auftrag: Auftrag,
+                                            ursprung: CGPoint, aussenLinks: Bool,
+                                            seitenmass: CGSize, anschnitt: Double,
+                                            ohneGrund: Bool,
+                                            in zusammenhang: CGContext)
     {
         zusammenhang.saveGState()
         zusammenhang.translateBy(x: ursprung.x, y: ursprung.y)
@@ -687,7 +706,7 @@ enum Buchausgabe {
         zusammenhang.clip(to: CGRect(x: x, y: -anschnitt, width: breite,
                                      height: seitenmass.height + 2 * anschnitt))
         zeichneSeite(buchseite, reise: reise, karten: karten, auftrag: auftrag,
-                     ohneGrund: true, in: zusammenhang)
+                     ohneGrund: ohneGrund, in: zusammenhang)
         zusammenhang.restoreGState()
     }
 
@@ -727,6 +746,145 @@ enum Buchausgabe {
         Seitensatz.zeichneText(text, bild: bild, rechteck: platz,
                                in: zusammenhang, seitenhoehe: breite)
         zusammenhang.restoreGState()
+    }
+
+    // MARK: - Doppelseiten
+
+    // ZWEI BUCHSEITEN AUF EINE PDF-SEITE, LINKS DIE GERADE (ab 1.0.69).
+    //
+    // Ansage des Nutzers, 09/2026: „Offenbar will Saal Digital ein Upload
+    // eines PDF mit fertig gestalteten Doppelseiten. … dass nun immer zwei
+    // Seiten, angefangen mit einer geraden Seite, zusammen auf ein
+    // PDF-Seite gebracht werden, die dann die doppelte Breite hat. Also
+    // wenn eine Seite hochkant 21 mal 28 cm wäre, müsste die Doppelseite
+    // 42 x 28 cm sein.“
+    //
+    // **Die Paarung wird NICHT nachgebaut.** Links die gerade Nummer,
+    // rechts die ungerade — das ist dieselbe Buchbinderei, die seit
+    // 1.0.47 in `Bogenlage` steht und nach der die Doppelseitenansicht
+    // auf dem Bildschirm paart. Gefragt werden deshalb genau die beiden
+    // Angaben, die je eine Stelle haben: `Buchseite.bogennummer` und
+    // `Buchseite.liegtRechts`. Eine zweite Zählung daneben ergäbe eine
+    // Datei, die anders paart als die Vorschau — und das sähe man erst im
+    // gebundenen Buch.
+    //
+    // **Der erste und der letzte Bogen sind HALB, und das ist richtig so.**
+    // Seite 1 ist ein Recto und hat links von sich die Innenseite des
+    // Umschlags; die kommt von der Druckerei und steht in keinem PDF. Am
+    // anderen Ende dasselbe. Die beiden halben Bogen werden trotzdem
+    // ausgegeben, sonst fehlten Seite 1 und die letzte — ihre leere Hälfte
+    // bleibt weiß, und die Befundzeile sagt es.
+    //
+    // **Nur der Buchblock** (`teil == .innen`). Der Umschlag ist ein eigenes
+    // Stück Papier mit eigener Breite und eigenem Rücken; er hat in dieser
+    // Datei nichts zu suchen und wird mit „Nur der Umschlagbogen“ einzeln
+    // ausgegeben. Gibt es keinen Umschlagbogen, ist die Titelseite die
+    // gewöhnliche Seite 1 und damit von selbst dabei.
+    static func doppelseitenPdf(_ reise: Reise, auftrag: Auftrag = Auftrag(),
+                                fortschritt: @escaping @MainActor (Double) -> Void)
+        async throws -> URL
+    {
+        let seiten = reise.seitenfolge.filter { $0.teil == .innen }
+        guard !seiten.isEmpty else { throw Fehler.keineSeiten }
+
+        var bogenfolge: [(links: Buchseite?, rechts: Buchseite?)] = []
+        let nachBogen = Dictionary(grouping: seiten, by: \.bogennummer)
+        for nummer in nachBogen.keys.sorted() {
+            let gruppe = nachBogen[nummer] ?? []
+            bogenfolge.append((gruppe.first { !$0.liegtRechts },
+                               gruppe.first { $0.liegtRechts }))
+        }
+        let folge = bogenfolge
+        let anzahl = Double(folge.count)
+
+        let seitenmass = reise.format.groesse
+        let anschnitt = reise.gestaltung.anschnittPt
+        // Das Endformat des Bogens ist zweimal das der Seite — 21 x 28
+        // ergibt 42 x 28. Der Anschnitt liegt ringsum AUSSEN; am Bund
+        // stoßen die beiden Hälften aneinander, dort gibt es nichts zu
+        // beschneiden. Dieselbe Rechnung wie beim Umschlagbogen.
+        let endformat = CGSize(width: seitenmass.width * 2, height: seitenmass.height)
+        let bogen = CGSize(width: endformat.width + 2 * anschnitt,
+                           height: endformat.height + 2 * anschnitt)
+
+        let karten = await kartenbilder(seiten, reise: reise) { anteil in
+            fortschritt(anteil * 0.45)
+        }
+
+        let ziel = FileManager.default.temporaryDirectory
+            .appendingPathComponent(dateiname(reise, auftrag: auftrag, doppelseiten: true))
+        try? FileManager.default.removeItem(at: ziel)
+
+        var medienbox = CGRect(origin: .zero, size: bogen)
+        let angaben: [String: Any] = [
+            kCGPDFContextTitle as String: reise.titel + " — Doppelseiten",
+            kCGPDFContextCreator as String: "Urlaubstagebuch",
+            kCGPDFContextSubject as String: reise.zeitraum,
+        ]
+        guard let abnehmer = CGDataConsumer(url: ziel as CFURL),
+              let zusammenhang = CGContext(consumer: abnehmer, mediaBox: &medienbox,
+                                           angaben as CFDictionary)
+        else {
+            throw Fehler.schreibfehler("Die Datei ließ sich nicht anlegen.")
+        }
+
+        // TrimBox über den GANZEN Bogen, nicht je Hälfte: Geschnitten wird
+        // außen, in der Mitte wird gefalzt bzw. gebunden. Eine Schnittmarke
+        // am Bund wäre eine Anweisung, das Buch in der Mitte zu zerteilen.
+        var trimbox = CGRect(x: anschnitt, y: anschnitt,
+                             width: endformat.width, height: endformat.height)
+        var bleedbox = medienbox
+        let seiteninfo: [String: Any] = [
+            kCGPDFContextMediaBox as String: Data(bytes: &medienbox,
+                                                  count: MemoryLayout<CGRect>.size),
+            kCGPDFContextTrimBox as String: Data(bytes: &trimbox,
+                                                 count: MemoryLayout<CGRect>.size),
+            kCGPDFContextBleedBox as String: Data(bytes: &bleedbox,
+                                                  count: MemoryLayout<CGRect>.size),
+        ]
+
+        for (stelle, paar) in folge.enumerated() {
+            zusammenhang.beginPDFPage(seiteninfo as CFDictionary)
+            zusammenhang.saveGState()
+            zusammenhang.translateBy(x: 0, y: bogen.height)
+            zusammenhang.scaleBy(x: 1, y: -1)
+            zusammenhang.translateBy(x: anschnitt, y: anschnitt)
+
+            if let links = paar.links {
+                zeichneBogenhaelfte(links, reise: reise, karten: karten, auftrag: auftrag,
+                                    ursprung: .zero, aussenLinks: true,
+                                    seitenmass: seitenmass, anschnitt: anschnitt,
+                                    ohneGrund: false, in: zusammenhang)
+            }
+            if let rechts = paar.rechts {
+                zeichneBogenhaelfte(rechts, reise: reise, karten: karten, auftrag: auftrag,
+                                    ursprung: CGPoint(x: seitenmass.width, y: 0),
+                                    aussenLinks: false,
+                                    seitenmass: seitenmass, anschnitt: anschnitt,
+                                    ohneGrund: false, in: zusammenhang)
+            }
+
+            zusammenhang.restoreGState()
+            zusammenhang.endPDFPage()
+            let anteil = 0.45 + Double(stelle + 1) / anzahl * 0.55
+            await MainActor.run { fortschritt(anteil) }
+        }
+        zusammenhang.closePDF()
+        await MainActor.run { fortschritt(1) }
+        return ziel
+    }
+
+    // Was aus der Paarung geworden ist — in Worten, vor dem Ausgeben.
+    //
+    // Ein halber erster und ein halber letzter Bogen sehen wie ein Fehler
+    // aus, wenn niemand sagt, dass sie das Buch sind. Gezählt wird hier
+    // und nicht geraten: dieselbe Paarung, die auch die Datei schreibt.
+    static func doppelseitenbefund(_ reise: Reise) -> (bogen: Int, halbe: Int) {
+        let seiten = reise.seitenfolge.filter { $0.teil == .innen }
+        let nachBogen = Dictionary(grouping: seiten, by: \.bogennummer)
+        var halbe = 0
+        for gruppe in nachBogen.values where gruppe.count < 2 { halbe += 1 }
+        return (nachBogen.count, halbe)
     }
 
     // MARK: - Eine Seite

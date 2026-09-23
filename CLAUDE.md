@@ -7249,6 +7249,54 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **ZWEI BUCHSEITEN AUF EINE PDF-SEITE, LINKS DIE GERADE**
+  (`Buchausgabe.doppelseitenPdf`, ab 1.0.69; Ansage des Nutzers 09/2026:
+  „Offenbar will Saal Digital ein Upload eines PDF mit fertig gestalteten
+  Doppelseiten. … dass nun immer zwei Seiten, angefangen mit einer geraden
+  Seite, zusammen auf ein PDF-Seite gebracht werden, die dann die doppelte
+  Breite hat. Also wenn eine Seite hochkant 21 mal 28 cm wäre, müsste die
+  Doppelseite 42 x 28 cm sein.“).
+  - **Die Paarung wird NICHT nachgebaut.** Links die gerade Nummer, rechts die
+    ungerade — das ist dieselbe Buchbinderei, die seit 1.0.47 in `Bogenlage`
+    steht und nach der die Doppelseitenansicht auf dem Bildschirm paart.
+    Gefragt werden genau die beiden Angaben, die je eine Stelle haben:
+    `Buchseite.bogennummer` und `Buchseite.liegtRechts`. Eine zweite Zählung
+    daneben ergäbe eine Datei, die anders paart als die Vorschau — und das
+    sähe man erst im gebundenen Buch (dieselbe Lehre wie 1.0.52, wo drei
+    Stellen die Nummerierung nachbauten).
+  - **Der erste und der letzte Bogen sind HALB, und das ist richtig so.**
+    Seite 1 ist ein Recto und hat links von sich die Innenseite des Umschlags;
+    die kommt von der Druckerei und steht in keinem PDF. Ausgegeben werden sie
+    trotzdem, sonst fehlten Seite 1 und die letzte. **Die leere Hälfte wird
+    GEZÄHLT und hingeschrieben** (`doppelseitenbefund`): Ein halber Bogen sieht
+    wie ein Fehler aus, wenn niemand ihn benennt.
+  - **Der Anschnitt liegt ringsum AUSSEN, am Bund keiner.** Dort stoßen die
+    beiden Hälften aneinander; ein randabfallendes Bild liefe sonst über die
+    Nachbarseite. Dieselbe Rechnung wie beim Umschlagbogen — und deshalb
+    dieselbe Funktion: `zeichneUmschlagseite` heißt seit 1.0.69
+    `zeichneBogenhaelfte` und nimmt `ohneGrund` entgegen. Der Unterschied ist
+    keine Einstellung, sondern die Sache: Der UMSCHLAG hat EINEN Grund über den
+    ganzen Bogen (samt Rücken), eine DOPPELSEITE besteht aus zwei Buchseiten mit
+    je eigenem Hintergrund — und läuft eines über beide, rechnet
+    `Bogenlage.bildflaeche` in jeder Hälfte ihre Portion aus.
+  - **TrimBox über den GANZEN Bogen**, nicht je Hälfte: Geschnitten wird außen,
+    in der Mitte wird gebunden. Eine Schnittmarke am Bund wäre die Anweisung,
+    das Buch in der Mitte zu zerteilen — dieselbe Überlegung wie beim Umschlag
+    (1.0.50) und bei der Broschüre (1.0.27).
+  - **Nur der Buchblock** (`teil == .innen`). Der Umschlag ist ein eigenes Stück
+    Papier mit eigener Breite und eigenem Rücken und wird mit „Nur den
+    Umschlag“ einzeln ausgegeben. Gibt es keinen Umschlagbogen, ist die
+    Titelseite die gewöhnliche Seite 1 und damit von selbst dabei.
+  - **Eigener Menüpunkt „Doppelseiten ausgeben…“**, nicht nur eine Zeile im
+    Picker — der Picker im Ausgabeblatt ist der Ort, an dem in 1.0.52 zehn
+    Fassungen lang etwas stand, das niemand fand.
+  - **Nicht gemessen (1.0.69):** Keine Datei ist damit hochgeladen worden.
+    Gerechnet ist die Geometrie (zwei Endformate nebeneinander, Anschnitt nur
+    außen) und die Paarung; **ob Saal Digital genau diese Anordnung erwartet,
+    ist NICHT geprüft** — gebaut ist, was der Nutzer beschrieben hat (links die
+    gerade Zahl), und die Befundzeile nennt Zahl und Maß der Bogen, damit sich
+    das gegen die Vorgabe des Dienstes halten lässt. **Nicht als erledigt
+    darstellen.**
 - **OHNE `UIGraphicsPushContext` ZEICHNET `UIImage.draw` IN NICHTS — STILL**
   (`Seitensatz.mitUIKit`, ab 1.0.68; derselbe Befund zum zweiten Mal gemeldet,
   09/2026: „Das Bild ist leider wieder nicht mitgekommen.“, dazu ein
@@ -8404,7 +8452,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.68 (Build 69). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.69 (Build 70). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
