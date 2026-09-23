@@ -87,3 +87,21 @@ final class Ortssuche: NSObject, ObservableObject, MKLocalSearchCompleterDelegat
         return Ort(name: name, punkt: Punkt(treffer.placemark.coordinate))
     }
 }
+
+/// Der Name zu einer angetippten Stelle. `nil` heißt „konnte nicht
+/// nachsehen" und nicht „heißt nicht" — dann bleibt der vorläufige Name
+/// stehen (dieselbe Regel wie `Ortsname` in der Abfahrtstafel).
+enum Ortsname {
+    static func nachschlagen(_ p: Punkt) async -> String? {
+        let ort = CLLocation(latitude: p.breite, longitude: p.laenge)
+        guard let treffer = try? await CLGeocoder().reverseGeocodeLocation(ort).first else { return nil }
+        var teile: [String] = []
+        if let strasse = treffer.thoroughfare {
+            teile.append([strasse, treffer.subThoroughfare].compactMap { $0 }.joined(separator: " "))
+        } else if let name = treffer.name {
+            teile.append(name)
+        }
+        if let stadt = treffer.locality, !teile.contains(stadt) { teile.append(stadt) }
+        return teile.isEmpty ? nil : teile.joined(separator: ", ")
+    }
+}

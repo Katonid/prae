@@ -10,10 +10,28 @@ struct PlanerView: View {
     @State private var ortswahl: Ortsfeld?
     @State private var zeigeProfile = false
     @State private var zeigeDetails = false
+    /// Die angetippte Stelle. Der WUNSCH trägt den Ort — kein Schalter
+    /// daneben (Lehre aus Abfahrtstafel 1.0.9).
+    @State private var angetippt: Ort?
+    @AppStorage("verkehrslageZeigen") private var verkehrslage = true
 
     var body: some View {
-        Routenkarte(route: planer.route, start: planer.start, ziel: planer.ziel, kamera: $kamera)
+        Routenkarte(route: planer.route, start: planer.start, ziel: planer.ziel,
+                    markierung: angetippt?.punkt, verkehrslage: verkehrslage,
+                    kamera: $kamera, tippen: antippen)
             .ignoresSafeArea(edges: .top)
+            .confirmationDialog(angetippt?.name ?? "Punkt auf der Karte",
+                                isPresented: Binding(get: { angetippt != nil },
+                                                     set: { if !$0 { angetippt = nil } }),
+                                titleVisibility: .visible,
+                                presenting: angetippt) { ort in
+                Button("Route hierhin – von meinem Standort") { routeHierhin(ort) }
+                if planer.start != nil {
+                    Button("Als Ziel übernehmen") { uebernehmen(ort, als: .ziel) }
+                }
+                Button("Als Start übernehmen") { uebernehmen(ort, als: .start) }
+                Button("Abbrechen", role: .cancel) {}
+            }
             .safeAreaInset(edge: .bottom) { bedienfeld }
             .sheet(item: $ortswahl) { feld in
                 OrtswahlView(feld: feld) { ort in
@@ -35,6 +53,42 @@ struct PlanerView: View {
                     withAnimation { kamera = .rect(rect) }
                 }
             }
+    }
+
+    // MARK: - Tipp auf die Karte
+
+    private func antippen(_ p: Punkt) {
+        // Erst die Frage, dann der Name: Der Geocoder braucht eine Sekunde,
+        // und ein Tipp, auf den eine Sekunde lang nichts geschieht, sieht
+        // aus wie einer, der nicht angekommen ist. Die späte Antwort schreibt
+        // nur, wenn noch DERSELBE Punkt gemeint ist.
+        angetippt = Ort(name: "Punkt auf der Karte", punkt: p)
+        Task {
+            guard let name = await Ortsname.nachschlagen(p), angetippt?.punkt == p else { return }
+            angetippt = Ort(name: name, punkt: p)
+        }
+    }
+
+    private func routeHierhin(_ ort: Ort) {
+        planer.ziel = ort
+        if let hier = standort.punkt {
+            planer.start = Ort(name: "Mein Standort", punkt: hier)
+            planer.berechnen()
+        } else {
+            // Nicht raten und nicht still auf einem alten Start rechnen:
+            // Ohne Ortung gibt es kein „von hier".
+            standort.anfragen()
+            planer.start = nil
+            planer.berechnen()
+            planer.fehler = standort.abgelehnt
+                ? "Das Ziel ist gesetzt, aber die Ortung ist abgelehnt. Den Start oben eintippen — oder die Ortung in den Einstellungen erlauben."
+                : "Das Ziel ist gesetzt, der eigene Standort ist aber noch nicht bekannt. Einen Augenblick warten und noch einmal tippen — oder den Start oben eintippen."
+        }
+    }
+
+    private func uebernehmen(_ ort: Ort, als feld: Ortsfeld) {
+        if feld == .start { planer.start = ort } else { planer.ziel = ort }
+        planer.berechnen()
     }
 
     private var bedienfeld: some View {
@@ -64,9 +118,15 @@ struct PlanerView: View {
                 }
                 .buttonStyle(.bordered)
                 Spacer()
+                Toggle(isOn: $verkehrslage) {
+                    Image(systemName: "car.2.fill")
+                }
+                .toggleStyle(.button)
+                .accessibilityLabel("Verkehrslage auf der Karte")
+                .accessibilityValue(verkehrslage ? "an" : "aus")
                 if planer.profil.art == .auto {
                     Toggle(isOn: $planer.verkehrBeachten) {
-                        Label("Verkehr", systemImage: "exclamationmark.triangle")
+                        Label("Meldungen", systemImage: "exclamationmark.triangle")
                     }
                     .toggleStyle(.button)
                     .onChange(of: planer.verkehrBeachten) { _, _ in planer.berechnen() }
@@ -144,7 +204,7 @@ struct PlanerView: View {
             }
             .buttonStyle(.plain)
         } else if !planer.bereit {
-            Text("Start und Ziel wählen — die Route wird dann sofort berechnet.")
+            Text("Auf die Karte tippen oder Start und Ziel oben eintippen — die Route wird dann sofort berechnet.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)

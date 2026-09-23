@@ -47,14 +47,33 @@ extension Hinweis.Stufe {
 
 /// Die Karte. Auf ihr liegt KEIN Bedienelement — alle Zeichen sind Bilder
 /// (Lehre aus der Abfahrtstafel 1.1.18: Knöpfe auf einer Karte schlucken die
-/// Zoomgeste).
+/// Zoomgeste). Den Tipp nimmt die KARTE selbst entgegen und rechnet ihn über
+/// `MapProxy.convert` in eine Koordinate um — welche Stelle unter einem
+/// Bildschirmpunkt liegt, weiß allein die Karte. Schieben und Zoomen bleiben
+/// davon unberührt: Ein Tipp ist keine Ziehbewegung.
 struct Routenkarte: View {
     let route: Route?
     let start: Ort?
     let ziel: Ort?
+    /// Die gerade angetippte Stelle, solange die Frage dazu offen ist.
+    let markierung: Punkt?
+    /// Apples Verkehrslage als Farbschicht auf den Straßen.
+    let verkehrslage: Bool
     @Binding var kamera: MapCameraPosition
+    let tippen: (Punkt) -> Void
 
     var body: some View {
+        MapReader { karte in
+            inhalt
+                .onTapGesture { stelle in
+                    if let k = karte.convert(stelle, from: .local) {
+                        tippen(Punkt(k))
+                    }
+                }
+        }
+    }
+
+    private var inhalt: some View {
         Map(position: $kamera) {
             UserAnnotation()
             if let route {
@@ -92,7 +111,12 @@ struct Routenkarte: View {
                 Marker("Ziel", systemImage: "flag.checkered", coordinate: ziel.punkt.koordinate)
                     .tint(.red)
             }
+            if let markierung {
+                Marker("Hier?", systemImage: "mappin", coordinate: markierung.koordinate)
+                    .tint(.blue)
+            }
         }
+        .mapStyle(.standard(showsTraffic: verkehrslage))
         .mapControls {
             MapUserLocationButton()
             MapCompass()

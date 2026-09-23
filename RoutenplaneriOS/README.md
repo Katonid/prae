@@ -15,6 +15,11 @@ Routen für das Fahrzeug plant, mit dem man wirklich unterwegs ist:
   Fußgängerzonen und Treppen ohne Radfreigabe umfahren.
 - **Zu Fuß**.
 
+Start und Ziel lassen sich eintippen (Knöpfe unten) oder auf der Karte
+antippen: Die Karte lässt sich frei schieben, ein Tipp fragt „Route hierhin
+– von meinem Standort", „Als Ziel" oder „Als Start". Das Autosymbol unten
+blendet Apples Verkehrslage auf der Karte ein und aus.
+
 Solange die App vorn ist, sperrt sich der Bildschirm nicht; im Hintergrund
 gilt wieder die Einstellung des Geräts.
 
@@ -40,6 +45,9 @@ Verkehrsmeldungen, Wegbeschreibung, GPX-Ausgabe.
   Zeit, verlegt die Route aber nicht; Sperrungen und zu schmale Baustellen
   werden umfahren (Sperrfläche in beiden Richtungen).
 - Die Aufschläge fürs Anfahren sind geschätzt, nicht gemessen.
+- Die Verkehrslage auf der Karte ist Apples Anzeige und geht NICHT in die
+  Berechnung ein — dafür liefert MapKit keine Daten heraus. In die Route
+  gehen nur die Meldungen der Autobahn GmbH ein (Schalter „Meldungen").
 - Es ist ein Planer, keine Navigation mit Sprachansage.
 - **CarPlay geht nicht.** Eine Karten-App darf nur mit dem Entitlement
   `com.apple.developer.carplay-maps` auf CarPlay, und das bewilligt Apple
