@@ -297,7 +297,7 @@ struct WasserzeichenView: View {
 
     private func binden<W>(_ pfad: WritableKeyPath<Wasserzeichen, W>) -> Binding<W> {
         Binding(
-            get: { zeichen?[keyPath: pfad] ?? Wasserzeichen(datei: "")[keyPath: pfad] },
+            get: { zeichen?[keyPath: pfad] ?? Wasserzeichen()[keyPath: pfad] },
             set: { neu in
                 guard var jetzt = werk.reise.gestaltung.wasserzeichen else { return }
                 jetzt[keyPath: pfad] = neu
