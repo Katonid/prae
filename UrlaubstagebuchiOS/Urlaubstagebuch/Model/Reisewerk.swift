@@ -223,21 +223,24 @@ final class Reisewerk: ObservableObject, Identifiable {
     var doppelseiten: [Doppelseite] {
         let alle = seitenfolge
         guard !alle.isEmpty else { return [] }
-        var nachNummer: [Int: Buchseite] = [:]
-        for seite in alle { nachNummer[seite.nummer] = seite }
-        let letzte = alle.map(\.nummer).max() ?? 0
-        var bogen: [Doppelseite] = []
-        var zaehler = 0
-        while 2 * zaehler <= letzte {
-            // Links die gerade, rechts die ungerade Nummer — nie umgekehrt.
-            let links = nachNummer[2 * zaehler]
-            let rechts = nachNummer[2 * zaehler + 1]
-            if links != nil || rechts != nil || zaehler == 0 {
-                bogen.append(Doppelseite(bogen: zaehler, links: links, rechts: rechts))
-            }
-            zaehler += 1
+        var nachBogen: [Int: Doppelseite] = [:]
+        for seite in alle {
+            // Links die gerade, rechts die ungerade Nummer — nie
+            // umgekehrt. Die Regel steht in `Bogenlage` und wird von dort
+            // geholt: Dieselbe Paarung entscheidet seit 1.0.47 auch, welche
+            // Hälfte eines Hintergrundbildes auf diese Seite fällt, und
+            // zwei Fassungen ergaben eine Ansicht, die anders paart als der
+            // Druck.
+            let nummer = seite.nummer / 2
+            var doppel = nachBogen[nummer] ?? Doppelseite(bogen: nummer, links: nil, rechts: nil)
+            if Bogenlage.rechts(seite.nummer) { doppel.rechts = seite } else { doppel.links = seite }
+            nachBogen[nummer] = doppel
         }
-        return bogen
+        // Der erste Bogen steht immer da, auch wenn rechts nichts liegt:
+        // Links gehört ihm die Innenseite des Umschlags, und die soll man
+        // sehen.
+        if nachBogen[0] == nil { nachBogen[0] = Doppelseite(bogen: 0, links: nil, rechts: nil) }
+        return nachBogen.keys.sorted().compactMap { nachBogen[$0] }
     }
 
     // Auch hier das ganze Buch (ab 1.0.28) — siehe `sichtbareSeiten`.

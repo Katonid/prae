@@ -43,8 +43,59 @@ struct Seitenhintergrund: Codable, Hashable {
     // ist per Definition nicht das, worauf man schauen soll.
     var schleier: Double = 0.72
     var koernung: Double = 0.06
+    // Ob ein Hintergrundfoto über die DOPPELSEITE geht statt über die
+    // einzelne Seite (Ansage des Nutzers, 09/2026). Aus als Vorgabe: Was
+    // bisher gesetzt wurde, sieht danach unverändert aus.
+    //
+    // Ein Schalter und keine Automatik — wörtlich: „Da ich nicht absehen
+    // kann, ob es vielleicht andere Konstellationen gibt, wo es sinnvoll
+    // ist, das Bild auf jeder Seite zu haben, hätte ich gerne hier einen
+    // Schalter." Ein Muster, ein Himmel, eine Struktur gehört auf jede
+    // Seite; eine Landschaft gehört über den Bund.
+    var ueberDoppelseite: Bool = false
 
     static let weiss = Seitenhintergrund(art: .einfarbig, farbe: .papier)
+
+    // Ein Leser von Hand, aus demselben Grund wie bei `Reise`, `Reisetag`
+    // und `Kartenbild` (siehe `Model/Nachsicht.swift`): Der erzeugte
+    // verlangt JEDEN Schlüssel, auch einen mit Vorgabewert.
+    //
+    // Hier wäre das besonders teuer gewesen, und zwar STILL: `Gestaltung`
+    // holt den Hintergrund über `b.wert(.hintergrund, .weiss)` und eine
+    // einzelne Seite über `b.wahlweise(.hintergrund)`. Ohne diesen Leser
+    // wäre mit `ueberDoppelseite` in jedem vorhandenen Buch der
+    // Buchhintergrund auf Weiß gefallen und jeder eigene Seitengrund
+    // verschwunden — ohne eine Meldung, denn das Buch geht ja auf.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        art = b.wert(.art, Art.einfarbig)
+        farbe = b.wert(.farbe, Farbwert.papier)
+        zweitfarbe = b.wert(.zweitfarbe, Farbwert(rot: 0.93, gruen: 0.94, blau: 0.96))
+        winkel = b.wert(.winkel, 90)
+        fotoID = b.wahlweise(.fotoID)
+        schleier = b.wert(.schleier, 0.72)
+        koernung = b.wert(.koernung, 0.06)
+        ueberDoppelseite = b.wert(.ueberDoppelseite, false)
+    }
+
+    // Der eigene Leser oben nimmt den erzeugten Initialisierer mit — wer
+    // in einer Struktur einen Initialisierer schreibt, hat danach keinen
+    // mitgelieferten mehr. Er steht deshalb hier, wie bei `Kartenbild`.
+    init(art: Art = .einfarbig, farbe: Farbwert = .papier,
+         zweitfarbe: Farbwert = Farbwert(rot: 0.93, gruen: 0.94, blau: 0.96),
+         winkel: Double = 90, fotoID: UUID? = nil,
+         schleier: Double = 0.72, koernung: Double = 0.06,
+         ueberDoppelseite: Bool = false)
+    {
+        self.art = art
+        self.farbe = farbe
+        self.zweitfarbe = zweitfarbe
+        self.winkel = winkel
+        self.fotoID = fotoID
+        self.schleier = schleier
+        self.koernung = koernung
+        self.ueberDoppelseite = ueberDoppelseite
+    }
 
     var istSchlicht: Bool { art == .einfarbig }
 

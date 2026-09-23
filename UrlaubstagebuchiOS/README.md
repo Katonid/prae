@@ -479,6 +479,67 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ein Hintergrundbild über die Doppelseite (1.0.47)
+
+> „Ich möchte einstellen können, dass ein Hintergrundbild über eine
+> Doppelseite geht. Da ich nicht absehen kann, ob es vielleicht andere
+> Konstellationen gibt, wo es sinnvoll ist, das Bild auf jeder Seite zu haben,
+> hätte ich gerne hier einen Schalter."
+
+**Gestalten → Hintergrund → Wie weit das Bild reicht.** Aus füllt das Bild
+jede Seite für sich; an füllt es die ganze aufgeschlagene Doppelseite, und
+jede Seite zeigt ihre Hälfte davon.
+
+**Ein Schalter und keine Automatik**, weil beides richtig ist — nur für
+verschiedene Bilder: Ein Muster, ein Himmel oder eine Struktur gehört auf jede
+Seite, eine Landschaft über den Bund. Aus als Vorgabe; was bisher gesetzt
+wurde, sieht danach unverändert aus.
+
+### Welche Hälfte wohin fällt, ist Buchbinderei
+
+Seite 1 ist ein Recto, also rechts, und jede rechte Seite trägt eine ungerade
+Nummer. Diese Regel stand seit 1.0.17 in `Reisewerk.doppelseiten`; sie steht
+jetzt als Funktion in `Model/Bogenlage.swift`, und die Doppelseitenansicht holt
+sie von dort. Zwei Fassungen ergäben eine Ansicht, die anders paart als der
+Satz — und das sähe man erst im gedruckten Buch.
+
+Die Fläche ist **zwei Endformate breit, mit Anschnitt nur außen**: Am Bund
+stoßen die Endformate aneinander, innen deckt die Nachbarseite ab. Beschnitten
+wird trotzdem am Bogen — die Nachbarseite ist ein eigenes Blatt Papier.
+Gerechnet wird das an einer Stelle: `Bogenlage.bildflaeche` für das PDF,
+`Bogenlage.versatz` für SwiftUI (dieselbe Zahl, einmal als Rechteck in
+Seitenkoordinaten, einmal als Versatz gegen die Bogenmitte, weil ein `ZStack`
+mittig ausrichtet).
+
+### Was daran nicht selbstverständlich ist
+
+* **`Seitenhintergrund` liest sich jetzt von Hand.** Er hatte keinen eigenen
+  Leser, und das wäre hier still teuer geworden: `Gestaltung` holt ihn über
+  `b.wert(.hintergrund, .weiss)`, eine einzelne Seite über
+  `b.wahlweise(.hintergrund)` — ein neues Feld hätte in jedem vorhandenen Buch
+  den Buchhintergrund auf Weiß zurückgesetzt und jeden eigenen Seitengrund
+  verschwinden lassen, ohne eine Meldung.
+* **`HintergrundFlaeche` bekommt eine feste Größe.** Ein `ZStack` ist so groß
+  wie sein größtes Kind; ein Bild über die Doppelseite ist breiter als diese
+  Seite und zöge das Blatt auseinander. Der Rahmen steht deshalb vor dem
+  `.clipped()`.
+* **Die Probe im Hintergrund-Blatt spannt nicht.** Sie steht nicht im Buch und
+  hat keine Nachbarseite; `bogen` und `seitennummer` sind dort leer.
+* **Die Druckprüfung zählt die Bögen, die nicht aufgehen.** Setzt jemand den
+  Hintergrund je Seite, braucht die Nachbarseite dasselbe Bild mit demselben
+  Schalter — sonst steht im Buch die Hälfte des einen neben der Hälfte des
+  anderen, und auf dem Bildschirm sieht jede Seite für sich tadellos aus. Die
+  Hälfte, die auf die Innenseite des Umschlags fällt (erster und letzter
+  Bogen), wird eigens genannt und nicht als Fehler gezählt: Sie wird nie
+  gedruckt, und das ist das Buch und kein Versehen.
+
+**Nicht gemessen:** Keine Doppelseite ist damit gesehen worden. Gerechnet ist
+die Geometrie. Ungeprüft ist, ob der Bund im gedruckten Buch etwas verschluckt
+— ein Hardcover verschwindet in der Bindung, und wie viel, sagt der
+Druckdienst und nicht diese App; wer ein Gesicht genau in den Bund legt,
+verliert es möglicherweise. Der Bundsteg schiebt den Satz davon weg, das Bild
+nicht.
+
 ## Das Schriftenrecht ist wieder heraus — die App ließ sich nicht mehr signieren (1.0.45)
 
 Gemeldet 09/2026 mit einem Bildschirmfoto aus Xcode:
