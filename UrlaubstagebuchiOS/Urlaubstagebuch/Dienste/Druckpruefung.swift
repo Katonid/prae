@@ -416,6 +416,51 @@ enum Druckpruefung {
                       titel: "Wasserzeichen", text: text)]
     }
 
+    // EINE LINIE, DIE WEIT DANEBENZIEHT, STEHT IM GEDRUCKTEN BUCH (ab
+    // 1.0.49). Die Punkteliste eines Tages zeigt den Befund schon — sie
+    // sieht aber nur, wer diesen einen Tag gerade offen hat. Wer ein Buch
+    // ausgibt, geht nicht zwanzig Tagesspuren durch; also zählt es diese
+    // Prüfung, wie sie auch den abgeschnittenen Text und die leeren
+    // Bildunterschriften zählt.
+    //
+    // Gezählt werden NUR Tage, auf deren Seiten wirklich eine Karte liegt.
+    // Ein Ausreißer in einer Spur, die nirgends gezeichnet wird, kostet
+    // nichts und wäre hier eine Warnung ohne Gegenstand.
+    static func spurausreisser(_ reise: Reise) -> [Zeile] {
+        var betroffen: [String] = []
+        var punkte = 0
+        for tag in reise.tage {
+            let hatKarte = tag.seiten.contains { seite in
+                seite.bloecke.contains { block in
+                    if case .karte = block.inhalt { return true }
+                    return false
+                }
+            }
+            guard hatKarte else { continue }
+            let befunde = Ausreisser.finden(tag.spur)
+            guard !befunde.isEmpty else { continue }
+            punkte += befunde.count
+            let groesster = befunde.map(\.umweg).max() ?? 0
+            // Stück für Stück in eine Variable und nicht als eine
+            // `+`-Kette mit `?:` und Interpolation darin: Genau diese
+            // Mischung hat in 1.0.38 den Typprüfer gesprengt.
+            let wort = befunde.count == 1 ? "Punkt" : "Punkte"
+            var zeile = "\(tag.datum.mittel): \(befunde.count) \(wort), "
+            zeile += "größter Umweg \(Ausreisser.strecke(groesster))"
+            betroffen.append(zeile)
+        }
+        guard !betroffen.isEmpty else { return [] }
+        var text = "Gemessen wird der Umweg, den ein Punkt an zusätzlicher Linie kostet. "
+        text += "Meist steht dahinter eine ungenaue Standortmessung; es kann aber auch "
+        text += "ein Abstecher hin und zurück sein, und welcher von beidem es war, weiß "
+        text += "nur, wer dabei war \u{2014} deshalb wird nichts von selbst entfernt. "
+        text += "Nachsehen und aufräumen: das Tagesmenü \u{2192} Reisepunkte.\n\n"
+        text += betroffen.joined(separator: "\n")
+        return [Zeile(stufe: .hinweis,
+                      titel: "\(punkte) Punkte springen aus der Reiselinie",
+                      text: text)]
+    }
+
     // Ein Hintergrundbild über die Doppelseite geht nur auf, wenn BEIDE
     // Seiten des Bogens dasselbe Bild mit demselben Schalter tragen. Auf
     // dem Bildschirm sieht die einzelne Seite dabei völlig in Ordnung aus
@@ -518,6 +563,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: mittenImSatz(reise))
         zeilen.append(contentsOf: wasserzeichen(reise))
         zeilen.append(contentsOf: doppelseitenhintergrund(reise))
+        zeilen.append(contentsOf: spurausreisser(reise))
 
         // Randabfallendes
         let randab = reise.seitenfolge.reduce(0) { summe, seite in
