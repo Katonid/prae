@@ -1377,6 +1377,7 @@ struct ReiseView: View {
                 jetzt,
                 gewandert,
                 sperre,
+                Schaerfeprobe.shared.befund,
                 werk.messer.befund].joined(separator: "\n")
     }
 
