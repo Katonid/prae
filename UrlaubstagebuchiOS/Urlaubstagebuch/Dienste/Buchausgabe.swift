@@ -164,11 +164,30 @@ extension Reise {
     // Zählung deshalb ZWEIMAL da — und genau so etwas läuft auseinander.
     // Hereingereicht werden deshalb die fertigen Umschlagseiten; wer sie
     // setzt, entscheidet der Aufrufer.
+    // EIGENE FELDER AUF EINER GERECHNETEN SEITE (ab 1.0.64).
+    //
+    // Titelseite und Rückseite werden bei jedem Durchgang neu gesetzt; ein
+    // Block, den jemand hineinschriebe, wäre beim nächsten Mal weg. Was
+    // der Nutzer dort anlegt, liegt deshalb am UMSCHLAG
+    // (`Umschlag.titelbloecke`, `.rueckbloecke`) und wird hier angehängt —
+    // an EINER Stelle, gefragt vom Bildschirm und vom PDF. Zwei Fassungen
+    // ergäben eine Vorschau, die anders aussieht als die Datei, und der
+    // Unterschied fiele erst beim Drucker auf.
+    //
+    // Angehängt, also OBEN: Ein eigenes Feld auf einem randabfallenden
+    // Titelfoto wäre darunter unsichtbar.
+    private func mitEigenen(_ seite: Seite, _ bloecke: [Block]) -> Seite {
+        guard !bloecke.isEmpty else { return seite }
+        var mit = seite
+        mit.bloecke += bloecke
+        return mit
+    }
+
     func seitenfolge(titelblatt: Seite?, rueckblatt: Seite?) -> [Buchseite] {
         var folge: [Buchseite] = []
         if hatRueckseite, let rueckblatt {
-            folge.append(Buchseite(seite: rueckblatt, tag: nil,
-                                   teil: .rueckseite, nummer: 0))
+            folge.append(Buchseite(seite: mitEigenen(rueckblatt, umschlag.rueckbloecke),
+                                   tag: nil, teil: .rueckseite, nummer: 0))
         }
         var nummer = 1
         if titelseite, let titelblatt {
@@ -178,7 +197,8 @@ extension Reise {
             // dahinter bei 1 an. Ohne Bogen ist sie die gewöhnliche erste
             // Seite — und liegt als ungerade Nummer ebenfalls rechts.
             let amBogen = hatRueckseite
-            folge.append(Buchseite(seite: titelblatt, tag: nil,
+            folge.append(Buchseite(seite: mitEigenen(titelblatt, umschlag.titelbloecke),
+                                   tag: nil,
                                    teil: amBogen ? .titel : .innen,
                                    nummer: amBogen ? 0 : nummer))
             if !amBogen { nummer += 1 }

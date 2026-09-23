@@ -57,6 +57,25 @@ enum Druckpruefung {
                 }
             }
         }
+        // Die eigenen Felder auf Titel- und Rückseite (ab 1.0.64). Sie
+        // stehen in keinem Tag und wären hier sonst der einzige Ort im
+        // Buch, an dem ein Satz still herausfallen darf.
+        for (name, bloecke) in [("Umschlag: Titelseite", reise.umschlag.titelbloecke),
+                                ("Umschlag: Rückseite", reise.umschlag.rueckbloecke)]
+        {
+            for block in bloecke where block.inhalt.istText {
+                let text = Seitensatz.inhaltstext(block, tag: nil, reise: reise)
+                guard !text.isEmpty, block.rahmen.breite > 1 else { continue }
+                let bild = Seitensatz.schriftbild(block, reise: reise)
+                let rand = block.textrand(reise.gestaltung)
+                let noetig = Textmass.hoehe(text, bild: bild,
+                                            breite: block.textbreite(rand: rand))
+                    + 2 * rand
+                guard noetig > block.rahmen.hoehe + 0.5 else { continue }
+                let fehlt = Druckmass.mmText(noetig - block.rahmen.hoehe)
+                betroffen.append("\(name): \(block.inhalt.name), es fehlen \(fehlt)")
+            }
+        }
         guard !betroffen.isEmpty else {
             return [Zeile(stufe: .gut, titel: "Kein abgeschnittener Text",
                           text: "In jeden Textkasten passt, was darin steht.")]

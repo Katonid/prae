@@ -7241,6 +7241,73 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **EIGENE FELDER AUF TITELSEITE UND RÜCKSEITE — SIE LIEGEN NEBEN DER
+  GERECHNETEN SEITE, NICHT DARIN** (`Umschlag.titelbloecke`, `.rueckbloecke`,
+  ab 1.0.64; Ansage des Nutzers 09/2026: „Es soll mir zum Beispiel auch
+  möglich sein, dort eigene Felder oder Bilder zu positionieren."). Seit
+  1.0.50 stand hier, ein Block auf dem Umschlag wäre beim nächsten
+  Durchgang weg — und das stimmte: Titel- und Rückseite werden bei JEDEM
+  Durchgang von `Layoutautomat.titelseite`/`.rueckseite` neu gesetzt, ein
+  hineingeschriebener Block wäre beim nächsten Neuzeichnen verschwunden.
+  Der Ausweg, den 1.0.50 nannte (beide Seiten zu echten `Seite`n in der
+  Reise einzufrieren), ist bewusst NICHT gegangen worden: Dann hinge der
+  Umschlag für immer an dem Stand, den er beim Einfrieren hatte — ein neuer
+  Titel, ein anderes Titelfoto, ein anderer Stil schlügen nie mehr durch.
+  - **Die eigenen Blöcke liegen deshalb DANEBEN**, als zwei Listen am
+    `Umschlag`, und `Reise.seitenfolge(titelblatt:rueckblatt:)` hängt sie
+    der gerechneten Seite an (`mitEigenen`). Der gerechnete Teil bleibt
+    lebendig, die eigenen Felder überstehen jedes Neuanordnen, jeden
+    Stilwechsel und jedes Neuverteilen — sie stehen ja in keinem Tag.
+  - **Angehängt heißt OBEN.** Ein eigenes Feld auf einem randabfallenden
+    Titelfoto wäre darunter unsichtbar. „Nach vorn holen" ist auf dem
+    Umschlag deshalb schlicht das Ende der eigenen Liste.
+  - **An EINER Stelle angehängt**, gefragt vom Bildschirm und vom PDF —
+    beide holen ihre Seiten aus `seitenfolge`. Zwei Fassungen ergäben eine
+    Vorschau, die anders aussieht als die Datei, und der Unterschied fiele
+    erst beim Drucker auf.
+  - **Der Merker des gemerkten Titelblatts darf sie NICHT kennen**
+    (`Umschlag.satzmerkmal`). `Reisewerk` merkt sich die gesetzte Titel-
+    und Rückseite, weil ihr Satz zwei CoreText-Messungen kostet; bis 1.0.63
+    stand dafür der ganze Umschlag im Schlüssel. Ständen die Blöcke darin,
+    setzte jeder Bildpunkt einer Ziehbewegung die Titelseite neu. Gerechnet
+    wird das Merkmal über eine KOPIE ohne die beiden Listen und nicht über
+    eine Aufzählung der übrigen Felder: Ein Feld, das jemand morgen
+    hinzufügt, ist damit von selbst dabei.
+  - **`block(_:)` findet sie weiterhin nicht — und das ist richtig.** Es
+    gibt Tag, Seite und Stelle zurück; wer einen TAG braucht (Text teilen,
+    auf eine andere Seite schieben, kopieren), kann mit einem Umschlagblock
+    nichts anfangen. Genau diese Knöpfe erscheinen dort von selbst nicht.
+    Alles, was nur den Block selbst betrifft — auswählen, schieben, ziehen,
+    drehen, Text schreiben, nach vorn holen, entfernen —, geht seit 1.0.64
+    zusätzlich durch `umschlagblock(_:)`; gelesen wird über `blockWert(_:)`,
+    sonst bliebe der Inspektor bei einem angetippten Block leer.
+  - **Eine KARTE wird dort nicht angeboten.** Sie zeichnet die Spur EINES
+    Tages, und auf dem Umschlag gibt es keinen; was dort stünde, wäre ein
+    leerer Rahmen mit dem Satz „Kartenbild fehlt". Dasselbe gilt für
+    „Rest auf die nächste Seite": Die Fortsetzung bräuchte eine nächste
+    Seite, und der Umschlag hat keine — deshalb sagt `teilbar` dort nein,
+    und zwar im Werk und nicht in der Ansicht (gefragt wird an zwei
+    Stellen).
+  - **Mitgezogen an vier weiteren Stellen**, und jede davon wäre ein
+    stiller Fehler gewesen: `Formatwechsel` rechnet die Rahmen mit (sonst
+    säße nach A4 → A5 jedes Feld halb außerhalb), `fotoEntfernen` räumt
+    Blöcke weg, deren Bild es nicht mehr gibt, `Druckpruefung`
+    zählt abgeschnittenen Text auch dort, und `Buchdatei` nimmt die Bilder
+    ohnehin mit, weil eine eingesetzte Grafik ein gewöhnliches `Foto` der
+    Reise ist.
+  - **Die AUSGLEICHSSEITE bleibt draußen.** Sie wird gerechnet, gehört
+    keinem und hat keinen Ort, an dem etwas liegen bleiben könnte — dort
+    wäre ein Block wirklich beim nächsten Durchgang weg.
+  - **Nicht gemessen (1.0.64):** Keine Seite ist damit gesehen worden.
+    Gerechnet ist, WARUM ein Block in der gerechneten Seite verschwindet
+    und warum er daneben stehen bleibt. **Gewählt und nicht gemessen** sind
+    die Startmaße eines neuen Umschlagfeldes (60 % der Satzbreite,
+    höchstens 280 pt, 90 pt hoch). **Und eigene Felder oder Bilder AUF DEM
+    RÜCKEN gibt es weiterhin NICHT** — der Rücken ist ein rund zwölf
+    Millimeter breiter Streifen mit eigener Geometrie und eigenem Weg ins
+    PDF (`Rueckensatz`, `umschlagPdf`); ein Blockrahmen würde dort auf das
+    Buchformat geklemmt und nicht auf die Rückenbreite. Er behält seine
+    eine einstellbare Textzeile. **Nicht als erledigt darstellen.**
 - **DER UMSCHLAG HATTE ZWEI FASSUNGEN, UND SIE ZEIGTEN VERSCHIEDENES**
   (`Model/Rueckensatz.swift`, ab 1.0.63; Befund des Nutzers 09/2026: „Im
   vorliegenden Beispiel hat es den Eindruck, dass der Buchrücken in einem
@@ -7270,7 +7337,10 @@ Befunde, und keiner davon war Geschmack:
     Felder oder Bilder AUF dem Rücken, um die ebenfalls gebeten wurde, gibt
     es noch NICHT: Der Umschlag wird gerechnet und nicht gesetzt, ein Block
     darauf wäre beim nächsten Durchgang weg (der Weg dahin steht seit 1.0.50
-    hier). **Nicht als erledigt darstellen.**
+    hier). **Nicht als erledigt darstellen.** — Nachtrag: Für Titel- und
+    Rückseite ist das seit 1.0.64 gelöst, und zwar anders als hier
+    vermutet (die Blöcke liegen NEBEN der gerechneten Seite, nicht darin).
+    Für den RÜCKEN gilt der Satz unverändert weiter.
 - **DIE APP LÄUFT AUCH AUF DEM MAC — ALS MAC CATALYST** (ab 1.0.62, Ansage
   des Nutzers 09/2026: „Jetzt möchte ich tatsächlich doch noch die Option
   haben, das Ganze auf dem Mac nutzen zu können, und zwar als eigenständige
@@ -8032,7 +8102,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.63 (Build 64). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.64 (Build 65). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -44,9 +44,13 @@ struct BlockInspektor: View {
         return inhalt
     }
 
+    // `blockWert` und nicht `block(_:)`: Seit 1.0.64 kann ein Block auch
+    // auf dem Umschlag liegen, und dort gibt es keinen Tag. Ein Inspektor,
+    // der bei einem angetippten Block leer bliebe, sähe aus wie ein
+    // kaputter Knopf.
     private var block: Block? {
-        guard let id = werk.gewaehlterBlock, let stelle = werk.block(id) else { return nil }
-        return werk.reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block]
+        guard let id = werk.gewaehlterBlock else { return nil }
+        return werk.blockWert(id)
     }
 
     var body: some View {

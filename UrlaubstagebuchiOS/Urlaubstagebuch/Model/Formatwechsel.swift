@@ -49,7 +49,7 @@ enum Formatwechsel {
     static func vorschau(reise: Reise, auf neu: Seitenformat) -> Vorschau {
         let alt = reise.format
         let f = faktor(von: alt, auf: neu)
-        var bloecke = 0
+        var bloecke = reise.umschlag.titelbloecke.count + reise.umschlag.rueckbloecke.count
         for tag in reise.tage {
             for seite in tag.seiten { bloecke += seite.bloecke.count }
         }
@@ -117,6 +117,18 @@ enum Formatwechsel {
                     reise.tage[tagIndex].seiten[seiteIndex].wasserzeichen = eigen
                 }
             }
+        }
+
+        // Die eigenen Felder auf Titel- und Rückseite (ab 1.0.64). Sie
+        // stehen nicht in einem Tag, sondern am Umschlag — mitgerechnet
+        // werden sie trotzdem: Ein Rahmen ist eine LÄNGE, und ohne die
+        // Umrechnung säße er nach einem Wechsel von A4 auf A5 halb außerhalb
+        // der Seite.
+        for stelle in reise.umschlag.titelbloecke.indices {
+            skaliere(&reise.umschlag.titelbloecke[stelle], mal: f)
+        }
+        for stelle in reise.umschlag.rueckbloecke.indices {
+            skaliere(&reise.umschlag.rueckbloecke[stelle], mal: f)
         }
     }
 

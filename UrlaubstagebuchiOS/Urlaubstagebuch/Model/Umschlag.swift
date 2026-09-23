@@ -153,6 +153,29 @@ struct Umschlag: Codable, Hashable {
     // Die Schriftfamilie des Umschlags. `nil` heißt: die des Buchtitels.
     var schriftfamilie: Schriftfamilie?
 
+    // MARK: - Eigene Felder auf Titelseite und Rückseite (ab 1.0.64)
+
+    // Ansage des Nutzers, 09/2026: „Es soll mir zum Beispiel auch möglich
+    // sein, dort eigene Felder oder Bilder zu positionieren."
+    //
+    // **Sie stehen am UMSCHLAG und nicht in einem Tag** — und genau darin
+    // liegt die ganze Lösung. Titelseite und Rückseite werden bei jedem
+    // Durchgang GERECHNET (`Layoutautomat.titelseite`, `.rueckseite`);
+    // seit 1.0.50 steht deshalb im Papier, ein Block darauf wäre beim
+    // nächsten Durchgang weg. Er ist es auch — solange er in der
+    // gerechneten Seite liegt. Diese beiden Listen liegen daneben und
+    // werden in `Reise.seitenfolge(titelblatt:rueckblatt:)` an die
+    // gerechnete Seite ANGEHÄNGT: Der gerechnete Teil bleibt damit
+    // lebendig (ein neuer Titel, ein anderer Stil, ein anderes Titelfoto
+    // schlagen weiterhin durch), und die eigenen Blöcke überleben jedes
+    // Neuanordnen, jeden Stilwechsel und jedes Neuverteilen.
+    //
+    // Angehängt heißt zugleich: Sie liegen OBEN. Ein eigenes Feld auf dem
+    // Titelbild soll man sehen; läge es darunter, wäre es bei einem
+    // randabfallenden Titelfoto unsichtbar.
+    var titelbloecke: [Block] = []
+    var rueckbloecke: [Block] = []
+
     init() {}
 
     // Ein Leser von Hand, BEVOR der Typ wächst — die Regel steht seit
@@ -179,6 +202,30 @@ struct Umschlag: Codable, Hashable {
         rand = b.wahlweise(.rand)
         titelfaktor = b.wert(.titelfaktor, 1)
         schriftfamilie = b.wahlweise(.schriftfamilie)
+        titelbloecke = b.wert(.titelbloecke, [Block]())
+        rueckbloecke = b.wert(.rueckbloecke, [Block]())
+    }
+
+    // WAS DEN GERECHNETEN TEIL DES UMSCHLAGS VERÄNDERT — und nichts sonst.
+    //
+    // `Reisewerk` merkt sich die gesetzte Titel- und Rückseite, weil ihr
+    // Satz zwei CoreText-Messungen kostet und der Körper einer Ansicht oft
+    // läuft. Der Schlüssel dafür nannte bis 1.0.63 den ganzen Umschlag —
+    // seit es eigene Blöcke darauf gibt, hieße das: Jeder Bildpunkt einer
+    // Ziehbewegung setzt die Titelseite neu. Die Blöcke gehen deshalb hier
+    // nicht ein; sie werden ja erst hinterher angehängt.
+    //
+    // Gerechnet wird über eine Kopie OHNE die beiden Listen und nicht über
+    // eine Aufzählung der übrigen Felder: Ein Feld, das jemand morgen
+    // hinzufügt, ist damit von selbst dabei. Ein vergessenes ließe einen
+    // alten Umschlag stehen, ohne dass etwas darauf hinwiese.
+    var satzmerkmal: Int {
+        var ohneBloecke = self
+        ohneBloecke.titelbloecke = []
+        ohneBloecke.rueckbloecke = []
+        var misch = Hasher()
+        misch.combine(ohneBloecke)
+        return misch.finalize()
     }
 
     // Was auf dem Rücken steht — leer heißt Buchtitel.
@@ -219,5 +266,6 @@ struct Umschlag: Codable, Hashable {
     var eigeneGestaltung: Bool {
         hintergrund != nil || rand != nil || titelfaktor != 1 || schriftfamilie != nil
             || abs(rueckenlage - 0.5) > 0.001 || rueckenrichtung != .obenNachUnten
+            || !titelbloecke.isEmpty || !rueckbloecke.isEmpty
     }
 }
