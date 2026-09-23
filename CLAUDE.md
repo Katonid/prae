@@ -3938,7 +3938,7 @@ Befunde, und keiner davon war Geschmack:
   Rettung. **Merke: Ein Decoder, der nie scheitert, darf nie vor einem stehen,
   der scheitern kann.**
 - **Der Bildschirm sagt, was angekommen ist** — Art, Dateiname, Seiten,
-  Absätze, Kodierung, Zeichenzahl, dazu die entfernten Rand­zeilen. Dieselbe
+  Absätze, Kodierung, Zeichenzahl, dazu die entfernten Randzeilen. Dieselbe
   Regel wie beim Einfuhrbericht der Fotos: Ein stummer Import lässt die Frage
   offen, ob überhaupt die richtige Datei gewählt wurde.
 - **Nicht gemessen:** Keine der vier Wege ist an einer echten Datei des
@@ -6556,6 +6556,66 @@ Befunde, und keiner davon war Geschmack:
   weg. Das war bei der Titelseite seit 1.0.0 so und bleibt es. **Nicht als
   gelöst darstellen** — wer es baut, legt beide Seiten als echte `Seite` in
   der Reise ab und nimmt sie aus `alleNeuAnordnen` heraus.
+- **EINE EINSTELLUNG, DIE ES NUR GLOBAL GIBT, IST HALB GEBAUT**
+  (`Model/Kartenwahl.swift`, `Block.kartenbild`, `.kartenausschnitt`, ab
+  1.0.51; Befund des Nutzers 09/2026: „Hier wollte ich gerade speziell nur
+  für diese Karte Änderungen in den Einstellungen treffen. Zum Beispiel,
+  dass Standortpunkte doch angezeigt werden und nicht nur die Linien.
+  Offenbar kann ich das aber nicht für einzelne Karten, sondern nur
+  global."). Er hat recht, und es war seit 1.0.0 so: Das Buch trug eine
+  Karteneinstellung, ein TAG durfte sie überschreiben — die einzelne Karte
+  auf der Seite nicht. Seit 1.0.39 lässt sich eine Karte auf eine zweite
+  Seite KOPIEREN; damit gab es zwei Karten, die sich nicht auseinanderhalten
+  ließen.
+  - **Drei Ebenen, aufgelöst an EINER Stelle** (`Kartenwahl.geltend`):
+    Block vor Tag vor Buch. Bildschirm (`KartenKachel`) und PDF
+    (`Buchausgabe.kartenbilder`) fragen dieselbe Funktion — zwei Fassungen
+    ergäben ein gedrucktes Buch, das anders aussieht als die Vorschau, und
+    zwar erst dann anders, wenn es gedruckt ist. Dieselbe Regel wie bei
+    `Block.wirkung` und `Bildausschnitt.zielrechteck`.
+  - **Abweichung, keine Kopie.** `nil` heißt „wie der Tag", und wo der Tag
+    nichts sagt, „wie das Buch". Kopierte der Block beim Anlegen die Werte,
+    wäre jede spätere Änderung am Buchganzen an jeder schon einmal
+    angefassten Karte wirkungslos — dieselbe Bauweise wie
+    `Schriftabweichung` und der Fotostil seit 1.0.9.
+  - **Der Abschnitt fragte den FALSCHEN Tag** (behoben in 1.0.51,
+    `BlockInspektor.kartenstelle`). Er hing an `werk.tag`, also am gerade
+    gewählten Tag — und der folgt seit 1.0.28 dem, was oben im Bild steht,
+    nicht dem angetippten Block. Wer eine Karte antippte, während über ihr
+    noch die letzte Seite des Vortags stand, stellte am VORTAG etwas um.
+    Und zeigte `gewaehlterTag` auf einen Tag, den es nicht mehr gibt, fiel
+    der ganze Abschnitt weg — dann war von der Karte aus GAR KEINE
+    Karteneinstellung erreichbar. **Wer einen Abschnitt zu einem BLOCK
+    baut, fragt den Tag des Blocks und nie den gewählten.**
+  - **Die Kennung der `KartenKachel` nannte nur die SPANNE** (behoben in
+    1.0.51). Wer die Karte verschob, ohne den Maßstab zu ändern, sah auf
+    dem Bildschirm weiter den alten Ausschnitt; im PDF stand der neue. Der
+    Schlüssel kommt jetzt aus `Kartenwahl.Geltend.merkmal` und nennt Mitte,
+    Spanne und alles aus `Kartenbild.merkmal`. **Ein Zwischenspeicher-
+    Schlüssel muss ALLES nennen, was das Bild verändert** — die Regel steht
+    seit 1.0.37 an `Kartenbild.merkmal` und galt für die Ansicht daneben
+    nicht.
+  - **Die Einstellung überlebt das Neuanordnen** (`Reisewerk.seitenNeuSetzen`).
+    Der Layoutautomat baut den Kartenblock frisch und weiß von der
+    Abweichung nichts; ohne diese Stelle wäre sie nach jedem Neuanordnen
+    weg, und zwar STILL — die Seite steht ja danach da. Es gibt seither
+    genau EINEN Weg, der Seiten setzt (vorher sechs gleichlautende Zeilen);
+    **wer einen zweiten baut, ruft diesen hier**, sonst ist derselbe stille
+    Verlust wieder eingebaut. Dasselbe Muster wie `wortlautSichern` seit
+    1.0.38.
+  - **Eine Karteneinstellung ist keine Handarbeit am Satz**
+    (`Reisewerk.karteAendern`). `aendere` setzt `vonHand`, und das ist
+    richtig, wo jemand einen Block schiebt, dreht oder zieht. Wer die
+    Reisepunkte einer Karte umstellt, hat an der ANORDNUNG nichts getan —
+    der Tag fiele sonst wegen einer Farbe für immer aus dem automatischen
+    Neuanordnen heraus.
+- **Nicht gemessen (1.0.51):** Keine Karte ist damit gesehen worden.
+  Gerechnet und am Quelltext abgezählt ist die URSACHE (es gab schlicht kein
+  Feld am Block, und der Abschnitt fragte den falschen Tag). **Ungeprüft
+  bleibt, ob der Befund des Nutzers denselben Grund hatte** — auf seinem
+  Bildschirmfoto fehlte der Kartenabschnitt ganz, und das passt zum zweiten
+  Fall („`gewaehlterTag` zeigt ins Leere"), ist aber nicht nachgewiesen.
+  **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.50):** Kein Umschlag ist damit gedruckt worden.
   Gerechnet und am Quelltext abgezählt ist die URSACHE der fehlenden
   Seitenzahlen; die Geometrie des Bogens ist gerechnet und nicht gesehen.
@@ -6945,7 +7005,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.50 (Build 51). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.51 (Build 52). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -20,6 +20,10 @@ import SwiftUI
 struct KartenausschnittView: View {
     @ObservedObject var werk: Reisewerk
     let tagID: UUID
+    // DIE EINE KARTE, wenn sie ihren eigenen Ausschnitt trägt (ab 1.0.51).
+    // `nil` heißt: Geschrieben wird an den TAG, wie bisher — das ist der
+    // Regelfall, denn ein Tag hat meist genau eine Karte.
+    var blockID: UUID?
     @Environment(\.dismiss) private var schliessen
 
     @State private var kamera: MapCameraPosition = .automatic
@@ -27,6 +31,24 @@ struct KartenausschnittView: View {
 
     private var tag: Reisetag? { werk.reise.tage.first { $0.id == tagID } }
     private var punkte: [Koordinate] { tag?.spur.map(\.koordinate) ?? [] }
+
+    private var block: Block? {
+        guard let blockID, let ort = werk.block(blockID) else { return nil }
+        return werk.reise.tage[ort.tag].seiten[ort.seite].bloecke[ort.block]
+    }
+
+    // Der Ausschnitt, der gerade GILT — der eigene der Karte, sonst der
+    // des Tages. Eine zweite Fassung dieser Auflösung liefe gegen
+    // `Kartenwahl` auseinander, und dann zeigte dieser Bildschirm einen
+    // anderen Ausschnitt als die Seite darunter.
+    private var geltenderAusschnitt: Kartenausschnitt? {
+        if blockID != nil { return block?.kartenausschnitt ?? tag?.kartenausschnitt }
+        return tag?.kartenausschnitt
+    }
+
+    private var gesetzt: Bool {
+        blockID != nil ? block?.kartenausschnitt != nil : tag?.kartenausschnitt != nil
+    }
 
     var body: some View {
         NavigationStack {
@@ -121,15 +143,20 @@ struct KartenausschnittView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(region == nil)
             }
-            Button("Wieder automatisch rahmen") {
-                guard let stelle = werk.tagIndex(tagID) else { return }
-                werk.merken()
-                werk.reise.tage[stelle].kartenausschnitt = nil
-                werk.meldung = .init(text: "Die Karte rahmt die Spur wieder selbst.")
+            Button(blockID == nil ? "Wieder automatisch rahmen" : "Wieder wie der Tag rahmen") {
+                if let blockID {
+                    werk.karteAendern(blockID) { $0.kartenausschnitt = nil }
+                    werk.meldung = .init(text: "Diese Karte rahmt wieder wie der Tag.")
+                } else {
+                    guard let stelle = werk.tagIndex(tagID) else { return }
+                    werk.merken()
+                    werk.reise.tage[stelle].kartenausschnitt = nil
+                    werk.meldung = .init(text: "Die Karte rahmt die Spur wieder selbst.")
+                }
                 schliessen()
             }
             .font(.subheadline)
-            .disabled(tag?.kartenausschnitt == nil)
+            .disabled(!gesetzt)
         }
         .padding(14)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -148,7 +175,7 @@ struct KartenausschnittView: View {
     }
 
     private func starten() {
-        let feld = Kartenwerk.region(punkte, ausschnitt: tag?.kartenausschnitt)
+        let feld = Kartenwerk.region(punkte, ausschnitt: geltenderAusschnitt)
         region = feld
         kamera = .region(feld)
     }
@@ -167,12 +194,18 @@ struct KartenausschnittView: View {
     }
 
     private func uebernehmen() {
-        guard let region, let stelle = werk.tagIndex(tagID) else { return }
-        werk.merken()
-        werk.reise.tage[stelle].kartenausschnitt = Kartenausschnitt(
+        guard let region else { return }
+        let feld = Kartenausschnitt(
             mitte: Koordinate(region.center),
             spanne: region.span.latitudeDelta
         )
+        if let blockID {
+            werk.karteAendern(blockID) { $0.kartenausschnitt = feld }
+        } else {
+            guard let stelle = werk.tagIndex(tagID) else { return }
+            werk.merken()
+            werk.reise.tage[stelle].kartenausschnitt = feld
+        }
         werk.meldung = .init(text: "Ausschnitt übernommen: \(breitentext).")
         schliessen()
     }

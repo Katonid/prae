@@ -1102,20 +1102,27 @@ struct KartenKachel: View {
         .allowsHitTesting(false)
     }
 
+    // Was für DIESE Karte gilt — eigene Einstellung, sonst die des Tages,
+    // sonst die des Buches. Aufgelöst wird das in `Kartenwahl` und nur
+    // dort; das PDF fragt dieselbe Stelle.
+    private var geltend: Kartenwahl.Geltend {
+        Kartenwahl.geltend(block: block, tag: tag, reise: werk.reise)
+    }
+
     private func kennung(_ groesse: CGSize) -> String {
         let punkte = tag?.spur.map(\.koordinate) ?? []
-        let bild = tag?.kartenbild ?? werk.reise.kartenbild
-        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(bild.merkmal)|\(tag?.kartenausschnitt?.spanne ?? -1)|\(werk.reise.akzent.rot)"
+        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(geltend.merkmal)|\(werk.reise.akzent.rot)"
     }
 
     private func laden(_ groesse: CGSize) async {
         guard let tag, !tag.spur.isEmpty, groesse.width > 8 else { return }
+        let gilt = geltend
         let ergebnis = await Kartenwerk.shared.bild(
             punkte: tag.spur.map(\.koordinate),
             groesse: CGSize(width: groesse.width * 2, height: groesse.height * 2),
-            kartenbild: tag.kartenbild ?? werk.reise.kartenbild,
+            kartenbild: gilt.bild,
             linienfarbe: werk.reise.akzent,
-            ausschnitt: tag.kartenausschnitt
+            ausschnitt: gilt.ausschnitt
         )
         await MainActor.run {
             bild = ergebnis

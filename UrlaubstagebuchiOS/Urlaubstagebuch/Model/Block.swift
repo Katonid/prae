@@ -206,6 +206,19 @@ struct Block: Identifiable, Codable, Hashable {
     // muss — ohne sie stünde nach dem Umstellen von drei auf fünf
     // Millimeter überall ein weißer Faden.
     var randabfallend: Bool = false
+    // DIESE EINE KARTE (ab 1.0.51). Beides ist eine ABWEICHUNG und keine
+    // Kopie: `nil` heißt „wie der Tag" — und der Tag heißt, wo er selbst
+    // nichts sagt, „wie das Buch". Damit gibt es drei Ebenen und keine
+    // Insel: Wer buchweit die Reisepunkte umstellt, trifft weiterhin jede
+    // Karte, die nichts Eigenes trägt.
+    //
+    // Befund des Nutzers, 09/2026: „Hier wollte ich gerade speziell nur für
+    // diese Karte Änderungen in den Einstellungen treffen. Zum Beispiel,
+    // dass Standortpunkte doch angezeigt werden und nicht nur die Linien.
+    // Offenbar kann ich das aber nicht für einzelne Karten, sondern nur
+    // global."
+    var kartenbild: Kartenbild?
+    var kartenausschnitt: Kartenausschnitt?
 
     // Von Hand geschrieben, weil es daneben einen eigenen Leser gibt —
     // damit fällt der erzeugte Merkmalsinitialisierer weg. Die Reihenfolge
@@ -225,7 +238,9 @@ struct Block: Identifiable, Codable, Hashable {
          fotorand: Double? = nil,
          innenabstand: Double? = nil,
          ohneGrund: Bool = false,
-         randabfallend: Bool = false)
+         randabfallend: Bool = false,
+         kartenbild: Kartenbild? = nil,
+         kartenausschnitt: Kartenausschnitt? = nil)
     {
         self.id = id
         self.inhalt = inhalt
@@ -243,6 +258,8 @@ struct Block: Identifiable, Codable, Hashable {
         self.innenabstand = innenabstand
         self.ohneGrund = ohneGrund
         self.randabfallend = randabfallend
+        self.kartenbild = kartenbild
+        self.kartenausschnitt = kartenausschnitt
     }
 
     // Von Hand gelesen — aus demselben Grund wie bei `Reise`, `Reisetag`
@@ -269,6 +286,8 @@ struct Block: Identifiable, Codable, Hashable {
         innenabstand = b.wahlweise(.innenabstand)
         ohneGrund = b.wert(.ohneGrund, false)
         randabfallend = b.wert(.randabfallend, false)
+        kartenbild = b.wahlweise(.kartenbild)
+        kartenausschnitt = b.wahlweise(.kartenausschnitt)
     }
 
     var istFoto: Bool { inhalt.istFoto }

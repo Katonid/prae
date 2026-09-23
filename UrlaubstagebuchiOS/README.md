@@ -480,6 +480,56 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Nur diese eine Karte (1.0.51)
+
+Befund des Nutzers, 09/2026: „Hier wollte ich gerade speziell nur für diese
+Karte Änderungen in den Einstellungen treffen. Zum Beispiel, dass
+Standortpunkte doch angezeigt werden und nicht nur die Linien. Offenbar kann
+ich das aber nicht für einzelne Karten, sondern nur global."
+
+Er hat recht. Es gab die Einstellung für das ganze **Buch** und seit der
+ersten Fassung eine Abweichung je **Tag** — für die einzelne Karte auf der
+Seite nicht. Seit 1.0.39 lässt sich eine Karte auf eine zweite Seite
+kopieren; damit standen zwei Karten im Buch, die sich nicht auseinanderhalten
+ließen.
+
+Jetzt sind es **drei Ebenen**, und die untere gewinnt:
+
+| Ebene | Wo | Was `nil` heißt |
+|---|---|---|
+| Buch | Ganzes Buch → Ränder, Karte, Seitenzahlen | — |
+| Tag | Auswahl → „Weiter oben" → Eigene Karte für diesen Tag | wie im Buch |
+| Diese Karte | Auswahl → „Diese Karte" → Eigene Einstellung nur für diese Karte | wie an diesem Tag |
+
+Einstellbar ist auf jeder Ebene dasselbe: Kartenanbieter, Stil, Helligkeit,
+Beschriftung und die **Reisepunkte** (keine, dezent, nur Anfang und Ziel, mit
+hellem Ring). Dazu je Karte ein eigener **Ausschnitt** — der Maßstab und die
+Kartenwahl schreiben dann nur noch in diese eine Karte, und unter dem
+Abschnitt steht, welche von beiden gerade gemeint ist.
+
+**Abweichung, keine Kopie.** Der Schalter aus heißt „folgt dem Tag", und wo
+der Tag nichts sagt, „folgt dem ganzen Buch". Wer später buchweit die
+Reisepunkte umstellt, trifft damit weiterhin jede Karte, die nichts Eigenes
+trägt. Kopierte der Block beim Anlegen die Werte, wäre genau das nicht mehr
+möglich — dieselbe Bauweise wie bei Schrift und Fotostil.
+
+Zwei Dinge, die dabei herauskamen und für sich falsch waren:
+
+- **Der Abschnitt fragte den falschen Tag.** Er hing am *gewählten* Tag, und
+  der folgt seit 1.0.28 dem, was oben im Bild steht — nicht dem angetippten
+  Block. Wer eine Karte antippte, während darüber noch die letzte Seite des
+  Vortags stand, stellte am Vortag etwas um. Zeigte der gewählte Tag ins
+  Leere, fiel der ganze Abschnitt weg, und von der Karte aus war gar keine
+  Karteneinstellung mehr erreichbar.
+- **Auf dem Bildschirm blieb ein verschobener Ausschnitt liegen.** Die
+  Kennung, an der die Vorschau neu lädt, nannte nur die *Spanne* des
+  Ausschnitts. Wer die Karte verschob, ohne den Maßstab zu ändern, sah
+  weiter das alte Bild; im PDF stand das neue.
+
+**Nicht gemessen:** Keine Karte ist damit gesehen worden. Gerechnet ist die
+Ursache; ob der Befund des Nutzers wirklich am fehlenden Abschnitt lag, ist
+nicht nachgewiesen.
+
 ## Der Umschlag ist ein Bogen (1.0.50)
 
 Vier Befunde aus einem Durchgang; drei davon betreffen den Umschlag.

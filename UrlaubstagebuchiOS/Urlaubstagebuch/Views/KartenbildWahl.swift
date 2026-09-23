@@ -1,8 +1,11 @@
 import SwiftUI
 
-// Die Kartenwahl steht an EINER Stelle und wird von zwei Bildschirmen
-// benutzt: von der Gestaltung (für das ganze Buch) und vom Inspektor (für
-// einen einzelnen Tag). Zwei Fassungen desselben Kastens liefen mit
+// Die Kartenwahl steht an EINER Stelle und wird an drei Stellen benutzt:
+// in der Gestaltung (für das ganze Buch) und im Inspektor zweimal — für
+// einen einzelnen Tag und, seit 1.0.51, für eine einzelne Karte. Welche
+// der drei Ebenen gerade gilt, löst `Kartenwahl` auf; dieser Kasten weiß
+// davon nichts und zeigt schlicht, was man ihm gibt. Zwei Fassungen
+// desselben Kastens liefen mit
 // Sicherheit auseinander — dieselbe Überlegung wie bei der Mittelkapsel
 // der Abfahrtstafel.
 //

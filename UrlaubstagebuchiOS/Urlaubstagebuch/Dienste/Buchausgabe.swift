@@ -336,12 +336,16 @@ enum Buchausgabe {
             for block in buchseite.seite.bloecke where block.inhalt == .karte {
                 let groesse = CGSize(width: max(block.rahmen.breite * 3, 60),
                                      height: max(block.rahmen.hoehe * 3, 60))
+                // Dieselbe Auflösung wie auf dem Bildschirm — Block vor
+                // Tag vor Buch. Zwei Fassungen ergäben ein PDF, das anders
+                // aussieht als die Vorschau.
+                let gilt = Kartenwahl.geltend(block: block, tag: tag, reise: reise)
                 let bild = await Kartenwerk.shared.bild(
                     punkte: tag.spur.map(\.koordinate),
                     groesse: groesse,
-                    kartenbild: tag.kartenbild ?? reise.kartenbild,
+                    kartenbild: gilt.bild,
                     linienfarbe: reise.akzent,
-                    ausschnitt: tag.kartenausschnitt
+                    ausschnitt: gilt.ausschnitt
                 )
                 if let bild { karten[block.id] = bild }
             }
