@@ -27,6 +27,11 @@ lässt sich teilen — mit **Miturlaubern**, die mitschreiben, und mit
   reist eine Kopie (2048 px) mit; ändert sich das Original
   (`modificationDate`), wird sie beim Aktivwerden und bei jeder Meldung der
   Mediathek neu gerechnet.
+- **Diktieren.** Mikrofonknopf im Textfeld. Ab iOS 26 Apples neues
+  Sprachmodell auf dem Gerät (`SpeechAnalyzer`), davor die ältere Erkennung;
+  beide bekommen die Orte des Tages als Hinweise, damit Ortsnamen ankommen.
+- **Wetter.** Vormittag, Tagsüber, Nachmittag und Nacht am Ort des Eintrags,
+  von Open-Meteo (ohne Schlüssel), in Ortszeit.
 - **Teilen.** Zwei Wege mit Apples eigenem Teilen-Blatt: „Miturlauber
   einladen" bietet nur Schreibrecht an, „Betrachter einladen" nur Leserecht.
   Betrachter sehen alles, aber keinen Bearbeiten-Knopf.

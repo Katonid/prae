@@ -38,6 +38,11 @@ struct EintragEditor: View {
     @State private var speichert = false
     @State private var fortschritt = 0
     @State private var vorbereitet = false
+    @State private var wetter: Tageswetter?
+    @State private var wetterLaedt = false
+    @State private var wetterFehler: String?
+    @State private var wetterAn = true
+    @StateObject private var diktat = Diktat()
     @FocusState private var textFokus: Bool
 
     /// Hashbarer Schlüssel für ein Foto, das entfernt werden soll.
@@ -51,6 +56,7 @@ struct EintragEditor: View {
                 VStack(alignment: .leading, spacing: 22) {
                     titelFeld
                     orteLeiste
+                    wetterBlock
                     textFeld
                     if let eintrag, !eintrag.fotoListe.isEmpty { vorhandeneFotos(eintrag) }
                     fotoAuswahl
@@ -72,6 +78,8 @@ struct EintragEditor: View {
             }
             .overlay { if speichert { Speicherhinweis(fertig: fortschritt, gesamt: auswahl.count) } }
             .task { await vorbereiten() }
+            .task(id: wetterSchluessel) { await wetterLaden() }
+            .onDisappear { Task { await diktat.stoppen() } }
             .onChange(of: Tag.schluessel(datum)) { _, _ in
                 Task { await tagLaden(neu: false) }
             }
@@ -198,7 +206,8 @@ struct EintragEditor: View {
     // MARK: - Text
 
     private var textFeld: some View {
-        ZStack(alignment: .topLeading) {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack(alignment: .topLeading) {
             if text.isEmpty {
                 Text("Was ist heute passiert? Was hast du gegessen, wen getroffen, worüber gelacht?")
                     .foregroundStyle(.tertiary)
@@ -210,10 +219,129 @@ struct EintragEditor: View {
                 .focused($textFokus)
                 .frame(minHeight: 160)
                 .scrollContentBackground(.hidden)
+            }
+            .font(.body)
+            .padding(10)
+            .padding(.bottom, 44)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(alignment: .bottomTrailing) { diktatKnopf.padding(10) }
+
+            if diktat.laeuft || !diktat.zwischentext.isEmpty {
+                HStack(alignment: .top, spacing: 8) {
+                    Pulspunkt(farbe: .red)
+                    Text(diktat.zwischentext.isEmpty ? "Ich höre zu …" : diktat.zwischentext)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                }
+                .transition(.opacity)
+            }
+            if let fehler = diktat.fehler {
+                Text(fehler).font(.caption).foregroundStyle(.red)
+            } else if diktat.laeuft {
+                Text(diktat.motor + " · Orte des Tages sind als Hinweise hinterlegt")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
-        .font(.body)
-        .padding(10)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .animation(.easeOut(duration: 0.2), value: diktat.laeuft)
+        .onAppear {
+            diktat.anhaengen = { neu in
+                let trenner = text.isEmpty || text.hasSuffix(" ") || text.hasSuffix("\n") ? "" : " "
+                text += trenner + neu
+            }
+        }
+    }
+
+    private var diktatKnopf: some View {
+        Button {
+            textFokus = false
+            Task { await diktat.umschalten(hinweise: diktatHinweise) }
+        } label: {
+            Group {
+                if diktat.bereitet {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: diktat.laeuft ? "stop.fill" : "mic.fill")
+                        .font(.headline)
+                }
+            }
+            .foregroundStyle(.white)
+            .frame(width: 44, height: 44)
+            .background(diktat.laeuft ? AnyShapeStyle(Color.red.gradient) : AnyShapeStyle(reise.palette.verlauf), in: Circle())
+            .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(diktat.laeuft ? "Diktat beenden" : "Diktieren")
+    }
+
+    /// Wörter, die die Erkennung erwarten soll: die Orte des Tages und der
+    /// Name der Reise.
+    private var diktatHinweise: [String] {
+        var liste = tagesorte.map(\.name) + gewaehlteOrte.map(\.name)
+        if let hier { liste.append(hier.name) }
+        if let ort { liste.append(ort.name) }
+        liste.append(reise.anzeigeTitel)
+        // „Alfama · Lissabon" sind zwei Hinweise.
+        return liste.flatMap { $0.components(separatedBy: " · ") }
+    }
+
+    // MARK: - Wetter
+
+    private var wetterOrt: CLLocationCoordinate2D? {
+        ort?.koordinate ?? tagesorte.first?.koordinate ?? eintrag?.koordinate
+    }
+
+    private var wetterSchluessel: String {
+        guard let k = wetterOrt else { return "kein Ort" }
+        return "\(Tag.schluessel(datum))|\(String(format: "%.2f,%.2f", k.latitude, k.longitude))"
+    }
+
+    @ViewBuilder
+    private var wetterBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Wetter").font(.headline)
+                if wetterLaedt { ProgressView().controlSize(.small) }
+                Spacer()
+                if wetter != nil {
+                    Toggle("Im Eintrag", isOn: $wetterAn)
+                        .labelsHidden()
+                        .tint(reise.palette.haupt)
+                }
+            }
+            if let wetter {
+                WetterLeiste(wetter: wetter)
+                    .opacity(wetterAn ? 1 : 0.35)
+            } else if let wetterFehler {
+                Text(wetterFehler).font(.caption).foregroundStyle(.secondary)
+            } else if wetterOrt == nil && !wetterLaedt {
+                Text("Sobald der Eintrag einen Ort hat, steht hier das Wetter dieses Tages.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func wetterLaden() async {
+        guard let k = wetterOrt else { return }
+        // Ein schon gespeichertes Wetter desselben Tages nicht neu holen —
+        // es sei denn, es war eine Vorhersage und der Tag ist vorbei.
+        if let alt = eintrag?.tageswetter, Tag.schluessel(eintrag?.datum ?? .distantPast) == Tag.schluessel(datum),
+           !(alt.vorhersage && Tag.ende(datum).addingTimeInterval(5 * 3600) < Date()) {
+            if wetter == nil { wetter = alt }
+            return
+        }
+        wetterLaedt = true
+        defer { wetterLaedt = false }
+        do {
+            let neu = try await Wetterdienst.wetter(am: datum, bei: k)
+            withAnimation { wetter = neu; wetterFehler = nil }
+        } catch is CancellationError {
+        } catch {
+            if (error as? URLError)?.code == .cancelled { return }
+            wetterFehler = error.localizedDescription
+        }
     }
 
     // MARK: - Fotos
@@ -346,6 +474,8 @@ struct EintragEditor: View {
                 ort = Tagesort(name: eintrag.ortsname ?? "", breite: k.latitude, laenge: k.longitude, zeit: nil)
             }
             hierLand = eintrag.land ?? ""
+            wetter = eintrag.tageswetter
+            wetterAn = eintrag.tageswetter != nil || (eintrag.wetter ?? "").isEmpty
         } else if let tag, Tag.schluessel(tag) != Tag.schluessel(Date()) {
             // Ein vergangener Tag: am frühen Abend, dann steht der Eintrag
             // hinter allem, was tagsüber passiert ist.
@@ -382,6 +512,7 @@ struct EintragEditor: View {
     // MARK: - Sichern
 
     private func sichern() async {
+        await diktat.stoppen()
         speichert = true
         let persistenz = Persistenz.shared
         let ziel = eintrag ?? persistenz.anlegen(Eintrag.self, bei: reise)
@@ -403,6 +534,7 @@ struct EintragEditor: View {
             ziel.ortsname = ort.name
         }
         if !hierLand.isEmpty, ort?.id == hier?.id { ziel.land = hierLand }
+        ziel.tageswetter = wetterAn ? (wetter ?? ziel.tageswetter) : nil
 
         for foto in ziel.fotoListe
         where entfernt.contains(NSManagedObjectIDKey(uri: foto.objectID.uriRepresentation().absoluteString)) {

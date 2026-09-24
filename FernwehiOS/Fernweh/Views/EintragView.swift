@@ -41,6 +41,9 @@ struct EintragView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
+                    if let wetter = eintrag.tageswetter {
+                        WetterLeiste(wetter: wetter).padding(.top, 4)
+                    }
                     if let text = eintrag.text, !text.isEmpty {
                         Text(text)
                             .font(.body)

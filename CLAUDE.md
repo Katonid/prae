@@ -10466,12 +10466,32 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
   (`aps-environment` development/production, Lehre aus Schulalarm 1.0.18).
-- Das App-Symbol rechnet `FernwehiOS/scripts/make-icon.py`.
+- **Diktieren** (`Model/Diktat.swift`, ab 1.0.1, Wunsch des Nutzers: „die
+  Apple-Spracherkennung versteht vieles nicht richtig … vielleicht gibt es
+  Alternativen"). Ab iOS 26 Apples NEUES Modell (`SpeechAnalyzer` +
+  `SpeechTranscriber`, auf dem Gerät, ohne Zeitgrenze) — nicht dasselbe wie
+  die Tastatur-Diktierfunktion; davor `SFSpeechRecognizer`. **Beide bekommen
+  die Orte des Tages als Hinweise** (`contextualStrings`) — Ortsnamen sind die
+  häufigsten Fehler in einem Reisetagebuch. Fremde Dienste (Whisper u. ä.)
+  sind bewusst NICHT gebaut: Schlüssel nötig, und jede Aufnahme verließe das
+  Gerät. Nur auf ausdrückliche Ansage.
+- **Wetter** (`Model/Wetter.swift`, ab 1.0.1): Open-Meteo, ohne Schlüssel,
+  vier Abschnitte in ORTSzeit (`timezone=auto`): Vormittag 6–11, Tagsüber
+  11–14, Nachmittag 14–18, Nacht 21–5 (bis in den Folgetag). Gemessen
+  24.09.2026: `api.open-meteo.com` nimmt nur gut 90 Tage zurück bis 16 voraus
+  an, ältere Tage gehen an `historical-forecast-api.open-meteo.com`. Je
+  Abschnitt gilt der schwerste WMO-Code. Gespeichert am Eintrag (Attribut
+  `wetter`, JSON) — neues Attribut, also Schema-Deploy. Ein Tag, der beim
+  Holen noch nicht vorbei war, heißt „Vorhersage" und wird nachgeholt.
+  **WeatherKit bewusst nicht**: braucht eine Fähigkeit an der App-Id (Lehre
+  aus dem Reisebuch 1.0.44).
+- Das App-Symbol rechnet `FernwehiOS/scripts/make-icon.py` — seit 1.0.1 ein
+  Stift, der die Reisespur zeichnet („Reise erkenne ich, Tagebuch nicht").
 - Übersetzt wird in GitHub Actions (Eintrag `("FernwehiOS", "Fernweh")` in
   `welche-apps.py`). **Erst pushen, Bau abwarten, Fehler beheben — den
   PR-Link erst herausgeben, wenn der Bau grün ist.** Ein grüner Bau beweist
