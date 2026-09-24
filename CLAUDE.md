@@ -7330,9 +7330,14 @@ Befunde, und keiner davon war Geschmack:
     Kopfzeile sitzen sicher (`Seitenbeiwerk` rechnet mit Anteilen der
     Ränder). Ungeschützt war alles, was jemand VON HAND an die Kante
     geschoben hat — und seit 1.0.61 lassen sich Blöcke frei setzen.
-  - **Gezeichnet wird BLAU und feiner gestrichelt**, gleich neben der roten
-    Schnittkante. Zwei rote Linien nebeneinander wären zwei Namen für
+  - **Gezeichnet wird ORANGE und feiner gestrichelt**, gleich neben der
+    roten Schnittkante. Zwei rote Linien nebeneinander wären zwei Namen für
     dasselbe, und genau diese Verwechslung ist der Anlass der Fassung.
+    **Nicht blau**: Das ist beim Einrasten seit jeher der NACHBAR, und
+    dieselbe Farbe für zwei Auskünfte ist eine Auskunft weniger. Aufgefallen
+    ist das erst am roten Bau — **wer eine Aufzählung erweitert, sucht jeden
+    `switch` darüber** (`Views/Griffe.swift` war der einzige, und er hat
+    zugleich die Farbkollision gezeigt).
     Abgeschaltet (0 mm) wird auch keine Linie gezeichnet und an nichts
     gefangen — eine Linie ohne Wirkung wäre eine Behauptung (die Regel steht
     seit 1.0.11 da).
@@ -7357,7 +7362,7 @@ Befunde, und keiner davon war Geschmack:
 - **Nicht gemessen (1.0.73):** Keine Seite ist damit gedruckt worden.
   **Gewählt und nicht gemessen** sind die Vorgabe von 5 mm und die Spanne des
   Reglers (0 bis 12 mm); 3 bis 5 mm sind das, was Druckdienste üblicherweise
-  nennen, und diese App hat es an keinem nachgeprüft. Ob der blaue Strich auf
+  nennen, und diese App hat es an keinem nachgeprüft. Ob der orange Strich auf
   einem Gerät neben dem roten zu unterscheiden ist, hat ebenfalls niemand
   gesehen. **Nicht als erledigt darstellen.**
 - **WAS EINE DRUCKEREI NENNT, IST DER BOGEN — NICHT DIE SEITE**

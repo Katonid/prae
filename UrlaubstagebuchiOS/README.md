@@ -500,9 +500,10 @@ und ein Stapel Bücher wird nie auf den Punkt genau getroffen:
 
 Er ist ab dieser Fassung eingebaut, mit 5 mm voreingestellt und unter
 Gestalten direkt unter dem Anschnitt einstellbar. Auf der Seite zeigt ihn
-eine **blaue** Linie, gleich neben der roten Schnittkante — zwei rote Linien
-nebeneinander wären zwei Namen für dasselbe, und genau diese Verwechslung
-ist der Anlass. Blöcke rasten daran ein wie an jeder anderen Kante.
+eine **orange** Linie, gleich neben der roten Schnittkante — zwei rote
+Linien nebeneinander wären zwei Namen für dasselbe, und genau diese
+Verwechslung ist der Anlass. Blöcke rasten daran ein wie an jeder anderen
+Kante.
 
 Die Prüfung vor dem Ausgeben zählt, was hineinragt, und nennt Textblöcke
 eigens: Ein angeschnittenes Wort sieht man dem PDF nicht an, dem gedruckten

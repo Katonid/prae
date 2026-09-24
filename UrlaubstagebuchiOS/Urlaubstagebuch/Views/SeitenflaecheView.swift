@@ -262,14 +262,16 @@ struct SeitenflaecheView: View, Equatable {
             // DER SICHERHEITSABSTAND, gleich daneben (ab 1.0.73).
             //
             // Er ist die Gegenrichtung zur Schnittkante und muss deshalb
-            // anders aussehen: BLAU und feiner gestrichelt. Zwei rote
+            // anders aussehen: ORANGE und feiner gestrichelt. Zwei rote
             // Linien nebeneinander wären zwei Namen für dasselbe, und
             // genau diese Verwechslung — Anschnitt gegen Sicherheitsabstand
-            // — ist der Anlass dieser Fassung.
+            // — ist der Anlass dieser Fassung. **Nicht blau**: Das ist beim
+            // Einrasten seit jeher der Nachbar, und dieselbe Farbe für zwei
+            // Auskünfte ist eine Auskunft weniger.
             if bearbeitbar, werk.zeigeSatzspiegel, let zone = schutzzone {
                 Rectangle()
                     .strokeBorder(style: StrokeStyle(lineWidth: 0.6, dash: [3, 3]))
-                    .foregroundStyle(Color.blue.opacity(0.45))
+                    .foregroundStyle(Color.orange.opacity(0.55))
                     .frame(width: zone.width, height: zone.height)
                     .offset(x: zone.minX, y: zone.minY)
                     .allowsHitTesting(false)

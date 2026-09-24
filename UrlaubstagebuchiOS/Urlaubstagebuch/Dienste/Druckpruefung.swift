@@ -857,7 +857,7 @@ enum Druckpruefung {
         }
         text += "Soll ein Block wirklich bis an die Kante laufen, geh\u{00F6}rt er auf RANDABFALLEND "
         text += "(Block \u{2192} Lage auf der Seite) \u{2014} dann wird er bis \u{00FC}ber den Anschnitt "
-        text += "gezogen und ist hier nicht mehr gemeint. Die blaue Linie unter \u{201E}Satzspiegel "
+        text += "gezogen und ist hier nicht mehr gemeint. Die orange Linie unter \u{201E}Satzspiegel "
         text += "zeigen\u{201C} zeigt, wo der Abstand l\u{00E4}uft."
         return [Zeile(stufe: textbloecke > 0 ? .warnung : .hinweis,
                       titel: "\(betroffen) Bl\u{00F6}cke im Sicherheitsabstand",
