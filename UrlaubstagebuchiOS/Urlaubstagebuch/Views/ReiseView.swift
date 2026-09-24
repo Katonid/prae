@@ -125,6 +125,7 @@ struct ReiseView: View {
         case seitenformat
         case bedienung
         case ausgabe
+        case ausgabeformat
         case zweiDateien
         case nurUmschlag
         case doppelseiten
@@ -155,6 +156,7 @@ struct ReiseView: View {
             case .seitenformat: return "format"
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
+            case .ausgabeformat: return "ausgabeformat"
             case .zweiDateien: return "zweidateien"
             case .nurUmschlag: return "nurumschlag"
             case .doppelseiten: return "doppelseiten"
@@ -1386,6 +1388,21 @@ struct ReiseView: View {
     // ALLES SELTENE.
     private var mehrMenue: some View {
         Menu {
+            // WAS GERADE AUSGEGEBEN WIRD (eigener Punkt ab 1.0.75).
+            //
+            // Ansage des Nutzers, 09/2026: „Das gipfelt jetzt in einer
+            // Fülle von Formaten. Vielleicht wäre es gut, sich innerhalb
+            // der App irgendwo anzeigen lassen zu können, wie denn jetzt
+            // das Ausgabeformat aussieht und wie die einzelnen Werte sind."
+            //
+            // Er steht VOR dem Ausgeben, weil man ihn davor braucht — und
+            // als eigener Punkt, nicht als Zeile im Ausgabeblatt: Das ist
+            // der Ort, an dem in 1.0.37 und 1.0.52 zweimal etwas lag, das
+            // niemand fand. Vom Ausgabeblatt aus führt trotzdem ein Weg
+            // dorthin, mit der dort gewählten Bildgüte.
+            Button("Ausgabeformat und Maße…", systemImage: "doc.text.magnifyingglass") {
+                blatt = .ausgabeformat
+            }
             Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
             // ZWEI DATEIEN FÜR DEN DRUCKDIENST (eigener Punkt ab 1.0.52).
             //
@@ -1817,6 +1834,8 @@ struct ReiseView: View {
             BedienungView()
         case .ausgabe:
             AusgabeView(werk: werk)
+        case .ausgabeformat:
+            Ausgabeformatblatt(werk: werk)
         case .zweiDateien:
             AusgabeView(werk: werk, vorwahl: .getrennt)
         case .nurUmschlag:

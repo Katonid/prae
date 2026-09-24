@@ -7305,6 +7305,54 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **NACH DER DRITTEN DRUCKEREI WEISS NIEMAND MEHR, WAS GILT**
+  (`Model/Ausgabesteckbrief.swift`, `Views/AusgabeformatView.swift`, ab
+  1.0.75; Ansage des Nutzers 09/2026: „Bei einer anderen Druckerei wird bei
+  den Tagebuchseiten auf der Innenseite kein Bundsteg gelassen. Das gipfelt
+  jetzt in einer Fülle von Formaten. Vielleicht wäre es gut, sich innerhalb
+  der App irgendwo anzeigen lassen zu können, wie denn jetzt das
+  Ausgabeformat aussieht und wie die einzelnen Werte sind.").
+  **Das ist der Befund aus 1.0.72, eine Ebene breiter.** Damals ging es um
+  EINE Zahl, und sie war nie falsch — sie stand nur nirgends so da, dass man
+  sie gegen eine Bestellung halten konnte. Jetzt sind es alle: Anschnitt,
+  Sicherheitsabstand, Ränder, Bundsteg, Rückenbreite, Umschlagbogen,
+  Bildgüte. Jede einzelne ist woanders einstellbar.
+  - **Gerechnet wird NICHTS neu.** Jede Zahl kommt aus der Stelle, die sie
+    auch beim Ausgeben liefert (`Gestaltung`, `Druckvorgabe`,
+    `Umschlagmass`, `Bildguete`), und der Kopiertext entsteht aus DENSELBEN
+    Abschnitten wie der Bildschirm. Zwei Fassungen nennten zwei Zahlen, und
+    die Druckerei prüft eine — dieselbe Regel, aus der `Bogenlage` und
+    `Umschlagmass` entstanden sind.
+  - **Jede Zeile sagt, ob sie EINSTELLUNG oder FOLGE ist**, und wo man sie
+    umstellt. Das ist kein Zierat: Das Endformat hat jemand gewählt, das
+    Bogenmaß folgt. Wer das verwechselt, trägt das Bogenmaß als Format ein —
+    genau die Falle, die `Druckvorgabe.bogenverdacht` abfängt.
+  - **Der Bundsteg ist die Antwort auf die Frage, die die Fassung ausgelöst
+    hat, und es war NICHTS zu ändern:** Die Vorgabe ist seit 1.0.1 null, und
+    „innen kein Bundsteg" ist damit der stehende Zustand. Was fehlte, war der
+    Satz, der es sagt. Steht doch einer, nennt die Zeile die zweite Hälfte
+    dazu (auf BEIDE Seitenränder gerechnet, samt der Zahl, die der äußere
+    Rand dann misst).
+  - **Ein eigener Menüpunkt, keine Zeile in einem Picker** — die Lehre aus
+    1.0.37 und 1.0.52, wo zweimal etwas vollständig Gebautes hinter einem
+    zugeklappten Picker lag. Daneben führt ein Weg aus dem Ausgabeblatt
+    hinein, mit der DORT gewählten Bildgüte; ohne Übergabe gilt
+    `Bildguete.vorgabe`, und die Fußzeile schreibt hin, dass sie es tut.
+  - **Gemeldet wird IM Blatt, nicht über `werk.meldung`.** Das Band hängt an
+    `ReiseView`, und diese Ansicht liegt als Blatt darüber — die Quittung
+    erschiene dahinter (dieselbe Lehre wie bei der Punktwahl in 1.0.52).
+  - **`Ausgabeguete.satz` läuft über jedes Bild des Buches** und gehört
+    deshalb in eine Aufgabe und nicht in den Körper; hereingereicht wird er
+    als fertiger Text, damit `Ausgabesteckbrief.abschnitte` billig bleibt.
+  - **Kein `uppercased()` auf einer deutschen Überschrift** im Kopiertext:
+    Die Großschreibregel für ß ist SS, und daraus wird ein falsch
+    geschriebenes Wort (die Lehre aus Wörterwerkstatt 1.7.1).
+- **Nicht gemessen (1.0.75):** Diese Seite sagt, WAS ausgegeben wird, und
+  nicht, was in der fertigen Datei steht — das misst weiterhin
+  `Druckpruefung.amPDF`. Ob die Übersicht die Fülle der Formate
+  beherrschbar macht, sagt erst der nächste Befund: Geändert sind Wege und
+  Namen, und das ist keine Messung (dieselbe Einschränkung wie bei den Menüs
+  in 1.0.20). **Nicht als erledigt darstellen.**
 - **DIE INNENSEITEN DES UMSCHLAGS DÜRFEN INHALT TRAGEN — UND DANN WECHSELT
   JEDE SEITE DIE BUCHHÄLFTE** (`Umschlag.innenseitenInhalt`,
   `Buchteil.innenVorn`/`.innenHinten`, ab 1.0.74; Ansage des Nutzers
@@ -8795,7 +8843,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.74 (Build 75). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.75 (Build 76). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

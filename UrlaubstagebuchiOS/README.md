@@ -480,6 +480,53 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ausgabeformat und Maße an einer Stelle (1.0.75)
+
+Nach der dritten Druckerei weiß niemand mehr, was gerade gilt: Die eine will
+216 × 303 mm, die nächste lässt innen keinen Bundsteg, und einstellbar ist
+jede dieser Zahlen an einer anderen Stelle. **„…" oben rechts → Ausgabeformat
+und Maße** zeigt sie alle auf einmal — und „Alles kopieren" legt denselben
+Text in die Zwischenablage, zum Vergleich mit dem, was der Druckdienst
+verlangt.
+
+Fünf Abschnitte:
+
+* **Die Datei** — Endformat, das Bogenmaß im PDF für Einzelseiten,
+  Doppelseiten und Umschlag, TrimBox und BleedBox, Seitenzahl (samt
+  Vergleich mit der bestellten, wenn eine eingetragen ist).
+* **Die Zugaben** — Anschnitt und Sicherheitsabstand nebeneinander. Es sind
+  zwei Streifen in entgegengesetzte Richtungen: der eine außerhalb des
+  Endformats, der andere innerhalb, und sie werden gern verwechselt.
+* **Der Satzspiegel** — Ränder, **Bundsteg ja oder nein und wie viel**, die
+  Fläche, die daraus folgt, Fuge und die Höchstbreite der Textspalte.
+* **Der Umschlag** — eigener Bogen oder nicht, Rückenbreite samt ihrer
+  Herkunft (von Hand, aus einer Tabelle oder gerechnet), U2+U3 und ob dort
+  Inhalt steht.
+* **Die Bilder** — Höchstkante, Ziel-dpi, JPEG-Güte und was das für dieses
+  Buch bedeutet.
+
+**Jede Zeile sagt, ob sie eine Einstellung ist** — und wenn ja, wo man sie
+umstellt. Das ist kein Zierat: Das Endformat hat jemand gewählt, das Bogenmaß
+folgt daraus. Wer das verwechselt, trägt das Bogenmaß als Format ein und
+bekommt den Anschnitt ein zweites Mal.
+
+**Zum Bundsteg:** „keiner" ist die Vorgabe dieser App und war es immer. Wer
+also von seiner Druckerei hört, innen werde kein Bundsteg gelassen, muss
+nichts umstellen. Steht doch einer, sagt die Zeile die zweite Hälfte dazu: Er
+wird auf **beide** Seitenränder gerechnet, nicht nur auf den inneren — welche
+Seite innen liegt, hängt an der laufenden Seitenzahl, und die verschiebt sich.
+
+Gerechnet wird dabei nichts Neues: Jede Zahl kommt aus der Stelle, die sie
+auch beim Ausgeben liefert. Zwei Fassungen nennten zwei Zahlen, und die
+Druckerei prüft eine. Aus dem Ausgabeblatt heraus führt derselbe Weg noch
+einmal hinein — dort mit der gerade gewählten Bildgüte.
+
+**Nicht gemessen:** Diese Seite sagt, WAS ausgegeben wird, und nicht, was in
+der fertigen Datei steht. Das misst weiterhin die Prüfung im Ausgabeblatt,
+die Seitenzahl, MediaBox und TrimBox aus dem PDF liest. Und ob die Übersicht
+die Fülle der Formate wirklich beherrschbar macht, sagt erst der nächste
+Befund — geändert sind Wege und Namen, und das ist keine Messung.
+
 ## Inhalt auf den Innenseiten des Umschlags (1.0.74)
 
 Kann die Druckerei U2 und U3 bedrucken, lassen sich zwei Seiten sparen: Die
