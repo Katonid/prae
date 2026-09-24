@@ -18,10 +18,22 @@ import UIKit
 // mit. Die Zählung trennt sich deshalb in zwei Angaben — wo eine Seite
 // liegt (`teil`) und welche Zahl auf ihr steht (`nummer`).
 enum Buchteil: String {
-    /// Links auf dem Umschlagbogen.
+    /// Links auf dem AUSSENbogen des Umschlags (U4).
     case rueckseite
-    /// Rechts auf dem Umschlagbogen.
+    /// Rechts auf dem Außenbogen (U1).
     case titel
+    /// Links auf dem INNENbogen des Umschlags (U2) — die Innenseite des
+    /// vorderen Deckels (ab 1.0.74).
+    ///
+    /// Legt man den Außenbogen flach hin, liegt links U4 und rechts U1.
+    /// Dreht man ihn um, liegt links U2 (die Rückseite von U1) und rechts
+    /// U3. Im aufgeschlagenen Buch liegt U2 damit links und die erste
+    /// Innenseite rechts daneben — genau dort, wo bis 1.0.73 „Kommt von
+    /// der Druckerei" stand.
+    case innenVorn
+    /// Rechts auf dem Innenbogen (U3) — die Innenseite des hinteren
+    /// Deckels, im aufgeschlagenen Buch rechts neben der letzten Seite.
+    case innenHinten
     /// Der Buchblock: alles, was gebunden wird.
     case innen
 }
@@ -54,6 +66,19 @@ struct Buchseite: Identifiable, Equatable {
     /// Titelseite, und darf deshalb nirgends bearbeitet werden.
     var ausgleich: Bool = false
 
+    /// Auf welchem BOGEN diese Seite liegt. 0 ist der Außenbogen des
+    /// Umschlags, 1 der erste Bogen des aufgeschlagenen Buches.
+    ///
+    /// GESPEICHERT und nicht gerechnet (ab 1.0.74). Bis 1.0.73 folgte die
+    /// Zahl allein aus der Seitennummer — das trug, solange der Umschlag
+    /// nur seinen eigenen Bogen hatte. Seit U2 und U3 Inhalt tragen
+    /// dürfen, liegt eine Umschlagseite mit auf einem Bogen des Buches
+    /// (U2 links neben Seite 1, U3 rechts neben der letzten), und ihre
+    /// Nummer ist 0 — daraus ließe sich der Bogen nicht mehr ableiten.
+    /// Vergeben wird er dort, wo auch die Nummer vergeben wird: in
+    /// `seitenfolge`, der einen Stelle für beides.
+    var bogen: Int = 0
+
     var amUmschlag: Bool { teil != .innen }
 
     /// Ob diese Seite im aufgeschlagenen Buch RECHTS liegt. Die eine
@@ -63,13 +88,16 @@ struct Buchseite: Identifiable, Equatable {
         switch teil {
         case .rueckseite: return false
         case .titel: return true
+        // U2 ist die Innenseite des VORDEREN Deckels und liegt damit
+        // links, U3 die des hinteren und liegt rechts — dieselbe Lage wie
+        // im aufgeschlagenen Buch, und genau die, die bis 1.0.73 leer war.
+        case .innenVorn: return false
+        case .innenHinten: return true
         case .innen: return Bogenlage.rechts(nummer)
         }
     }
 
-    /// Der laufende Bogen: 0 ist der Umschlag, 1 trägt rechts die Seite 1,
-    /// 2 die Seiten 2 und 3, und so weiter.
-    var bogennummer: Int { amUmschlag ? 0 : Bogenlage.bogen(nummer) }
+    var bogennummer: Int { bogen }
 
     /// Wie diese Seite heißt — unter ihrem Blatt auf der Bühne und in
     /// jedem Befund. An EINER Stelle, weil „Seite 0" unter der Rückseite
@@ -78,6 +106,8 @@ struct Buchseite: Identifiable, Equatable {
         switch teil {
         case .rueckseite: return "Umschlag: Rückseite"
         case .titel: return "Umschlag: Titelseite"
+        case .innenVorn: return "Umschlag innen vorn (U2)"
+        case .innenHinten: return "Umschlag innen hinten (U3)"
         case .innen: return tag == nil ? "Titelseite" : "Seite \(nummer)"
         }
     }
@@ -140,6 +170,11 @@ extension Reise {
         // fehlte sie in dieser Zahl, und der Rücken war um ein halbes
         // Blatt zu dünn gerechnet.
         if titelseite, !hatRueckseite { anzahl += 1 }
+        // ZWEI SEITEN WANDERN AUF DEN UMSCHLAG (ab 1.0.74) — und damit aus
+        // dem Buchblock heraus. Das ist nicht bloß Kosmetik: An dieser
+        // Zahl hängt die RÜCKENBREITE, und ein Rücken, der zwei Seiten zu
+        // dick gerechnet ist, passt nicht auf das gebundene Buch.
+        if umschlagTraegtInhalt { anzahl = max(0, anzahl - 2) }
         if Reise.brauchtAusgleich(anzahl) { anzahl += 1 }
         return anzahl
     }
@@ -183,6 +218,27 @@ extension Reise {
         return mit
     }
 
+    // ALLE INHALTSSEITEN in einer Liste, samt ihrem Tag — die Grundlage
+    // für die Frage, welche davon auf U2 und U3 wandern (ab 1.0.74).
+    private var inhaltsseiten: [(seite: Seite, tag: Reisetag)] {
+        var liste: [(Seite, Reisetag)] = []
+        for tag in tage where !tag.ausgeblendet {
+            for seite in tag.seiten { liste.append((seite, tag)) }
+        }
+        return liste.map { (seite: $0.0, tag: $0.1) }
+    }
+
+    // TRÄGT DER UMSCHLAG INNEN INHALT? (ab 1.0.74)
+    //
+    // Nur wenn es einen Umschlagbogen gibt, die Innenseiten mitgeliefert
+    // werden UND der Nutzer es eingestellt hat — und nur, wenn genug
+    // Seiten da sind. Bei zwei Inhaltsseiten wären nach dem Abzweigen
+    // null übrig: ein Buch ohne Buchblock, das sich nicht binden lässt.
+    var umschlagTraegtInhalt: Bool {
+        hatRueckseite && umschlag.innenseitenBogen && umschlag.innenseitenInhalt
+            && inhaltsseiten.count >= 4
+    }
+
     func seitenfolge(titelblatt: Seite?, rueckblatt: Seite?) -> [Buchseite] {
         var folge: [Buchseite] = []
         if hatRueckseite, let rueckblatt {
@@ -203,13 +259,37 @@ extension Reise {
                                    nummer: amBogen ? 0 : nummer))
             if !amBogen { nummer += 1 }
         }
+        // DIE ERSTE UND DIE LETZTE INHALTSSEITE DÜRFEN AUF DEN UMSCHLAG
+        // (ab 1.0.74).
+        //
+        // Ansage des Nutzers, 09/2026: „Die von mir beauftragte Druckerei
+        // schafft es offenbar auch, die Innenseiten des Umschlages bereits
+        // zu bedrucken. Das heißt, ich könnte zwei Seiten insgesamt am
+        // Dokument sparen … Dadurch würden sich aber alle Seiten innerhalb
+        // des Dokumentes verschieben. Eine linke Seite würde zur rechten
+        // bzw. umgekehrt."
+        //
+        // **Er hat recht, und es folgt aus der Buchbinderei.** Bis 1.0.73
+        // lag die erste Inhaltsseite rechts (Seite 1 ist ein Recto), links
+        // davon die leere Innenseite des Deckels. Wandert diese erste
+        // Seite auf U2, rückt alles Folgende um eine Stelle vor: Was
+        // rechts lag, liegt links, und was gegenüberlag, liegt es nicht
+        // mehr. Nichts davon muss eigens gebaut werden — es fällt aus
+        // dieser Schleife heraus, weil `nummer` erst bei der dritten
+        // Inhaltsseite bei 1 anfängt.
+        let alle = inhaltsseiten
+        let aufUmschlag = umschlagTraegtInhalt
+        let block = aufUmschlag ? Array(alle.dropFirst().dropLast()) : alle
+        if aufUmschlag, let erste = alle.first {
+            folge.append(Buchseite(seite: erste.seite, tag: erste.tag,
+                                   teil: .innenVorn, nummer: 0))
+        }
         var letzterTag: Reisetag?
-        for tag in tage where !tag.ausgeblendet {
-            for seite in tag.seiten {
-                folge.append(Buchseite(seite: seite, tag: tag, teil: .innen, nummer: nummer))
-                nummer += 1
-            }
-            if !tag.seiten.isEmpty { letzterTag = tag }
+        for eintrag in block {
+            folge.append(Buchseite(seite: eintrag.seite, tag: eintrag.tag,
+                                   teil: .innen, nummer: nummer))
+            nummer += 1
+            letzterTag = eintrag.tag
         }
         // Die Ausgleichsseite: leer, ohne Seitenzahl, mit dem Hintergrund
         // des Buches — und sie gehört dem LETZTEN Tag. Ohne Tag hielte
@@ -222,8 +302,32 @@ extension Reise {
                              ohneSeitenzahl: true)
             folge.append(Buchseite(seite: leer, tag: letzterTag, teil: .innen,
                                    nummer: nummer, ausgleich: true))
+            nummer += 1
         }
-        for (stelle, _) in folge.enumerated() { folge[stelle].rang = stelle }
+        // U3 kommt ganz zuletzt — im aufgeschlagenen Buch rechts neben der
+        // letzten Seite des Blocks.
+        if aufUmschlag, let letzte = alle.last {
+            folge.append(Buchseite(seite: letzte.seite, tag: letzte.tag,
+                                   teil: .innenHinten, nummer: 0))
+        }
+        // DER BOGEN WIRD HIER VERGEBEN, wo auch die Nummer vergeben wird.
+        // Für den Buchblock folgt er aus der Nummer; die beiden
+        // Umschlaginnenseiten erben ihn von ihrer Nachbarin — U2 vom
+        // ersten Bogen des Buches, U3 vom letzten. Ohne das läge U2 auf
+        // Bogen 0 und damit neben der TITELSEITE, und die
+        // Doppelseitenansicht zeigte eine Paarung, die es im Buch nicht
+        // gibt.
+        let letzterBogen = folge.filter { $0.teil == .innen }
+            .map { Bogenlage.bogen($0.nummer) }.max() ?? 1
+        for (stelle, seite) in folge.enumerated() {
+            folge[stelle].rang = stelle
+            switch seite.teil {
+            case .rueckseite, .titel: folge[stelle].bogen = 0
+            case .innenVorn: folge[stelle].bogen = 1
+            case .innenHinten: folge[stelle].bogen = letzterBogen
+            case .innen: folge[stelle].bogen = Bogenlage.bogen(seite.nummer)
+            }
+        }
         return folge
     }
 
@@ -301,17 +405,24 @@ enum Buchausgabe {
         // dort eine LEERE Liste heraus. Beide Zweige fragen dasselbe, nur
         // andersherum; sonst stünde die Titelseite in beiden Dateien oder
         // in keiner.
+        // SEIT 1.0.74 REICHT `tag == nil` NICHT MEHR. U2 und U3 tragen
+        // Inhalt und damit einen Tag — und gehören trotzdem auf den
+        // Umschlagbogen, nicht in den Buchblock. Ohne die zweite
+        // Bedingung stünden sie mitten im Innenteil, in einem Maß, das
+        // dort nicht gilt.
         if auftrag.nurUmschlag {
-            gefiltert = gefiltert.filter { $0.tag == nil }
+            gefiltert = gefiltert.filter { $0.tag == nil || $0.amUmschlag }
         } else if auftrag.ohneUmschlag {
-            gefiltert = gefiltert.filter { $0.tag != nil }
+            gefiltert = gefiltert.filter { $0.tag != nil && !$0.amUmschlag }
         } else {
             // Die Rückseite gehört auf den Umschlagbogen, nicht in den
             // Buchblock. Im vollständigen PDF stünde sie sonst als erste
             // Seite vor dem Titel — eine Reihenfolge, die es im gebundenen
             // Buch nirgends gibt. Die Titelseite bleibt dagegen drin: Wer
             // eine Datei für alles ausgibt, will sie vorn haben.
-            gefiltert = gefiltert.filter { $0.teil != .rueckseite }
+            gefiltert = gefiltert.filter {
+                $0.teil != .rueckseite && $0.teil != .innenVorn && $0.teil != .innenHinten
+            }
         }
         guard !gefiltert.isEmpty else { throw Fehler.keineSeiten }
         // Ab hier unveränderlich: Eine `var`, die aus einem nebenläufigen
@@ -596,6 +707,10 @@ enum Buchausgabe {
         let ruecken = Umschlagmass.ruecken(format, umschlag: reise.umschlag,
                                            innenseiten: innen)
 
+        // ALLE Seiten des Umschlags, seit 1.0.74 also bis zu vier: U4, U1
+        // und wahlweise U2 und U3. Die Kartenbilder werden für alle
+        // zusammen geholt — eine Umschlaginnenseite trägt den Satz eines
+        // Tages und damit womöglich dessen Karte.
         let seiten = reise.seitenfolge.filter(\.amUmschlag)
         guard let rueckseite = seiten.first(where: { $0.teil == .rueckseite }),
               let titelseite = seiten.first(where: { $0.teil == .titel })
@@ -700,19 +815,51 @@ enum Buchausgabe {
         // Blöcke. Der Rückentext gehört auf die Außenseite; ihn hier noch
         // einmal zu setzen hieße, ihn im fertigen Buch zweimal zu haben,
         // einmal davon unsichtbar zwischen Deckel und erster Seite.
-        if reise.umschlag.innenseitenBogen {
+        if reise.umschlag.innenseitenBogen || reise.umschlagTraegtInhalt {
             zusammenhang.beginPDFPage(seiteninfo as CFDictionary)
             zusammenhang.saveGState()
             zusammenhang.translateBy(x: 0, y: bogen.height)
             zusammenhang.scaleBy(x: 1, y: -1)
             zusammenhang.translateBy(x: anschnitt, y: anschnitt)
 
+            // TRÄGT DER UMSCHLAG INNEN INHALT, wird er gesetzt wie jede
+            // andere Bogenhälfte (ab 1.0.74): links U2, rechts U3, jede
+            // beschnitten auf ihre Fläche plus den AUSSEN liegenden
+            // Anschnitt. Am Bund gibt es keinen — dort wird gefalzt.
+            //
+            // Zwischen den beiden liegt der Rücken, und der bleibt hier
+            // LEER: Bedruckt wird er auf der Außenseite. Ein Text, der
+            // innen noch einmal stünde, verschwände zwischen Deckel und
+            // erster Seite.
+            let innenSeiten = seiten.filter {
+                $0.teil == .innenVorn || $0.teil == .innenHinten
+            }
             var innen = Seitenhintergrund.weiss
             innen.farbe = reise.umschlag.innenseitenFarbe ?? .papier
             Seitensatz.zeichneHintergrund(
                 innen, rechteck: bogenrechteck,
                 bild: nil, saat: reise.id.saat, bildflaeche: nil,
                 jpegGuete: auftrag.jpegGuete, in: zusammenhang)
+            // **`ohneGrund: false`, anders als beim Außenbogen.** Dort
+            // liegt EIN Grund über den ganzen Bogen samt Rücken; hier
+            // trägt jede Hälfte eine Tagebuchseite, und die soll aussehen
+            // wie eine Tagebuchseite — also mit dem Hintergrund des
+            // Buches oder ihrem eigenen. Die Farbe für U2+U3 gilt damit
+            // nur noch für den Fall, dass die Innenseiten LEER bleiben;
+            // sie bleibt als Grund darunter stehen und trägt den Rücken.
+            if let u2 = innenSeiten.first(where: { $0.teil == .innenVorn }) {
+                zeichneBogenhaelfte(u2, reise: reise, karten: karten, auftrag: auftrag,
+                                    ursprung: .zero, aussenLinks: true,
+                                    seitenmass: seitenmass, anschnitt: anschnitt,
+                                    ohneGrund: false, zeichen: zeichen, in: zusammenhang)
+            }
+            if let u3 = innenSeiten.first(where: { $0.teil == .innenHinten }) {
+                zeichneBogenhaelfte(u3, reise: reise, karten: karten, auftrag: auftrag,
+                                    ursprung: CGPoint(x: seitenmass.width + ruecken.width, y: 0),
+                                    aussenLinks: false,
+                                    seitenmass: seitenmass, anschnitt: anschnitt,
+                                    ohneGrund: false, zeichen: zeichen, in: zusammenhang)
+            }
 
             zusammenhang.restoreGState()
             zusammenhang.endPDFPage()
