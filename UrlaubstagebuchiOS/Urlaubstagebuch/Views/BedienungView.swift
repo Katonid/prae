@@ -57,7 +57,10 @@ struct BedienungView: View {
               wie: "Doppelt auf den Text tippen. Geschlossen wird mit \u{201E}Text fertig\u{201C} unten in der Leiste oder mit einem Tipp daneben."),
         Griff(zeichen: "text.bubble",
               was: "Bildunterschrift schreiben",
-              wie: "Doppelt auf das Foto tippen — oder bei gewähltem Foto unten auf \u{201E}Bildunterschrift\u{201C}."),
+              wie: "Doppelt auf das Foto tippen — oder bei gewähltem Foto unten auf \u{201E}Bildunterschrift\u{201C}. Sie dreht und schiebt mit dem Bild."),
+        Griff(zeichen: "map",
+              was: "Kartenunterschrift schreiben",
+              wie: "Doppelt auf die Karte tippen — oder bei gewählter Karte unten auf \u{201E}Kartenunterschrift\u{201C}. Die Karte wird dafür um die Höhe der Zeile kürzer."),
     ]
 
     private let woSteht: [Griff] = [

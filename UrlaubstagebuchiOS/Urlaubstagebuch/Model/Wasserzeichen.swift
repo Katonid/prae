@@ -270,7 +270,8 @@ enum Wasserzeichenlage {
         switch inhalt {
         case .foto, .karte: return 8
         case .flaeche, .verlauf: return 4
-        case .titel, .unterueberschrift, .datum, .bildunterschrift: return 1.5
+        case .titel, .unterueberschrift, .datum, .bildunterschrift,
+             .kartenunterschrift: return 1.5
         case .text: return 1
         case .linie: return 0.5
         }

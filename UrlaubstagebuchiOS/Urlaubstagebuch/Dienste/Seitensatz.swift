@@ -428,6 +428,10 @@ enum Seitensatz {
             // nächsten Neuanordnen weg, und wer ein Bild auf eine andere
             // Seite zieht, ließe seine Unterschrift zurück.
             return reise.foto(id)?.unterschrift ?? ""
+        case .kartenunterschrift:
+            // Der Text steht am TAG: Eine Karte zeigt dessen Spur, und
+            // einen Tag wechselt sie nie (ab 1.0.87).
+            return tag?.kartentext ?? ""
         default:
             return ""
         }
@@ -442,7 +446,30 @@ enum Seitensatz {
         return reise.gestaltung.datumsstil.text(tag.datum, nummer: nummer)
     }
 
-    static func schriftbild(_ block: Block, reise: Reise) -> Schriftbild {
-        block.abweichung.angewendet(auf: reise.typografie[block.inhalt.rolle])
+    /// Die Schrift, in der dieser Block WIRKLICH gesetzt wird.
+    ///
+    /// Drei Stufen, und die Reihenfolge ist die Ordnung dieses Hauses: die
+    /// Rolle im Buch, dann die Ausnahme am Foto bzw. am Tag (ab 1.0.88),
+    /// dann die Abweichung am Block. Die letzte ist die unmittelbarste
+    /// Handarbeit und gewinnt.
+    ///
+    /// `tag` wird nur für die KARTENunterschrift gebraucht — deren Ausnahme
+    /// steht am Tag. Wo er fehlt, gilt die Rolle; das betrifft nur
+    /// Stellen, die MESSEN (Texthöhe, Zeilenlänge), und dort ändert die
+    /// Ausrichtung nichts. Wer eine Stelle baut, die ZEICHNET, reicht ihn
+    /// durch.
+    static func schriftbild(_ block: Block, reise: Reise,
+                            tag: Reisetag? = nil) -> Schriftbild
+    {
+        var grund = reise.typografie[block.inhalt.rolle]
+        switch block.inhalt {
+        case let .bildunterschrift(id):
+            if let eigen = reise.foto(id)?.unterschriftAusrichtung { grund.ausrichtung = eigen }
+        case .kartenunterschrift:
+            if let eigen = tag?.kartentextAusrichtung { grund.ausrichtung = eigen }
+        default:
+            break
+        }
+        return block.abweichung.angewendet(auf: grund)
     }
 }

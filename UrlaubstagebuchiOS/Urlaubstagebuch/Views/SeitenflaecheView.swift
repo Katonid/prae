@@ -843,7 +843,15 @@ struct SeitenflaecheView: View, Equatable {
         // derselbe Griff wie beim Text — man tippt zweimal auf das, was man
         // beschriften will — und der einzige Weg dorthin, den man nicht
         // vorher gelesen haben muss.
-        if let id = treffer.fotoID { werk.unterschriftOeffnen(id) }
+        if let id = treffer.fotoID {
+            werk.unterschriftOeffnen(id)
+            return
+        }
+        // Und derselbe Griff auf einer KARTE (ab 1.0.87): Sie ist auch nur
+        // ein Bild, und wer sie beschriften will, tippt sie zweimal an.
+        if treffer.inhalt == .karte, let tag = buchseite.tag {
+            werk.kartenunterschriftOeffnen(tag.id)
+        }
     }
 
     // MARK: - Ziehen
@@ -974,6 +982,12 @@ struct SeitenflaecheView: View, Equatable {
                 satz: satz,
                 bogen: fangbogen,
                 schutz: schutzzone,
+                // AM LETZTMÖGLICHEN PUNKT DAVOR (ab 1.0.87): An
+                // Schnittkante und Sicherheitsabstand fängt der
+                // gezeichnete Umriss und nicht der Rahmen — sonst rastet
+                // ein Bild sauber an der blauen Linie ein und trägt
+                // trotzdem die rote Marke.
+                ueberstand: probe.ueberstand(werk.reise.gestaltung),
                 toleranz: 6 / massstab
             )
         } else {
@@ -1047,27 +1061,35 @@ struct SeitenflaecheView: View, Equatable {
             nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id }
         )
         let toleranz = einrastenAn ? 7 / massstab : 0
+        // Derselbe Überstand wie beim Schieben (ab 1.0.87). Das Vorzeichen
+        // sagt, wo „innen" liegt: Beim Ziehen an der linken Kante rückt die
+        // Grenze nach rechts, an der rechten nach links.
+        let ueber = block.ueberstand(werk.reise.gestaltung)
         var senkrecht: Einrasten.Linie?
         var waagerecht: Einrasten.Linie?
         if richtung.waagerecht < 0 {
-            let gefangen = Einrasten.kanteGefangen(neu.x, kanten: alle.x, toleranz: toleranz)
+            let gefangen = Einrasten.kanteGefangen(neu.x, kanten: alle.x, toleranz: toleranz,
+                                                   versatz: Double(ueber.width))
             neu.breite += neu.x - gefangen.wert
             neu.x = gefangen.wert
             senkrecht = gefangen.linie
         } else if richtung.waagerecht > 0 {
             let rechts = Einrasten.kanteGefangen(neu.x + neu.breite, kanten: alle.x,
-                                                 toleranz: toleranz)
+                                                 toleranz: toleranz,
+                                                 versatz: -Double(ueber.width))
             neu.breite = rechts.wert - neu.x
             senkrecht = rechts.linie
         }
         if richtung.senkrecht < 0 {
-            let gefangen = Einrasten.kanteGefangen(neu.y, kanten: alle.y, toleranz: toleranz)
+            let gefangen = Einrasten.kanteGefangen(neu.y, kanten: alle.y, toleranz: toleranz,
+                                                   versatz: Double(ueber.height))
             neu.hoehe += neu.y - gefangen.wert
             neu.y = gefangen.wert
             waagerecht = gefangen.linie
         } else if richtung.senkrecht > 0 {
             let unten = Einrasten.kanteGefangen(neu.y + neu.hoehe, kanten: alle.y,
-                                                toleranz: toleranz)
+                                                toleranz: toleranz,
+                                                versatz: -Double(ueber.height))
             neu.hoehe = unten.wert - neu.y
             waagerecht = unten.linie
         }
@@ -1462,11 +1484,11 @@ struct BlockInhaltView: View {
         case .titel, .unterueberschrift, .datum, .text:
             Textkasten(
                 text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
-                bild: Seitensatz.schriftbild(block, reise: werk.reise),
+                bild: Seitensatz.schriftbild(block, reise: werk.reise, tag: tag),
                 rand: wirkung.textrand,
                 massstab: massstab
             )
-        case .bildunterschrift:
+        case .bildunterschrift, .kartenunterschrift:
             let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
             if text.isEmpty {
                 // KEIN WORT, SONDERN EINE MARKE (ab 1.0.36).
@@ -1501,7 +1523,7 @@ struct BlockInhaltView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else {
                 Textkasten(text: text,
-                           bild: Seitensatz.schriftbild(block, reise: werk.reise),
+                           bild: Seitensatz.schriftbild(block, reise: werk.reise, tag: tag),
                            rand: wirkung.textrand,
                            massstab: massstab)
             }

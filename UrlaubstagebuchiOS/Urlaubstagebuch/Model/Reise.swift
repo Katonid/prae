@@ -34,6 +34,22 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // Überschreibt die Datumszeile dieses einen Tages. Leer heißt: Es gilt,
     // was im Buch eingestellt ist.
     var datumstext: String?
+    // DIE KARTE IST AUCH NUR EIN BILD (ab 1.0.87).
+    //
+    // Wunsch des Nutzers, 09/2026: „Nicht nur Bilder sollen eine
+    // Bildunterschrift tragen können, sondern auch die Kartendarstellungen.
+    // Die sind ja im Endeffekt auch nichts anderes als Bilder."
+    //
+    // Der Text steht am TAG und nicht im Block — dieselbe Regel wie bei
+    // Überschrift, zweiter Überschrift und Datumszeile: Der Block ist ein
+    // Vorschlag über dem Inhalt und wird beim Neuanordnen neu gerechnet.
+    // Beim FOTO steht er am Foto, weil ein Foto den Tag wechseln kann; eine
+    // Karte kann das nicht, sie zeigt die Spur DIESES Tages.
+    var kartentext: String = ""
+    var kartentextZeigen: Bool = false
+    // Dieselbe Ausnahme wie beim Foto (ab 1.0.88): `nil` heißt „wie im
+    // Buch".
+    var kartentextAusrichtung: Ausrichtung?
     // Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht
     // ins Buch. Ihn zu löschen wäre der einzige andere Weg gewesen — und
     // ein gelöschter Tagebuchtag ist weg.
@@ -64,6 +80,9 @@ struct Reisetag: Identifiable, Codable, Hashable {
         muster = b.wahlweise(.muster)
         kartenausschnitt = b.wahlweise(.kartenausschnitt)
         datumstext = b.wahlweise(.datumstext)
+        kartentext = b.wert(.kartentext, "")
+        kartentextZeigen = b.wert(.kartentextZeigen, false)
+        kartentextAusrichtung = b.wahlweise(.kartentextAusrichtung)
         ausgeblendet = b.wert(.ausgeblendet, false)
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {

@@ -7698,6 +7698,75 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **GEFANGEN WIRD, WAS GEMESSEN WIRD** (`Einrasten.Herkunft.misstUmriss`,
+  `Block.ueberstand(_:)`, ab 1.0.87; gemeldet 09/2026: „der dicke rote Rand
+  um die Bilder, wenn sie über den Sicherheitsabstand ragen, gefällt mir
+  gut. Allerdings stimmt die Einrastfunktion jetzt nicht. Wenn ich die
+  Bilder verschiebe, rasten sie erst ein, wenn der rote Rand sich schon
+  bildet. Natürlich wäre es wünschenswert, dass sie vorher einrasten, quasi
+  am letztmöglichen Punkt, bevor sie in den Sicherheitsbereich reisen.").
+  - **Er hat recht, und es ist auszurechnen.** Seit 1.0.83 misst die rote
+    Marke den gezeichneten UMRISS — weißer Fotorand außerhalb des Rahmens,
+    Drehung eingerechnet. Gefangen wurde weiter der RAHMEN. Ein Bild, das
+    sauber an der blauen Linie einrastete, ragte mit seinem Rand längst
+    darüber hinaus: **Zwei Stellen maßen zwei verschiedene Dinge, und die
+    eine belohnte genau das, was die andere anstrich.**
+  - **An GRENZEN gilt der Umriss, an LAYOUTkanten der Rahmen.** Schnittkante
+    und Sicherheitsabstand sagen, wie weit etwas SICHTBAR reichen darf; der
+    Satzspiegel und die Nachbarn sagen, wo der Automat gesetzt hätte, und
+    ein von Hand geschobenes Bild soll neben einem gesetzten bündig stehen
+    und nicht um seinen weißen Rand versetzt. Entschieden wird das an der
+    HERKUNFT der Kante und nicht am Block.
+  - **Beim Ziehen an einer Ecke trägt der Aufrufer das Vorzeichen**
+    (`kanteGefangen(versatz:)`): „Innen" liegt beim Ziehen an der linken
+    Kante rechts und umgekehrt, und nur er weiß, welche Kante er zieht.
+    **Gezeichnet wird die Linie trotzdem dort, wo die Kante wirklich
+    liegt** — eine Fanglinie ein Stück neben ihrer Kante wäre eine falsche
+    Auskunft.
+- **EINE KARTE IST AUCH NUR EIN BILD** (`Blockinhalt.kartenunterschrift`,
+  `Reisetag.kartentext`, `Layoutautomat.karteBloecke`, ab 1.0.87; Wunsch des
+  Nutzers 09/2026: „Nicht nur Bilder sollen eine Bildunterschrift tragen
+  können, sondern auch die Kartendarstellungen. Die sind ja im Endeffekt
+  auch nichts anderes als Bilder.").
+  - **Der Text steht am TAG, nicht am Block und nicht am Foto.** Beim Foto
+    steht er am Foto, weil ein Foto den Tag wechseln kann; eine Karte kann
+    das nicht — sie zeigt die Spur DIESES Tages. Im Block stünde er beim
+    nächsten Neuanordnen nicht mehr da; das ist die Regel seit 1.0.5.
+  - **Die Karte wird um die Höhe der Zeile KÜRZER, statt Platz zu
+    verlangen.** Das ist der Grund, warum an keiner der fünf Stellen, die
+    eine Karte setzen, eine Höhenrechnung angefasst werden musste: Beim Foto
+    hält `unterschriftHoehe` den Streifen eigens frei und geht in jede
+    Reihenrechnung ein; die Karte hat keine Größe, an der etwas hängt, und
+    ein paar Punkte weniger Karte sieht niemand. **Wer das umdreht, rechnet
+    fünf Stellen nach.**
+  - **Der Automat kennt keinen Tag — `seiten(fuer:)` schon.** Es setzt die
+    Zeile in einer KOPIE seiner selbst (`kartenzeile`) und ruft damit den
+    eigentlichen Bau. Der Text durch fünf Aufrufstellen hindurchgereicht
+    wäre fünfmal die Gelegenheit, ihn zu vergessen.
+  - **Derselbe Weg wie beim Foto, überall:** Doppeltipp auf die Karte, Knopf
+    in der Fußleiste, Schalter im Inspektor — und `Reisewerk.tagZuBlock`
+    fragt den Tag des BLOCKS und nie den gewählten (die Lehre aus 1.0.51).
+  - **Was die Zeile beim Abschalten hergibt, bekommt die Karte zurück.**
+    Sonst bliebe nach dem Ausschalten ein leerer Streifen stehen, und
+    niemand wüsste, woher er kommt.
+- **DIE PRÜFUNG NENNT, WAS MAN SIEHT** (`Druckpruefung.roteMarken`, ab
+  1.0.87; Ansage des Nutzers: „Und natürlich soll dann auch die Druckprüfung
+  anschlagen, wenn irgendwo ein roter Rahmen ist."). Beide Fälle wurden
+  schon gezählt (1.0.76 und 1.0.81) — aber getrennt und unter Namen, die die
+  Marke nicht nennen. Ganz oben steht jetzt EINE Zeile mit der Zahl der rot
+  umrandeten Blöcke, gezählt über dieselbe Liste, die auch die Marke setzt
+  (`Reise.amRandGefaehrdet`, die Vereinigung, jeder Block einmal); die beiden
+  Zeilen darunter sagen, welcher Fall es ist. **Eine Prüfung, die dasselbe
+  meint wie die Seite, soll es auch so nennen.**
+- **Nicht gemessen (1.0.87):** Keine Seite ist damit gesehen worden. **Am
+  Quelltext ABGEZÄHLT ist die Ursache des zu späten Einrastens** — die Marke
+  misst den Umriss, das Einrasten maß den Rahmen, und die Differenz ist
+  genau der weiße Rand plus die Drehung. **Ungeprüft bleibt, wie es sich
+  anfühlt:** ob der Block jetzt an der richtigen Stelle stehen bleibt und ob
+  die Fanglinie, die weiter auf ihrer Kante liegt, während der Block davor
+  hält, als Hilfe gelesen wird oder als Versatz. Ebenso ungesehen, wie eine
+  Karte mit Zeile auf der Seite aussieht und ob die gekürzte Karte irgendwo
+  zu knapp wird. **Nicht als erledigt darstellen.**
 - **DIE BILDUNTERSCHRIFT GEHÖRT ZUM BILD — SIE DREHT MIT UND SIE SCHIEBT
   MIT** (`Reisewerk.drehe`, `.schiebeMitUnterschrift`, `Rahmen.gedreht(um:grad:)`,
   ab 1.0.86; gemeldet 09/2026: „Ich habe jetzt erstmalig eine
@@ -9568,7 +9637,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.86 (Build 87). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.87 (Build 88). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

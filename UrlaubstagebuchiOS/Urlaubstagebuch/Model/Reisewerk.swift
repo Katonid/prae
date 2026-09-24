@@ -1024,6 +1024,89 @@ final class Reisewerk: ObservableObject, Identifiable {
         }
     }
 
+    // DIE KARTE IST AUCH NUR EIN BILD (ab 1.0.87).
+    //
+    // Wunsch des Nutzers, 09/2026: „Nicht nur Bilder sollen eine
+    // Bildunterschrift tragen können, sondern auch die
+    // Kartendarstellungen." Gebaut wie beim Foto und mit denselben zwei
+    // Regeln: Der Schalter wirkt SOFORT, und der Text steht nicht im Block
+    // (hier am Tag, denn eine Karte wechselt ihn nie).
+    //
+    // Die Karte wird dabei um die Höhe der Zeile KÜRZER, statt zusätzlichen
+    // Platz zu verlangen — dieselbe Rechnung wie im Automaten
+    // (`karteBloecke`); eine zweite ergäbe eine Seite, die nach dem ersten
+    // Neuanordnen anders aussieht.
+    func kartenunterschriftUmschalten(_ tagID: UUID, an: Bool) {
+        guard let t = reise.tage.firstIndex(where: { $0.id == tagID }) else { return }
+        merken()
+        reise.tage[t].kartentextZeigen = an
+        let bild = reise.typografie.bildunterschrift
+        let text = reise.tage[t].kartentext
+        for s in reise.tage[t].seiten.indices {
+            if !an {
+                // Was die Karte hergegeben hat, bekommt sie zurück.
+                let zeilen = reise.tage[t].seiten[s].bloecke
+                    .filter { $0.inhalt == .kartenunterschrift }
+                reise.tage[t].seiten[s].bloecke.removeAll { $0.inhalt == .kartenunterschrift }
+                if let zeile = zeilen.first,
+                   let k = reise.tage[t].seiten[s].bloecke
+                       .firstIndex(where: { $0.inhalt == .karte })
+                {
+                    let unten = zeile.rahmen.y + zeile.rahmen.hoehe
+                    reise.tage[t].seiten[s].bloecke[k].rahmen.hoehe =
+                        unten - reise.tage[t].seiten[s].bloecke[k].rahmen.y
+                }
+                continue
+            }
+            guard !reise.tage[t].seiten[s].bloecke.contains(where: {
+                $0.inhalt == .kartenunterschrift
+            }), let k = reise.tage[t].seiten[s].bloecke
+                .firstIndex(where: { $0.inhalt == .karte })
+            else { continue }
+            let karte = reise.tage[t].seiten[s].bloecke[k]
+            let hoehe = Textmass.hoehe(text.isEmpty ? "Kartenunterschrift" : text,
+                                       bild: bild, breite: karte.rahmen.breite)
+            let fuge: Double = 3
+            guard karte.rahmen.hoehe - hoehe - fuge >= 24 else { continue }
+            reise.tage[t].seiten[s].bloecke[k].rahmen.hoehe -= hoehe + fuge
+            let oben = reise.tage[t].seiten[s].bloecke[k].rahmen
+            var neu = Block(
+                inhalt: .kartenunterschrift,
+                rahmen: Rahmen(x: oben.x, y: oben.y + oben.hoehe + fuge,
+                               breite: oben.breite, hoehe: hoehe)
+            )
+            neu.ebene = karte.ebene
+            if abs(karte.drehung) > 0.01 {
+                neu.rahmen = neu.rahmen.gedreht(um: karte.rahmen.mitte, grad: karte.drehung)
+                neu.drehung = karte.drehung
+            }
+            reise.tage[t].seiten[s].bloecke.insert(neu, at: k + 1)
+        }
+    }
+
+    /// Welchem Tag ein Block gehört — gefragt von allem, was an einem
+    /// Block hängt und den TAG braucht. Nie der gewählte Tag: Der folgt
+    /// seit 1.0.28 dem, was oben im Bild steht (die Lehre aus 1.0.51).
+    func tagZuBlock(_ id: UUID?) -> UUID? {
+        guard let id, let stelle = block(id) else { return nil }
+        return reise.tage[stelle.tag].id
+    }
+
+    /// Der kurze Weg von einer Karte zu ihrer Zeile — einschalten, wenn sie
+    /// aus ist, und gleich zum Schreiben öffnen. Dieselbe Bauweise wie
+    /// `unterschriftOeffnen` beim Foto.
+    func kartenunterschriftOeffnen(_ tagID: UUID) {
+        guard let tag = reise.tage.first(where: { $0.id == tagID }) else { return }
+        if !tag.kartentextZeigen { kartenunterschriftUmschalten(tagID, an: true) }
+        for seite in reise.tage.first(where: { $0.id == tagID })?.seiten ?? [] {
+            guard let block = seite.bloecke.first(where: { $0.inhalt == .kartenunterschrift })
+            else { continue }
+            gewaehlterBlock = block.id
+            textBearbeitung = block.id
+            return
+        }
+    }
+
     // ALLE LEEREN BILDUNTERSCHRIFTEN AUF EINMAL ABSCHALTEN (ab 1.0.36).
     //
     // Sie entstehen durch einen Doppeltipp auf ein Foto und halten danach
@@ -1125,6 +1208,10 @@ final class Reisewerk: ObservableObject, Identifiable {
                 if !text.isEmpty { foto.unterschriftZeigen = true }
                 reise.setzeFoto(foto)
             }
+        case .kartenunterschrift:
+            // Sie gehört dem TAG: Eine Karte zeigt dessen Spur (ab 1.0.87).
+            reise.tage[stelle.tag].kartentext = text
+            if !text.isEmpty { reise.tage[stelle.tag].kartentextZeigen = true }
         case .titel:
             reise.tage[stelle.tag].ueberschrift = text
         case .unterueberschrift:

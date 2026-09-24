@@ -25,6 +25,11 @@ enum Blockinhalt: Codable, Hashable {
     // Überschrift und Datumszeile, die am Tag stehen.
     case bildunterschrift(UUID)
     case karte
+    // Die Unterschrift unter einer KARTE (ab 1.0.87). Sie trägt gar keine
+    // Kennung: Eine Karte zeigt die Spur ihres Tages, und dort steht auch
+    // ihr Text (`Reisetag.kartentext`). Beim Foto ist es die Kennung des
+    // Fotos, weil ein Foto den Tag wechseln kann — eine Karte nicht.
+    case kartenunterschrift
     case linie
     // Eine reine Farbfläche — trägt einen Titel über einem Foto oder
     // setzt einen Abschnitt farbig ab.
@@ -38,7 +43,8 @@ enum Blockinhalt: Codable, Hashable {
     var istFoto: Bool { if case .foto = self { return true }; return false }
     var istText: Bool {
         switch self {
-        case .titel, .unterueberschrift, .datum, .text, .bildunterschrift: return true
+        case .titel, .unterueberschrift, .datum, .text, .bildunterschrift,
+             .kartenunterschrift: return true
         default: return false
         }
     }
@@ -48,7 +54,7 @@ enum Blockinhalt: Codable, Hashable {
         case .titel: return .titel
         case .unterueberschrift: return .unterueberschrift
         case .datum: return .datum
-        case .bildunterschrift: return .bildunterschrift
+        case .bildunterschrift, .kartenunterschrift: return .bildunterschrift
         default: return .flieText
         }
     }
@@ -61,6 +67,7 @@ enum Blockinhalt: Codable, Hashable {
         case .text: return "Text"
         case .foto: return "Foto"
         case .bildunterschrift: return "Bildunterschrift"
+        case .kartenunterschrift: return "Kartenunterschrift"
         case .karte: return "Karte"
         case .linie: return "Trennlinie"
         case .flaeche: return "Farbfläche"
@@ -389,6 +396,19 @@ struct Block: Identifiable, Codable, Hashable {
     // mitzumessen hieße, jeden Block mit Schatten am Satzspiegel zu
     // markieren — und nach der dritten falschen Marke sieht niemand mehr
     // hin.
+    /// Wie weit der gezeichnete Umriss je Achse über den Rahmen hinausragt
+    /// — die HALBE Differenz, denn er liegt symmetrisch um die Mitte.
+    ///
+    /// Gebraucht vom Einrasten (ab 1.0.87): An einer Grenze soll der Block
+    /// so anliegen, dass sein UMRISS die Linie berührt und nicht sein
+    /// Rahmen. Dieselbe Rechnung wie die rote Marke — zwei Fassungen
+    /// ergäben ein Bild, das einrastet und trotzdem markiert wird.
+    func ueberstand(_ gestaltung: Gestaltung) -> CGSize {
+        let weit = umriss(gestaltung)
+        return CGSize(width: max(0, Double(weit.width) - rahmen.breite) / 2,
+                      height: max(0, Double(weit.height) - rahmen.hoehe) / 2)
+    }
+
     func umriss(_ gestaltung: Gestaltung) -> CGRect {
         let rand = Druckmass.pt(max(wirkung(gestaltung).fotorand, 0))
         let kasten = rahmen.rect.insetBy(dx: CGFloat(-rand), dy: CGFloat(-rand))

@@ -1214,6 +1214,18 @@ struct ReiseView: View {
                     Label("Bildunterschrift", systemImage: "text.bubble")
                 }
             }
+            // Dasselbe für die KARTE (ab 1.0.87) — sie ist auch nur ein
+            // Bild, und der Weg dorthin muss derselbe sein.
+            // Gefragt wird der Tag des BLOCKS und nie der gewählte: Der
+            // folgt seit 1.0.28 dem, was oben im Bild steht — die Lehre
+            // aus 1.0.51, wo derselbe Griff am falschen Tag landete.
+            if gewaehlterBlock?.inhalt == .karte, let tagID = werk.tagZuBlock(gewaehlterBlock?.id) {
+                Button {
+                    werk.kartenunterschriftOeffnen(tagID)
+                } label: {
+                    Label("Kartenunterschrift", systemImage: "text.bubble")
+                }
+            }
             // Steht die Marke auf der Seite, steht hier der Knopf dazu. Ein
             // Hinweis ohne Weg, ihn aufzulösen, ist die Frage von vorhin
             // noch einmal.
