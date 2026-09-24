@@ -29,12 +29,19 @@ enum Einrasten {
     enum Herkunft {
         case satz
         case anschnitt
+        // Der Sicherheitsabstand (ab 1.0.73): der Streifen INNERHALB des
+        // Endformats, in dem nichts stehen soll, was gelesen werden muss.
+        // Er ist die Gegenrichtung zur Schnittkante und gehört deshalb in
+        // dieselbe Liste — wer einen Block von Hand an die Kante schiebt,
+        // soll dort fangen und nicht daneben.
+        case sicherheit
         case nachbar
 
         var name: String {
             switch self {
             case .satz: return "Rand"
             case .anschnitt: return "Schnittkante"
+            case .sicherheit: return "Sicherheitsabstand"
             case .nachbar: return "Nachbar"
             }
         }
@@ -60,7 +67,8 @@ enum Einrasten {
         var herkunft: Herkunft
     }
 
-    static func kanten(satz: CGRect, bogen: CGRect?, nachbarn: [Block])
+    static func kanten(satz: CGRect, bogen: CGRect?, schutz: CGRect? = nil,
+                       nachbarn: [Block])
         -> (x: [Kante], y: [Kante])
     {
         var x: [Kante] = [
@@ -82,6 +90,12 @@ enum Einrasten {
             y.append(contentsOf: [Kante(wert: bogen.minY, herkunft: .anschnitt),
                                   Kante(wert: bogen.maxY, herkunft: .anschnitt)])
         }
+        if let schutz {
+            x.append(contentsOf: [Kante(wert: schutz.minX, herkunft: .sicherheit),
+                                  Kante(wert: schutz.maxX, herkunft: .sicherheit)])
+            y.append(contentsOf: [Kante(wert: schutz.minY, herkunft: .sicherheit),
+                                  Kante(wert: schutz.maxY, herkunft: .sicherheit)])
+        }
         for nachbar in nachbarn {
             let r = nachbar.rahmen.rect
             x.append(contentsOf: [Kante(wert: r.minX, herkunft: .nachbar),
@@ -95,10 +109,11 @@ enum Einrasten {
     }
 
     static func gefangen(block: Block, dx: Double, dy: Double, nachbarn: [Block],
-                         satz: CGRect, bogen: CGRect? = nil, toleranz: Double) -> Fang
+                         satz: CGRect, bogen: CGRect? = nil, schutz: CGRect? = nil,
+                         toleranz: Double) -> Fang
     {
         let neu = block.rahmen.verschoben(dx: dx, dy: dy).rect
-        let alle = kanten(satz: satz, bogen: bogen, nachbarn: nachbarn)
+        let alle = kanten(satz: satz, bogen: bogen, schutz: schutz, nachbarn: nachbarn)
 
         let x = naechste(kanten: alle.x, eigene: [neu.minX, neu.midX, neu.maxX],
                          toleranz: toleranz)

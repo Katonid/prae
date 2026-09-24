@@ -18,6 +18,33 @@ final class Bildarchiv {
     private let vorrat = NSCache<NSString, UIImage>()
     private let dateien = FileManager.default
 
+    // EIN BILD, DAS NICHT DA IST, WIRD EINMAL GESUCHT — NICHT BEI JEDEM
+    // BILDPUNKT (ab 1.0.71).
+    //
+    // Gemeldet 09/2026: „Auf dem iPad ist kein Arbeiten möglich."
+    // `vorschau` gab für ein Bild, das nicht auf der Platte liegt, ein
+    // `nil` zurück, und ein `nil` wurde NIRGENDS gemerkt: Der Vorrat hält
+    // nur Treffer. Aufgerufen wird `vorschau` aber im Körper einer
+    // SwiftUI-Ansicht, also bei JEDER Neuzeichnung der Bühne — und die
+    // läuft beim Schieben und Zoomen im Sekundentakt und öfter. Bei einem
+    // Buch, dessen Bilder noch in iCloud liegen, war das je Seite und
+    // Bildpunkt ein vergeblicher Griff auf das Dateisystem, auf dem
+    // Hauptfaden.
+    //
+    // **Der Fehlgriff wird deshalb mit seiner ZEIT gemerkt und nicht als
+    // bloßes Wegwerfen.** Nach `wartezeit` wird es noch einmal versucht:
+    // Ein Bild, das gerade aus iCloud ankommt, steht damit von selbst
+    // binnen drei Sekunden auf der Seite. Ein Merker ohne Ablauf wäre der
+    // bequemere Weg und der falsche — er zeigte das heruntergeladene Bild
+    // erst nach einem Neustart.
+    //
+    // Gesperrt wird, weil `vorschau` aus Ansichten UND aus der Ausgabe
+    // gerufen werden kann: Ein `NSCache` ist von sich aus sicher, ein
+    // Wörterbuch nicht.
+    private var fehlgriffe: [String: Date] = [:]
+    private let schloss = NSLock()
+    static let wartezeit: TimeInterval = 3
+
     private init() {
         // Das ist kein Speicherlimit in Bytes, sondern eine Stückzahl:
         // NSCache räumt bei Speicherdruck ohnehin selbst auf, und eine Zahl
@@ -77,8 +104,12 @@ final class Bildarchiv {
         let kraft = Farbkraft.stufe(farbkraft)
         let merker = schluessel(datei, kante: kante, kraft: kraft)
         if let da = vorrat.object(forKey: merker as NSString) { return da }
+        if kuerzlichDaneben(datei) { return nil }
         let ort = pfad(reise, datei: datei)
-        guard let quelle = CGImageSourceCreateWithURL(ort as CFURL, nil) else { return nil }
+        guard let quelle = CGImageSourceCreateWithURL(ort as CFURL, nil) else {
+            vermerkeFehlgriff(datei)
+            return nil
+        }
         let wunsch: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
@@ -86,7 +117,11 @@ final class Bildarchiv {
             kCGImageSourceThumbnailMaxPixelSize: kante,
         ]
         guard let bild = CGImageSourceCreateThumbnailAtIndex(quelle, 0, wunsch as CFDictionary)
-        else { return nil }
+        else {
+            vermerkeFehlgriff(datei)
+            return nil
+        }
+        vergissFehlgriff(datei)
         var fertig = UIImage(cgImage: bild)
         if kraft > 1.001 { fertig = Farbkraft.verstaerkt(fertig, faktor: kraft) }
         vorrat.setObject(fertig, forKey: merker as NSString)
@@ -109,7 +144,49 @@ final class Bildarchiv {
         return UIImage(cgImage: bild)
     }
 
-    func aufraeumen() { vorrat.removeAllObjects() }
+    func aufraeumen() {
+        vorrat.removeAllObjects()
+        nachsehen()
+    }
+
+    // MARK: - Fehlgriffe
+
+    private func kuerzlichDaneben(_ datei: String) -> Bool {
+        schloss.lock()
+        defer { schloss.unlock() }
+        guard let wann = fehlgriffe[datei] else { return false }
+        if Date().timeIntervalSince(wann) < Self.wartezeit { return true }
+        fehlgriffe[datei] = nil
+        return false
+    }
+
+    private func vermerkeFehlgriff(_ datei: String) {
+        schloss.lock()
+        fehlgriffe[datei] = Date()
+        schloss.unlock()
+    }
+
+    private func vergissFehlgriff(_ datei: String) {
+        schloss.lock()
+        if fehlgriffe[datei] != nil { fehlgriffe[datei] = nil }
+        schloss.unlock()
+    }
+
+    // Wer ausdrücklich „Jetzt holen" tippt, wartet keine drei Sekunden.
+    // Ein Knopf, der nichts tut, weil eine Sperre noch läuft, ist für den
+    // Menschen davor ein kaputter Knopf.
+    func nachsehen() {
+        schloss.lock()
+        fehlgriffe.removeAll()
+        schloss.unlock()
+    }
+
+    // Wie viele Namen gerade als nicht lesbar gelten — für den Befund.
+    var fehlgriffzahl: Int {
+        schloss.lock()
+        defer { schloss.unlock() }
+        return fehlgriffe.count
+    }
 
     // Was nicht mehr gebraucht wird, verschwindet auch von der Platte.
     // Ohne das wüchse der Ordner mit jeder verworfenen Einfuhr weiter, und

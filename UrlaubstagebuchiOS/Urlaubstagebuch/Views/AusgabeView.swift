@@ -53,6 +53,9 @@ struct AusgabeView: View {
         let ausDemBuch: Umfang = werk.reise.hatRueckseite ? .getrennt : .ganzesBuch
         _umfang = State(initialValue: vorwahl ?? ausDemBuch)
     }
+    // WIE VIELE INNENSEITEN BESTELLT SIND (ab 1.0.72). Als Text, weil ein
+    // leeres Feld „nichts bestellt" heißen muss und nicht „null Seiten".
+    @State private var bestellte = ""
     @State private var teilenliste: [URL] = []
     @State private var befundVorab: [Druckpruefung.Zeile] = []
     @State private var rueckseitenDrehen = false
@@ -174,6 +177,30 @@ struct AusgabeView: View {
                 Section {
                     LabeledContent("Seiten", value: "\(werk.reise.seitenzahl)")
                     LabeledContent("Endformat", value: werk.reise.format.masstext)
+                    // DAS MASS, DAS DIE DRUCKEREI PRÜFT (ab 1.0.72).
+                    //
+                    // Bis 1.0.71 stand hier nur das Endformat — also die
+                    // Seite, wie sie geschnitten in der Hand liegt. Geprüft
+                    // wird aber die DATEI, und die ist um zwei Anschnitte
+                    // größer. Gemeldet 09/2026: „Das Format der erhaltenen
+                    // Daten stimmt nicht mit der Bestellung überein."
+                    // Diese Zeile ist die, die sich gegen eine Bestellung
+                    // halten lässt, und sie folgt der gewählten Anordnung:
+                    // Einzelseiten, Doppelseiten und Umschlag sind drei
+                    // verschiedene Maße.
+                    LabeledContent("Bogen im PDF", value: bogenmass)
+                    HStack {
+                        Text("Bestellt")
+                        Spacer()
+                        TextField("Seiten", text: $bestellte)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 70)
+                        Text("Innenseiten").foregroundStyle(.secondary)
+                    }
+                    Text(bestellhinweis)
+                        .font(.caption)
+                        .foregroundStyle(bestellpasst ? Color.secondary : Color.orange)
                     Picker("Bildgüte", selection: $guete) {
                         ForEach(Bildguete.allCases) { g in Text(g.name).tag(g) }
                     }
@@ -292,7 +319,21 @@ struct AusgabeView: View {
                 Druckauftrag.zeigen(fertig, titel: werk.reise.titel,
                                     beidseitig: umfang == .broschuere)
             }
-            .task { befundVorab = Druckpruefung.vorab(werk.reise) }
+            .task {
+                befundVorab = Druckpruefung.vorab(werk.reise)
+                if let wunsch = werk.reise.bestellteSeiten, bestellte.isEmpty {
+                    bestellte = String(wunsch)
+                }
+            }
+            // Geschrieben wird beim Tippen und nicht über einen Knopf: Ein
+            // Feld mit einem Knopf daneben, den man vergessen kann, ist die
+            // teurere Hälfte — dann stünde in der Prüfung die Zahl von
+            // vorhin. Ein leeres Feld heißt „nichts bestellt".
+            .onChange(of: bestellte) { _, neu in
+                let zahl = Int(neu.filter(\.isNumber))
+                werk.reise.bestellteSeiten = (zahl ?? 0) > 0 ? zahl : nil
+                befundVorab = Druckpruefung.vorab(werk.reise)
+            }
             // Bei JEDEM Wechsel der Güte neu, denn genau sie ist die
             // zweite Zahl in der Rechnung.
             .task(id: guete) {
@@ -313,6 +354,60 @@ struct AusgabeView: View {
         case .doppelseiten: return "Doppelseiten"
         case .ganzesBuch: return "Als PDF sichern"
         }
+    }
+
+    // Was für DIESE Anordnung wirklich in der Datei steht — gerechnet über
+    // dieselben Stellen wie die Ausgabe. Zwei Fassungen nennten zwei
+    // Zahlen, und die Druckerei prüft eine.
+    // Passt die Seitenzahl zur Bestellung? Ohne Bestellung wird nichts
+    // behauptet — dann ist die Zeile eine Erklärung und keine Warnung.
+    private var bestellpasst: Bool {
+        guard let wunsch = Int(bestellte.filter(\.isNumber)), wunsch > 0 else { return true }
+        return werk.reise.innenseiten == wunsch
+    }
+
+    private var bestellhinweis: String {
+        let hat = werk.reise.innenseiten
+        guard let wunsch = Int(bestellte.filter(\.isNumber)), wunsch > 0 else {
+            return "Der Innenteil hat \(hat) Seiten \u{2014} der Umschlag zählt nicht mit, er ist ein eigenes Stück Papier. Wer die bestellte Zahl einträgt, sieht hier und in der Prüfung, ob es passt."
+        }
+        if hat == wunsch {
+            return "Der Innenteil hat \(hat) Seiten \u{2014} genau so viele wie bestellt."
+        }
+        let zuviel = hat > wunsch
+        return "Der Innenteil hat \(hat) Seiten, bestellt sind \(wunsch) \u{2014} "
+            + "\(abs(hat - wunsch)) \(zuviel ? "zu viele" : "zu wenige"). "
+            + (zuviel
+                ? "Eine Druckerei nimmt das nicht an. Seiten entfernt man über \u{201E}Seiten\u{201C} im Tagesmenü, einen ganzen Tag über \u{201E}ausblenden\u{201C}."
+                : "Die fehlenden füllt die Druckerei meist mit leeren auf \u{2014} und die hat niemand gesehen.")
+    }
+
+    private var bogenmass: String {
+        let reise = werk.reise
+        let anschnitt = reise.gestaltung.anschnitt
+        switch umfang {
+        case .nurUmschlag:
+            return Druckvorgabe.masstext(umschlagbogenMm) + " (U4+U1)"
+        case .doppelseiten:
+            let b = 2 * reise.format.breite + 2 * anschnitt
+            return Druckvorgabe.masstext(CGSize(width: b, height: reise.format.hoehe
+                + 2 * anschnitt)) + " (zwei Seiten)"
+        case .broschuere:
+            return broschuerenmass
+        case .getrennt:
+            let einzeln = Druckvorgabe.bogen(reise.format, anschnitt: anschnitt)
+            return Druckvorgabe.masstext(einzeln) + " \u{2B27} "
+                + Druckvorgabe.masstext(umschlagbogenMm)
+        case .ganzesBuch, .nurInnenteil:
+            return Druckvorgabe.masstext(Druckvorgabe.bogen(reise.format, anschnitt: anschnitt))
+        }
+    }
+
+    private var umschlagbogenMm: CGSize {
+        let pt = Umschlagmass.bogen(werk.reise.format, gestaltung: werk.reise.gestaltung,
+                                    umschlag: werk.reise.umschlag,
+                                    innenseiten: werk.reise.innenseiten)
+        return CGSize(width: Druckmass.mm(pt.width), height: Druckmass.mm(pt.height))
     }
 
     private var broschuerenmass: String {

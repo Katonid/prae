@@ -206,6 +206,10 @@ struct ReiseView: View {
             Text("An diesem Tag wurde von Hand gearbeitet. Beim Neuanordnen gehen die verschobenen und veränderten Blöcke verloren. Mit „Zurück“ oben lässt sich das rückgängig machen.")
         }
         .task { werk.fehlendeSeitenNachholen() }
+        // NACHSEHEN, OB DIE BILDER DA SIND — UND SIE ANSTOSSEN (ab 1.0.71).
+        // Wie oft und wie lange, entscheidet `Reisewerk.bilderPruefen`; hier
+        // wird es nur angestoßen, wenn ein Buch aufgeht.
+        .task(id: werk.reise.id) { werk.bilderPruefen() }
     }
 
     // MARK: - Bühne
@@ -1646,11 +1650,20 @@ struct ReiseView: View {
             : (werk.ausschnittsmodus != nil
                 ? "Seitenzoom: gesperrt (Ausschnittsmodus)"
                 : "Seitenzoom: gesperrt (ein Foto ist gew\u{00E4}hlt)")
+        // WO DIE BILDER LIEGEN (ab 1.0.71). Nach der Meldung „Auf dem
+        // iPad ist kein Arbeiten möglich" ist das die Zahl, an der sich
+        // entscheidet, ob das Buch überhaupt vollständig auf diesem Gerät
+        // ist — und „lädt noch" von „fehlt" trennt. Daneben steht, wie
+        // viele Namen gerade als nicht lesbar gemerkt sind: Solange die
+        // Zahl hoch ist, liegen Bilder nicht auf der Platte.
+        let bilder = (werk.bildstand?.befund ?? "Bilder: noch nicht nachgesehen")
+            + " · \(Bildarchiv.shared.fehlgriffzahl) als nicht lesbar gemerkt"
         return [werk.letzterGriff ?? "noch nichts gegriffen",
                 werk.letzteBuehne ?? "noch nicht gezoomt",
                 jetzt,
                 gewandert,
                 sperre,
+                bilder,
                 Schaerfeprobe.shared.befund,
                 werk.messer.befund].joined(separator: "\n")
     }
@@ -1715,6 +1728,23 @@ struct ReiseView: View {
                     werk.meldung = nil
                 }
             }
+            // WAS NOCH IN iCLOUD LIEGT, STEHT DA (ab 1.0.71).
+            //
+            // Ein Buch, das von einem anderen Gerät kommt, ist lesbar,
+            // bevor seine Bilder da sind — die JSON-Datei ist klein, die
+            // Bilder sind es nicht. Ohne diese Zeile sieht ein Bild, das
+            // gerade lädt, genauso aus wie eines, das fort ist, und die App
+            // sieht aus wie eine, die nichts findet.
+            //
+            // Rot nur, wenn wirklich etwas fehlt: „lädt noch" ist kein
+            // Fehler, sondern ein Zustand, der von selbst vergeht.
+            if let stand = werk.bildstand, !stand.vollstaendig {
+                band(stand.satz,
+                     farbe: stand.fehlt > 0 ? .red : .orange,
+                     knopf: "Jetzt holen") {
+                    werk.bilderJetztHolen()
+                }
+            }
             if let arbeit = werk.beschaeftigt {
                 HStack(spacing: 9) {
                     ProgressView()
@@ -1729,12 +1759,14 @@ struct ReiseView: View {
         .animation(.default, value: werk.meldung?.id)
     }
 
-    private func band(_ text: String, farbe: Color, schliessen: @escaping () -> Void) -> some View {
+    private func band(_ text: String, farbe: Color, knopf: String = "Fertig",
+                      schliessen: @escaping () -> Void) -> some View
+    {
         HStack(spacing: 10) {
             Text(text)
                 .font(.footnote)
                 .multilineTextAlignment(.leading)
-            Button("Fertig", action: schliessen)
+            Button(knopf, action: schliessen)
                 .font(.footnote.weight(.semibold))
         }
         .padding(.horizontal, 14)

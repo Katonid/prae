@@ -90,6 +90,22 @@ final class Reisewerk: ObservableObject, Identifiable {
     // ein `@Published` im Sekundentakt waere der Fehler aus 1.0.16.
     @Published var letzteBuehne: String?
     @Published var zeigeGriffprobe = false
+
+    // WO DIE BILDER DIESES BUCHES LIEGEN (ab 1.0.71).
+    //
+    // Gemeldet 09/2026: „Auf dem iPad ist kein Arbeiten möglich. Vielleicht
+    // liegt es daran, dass ich das Projekt insgesamt auf einem anderen
+    // Gerät erstellt und verarbeitet habe." Ein Buch kommt über iCloud
+    // Drive binnen Sekunden an — die JSON-Datei ist klein —, seine
+    // zweihundert Bilder brauchen länger, und bis 1.0.70 wurden sie
+    // überhaupt nicht angefordert (siehe `Wolkenbilder`).
+    //
+    // Der Stand ist ein GESPEICHERTER Wert und keine berechnete
+    // Eigenschaft: Dahinter steckt ein Lauf über jede Bilddatei, und der
+    // Körper einer Ansicht läuft bei jedem Neuzeichnen. Vierte Auflage
+    // derselben Falle — eine berechnete Eigenschaft sieht billig aus.
+    @Published private(set) var bildstand: Wolkenbilder.Stand?
+    private var bilderauftrag: Task<Void, Never>?
     // Wie oft sich Seite und Inspektor neu zeichnen. Bewusst KEIN
     // `@Published` — siehe `Zeichenmesser`: Ein Messgerät, dessen Messung
     // ein Neuzeichnen auslöst, misst sich selbst.
@@ -357,6 +373,55 @@ final class Reisewerk: ObservableObject, Identifiable {
             meldung = Meldung(text: "Die Reise ließ sich nicht sichern: \(error.localizedDescription)",
                               schwer: true)
         }
+    }
+
+    // MARK: - Bilder aus iCloud
+
+    // Nachsehen, was von den Bildern dieses Buches auf dem Gerät liegt —
+    // und anstoßen, was fehlt.
+    //
+    // Beides läuft ABSEITS des Hauptfadens: Es sind zweihundert Abfragen an
+    // das Dateisystem, und über iCloud kann jede davon warten. Zurück auf
+    // den Hauptfaden kommt nur die Zahl.
+    //
+    // Ein laufender Auftrag wird abgebrochen, bevor ein neuer beginnt —
+    // sonst liefen beim schnellen Blättern mehrere Läufe übereinander und
+    // der letzte, der fertig wird, setzte den Stand, nicht der jüngste.
+    func bilderPruefen(anstossen: Bool = true) {
+        let kennung = reise.id
+        let namen = Wolkenbilder.dateien(reise)
+        bilderauftrag?.cancel()
+        bilderauftrag = Task { [weak self] in
+            var nochAnstossen = anstossen
+            // Nachgesehen wird, SOLANGE etwas lädt, und dann hört es auf.
+            // Ein Band, dessen Zahl nicht kleiner wird, sieht aus wie ein
+            // Fehler; ein Lauf, der ewig weiterzählt, ist einer. Ein Bild,
+            // das wirklich fort ist (`fehlt`), kommt von keinem weiteren
+            // Nachsehen zurück — dann bleibt das Band stehen und die
+            // Schleife endet.
+            while !Task.isCancelled {
+                let holen = nochAnstossen
+                let stand = await Task.detached(priority: .utility) { () -> Wolkenbilder.Stand in
+                    if holen {
+                        Wolkenbilder.anstossen(reise: kennung, dateien: namen)
+                    }
+                    return Wolkenbilder.nachsehen(reise: kennung, dateien: namen)
+                }.value
+                guard !Task.isCancelled, let self else { return }
+                self.bildstand = stand
+                guard stand.laedt > 0 else { return }
+                nochAnstossen = false
+                try? await Task.sleep(for: .seconds(5))
+            }
+        }
+    }
+
+    // Der Knopf im Band. Er räumt zusätzlich die gemerkten Fehlgriffe weg:
+    // Wer ausdrücklich tippt, wartet keine drei Sekunden auf das nächste
+    // Nachsehen.
+    func bilderJetztHolen() {
+        Bildarchiv.shared.nachsehen()
+        bilderPruefen(anstossen: true)
     }
 
     // MARK: - Rückgängig

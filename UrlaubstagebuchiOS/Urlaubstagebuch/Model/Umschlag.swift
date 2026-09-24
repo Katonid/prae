@@ -82,6 +82,50 @@ struct Umschlag: Codable, Hashable {
     // Softcover zählt es nicht mit.
     var deckenstaerke: Double = 4
 
+    // DIE DRUCKEREI NENNT DIE RÜCKENSTÄRKE OFT EINFACH (ab 1.0.72).
+    //
+    // Gemeldet 09/2026 aus einem echten Auftrag: „Dieses Format beinhaltet
+    // 2 mm Rückenstärke und 3 mm Beschnitt." Zwei Millimeter — eine Zahl,
+    // fertig. Eintragen ließ sie sich bis 1.0.71 nur als Tabellenzeile
+    // („ab 0 Seiten: 2 mm"), also über einen Umweg, den niemand findet,
+    // wenn er eine einzelne Zahl vor sich hat.
+    //
+    // Sie schlägt Tabelle UND Rechnung: Wer sie einträgt, hat sie vom
+    // Druckdienst, und genauer wird es nicht. `nil` heißt „nicht
+    // eingetragen" — nicht „null Millimeter"; für ein Buch ohne Rücken
+    // gibt es `rueckenZeigen`.
+    var rueckenbreiteVonHand: Double?
+
+    // DIE INNENSEITEN DES UMSCHLAGS, U2 UND U3 (ab 1.0.72).
+    //
+    // Gemeldet 09/2026 aus einem echten Auftrag: „Bitte legen Sie für die
+    // Aussenseiten (U4+U1) und die Innenseiten (U2+U3) des Umschlags
+    // jeweils eine Doppelseite im Format 428 mm x 303 mm an."
+    //
+    // Bis 1.0.71 gab es davon nur die Außenseite. Die Doppelseitenansicht
+    // schreibt an die Innenseiten sogar „Kommt von der Druckerei — nicht
+    // im PDF", und für ein gebundenes Hardcover mit Vorsatzpapier stimmt
+    // das auch. **Diese Druckerei will sie geliefert bekommen**, und ohne
+    // sie nimmt sie den Auftrag nicht an.
+    //
+    // Geliefert wird eine FLÄCHE, kein Satz: derselbe Bogen, dieselben
+    // Maße, in der Farbe, die hier eingestellt ist. Eigene Blöcke darauf
+    // gibt es NICHT — wer sie braucht, sagt es, dann werden sie gebaut wie
+    // bei Titel- und Rückseite seit 1.0.64. Etwas anzubieten, das nach
+    // Gestaltung aussieht und keine trägt, wäre der schlechtere Anfang.
+    var innenseitenBogen: Bool = false
+
+    // Was auf U2/U3 liegt: EINE FARBE. `nil` heißt: das Papier.
+    //
+    // Bewusst nicht der ganze Hintergrund des Umschlags — der ist meist
+    // ein Foto, und dasselbe Foto auf der Innenseite noch einmal ist keine
+    // Gestaltung, sondern ein Versehen, das erst im gebundenen Buch
+    // auffällt. Und bewusst nicht die volle Auswahl aus `HintergrundView`:
+    // Eine Umschlaginnenseite ist einfarbig, und ein Bildschirm mit
+    // Verlauf, Foto und Papierkorn für eine Fläche, die niemand aufschlägt,
+    // verspräche eine Gestaltung, die hier niemand braucht.
+    var innenseitenFarbe: Farbwert?
+
     // DIE TABELLE DES DRUCKDIENSTES (ab 1.0.52).
     //
     // Ansage des Nutzers, 09/2026: „Bei Saal Digital werden in einer
@@ -214,6 +258,9 @@ struct Umschlag: Codable, Hashable {
         papierstaerke = b.wert(.papierstaerke, 0.13)
         einband = b.wert(.einband, Einband.hardcover)
         deckenstaerke = b.wert(.deckenstaerke, 4)
+        rueckenbreiteVonHand = b.wahlweise(.rueckenbreiteVonHand)
+        innenseitenBogen = b.wert(.innenseitenBogen, false)
+        innenseitenFarbe = b.wahlweise(.innenseitenFarbe)
         rueckentabelle = b.wert(.rueckentabelle, [Rueckenstufe]())
         tabellenvorlage = b.wahlweise(.tabellenvorlage)
         ohneVorlage = b.wert(.ohneVorlage, false)

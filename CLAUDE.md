@@ -7305,6 +7305,225 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **ANSCHNITT UND SICHERHEITSABSTAND SIND ZWEI STREIFEN IN ENTGEGENGESETZTE
+  RICHTUNGEN** (`Gestaltung.sicherheitsabstand`, `.schutzzone`, ab 1.0.73;
+  Befund des Nutzers 09/2026 an seinem ersten Druckauftrag: „wenn ich die von
+  der Druckerei geforderten Werte mit dem Standardformat DIN A4 vergleiche,
+  dann sind die Maße ja größer. Das heißt, die Druckerei erwartet von mir
+  eine größere Seite, spricht aber auch von Beschnitt. Ich denke daher, dass
+  es sinnvoll sein dürfte, einen Sicherheitsabstand zum Rand zu halten.").
+  **Der Schluss ist richtig, die Begründung trifft daneben — und beides
+  gehört gesagt.** Die SEITE wird nicht größer; sie bleibt A4. Größer ist die
+  DATEI, weil der Anschnitt außen dranhängt und weggeschnitten wird. Wer den
+  Satz „die erwarten eine größere Seite" zu Ende denkt, trägt 216 × 303 als
+  Seitenformat ein — und genau das ist die Falle aus 1.0.72.
+  - **Was den Abstand nötig macht, ist etwas anderes als der Anschnitt, und
+    zwar dieselbe Ursache aus der anderen Richtung**: Jede Schneidemaschine
+    hat ein Spiel von einem knappen Millimeter, und ein Stapel Bücher wird
+    nie auf den Punkt genau getroffen. Der Anschnitt sorgt dafür, dass bei
+    einem Schnitt NACH INNEN kein weißer Faden stehen bleibt; der
+    Sicherheitsabstand dafür, dass bei einem Schnitt NACH AUSSEN nichts
+    Gelesenes abgeschnitten wird. **Der Anschnitt liegt AUSSERHALB des
+    Endformats, der Sicherheitsabstand INNERHALB.**
+  - **Die App kannte ihn bis 1.0.72 gar nicht.** Die Ränder (16/17/19 mm)
+    halten den Satzspiegel weit genug innen, und auch Seitenzahl und
+    Kopfzeile sitzen sicher (`Seitenbeiwerk` rechnet mit Anteilen der
+    Ränder). Ungeschützt war alles, was jemand VON HAND an die Kante
+    geschoben hat — und seit 1.0.61 lassen sich Blöcke frei setzen.
+  - **Gezeichnet wird ORANGE und feiner gestrichelt**, gleich neben der
+    roten Schnittkante. Zwei rote Linien nebeneinander wären zwei Namen für
+    dasselbe, und genau diese Verwechslung ist der Anlass der Fassung.
+    **Nicht blau**: Das ist beim Einrasten seit jeher der NACHBAR, und
+    dieselbe Farbe für zwei Auskünfte ist eine Auskunft weniger. Aufgefallen
+    ist das erst am roten Bau — **wer eine Aufzählung erweitert, sucht jeden
+    `switch` darüber** (`Views/Griffe.swift` war der einzige, und er hat
+    zugleich die Farbkollision gezeigt).
+    Abgeschaltet (0 mm) wird auch keine Linie gezeichnet und an nichts
+    gefangen — eine Linie ohne Wirkung wäre eine Behauptung (die Regel steht
+    seit 1.0.11 da).
+  - **Er ist eine Fangkante wie die anderen** (`Einrasten.Herkunft.sicherheit`).
+    Wer einen Block an die Kante schiebt, soll dort fangen und nicht daneben;
+    die Linie beim Schieben nennt ihn beim Namen.
+  - **Gezählt wird am ERGEBNIS, nicht an der Absicht**
+    (`Druckpruefung.schutzzone`): jeder Block, der wirklich hineinragt, mit
+    Tag und Seite, und Textblöcke eigens — Text ist der Fall, um den es geht.
+    **Randabfallende Blöcke sind ohne Ausnahme ausgenommen.** Sie SOLLEN über
+    die Kante laufen; sie zu melden hieße, das als Fehler auszugeben, was
+    richtig ist — und nach dem dritten solchen Hinweis liest niemand mehr
+    eine Zeile dieser Prüfung. Wer einen Block wirklich bis an die Kante
+    will, schaltet ihn auf randabfallend; die Meldung sagt das auch.
+  - **Beim Formatwechsel wird er NICHT mitgerechnet** — aus demselben Grund
+    wie der Anschnitt: Das Spiel der Schneidemaschine ist dasselbe, ob eine
+    Seite A4 misst oder A5. Wer ihn mitschrumpfte, bekäme auf der kleineren
+    Seite genau dort weniger Schutz, wo der Rand ohnehin knapper wird.
+    `Formatwechsel` zählt die Längen einzeln auf, also ist er von selbst
+    draußen — der Kommentar dort sagt seit 1.0.73, dass das eine Entscheidung
+    ist und kein Vergessen.
+- **Nicht gemessen (1.0.73):** Keine Seite ist damit gedruckt worden.
+  **Gewählt und nicht gemessen** sind die Vorgabe von 5 mm und die Spanne des
+  Reglers (0 bis 12 mm); 3 bis 5 mm sind das, was Druckdienste üblicherweise
+  nennen, und diese App hat es an keinem nachgeprüft. Ob der orange Strich auf
+  einem Gerät neben dem roten zu unterscheiden ist, hat ebenfalls niemand
+  gesehen. **Nicht als erledigt darstellen.**
+- **WAS EINE DRUCKEREI NENNT, IST DER BOGEN — NICHT DIE SEITE**
+  (`Model/Druckvorgabe.swift`, ab 1.0.72; gemeldet 09/2026 aus dem ERSTEN
+  echten Druckauftrag: „Das Format der erhaltenen Daten stimmt nicht mit der
+  Bestellung überein. Bitte legen Sie Ihre Daten im Format 216 mm x 303 mm
+  an. Dieses beinhaltet das bestellte Endformat und die benötigte
+  Beschnittzugabe.").
+  **Nachgerechnet, und die App hatte recht:** 216 − 2 × 3 = 210,
+  303 − 2 × 3 = 297. Verlangt wird **A4 hoch mit 3 mm Anschnitt**, und genau
+  das gibt `Gestaltung.bogen` seit 1.0.1 aus. Ebenso der Umschlag:
+  2 × 210 + 2 (Rücken) + 2 × 3 = **428 × 303**, Wort für Wort die zweite
+  Forderung derselben Mail. **Die Zahlen waren nie falsch — sie standen nur
+  nirgends so da, dass man sie gegen eine Bestellung halten konnte.**
+  - **Die Falle, um die es geht:** Seit 1.0.52 lässt sich ein eigenes Maß
+    als Format eintragen. Wer die Zahl der Druckerei DORT einträgt, bekommt
+    eine PDF-Seite von 222 × 309 mm — Endformat plus ein zweites Mal
+    Anschnitt —, und die Datei kommt wieder zurück. Schlimmer:
+    `Formatwechsel` rechnet dabei jeden Block, jeden Rand und jede
+    Schriftgröße des Buches um. **Ein Fehler, der wie eine Lösung aussieht.**
+  - **Gefragt wird deshalb nach dem Maß der DRUCKEREI, nicht nach dem
+    Endformat** (eigener Abschnitt im Formatblatt). Zwei Felder, darunter
+    live das Endformat, das daraus folgt. Und wer doch unten tippt, bekommt
+    den Hinweis: `Druckvorgabe.bogenverdacht` prüft, ob das eingetippte Maß
+    nach Abzug des Anschnitts auf eine bekannte Vorlage fällt. **Eng gefasst
+    mit Absicht** — ein Hinweis, der bei jedem zweiten Maß erscheint, wird
+    nach dem dritten Mal überlesen —, und **ein Hinweis und keine Sperre**:
+    Wer wirklich 216 × 303 als Endformat bestellt hat, soll es eintragen
+    können.
+  - **Das Bogenmaß steht jetzt dort, wo die Datei entsteht** (Ausgabeblatt,
+    Zeile „Bogen im PDF"). Bis 1.0.71 stand dort nur das Endformat, also die
+    Seite, wie sie geschnitten in der Hand liegt — geprüft wird aber die
+    DATEI. Es folgt der gewählten Anordnung: Einzelseiten, Doppelseiten und
+    Umschlag sind drei verschiedene Maße, und gerechnet wird über dieselben
+    Stellen wie die Ausgabe. Zwei Fassungen nennten zwei Zahlen, und die
+    Druckerei prüft eine.
+  - **Die Rückenstärke lässt sich eintragen** (`Umschlag.rueckenbreiteVonHand`).
+    Dieselbe Mail: „Dieses Format beinhaltet 2 mm Rückenstärke". Zwei
+    Millimeter — eine Zahl, fertig; eintragen ließ sie sich bis 1.0.71 nur
+    als Tabellenzeile („ab 0 Seiten: 2 mm"), also über einen Umweg, den
+    niemand findet, wenn er eine einzelne Zahl vor sich hat. Sie schlägt
+    Tabelle UND Rechnung, und `rueckenherkunft` sagt „von Hand eingetragen".
+    Daneben die Gegenrichtung: Nennt die Druckerei nur die Bogenbreite,
+    folgt die Rückenstärke daraus (`Druckvorgabe.rueckenAusBogen`) — Format
+    und Anschnitt stehen ja fest.
+  - **Passt die Bogenbreite gar nicht, ist das der wichtigere Befund.**
+    Bleibt nach Abzug zweier Seiten und des Anschnitts nichts übrig, wird
+    keine Rückenstärke geraten, sondern gesagt, dass das SEITENFORMAT nicht
+    zu der Angabe passt.
+  - **Die bestellte Seitenzahl ist eine Zahl, die nur der Mensch kennt**
+    (`Reise.bestellteSeiten`, ab 1.0.72). Zweiter Punkt derselben Mail: „Sie
+    haben ein Produkt mit 60 Innenseiten bestellt, uns allerdings zu viele
+    Seiten für den Innenteil zugeschickt." Die App zählt die Seiten längst;
+    was fehlte, ist die Zahl daneben. Eingetragen wird sie im Ausgabeblatt,
+    geprüft wird sie dort und in der Druckprüfung — **vor dem Hochladen
+    statt in der Antwortmail zwei Tage später**. Ohne eingetragene
+    Bestellung wird NICHTS behauptet: Eine Warnung über eine Seitenzahl, die
+    niemand bestellt hat, ist keine Auskunft.
+  - **Die Innenseiten des Umschlags, U2 und U3** (`Umschlag.innenseitenBogen`,
+    ab 1.0.72). Dritter Punkt derselben Mail: „Bitte legen Sie für die
+    Aussenseiten (U4+U1) und die Innenseiten (U2+U3) des Umschlags jeweils
+    eine Doppelseite im Format 428 mm x 303 mm an." Bis 1.0.71 gab es davon
+    nur die Außenseite — die Doppelseitenansicht schreibt an die
+    Innenseiten sogar „Kommt von der Druckerei — nicht im PDF", und für ein
+    gebundenes Hardcover mit Vorsatzpapier stimmt das auch. **Diese
+    Druckerei will sie geliefert bekommen**, und ohne sie nimmt sie den
+    Auftrag nicht an. Die Umschlagdatei bekommt deshalb auf Wunsch eine
+    ZWEITE Seite in denselben Maßen und mit denselben Boxen, NACH der
+    Außenseite: Umgeschlagen liegt außen zuerst, und eine Datei, deren
+    Reihenfolge man erklären muss, ist eine Fehlerquelle.
+  - **Geliefert wird eine FLÄCHE, kein Satz** — eine Farbe, `nil` heißt
+    Papier. Kein Rücken (der Rückentext gehört auf die Außenseite; ihn hier
+    noch einmal zu setzen hieße, ihn im fertigen Buch zweimal zu haben,
+    einmal davon unsichtbar zwischen Deckel und erster Seite) und **keine
+    Blöcke**: Etwas anzubieten, das nach Gestaltung aussieht und keine
+    trägt, wäre der schlechtere Anfang. Und bewusst nicht der Hintergrund
+    des Umschlags — der ist meist ein Foto, und dasselbe Foto auf der
+    Innenseite noch einmal ist keine Gestaltung, sondern ein Versehen, das
+    erst im gebundenen Buch auffällt.
+- **Nicht gemessen (1.0.72):** Keine Datei ist damit hochgeladen worden.
+  **GERECHNET und an der Mail der Druckerei nachgerechnet** sind beide
+  Maße — 216 × 303 für die Innenseiten, 428 × 303 für den Umschlag —, und
+  sie gehen auf den Millimeter auf. **Ungeprüft bleibt, WARUM die erste
+  Lieferung abgewiesen wurde**: Dass die Rechnung stimmt, heißt nicht, dass
+  die Einstellungen dieses Buches stimmten; die wahrscheinlichsten
+  Kandidaten sind A4 **quer** statt hoch (das war bis 1.0.26 die Vorgabe
+  dieser App und steht in `init(from:)` bis heute als Rückfall), ein anderer
+  Anschnitt und eine gerechnete Rückenstärke von rund 8 mm statt der
+  verlangten 2. **Genau deshalb schreibt die App die Zahlen jetzt hin,
+  statt sie zu behaupten** — die Zeile „Bogen im PDF" ist die, die sich
+  gegen die Bestellung halten lässt. Ebenso ungeprüft: ob diese Druckerei
+  die U2/U3-Fläche so annimmt und ob sie die beiden Umschlagbogen in EINER
+  Datei erwartet oder in zweien — die Mail sagt dazu nichts. **Nichts davon
+  als erledigt darstellen.**
+- **EIN BUCH KOMMT ÜBER iCLOUD AN, BEVOR SEINE BILDER DA SIND**
+  (`Dienste/Wolkenbilder.swift`, ab 1.0.71; gemeldet 09/2026: „Auf dem iPad
+  ist kein Arbeiten möglich. Vielleicht liegt es daran, dass ich das Projekt
+  insgesamt auf einem anderen Gerät erstellt und verarbeitet habe."). **Der
+  Verdacht des Nutzers trifft, und die Stelle lässt sich am Quelltext
+  abzählen — es sind zwei Fehler übereinander:**
+  - **`Wolke.herunterladenAnstossen` sah nur die OBERSTE Ebene.** Es lief
+    über `Reisen/` und stieß dort an, was nicht `.current` war — also die
+    JSON-Dateien und die Ordner. Die Bilder liegen zwei Ebenen tiefer, in
+    `Reisen/<Kennung>/Bilder/`; **nach keiner einzigen Bilddatei wurde je
+    gefragt.** Ein Buch vom anderen Gerät ist damit binnen Sekunden lesbar
+    (die JSON-Datei ist klein) und hat trotzdem keines seiner zweihundert
+    Bilder. Angestoßen wird jetzt für das OFFENE Buch, nicht für alle: Fünf
+    Bücher zu je zweihundert Bildern auf einmal sind genau der Schwall, dem
+    iCloud Drive aus dem Weg gehen soll — und genau deshalb steht es dort
+    und nicht im alten Lauf.
+  - **Ein Bild, das nicht da war, wurde bei JEDEM Bildpunkt neu gesucht.**
+    `Bildarchiv.vorschau` gab `nil` zurück, und ein `nil` wurde nirgends
+    gemerkt — der Vorrat hält nur Treffer. Aufgerufen wird es aber im KÖRPER
+    einer SwiftUI-Ansicht, also bei jeder Neuzeichnung der Bühne, und die
+    läuft beim Schieben und Zoomen im Sekundentakt und öfter. Bei einem
+    Buch, dessen Bilder in der Wolke liegen, war das je Seite und Bildpunkt
+    ein vergeblicher Griff auf das Dateisystem, auf dem HAUPTFADEN. **Das
+    ist die Form, in der sich „kein Arbeiten möglich" erklärt: Nicht eine
+    Rechnung ist zu teuer, sondern dieselbe vergebliche Suche läuft
+    hundertfach.**
+  - **Der Fehlgriff wird mit seiner ZEIT gemerkt, nicht bloß weggeworfen**
+    (`Bildarchiv.fehlgriffe`, `wartezeit` 3 s). Ein Merker ohne Ablauf wäre
+    der bequemere Weg und der falsche — er zeigte ein heruntergeladenes Bild
+    erst nach einem Neustart. So steht ein ankommendes Bild von selbst
+    binnen drei Sekunden auf der Seite, und „Jetzt holen" räumt den Merker
+    sofort weg: Ein Knopf, der nichts tut, weil eine Sperre noch läuft, ist
+    für den Menschen davor ein kaputter Knopf.
+  - **„Liegt noch in iCloud" und „ist weg" sind NICHT dasselbe.** Das eine
+    löst sich von selbst, das andere nie; beides als graue Fläche zu zeigen
+    lässt den Menschen davor raten — dieselbe Regel wie beim Wort „Plan" in
+    der Abfahrtstafel. Das Band über der Bühne zählt beides getrennt, rot
+    nur für das, was wirklich fehlt.
+  - **Wie ein nicht heruntergeladenes Bild AUSSIEHT, ist von hier aus nicht
+    zu messen** — geprüft werden deshalb BEIDE bekannten Gestalten: der
+    Platzhalter `.<Name>.icloud` und `isUbiquitousItem` am Namen selbst. Nur
+    eine zu fragen hieße, sich auf eine Darstellung zu verlassen, die Apple
+    zwischen zwei Fassungen ändern darf; der Preis wäre, dass ein Bild, das
+    gleich ankommt, als „fehlt ganz" gemeldet würde.
+  - **Das Nachsehen läuft abseits des Hauptfadens und hört von selbst auf.**
+    Zweihundert Abfragen an das Dateisystem, über iCloud jede mit Wartezeit;
+    zurück kommt nur die Zahl. Wiederholt wird, solange etwas LÄDT — ein
+    Band, dessen Zahl nicht kleiner wird, sieht aus wie ein Fehler, und ein
+    Lauf, der ewig weiterzählt, ist einer.
+  - **Die WASSERZEICHEN gehören dazu** (`Wolkenbilder.dateien`). Sie stehen
+    in keiner Fotoliste und liegen im selben Ordner — wer sie vergisst,
+    stößt sie nie an, und eines liegt auf JEDER Seite. Dieselbe Überlegung
+    wie in `Buchdatei.schreiben`. **Wer eine neue Bildart anlegt, trägt sie
+    dort ein.**
+- **Nicht gemessen (1.0.71):** Auf einem Gerät gesehen hat das niemand.
+  **Am Quelltext ABGEZÄHLT ist die Ursache**, und sie passt zu dem, was der
+  Nutzer beschreibt. **Dass das iPad danach flüssig ist, folgt daraus
+  NICHT**: Es kann eine zweite Ursache darüberliegen — bei der fehlenden
+  Umschlagabbildung in 1.0.67/1.0.68 war genau das der Fall, und die
+  sichtbare war die harmlosere. Weiterhin ungemessen sind die beiden
+  offenen Punkte, die schon dastanden: dass `Bildarchiv.vorschau` auch bei
+  vorhandenen Bildern SYNCHRON auf dem Hauptfaden liest (offen seit 1.0.59)
+  und dass die Bühne seit 1.0.28 das GANZE Buch trägt. **Genau deshalb nennt
+  der Befund unter „Bedienung prüfen" seit 1.0.71 vier Zahlen statt einer
+  Zusage** — gesamt, auf dem Gerät, in iCloud, fehlen, dazu wie viele Namen
+  gerade als nicht lesbar gemerkt sind. **Nicht als erledigt darstellen** —
+  der nächste Befund des Nutzers ist hier die Messung.
 - **ZWEI BUCHSEITEN AUF EINE PDF-SEITE, LINKS DIE GERADE**
   (`Buchausgabe.doppelseitenPdf`, ab 1.0.69; Ansage des Nutzers 09/2026:
   „Offenbar will Saal Digital ein Upload eines PDF mit fertig gestalteten
@@ -8508,7 +8727,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.70 (Build 71). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.73 (Build 74). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

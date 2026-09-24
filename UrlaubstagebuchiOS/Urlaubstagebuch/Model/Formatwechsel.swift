@@ -86,6 +86,11 @@ enum Formatwechsel {
 
         // Die Gestaltung: alles, was eine LÄNGE ist. `anschnitt` bleibt —
         // siehe oben. `kartenanteil` ist ein Anteil und bleibt ebenfalls.
+        // Und `sicherheitsabstand` bleibt AUS DEMSELBEN GRUND wie der
+        // Anschnitt (ab 1.0.73): Das Spiel der Schneidemaschine ist
+        // dasselbe, ob eine Seite A4 misst oder A5. Wer ihn mitschrumpfte,
+        // bekäme auf der kleineren Seite genau dort weniger Schutz, wo der
+        // Rand ohnehin knapper wird.
         var g = reise.gestaltung
         g.randAussen = gerundet(g.randAussen * f)
         g.randOben = gerundet(g.randOben * f)

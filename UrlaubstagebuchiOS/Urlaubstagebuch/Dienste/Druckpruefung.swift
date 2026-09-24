@@ -756,6 +756,114 @@ enum Druckpruefung {
         return [Zeile(stufe: stufe, titel: titel, text: text)]
     }
 
+    // WIE VIELE INNENSEITEN BESTELLT SIND — und wie viele es sind
+    // (ab 1.0.72).
+    //
+    // Gemeldet 09/2026 aus einem echten Auftrag: „Sie haben ein Produkt
+    // mit 60 Innenseiten bestellt, uns allerdings zu viele Seiten für den
+    // Innenteil zugeschickt."
+    //
+    // Die App zählt die Seiten längst; was fehlte, ist die Zahl daneben,
+    // gegen die sie sich halten lässt. Ohne eingetragene Bestellung wird
+    // NICHTS behauptet — eine Warnung über eine Seitenzahl, die niemand
+    // bestellt hat, ist keine Auskunft.
+    static func bestellung(_ reise: Reise) -> [Zeile] {
+        let hat = reise.innenseiten
+        guard let bestellt = reise.bestellteSeiten, bestellt > 0 else {
+            return [Zeile(
+                stufe: .hinweis,
+                titel: "Innenteil: \(hat) Seiten",
+                text: "Wie viele Seiten bestellt sind, weiß nur der Mensch \u{2014} unter \u{201E}Ausgeben\u{201C} lässt sich die Zahl eintragen. Dann steht hier, ob es passt, und zwar VOR dem Hochladen statt in der Antwortmail zwei Tage später."
+            )]
+        }
+        if hat == bestellt {
+            return [Zeile(
+                stufe: .gut,
+                titel: "Innenteil: \(hat) von \(bestellt) Seiten",
+                text: "Der Innenteil hat genau so viele Seiten, wie bestellt sind. Der Umschlag zählt dabei nicht mit \u{2014} er ist ein eigenes Stück Papier."
+            )]
+        }
+        let zuviel = hat > bestellt
+        let wort = zuviel ? "zu viele" : "zu wenige"
+        var text = "Bestellt sind \(bestellt), der Innenteil hat \(hat) \u{2014} \(abs(hat - bestellt)) \(wort). "
+        if zuviel {
+            text += "Eine Druckerei nimmt das nicht an. Seiten lassen sich über \u{201E}Seiten\u{201C} im Tagesmenü entfernen, ein ganzer Tag über \u{201E}ausblenden\u{201C} \u{2014} ausgeblendet bleibt er vollständig erhalten und kommt nur nicht ins Buch. "
+        } else {
+            text += "Die fehlenden Seiten füllt die Druckerei meist mit leeren auf, und die hat niemand gesehen. Wer sie gestalten will, legt sie über \u{201E}Seiten\u{201C} an. "
+        }
+        text += "Gezählt wird der BUCHBLOCK samt Ausgleichsseite; der Umschlag zählt nicht mit."
+        return [Zeile(stufe: .warnung,
+                      titel: "Innenteil: \(hat) statt \(bestellt) Seiten",
+                      text: text)]
+    }
+
+    // WAS ZU NAH AN DER SCHNITTKANTE STEHT (ab 1.0.73).
+    //
+    // Befund des Nutzers, 09/2026, an seinem ersten Druckauftrag: „Ich
+    // denke daher, dass es sinnvoll sein dürfte, einen Sicherheitsabstand
+    // zum Rand zu halten."
+    //
+    // Der Satzspiegel liegt normalerweise weit innerhalb der Schutzzone —
+    // gefährlich wird es bei Blöcken, die jemand von Hand an die Kante
+    // geschoben hat, und bei kleinen Rändern. Gezählt wird deshalb am
+    // ERGEBNIS und nicht an der Absicht: Jeder Block, der wirklich
+    // hineinragt.
+    //
+    // **Randabfallende Blöcke sind ausgenommen, und zwar ohne Ausnahme.**
+    // Sie SOLLEN über die Kante laufen; sie hier zu melden hieße, genau
+    // das als Fehler auszugeben, was richtig ist — und nach dem dritten
+    // solchen Hinweis liest niemand mehr eine Zeile dieser Prüfung.
+    static func schutzzone(_ reise: Reise) -> [Zeile] {
+        let saum = reise.gestaltung.sicherheitsabstand
+        guard saum > 0.5 else {
+            return [Zeile(
+                stufe: .hinweis,
+                titel: "Kein Sicherheitsabstand eingestellt",
+                text: "Jede Schneidemaschine hat ein Spiel von einem knappen Millimeter, und ein Stapel B\u{00FC}cher wird nie auf den Punkt genau getroffen. Ohne Abstand kann eine Seitenzahl im einen Buch mittig stehen und im n\u{00E4}chsten halb angeschnitten. Eingestellt wird er unter \u{201E}Gestalten\u{201C}; 3 bis 5 mm sind \u{00FC}blich."
+            )]
+        }
+        let zone = reise.gestaltung.schutzzone(reise.format)
+        var betroffen = 0
+        var textbloecke = 0
+        var stellen: [String] = []
+        for buchseite in reise.seitenfolge {
+            for block in buchseite.seite.bloecke where !block.randabfallend {
+                let r = block.rahmen.rect
+                guard r.minX < zone.minX - 0.5 || r.minY < zone.minY - 0.5
+                    || r.maxX > zone.maxX + 0.5 || r.maxY > zone.maxY + 0.5
+                else { continue }
+                betroffen += 1
+                if block.inhalt.istText { textbloecke += 1 }
+                if stellen.count < 4 { stellen.append(buchseite.kurzname) }
+            }
+        }
+        let masstext = Druckvorgabe.zahl(saum) + " mm"
+        guard betroffen > 0 else {
+            return [Zeile(
+                stufe: .gut,
+                titel: "Sicherheitsabstand \(masstext) eingehalten",
+                text: "Kein Block ragt in den Streifen am Rand, in dem nichts stehen soll, was gelesen werden muss. Randabfallende Bl\u{00F6}cke sind dabei ausgenommen \u{2014} die sollen \u{00FC}ber die Kante laufen."
+            )]
+        }
+        var text = "\(betroffen) Bl\u{00F6}cke stehen n\u{00E4}her als \(masstext) an der Schnittkante"
+        if textbloecke > 0 {
+            text += ", davon \(textbloecke) mit Text \u{2014} und Text ist der Fall, um den es geht: "
+            text += "Ein angeschnittenes Wort sieht man dem PDF nicht an, dem gedruckten Buch sofort. "
+        } else {
+            text += ". "
+        }
+        if !stellen.isEmpty {
+            text += "Zum Beispiel: " + stellen.joined(separator: ", ") + ". "
+        }
+        text += "Soll ein Block wirklich bis an die Kante laufen, geh\u{00F6}rt er auf RANDABFALLEND "
+        text += "(Block \u{2192} Lage auf der Seite) \u{2014} dann wird er bis \u{00FC}ber den Anschnitt "
+        text += "gezogen und ist hier nicht mehr gemeint. Die orange Linie unter \u{201E}Satzspiegel "
+        text += "zeigen\u{201C} zeigt, wo der Abstand l\u{00E4}uft."
+        return [Zeile(stufe: textbloecke > 0 ? .warnung : .hinweis,
+                      titel: "\(betroffen) Bl\u{00F6}cke im Sicherheitsabstand",
+                      text: text)]
+    }
+
     static func vorab(_ reise: Reise) -> [Zeile] {
         var zeilen: [Zeile] = []
         let format = reise.format
@@ -776,6 +884,8 @@ enum Druckpruefung {
             ))
         }
 
+        zeilen.append(contentsOf: schutzzone(reise))
+        zeilen.append(contentsOf: bestellung(reise))
         zeilen.append(contentsOf: bildaufloesung(reise))
         zeilen.append(contentsOf: schriften(reise))
         zeilen.append(contentsOf: abgeschnittenerText(reise))

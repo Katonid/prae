@@ -17,6 +17,12 @@ struct FormatView: View {
 
     @State private var breite: String = ""
     @State private var hoehe: String = ""
+    // Das Maß, das die DRUCKEREI nennt — der Bogen, nicht die Seite
+    // (ab 1.0.72). Getrennt von den beiden Feldern darüber, weil es zwei
+    // verschiedene Zahlen sind: Wer beides in dieselben Felder tippt,
+    // bekommt beim zweiten Mal ein Buch, das sechs Millimeter zu groß ist.
+    @State private var bogenBreite: String = ""
+    @State private var bogenHoehe: String = ""
     @State private var wechsel: Formatwechsel.Vorschau?
     // EIGENE VORLAGEN (ab 1.0.52). Sie liegen in den Voreinstellungen und
     // nicht im Buch — welche Formate ein Druckdienst anbietet, ist keine
@@ -38,6 +44,46 @@ struct FormatView: View {
                     Text("Dieses Buch")
                 } footer: {
                     Text("Das Endformat ist die Seite, wie sie nach dem Schneiden in der Hand liegt. Der Bogen ist das, was im PDF steht — Endformat plus Anschnitt. Beide stehen als TrimBox und BleedBox in der Datei; daran erkennt der Druckdienst, wo geschnitten wird.")
+                }
+
+                // WAS DIE DRUCKEREI VERLANGT (ab 1.0.72).
+                //
+                // Sie nennt fast immer das Maß MIT Beschnitt, weil sie die
+                // Datei prüft und nicht das geschnittene Buch. Diese Zahl
+                // gehört deshalb in ein eigenes Feld — als Endformat
+                // eingetragen ergäbe sie eine Seite, die um zwei
+                // Anschnitte zu groß ist, und die Datei käme zurück.
+                Section {
+                    HStack {
+                        Text("Bogenbreite")
+                        Spacer()
+                        TextField("mm", text: $bogenBreite)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 90)
+                        Text("mm").foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Text("Bogenhöhe")
+                        Spacer()
+                        TextField("mm", text: $bogenHoehe)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 90)
+                        Text("mm").foregroundStyle(.secondary)
+                    }
+                    LabeledContent("Anschnitt",
+                                   value: Druckvorgabe.zahl(werk.reise.gestaltung.anschnitt) + " mm")
+                    if let end = ausBogen {
+                        LabeledContent("Ergibt das Endformat", value: end.masstext)
+                        Button("Dieses Format übernehmen") { formatWuenschen(end) }
+                    }
+                } header: {
+                    Text("Maß der Druckerei")
+                } footer: {
+                    Text(bogenhinweis)
+                        .foregroundStyle(ausBogen == nil && !bogenBreite.isEmpty
+                            ? Color.red : Color.secondary)
                 }
 
                 Section {
@@ -121,6 +167,26 @@ struct FormatView: View {
                             .frame(width: 90)
                         Text("mm").foregroundStyle(.secondary)
                     }
+                    // DER HINWEIS, DER DEN FEHLER ABFÄNGT (ab 1.0.72).
+                    // Sieht das eingetippte Endformat nach einem BOGENMASS
+                    // aus, steht hier, was daraus würde — und was
+                    // wahrscheinlich gemeint war. Ein Hinweis und keine
+                    // Sperre: Wer wirklich dieses Endformat bestellt hat,
+                    // soll es eintragen können.
+                    if let verdacht = bogenverdacht, let eigen = eigenesMass {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Das sieht nach einem Bogenmaß aus.",
+                                  systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                            Text(verdachtstext(eigen, gemeint: verdacht))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Button("Stattdessen \(verdacht.name) (\(verdacht.masstext))") {
+                                formatWuenschen(verdacht)
+                            }
+                            .font(.callout)
+                        }
+                    }
                     Button("Eigenes Maß übernehmen") {
                         if let eigen = eigenesMass { formatWuenschen(eigen) }
                     }
@@ -181,6 +247,37 @@ struct FormatView: View {
     private var bogentext: String {
         let b = werk.reise.gestaltung.bogen(jetzt)
         return "\(Druckmass.mmText(b.width, stellen: 0)) × \(Druckmass.mmText(b.height, stellen: 0))"
+    }
+
+    private var ausBogen: Seitenformat? {
+        guard let b = zahlAus(bogenBreite), let h = zahlAus(bogenHoehe) else { return nil }
+        return Druckvorgabe.endformat(bogenBreite: b, bogenHoehe: h,
+                                      anschnitt: werk.reise.gestaltung.anschnitt)
+    }
+
+    private var bogenhinweis: String {
+        let a = Druckvorgabe.zahl(werk.reise.gestaltung.anschnitt)
+        let grund = "Viele Druckereien nennen das Maß MIT Beschnitt \u{2014} \u{201E}legen Sie Ihre Daten im Format 216 x 303 mm an\u{201C}. Diese Zahl geh\u{00F6}rt hierher und nicht in das Feld darunter: Abgezogen werden \(a) mm an jeder der vier Kanten, und heraus kommt das Endformat, in dem das Buch nachher in der Hand liegt."
+        if ausBogen == nil, !bogenBreite.isEmpty {
+            return "Daraus wird kein g\u{00FC}ltiges Endformat. " + grund
+        }
+        return grund + " Stimmt der Anschnitt nicht, wird er unter \u{201E}Gestalten\u{201C} ge\u{00E4}ndert \u{2014} dann stimmt auch diese Rechnung."
+    }
+
+    // Sieht das eingetippte ENDFORMAT nach einem Bogen aus?
+    private var bogenverdacht: Seitenformat? {
+        guard let eigen = eigenesMass else { return nil }
+        return Druckvorgabe.bogenverdacht(breite: eigen.breite, hoehe: eigen.hoehe,
+                                          anschnitt: werk.reise.gestaltung.anschnitt)
+    }
+
+    private func verdachtstext(_ eigen: Seitenformat, gemeint: Seitenformat) -> String {
+        let bogen = Druckvorgabe.bogen(eigen, anschnitt: werk.reise.gestaltung.anschnitt)
+        return "Als Endformat eingetragen ergibt \(eigen.masstext) eine PDF-Seite von "
+            + "\(Druckvorgabe.masstext(bogen)) \u{2014} also noch einmal Anschnitt obendrauf. "
+            + "Verlangt die Druckerei \(eigen.masstext), dann meint sie den Bogen, und das "
+            + "Endformat ist \(gemeint.masstext). Daf\u{00FC}r ist das Feld \u{201E}Ma\u{00DF} der "
+            + "Druckerei\u{201C} weiter oben da."
     }
 
     private var eigenesMass: Seitenformat? {

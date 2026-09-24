@@ -480,6 +480,128 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Anschnitt und Sicherheitsabstand (1.0.73)
+
+Beim Vergleich mit DIN A4 fällt auf, dass die geforderten 216 × 303 mm
+größer sind — und daraus folgt richtig, dass ein Sicherheitsabstand zum
+Rand sinnvoll ist. Nur ist die Seite nicht größer: Sie bleibt A4. Größer ist
+die **Datei**, weil der Anschnitt außen dranhängt und weggeschnitten wird.
+
+Was den Sicherheitsabstand nötig macht, ist dieselbe Ursache aus der anderen
+Richtung. Jede Schneidemaschine hat ein Spiel von einem knappen Millimeter,
+und ein Stapel Bücher wird nie auf den Punkt genau getroffen:
+
+- Der **Anschnitt** liegt **außerhalb** des Endformats. Er sorgt dafür, dass
+  bei einem Schnitt nach innen kein weißer Faden stehen bleibt. Dorthin
+  gehört alles, was randabfallend sein soll.
+- Der **Sicherheitsabstand** liegt **innerhalb**. Er sorgt dafür, dass bei
+  einem Schnitt nach außen nichts Gelesenes abgeschnitten wird. Dort soll
+  nichts stehen, was gelesen werden muss.
+
+Er ist ab dieser Fassung eingebaut, mit 5 mm voreingestellt und unter
+Gestalten direkt unter dem Anschnitt einstellbar. Auf der Seite zeigt ihn
+eine **orange** Linie, gleich neben der roten Schnittkante — zwei rote
+Linien nebeneinander wären zwei Namen für dasselbe, und genau diese
+Verwechslung ist der Anlass. Blöcke rasten daran ein wie an jeder anderen
+Kante.
+
+Die Prüfung vor dem Ausgeben zählt, was hineinragt, und nennt Textblöcke
+eigens: Ein angeschnittenes Wort sieht man dem PDF nicht an, dem gedruckten
+Buch sofort. **Randabfallende Blöcke sind ausgenommen** — die sollen über
+die Kante laufen. Wer einen Block wirklich bis an den Rand will, schaltet
+ihn auf randabfallend.
+
+Beim Formatwechsel wird der Abstand nicht mitgerechnet, genau wie der
+Anschnitt: Das Spiel der Schneidemaschine ist dasselbe, ob eine Seite A4
+misst oder A5.
+
+**Nicht gemessen:** Keine Seite ist damit gedruckt worden. Die 5 mm sind
+gewählt und nicht gemessen — 3 bis 5 mm sind das, was Druckdienste
+üblicherweise nennen; verbindlich ist die Angabe der eigenen Druckerei.
+
+## Was die Druckerei verlangt, ist der Bogen (1.0.72)
+
+Der erste echte Druckauftrag kam mit drei Beanstandungen zurück. Alle drei
+sind jetzt in der App zu erledigen — und die erste war keine.
+
+**„Bitte legen Sie Ihre Daten im Format 216 mm x 303 mm an."** Nachgerechnet:
+216 − 2 × 3 = 210, 303 − 2 × 3 = 297. Verlangt wird A4 hoch mit 3 mm
+Anschnitt, und genau das gibt diese App seit jeher aus. Beim Umschlag
+dasselbe: 2 × 210 + 2 mm Rücken + 2 × 3 mm ergibt 428 × 303 — Wort für Wort
+die zweite Forderung derselben Mail. Die Zahlen waren nie falsch. Sie
+standen nur nirgends so da, dass man sie gegen eine Bestellung halten
+konnte.
+
+Deshalb steht im Ausgabeblatt jetzt die Zeile **„Bogen im PDF"**: das Maß,
+das die Datei wirklich hat, passend zur gewählten Anordnung — Einzelseiten,
+Doppelseiten und Umschlag sind drei verschiedene Zahlen.
+
+**Und die Zahl der Druckerei lässt sich eintippen.** Im Formatblatt gibt es
+dafür ein eigenes Feld: Man tippt 216 × 303, darunter steht sofort „ergibt
+das Endformat 210 × 297 mm", und ein Knopf übernimmt es. Das ist mehr als
+Bequemlichkeit — es fängt einen Fehler ab, der wie eine Lösung aussieht:
+Trägt man 216 × 303 als *Endformat* ein, wird die PDF-Seite 222 × 309 mm
+groß, und dabei rechnet die App jeden Block, jeden Rand und jede
+Schriftgröße des Buches um. Wer es trotzdem unten eintippt, bekommt einen
+Hinweis mit beiden Zahlen — einen Hinweis, keine Sperre.
+
+**Die Rückenstärke lässt sich eintragen.** „2 mm Rückenstärke" ist eine
+Zahl, fertig; bisher ging das nur als Tabellenzeile. Sie schlägt Tabelle und
+Rechnung, und in der App steht dabei, woher sie kommt. Nennt die Druckerei
+stattdessen nur die Bogenbreite, folgt die Rückenstärke daraus.
+
+**Die bestellte Seitenzahl** („Sie haben ein Produkt mit 60 Innenseiten
+bestellt, uns allerdings zu viele Seiten zugeschickt") trägt man im
+Ausgabeblatt ein. Danach steht dort und in der Druckprüfung, ob es passt —
+vor dem Hochladen statt in der Antwortmail zwei Tage später. Ohne
+eingetragene Bestellung wird nichts behauptet.
+
+**Die Innenseiten des Umschlags (U2+U3)** liefert die App auf Wunsch mit:
+eine zweite Seite in der Umschlagdatei, gleiche Maße, gleiche Boxen, in
+einer wählbaren Farbe. Manche Druckereien verlangen sie, andere legen dort
+ihr eigenes Vorsatzpapier ein. Geliefert wird eine Fläche, kein Satz —
+Blöcke lassen sich darauf nicht setzen.
+
+**Nicht gemessen:** Keine Datei ist damit hochgeladen worden. Gerechnet und
+an der Mail nachgerechnet sind beide Maße; **warum die erste Lieferung
+abgewiesen wurde, ist damit nicht geklärt** — dass die Rechnung stimmt,
+heißt nicht, dass die Einstellungen dieses Buches stimmten. Genau deshalb
+schreibt die App die Zahlen jetzt hin, statt sie zu behaupten.
+
+## Ein Buch vom anderen Gerät: wo die Bilder bleiben (1.0.71)
+
+Gemeldet: „Auf dem iPad ist kein Arbeiten möglich. Vielleicht liegt es
+daran, dass ich das Projekt insgesamt auf einem anderen Gerät erstellt und
+verarbeitet habe."
+
+Der Verdacht trifft. Ein Buch reist über iCloud Drive in zwei sehr
+ungleichen Hälften: Die JSON-Datei ist ein paar hundert Kilobyte und ist
+sofort da, die zweihundert Bilder sind es nicht. Zwei Fehler lagen
+übereinander:
+
+* **Nach den Bildern wurde nie gefragt.** Der Anstoß zum Herunterladen lief
+  nur über die oberste Ebene des Ordners `Reisen`. Die Bilder liegen zwei
+  Ebenen tiefer, in `Reisen/<Kennung>/Bilder/` — keine einzige Bilddatei
+  wurde je angefordert.
+* **Ein fehlendes Bild wurde bei jedem Bildpunkt neu gesucht.** Der
+  Bildvorrat merkt sich nur Treffer. Gefragt wird aber beim Zeichnen jeder
+  Seite, also beim Schieben und Zoomen viele Male je Sekunde — und jedes
+  Mal ging derselbe vergebliche Griff auf das Dateisystem, auf dem
+  Hauptfaden.
+
+Seit 1.0.71 stößt die App die Bilder des offenen Buches an, merkt sich einen
+Fehlgriff für drei Sekunden und **sagt, was los ist**: Über der Bühne steht,
+wie viele Bilder noch in iCloud liegen, mit einem Knopf „Jetzt holen"; die
+Zahl wird kleiner, während sie ankommen. Was wirklich fehlt — weder hier
+noch in der Wolke — steht rot daneben, denn das löst sich nicht von selbst.
+
+Unter **Anordnen → „Bedienung prüfen" → „Befund kopieren"** stehen die
+Zahlen: wie viele Bilder das Buch nennt, wie viele auf dem Gerät liegen, wie
+viele in iCloud, wie viele fehlen.
+
+**Nicht gemessen:** Gesehen hat das niemand. Abgezählt ist die Ursache; ob
+das iPad danach flüssig ist, sagt erst der nächste Befund.
+
 ## Warum die Datei so groß war (1.0.70)
 
 62 Seiten ergaben vier Gigabyte — mehr, als ein Druckdienst annimmt. Daran
