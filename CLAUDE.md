@@ -7698,6 +7698,37 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **EINE REGEL AN DEN ENTSTEHUNGSSTELLEN ERREICHT KEINEN BLOCK, DER SCHON
+  DASTEHT** (`Reisewerk.zeilenAnsBildLegen`, ab 1.0.90; Ansage des Nutzers
+  09/2026 an einer Zeile, die waagerecht unter einem schief stehenden Bild
+  hing: „Ich hätte es gerne so, dass die Schrift sich automatisch mit dem
+  Bild mitdreht und am unteren Rand zu sehen ist.").
+  - **Gebaut war das seit 1.0.86** — an den drei Stellen, die eine Zeile
+    ANLEGEN, und beim Drehen von Hand. Zwei Lücken blieben, und beide
+    zeigen dasselbe: **eine Seite, die vor 1.0.86 gesetzt wurde** (sie wird
+    nie wieder durch den Automaten geschickt, und die Blöcke liegen fertig
+    auf der Platte), und **der Aufmacher in `bildZuerst`**, der `angelegt`
+    als einzige der drei Stellen nicht fragte. Der fiel nicht auf, weil der
+    Automat dort selbst nichts dreht — von Hand gedreht wird das Bild
+    trotzdem.
+  - **Angelegt wird deshalb beim ÖFFNEN**, in `fehlendeSeitenNachholen`,
+    und nur, was NICHT `vonHand` trägt. Das ist der Schutz, den dieses Haus
+    ohnehin kennt: Wer eine Zeile selbst gesetzt, gedreht oder mit ihrem
+    Bild verschoben hat, hat sie damit zu Handarbeit gemacht (beides setzt
+    `vonHand` seit 1.0.86) — und Handarbeit wird nicht gerichtet.
+  - **Gerichtet wird die NEIGUNG, nicht der Abstand.** Die Zeile wird um
+    die Bildmitte zurückgedreht und neu gedreht; wie weit sie unter dem
+    Bild steht, hat entweder der Automat gerechnet oder jemand gesetzt.
+  - **Geschrieben wird nur, wo sich etwas ändert.** `reise` sichert über
+    sein `didSet`; ohne Zuweisung gibt es keine Sicherung. Ein
+    Sicherungslauf bei jedem Öffnen wäre beim Abgleich ein Buch, das sich
+    ohne Zutun als neuer ausgibt.
+- **Nicht gemessen (1.0.90):** Keine Seite ist damit gesehen worden. **Und
+  es ist NICHT bewiesen, dass es der gemeldete Fall war:** Ob die Zeile auf
+  seiner Seite aus einem alten Stand stammt oder aus `bildZuerst`, lässt
+  sich von hier aus nicht entscheiden — beide Lücken sind geschlossen, und
+  welche davon zugetroffen hat, sagt erst der nächste Befund. **Nicht als
+  erledigt darstellen.**
 - **ALLES, WAS IN DIE DATEI GEHT, IST sRGB** (`Dienste/Farbraum.swift`, ab
   1.0.89; gefragt 09/2026: „ist der Farbraum eigentlich sRGB?", danach die
   Ansage: „Ich möchte die automatische Umwandlung in der App.").
@@ -9710,7 +9741,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.89 (Build 90). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.90 (Build 91). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
