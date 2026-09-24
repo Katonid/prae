@@ -231,7 +231,7 @@ struct SeitenflaecheView: View, Equatable {
                 // seit 1.0.81 auch abseits des Hauptfadens geholt: Ein
                 // Wasserzeichen liegt auf JEDER Seite, und damit ist es die
                 // Art Bild, die sich am ehesten summiert.
-                Vorschaubild(
+                Ladebild(
                     datei: zeichenbild.datei, reise: werk.reise.id,
                     kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
                                               massstab: massstab, groesste: 1600),
@@ -1242,10 +1242,10 @@ struct HintergrundFlaeche: View {
                     // eine feste Zahl, und die war beim Hineinzoomen zu klein.
                     //
                     // Geholt wird es seit 1.0.81 abseits des Hauptfadens
-                    // (`Vorschaubild`). Gerade das HINTERGRUNDfoto ist das
+                    // (`Ladebild`). Gerade das HINTERGRUNDfoto ist das
                     // größte Bild einer Seite — es füllt Seite oder
                     // Doppelseite ganz aus.
-                    Vorschaubild(datei: foto.datei, reise: werk.reise.id,
+                    Ladebild(datei: foto.datei, reise: werk.reise.id,
                                  kante: hintergrundkante,
                                  farbkraft: hintergrund.farbkraftfaktor,
                                  messer: werk.messer)
@@ -1453,12 +1453,12 @@ struct FotoKachel: View {
             // Befund „Fotos 12× 900 ms", ist die Frage beantwortet.
             if let foto = werk.reise.foto(fotoID) {
                 // GEHOLT WIRD ABSEITS DES HAUPTFADENS (ab 1.0.81) — siehe
-                // `Vorschaubild`. Bis 1.0.80 stand hier ein synchroner Griff
+                // `Ladebild`. Bis 1.0.80 stand hier ein synchroner Griff
                 // auf die Platte, mitten im Körper der Seite; beim Scrollen
                 // baut der `LazyVStack` laufend neue Blätter, und jedes zog
                 // seine drei bis sechs Bilder nach. Genau das war das
                 // gemeldete Ruckeln.
-                Vorschaubild(datei: foto.datei, reise: werk.reise.id,
+                Ladebild(datei: foto.datei, reise: werk.reise.id,
                              kante: vorschaukante(raum.size),
                              messer: werk.messer)
                 { bild in

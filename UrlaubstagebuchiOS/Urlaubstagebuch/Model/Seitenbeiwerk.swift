@@ -43,6 +43,27 @@ enum Seitenbeiwerk {
 
         let endformat = reise.format.groesse
         let satz = reise.gestaltung.satzspiegel(reise.format)
+        // WO DER SICHERHEITSABSTAND LIEGT — und das ist hier kein Zierat
+        // (ab 1.0.82).
+        //
+        // Seitenzahl und Kopfzeile sitzen in den RÄNDERN, als Anteil davon
+        // (0,6 bzw. 0,42). Solange die Ränder 16 bis 19 mm maßen, lag das
+        // von selbst weit genug innen. Seit die Ränder bis auf den
+        // Sicherheitsabstand hinuntergehen dürfen — gefragt 09/2026: „Der
+        // Satzspiegel könnte doch tatsächlich innerhalb des
+        // Sicherheitsabstandes ausgeführt werden." — stimmt das nicht mehr:
+        // Bei 3 mm Rand unten stünde die Seitenzahl 1,8 mm vom Papierrand
+        // und würde angeschnitten.
+        //
+        // **Und es fiele niemandem auf**: Die Marke um einen gefährdeten
+        // Block greift hier nicht, denn Seitenzahl und Kopfzeile sind keine
+        // Blöcke — sie gehören dem Buch und werden beim Zeichnen ergänzt
+        // (Regel seit 1.0.0). Geklemmt wird deshalb hier. **Merke: Wer eine
+        // Grenze freigibt, sucht alles, was sich bisher auf sie verlassen
+        // hat.**
+        let zone = reise.gestaltung.hatSicherheitsabstand
+            ? reise.gestaltung.schutzzone(reise.format, bund: buchseite.bundlage)
+            : CGRect(origin: .zero, size: endformat)
         var klein = reise.typografie.bildunterschrift
         klein.farbe = .leise
 
@@ -51,13 +72,16 @@ enum Seitenbeiwerk {
         if reise.gestaltung.seitenzahlen {
             var zahl = klein
             zahl.ausrichtung = .mitte
-            let y = endformat.height - Druckmass.pt(reise.gestaltung.randUnten) * 0.6
+            let hoehe = zahl.zeilenhoehe * 1.6
+            // Nach unten bis zur Sicherheitslinie und keinen Punkt weiter;
+            // nach oben nicht über den Satzspiegel, sonst stünde sie im Text.
+            let gewuenscht = endformat.height - Druckmass.pt(reise.gestaltung.randUnten) * 0.6
+            let y = max(min(gewuenscht, zone.maxY - hoehe), satz.maxY)
             liste.append(Zeile(
                 id: "zahl",
                 text: "\(buchseite.nummer)",
                 bild: zahl,
-                rechteck: CGRect(x: satz.minX, y: y, width: satz.width,
-                                 height: zahl.zeilenhoehe * 1.6)
+                rechteck: CGRect(x: satz.minX, y: y, width: satz.width, height: hoehe)
             ))
         }
 
@@ -67,13 +91,14 @@ enum Seitenbeiwerk {
             kopf.versalien = true
             kopf.sperrung = 1.2
             let text = buchseite.tag?.datum.mittel ?? reise.titel
-            let y = Druckmass.pt(reise.gestaltung.randOben) * 0.42
+            let hoehe = kopf.zeilenhoehe * 1.6
+            let gewuenscht = Druckmass.pt(reise.gestaltung.randOben) * 0.42
+            let y = min(max(gewuenscht, zone.minY), max(satz.minY - hoehe, zone.minY))
             liste.append(Zeile(
                 id: "kopf",
                 text: text,
                 bild: kopf,
-                rechteck: CGRect(x: satz.minX, y: y, width: satz.width,
-                                 height: kopf.zeilenhoehe * 1.6)
+                rechteck: CGRect(x: satz.minX, y: y, width: satz.width, height: hoehe)
             ))
         }
 

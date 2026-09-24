@@ -66,7 +66,7 @@ final class Zeichenmesser {
     // zufällig traf. Gedeutet wird hier nichts, gezählt wird alles.
     // Dasselbe für Arbeit, die NICHT auf dem Hauptfaden läuft (ab 1.0.81):
     // Gemeldet wird die fertige Dauer, statt sie hier zu messen. Gebraucht
-    // von `Vorschaubild`, seit die Bilder abseits geholt werden — sonst
+    // von `Ladebild`, seit die Bilder abseits geholt werden — sonst
     // stünde im Befund nach dem Umbau gar nichts mehr über sie, und dann
     // ließe sich nicht mehr sagen, ob es wirkt.
     func melde(_ name: String, dauer: Double) {
@@ -92,7 +92,7 @@ final class Zeichenmesser {
     // WOHER DIE BILDER KAMEN (ab 1.0.81).
     //
     // Seit die Vorschaubilder abseits des Hauptfadens geholt werden
-    // (`Vorschaubild`), ist das die Zahl, an der sich das Scrollen messen
+    // (`Ladebild`), ist das die Zahl, an der sich das Scrollen messen
     // lässt: Bleibt „von Platte" beim Blättern klein, liegt es nicht mehr
     // an den Bildern. Der Zähler wohnt im `Bildarchiv`, weil nur dort
     // bekannt ist, ob der Vorrat getroffen hat.

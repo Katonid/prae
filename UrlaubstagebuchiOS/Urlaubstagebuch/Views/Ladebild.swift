@@ -23,7 +23,7 @@ import SwiftUI
 // Kante, Farbkraft). Eine vergessene Stelle zeigt nach dem Umstellen das
 // Bild von vorhin — dieselbe Falle wie beim `merkmal` des Kartenbildes in
 // 1.0.51.
-struct Vorschaubild<Inhalt: View>: View {
+struct Ladebild<Inhalt: View>: View {
     let datei: String
     let reise: UUID
     let kante: Int
