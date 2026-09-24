@@ -784,14 +784,20 @@ struct ReiseView: View {
         // zu viel gerechnet. Das war folgenlos, solange die Ansicht sie
         // auch zeichnete — jetzt wäre die Bühne breiter als ihr Inhalt,
         // und dann stünde beim Hineinzoomen rechts ein leerer Streifen.
-        let ruecken = werk.reise.hatRueckseite
-            ? Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
-                                           format: werk.reise.format,
-                                           innenseiten: werk.reise.innenseiten)
-            : 0
-        return Bogenlage.doppelbogen(format: werk.reise.format.groesse,
-                                     anschnitt: werk.reise.gestaltung.anschnittPt,
-                                     ruecken: ruecken).width
+        let innen = Double(Bogenlage.doppelbogen(
+            format: werk.reise.format.groesse,
+            anschnitt: werk.reise.gestaltung.anschnittPt).width)
+        guard werk.reise.hatRueckseite else { return innen }
+        // DER UMSCHLAG HAT SEIT 1.0.91 SEIN EIGENES MASS. Gefragt wird
+        // deshalb `Umschlagmass.bogen` — dieselbe Stelle, die auch das PDF
+        // fragt — und genommen wird der breitere der beiden: Die Bühne
+        // trägt beides, und was schmaler gerechnet ist als sein Inhalt,
+        // lässt sich nicht bis an die Kante heranschieben.
+        let umschlag = Umschlagmass.bogen(werk.reise.format,
+                                          gestaltung: werk.reise.gestaltung,
+                                          umschlag: werk.reise.umschlag,
+                                          innenseiten: werk.reise.innenseiten).width
+        return max(innen, Double(umschlag))
     }
 
     // Wohin nach einem Zoom gerollt wird. Die laufende Nummer gehört dazu,

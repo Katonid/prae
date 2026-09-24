@@ -480,6 +480,51 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Umschlag hat sein eigenes Maß (1.0.91)
+
+> „Für das Cover muss es noch weitere Einstellmöglichkeiten geben. Die
+> Vorgaben der Druckerei kann ich sonst nicht einhalten."
+
+**Nachgerechnet an den Zahlen des Druckdienstes:** Bruttomaß 457 × 295 mm,
+Beschnittzugabe 10 mm ringsum, Buchrücken 17 mm. Also 437 × 275 netto, davon
+der Rücken ab und durch zwei — **210 × 275 mm je Hälfte**. Die App gab
+418 × 276 aus, denn der Umschlag nahm bis 1.0.90 das Format des BUCHBLOCKS
+(205 × 270) und dessen Anschnitt (3 mm). Bei einem gebundenen Buch stimmt das
+nie: Der Bezug ist größer als der Block, und die Zugabe für den Umschlag ist
+oft eine andere.
+
+Seit 1.0.91 trägt der Umschlag **beides selbst** — das Nettomaß einer Hälfte
+und seine Beschnittzugabe. Eingetragen wird unter *Umschlag → Bogenmaß
+eintragen*, und zwar das, was in der Bestellung steht: Bruttobreite,
+Bruttohöhe, Beschnittzugabe, Rückenstärke. Daraus rechnet die App das
+Nettomaß einer Hälfte und setzt es ein; darüber steht Zeile für Zeile, was
+gilt und woher es stammt.
+
+* **Abgeleitet wird nichts.** Aus 210 × 275 gegen 205 × 270 ließe sich ein
+  „Überstand von 5 mm" lesen — über die Höhe gerechnet wären es 2,5 mm je
+  Kante, über die Breite 5. Die beiden gehen nicht auf, und ein geratener
+  Überstand wäre genau die Art Rechnung, die dieses Papier verbietet.
+* **`nil` heißt „wie das Buch".** Abweichung, keine Kopie: Wer später das
+  Seitenformat ändert, ändert den Umschlag mit, solange er hier nichts
+  eingetragen hat. Jedes vorhandene Buch gibt nach dem Update dieselbe Datei
+  aus wie vorher.
+* **Aufgelöst wird an EINER Stelle** (`Umschlagmass`), gefragt von der Bühne,
+  vom PDF, vom Ausgabesteckbrief und von der Druckprüfung. Drei Fassungen
+  ergäben drei Geometrien, und der Unterschied fiele erst beim Drucker auf.
+* **Beim Formatwechsel wird das Maß mitgerechnet**, die Zugabe nicht: Das
+  Spiel der Schneidemaschine ist dasselbe, ob eine Seite A4 misst oder A5.
+* **Was auf U2 und U3 steht, ist für den Buchblock gesetzt.** Trägt der
+  Umschlag ein eigenes Format, füllen diese beiden Seiten die größere Hälfte
+  nicht aus — die Druckprüfung sagt es, statt es hinzunehmen.
+
+**Nicht gemessen (1.0.91):** Keine Datei ist damit hochgeladen worden.
+Gerechnet und an der Vorgabe des Druckdienstes nachgerechnet ist die
+Umrechnung — 457 − 2 × 10 = 437, 295 − 2 × 10 = 275, (437 − 17) / 2 = 210 —,
+sie geht auf den Millimeter auf. **Ungeprüft bleibt alles danach:** ob dieser
+Dienst die Datei annimmt, wie der größere Umschlag auf dem Bildschirm neben
+den Buchseiten aussieht und ob ein Titelfoto auf der breiteren Hälfte noch
+steht, wo es stehen soll.
+
 ## Die Zeile legt sich ans Bild (1.0.90)
 
 Mitgedreht wird seit 1.0.86 — aber nur dort, wo eine Zeile **entsteht**.

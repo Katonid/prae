@@ -7698,6 +7698,50 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **DER UMSCHLAG HAT SEIN EIGENES MASS** (`Umschlag.format`, `.anschnitt`,
+  aufgelöst in `Umschlagmass.seitenformat`/`.anschnitt`, ab 1.0.91; Ansage des
+  Nutzers 09/2026 mit der Cover-Seite seines Druckdienstes daneben: „Für das
+  Cover muss es noch weitere Einstellmöglichkeiten geben. Die Vorgaben der
+  Druckerei kann ich sonst nicht einhalten.").
+  - **Die Zahlen sind der Befund, und sie gehen auf:** Verlangt waren Brutto
+    457 × 295 mm, Beschnittzugabe 10 mm ringsum, Buchrücken 17 mm — also
+    437 × 275 netto und (437 − 17) / 2 = **210 × 275 je Hälfte**. Die App gab
+    418 × 276 aus: 2 × 205 + 2 + 2 × 3 und 270 + 2 × 3. Sie benutzte also
+    Format UND Anschnitt des BUCHBLOCKS, denn der Umschlag hatte bis 1.0.90
+    kein eigenes Maß. **Bei einem gebundenen Buch stimmt das nie** — der Bezug
+    ist größer als der Block, und wie viel größer, entscheidet die Bindung.
+  - **Abgeleitet wird NICHTS.** Aus 210 × 275 gegen 205 × 270 ließe sich ein
+    „Überstand von 5 mm" lesen; über die Höhe gerechnet wären es 2,5 mm je
+    Kante, über die Breite 5 — die beiden gehen nicht auf. Eingetragen wird,
+    was in der Bestellung steht (`Druckvorgabe.umschlaghaelfte` rechnet vom
+    Bruttomaß zurück, wie `endformat` seit 1.0.72 für die Innenseiten).
+  - **`nil` heißt „wie das Buch" — Abweichung, keine Kopie.** Dieselbe Regel
+    wie bei `rand`, `hintergrund` und `titellage`; jedes vorhandene Buch gibt
+    nach dem Update dieselbe Datei aus wie vorher.
+  - **Aufgelöst an EINER Stelle**, gefragt von der Bühne
+    (`Reise.flaeche(_:)`, `.anschnittPt(_:)`, `.satzspiegel(_:)`), vom PDF
+    (`umschlagPdf`, `zeichneSeite`), vom Layoutautomaten (`umschlagbogen`),
+    vom Ausgabesteckbrief und von der Druckprüfung. Der Satzspiegel der Bühne
+    zeigte auf dem Umschlag bis 1.0.90 den des BUCHES, während der Automat
+    `umschlagsatz` setzte — dieselbe Doppelung, nur älter.
+  - **Es gilt für JEDE Seite des Umschlagbogens, auch U2 und U3**: Zwei
+    Hälften und der Rücken müssen zusammen den Bogen ergeben. Tragen die
+    Innenseiten Inhalt, sind das Seiten, die für den Buchblock gesetzt
+    wurden — die Druckprüfung sagt das, statt es zu verschweigen.
+  - **Beim Formatwechsel wird das MASS mitgerechnet, die ZUGABE nicht**: Das
+    Spiel der Schneidemaschine ist dasselbe, ob eine Seite A4 misst oder A5
+    (die Regel steht seit 1.0.27 im Papier). Die Rückenstärke bleibt aus
+    demselben Grund stehen — sie hängt am Papier.
+  - **Die Eingabe steht in einem EIGENEN Abschnitt.** Ein `Section`-Körper
+    nimmt höchstens zehn Kinder an; mit vier Auskunftszeilen, vier Feldern
+    und bis zu fünf Knöpfen wäre die Grenze überschritten. Oben steht, was
+    GILT, darunter, was man EINTRÄGT — samt der Herkunft je Zahl.
+  - **Nicht gemessen (1.0.91):** Keine Datei ist damit hochgeladen worden.
+    Gerechnet und an der Vorgabe nachgerechnet ist die Umrechnung; ungeprüft
+    bleibt, ob dieser Dienst die Datei annimmt, wie der größere Umschlagbogen
+    auf dem Bildschirm neben den Buchseiten aussieht und ob ein Titelfoto auf
+    der breiteren Hälfte noch steht, wo es stehen soll. **Nicht als erledigt
+    darstellen.**
 - **EINE REGEL AN DEN ENTSTEHUNGSSTELLEN ERREICHT KEINEN BLOCK, DER SCHON
   DASTEHT** (`Reisewerk.zeilenAnsBildLegen`, ab 1.0.90; Ansage des Nutzers
   09/2026 an einer Zeile, die waagerecht unter einem schief stehenden Bild
@@ -9741,7 +9785,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.90 (Build 91). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.91 (Build 92). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

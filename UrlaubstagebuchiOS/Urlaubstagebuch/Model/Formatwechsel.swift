@@ -137,6 +137,23 @@ enum Formatwechsel {
         for stelle in reise.umschlag.rueckbloecke.indices {
             skaliere(&reise.umschlag.rueckbloecke[stelle], mal: f)
         }
+
+        // DAS EIGENE MASS DES UMSCHLAGS IST EINE LÄNGE (ab 1.0.91) und
+        // wird deshalb mitgerechnet: Wer von A4 auf A5 wechselt, will
+        // einen Umschlag, der zum kleineren Block passt. Seine
+        // BESCHNITTZUGABE bleibt dagegen stehen — sie ist eine Angabe der
+        // Druckerei und keine Gestaltung; das Spiel der Schneidemaschine
+        // ist dasselbe, ob eine Seite A4 misst oder A5 (die Regel steht
+        // seit 1.0.27 im Papier und gilt hier genauso). Die RÜCKENSTÄRKE
+        // bleibt aus demselben Grund unangetastet: Sie hängt am Papier.
+        if var eigenes = reise.umschlag.format {
+            eigenes.breite = gerundet(eigenes.breite * f)
+            eigenes.hoehe = gerundet(eigenes.hoehe * f)
+            // Ein umgerechnetes Maß ist keine Vorlage mehr — es stammt
+            // jetzt aus dieser Rechnung und nicht aus einer Liste.
+            eigenes.vorlage = nil
+            reise.umschlag.format = eigenes
+        }
     }
 
     // Ein einzelner Block. Der AUSSCHNITT eines Fotos bleibt unangetastet:

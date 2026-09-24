@@ -28,6 +28,11 @@ struct UmschlagView: View {
     // die erste, wenn Format und Anschnitt feststehen.
     @State private var festerRuecken = ""
     @State private var bogenbreite = ""
+    // DIE DRUCKEREI NENNT DEN GANZEN BOGEN (ab 1.0.91): Bruttomaß,
+    // Beschnittzugabe und Rückenstärke. Daraus folgt das Nettomaß EINER
+    // Hälfte — und genau das braucht die App.
+    @State private var bogenhoehe = ""
+    @State private var zugabe = ""
 
     // WER EIN FELD VERLÄSST, HAT SEINE ZAHL GEMEINT (ab 1.0.78).
     //
@@ -42,7 +47,7 @@ struct UmschlagView: View {
     // der Knopf bleibt für den daneben, der ihn sucht. **Merke: Ein Knopf
     // unter einem Zahlenfeld braucht immer zwei Tipps — wer das nicht will,
     // übernimmt beim Fokuswechsel.**
-    private enum Feld: Hashable { case ruecken, bogen }
+    private enum Feld: Hashable { case ruecken, bogen, hoehe, zugabe }
     @FocusState private var fokus: Feld?
 
     private var umschlag: Umschlag { werk.reise.umschlag }
@@ -98,6 +103,7 @@ struct UmschlagView: View {
 
                 if umschlag.alsBogen {
                     druckereimass
+                    umschlagEintragen
                     ruecken
                     // Die Tabellen bestimmen die BREITE und standen bis
                     // 1.0.77 hinter dem Schalter für die Beschriftung —
@@ -120,11 +126,32 @@ struct UmschlagView: View {
                 if let fest = umschlag.rueckenbreiteVonHand, festerRuecken.isEmpty {
                     festerRuecken = Druckvorgabe.zahl(fest)
                 }
+                // Dasselbe für die beiden neuen Zahlen (ab 1.0.91): Ein
+                // leeres Feld über einem längst eingetragenen Wert ließe
+                // einen raten, ob nichts eingetragen ist oder nur nichts
+                // dasteht.
+                if let eigen = umschlag.anschnitt, zugabe.isEmpty {
+                    zugabe = Druckvorgabe.zahl(eigen)
+                }
+                if umschlag.format != nil, bogenbreite.isEmpty, bogenhoehe.isEmpty {
+                    bogenbreite = Druckvorgabe.zahl(Double(umschlagbogenMm.width))
+                    bogenhoehe = Druckvorgabe.zahl(Double(umschlagbogenMm.height))
+                }
             }
             .onChange(of: fokus) { vorher, _ in
                 if vorher == .ruecken { rueckenUebernehmen() }
             }
             .toolbar {
+                // EIN KNOPF UNTER EINEM ZAHLENFELD BRAUCHT ZWEI TIPPS —
+                // die Lehre aus 1.0.78. Bei der Rückenstärke wird deshalb
+                // beim Fokuswechsel übernommen; beim Bogenmaß geht das
+                // nicht, denn dort schreibt ein Tipp DREI Werte auf einmal,
+                // und das darf nur ausdrücklich geschehen. Also ein Knopf
+                // über der Tastatur, der die Eingabe beendet.
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Eingabe fertig") { fokus = nil }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") {
                         // Wer eine Zahl eingetippt hat und gleich schließt,
@@ -175,6 +202,19 @@ struct UmschlagView: View {
     private var druckereimass: some View {
         Section {
             LabeledContent("Bogen mit Anschnitt", value: Druckvorgabe.masstext(umschlagbogenMm))
+            // WAS EINE HÄLFTE MISST (ab 1.0.91) — und woher die Zahl
+            // stammt. Der Umschlag eines gebundenen Buches ist größer als
+            // der Buchblock; bis 1.0.90 nahm er dessen Format, und damit
+            // ließ sich die Vorgabe einer Druckerei nicht einhalten.
+            LabeledContent("Eine Hälfte, netto") {
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(Druckvorgabe.masstext(CGSize(width: umschlagformat.breite,
+                                                      height: umschlagformat.hoehe)))
+                    Text(umschlag.format == nil ? "wie eine Buchseite" : "eigenes Maß")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
             // WAS VOM BOGEN DER RÜCKEN IST — und woher die Zahl stammt
             // (ab 1.0.78). Ohne diese Zeile ließ sich nicht sehen, ob eine
             // eingetippte Rückenstärke überhaupt ankommt; genau daran hing
@@ -191,47 +231,77 @@ struct UmschlagView: View {
                         .multilineTextAlignment(.trailing)
                 }
             }
-            HStack {
-                Text("Rückenstärke")
-                Spacer()
-                TextField("mm", text: $festerRuecken)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 80)
-                    .focused($fokus, equals: .ruecken)
-                Text("mm").foregroundStyle(.secondary)
+            LabeledContent("Beschnittzugabe") {
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(zahl(umschlaganschnitt, "mm"))
+                    Text(umschlag.anschnitt == nil ? "wie im Buch" : "eigener Wert")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
-            Button("Rückenstärke übernehmen") { rueckenUebernehmen() }
+
+        } header: {
+            Text("Maß der Druckerei")
+        } footer: {
+            Text("Das sind die vier Zahlen, die eine Bestellung nennt \u{2014} sie lassen sich Zeile für Zeile dagegenhalten. Eingetragen werden sie im Abschnitt darunter.")
+        }
+    }
+
+    // DIE EINGABE steht in einem EIGENEN Abschnitt, und das ist nicht nur
+    // Ordnung: Ein `Section`-Körper nimmt höchstens zehn Kinder an, und
+    // mit vier Auskunftszeilen, vier Feldern und bis zu fünf Knöpfen wäre
+    // die Grenze überschritten. Oben steht, was GILT; hier steht, was man
+    // EINTRÄGT.
+    private var umschlagEintragen: some View {
+        Section {
+            massfeld("Bruttobreite", text: $bogenbreite, feld: .bogen)
+            massfeld("Bruttohöhe", text: $bogenhoehe, feld: .hoehe)
+            massfeld("Beschnittzugabe", text: $zugabe, feld: .zugabe)
+            massfeld("Rückenstärke", text: $festerRuecken, feld: .ruecken)
+
+            if let ergebnis = vorgabe {
+                Button(uebernahmetext(ergebnis)) { vorgabeUebernehmen() }
+            }
+            Button("Nur die Rückenstärke übernehmen") { rueckenUebernehmen() }
                 .disabled(zahlAus(festerRuecken) == nil)
-            HStack {
-                Text("Bogenbreite")
-                Spacer()
-                TextField("mm", text: $bogenbreite)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 80)
-                    .focused($fokus, equals: .bogen)
-                Text("mm").foregroundStyle(.secondary)
-            }
             if let aus = rueckenAusBogen {
-                Button("Ergibt \(zahl(aus, "mm")) Rücken \u{2014} übernehmen") {
+                Button("Aus der Breite folgt \(zahl(aus, "mm")) Rücken \u{2014} übernehmen") {
                     setzeRuecken(aus)
                     festerRuecken = Druckvorgabe.zahl(aus)
                 }
             }
+            if umschlag.format != nil || umschlag.anschnitt != nil {
+                Button("Umschlagmaß wieder wie das Buch") {
+                    werk.merken()
+                    werk.reise.umschlag.format = nil
+                    werk.reise.umschlag.anschnitt = nil
+                }
+            }
             if umschlag.rueckenbreiteVonHand != nil {
-                Button("Wieder rechnen lassen") {
+                Button("Rücken wieder rechnen lassen") {
                     werk.merken()
                     werk.reise.umschlag.rueckenbreiteVonHand = nil
                     festerRuecken = ""
                 }
             }
         } header: {
-            Text("Maß der Druckerei")
+            Text("Bogenmaß eintragen")
         } footer: {
             Text(druckereihinweis)
-                .foregroundStyle(bogenbreite.isEmpty || rueckenAusBogen != nil
-                    ? Color.secondary : Color.red)
+                .foregroundStyle(vorgabeGewarnt ? Color.red : Color.secondary)
+        }
+    }
+
+    private func massfeld(_ name: String, text: Binding<String>, feld: Feld) -> some View {
+        HStack {
+            Text(name)
+            Spacer()
+            TextField("mm", text: text)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 80)
+                .focused($fokus, equals: feld)
+            Text("mm").foregroundStyle(.secondary)
         }
     }
 
@@ -244,25 +314,95 @@ struct UmschlagView: View {
         return CGSize(width: Druckmass.mm(pt.width), height: Druckmass.mm(pt.height))
     }
 
+    /// Das Nettomaß EINER Umschlaghälfte, wie es gerade gilt.
+    private var umschlagformat: Seitenformat {
+        Umschlagmass.seitenformat(werk.reise.format, umschlag: umschlag)
+    }
+
+    /// Die Beschnittzugabe des Umschlags, wie sie gerade gilt.
+    private var umschlaganschnitt: Double {
+        Umschlagmass.anschnitt(werk.reise.gestaltung, umschlag: umschlag)
+    }
+
     private var rueckenAusBogen: Double? {
         guard let b = zahlAus(bogenbreite) else { return nil }
-        return Druckvorgabe.rueckenAusBogen(b, format: werk.reise.format,
-                                            anschnitt: werk.reise.gestaltung.anschnitt)
+        return Druckvorgabe.rueckenAusBogen(b, format: umschlagformat,
+                                            anschnitt: umschlaganschnitt)
+    }
+
+    // WAS AUS DEN VIER ZAHLEN FOLGT — `nil`, solange nicht genug dasteht
+    // oder nichts Gültiges herauskommt.
+    //
+    // Gebraucht werden Breite UND Höhe: Aus der Breite allein folgt nur
+    // die Rückenstärke (so war es seit 1.0.72), nicht aber das Format
+    // einer Hälfte. Für Zugabe und Rücken gilt, was eingetragen ist,
+    // solange das Feld leer bleibt — wer nur zwei Zahlen vor sich hat,
+    // soll nicht vier tippen müssen.
+    private var vorgabe: (format: Seitenformat, anschnitt: Double, ruecken: Double)? {
+        guard let breite = zahlAus(bogenbreite), let hoehe = zahlAus(bogenhoehe) else {
+            return nil
+        }
+        let a = zahlAus(zugabe) ?? umschlaganschnitt
+        let r = zahlAus(festerRuecken) ?? rueckenMm
+        guard let halb = Druckvorgabe.umschlaghaelfte(bogenBreite: breite, bogenHoehe: hoehe,
+                                                      anschnitt: a, ruecken: r)
+        else { return nil }
+        return (halb, max(0, a), max(0, r))
+    }
+
+    // Rot wird die Fußzeile nur, wenn jemand etwas eingetippt hat, aus dem
+    // NICHTS folgt — dann passt eine der vier Zahlen nicht zu den anderen,
+    // und das ist der wichtigere Befund.
+    private var vorgabeGewarnt: Bool {
+        if zahlAus(bogenbreite) != nil, zahlAus(bogenhoehe) != nil, vorgabe == nil {
+            return true
+        }
+        return zahlAus(bogenbreite) != nil && zahlAus(bogenhoehe) == nil
+            && rueckenAusBogen == nil
+    }
+
+    private func uebernahmetext(_ ergebnis: (format: Seitenformat, anschnitt: Double,
+                                             ruecken: Double)) -> String
+    {
+        let masse = CGSize(width: ergebnis.format.breite, height: ergebnis.format.hoehe)
+        var text = "Ergibt "
+        text += Druckvorgabe.masstext(masse)
+        text += " je Hälfte \u{2014} übernehmen"
+        return text
+    }
+
+    private func vorgabeUebernehmen() {
+        guard let neu = vorgabe else { return }
+        werk.merken()
+        werk.reise.umschlag.format = neu.format
+        werk.reise.umschlag.anschnitt = min(max(0, neu.anschnitt), 30)
+        werk.reise.umschlag.rueckenbreiteVonHand = min(max(0, neu.ruecken), 80)
+        zugabe = Druckvorgabe.zahl(neu.anschnitt)
+        festerRuecken = Druckvorgabe.zahl(neu.ruecken)
     }
 
     private var druckereihinweis: String {
-        var text = "Oben steht, was diese App ausgibt: zwei Seiten, der Rücken und ringsum "
-        text += "\(zahl(werk.reise.gestaltung.anschnitt, "mm")) Anschnitt. Das ist die Zahl, "
-        text += "die eine Druckerei prüft \u{2014} sie lässt sich gegen die Bestellung halten. "
-        if let b = zahlAus(bogenbreite), rueckenAusBogen == nil {
-            text += "\u{26A0}\u{FE0F} Aus \(Druckvorgabe.zahl(b)) mm folgt kein Rücken: Schon zwei "
-            text += "Seiten und der Anschnitt sind breiter. Dann passt das SEITENFORMAT nicht "
-            text += "zu dieser Angabe \u{2014} das ist der wichtigere Befund, und er wird unter "
-            text += "\u{201E}Format\u{201C} geklärt. "
+        var text = "Oben steht, was diese App ausgibt. Der Umschlag eines gebundenen "
+        text += "Buches ist GRÖSSER als der Buchblock, und seine Beschnittzugabe ist oft "
+        text += "eine andere \u{2014} seit 1.0.91 lässt sich beides hier eintragen und folgt "
+        text += "nicht mehr stillschweigend dem Innenteil. "
+        text += "Trag ein, was die Druckerei für das Cover nennt: Bruttomaß (mit "
+        text += "Beschnitt), die Zugabe und die Rückenstärke. Daraus folgt das Nettomaß "
+        text += "EINER Hälfte, und das ist die Zahl, mit der die App rechnet. "
+        if vorgabeGewarnt {
+            text += "\u{26A0}\u{FE0F} Aus diesen Zahlen folgt kein gültiges Maß: Zugabe und "
+            text += "Rücken zusammen sind breiter als der Bogen, oder eine der Zahlen "
+            text += "gehört nicht dazu. "
         } else {
-            text += "Nennt sie eine Rückenstärke, wird sie hier eingetragen und schlägt "
-            text += "Tabelle wie Rechnung. Nennt sie nur die Bogenbreite, folgt die "
-            text += "Rückenstärke daraus \u{2014} Format und Anschnitt stehen ja fest. "
+            text += "Bleibt ein Feld leer, gilt dafür weiter, was schon eingetragen ist. "
+            text += "Nennt die Druckerei nur die Bogenbreite, folgt daraus wie bisher "
+            text += "allein die Rückenstärke. "
+        }
+        if umschlag.format != nil, werk.reise.umschlagTraegtInhalt {
+            text += "Achtung: Die erste und die letzte Tagebuchseite stehen auf U2 und U3, "
+            text += "also auf dem Umschlagbogen \u{2014} gesetzt wurden sie aber für das "
+            text += "Format des Buchblocks. Auf der größeren Umschlaghälfte bleibt deshalb "
+            text += "rechts und unten mehr Rand stehen. "
         }
         return text
     }

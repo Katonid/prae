@@ -108,8 +108,13 @@ struct SeitenflaecheView: View, Equatable {
             && links.buchseite == rechts.buchseite
     }
 
-    private var format: CGSize { werk.reise.format.groesse }
-    private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
+    // DAS MASS KOMMT VON DER SEITE, NICHT VOM BUCH (ab 1.0.91). Eine
+    // Umschlaghälfte darf ein eigenes Format und einen eigenen Anschnitt
+    // tragen — aufgelöst in `Reise.flaeche`/`anschnittPt`, also an
+    // derselben Stelle, die auch das PDF fragt.
+    private var seitenmass: Seitenformat { werk.reise.flaeche(buchseite) }
+    private var format: CGSize { seitenmass.groesse }
+    private var anschnitt: Double { werk.reise.anschnittPt(buchseite) }
 
     // Der Anschnitt an der linken und an der rechten Kante. An der
     // Bundkante eines Bogens ist er NULL — dort stößt die Nachbarhälfte an
@@ -128,7 +133,11 @@ struct SeitenflaecheView: View, Equatable {
         CGSize(width: Double(format.width) + anschnittLinks + anschnittRechts,
                height: Double(format.height) + 2 * anschnitt)
     }
-    private var satz: CGRect { werk.reise.gestaltung.satzspiegel(werk.reise.format) }
+    // Auf dem Umschlag gilt dessen Satzspiegel — derselbe, mit dem der
+    // Layoutautomat die Titelseite setzt. Bis 1.0.90 zeichnete die Bühne
+    // hier den des BUCHES, und damit lag die blaue Linie auf dem Umschlag
+    // woanders als der Titel darauf.
+    private var satz: CGRect { werk.reise.satzspiegel(buchseite) }
 
     // DIE FANGKANTEN DES ANSCHNITTS — ohne die, die es hier nicht gibt.
     //
@@ -138,8 +147,10 @@ struct SeitenflaecheView: View, Equatable {
     // Linie ohne Wirkung ist eine Behauptung — und eine Wirkung ohne Linie
     // erst recht.
     private var fangbogen: CGRect? {
-        guard werk.reise.gestaltung.anschnitt > 0.5 else { return nil }
-        let voll = werk.reise.gestaltung.randabfallend(werk.reise.format)
+        guard anschnitt > Druckmass.pt(0.5) else { return nil }
+        let voll = CGRect(x: -anschnitt, y: -anschnitt,
+                          width: Double(format.width) + 2 * anschnitt,
+                          height: Double(format.height) + 2 * anschnitt)
         switch bogenkante {
         case .links:
             return CGRect(x: 0, y: voll.minY,
@@ -174,7 +185,7 @@ struct SeitenflaecheView: View, Equatable {
 
     private var schutzzone: CGRect? {
         guard werk.reise.gestaltung.hatSicherheitsabstand else { return nil }
-        return werk.reise.gestaltung.schutzzone(werk.reise.format,
+        return werk.reise.gestaltung.schutzzone(seitenmass,
                                                 bund: buchseite.bundlage)
     }
 
@@ -998,7 +1009,7 @@ struct SeitenflaecheView: View, Equatable {
         fangSenkrecht = gefangen.senkrecht
         fangWaagerecht = gefangen.waagerecht
         let neu = ausgang.verschoben(dx: gefangen.dx, dy: gefangen.dy)
-            .begrenzt(auf: werk.reise.format.groesse)
+            .begrenzt(auf: format)
         // DIE BILDUNTERSCHRIFT GEHT MIT (ab 1.0.86) — sie gehört zum Bild.
         werk.schiebeMitUnterschrift(block.id, auf: neu)
     }

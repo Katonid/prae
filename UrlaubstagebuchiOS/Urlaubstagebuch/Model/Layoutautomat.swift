@@ -104,6 +104,15 @@ struct Layoutautomat {
         Umschlagmass.satzspiegel(format, gestaltung: gestaltung, umschlag: umschlag)
     }
 
+    // Die randabfallende Fläche EINER Umschlaghälfte (ab 1.0.91). Seit der
+    // Umschlag ein eigenes Maß und einen eigenen Anschnitt tragen darf,
+    // ist sie nicht mehr dieselbe wie die des Buchblocks — ein
+    // randabfallendes Titelfoto mit `bogen` liefe sonst an drei Kanten zu
+    // kurz.
+    private var umschlagbogen: CGRect {
+        Umschlagmass.randabfallend(format, gestaltung: gestaltung, umschlag: umschlag)
+    }
+
     // Die Schrift des Umschlags — die des Buchtitels, solange nichts
     // anderes gesetzt ist.
     private var umschlagtitel: Schriftbild {
@@ -199,7 +208,7 @@ struct Layoutautomat {
         var bloecke: [Block] = []
         bloecke.append(Block(
             inhalt: .foto(foto),
-            rahmen: Rahmen(bogen),
+            rahmen: Rahmen(umschlagbogen),
             randabfallend: true
         ))
 
@@ -323,7 +332,7 @@ struct Layoutautomat {
         if let foto, fotoIndex[foto] != nil {
             bloecke.append(Block(
                 inhalt: .foto(foto),
-                rahmen: Rahmen(bogen),
+                rahmen: Rahmen(umschlagbogen),
                 randabfallend: true
             ))
         }
