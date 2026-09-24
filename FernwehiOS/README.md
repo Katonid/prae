@@ -36,6 +36,20 @@ lässt sich teilen — mit **Miturlaubern**, die mitschreiben, und mit
   einladen" bietet nur Schreibrecht an, „Betrachter einladen" nur Leserecht.
   Betrachter sehen alles, aber keinen Bearbeiten-Knopf.
 
+## Name im App Store
+
+„Fernweh" allein ist im App Store vergeben. Der Store-Name lautet deshalb
+**„Fernweh – Reisegeschichten"** (26 Zeichen, erlaubt sind 30).
+Auf dem Homescreen heißt die App weiter **Fernweh**
+(`INFOPLIST_KEY_CFBundleDisplayName`). Store-Name und Anzeigename sind
+getrennte Felder und dürfen verschieden sein. Bundle-Id und iCloud-Container
+bleiben unverändert.
+
+Den App-Eintrag **von Hand** in App Store Connect anlegen (Meine Apps → +),
+nicht über Xcodes „Create App Record“: Xcode schlägt dort den Anzeigenamen
+vor und scheitert am vergebenen Namen. Steht der Eintrag, lädt Distribute
+über die Bundle-Id hinein.
+
 ## Einrichten (einmalig, auf dem Mac)
 
 1. In Xcode → Target **Fernweh** → *Signing & Capabilities*:

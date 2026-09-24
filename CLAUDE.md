@@ -10428,7 +10428,13 @@ Befunde, und keiner davon war Geschmack:
 
 - App-Code: `FernwehiOS/` (ein Target: App, iPhone + iPad, iOS 17, keine
   fremden Abhängigkeiten), Bundle-Id `de.familie.fernweh`, iCloud-Container
-  `iCloud.de.familie.fernweh`, Homescreen-Name „Fernweh". Anlass (Ansage des
+  `iCloud.de.familie.fernweh`, Homescreen-Name „Fernweh". **Store-Name
+  „Fernweh – Reisegeschichten"** (Ansage des Nutzers, 09/2026, weil „Fernweh" im
+  App Store vergeben ist; 26 Zeichen, Grenze 30 — „Fernweh – Geschichten der
+  Reise" war mit 31 eines zu lang). Store-Name und Anzeigename sind getrennte
+  Felder. Den App-Eintrag von Hand in App Store Connect anlegen, nie über
+  Xcodes „Create App Record“ (Lehre aus Anstoß). Ordner, Ziel, Bundle-Id und
+  Container bleiben. Anlass (Ansage des
   Nutzers, 09/2026): „so etwas wie Polarsteps für mich selbst und einige
   wenige Miturlauber bzw. Betrachter". Ausführlich: `FernwehiOS/README.md`.
 - **Abgleich über `NSPersistentCloudKitContainer`, nicht über eine eigene
