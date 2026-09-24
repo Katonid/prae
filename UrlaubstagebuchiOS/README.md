@@ -480,6 +480,22 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die Ausrichtung je Bild (1.0.88)
+
+Die Unterschrift folgt der Rolle „Bildunterschrift" im Buch — und die steht
+je nach Stil links oder zentriert. Wo die Zeile damit unter dem Nachbarbild
+verschwindet, lässt sie sich für **dieses eine Bild** umstellen: links,
+zentriert, rechts oder Blocksatz, im Inspektor bei Foto oder Karte.
+
+Die Einstellung steht am **Foto** bzw. am **Tag** und nicht am Block: Ein
+Block wird beim Neuanordnen neu gebaut, und sie wäre still weg. Leer heißt:
+wie im Buch.
+
+**Nicht gemessen (1.0.88):** Die Überdeckung selbst ist damit nicht behoben,
+sondern umgehbar gemacht — zwei Blöcke, die einander überlappen, tun das
+weiterhin.
+
+
 ## Auch die Karte trägt eine Unterschrift (1.0.87)
 
 Eine Karte ist im Endeffekt auch nur ein Bild — sie darf jetzt dieselbe
