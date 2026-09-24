@@ -505,9 +505,18 @@ enum Druckpruefung {
         // Nummer, Lage und Hintergrund, und einen eigenen Hintergrund hat
         // es nicht — eine leere Seite genügt und kostet keine
         // CoreText-Messung.
+        //
+        // DER SCHMUTZTITEL MUSS ABER MIT (ab 1.0.99). Bis 1.0.98 stand er
+        // hier nicht, weil `schmutzblatt` einen Vorgabewert hatte — und
+        // damit zählte diese Prüfung bei eingeschaltetem Schmutztitel eine
+        // Seite zu wenig und legte ab dort JEDE Seite auf die falsche
+        // Buchhälfte. Genau der Fall, vor dem der Absatz darüber warnt,
+        // eine Ebene tiefer: nicht nachgebaut, sondern still verkürzt.
+        // Seinen eigenen Grund (weiß) bringt die Hülle mit.
         let folge = reise.seitenfolge(
             titelblatt: reise.titelseite ? Seite() : nil,
-            rueckblatt: reise.hatRueckseite ? Seite() : nil)
+            rueckblatt: reise.hatRueckseite ? Seite() : nil,
+            schmutzblatt: reise.schmutztitel ? Reise.leererSchmutztitel : nil)
 
         func grundVon(_ buchseite: Buchseite) -> Seitenhintergrund {
             // Der Außenbogen folgt dem Umschlag, alles andere dem Buch.
@@ -1331,17 +1340,38 @@ enum Druckpruefung {
     // Die Gegenprobe an der Datei selbst. Was hier steht, ist gemessen und
     // nicht erschlossen — die Boxen kommen aus dem PDF, nicht aus dem
     // Modell, das es geschrieben hat.
-    static func amPDF(_ adresse: URL) -> [Zeile] {
+    //
+    // `erwartet` ist die Seitenzahl, die das BUCH nennt — gerechnet über
+    // `blockseiten`, also über den Weg, an dem auch die Rückenbreite und
+    // die bestellte Seitenzahl hängen. Verglichen wird damit nicht die
+    // Datei mit sich selbst (das fände nur einen Schreibfehler), sondern
+    // zwei unabhängige Zählungen miteinander.
+    //
+    // **Genau das fehlte bis 1.0.98.** Schmutztitel und Schlussseite
+    // fielen aus dem Innenteil heraus, die Datei hatte zwei Seiten
+    // weniger als das Buch behauptete — und nichts sagte es; gemerkt hat
+    // es der Druckdienst. Kein Vorgabewert: Wer nicht vergleichen kann
+    // (Umschlagbogen, Doppelseiten), sagt das mit `nil` ausdrücklich.
+    static func amPDF(_ adresse: URL, erwartet: Int?) -> [Zeile] {
         guard let papier = CGPDFDocument(adresse as CFURL) else {
             return [Zeile(stufe: .warnung, titel: "Das PDF ließ sich nicht lesen",
                           text: "Die Datei ist beschädigt oder leer.")]
         }
         var zeilen: [Zeile] = []
         let groesse = (try? adresse.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        var stufe = Stufe.gut
+        var text = "Die Datei ist geschrieben und lesbar."
+        if let erwartet, erwartet != papier.numberOfPages {
+            stufe = .warnung
+            text = "Das Buch zählt \(erwartet) Seiten, die Datei hat "
+            text += "\(papier.numberOfPages). Die beiden Zählungen sind "
+            text += "auseinandergelaufen — bitte melden; hochgeladen wird, "
+            text += "was in der Datei steht."
+        }
         zeilen.append(Zeile(
-            stufe: .gut,
+            stufe: stufe,
             titel: "\(papier.numberOfPages) Seiten, \(String(format: "%.1f", Double(groesse) / 1_048_576)) MB",
-            text: "Die Datei ist geschrieben und lesbar."
+            text: text
         ))
         if let erste = papier.page(at: 1) {
             let medien = erste.getBoxRect(.mediaBox)
