@@ -7698,6 +7698,38 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **DIE AUSRICHTUNG EINER UNTERSCHRIFT GEHÖRT DEM BILD** (`Foto.unterschriftAusrichtung`,
+  `Reisetag.kartentextAusrichtung`, ab 1.0.88; gemeldet 09/2026 an einer
+  Zeile, die halb unter dem Nachbarfoto verschwand: „Hier verschwindet der
+  Text leider unter dem anderen Bild. Ich möchte bei jedem Bild die
+  Möglichkeit haben, die Standardausrichtung zu durchbrechen und einmalig
+  einstellen können, ob links, rechts oder zentriert ausgerichtet wird.").
+  - **Die Einstellung gab es — am falschen Ort.** `Schriftabweichung.ausrichtung`
+    steht seit 1.0.0 am BLOCK, und der Inspektor bietet sie unter „Schrift an
+    dieser Stelle" an. Zwei Dinge machen sie dort wertlos: Der Block wird beim
+    Neuanordnen neu gebaut, die Einstellung wäre still weg — und um ihn
+    auszuwählen, müsste man die Zeile antippen, die genau in dem gemeldeten
+    Fall UNTER einem Bild liegt. **Ein Weg, der durch das Problem führt, das
+    er lösen soll, ist keiner.**
+  - **Sie steht deshalb am FOTO und am TAG**, wie der Text selbst, und `nil`
+    heißt „wie im Buch" — Abweichung, keine Kopie. Aufgelöst wird sie an EINER
+    Stelle (`Seitensatz.schriftbild`) in drei Stufen: Rolle im Buch, Ausnahme
+    am Foto bzw. Tag, Abweichung am Block. Die letzte ist die unmittelbarste
+    Handarbeit und gewinnt.
+  - **Der Picker im Schrift-Abschnitt schreibt bei einer Unterschrift
+    woanders hin** — an die dauerhafte Stelle. Zwei Wege zu derselben Sache,
+    von denen einer das Neuanordnen nicht übersteht, laufen garantiert
+    auseinander.
+  - **`tag` ist an `schriftbild` wahlweise**, weil nur die KARTENunterschrift
+    ihn braucht. Wo er fehlt, gilt die Rolle — das betrifft ausschließlich
+    Stellen, die MESSEN (Texthöhe, Zeilenlänge), und dort ändert die
+    Ausrichtung nichts. Wer eine Stelle baut, die ZEICHNET, reicht ihn durch.
+- **Nicht gemessen (1.0.88):** Keine Seite ist damit gesehen worden. **Die
+  Ursache der Überdeckung ist NICHT behoben, sondern umgehbar gemacht:** Zwei
+  Blöcke, die einander überlappen, überlappen sich weiterhin — neu ist, dass
+  sich die Zeile dorthin ausrichten lässt, wo Platz ist. Ob das im gemeldeten
+  Fall reicht oder ob die Zeile auch umbrechen müsste, sagt erst der nächste
+  Befund. **Nicht als erledigt darstellen.**
 - **GEFANGEN WIRD, WAS GEMESSEN WIRD** (`Einrasten.Herkunft.misstUmriss`,
   `Block.ueberstand(_:)`, ab 1.0.87; gemeldet 09/2026: „der dicke rote Rand
   um die Bilder, wenn sie über den Sicherheitsabstand ragen, gefällt mir
@@ -9637,7 +9669,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.87 (Build 88). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.88 (Build 89). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
