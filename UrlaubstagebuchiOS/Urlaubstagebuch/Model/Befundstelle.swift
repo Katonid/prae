@@ -81,7 +81,9 @@ enum Befundstellen {
         // sie trotzdem: Ein Satz, der auf der Titelseite herausfällt, ist
         // der teuerste von allen.
         for (name, bloecke) in [("Umschlag: Titelseite", reise.umschlag.titelbloecke),
-                                ("Umschlag: Rückseite", reise.umschlag.rueckbloecke)]
+                                ("Umschlag: Rückseite", reise.umschlag.rueckbloecke),
+                                ("Schmutztitel", reise.schmutztitelbloecke),
+                                ("Schlussseite", reise.schlussbloecke)]
         {
             for block in bloecke where block.inhalt.istText {
                 guard let befund = Textpassung.pruefe(block, tag: nil, reise: reise)

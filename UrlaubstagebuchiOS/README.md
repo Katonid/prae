@@ -480,6 +480,66 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Zwei Seiten, die den Umfang auffüllen (1.0.98)
+
+> „Der Druckdienst, bei dem ich jetzt hochladen möchte, nimmt die Datei mit
+> 62 Innenseiten nicht an, wenn das nächste Raster bei ihm 64 Seiten ist. Das
+> heißt, er fügt nicht selbst Seiten hinzu, sondern möchte, dass ich das
+> mache."
+
+Ein Buchblock wird in **Bogen** gedruckt, und ein Bogen trägt vier, acht oder
+sechzehn Seiten. Manche Dienste füllen selbst auf, andere weisen die Datei ab
+— und die App behauptete bis 1.0.97 das Erste als Auskunft („Die fehlenden
+füllt die Druckerei meist mit leeren auf"). **Wo es nicht gilt, kommt die
+Datei zurück.**
+
+* **Der SCHMUTZTITEL steht ganz vorn**, gleich hinter der Titelseite, und
+  wiederholt Titel, Untertitel und Zeitraum auf **weißem** Grund. Er füllt
+  nicht nur, er gehört dorthin — so steht ein Schmutztitel seit jeher im
+  Buch, und das ist der Unterschied zu einer leeren Seite, die man
+  vorneweg setzt, weil eine Zahl nicht aufgeht. Gesetzt wird er im
+  Satzspiegel des BUCHES und mit dessen Schriften, nicht mit denen des
+  Umschlags: Er wird auf dasselbe Papier gedruckt wie der Text.
+* **Die SCHLUSSSEITE ist die letzte** und bleibt leer und weiß.
+* **Beide einzeln schaltbar**, im Ausgabeblatt unter „Seiten auffüllen" —
+  also dort, wo die Zahl steht, die den Anlass gibt. Darunter steht, wie
+  viele Seiten der Innenteil damit hat.
+* **Beide sind gewöhnliche Buchseiten.** Sie stehen in der Bühne, zählen in
+  `blockseiten` (und damit in der Rückenbreite) mit und nehmen eigene
+  Textfelder, Fotos und Flächen an — Seite antippen, dann „+".
+
+**Die eigenen Felder liegen NEBEN der gerechneten Seite, nicht darin** —
+dieselbe Bauweise wie bei Titel- und Rückseite seit 1.0.64 und aus
+demselben Grund: Die Seiten werden bei jedem Durchgang neu gesetzt; ein
+Block, den jemand hineinschriebe, wäre beim nächsten Mal weg. So bleibt der
+gerechnete Teil lebendig (ein geänderter Titel zieht im Schmutztitel mit),
+und die eigenen Felder überstehen jedes Neuanordnen.
+
+**Der Mechanismus heißt deshalb seit 1.0.98 `Eigenflaeche` und nicht mehr
+`Umschlagflaeche`:** Gemeint ist jede gerechnete Seite, die eigene Felder
+tragen darf. Zwei Dinge hängen daran, und beide wären still falsch gewesen:
+Der **Satzspiegel** eines neuen Feldes ist hier der des Buches und nicht der
+des Umschlags (`satzFuer`), und ein **Wasserzeichen** liegt auf diesen
+beiden Seiten nie — weiß ist hier Absicht, und die Regel „kein Tag heißt
+Umschlag" hätte sie sonst mitgenommen.
+
+Mitgezogen an vier Stellen, jede davon ein stiller Fehler, wenn sie fehlte:
+`Formatwechsel` rechnet die Rahmen mit (sonst säße nach A4 → A5 jedes Feld
+halb außerhalb), `Befundstellen` zählt abgeschnittenen Text auch dort,
+`fotoEntfernen` räumt Blöcke weg, deren Bild es nicht mehr gibt, und
+`blockseiten` zählt die beiden Seiten mit — an dieser Zahl hängt die
+Rückenbreite.
+
+**Nicht gemessen (1.0.98):** Keine Seite ist damit gesehen und keine Datei
+hochgeladen worden. Am Quelltext abgezählt ist, wo die beiden Seiten in der
+Zählung landen und dass beide Zählwege (`blockseiten` und `seitenfolge`)
+dieselbe Zahl ergeben. **Ob der Druckdienst die Datei mit 64 Seiten
+annimmt, sagt erst der nächste Upload** — die App füllt auf, welches Raster
+gilt, sagt weiterhin die Vorgabe des Anbieters. Und **wie ein Schmutztitel
+auf dem Papier aussieht** (der Titel steht bei 0,28 der freien Höhe, eine
+gewählte und nicht gemessene Zahl), sagt erst der erste Ausdruck. Nicht als
+erledigt darstellen.
+
 ## Der Zeitraum ist eine Rechnung, keine Wahrheit (1.0.97)
 
 > „Dadurch, dass ich ein Bild aus der Reisevorbereitung mit eingefügt habe,

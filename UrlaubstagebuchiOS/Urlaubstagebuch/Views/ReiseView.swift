@@ -1577,12 +1577,13 @@ struct ReiseView: View {
                         blatt = .bildAusFotos
                     }
                     // EINE KARTE BRAUCHT EINEN TAG. Sie zeichnet die Spur
-                    // dieses einen Tages; auf dem Umschlag gibt es keinen,
-                    // und was dort stünde, wäre ein leerer Rahmen mit dem
-                    // Satz „Kartenbild fehlt". Deshalb steht der Eintrag
-                    // dort gar nicht erst — ein Knopf, der nichts tut, ist
-                    // für den Menschen davor ein kaputter Knopf.
-                    if werk.umschlagflaeche(seite) == nil {
+                    // dieses einen Tages; auf einer gerechneten Seite ohne
+                    // Tag — Umschlag, Schmutztitel, Schlussseite — gibt es
+                    // keinen, und was dort stünde, wäre ein leerer Rahmen
+                    // mit dem Satz „Kartenbild fehlt". Deshalb steht der
+                    // Eintrag dort gar nicht erst — ein Knopf, der nichts
+                    // tut, ist für den Menschen davor ein kaputter Knopf.
+                    if werk.eigenflaeche(seite) == nil {
                         Button("Karte", systemImage: "map") {
                             werk.blockHinzufuegen(.karte, aufSeite: seite)
                         }

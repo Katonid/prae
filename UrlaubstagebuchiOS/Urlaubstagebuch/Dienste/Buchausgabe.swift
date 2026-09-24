@@ -126,7 +126,10 @@ struct Buchseite: Identifiable, Equatable {
         case .titel: return "Umschlag: Titelseite"
         case .innenVorn: return "Umschlag innen vorn (U2)"
         case .innenHinten: return "Umschlag innen hinten (U3)"
-        case .innen: return tag == nil ? "Titelseite" : "Seite \(nummer)"
+        case .innen:
+            if seite.id == Reise.schmutztitelKennung { return "Schmutztitel (Seite \(nummer))" }
+            if seite.id == Reise.schlussseitenKennung { return "Schlussseite (Seite \(nummer))" }
+            return tag == nil ? "Titelseite" : "Seite \(nummer)"
         }
     }
 }
@@ -137,6 +140,13 @@ extension Reise {
     // Vorschau, die etwas anderes zeigt als der Druck.
     func wasserzeichen(fuer buchseite: Buchseite) -> Wasserzeichen? {
         guard let zeichen = gestaltung.wasserzeichen, zeichen.gueltig else { return nil }
+        // AUF SCHMUTZTITEL UND SCHLUSSSEITE LIEGT NIE EINES (ab 1.0.98).
+        // Sie sind ausdrücklich weiß — das ist ihr ganzer Sinn; ein
+        // Zeichen darauf wäre genau das, was der Nutzer dort nicht haben
+        // wollte. Die Prüfung steht VOR der Umschlagregel: Beide tragen
+        // keinen Tag, sind aber keine Umschlagseiten.
+        if buchseite.seite.id == Reise.schmutztitelKennung { return nil }
+        if buchseite.seite.id == Reise.schlussseitenKennung { return nil }
         // Kein Tag heißt Umschlag — Titelseite oder Rückseite.
         if buchseite.tag == nil, !zeichen.aufTitelblatt { return nil }
         return zeichen
@@ -251,6 +261,15 @@ extension Reise {
     static let ausgleichsseitenKennung =
         UUID(uuidString: "5EEE0000-0000-4000-A000-000000000001")!
 
+    // Dieselbe Überlegung für die beiden Auffüllseiten (ab 1.0.98): Sie
+    // werden gerechnet, tragen aber eigene Felder — und an der Kennung
+    // hängen `ForEach`, `scrollTo`, das Papierkorn, die Lage des
+    // Wasserzeichens und die Frage, zu welcher Fläche ein Block gehört.
+    static let schmutztitelKennung =
+        UUID(uuidString: "5EEE0000-0000-4000-A000-000000000002")!
+    static let schlussseitenKennung =
+        UUID(uuidString: "5EEE0000-0000-4000-A000-000000000003")!
+
     // Wie viele Seiten der BUCHBLOCK hat — das, was gebunden wird, samt
     // der Ausgleichsseite und samt der Titelseite, wenn die kein eigener
     // Umschlagbogen ist. Gerechnet und nicht gezählt: `seitenfolge` setzt
@@ -269,6 +288,12 @@ extension Reise {
         // Zahl hängt die RÜCKENBREITE, und ein Rücken, der zwei Seiten zu
         // dick gerechnet ist, passt nicht auf das gebundene Buch.
         if umschlagTraegtInhalt { anzahl = max(0, anzahl - 2) }
+        // SCHMUTZTITEL UND SCHLUSSSEITE ZÄHLEN MIT (ab 1.0.98) — genau
+        // dafür gibt es sie. Sie stehen VOR dem Ausgleich in der
+        // Rechnung: Der bringt den Block auf eine gerade Zahl und muss
+        // deshalb zuletzt rechnen.
+        if schmutztitel { anzahl += 1 }
+        if schlussseite { anzahl += 1 }
         if Reise.brauchtAusgleich(anzahl) { anzahl += 1 }
         return anzahl
     }
@@ -368,7 +393,13 @@ extension Reise {
             && inhaltsseiten.count >= 4
     }
 
-    func seitenfolge(titelblatt: Seite?, rueckblatt: Seite?) -> [Buchseite] {
+    // `schmutzblatt` wird wie das Titelblatt HEREINGEREICHT und nicht
+    // hier gerechnet: Sein Satz kostet CoreText-Messungen, und
+    // `Reisewerk` merkt es sich zusammen mit den beiden Umschlagseiten —
+    // der Körper einer Ansicht läuft oft (die Lehre aus 1.0.15).
+    func seitenfolge(titelblatt: Seite?, rueckblatt: Seite?,
+                     schmutzblatt: Seite? = nil) -> [Buchseite]
+    {
         var folge: [Buchseite] = []
         if hatRueckseite, let rueckblatt {
             folge.append(Buchseite(seite: mitEigenen(rueckblatt, umschlag.rueckbloecke),
@@ -413,6 +444,19 @@ extension Reise {
             folge.append(Buchseite(seite: erste.seite, tag: erste.tag,
                                    teil: .innenVorn, nummer: 0))
         }
+        // DER SCHMUTZTITEL STEHT VOR ALLEM ANDEREN (ab 1.0.98) — also
+        // hinter der Titelseite und vor dem ersten Tag. Er zählt als
+        // Innenseite: Genau dafür gibt es ihn.
+        //
+        // Seine eigenen Felder werden hier angehängt, wie beim Umschlag
+        // seit 1.0.64. Einen TAG hat er nicht — er gehört dem Buch und
+        // nicht einem Tag; `kurzname` nennt ihn deshalb bei seinem Namen,
+        // statt ihn für die Titelseite zu halten.
+        if schmutztitel, let blatt = schmutzblatt {
+            folge.append(Buchseite(seite: mitEigenen(blatt, schmutztitelbloecke),
+                                   tag: nil, teil: .innen, nummer: nummer))
+            nummer += 1
+        }
         var letzterTag: Reisetag?
         for eintrag in block {
             folge.append(Buchseite(seite: eintrag.seite, tag: eintrag.tag,
@@ -426,6 +470,15 @@ extension Reise {
         // `kurzname` nennte sie „Titelseite"; mit ihm ist sie schlicht
         // die letzte Seite dieses Tages, und die Bühne springt beim
         // Blättern an die richtige Stelle.
+        // DIE SCHLUSSSEITE IST DIE LETZTE — vor dem Ausgleich, denn der
+        // bringt den Block auf eine gerade Zahl und muss deshalb zuletzt
+        // rechnen.
+        if schlussseite {
+            let blatt = automat.schlussseite()
+            folge.append(Buchseite(seite: mitEigenen(blatt, schlussbloecke),
+                                   tag: nil, teil: .innen, nummer: nummer))
+            nummer += 1
+        }
         if Reise.brauchtAusgleich(nummer - 1), let letzterTag {
             let leer = Seite(id: Reise.ausgleichsseitenKennung, bloecke: [],
                              ohneSeitenzahl: true)
@@ -469,8 +522,15 @@ extension Reise {
             rueckblatt: hatRueckseite
                 ? automat.rueckseite(text: umschlag.rueckseitentext,
                                      foto: umschlag.rueckseitenfoto)
-                : nil
+                : nil,
+            schmutzblatt: schmutztitel ? gesetzterSchmutztitel : nil
         )
+    }
+
+    /// Der gerechnete Schmutztitel — an EINER Stelle, gefragt vom
+    /// bequemen Zugang hier und von `Reisewerk`, das ihn sich merkt.
+    var gesetzterSchmutztitel: Seite {
+        automat.schmutztitel(titel: titel, untertitel: untertitel, zeitraum: zeitraum)
     }
 }
 

@@ -50,6 +50,7 @@ enum Formatwechsel {
         let alt = reise.format
         let f = faktor(von: alt, auf: neu)
         var bloecke = reise.umschlag.titelbloecke.count + reise.umschlag.rueckbloecke.count
+            + reise.schmutztitelbloecke.count + reise.schlussbloecke.count
         for tag in reise.tage {
             for seite in tag.seiten { bloecke += seite.bloecke.count }
         }
@@ -137,6 +138,15 @@ enum Formatwechsel {
         }
         for stelle in reise.umschlag.rueckbloecke.indices {
             skaliere(&reise.umschlag.rueckbloecke[stelle], mal: f)
+        }
+        // Dasselbe für Schmutztitel und Schlussseite (ab 1.0.98) — sie
+        // sind gerechnete Seiten mit eigenen Feldern, und ein Rahmen
+        // darauf ist genauso eine Länge.
+        for stelle in reise.schmutztitelbloecke.indices {
+            skaliere(&reise.schmutztitelbloecke[stelle], mal: f)
+        }
+        for stelle in reise.schlussbloecke.indices {
+            skaliere(&reise.schlussbloecke[stelle], mal: f)
         }
 
         // DAS EIGENE MASS DES UMSCHLAGS IST EINE LÄNGE (ab 1.0.91) und

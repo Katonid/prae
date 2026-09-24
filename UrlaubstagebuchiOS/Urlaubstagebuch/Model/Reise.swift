@@ -186,6 +186,33 @@ struct Reise: Identifiable, Codable {
     // und wer gar keinen Zeitraum auf dem Titel will, käme nie dorthin.
     var zeitraumZeigen: Bool = true
 
+    // ZWEI SEITEN, DIE DEN UMFANG AUFFÜLLEN (ab 1.0.98).
+    //
+    // Ansage des Nutzers, 09/2026: „Der Druckdienst … nimmt die Datei mit
+    // 62 Innenseiten nicht an, wenn das nächste Raster bei ihm 64 Seiten
+    // ist. Das heißt, er fügt nicht selbst Seiten hinzu, sondern möchte,
+    // dass ich das mache. … Eine Seite davon direkt an den Anfang … und
+    // noch einmal den Text der Titelseite widerspiegelt. Der Hintergrund
+    // soll diesmal weiß sein. Die zweite einzufügende Seite soll die
+    // letzte Seite sein und komplett weiß bleiben."
+    //
+    // Beide sind EINZELN schaltbar („Ob diese Seiten eingefügt werden
+    // oder nicht, möchte ich in der App wählen können"), und beide zählen
+    // als Innenseiten — das ist ihr ganzer Zweck.
+    var schmutztitel: Bool = false
+    var schlussseite: Bool = false
+
+    // Was jemand SELBST auf diese beiden Seiten legt.
+    //
+    // Dieselbe Bauweise wie bei Titel- und Rückseite seit 1.0.64, und aus
+    // demselben Grund: Die Seiten werden bei jedem Durchgang GERECHNET —
+    // ein Block, den jemand hineinschriebe, wäre beim nächsten Mal weg.
+    // Die eigenen Felder liegen deshalb daneben und werden in
+    // `seitenfolge` angehängt; der gerechnete Teil bleibt dabei lebendig
+    // (ein geänderter Titel zieht im Schmutztitel mit).
+    var schmutztitelbloecke: [Block] = []
+    var schlussbloecke: [Block] = []
+
     var geaendert: Date = Date()
 
     init() {}
@@ -210,6 +237,10 @@ struct Reise: Identifiable, Codable {
         bestellteSeiten = b.wahlweise(.bestellteSeiten)
         zeitraumtext = b.wahlweise(.zeitraumtext)
         zeitraumZeigen = b.wert(.zeitraumZeigen, true)
+        schmutztitel = b.wert(.schmutztitel, false)
+        schlussseite = b.wert(.schlussseite, false)
+        schmutztitelbloecke = b.wert(.schmutztitelbloecke, [Block]())
+        schlussbloecke = b.wert(.schlussbloecke, [Block]())
         geaendert = b.wert(.geaendert, Date())
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
