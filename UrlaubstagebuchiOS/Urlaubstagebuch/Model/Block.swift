@@ -542,5 +542,23 @@ struct Seite: Identifiable, Codable, Hashable {
         bloecke[stelle].ebene = hoechste
     }
 
-    var sortiert: [Block] { bloecke.sorted { $0.ebene < $1.ebene } }
+    // STABIL SORTIERT (ab 1.0.86).
+    //
+    // `sorted` ist in Swift NICHT als stabil zugesichert — dieselbe Falle
+    // wie beim Ordnen der Reisepunkte in 1.0.21. Bei gleicher Ebene hing
+    // damit vom Zufall ab, welcher von zwei Blöcken obenauf liegt, und das
+    // trifft genau ein Paar, das immer gleich hoch liegt: ein Foto und
+    // seine Bildunterschrift. Die Zeile konnte damit unter ihr eigenes
+    // Bild geraten. Die Stelle in der Liste entscheidet jetzt als zweites
+    // Merkmal — und dort steht die Unterschrift hinter ihrem Bild.
+    var sortiert: [Block] {
+        bloecke.enumerated()
+            .sorted { links, rechts in
+                if links.element.ebene != rechts.element.ebene {
+                    return links.element.ebene < rechts.element.ebene
+                }
+                return links.offset < rechts.offset
+            }
+            .map(\.element)
+    }
 }

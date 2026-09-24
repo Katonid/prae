@@ -985,7 +985,8 @@ struct SeitenflaecheView: View, Equatable {
         fangWaagerecht = gefangen.waagerecht
         let neu = ausgang.verschoben(dx: gefangen.dx, dy: gefangen.dy)
             .begrenzt(auf: werk.reise.format.groesse)
-        werk.aendere(block.id, merken: false) { $0.rahmen = neu }
+        // DIE BILDUNTERSCHRIFT GEHT MIT (ab 1.0.86) — sie gehört zum Bild.
+        werk.schiebeMitUnterschrift(block.id, auf: neu)
     }
 
     // MARK: - Drehen
@@ -1003,7 +1004,11 @@ struct SeitenflaecheView: View, Equatable {
         for rast in stride(from: -180.0, through: 180.0, by: 45) where abs(grad - rast) < 3 {
             grad = rast
         }
-        werk.aendere(block.id, merken: false) { $0.drehung = grad }
+        // Gedreht wird das Bild MIT seiner Unterschrift (ab 1.0.86): Die
+        // Zeile dreht um die Mitte des Bildes mit, statt schief darunter
+        // stehen zu bleiben — und unter einem stark gedrehten Bild zu
+        // verschwinden.
+        werk.drehe(block.id, auf: grad)
     }
 
     // MARK: - Größe

@@ -840,6 +840,98 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
     }
 
+    // DIE BILDUNTERSCHRIFT GEHÖRT ZUM BILD — SIE GEHT MIT (ab 1.0.86).
+    //
+    // Gemeldet 09/2026: „Ich habe jetzt erstmalig eine Bildunterschrift
+    // einfügen wollen und habe festgestellt, dass sie sich bei Drehung des
+    // Bildes nicht mitdreht. Im vorliegenden Fall ist es so, dass sie sogar
+    // zum großen Teil vom Bild verdeckt ist."
+    //
+    // **Beide Hälften haben dieselbe Ursache.** Die Unterschrift ist seit
+    // 1.0.5 ein eigener Block; sie steht unter dem RAHMEN des Fotos, und
+    // ein gedrehtes Bild ragt mit seiner Ecke weit darüber hinaus (die
+    // Rechnung dazu steht an `Block.umriss` seit 1.0.83: ein Grad auf
+    // 300 Punkt Breite sind gut zweieinhalb Punkt, bei zehn Grad ein
+    // Vielfaches davon). Sie wird also nicht nur schief, sondern
+    // verschwindet darunter.
+    //
+    // Im Quelltext stand bis 1.0.85 der Satz, sie drehe bewusst NICHT mit:
+    // „Mitgedreht würde sie um ihre EIGENE Mitte gedreht und rückte damit
+    // vom Bild ab." Das stimmt — für eine Drehung, die nur den WINKEL
+    // setzt. Es stimmt nicht mehr, sobald auch die LAGE mitgedreht wird,
+    // und genau das tut `Rahmen.gedreht(um:grad:)`. **Merke: Eine
+    // Begründung, die gegen einen Weg spricht, trifft oft nur seine
+    // einfachste Form.**
+    //
+    // Gedreht wird um die Mitte des FOTOS und um die DIFFERENZ zum
+    // bisherigen Winkel: Der Griff setzt ihn absolut, und die gespeicherte
+    // Lage der Unterschrift trägt die vorherige Drehung schon in sich.
+    func drehe(_ id: UUID, auf grad: Double, merken merkt: Bool = false) {
+        if umschlagblock(id) != nil {
+            // Auf dem Umschlag gibt es keine Bildunterschriften: Die
+            // gehören einem Foto eines Tages.
+            aendere(id, merken: merkt) { $0.drehung = grad }
+            return
+        }
+        guard let stelle = block(id) else { return }
+        if merkt { merken() }
+        var bloecke = reise.tage[stelle.tag].seiten[stelle.seite].bloecke
+        let delta = grad - bloecke[stelle.block].drehung
+        bloecke[stelle.block].drehung = grad
+        bloecke[stelle.block].vonHand = true
+        if let u = unterschriftZu(bloecke[stelle.block], in: bloecke) {
+            let mitte = bloecke[stelle.block].rahmen.mitte
+            bloecke[u].rahmen = bloecke[u].rahmen.gedreht(um: mitte, grad: delta)
+            bloecke[u].drehung += delta
+            bloecke[u].vonHand = true
+        }
+        reise.tage[stelle.tag].seiten[stelle.seite].bloecke = bloecke
+    }
+
+    // Dasselbe für das Verschieben: Was am Bild hängt, hängt auch am
+    // Schieben daran. Wer die Unterschrift woanders haben will, fasst SIE
+    // an — dann bleibt die neue Lage erhalten, denn bewegt wird immer nur
+    // die Differenz.
+    //
+    // Die GRÖSSENÄNDERUNG nimmt sie bewusst nicht mit: Dort ist es keine
+    // starre Bewegung — die Zeile müsste neu umbrechen und ihre Höhe neu
+    // messen. Sie liegt danach sichtbar neben dem Bild und ist in einem
+    // Griff nachgezogen; eine gedrehte Zeile unter dem Bild war gar nicht
+    // mehr zu greifen, und das ist der Unterschied.
+    func schiebeMitUnterschrift(_ id: UUID, auf neu: Rahmen, merken merkt: Bool = false) {
+        if umschlagblock(id) != nil {
+            aendere(id, merken: merkt) { $0.rahmen = neu }
+            return
+        }
+        guard let stelle = block(id) else { return }
+        if merkt { merken() }
+        var bloecke = reise.tage[stelle.tag].seiten[stelle.seite].bloecke
+        let alt = bloecke[stelle.block].rahmen
+        bloecke[stelle.block].rahmen = neu
+        bloecke[stelle.block].vonHand = true
+        if let u = unterschriftZu(bloecke[stelle.block], in: bloecke) {
+            // NICHT auf die Seite geklemmt: Starr ist starr. Schiebt jemand
+            // das Bild an den Rand, soll die Unterschrift ihren Abstand
+            // behalten — was dabei über die Kante gerät, meldet die rote
+            // Marke, und das ist die ehrlichere Auskunft als eine Zeile,
+            // die sich still an das Bild heranschiebt.
+            bloecke[u].rahmen = bloecke[u].rahmen.verschoben(dx: neu.x - alt.x,
+                                                             dy: neu.y - alt.y)
+            bloecke[u].vonHand = true
+        }
+        reise.tage[stelle.tag].seiten[stelle.seite].bloecke = bloecke
+    }
+
+    /// Die Unterschrift zu einem Fotoblock — in DERSELBEN Seite.
+    ///
+    /// Seit `blockKopieren` (1.0.39) darf dasselbe Foto zweimal im Buch
+    /// stehen; über das ganze Buch gesucht bewegte ein Griff die Zeile der
+    /// anderen Kopie mit.
+    private func unterschriftZu(_ block: Block, in bloecke: [Block]) -> Int? {
+        guard let fotoID = block.fotoID else { return nil }
+        return bloecke.firstIndex { $0.inhalt == .bildunterschrift(fotoID) }
+    }
+
     // EINE KARTENEINSTELLUNG IST KEINE HANDARBEIT AM SATZ (ab 1.0.51).
     //
     // `aendere` setzt `vonHand` — richtig, wo jemand einen Block schiebt,
@@ -909,12 +1001,24 @@ final class Reisewerk: ObservableObject, Identifiable {
                 let fotoblock = reise.tage[t].seiten[s].bloecke[stelle]
                 let hoehe = Textmass.hoehe(text.isEmpty ? "Bildunterschrift" : text,
                                            bild: bild, breite: fotoblock.rahmen.breite)
-                let neu = Block(
+                // UNTER DEM WEISSEN RAND, nicht darin (ab 1.0.86): Der
+                // liegt außerhalb des Rahmens und deckte die Zeile sonst zu.
+                let fuge = Druckmass.pt(fotoblock.wirkung(reise.gestaltung).fotorand) + 3
+                var neu = Block(
                     inhalt: .bildunterschrift(fotoID),
                     rahmen: Rahmen(x: fotoblock.rahmen.x,
-                                   y: fotoblock.rahmen.y + fotoblock.rahmen.hoehe + 3,
+                                   y: fotoblock.rahmen.y + fotoblock.rahmen.hoehe + fuge,
                                    breite: fotoblock.rahmen.breite, hoehe: hoehe)
                 )
+                // Und mit derselben Neigung wie ihr Bild, um dessen Mitte
+                // gedreht — sonst stünde sie schief darunter und bei
+                // stärkerer Drehung halb dahinter.
+                neu.ebene = fotoblock.ebene
+                if abs(fotoblock.drehung) > 0.01 {
+                    neu.rahmen = neu.rahmen.gedreht(um: fotoblock.rahmen.mitte,
+                                                    grad: fotoblock.drehung)
+                    neu.drehung = fotoblock.drehung
+                }
                 reise.tage[t].seiten[s].bloecke.insert(neu, at: stelle + 1)
             }
         }
