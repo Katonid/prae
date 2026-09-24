@@ -81,6 +81,31 @@ final class Bildarchiv {
         return name
     }
 
+    // EINE DATEI WIRD KOPIERT, NICHT DURCH DEN SPEICHER GETRAGEN
+    // (ab 1.0.105).
+    //
+    // Befund des Nutzers, 09/2026: „Bei meinem größeren Bild ging das
+    // nicht. Als ich es jedoch zunächst aus der Galerie als Datei
+    // exportiert habe und diese Datei dann eingelesen habe, ging es."
+    // Derselbe Weg dahinter, dieselbe Seite, dasselbe Bild — nur der Griff
+    // davor war ein anderer.
+    //
+    // `FileManager.copyItem` reicht die Bytes vom Dateisystem an das
+    // Dateisystem weiter; im Arbeitsspeicher der App landet nichts davon.
+    // `ablegen` daneben bleibt für den Fall, dass wirklich nur Daten da
+    // sind (eine Datei aus dem Wähler kommt als Kopie im eigenen Ordner an).
+    func uebernehmen(_ quelle: URL, reise: UUID, endung: String) throws -> String {
+        let anfang = Date()
+        let name = UUID().uuidString + "." + endung
+        let ziel = pfad(reise, datei: name)
+        try? dateien.removeItem(at: ziel)
+        try dateien.copyItem(at: quelle, to: ziel)
+        let groesse = (try? ziel.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        Tempomesser.melde("Bild ablegen", dauer: Date().timeIntervalSince(anfang),
+                          zusatz: "\(groesse / 1024) KB, kopiert")
+        return name
+    }
+
     func loeschen(_ datei: String, reise: UUID) {
         try? dateien.removeItem(at: pfad(reise, datei: datei))
         vorrat.removeObject(forKey: schluessel(datei, kante: 0) as NSString)

@@ -2198,11 +2198,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // schnitte jedes Hochformat an, denn gefüllt wird, nicht eingepasst.
     @discardableResult
     func grafikEinfuegen(_ daten: Data, endung: String, aufSeite seiteID: UUID) -> Bool {
-        let flaeche = eigenflaeche(seiteID)
         let wo = seitenname(seiteID) ?? "unbekannte Seite"
         Absturzspur.beginnt("Bild einsetzen auf \(wo): Maße lesen "
             + "(\(daten.count) Bytes, .\(endung))")
-        guard flaeche != nil || seitenstelle(seiteID) != nil else {
+        guard eigenflaeche(seiteID) != nil || seitenstelle(seiteID) != nil else {
             Absturzspur.endet()
             return false
         }
@@ -2214,6 +2213,43 @@ final class Reisewerk: ObservableObject, Identifiable {
             Absturzspur.endet()
             return false
         }
+        return grafikSetzen(datei: datei, befund: befund, aufSeite: seiteID, wo: wo)
+    }
+
+    // DERSELBE WEG, NUR OHNE DIE BYTES IM SPEICHER (ab 1.0.105).
+    //
+    // Befund des Nutzers, 09/2026: Ein kleines Bild ließ sich aus der
+    // Mediathek einsetzen, ein größeres nicht — dasselbe Bild über
+    // „Dateien" aber schon. Beide Wege enden hier; was sich unterschied,
+    // war der Griff DAVOR. Dieser hier trägt nie mehr als einen Dateinamen.
+    @discardableResult
+    func grafikEinfuegen(vonDatei quelle: URL, endung: String,
+                         aufSeite seiteID: UUID) -> Bool
+    {
+        let wo = seitenname(seiteID) ?? "unbekannte Seite"
+        Absturzspur.beginnt("Bild einsetzen auf \(wo): Maße aus der Datei lesen (.\(endung))")
+        guard eigenflaeche(seiteID) != nil || seitenstelle(seiteID) != nil else {
+            Absturzspur.endet()
+            return false
+        }
+        let befund = Bildleser.befund(datei: quelle)
+        Absturzspur.beginnt("Bild einsetzen auf \(wo): Datei kopieren "
+            + "(\(Int(befund.breite)) x \(Int(befund.hoehe)))")
+        guard let datei = try? Bildarchiv.shared.uebernehmen(quelle, reise: reise.id,
+                                                            endung: endung)
+        else {
+            Absturzspur.endet()
+            return false
+        }
+        return grafikSetzen(datei: datei, befund: befund, aufSeite: seiteID, wo: wo)
+    }
+
+    // Der gemeinsame Rest. Zwei Fassungen davon liefen auseinander, und
+    // dann setzte der eine Weg den Block anders als der andere.
+    private func grafikSetzen(datei: String, befund: Bildbefund,
+                              aufSeite seiteID: UUID, wo: String) -> Bool
+    {
+        let flaeche = eigenflaeche(seiteID)
         Absturzspur.beginnt("Bild einsetzen auf \(wo): Block setzen (\(datei))")
         merken()
         let foto = Foto(datei: datei,

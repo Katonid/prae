@@ -480,6 +480,75 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ein Buch mit einem Bild darauf, und ein Bild, das ohne Umweg ankommt (1.0.105)
+
+### Das Symbol
+
+Gewählt vom Nutzer aus fünf Entwürfen (09/2026): **ein Buch von vorn, mit
+einem Bild auf dem Deckel und zwei Strichen als Bildunterschrift.** Foto UND
+Buch — „Symbole, die gut zu Fotobuch passen würden", so seine Ansage.
+
+* **Warum GERADE dieser von fünf.** Alle fünf wurden auf vierzig Bildpunkte
+  heruntergerechnet und so angesehen — die Prüfung, an der der Entwurf vor
+  1.0.20 gescheitert ist. Bei vier von fünf hängt das Buch an einer dünnen
+  **Bundlinie**, und die ist bei dieser Größe weg: Übrig bleibt ein
+  Fotostapel. Beim gewählten trägt das Buch die ganze Form.
+* **Das aufgeschlagene Buch ist zum zweiten Mal durchgefallen.** Groß sieht es
+  gut aus, klein zerfällt es zu einem Fleck — derselbe Befund wie 1.0.19.
+* Die drei Regeln aus 1.0.20 gelten unverändert: eine Farbe und eine Form, die
+  Kontur unter dem Weiß ist keine Zierde, der Verlauf läuft diagonal. Alles
+  bleibt zwischen 140 und 884.
+* Gerechnet wird es weiterhin von `scripts/make-icon.py` — reines Python, ohne
+  fremde Bibliotheken, **nicht von Hand bearbeiten**.
+
+### Das größere Bild aus der Mediathek
+
+Befund des Nutzers, 09/2026: „Ich konnte ein kleines Bild auf die letzte freie
+Seite einfügen. Bei meinem größeren Bild ging das nicht. Als ich es jedoch
+zunächst aus der Galerie als Datei exportiert habe und diese Datei dann
+eingelesen habe, ging es."
+
+**Das ist die erste Messung an dem Absturz, der seit 1.0.100 offen steht** —
+und sie schließt aus, statt zu vermuten: Beide Wege enden in
+`grafikEinfuegen`; `Bildleser`, `Bildarchiv`, das Setzen des Blocks und das
+Neuzeichnen der Seite sind bei beiden dieselben. **Was sich unterscheidet, ist
+allein der Griff davor.**
+
+* **Geholt wird jetzt eine DATEI, nicht ein Haufen Bytes.**
+  `loadDataRepresentation` trägt die ganze Aufnahme durch den Arbeitsspeicher
+  — gemessen 09/2026: **37 MB für ein Bild**. `loadFileRepresentation` gibt
+  eine Datei, und `Bildarchiv.uebernehmen` kopiert sie vom Dateisystem ans
+  Dateisystem; `Bildleser.befund(datei: URL)` liest die Maße über
+  `CGImageSourceCreateWithURL` und damit ein paar Kilobyte statt
+  siebenunddreißig Megabyte.
+* **Die URL im Rückruf gilt NUR, solange der Rückruf läuft.** Sie wird
+  deshalb sofort kopiert — Datei zu Datei, ohne Arbeitsspeicher.
+* **Die Endung kommt jetzt von der gelieferten Datei.** Bis 1.0.104 stand sie
+  aus `registeredTypeIdentifiers`, und das ist eine Aussage darüber, was die
+  Mediathek ANBIETET — geliefert werden kann etwas anderes, und dann läge ein
+  JPEG unter dem Namen „heic".
+* **`grafikEinfuegen` gibt es seither zweimal, der Rest steht EINMAL da**
+  (`grafikSetzen`). Zwei Fassungen des Blocksetzens liefen auseinander, und
+  dann setzte der eine Weg anders als der andere.
+* **Der Weg über „Dateien" ist absichtlich unverändert.** Er funktioniert
+  nach seinem Befund — und eine Sache wird auf einmal geändert.
+
+**Nicht gemessen (1.0.105):** Auf einem Gerät hat das niemand gesehen. **Und
+der Befund isoliert die Stelle, er beweist die URSACHE nicht.** Zwei
+Erklärungen passen weiterhin auf dieselben Beobachtungen, und beide werden
+von der Umstellung getroffen: Entweder ging der Arbeitsspeicher aus (dann ist
+es ein Speichertod, und iOS legt dafür keinen Bericht unter dem Namen der App
+ab — das passt zu „es wird nirgendwo etwas eingetragen" aus 1.0.101), oder
+`loadDataRepresentation` gab für genau dieses Bild nichts zurück und die App
+meldete „ließ sich nicht lesen". **Gegen die reine Speichererklärung spricht,
+dass der Weg über „Dateien" dieselben Bytes in den Speicher holt** — es sei
+denn, die aus der Galerie exportierte Datei war kleiner als das Original, was
+beim Export aus der Mediathek der Regelfall ist. **Welche der beiden es war,
+sagt die Absturzspur**: Steht nach dem nächsten Fehlschlag im Regal ein
+Schritt, war es ein Absturz; steht dort nichts und kommt stattdessen die
+Meldung „ließ sich nicht lesen", war es der zweite Fall. **Nicht als erledigt
+darstellen.**
+
 ## Die Zahlen entlasten drei Stellen — also liegt es an der vierten (1.0.104)
 
 Die Messung aus 1.0.103 hat geantwortet, und sie hat gegen meine eigene

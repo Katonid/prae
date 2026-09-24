@@ -10047,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.104 (Build 105). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.105 (Build 106). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10271,6 +10271,57 @@ Befunde, und keiner davon war Geschmack:
     haben, steht in mindestens einer Zeile weiter „nicht vermerkt".
     Ungeprüft ist auch, was `UIDevice.current.model` auf Mac Catalyst sagt
     — dort greift der eigene Zweig („Mac").
+- **DAS SYMBOL IST EIN BUCH MIT EINEM BILD DARAUF** (`scripts/make-icon.py`,
+  ab 1.0.105, Wahl des Nutzers 09/2026 aus fünf Entwürfen: „Foto und Buch
+  wären Symbole, die gut zu Fotobuch passen würden"). Buch von vorn,
+  Bundlinie links, das Bild auf dem Deckel, darunter zwei Striche als
+  Bildunterschrift.
+  - **Warum gerade dieser von fünf:** Alle fünf wurden auf vierzig
+    Bildpunkte heruntergerechnet und so angesehen — die Prüfung, an der
+    der Entwurf vor 1.0.20 gescheitert ist. Bei vieren hängt das Buch an
+    einer dünnen **Bundlinie**, und die ist bei dieser Größe weg; übrig
+    bleibt ein Fotostapel. Beim gewählten trägt das Buch die ganze Form.
+    **Das aufgeschlagene Buch ist dabei zum zweiten Mal durchgefallen** —
+    groß gut, klein ein Fleck.
+  - Die drei Regeln aus 1.0.20 gelten unverändert (eine Farbe und eine
+    Form; die Kontur unter dem Weiß ist keine Zierde; der Verlauf läuft
+    diagonal; alles zwischen 140 und 884). **Wer einen neuen Entwurf
+    vorschlägt, zeigt ihn zuerst auf vierzig Bildpunkten.**
+- **EIN BILD AUS DER MEDIATHEK WIRD ALS DATEI GEHOLT, NICHT ALS BYTES**
+  (`loadFileRepresentation`, `Bildarchiv.uebernehmen`,
+  `Bildleser.befund(datei: URL)`, ab 1.0.105). Befund des Nutzers, 09/2026:
+  „Ich konnte ein kleines Bild auf die letzte freie Seite einfügen. Bei
+  meinem größeren Bild ging das nicht. Als ich es jedoch zunächst aus der
+  Galerie als Datei exportiert habe und diese Datei dann eingelesen habe,
+  ging es."
+  - **Das ist die erste Messung an dem Absturz, der seit 1.0.100 offen
+    steht**, und sie SCHLIESST AUS: Beide Wege enden in `grafikEinfuegen`;
+    `Bildleser`, `Bildarchiv`, das Setzen des Blocks und das Neuzeichnen
+    sind bei beiden dieselben. Was sich unterscheidet, ist allein der Griff
+    davor. **Merke: Wenn derselbe Inhalt über den einen Weg ankommt und
+    über den anderen nicht, liegt es nie an dem, was beide teilen.**
+  - `loadDataRepresentation` trägt die ganze Aufnahme durch den
+    Arbeitsspeicher (gemessen: 37 MB für EIN Bild); die Datei wird jetzt
+    kopiert, und `CGImageSourceCreateWithURL` liest für die Maße ein paar
+    Kilobyte statt siebenunddreißig Megabyte.
+  - **Die URL im Rückruf gilt NUR, solange der Rückruf läuft** — sie wird
+    sofort kopiert, Datei zu Datei.
+  - **Die Endung kommt von der GELIEFERTEN Datei.** `registeredTypeIdentifiers`
+    sagt, was die Mediathek ANBIETET; geliefert werden kann etwas anderes,
+    und dann läge ein JPEG unter dem Namen „heic".
+  - **`grafikEinfuegen` gibt es zweimal, der Rest steht EINMAL da**
+    (`grafikSetzen`). Der Weg über „Dateien" bleibt absichtlich
+    unverändert — er funktioniert, und eine Sache wird auf einmal geändert.
+  - **Nicht gemessen (1.0.105):** Der Befund isoliert die Stelle, er
+    beweist die URSACHE nicht. Zwei Erklärungen passen weiter, und beide
+    werden getroffen: ein Speichertod (dafür legt iOS keinen Bericht unter
+    dem Namen der App ab — das passt zu „es wird nirgendwo etwas
+    eingetragen") oder ein `loadDataRepresentation`, das für dieses eine
+    Bild nichts zurückgab. **Gegen die reine Speichererklärung spricht,
+    dass der Weg über „Dateien" dieselben Bytes in den Speicher holt** —
+    es sei denn, die exportierte Datei war kleiner als das Original, was
+    beim Export aus der Mediathek der Regelfall ist. Welche der beiden es
+    war, sagt die Absturzspur.
 - **DIE ZAHLEN ENTLASTEN DREI STELLEN — ALSO LIEGT ES AN DER VIERTEN**
   (`Ladebild` an elf Stellen, `Tempomesser.sammeln`, ab 1.0.104). Die Messung
   aus 1.0.103 hat geantwortet, und zwar gegen meine eigene Vermutung: Regal
