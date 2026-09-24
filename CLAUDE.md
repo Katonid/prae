@@ -10047,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.102 (Build 103). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.103 (Build 104). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10271,6 +10271,58 @@ Befunde, und keiner davon war Geschmack:
     haben, steht in mindestens einer Zeile weiter „nicht vermerkt".
     Ungeprüft ist auch, was `UIDevice.current.model` auf Mac Catalyst sagt
     — dort greift der eigene Zweig („Mac").
+- **EIN GIGABYTE GEHÖRT NICHT AUF DEN HAUPTFADEN** (`Views/Arbeitsanzeige.swift`,
+  `Dienste/Tempomesser.swift`, ab 1.0.103; gemeldet 09/2026 vom Mac: „Das
+  Öffnen dauerte, das Aussuchen eines Bildes aus der Fotogalerie dauerte …
+  Nun habe ich mehrfach versucht, das Buch als Datei zu sichern und die App
+  reagiert nicht mehr. Es läuft nur der sich drehende farbige Ball.").
+  - **Der Hänger ist abzuzählen, nicht zu vermuten.** `Buchdatei.schreiben`
+    liest und schreibt jedes Bild des Buches — bei zweihundert Fotos ein
+    Gigabyte —, und bis 1.0.102 stand der Aufruf nackt in einer Ansicht,
+    also auf dem Hauptfaden. Dasselbe galt für `einlesen` und `pruefen`.
+    Beides läuft jetzt in einer abgesetzten Aufgabe.
+  - **`Task.detached` ERBT DEN ABBRUCH NICHT.** Wer nur die äußere Aufgabe
+    abbricht, hat einen Knopf gebaut, der nichts tut, und das Gigabyte
+    liefe weiter. Gehalten und abgebrochen wird deshalb die abgesetzte
+    Aufgabe selbst (`abbruch` in `ReiseView` und `RegalView`).
+  - **Die Anzeige liegt über allem und nimmt die Tipps an.** Er hat es
+    „mehrfach versucht" — jeder weitere Tipp stieß dieselbe Arbeit noch
+    einmal an. Gelesen wird der Stand im EIGENEN Takt (`Arbeitsmelder`,
+    fünfmal je Sekunde) statt bei jeder Meldung auf den Hauptfaden zu
+    springen; bei einem Gigabyte wären das hundert Sprünge für eine
+    Anzeige, die nicht feiner ist. Dieselbe Bauweise wie `Zeichenmesser`
+    und `Inhaltslage`: eine schlichte Klasse OHNE `@Published`.
+  - **Über iCloud steckt das Schlimmere dahinter:** Ein Bild, das noch
+    nicht heruntergeladen ist, wird beim ersten Zugriff geholt — je Bild,
+    der Reihe nach. Genau deshalb steht die Leseprobe im ersten Durchgang
+    und nicht auf dem Hauptfaden.
+  - **DER KOPF DARF NICHTS VERSPRECHEN, WAS NICHT DASTEHT.** Bis 1.0.102
+    wurde der Kopf aus der Dateigröße gebaut; ließ sich eine Bilddatei
+    danach nicht öffnen, sprang die Schleife mit `continue` darüber hinweg.
+    Die Datei ist ab dieser Stelle verschoben und wird beim Einlesen als
+    „unvollständig" abgewiesen — auf einem anderen Gerät, Tage später, ohne
+    dass jemand wüsste warum. Jetzt: erst prüfen, was sich wirklich öffnen
+    lässt, nur DAS in den Kopf, jede geschriebene Länge gegenzählen, und
+    was fehlt, wird genannt. Bricht etwas ab, wird die halbe Datei
+    weggeräumt — eine halb geschriebene Buchdatei sieht aus wie eine.
+  - **Eine Kiste trägt das Ergebnis über die Fadengrenze** (`Kiste`,
+    `@unchecked Sendable`). Geschrieben wird einmal in der Aufgabe, gelesen
+    erst nach dem `await` — dazwischen liegt die Sperre. Der Umweg
+    erspart, dass der halbe Datenbestand des Buches `Sendable` sein muss.
+  - **Die beiden anderen Sätze sind ein EINDRUCK, und darauf wird keine
+    Fassung gebaut** (`Tempomesser`). Gemessen wird an den Stellen, die in
+    Frage kommen — Regal lesen (jedes Buch wird als JSON entziffert), Buch
+    sichern, Buchdatei schreiben, ein Bild aus der Mediathek holen —, und
+    die Zahlen stehen in den Einstellungen unter „Tempo", jede mit ihrem
+    Zeitpunkt. Dasselbe Muster wie Schulalarms Stufenprobe.
+  - **Der Weg über die Fotomediathek ist mit Absicht NICHT angefasst**
+    (außer der Messung): Dort steht seit 1.0.100 ein unerklärter Absturz
+    offen, und zwei Änderungen auf einmal ließen den nächsten Befund nicht
+    mehr zuordnen.
+  - **Nicht gemessen (1.0.103):** Auf einem Gerät hat das niemand gesehen.
+    Abgezählt sind die beiden Ursachen; **dass der Mac danach flüssig ist,
+    folgt daraus NICHT** — Öffnen und Bildwahl sind unverändert, sie sagen
+    jetzt nur, wie lange sie brauchen.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

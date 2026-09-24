@@ -46,6 +46,70 @@ enum Buchdatei {
         var schonVorhanden: Bool
     }
 
+    // WAS EIN GIGABYTE BEWEGT, SAGT WIE WEIT ES IST (ab 1.0.103).
+    //
+    // Gemeldet 09/2026 vom Mac: „Nun habe ich mehrfach versucht, das Buch
+    // als Datei zu sichern und die App reagiert nicht mehr. Es läuft nur
+    // der sich drehende farbige Ball." Am Quelltext abzuzählen und keine
+    // Vermutung: Bis 1.0.102 lief das Schreiben auf dem HAUPTFADEN und
+    // kopierte dabei jedes Bild des Buches — bei zweihundert Fotos ein
+    // Gigabyte lesen und schreiben, ohne ein Wort dazu. Der Ball ist genau
+    // das. Und weil nichts zu sehen war, tippt man noch einmal.
+    struct Fortschritt: Sendable {
+        var text: String
+        var getan: Int64 = 0
+        var gesamt: Int64 = 0
+        /// Zählt es Bytes oder Bilder? Eine Zahl ohne ihre Einheit ist
+        /// keine Auskunft.
+        var alsBytes = false
+
+        var anteil: Double {
+            guard gesamt > 0 else { return 0 }
+            return min(1, max(0, Double(getan) / Double(gesamt)))
+        }
+
+        var zahlen: String {
+            guard gesamt > 0 else { return "" }
+            if alsBytes {
+                return Buchdatei.groesse(getan) + " von " + Buchdatei.groesse(gesamt)
+            }
+            return "\(getan) von \(gesamt)"
+        }
+    }
+
+    struct Schreibbefund: Sendable {
+        var ort: URL
+        var bytes: Int64
+        var bilder: Int
+        /// Bilder, die sich nicht lesen ließen. Sie stehen NICHT in der
+        /// Datei — und sie werden gezählt und genannt, statt sie
+        /// stillschweigend wegzulassen.
+        var fehlende: [String] = []
+        var dauer: TimeInterval = 0
+
+        var satz: String {
+            var teile = ["\(bilder) Bilder", Buchdatei.groesse(bytes)]
+            if dauer > 0.5 { teile.append(String(format: "%.0f s", dauer)) }
+            var text = teile.joined(separator: " \u{00B7} ")
+            if !fehlende.isEmpty {
+                text += "\n\(fehlende.count) "
+                    + (fehlende.count == 1 ? "Bild ließ" : "Bilder ließen")
+                    + " sich nicht lesen und "
+                    + (fehlende.count == 1 ? "steht" : "stehen")
+                    + " nicht in der Datei: " + fehlende.prefix(5).joined(separator: ", ")
+                if fehlende.count > 5 { text += " \u{2026}" }
+            }
+            return text
+        }
+    }
+
+    static func groesse(_ bytes: Int64) -> String {
+        let mb = Double(bytes) / 1_048_576
+        if mb >= 1024 { return String(format: "%.1f GB", mb / 1024) }
+        if mb >= 1 { return String(format: "%.0f MB", mb) }
+        return String(format: "%.0f KB", Double(bytes) / 1024)
+    }
+
     enum Fehler: LocalizedError {
         case keineBuchdatei
         case zuNeu(Int)
@@ -68,9 +132,27 @@ enum Buchdatei {
 
     // MARK: - Schreiben
 
-    static func schreiben(_ reise: Reise) throws -> URL {
-        var kopf = Kopf(reise: reise)
-        var quellen: [URL] = []
+    // ZWEI DURCHGÄNGE — UND DER ERSTE IST DER WICHTIGE (ab 1.0.103).
+    //
+    // Bis 1.0.102 wurde der Kopf aus der Dateigröße gebaut und danach
+    // kopiert; ließ sich eine Bilddatei nicht öffnen, sprang die Schleife
+    // mit `continue` darüber hinweg. Der Kopf versprach dann eine Länge,
+    // die nie geschrieben wurde — die Datei wird beim Einlesen als
+    // „unvollständig" abgewiesen, und niemand wüsste, warum. Auf einem
+    // Gerät mit iCloud ist genau das kein Sonderfall: Ein Bild, das noch
+    // nicht heruntergeladen ist, liegt nicht auf der Platte.
+    //
+    // Also erst prüfen, was wirklich lesbar ist, und nur DAS in den Kopf.
+    // Was fehlt, steht im Befund und wird genannt — nichts geht
+    // stillschweigend verloren.
+    //
+    // **Und das hier gehört nicht auf den Hauptfaden.** Es liest und
+    // schreibt ein Gigabyte; der Aufrufer ruft es aus einer eigenen
+    // Aufgabe und bekommt über `melden` mit, wie weit es ist.
+    static func schreiben(_ reise: Reise,
+                          melden: (@Sendable (Fortschritt) -> Void)? = nil) throws -> Schreibbefund
+    {
+        let angefangen = Date()
         // Das Wasserzeichen ist KEIN Reisefoto und steht deshalb nicht in
         // `reise.fotos` — es muss hier ausdrücklich mit, sonst verlöre ein
         // ausgetauschtes Buch sein Zeichen, und zwar still: Die Einstellung
@@ -82,17 +164,37 @@ enum Buchdatei {
         {
             namen.append(zeichenbild.datei)
         }
-        for datei in namen {
+
+        var kopf = Kopf(reise: reise)
+        var quellen: [URL] = []
+        var fehlende: [String] = []
+        var gesamt: Int64 = 0
+
+        for (nummer, datei) in namen.enumerated() {
+            try Task.checkCancellation()
+            melden?(Fortschritt(text: "Bilder werden geprüft\u{2026}",
+                                getan: Int64(nummer), gesamt: Int64(namen.count)))
             let ort = Bildarchiv.shared.pfad(reise.id, datei: datei)
             // Nach der GRÖSSE fragen und nicht nach dem ganzen
             // Attributbündel: `attributesOfItem` liest die Zeitstempel mit,
             // und die stehen auf Apples Liste der begründungspflichtigen
             // Schnittstellen (dieselbe Lehre wie bei Schulalarms Tonbefund).
+            //
+            // Die Probe daneben ist der eigentliche Punkt: Erst das Öffnen
+            // sagt, ob die Datei wirklich da ist. Über iCloud wartet dieser
+            // Aufruf notfalls, bis sie geholt ist — deshalb steht er hier
+            // und nicht auf dem Hauptfaden.
             guard let werte = try? ort.resourceValues(forKeys: [.fileSizeKey]),
-                  let laenge = werte.fileSize
-            else { continue }
+                  let laenge = werte.fileSize,
+                  let probe = try? FileHandle(forReadingFrom: ort)
+            else {
+                fehlende.append(datei)
+                continue
+            }
+            try? probe.close()
             kopf.bilder.append(Kopf.Eintrag(datei: datei, laenge: laenge))
             quellen.append(ort)
+            gesamt += Int64(laenge)
         }
 
         let kopfdaten = try Ablage.kodierer().encode(kopf)
@@ -106,21 +208,60 @@ enum Buchdatei {
         try? FileManager.default.removeItem(at: ziel)
         try anfang.write(to: ziel, options: .atomic)
 
+        // Eine halb geschriebene Buchdatei ist schlimmer als keine: Sie
+        // sieht aus wie eine und lässt sich nicht einlesen. Geht etwas
+        // schief oder bricht jemand ab, wird sie weggeräumt. Die
+        // Reihenfolge stimmt, weil `defer` rückwärts läuft — erst
+        // schließen, dann löschen.
+        var gelungen = false
+        defer { if !gelungen { try? FileManager.default.removeItem(at: ziel) } }
+
         guard let feder = try? FileHandle(forWritingTo: ziel) else {
             throw Fehler.kaputt("Die Datei ließ sich nicht schreiben.")
         }
         defer { try? feder.close() }
         try feder.seekToEnd()
-        for quelle in quellen {
+
+        var geschrieben: Int64 = 0
+        var zuletztGemeldet: Int64 = 0
+        for (nummer, quelle) in quellen.enumerated() {
+            try Task.checkCancellation()
+            guard let lesen = try? FileHandle(forReadingFrom: quelle) else {
+                throw Fehler.kaputt("Das Bild \(quelle.lastPathComponent) ließ sich "
+                                    + "nicht mehr lesen.")
+            }
+            defer { try? lesen.close() }
+            var fuerDiesesBild = 0
             // Stückweise: Ein einzelnes Foto ist harmlos, zweihundert auf
             // einmal sind es nicht.
-            guard let lesen = try? FileHandle(forReadingFrom: quelle) else { continue }
-            defer { try? lesen.close() }
             while let stueck = try lesen.read(upToCount: 4 << 20), !stueck.isEmpty {
+                try Task.checkCancellation()
                 try feder.write(contentsOf: stueck)
+                fuerDiesesBild += stueck.count
+                geschrieben += Int64(stueck.count)
+                // Gedrosselt: Jede Meldung springt beim Aufrufer auf den
+                // Hauptfaden. Bei einem Gigabyte wären das sonst zweihundert
+                // Sprünge, und die Anzeige ist ohnehin nicht feiner.
+                if geschrieben - zuletztGemeldet >= 8 << 20 || geschrieben == gesamt {
+                    zuletztGemeldet = geschrieben
+                    melden?(Fortschritt(text: "Bilder werden geschrieben\u{2026}",
+                                        getan: geschrieben, gesamt: gesamt, alsBytes: true))
+                }
+            }
+            // Was der Kopf verspricht, muss auch dastehen. Sonst ist die
+            // Datei ab dieser Stelle verschoben, und der Fehler fällt erst
+            // beim Einlesen auf — auf einem anderen Gerät.
+            guard fuerDiesesBild == kopf.bilder[nummer].laenge else {
+                throw Fehler.kaputt("Das Bild \(quelle.lastPathComponent) hat sich beim "
+                                    + "Schreiben geändert.")
             }
         }
-        return ziel
+        gelungen = true
+        return Schreibbefund(ort: ziel,
+                             bytes: Int64(anfang.count) + geschrieben,
+                             bilder: kopf.bilder.count,
+                             fehlende: fehlende,
+                             dauer: Date().timeIntervalSince(angefangen))
     }
 
     static func dateiname(_ reise: Reise) -> String {
@@ -149,8 +290,13 @@ enum Buchdatei {
                       erzeugt: kopf.erzeugt, schonVorhanden: vorhanden)
     }
 
+    // Auch das schreibt ein Gigabyte und gehört deshalb nicht auf den
+    // Hauptfaden (ab 1.0.103) — dieselbe Rechnung wie beim Schreiben, nur
+    // andersherum.
     @discardableResult
-    static func einlesen(_ ort: URL, alsKopie: Bool) throws -> Reise {
+    static func einlesen(_ ort: URL, alsKopie: Bool,
+                         melden: (@Sendable (Fortschritt) -> Void)? = nil) throws -> Reise
+    {
         let (kopf, daten, anfang) = try aufmachen(ort)
         var reise = kopf.reise
         if alsKopie {
@@ -163,13 +309,16 @@ enum Buchdatei {
         reise.geaendert = Date()
 
         var stelle = anfang
-        for eintrag in kopf.bilder {
+        for (nummer, eintrag) in kopf.bilder.enumerated() {
+            try Task.checkCancellation()
             let ende = stelle + eintrag.laenge
             guard ende <= daten.count else { throw Fehler.abgeschnitten }
             let bild = daten.subdata(in: stelle..<ende)
             try bild.write(to: Bildarchiv.shared.pfad(reise.id, datei: eintrag.datei),
                            options: .atomic)
             stelle = ende
+            melden?(Fortschritt(text: "Bilder werden abgelegt\u{2026}",
+                                getan: Int64(nummer + 1), gesamt: Int64(kopf.bilder.count)))
         }
         try Ablage.sichern(reise)
         return reise

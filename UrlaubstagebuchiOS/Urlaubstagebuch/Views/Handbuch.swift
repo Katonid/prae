@@ -500,7 +500,7 @@ enum Handbuch {
             Handbucheintrag(
                 id: "datei",
                 titel: "Buch als Datei",
-                text: "Eine .reisebuch-Datei trägt das ganze Buch samt aller Bilder. Vor dem Einlesen sagt die App, was darin steht und ob sie ein vorhandenes Buch ersetzen würde.",
+                text: "Eine .reisebuch-Datei trägt das ganze Buch samt aller Bilder. Vor dem Einlesen sagt die App, was darin steht und ob sie ein vorhandenes Buch ersetzen würde. Schreiben und Einlesen laufen abseits des Hauptfadens, mit Fortschritt und Abbruch \u{2014} bei zweihundert Fotos wird ein Gigabyte bewegt, und über iCloud wird jedes Bild, das noch nicht auf dem Gerät liegt, vorher geholt. Bilder, die sich nicht lesen lassen, stehen NICHT in der Datei und werden hinterher genannt.",
                 weg: "Drei-Punkte-Menü \u{2192} Buch als Datei sichern",
                 ziel: nil,
                 stichworte: ["export", "backup", "weitergeben", "teilen", "reisebuch"]),

@@ -480,6 +480,62 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ein Gigabyte gehört nicht auf den Hauptfaden (1.0.103)
+
+Gemeldet 09/2026 vom Mac: „Leider reagiert die App sehr träge. Das Öffnen
+dauerte, das Aussuchen eines Bildes aus der Fotogalerie dauerte, führte aber
+trotzdem irgendwann zu einem Ergebnis. Nun habe ich mehrfach versucht, das Buch
+als Datei zu sichern und die App reagiert nicht mehr. Es läuft nur der sich
+drehende farbige Ball."
+
+**Der Hänger ist am Quelltext abzuzählen.** `Buchdatei.schreiben` liest und
+schreibt jedes Bild des Buches — bei zweihundert Fotos ein Gigabyte —, und bis
+1.0.102 stand der Aufruf nackt in einer Ansicht, also auf dem HAUPTFADEN. Der
+Ball ist genau das. Dasselbe galt fürs Einlesen.
+
+* **Geschrieben und eingelesen wird jetzt daneben**, mit Fortschritt und
+  Abbruch. Abgebrochen wird dabei die ABGESETZTE Aufgabe und nicht die äußere:
+  `Task.detached` erbt den Abbruch des Aufrufers nicht — wer nur die äußere
+  abbricht, hat einen Knopf gebaut, der nichts tut, und das Gigabyte liefe
+  weiter.
+* **Die Anzeige liegt über allem und nimmt die Tipps an.** Nicht als
+  Gängelung: Er hat es „mehrfach versucht", und jeder weitere Tipp stieß
+  dieselbe Gigabyte-Arbeit noch einmal an. Sie liest den Stand im eigenen Takt
+  (fünfmal je Sekunde) statt bei jeder Meldung auf den Hauptfaden zu springen.
+* **Über iCloud steckt das Schlimmere dahinter:** Ein Bild, das noch nicht
+  heruntergeladen ist, wird beim ersten Zugriff erst geholt — je Bild, der
+  Reihe nach. Auf einem Mac wartet dieser Aufruf; auf dem Hauptfaden heißt das
+  Ball.
+
+**Und dabei kam ein zweiter Fehler heraus, der schlimmer ist als der Ball.**
+Der Kopf der Datei wurde aus der Dateigröße gebaut, und ließ sich eine
+Bilddatei danach nicht öffnen, sprang die Schleife mit `continue` darüber
+hinweg. Der Kopf versprach dann eine Länge, die nie geschrieben wurde: Die
+Datei ist ab dieser Stelle verschoben und wird beim Einlesen als
+„unvollständig" abgewiesen — auf einem anderen Gerät, Tage später, ohne dass
+jemand wüsste, warum. Auf einem Gerät mit iCloud ist das kein Sonderfall.
+Seit 1.0.103 wird in einem ersten Durchgang geprüft, was sich wirklich öffnen
+lässt; nur das steht im Kopf, jede geschriebene Länge wird gegengezählt, und
+was fehlt, wird hinterher **genannt**. Bricht etwas ab, wird die halbe Datei
+weggeräumt — eine halb geschriebene Buchdatei sieht aus wie eine.
+
+**Die beiden anderen Sätze sind ein Eindruck, und darauf wird hier keine
+Fassung mehr gebaut.** In diesem Papier stehen genug Fälle, in denen die erste
+Erklärung eine Vermutung war (das Zoomen der Abfahrtstafel dreimal, die Griffe
+dieser App fünfmal). Gemessen wird deshalb an den Stellen, die in Frage kommen
+— Regal lesen, Buch sichern, Buchdatei schreiben, ein Bild aus der Mediathek
+holen —, und die Zahlen stehen in den Einstellungen unter **Tempo**, jede mit
+ihrem Zeitpunkt und zum Kopieren.
+
+**Nicht gemessen (1.0.103):** Auf einem Gerät hat das niemand gesehen.
+Abgezählt ist die Ursache des Balls (ein Gigabyte Dateiarbeit auf dem
+Hauptfaden) und die des möglichen Dateifehlers (ein `continue` nach dem
+Eintrag im Kopf) — **dass der Mac danach flüssig ist, folgt daraus nicht**:
+Das Öffnen und die Bildwahl sind unverändert, sie sagen jetzt nur, wie lange
+sie brauchen. Und der Weg über die Fotomediathek ist mit Absicht NICHT
+angefasst worden: Dort steht seit 1.0.100 ein unerklärter Absturz offen, und
+zwei Änderungen auf einmal ließen den nächsten Befund nicht mehr zuordnen.
+
 ## Zwei Fassungen, und man sieht ihnen an, was sie sind (1.0.102)
 
 Gemeldet 09/2026: „Ich weiß nicht, von welchem Gerät und von wann diese

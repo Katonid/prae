@@ -138,11 +138,19 @@ struct BildAusFotosView: View {
             // welchem Schritt sie gestorben ist (`Absturzspur`).
             Absturzspur.beginnt("Bild \(nummer + 1) von \(treffer.count) aus der "
                 + "Mediathek: Daten holen")
+            // Wie lange die Mediathek braucht, ist GEMESSEN und nicht
+            // geraten (ab 1.0.103): Ein Bild, das nur in iCloud liegt, wird
+            // hier erst geholt, und genau das wurde vom Mac als „dauerte"
+            // gemeldet.
+            let holanfang = Date()
             guard let daten = await ladeDaten(eintrag) else {
                 Absturzspur.endet()
                 gescheitert += 1
                 continue
             }
+            Tempomesser.melde("Bild aus der Mediathek",
+                              dauer: Date().timeIntervalSince(holanfang),
+                              zusatz: "\(daten.count / 1024) KB")
             if werk.grafikEinfuegen(daten, endung: endung(eintrag), aufSeite: seite) {
                 gesetzt += 1
             } else {

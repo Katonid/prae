@@ -23,6 +23,7 @@ struct EinstellungenView: View {
                 if !befunde.isEmpty { konfliktabschnitt }
                 austausch
                 ablageort
+                tempo
                 fassung
             }
             .navigationTitle("Einstellungen")
@@ -206,6 +207,42 @@ struct EinstellungenView: View {
             Text("Eine Datei mit der Endung .\(Buchdatei.endung) enthält ein ganzes "
                  + "Buch samt aller Bilder. Gesichert wird sie im geöffneten Buch "
                  + "unter \u{201E}\u{2026}\u{201C} oben rechts \u{2192} Buch als Datei sichern.")
+        }
+    }
+
+    // WO DIE ZEIT HINGEHT (ab 1.0.103).
+    //
+    // Gemeldet vom Mac: „Das Öffnen dauerte, das Aussuchen eines Bildes aus
+    // der Fotogalerie dauerte." Das ist ein Eindruck, und auf einen
+    // Eindruck wird in diesem Projekt keine Fassung mehr gebaut — hier
+    // stehen die Zahlen dazu, jede mit ihrem Zeitpunkt.
+    @ViewBuilder
+    private var tempo: some View {
+        Section {
+            let zeilen = Tempomesser.zeilen
+            if zeilen.isEmpty {
+                Text("Noch nichts gemessen.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(zeilen) { zeile in
+                    LabeledContent(zeile.name) {
+                        Text(zeile.text)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Button("Befund kopieren", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string = Tempomesser.befund
+                }
+            }
+        } header: {
+            Text("Tempo")
+        } footer: {
+            Text("Wie lange der letzte Lauf gedauert hat \u{2014} Regal lesen, Buch "
+                 + "sichern, Buchdatei schreiben, ein Bild aus der Mediathek holen. "
+                 + "Gemessen wird nur, was wirklich gelaufen ist; was hier fehlt, gab "
+                 + "es seit dem Start nicht. Über iCloud steckt in jeder dieser Zahlen "
+                 + "auch der Weg zur Datei.")
         }
     }
 
