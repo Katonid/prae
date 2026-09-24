@@ -143,19 +143,24 @@ struct BildAusFotosView: View {
             // hier erst geholt, und genau das wurde vom Mac als „dauerte"
             // gemeldet.
             let holanfang = Date()
-            guard let daten = await ladeDaten(eintrag) else {
+            guard let datei = await ladeDatei(eintrag) else {
                 Absturzspur.endet()
                 gescheitert += 1
                 continue
             }
+            let groesse = (try? datei.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             Tempomesser.melde("Bild aus der Mediathek",
                               dauer: Date().timeIntervalSince(holanfang),
-                              zusatz: "\(daten.count / 1024) KB")
-            if werk.grafikEinfuegen(daten, endung: endung(eintrag), aufSeite: seite) {
+                              zusatz: "\(groesse / 1024) KB")
+            let art = datei.pathExtension.isEmpty ? endung(eintrag) : datei.pathExtension
+            if werk.grafikEinfuegen(vonDatei: datei, endung: art.lowercased(),
+                                    aufSeite: seite)
+            {
                 gesetzt += 1
             } else {
                 gescheitert += 1
             }
+            try? FileManager.default.removeItem(at: datei)
         }
         var satz = gesetzt == 1 ? "1 Bild eingesetzt." : "\(gesetzt) Bilder eingesetzt."
         if gesetzt > 0 {
@@ -170,8 +175,10 @@ struct BildAusFotosView: View {
         schliessen()
     }
 
-    // Die ECHTE Endung, soweit die Mediathek sie hergibt. Ein PNG als
-    // „jpg" abzulegen nähme ihm den durchsichtigen Grund.
+    // Die Endung als RÜCKFALL. Seit 1.0.105 gilt zuerst die Endung der
+    // Datei, die die Mediathek wirklich geliefert hat: Was hier steht, ist
+    // nur eine Aussage darüber, was sie ANBIETET — geliefert werden kann
+    // etwas anderes, und dann läge ein JPEG unter dem Namen „heic".
     private func endung(_ eintrag: PHPickerResult) -> String {
         let typen = eintrag.itemProvider.registeredTypeIdentifiers
         if typen.contains(UTType.png.identifier) { return "png" }
@@ -179,24 +186,51 @@ struct BildAusFotosView: View {
         return "jpg"
     }
 
-    // Geladen werden DATEN und nie ein `UIImage` — ein entpacktes Bild hat
-    // seine Maße noch, aber alles andere nicht mehr, und `Bildleser` liest
-    // die Maße aus der Datei.
-    private func ladeDaten(_ eintrag: PHPickerResult) async -> Data? {
+    // GEHOLT WIRD EINE DATEI, NICHT EIN HAUFEN BYTES (ab 1.0.105).
+    //
+    // Befund des Nutzers, 09/2026: „Bei meinem größeren Bild ging das
+    // nicht. Als ich es jedoch zunächst aus der Galerie als Datei
+    // exportiert habe und diese Datei dann eingelesen habe, ging es."
+    // Beide Wege enden in `grafikEinfuegen`; unterschieden hat sich der
+    // Griff davor — `loadDataRepresentation` holt die GANZE Aufnahme in
+    // den Arbeitsspeicher (gemessen: 37 MB für ein Bild), der Weg über
+    // Dateien nicht.
+    //
+    // Geladen wird weiterhin nie ein `UIImage`: Ein entpacktes Bild hat
+    // seine Maße noch, aber Aufnahmezeit, Ort und Farbraum nicht mehr.
+    //
+    // **Die URL im Rückruf gilt NUR, solange der Rückruf läuft** — sie
+    // wird deshalb sofort in einen eigenen Ordner kopiert. Das ist eine
+    // Kopie von Datei zu Datei und kostet keinen Arbeitsspeicher.
+    private func ladeDatei(_ eintrag: PHPickerResult) async -> URL? {
         let anbieter = eintrag.itemProvider
         guard anbieter.hasItemConformingToTypeIdentifier(UTType.image.identifier) else {
             return nil
         }
         return await withCheckedContinuation { fortsetzen in
-            // `loadDataRepresentation` darf seinen Rückruf MEHRMALS
+            // `loadFileRepresentation` darf seinen Rückruf MEHRMALS
             // aufrufen; ein zweites `resume` an einer Continuation ist kein
             // Fehler, sondern ein Absturz. Dieselbe Falle wie in der
             // Zeitraumeinfuhr seit 1.0.30.
             let einmal = Einmal()
-            anbieter.loadDataRepresentation(
+            anbieter.loadFileRepresentation(
                 forTypeIdentifier: UTType.image.identifier
-            ) { daten, _ in
-                einmal.tun { fortsetzen.resume(returning: daten) }
+            ) { quelle, _ in
+                einmal.tun {
+                    guard let quelle else {
+                        fortsetzen.resume(returning: nil)
+                        return
+                    }
+                    let art = quelle.pathExtension.isEmpty ? "jpg" : quelle.pathExtension
+                    let ziel = FileManager.default.temporaryDirectory
+                        .appendingPathComponent(UUID().uuidString + "." + art)
+                    do {
+                        try FileManager.default.copyItem(at: quelle, to: ziel)
+                        fortsetzen.resume(returning: ziel)
+                    } catch {
+                        fortsetzen.resume(returning: nil)
+                    }
+                }
             }
         }
     }

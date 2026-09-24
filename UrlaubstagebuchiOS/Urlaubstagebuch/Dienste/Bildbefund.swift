@@ -36,9 +36,26 @@ struct Bildbefund {
 //    Nordhalbkugel und nach Osten.
 enum Bildleser {
     static func befund(datei daten: Data) -> Bildbefund {
+        guard let quelle = CGImageSourceCreateWithData(daten as CFData, nil)
+        else { return Bildbefund() }
+        return befund(quelle: quelle)
+    }
+
+    // AUS EINER DATEI, OHNE SIE IN DEN SPEICHER ZU HOLEN (ab 1.0.105).
+    //
+    // `CGImageSourceCreateWithURL` liest nur, was es gerade braucht —
+    // fuer die Maße und das EXIF sind das ein paar Kilobyte am Anfang der
+    // Datei. Bei einer Aufnahme von 37 MB ist das der Unterschied
+    // zwischen „ein paar Kilobyte" und „siebenunddreißig Megabyte".
+    static func befund(datei url: URL) -> Bildbefund {
+        guard let quelle = CGImageSourceCreateWithURL(url as CFURL, nil)
+        else { return Bildbefund() }
+        return befund(quelle: quelle)
+    }
+
+    private static func befund(quelle: CGImageSource) -> Bildbefund {
         var ergebnis = Bildbefund()
-        guard let quelle = CGImageSourceCreateWithData(daten as CFData, nil),
-              let eigenschaften = CGImageSourceCopyPropertiesAtIndex(quelle, 0, nil)
+        guard let eigenschaften = CGImageSourceCopyPropertiesAtIndex(quelle, 0, nil)
                   as? [CFString: Any]
         else { return ergebnis }
 

@@ -1,22 +1,40 @@
 #!/usr/bin/env python3
-"""Erzeugt das App-Symbol für das Urlaubstagebuch — reines Python, ohne
-fremde Bibliotheken (wie die Symbolskripte der anderen Apps dieses Repos).
+"""Erzeugt das App-Symbol für das Reisebuch — reines Python, ohne fremde
+Bibliotheken (wie die Symbolskripte der anderen Apps dieses Repos).
 
-WARUM ES SEIT 1.0.20 ANDERS AUSSIEHT (Befund des Nutzers, 09/2026): „Das
+WAS ES ZEIGT (Wahl des Nutzers, 09/2026): ein Buch von vorn, mit einem Bild
+auf dem Deckel und zwei Strichen als Bildunterschrift darunter. Also genau
+das, was die App ist — ein Fotobuch.
+
+WIE ES DAHIN KAM. Bis 1.0.19 lag hier ein aufgeschlagenes Buch in
+Papierweiß über drei Vierteln der Fläche; der Nutzer meldete: „Das
 Programm-Icon sieht von Weitem aus wie eine weiße Fläche mit einem Rand
-drumherum."
+drumherum." Er hatte recht: Auf einem Homescreen misst ein Symbol vierzig
+Bildpunkte, und dann bleibt von Papier, Falz und Lineatur nichts übrig.
+1.0.20 setzte deshalb einen Weg mit Anfang und Ziel — eine Farbe und eine
+Form. Der Nutzer wollte 09/2026 etwas anderes sehen, und aus fünf Entwürfen
+wählte er diesen; auf seinen Wunsch hin sagen Foto UND Buch, worum es geht.
 
-Er hat recht, und der Grund ist am alten Entwurf abzulesen: Dort lag ein
-aufgeschlagenes Buch in Papierweiß über drei Vierteln der Fläche, auf einem
-dunklen Grund. Aus zehn Zentimetern sah man das Buch; auf einem Homescreen
-misst ein Symbol vierzig Bildpunkte, und dann bleibt von Papier, Falz und
-Lineatur nichts als eine helle Fläche mit dunklem Saum.
+DREI REGELN, UND JEDE IST BEZAHLT:
 
-Ein Symbol hat bei dieser Größe **eine Farbe und eine Form**, mehr nicht —
-so machen es die Apps mit derselben Aufgabe: Polarsteps eine Route, Karten
-eine Nadel, Apple Books ein weißes Zeichen auf einem kräftigen Verlauf.
-Hier ist es beides zusammen, und es sagt genau, was die App tut: ein Weg
-mit Anfang und Ziel.
+1. **Ein Symbol trägt bei vierzig Bildpunkten eine FARBE und eine FORM.**
+   Wer das prüfen will, rechnet das Ergebnis auf vierzig Bildpunkte herunter
+   und sieht es sich an — was dort verschwindet, verschwindet auf dem Gerät.
+   Genau daran ist der Entwurf vor 1.0.20 gescheitert, und genau daran sind
+   beim Aussuchen vier von fünf Entwürfen gescheitert: Ihr Buch hing an
+   einer dünnen Bundlinie, und die ist bei dieser Größe weg. Hier trägt das
+   Buch die ganze Form.
+
+2. **Die Kontur unter dem Weiß ist keine Zierde.** Der Verlauf ist oben
+   links deutlich heller als unten rechts; ohne sie verlöre die weiße Fläche
+   dort ihren Halt. Dieselbe Überlegung wie bei den Linienzügen der
+   Abfahrtstafel.
+
+3. **Der Verlauf läuft DIAGONAL.** Ein senkrechter sieht auf einem
+   Homescreen wie ein Farbfeld aus, ein diagonaler hat eine Richtung.
+
+Alles bleibt zwischen 140 und 884 — was näher an der Ecke liegt, schneidet
+iOS mit seiner abgerundeten Maske weg.
 
     python3 UrlaubstagebuchiOS/scripts/make-icon.py
 
@@ -33,18 +51,10 @@ ZIEL = os.path.join(
     "Urlaubstagebuch", "Assets.xcassets", "AppIcon.appiconset", "AppIcon1024.png",
 )
 
-# Der Verlauf läuft DIAGONAL von warm nach tief: Ein senkrechter Verlauf
-# sieht auf einem Homescreen wie ein Farbfeld aus, ein diagonaler hat eine
-# Richtung. Die Farben sind so dunkel gewählt, dass Weiß darauf überall
-# trägt — auf einem hellen Gelb täte es das nicht.
-GRUND_A = (247, 148, 56)     # oben links, Abendsonne
-GRUND_B = (176, 32, 86)      # unten rechts, tiefes Rot
+GRUND_A = (236, 106, 148)    # oben links
+GRUND_B = (92, 36, 130)      # unten rechts
 WEISS = (255, 253, 250)
-# Die Kontur unter dem Weiß. Sie ist keine Zierde: Der Verlauf ist oben
-# links deutlich heller als unten rechts, und ohne sie verlöre die Linie
-# dort an Halt. Dieselbe Überlegung wie bei den Linienzügen der
-# Abfahrtstafel.
-KONTUR = (104, 18, 52)
+KONTUR = (66, 22, 96)        # Kontur, Bildfenster und Striche
 
 
 def mischen(a, b, anteil):
@@ -54,8 +64,7 @@ def mischen(a, b, anteil):
 
 def grundfarbe(x, y):
     """Der Verlauf an dieser Stelle — diagonal von oben links nach unten
-    rechts. Gebraucht wird er zweimal: für die Leinwand und für die Löcher
-    in Nadel und Startpunkt, die den Grund wieder durchscheinen lassen."""
+    rechts."""
     return mischen(GRUND_A, GRUND_B, (x + y) / (2 * (GROESSE - 1)))
 
 
@@ -64,11 +73,10 @@ def leinwand():
 
 
 def setzen(bild, x, y, farbe, deckung):
-    """Ein Punkt mit Deckung — daraus entstehen weiche Kanten.
+    """Ein Punkt mit Deckung — daraus entstehen die weichen Kanten.
 
     Ohne diese eine Zeile hätte jedes Rund im Symbol eine Treppe, und das
-    sieht man auf einem Homescreen sofort. Ein Bildpunkt wird also nicht
-    gesetzt oder nicht gesetzt, sondern anteilig gemischt.
+    sieht man auf einem Homescreen sofort.
     """
     if deckung <= 0 or x < 0 or y < 0 or x >= GROESSE or y >= GROESSE:
         return
@@ -78,108 +86,100 @@ def setzen(bild, x, y, farbe, deckung):
     bild[y][x] = list(mischen(bild[y][x], farbe, deckung))
 
 
-def deckung_aus_abstand(abstand, weichheit=1.0):
-    """Innen 1, außen 0, dazwischen ein Übergang von einem Bildpunkt."""
-    return max(0.0, min(1.0, 0.5 - abstand / weichheit))
-
-
-def kreis(bild, mx, my, radius, farbe=None):
-    """Ein Kreis. Ohne Farbe wird der GRUND wiederhergestellt — so entsteht
-    das Loch in der Nadel, ohne dass ein zweiter Verlauf gerechnet wird."""
-    for y in range(max(0, int(my - radius - 2)), min(GROESSE, int(my + radius + 2))):
-        for x in range(max(0, int(mx - radius - 2)), min(GROESSE, int(mx + radius + 2))):
+def kreis(bild, mx, my, radius, farbe):
+    for y in range(max(0, int(my - radius - 2)), min(GROESSE, int(my + radius + 3))):
+        for x in range(max(0, int(mx - radius - 2)), min(GROESSE, int(mx + radius + 3))):
             abstand = math.hypot(x + 0.5 - mx, y + 0.5 - my) - radius
-            setzen(bild, x, y, farbe or grundfarbe(x, y), deckung_aus_abstand(abstand))
+            setzen(bild, x, y, farbe, max(0.0, min(1.0, 0.5 - abstand)))
 
 
 def strecke(bild, ax, ay, bx, by, breite, farbe):
     """Eine Strecke mit runden Enden, über den Abstand Punkt-zu-Strecke.
 
-    Das ist langsamer als ein Bresenham-Algorithmus und dafür in fünf Zeilen
-    richtig — samt weicher Kante und ohne Lücken an den Knicken.
+    Langsamer als ein Bresenham-Algorithmus und dafür in fünf Zeilen
+    richtig — samt weicher Kante.
     """
     halb = breite / 2
-    minx = int(min(ax, bx) - halb - 2)
-    maxx = int(max(ax, bx) + halb + 2)
-    miny = int(min(ay, by) - halb - 2)
-    maxy = int(max(ay, by) + halb + 2)
     dx, dy = bx - ax, by - ay
     laenge = dx * dx + dy * dy
-    for y in range(max(0, miny), min(GROESSE, maxy)):
-        for x in range(max(0, minx), min(GROESSE, maxx)):
+    for y in range(max(0, int(min(ay, by) - halb - 2)),
+                   min(GROESSE, int(max(ay, by) + halb + 3))):
+        for x in range(max(0, int(min(ax, bx) - halb - 2)),
+                       min(GROESSE, int(max(ax, bx) + halb + 3))):
             px, py = x + 0.5 - ax, y + 0.5 - ay
             anteil = 0.0 if laenge == 0 else max(0.0, min(1.0, (px * dx + py * dy) / laenge))
             abstand = math.hypot(px - anteil * dx, py - anteil * dy) - halb
-            setzen(bild, x, y, farbe, deckung_aus_abstand(abstand))
+            setzen(bild, x, y, farbe, max(0.0, min(1.0, 0.5 - abstand)))
 
 
-def feine_kurve(punkte, schritte=16):
-    """Catmull-Rom durch die gegebenen Punkte. Eine Reisespur aus geraden
-    Knicken sähe aus wie ein Diagramm und nicht wie ein Weg."""
-    erweitert = [punkte[0]] + list(punkte) + [punkte[-1]]
-    fein = []
-    for i in range(len(erweitert) - 3):
-        p0, p1, p2, p3 = erweitert[i:i + 4]
-        for s in range(schritte):
-            t = s / schritte
-            t2, t3 = t * t, t * t * t
-            x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t
-                       + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2
-                       + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3)
-            y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t
-                       + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2
-                       + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
-            fein.append((x, y))
-    fein.append(punkte[-1])
-    return fein
+def rundeck(bild, mx, my, halbbreite, halbhoehe, radius, farbe):
+    """Ein abgerundetes Rechteck, über den vorzeichenbehafteten Abstand.
 
-
-def kurve(bild, fein, breite, farbe):
-    for i in range(len(fein) - 1):
-        strecke(bild, fein[i][0], fein[i][1], fein[i + 1][0], fein[i + 1][1], breite, farbe)
-
-
-def nadel(bild, mx, my, radius, spitze, farbe):
-    """Die Kartennadel: ein Kopf und ein Auslauf zur Spitze.
-
-    Der Auslauf wird zeilenweise gefüllt, die Breite nimmt mit einem Exponenten
-    ab — linear ergäbe ein Dreieck, und ein Dreieck unter einem Kreis sieht aus
-    wie ein Eis und nicht wie eine Nadel.
+    Das gibt die weiche Kante geschenkt und kommt ohne eine einzige
+    Fallunterscheidung an den Ecken aus.
     """
-    kreis(bild, mx, my, radius, farbe)
-    hoehe = spitze - my
-    for y in range(int(my), int(spitze) + 2):
-        anteil = (y - my) / hoehe
-        if anteil < 0:
-            continue
-        halb = radius * max(0.0, (1 - min(anteil, 1.0)) ** 0.62)
-        for x in range(int(mx - halb - 2), int(mx + halb + 2)):
-            deckung = max(0.0, min(1.0, halb - abs(x + 0.5 - mx) + 0.5))
-            setzen(bild, x, y, farbe, deckung)
+    reichweite = int(math.hypot(halbbreite, halbhoehe)) + 3
+    for y in range(max(0, int(my) - reichweite), min(GROESSE, int(my) + reichweite)):
+        for x in range(max(0, int(mx) - reichweite), min(GROESSE, int(mx) + reichweite)):
+            px, py = x + 0.5 - mx, y + 0.5 - my
+            qx = abs(px) - (halbbreite - radius)
+            qy = abs(py) - (halbhoehe - radius)
+            abstand = (math.hypot(max(qx, 0.0), max(qy, 0.0))
+                       + min(max(qx, qy), 0.0) - radius)
+            setzen(bild, x, y, farbe, max(0.0, min(1.0, 0.5 - abstand)))
+
+
+def flaeche(bild, punkte, farbe):
+    """Ein Vieleck, vierfach überabgetastet. Gebraucht für den Berg im
+    Bildfenster — der ist die eine Form, die kein Rechteck ist."""
+    xs = [p[0] for p in punkte]
+    ys = [p[1] for p in punkte]
+    anzahl = len(punkte)
+    for y in range(max(0, int(min(ys)) - 2), min(GROESSE, int(max(ys)) + 3)):
+        for x in range(max(0, int(min(xs)) - 2), min(GROESSE, int(max(xs)) + 3)):
+            treffer = 0
+            for sy in range(4):
+                py = y + (sy + 0.5) / 4
+                for sx in range(4):
+                    px = x + (sx + 0.5) / 4
+                    drin = False
+                    j = anzahl - 1
+                    for i in range(anzahl):
+                        xi, yi = punkte[i]
+                        xj, yj = punkte[j]
+                        if ((yi > py) != (yj > py)
+                                and px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+                            drin = not drin
+                        j = i
+                    if drin:
+                        treffer += 1
+            setzen(bild, x, y, farbe, treffer / 16)
 
 
 def bauen():
     bild = leinwand()
 
-    # Der Weg. Er windet sich mit Absicht, statt gleichmäßig zu steigen:
-    # Eine Linie, die nur nach rechts oben läuft, liest sich als Diagramm.
-    # Alles bleibt innerhalb von 140 bis 884 — was näher an der Ecke liegt,
-    # schneidet iOS mit seiner abgerundeten Maske weg.
-    spur = [(232, 806), (338, 700), (262, 592), (416, 552), (536, 602), (648, 539)]
-    fein = feine_kurve(spur)
-    kurve(bild, fein, 74, KONTUR)
-    kurve(bild, fein, 48, WEISS)
+    # Das Buch: Kontur, darin der weiße Deckel.
+    rundeck(bild, 512, 512, 296, 346, 34, KONTUR)
+    rundeck(bild, 512, 512, 274, 324, 26, WEISS)
 
-    # Das Ziel: eine Nadel, deren Spitze auf dem Ende des Weges steht.
-    nadel(bild, 648, 300, 118, 539, KONTUR)
-    nadel(bild, 648, 300, 104, 528, WEISS)
-    kreis(bild, 648, 300, 41)
+    # Die Bundlinie. Sie ist der eine Strich, der aus einem weißen Rechteck
+    # ein Buch macht — hier trägt sie nicht allein, weil das Bildfenster
+    # und die Striche daneben ohnehin für sich sprechen.
+    strecke(bild, 298, 188, 298, 836, 22, KONTUR)
 
-    # Der Anfang: ein Punkt mit Loch, damit er zur Nadel gehört und nicht
-    # wie ein abgeschnittenes Linienende aussieht.
-    kreis(bild, 232, 806, 62, KONTUR)
-    kreis(bild, 232, 806, 50, WEISS)
-    kreis(bild, 232, 806, 21)
+    # Das Bild auf dem Deckel: ein dunkles Fenster, darin Berg und Sonne.
+    # Der Grund scheint hier NICHT durch — ein Fenster in der Konturfarbe
+    # steht ruhiger als eines, durch das der Verlauf läuft.
+    rundeck(bild, 556, 424, 182, 158, 14, KONTUR)
+    flaeche(bild, [(414, 522), (552, 370), (691, 522)], WEISS)
+    kreis(bild, 640, 351, 43, WEISS)
+
+    # Zwei Striche als Bildunterschrift. Bei vierzig Bildpunkten
+    # verschwinden sie, und das schadet nichts: Sie sind die Zugabe, nicht
+    # die Auskunft.
+    strecke(bild, 400, 664, 712, 664, 26, KONTUR)
+    strecke(bild, 400, 740, 616, 740, 26, KONTUR)
 
     return bild
 
