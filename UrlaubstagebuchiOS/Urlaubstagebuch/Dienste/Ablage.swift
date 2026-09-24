@@ -37,9 +37,12 @@ enum Ablage {
         // falsch sein kann. Gebraucht wird sie beim Abgleich — zwei
         // Fassungen desselben Buches lassen sich ohne sie nicht
         // auseinanderhalten.
+        let anfang = Date()
         var kopie = reise
         kopie.geaendertAuf = Geraetename.eigener
         let daten = try kodierer().encode(kopie)
+        Tempomesser.melde("Buch sichern", dauer: Date().timeIntervalSince(anfang),
+                          zusatz: "\(daten.count / 1024) KB JSON")
         let ziel = datei(reise.id)
         let zwischen = ziel.appendingPathExtension("neu")
         try daten.write(to: zwischen, options: .atomic)

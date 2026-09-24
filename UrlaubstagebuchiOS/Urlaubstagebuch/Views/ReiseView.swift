@@ -15,6 +15,16 @@ struct ReiseView: View {
     // auseinander.
     @AppStorage("einrasten") private var einrastenAn = true
     @State private var buchdatei: Buchwunsch?
+    // Die Buchdatei wird ABSEITS des Hauptfadens geschrieben (ab 1.0.103).
+    // Solange das läuft, steht die Anzeige darüber und nimmt die Tipps
+    // an, die sonst einen zweiten Gigabyte-Lauf anstießen.
+    @State private var arbeit: Buchdatei.Fortschritt?
+    @State private var arbeitsaufgabe: Task<Void, Never>?
+    // ABGEBROCHEN WIRD DIE ABGESETZTE AUFGABE, nicht die äußere:
+    // `Task.detached` erbt den Abbruch des Aufrufers NICHT. Wer nur die
+    // äußere abbricht, hat einen Knopf gebaut, der nichts tut — und das
+    // Gigabyte liefe weiter.
+    @State private var abbruch: (() -> Void)?
     // Einzelseiten oder Doppelseiten. `@AppStorage` gehört in eine VIEW
     // und nie ins `Reisewerk` — der Wrapper ist eine `DynamicProperty`.
     @AppStorage("doppelseiten") private var doppelseiten = false
@@ -221,6 +231,7 @@ struct ReiseView: View {
         .sheet(item: $buchdatei) { wunsch in
             Teilenblatt(gegenstaende: [wunsch.ort])
         }
+        .arbeitsanzeige(arbeit, titel: "Buchdatei wird geschrieben", abbrechen: abbruch)
         // Wer aus dem Inspektor heraus ein Blatt öffnet (etwa „Für alle
         // Fotos einstellen"), soll nicht ein Blatt über einem Popover
         // bekommen. Verglichen wird die Kennung und nicht der Fall selbst:
@@ -2069,13 +2080,59 @@ struct ReiseView: View {
 
     // Das ganze Buch als eine Datei — samt aller Bilder, zum Sichern, zum
     // Umziehen auf ein anderes Gerät und zum Weitergeben.
+    // EIN GIGABYTE GEHÖRT NICHT AUF DEN HAUPTFADEN (ab 1.0.103).
+    //
+    // Gemeldet 09/2026 vom Mac: „Nun habe ich mehrfach versucht, das Buch
+    // als Datei zu sichern und die App reagiert nicht mehr. Es läuft nur
+    // der sich drehende farbige Ball." Am Quelltext abzuzählen: Bis
+    // 1.0.102 stand hier ein nackter Aufruf, und `Buchdatei.schreiben`
+    // liest und schreibt jedes Bild des Buches. Bei zweihundert Fotos ist
+    // das ein Gigabyte — auf dem Hauptfaden, ohne ein Wort dazu.
+    //
+    // Über iCloud kommt das Schlimmere hinzu: Ein Bild, das noch nicht
+    // heruntergeladen ist, wird beim Öffnen erst geholt. Auf einem Mac
+    // wartet dieser Aufruf, und zwar je Bild.
     private func buchSichern() {
+        guard arbeitsaufgabe == nil else { return }
         werk.sofortSichern()
-        do {
-            buchdatei = Buchwunsch(ort: try Buchdatei.schreiben(werk.reise))
-        } catch {
-            werk.meldung = .init(text: "Die Buchdatei ließ sich nicht schreiben: "
-                                 + error.localizedDescription, schwer: true)
+        let reise = werk.reise
+        arbeit = Buchdatei.Fortschritt(text: "Wird vorbereitet\u{2026}")
+        let melder = Arbeitsmelder()
+        let lauf = Task.detached(priority: .userInitiated) {
+            try Buchdatei.schreiben(reise) { melder.melde($0) }
+        }
+        abbruch = { lauf.cancel() }
+        arbeitsaufgabe = Task { @MainActor in
+            defer {
+                arbeit = nil
+                arbeitsaufgabe = nil
+                abbruch = nil
+            }
+            // Die Anzeige liest im eigenen Takt, statt bei jeder Meldung
+            // auf den Hauptfaden zu springen.
+            let anzeige = Task { @MainActor in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(200))
+                    if let stand = melder.stand { arbeit = stand }
+                }
+            }
+            defer { anzeige.cancel() }
+            do {
+                let befund = try await lauf.value
+                Tempomesser.melde("Buchdatei schreiben", dauer: befund.dauer,
+                                  zusatz: "\(befund.bilder) Bilder \u{00B7} "
+                                      + Buchdatei.groesse(befund.bytes))
+                buchdatei = Buchwunsch(ort: befund.ort)
+                if !befund.fehlende.isEmpty {
+                    werk.meldung = .init(text: befund.satz, schwer: true)
+                }
+            } catch is CancellationError {
+                werk.meldung = .init(text: "Die Buchdatei wurde abgebrochen. "
+                                     + "Es ist nichts liegen geblieben.", schwer: false)
+            } catch {
+                werk.meldung = .init(text: "Die Buchdatei ließ sich nicht schreiben: "
+                                     + error.localizedDescription, schwer: true)
+            }
         }
     }
 

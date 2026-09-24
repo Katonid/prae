@@ -82,7 +82,15 @@ final class Regal: ObservableObject {
     }
 
     func neuLesen() {
+        // GEMESSEN, NICHT GERATEN (ab 1.0.103). Gemeldet vom Mac: „Das
+        // Öffnen dauerte." Hier wird jedes Buch von der Platte gelesen und
+        // entziffert — bei einem Buch mit sechzig Seiten sind das mehrere
+        // Megabyte JSON, und über iCloud kommt der Weg dorthin dazu. Ob es
+        // wirklich daran liegt, sagt die Zahl in den Einstellungen.
+        let anfang = Date()
         let ergebnis = Ablage.alle()
+        Tempomesser.melde("Regal lesen", dauer: Date().timeIntervalSince(anfang),
+                          zusatz: "\(ergebnis.reisen.count) Bücher")
         reisen = ergebnis.reisen
         unlesbar = ergebnis.unlesbar
     }

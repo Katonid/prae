@@ -16,6 +16,14 @@ struct RegalView: View {
     // Liste, nicht vor dem Buch.
     @State private var umzubenennen: Reise?
     @State private var neuerName = ""
+    // Einlesen heißt: jedes Bild des Buches auf die Platte schreiben.
+    // Das gehört nicht auf den Hauptfaden (ab 1.0.103) — dieselbe
+    // Rechnung wie beim Schreiben einer Buchdatei.
+    @State private var arbeit: Buchdatei.Fortschritt?
+    @State private var arbeitsaufgabe: Task<Void, Never>?
+    // Abgebrochen wird die ABGESETZTE Aufgabe: `Task.detached` erbt den
+    // Abbruch des Aufrufers nicht.
+    @State private var abbruch: (() -> Void)?
 
     var body: some View {
         NavigationStack {
@@ -48,16 +56,26 @@ struct RegalView: View {
                 EinstellungenView()
                     .environmentObject(regal)
             }
+            .arbeitsanzeige(arbeit, titel: "Buchdatei", abbrechen: abbruch)
             // Eine hereingereichte Buchdatei — aus „Dateien", per AirDrop
             // oder über den Wähler in den Einstellungen. Die Frage steht
             // hier und nur hier.
             .onChange(of: regal.angeboteneDatei) { _, ort in
                 guard let ort else { return }
-                do {
-                    angebot = try mitZugriff(ort) { try Buchdatei.pruefen(ort) }
-                } catch {
-                    einlesefehler = error.localizedDescription
-                    aufraeumen()
+                // Auch das Nachsehen liest eine Datei, die in iCloud liegen
+                // kann — über die Wolke wartet der erste Zugriff, bis sie
+                // geholt ist.
+                Task { @MainActor in
+                    arbeit = Buchdatei.Fortschritt(text: "Datei wird gelesen\u{2026}")
+                    defer { arbeit = nil }
+                    do {
+                        angebot = try await mitZugriffAbseits(ort) {
+                            try Buchdatei.pruefen(ort)
+                        }
+                    } catch {
+                        einlesefehler = error.localizedDescription
+                        aufraeumen()
+                    }
                 }
             }
             .alert("Buch einlesen", isPresented: .init(
@@ -188,15 +206,48 @@ struct RegalView: View {
     }
 
     private func einlesen(alsKopie: Bool) {
-        guard let ort = regal.angeboteneDatei else { return }
+        guard let ort = regal.angeboteneDatei, arbeitsaufgabe == nil else { return }
         angebot = nil
-        do {
-            _ = try mitZugriff(ort) { try Buchdatei.einlesen(ort, alsKopie: alsKopie) }
-            regal.neuLesen()
-        } catch {
-            einlesefehler = error.localizedDescription
+        let melder = Arbeitsmelder()
+        // Der Zugriff auf eine Datei an Ort und Stelle wird angemeldet und
+        // bleibt offen, solange die Arbeit läuft — `defer` greift auch nach
+        // einem `await`.
+        let offen = ort.startAccessingSecurityScopedResource()
+        let kiste = Kiste<Void>()
+        let lauf = Task.detached(priority: .userInitiated) {
+            kiste.ergebnis = Result {
+                _ = try Buchdatei.einlesen(ort, alsKopie: alsKopie) { melder.melde($0) }
+            }
         }
-        aufraeumen()
+        abbruch = { lauf.cancel() }
+        arbeitsaufgabe = Task { @MainActor in
+            defer {
+                if offen { ort.stopAccessingSecurityScopedResource() }
+                arbeit = nil
+                arbeitsaufgabe = nil
+                abbruch = nil
+                aufraeumen()
+            }
+            arbeit = Buchdatei.Fortschritt(text: "Wird eingelesen\u{2026}")
+            let anzeige = Task { @MainActor in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(200))
+                    if let stand = melder.stand { arbeit = stand }
+                }
+            }
+            defer { anzeige.cancel() }
+            await lauf.value
+            switch kiste.ergebnis {
+            case .success:
+                regal.neuLesen()
+            case .failure(let fehler) where fehler is CancellationError:
+                einlesefehler = "Das Einlesen wurde abgebrochen."
+            case .failure(let fehler):
+                einlesefehler = fehler.localizedDescription
+            case nil:
+                einlesefehler = "Das Einlesen hat nichts zurückgegeben."
+            }
+        }
     }
 
     // EINE DATEI AN ORT UND STELLE MUSS ANGEMELDET WERDEN (ab 1.0.62).
@@ -209,10 +260,24 @@ struct RegalView: View {
     //
     // Für eine Datei aus dem Posteingang ist der Aufruf folgenlos: Er
     // gibt dort `false` zurück, und gelesen wird trotzdem.
-    private func mitZugriff<W>(_ ort: URL, _ arbeit: () throws -> W) rethrows -> W {
+    //
+    // ANGEMELDET WIRD AUF DEM HAUPTFADEN, GEARBEITET DANEBEN (ab 1.0.103).
+    // Der Zugriff gilt für die Dauer des Aufrufs, und `defer` läuft auch
+    // nach einem `await` — er bleibt also offen, solange die Arbeit läuft.
+    private func mitZugriffAbseits<W>(
+        _ ort: URL, _ arbeit: @escaping @Sendable () throws -> W) async throws -> W
+    {
         let offen = ort.startAccessingSecurityScopedResource()
         defer { if offen { ort.stopAccessingSecurityScopedResource() } }
-        return try arbeit()
+        let kiste = Kiste<W>()
+        await Task.detached(priority: .userInitiated) {
+            kiste.ergebnis = Result { try arbeit() }
+        }.value
+        switch kiste.ergebnis {
+        case .success(let wert): return wert
+        case .failure(let fehler): throw fehler
+        case nil: throw Buchdatei.Fehler.kaputt("Die Arbeit hat nichts zurückgegeben.")
+        }
     }
 
     // Was iOS in den Posteingang der App gelegt hat, gehört danach nicht
