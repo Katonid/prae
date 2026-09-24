@@ -768,7 +768,49 @@ enum Druckpruefung {
             titel = "Sehr schmaler Rücken"
             text += " Unter 4 mm bedrucken viele Buchdienste den Rücken gar nicht."
         }
-        return [Zeile(stufe: stufe, titel: titel, text: text)]
+        var zeilen = [Zeile(stufe: stufe, titel: titel, text: text)]
+
+        // DER UMSCHLAG HAT SEIT 1.0.91 SEIN EIGENES MASS — und wer es
+        // einträgt, soll am fertigen Buch nachlesen können, was daraus
+        // geworden ist. Ohne eigenes Maß wird NICHTS behauptet: Dass der
+        // Umschlag so groß ist wie der Block, ist bei vielen Bindungen
+        // richtig, und eine Warnung darüber wäre keine Auskunft.
+        let halb = Umschlagmass.seitenformat(reise.format, umschlag: reise.umschlag)
+        if reise.umschlag.format != nil || reise.umschlag.anschnitt != nil {
+            var eigen = "Eine Hälfte misst netto "
+            eigen += "\(Druckvorgabe.zahl(halb.breite)) x \(Druckvorgabe.zahl(halb.hoehe)) mm"
+            eigen += ", der Buchblock daneben "
+            eigen += "\(Druckvorgabe.zahl(reise.format.breite)) x "
+            eigen += "\(Druckvorgabe.zahl(reise.format.hoehe)) mm. "
+            let a = Umschlagmass.anschnitt(reise.gestaltung, umschlag: reise.umschlag)
+            eigen += "Beschnittzugabe des Umschlags: \(Druckvorgabe.zahl(a)) mm"
+            if abs(a - reise.gestaltung.anschnitt) > 0.05 {
+                eigen += " statt der \(Druckvorgabe.zahl(reise.gestaltung.anschnitt)) mm "
+                eigen += "des Innenteils"
+            }
+            eigen += ". Beides ist EINGETRAGEN und nicht gerechnet \u{2014} was die "
+            eigen += "Druckerei nennt, gilt."
+            zeilen.append(Zeile(stufe: .gut, titel: "Eigenes Maß für den Umschlag",
+                                text: eigen))
+        }
+
+        // WAS AUF U2 UND U3 STEHT, IST FÜR DEN BLOCK GESETZT. Trägt der
+        // Umschlag ein eigenes Format, passt der Satz dieser beiden Seiten
+        // nicht dazu — sie füllen die größere Hälfte nicht aus. Das wird
+        // gesagt und nicht stillschweigend hingenommen; verschieben lässt
+        // es sich nur von Hand.
+        if reise.umschlag.format != nil, reise.umschlagTraegtInhalt {
+            var wort = "Die erste und die letzte Tagebuchseite stehen auf den Innenseiten "
+            wort += "des Umschlags. Gesetzt wurden sie für das Format des Buchblocks "
+            wort += "(\(Druckvorgabe.zahl(reise.format.breite)) x "
+            wort += "\(Druckvorgabe.zahl(reise.format.hoehe)) mm); die Umschlaghälfte misst "
+            wort += "\(Druckvorgabe.zahl(halb.breite)) x \(Druckvorgabe.zahl(halb.hoehe)) mm. "
+            wort += "Rechts und unten bleibt dort also mehr Rand stehen als auf einer "
+            wort += "gewöhnlichen Seite."
+            zeilen.append(Zeile(stufe: .hinweis, titel: "Innenseiten im Umschlagmaß",
+                                text: wort))
+        }
+        return zeilen
     }
 
     // WIE VIELE INNENSEITEN BESTELLT SIND — und wie viele es sind

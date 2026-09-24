@@ -36,6 +36,50 @@ struct Umschlag: Codable, Hashable {
     // allein haben will, schaltet es ab.
     var alsBogen: Bool = true
 
+    // MARK: - Das Maß des Umschlags (ab 1.0.91)
+
+    // DER UMSCHLAG HAT SEIN EIGENES MASS — und das ist keine Zugabe,
+    // sondern die Vorgabe der Druckerei.
+    //
+    // Ansage des Nutzers, 09/2026, mit der Cover-Seite seines Dienstes
+    // daneben: „Für das Cover muss es noch weitere Einstellmöglichkeiten
+    // geben. Die Vorgaben der Druckerei kann ich sonst nicht einhalten."
+    //
+    // **Nachgerechnet an genau diesen Zahlen:** Verlangt waren ein
+    // Bruttomaß von 457 × 295 mm, eine Beschnittzugabe von 10 mm an allen
+    // vier Kanten, daraus ein Nettomaß von 437 × 275 mm und ein Buchrücken
+    // von 17 mm. Also je Hälfte (437 − 17) / 2 = 210 mm breit und 275 mm
+    // hoch. Der Innenteil desselben Buches misst dagegen 205 × 270 bei
+    // 3 mm Anschnitt — die App gab folgerichtig 418 × 276 aus und verfehlte
+    // die Vorgabe um vier Zentimeter.
+    //
+    // **Beides ließ sich nicht eintragen, weil der Umschlag bis 1.0.90 gar
+    // kein eigenes Maß hatte:** Er nahm das Seitenformat des Buchblocks und
+    // dessen Anschnitt. Bei einem Hardcover stimmt das nie — der Bezug ist
+    // größer als der Block, und wie viel größer, entscheidet die Bindung
+    // und nicht diese App.
+    //
+    // **Abgeleitet wird deshalb NICHTS.** Aus 210 × 275 gegen 205 × 270
+    // ließe sich ein „Überstand von 5 mm" lesen; über die Höhe gerechnet
+    // wären es 2,5 mm je Kante, über die Breite 5 — die beiden Zahlen gehen
+    // nicht auf, und ein geratener Überstand wäre genau die Art Rechnung,
+    // die dieses Papier verbietet. Eingetragen wird das, was in der
+    // Bestellung steht.
+    //
+    // `nil` heißt jeweils: wie das Buch. Abweichung, keine Kopie — dieselbe
+    // Regel wie bei `rand`, `hintergrund` und `titellage`; wer später das
+    // Seitenformat ändert, ändert den Umschlag mit, solange er hier nichts
+    // gesagt hat.
+
+    /// Das Maß EINER Umschlaghälfte, NETTO (ohne Anschnitt, ohne Rücken).
+    /// `nil` heißt: so groß wie eine Buchseite.
+    var format: Seitenformat?
+
+    /// Die Beschnittzugabe des Umschlagbogens in Millimetern — ringsum,
+    /// denn am Rücken wird gefalzt und nicht geschnitten. `nil` heißt: wie
+    /// im Buch.
+    var anschnitt: Double?
+
     // MARK: - Der Rücken
 
     // Ob SCHRIFT auf dem Rücken steht — und sonst nichts (ab 1.0.78).
@@ -294,6 +338,8 @@ struct Umschlag: Codable, Hashable {
         einband = b.wert(.einband, Einband.hardcover)
         deckenstaerke = b.wert(.deckenstaerke, 4)
         rueckenbreiteVonHand = b.wahlweise(.rueckenbreiteVonHand)
+        format = b.wahlweise(.format)
+        anschnitt = b.wahlweise(.anschnitt)
         innenseitenBogen = b.wert(.innenseitenBogen, false)
         innenseitenFarbe = b.wahlweise(.innenseitenFarbe)
         innenseitenInhalt = b.wert(.innenseitenInhalt, false)

@@ -283,6 +283,41 @@ extension Reise {
     // richtig, ohne eine zweite Regel daneben.
     var hatRueckseite: Bool { titelseite && umschlag.alsBogen }
 
+    // WELCHES MASS FÜR DIESE SEITE GILT (ab 1.0.91).
+    //
+    // Auf dem Umschlagbogen ist es ein anderes als im Buchblock — der
+    // Bezug eines Hardcovers ist größer als der Block, und die Druckerei
+    // nennt beides getrennt. Aufgelöst wird es an EINER Stelle
+    // (`Umschlagmass`), gefragt von der Bühne, vom PDF und von der
+    // Druckprüfung; drei Fassungen ergäben drei Geometrien.
+    //
+    // Es gilt für JEDE Seite des Umschlagbogens, also auch für U2 und U3:
+    // Zwei Hälften und der Rücken müssen zusammen den Bogen ergeben, den
+    // die Datei beschreibt. Trägt der Umschlag innen INHALT, sind das
+    // Seiten, die der Layoutautomat für den Buchblock gesetzt hat — die
+    // Druckprüfung sagt das, statt es zu verschweigen.
+    func flaeche(_ buchseite: Buchseite) -> Seitenformat {
+        buchseite.amUmschlag
+            ? Umschlagmass.seitenformat(format, umschlag: umschlag)
+            : format
+    }
+
+    /// Der Anschnitt DIESER Seite, in Punkten.
+    func anschnittPt(_ buchseite: Buchseite) -> Double {
+        buchseite.amUmschlag
+            ? Umschlagmass.anschnittPt(gestaltung, umschlag: umschlag)
+            : gestaltung.anschnittPt
+    }
+
+    /// Der Satzspiegel DIESER Seite. Auf dem Umschlag der des Umschlags —
+    /// er nimmt dessen eigenen Rand und nie den Bundsteg, denn ein
+    /// Umschlag wird umgelegt und nicht gebunden.
+    func satzspiegel(_ buchseite: Buchseite) -> CGRect {
+        buchseite.amUmschlag
+            ? Umschlagmass.satzspiegel(format, gestaltung: gestaltung, umschlag: umschlag)
+            : gestaltung.satzspiegel(format)
+    }
+
     // DIE SEITENFOLGE — und die Nummerierung dahinter — steht an GENAU
     // EINER Stelle.
     //
@@ -805,8 +840,10 @@ enum Buchausgabe {
                             fortschritt: @escaping @MainActor (Double) -> Void) async throws -> URL
     {
         let format = reise.format
-        let seitenmass = format.groesse
-        let anschnitt = reise.gestaltung.anschnittPt
+        // Die HÄLFTE des Bogens und seine Beschnittzugabe — beide seit
+        // 1.0.91 eigene Werte des Umschlags, aufgelöst in `Umschlagmass`.
+        let seitenmass = Umschlagmass.seitenformat(format, umschlag: reise.umschlag).groesse
+        let anschnitt = Umschlagmass.anschnittPt(reise.gestaltung, umschlag: reise.umschlag)
         let innen = reise.innenseiten
         let endformat = Umschlagmass.endformat(format, umschlag: reise.umschlag,
                                                innenseiten: innen)
@@ -1262,8 +1299,11 @@ enum Buchausgabe {
                              zeichen: [String: UIImage] = [:],
                              in zusammenhang: CGContext)
     {
-        let endformat = reise.format.groesse
-        let anschnitt = reise.gestaltung.anschnittPt
+        // DAS MASS KOMMT VON DER SEITE, NICHT VOM BUCH (ab 1.0.91): Eine
+        // Umschlaghälfte darf ein eigenes Format und einen eigenen
+        // Anschnitt haben.
+        let endformat = reise.flaeche(buchseite).groesse
+        let anschnitt = reise.anschnittPt(buchseite)
         let ecken = reise.gestaltung.eckenradiusPt
         // Der Maßstab für Schatten: Auf einem 30er-Buch darf ein Schatten
         // größer sein als auf einer Postkarte, sonst verschwindet er.
@@ -1328,7 +1368,7 @@ enum Buchausgabe {
         // der bis zu zehn Bilder auf dieser Seite liegt — vorher lässt
         // sich gar nicht wissen, welche Datei zu holen ist.
         if !auftrag.ohneTransparenz, let wasserzeichen = reise.wasserzeichen(fuer: buchseite) {
-            let satz = reise.gestaltung.satzspiegel(reise.format)
+            let satz = reise.satzspiegel(buchseite)
             let ort = Wasserzeichenlage.ort(wasserzeichen, satz: satz, seite: buchseite.seite)
             // Aus dem Vorrat — einmal je Datei geladen und nicht je Seite
             // (siehe `wasserzeichenbilder`). Steht dort nichts, wird es

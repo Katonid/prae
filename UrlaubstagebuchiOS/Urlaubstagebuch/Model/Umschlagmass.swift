@@ -14,6 +14,41 @@ import Foundation
 // Hier ist das Endformat der ganze Bogen — zwei Buchseiten nebeneinander
 // und der Rücken dazwischen.
 enum Umschlagmass {
+    // DAS MASS DES UMSCHLAGS — aufgelöst an DIESER einen Stelle (ab 1.0.91).
+    //
+    // Gefragt vom Bildschirm, vom PDF, vom Ausgabesteckbrief und von der
+    // Druckprüfung. Zwei Fassungen ergäben eine Vorschau, die anders
+    // aussieht als die Datei — und der Unterschied fiele erst auf, wenn
+    // der Umschlag beim Drucker liegt.
+    //
+    // `Seitenformat` ist hier das NETTOMASS EINER Hälfte, also das, was
+    // nach dem Schneiden auf dem Deckel steht; der Rücken kommt dazu, der
+    // Anschnitt liegt außen.
+    static func seitenformat(_ format: Seitenformat, umschlag: Umschlag) -> Seitenformat {
+        umschlag.format ?? format
+    }
+
+    /// Die Beschnittzugabe des Umschlagbogens in Millimetern.
+    static func anschnitt(_ gestaltung: Gestaltung, umschlag: Umschlag) -> Double {
+        max(0, umschlag.anschnitt ?? gestaltung.anschnitt)
+    }
+
+    static func anschnittPt(_ gestaltung: Gestaltung, umschlag: Umschlag) -> Double {
+        Druckmass.pt(anschnitt(gestaltung, umschlag: umschlag))
+    }
+
+    /// Die randabfallende Fläche EINER Umschlaghälfte, in deren eigenen
+    /// Koordinaten. Dasselbe wie `Gestaltung.randabfallend`, nur mit dem
+    /// Maß und dem Anschnitt des Umschlags.
+    static func randabfallend(_ format: Seitenformat, gestaltung: Gestaltung,
+                              umschlag: Umschlag) -> CGRect
+    {
+        let groesse = seitenformat(format, umschlag: umschlag).groesse
+        let a = anschnittPt(gestaltung, umschlag: umschlag)
+        return CGRect(x: -a, y: -a,
+                      width: groesse.width + 2 * a, height: groesse.height + 2 * a)
+    }
+
     // Wie viele BLÄTTER der Innenteil hat. Ein Blatt trägt zwei Seiten,
     // und eine ungerade Seitenzahl wird bei der Bindung auf ein volles
     // Blatt aufgefüllt — das ist derselbe Grund, aus dem viele Druckdienste
@@ -97,7 +132,11 @@ enum Umschlagmass {
     static func endformat(_ format: Seitenformat, umschlag: Umschlag,
                           innenseiten: Int) -> CGSize
     {
-        let seite = format.groesse
+        // DIE HÄLFTE HAT IHR EIGENES MASS (ab 1.0.91), die Rückenbreite
+        // dagegen wird weiter am Format des BUCHES nachgeschlagen: Die
+        // Tabellen der Druckdienste sind nach dem Produkt benannt, und das
+        // ist der Innenteil.
+        let seite = seitenformat(format, umschlag: umschlag).groesse
         let ruecken = rueckenbreitePt(umschlag, format: format, innenseiten: innenseiten)
         return CGSize(width: seite.width * 2 + ruecken, height: seite.height)
     }
@@ -112,13 +151,13 @@ enum Umschlagmass {
                       umschlag: Umschlag, innenseiten: Int) -> CGSize
     {
         let end = endformat(format, umschlag: umschlag, innenseiten: innenseiten)
-        let zugabe = gestaltung.anschnittPt * 2
+        let zugabe = anschnittPt(gestaltung, umschlag: umschlag) * 2
         return CGSize(width: end.width + zugabe, height: end.height + zugabe)
     }
 
     // Die Rückseite des Buches — links.
-    static func rueckseite(_ format: Seitenformat) -> CGRect {
-        CGRect(origin: .zero, size: format.groesse)
+    static func rueckseite(_ format: Seitenformat, umschlag: Umschlag) -> CGRect {
+        CGRect(origin: .zero, size: seitenformat(format, umschlag: umschlag).groesse)
     }
 
     // Der Rücken — in der Mitte. Bei einem Buch ohne Rücken ist er null
@@ -126,7 +165,7 @@ enum Umschlagmass {
     static func ruecken(_ format: Seitenformat, umschlag: Umschlag,
                         innenseiten: Int) -> CGRect
     {
-        let seite = format.groesse
+        let seite = seitenformat(format, umschlag: umschlag).groesse
         return CGRect(x: seite.width, y: 0,
                       width: rueckenbreitePt(umschlag, format: format, innenseiten: innenseiten),
                       height: seite.height)
@@ -138,7 +177,7 @@ enum Umschlagmass {
     static func vorderseite(_ format: Seitenformat, umschlag: Umschlag,
                             innenseiten: Int) -> CGRect
     {
-        let seite = format.groesse
+        let seite = seitenformat(format, umschlag: umschlag).groesse
         let ruecken = rueckenbreitePt(umschlag, format: format, innenseiten: innenseiten)
         return CGRect(x: seite.width + ruecken, y: 0,
                       width: seite.width, height: seite.height)
@@ -150,9 +189,9 @@ enum Umschlagmass {
     static func satzspiegel(_ format: Seitenformat, gestaltung: Gestaltung,
                             umschlag: Umschlag) -> CGRect
     {
-        let groesse = format.groesse
+        let groesse = seitenformat(format, umschlag: umschlag).groesse
         guard let eigener = umschlag.rand else {
-            var satz = gestaltung.satzspiegel(format)
+            var satz = gestaltung.satzspiegel(seitenformat(format, umschlag: umschlag))
             // Ohne Bundsteg: `satzspiegel` rechnet ihn auf beide Ränder,
             // und auf dem Umschlag gibt es keine Heftung.
             let bund = Druckmass.pt(gestaltung.bundsteg)

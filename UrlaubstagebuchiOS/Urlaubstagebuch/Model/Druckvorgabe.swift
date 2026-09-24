@@ -65,6 +65,32 @@ enum Druckvorgabe {
                height: format.hoehe + 2 * anschnitt)
     }
 
+    // DAS NETTOMASS EINER UMSCHLAGHÄLFTE (ab 1.0.91).
+    //
+    // Ansage des Nutzers, 09/2026: „Für das Cover muss es noch weitere
+    // Einstellmöglichkeiten geben. Die Vorgaben der Druckerei kann ich
+    // sonst nicht einhalten."
+    //
+    // **Nachgerechnet an seinen Zahlen:** Bruttomaß 457 × 295 mm,
+    // Beschnittzugabe 10 mm ringsum, Buchrücken 17 mm. 457 − 2 × 10 = 437
+    // und 295 − 2 × 10 = 275; davon der Rücken ab und durch zwei ergibt
+    // **210 × 275 mm je Hälfte**. Der Innenteil desselben Buches misst
+    // 205 × 270 — der Umschlag ist also fünf Millimeter breiter und fünf
+    // höher, und das ist der Überstand des Deckels.
+    //
+    // Gerechnet wird er NICHT: Über die Höhe wären es 2,5 mm je Kante,
+    // über die Breite 5 — die beiden gehen nicht auf, und eine geratene
+    // Regel dahinter wäre genau die Art Schluss, die dieses Papier
+    // verbietet. Eingetragen wird, was in der Bestellung steht.
+    static func umschlaghaelfte(bogenBreite: Double, bogenHoehe: Double,
+                                anschnitt: Double, ruecken: Double) -> Seitenformat?
+    {
+        let b = (bogenBreite - 2 * anschnitt - max(0, ruecken)) / 2
+        let h = bogenHoehe - 2 * anschnitt
+        guard Seitenformat.gueltig(b), Seitenformat.gueltig(h) else { return nil }
+        return Seitenformat(breite: runden(b), hoehe: runden(h))
+    }
+
     /// Welche Rückenstärke zu einer geforderten Umschlagbreite gehört.
     /// `nil`, wenn dabei etwas Negatives herauskäme — dann passt das
     /// Seitenformat nicht zu der Angabe, und das ist der wichtigere Befund.

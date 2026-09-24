@@ -109,6 +109,38 @@ enum Ausgabesteckbrief {
                     + "Papier. Am Rücken wird gefalzt und nicht geschnitten, "
                     + "also liegt auch dort kein Anschnitt.",
                 eingestellt: false))
+
+            // WAS EINE HÄLFTE MISST UND WAS AUSSEN ZUGEGEBEN WIRD (ab
+            // 1.0.91). Beides darf vom Buchblock abweichen — der Umschlag
+            // eines gebundenen Buches ist größer, und die Druckerei nennt
+            // für ihn oft eine andere Beschnittzugabe. Ohne diese beiden
+            // Zeilen ließe sich nicht sehen, WORAUS das Bogenmaß darüber
+            // entsteht.
+            let halb = Umschlagmass.seitenformat(format, umschlag: reise.umschlag)
+            zeilen.append(Zeile(
+                name: "Umschlag \u{00B7} eine Hälfte",
+                wert: Druckvorgabe.masstext(CGSize(width: halb.breite, height: halb.hoehe)),
+                erklaerung: reise.umschlag.format == nil
+                    ? "Nettomaß nach dem Schneiden. Nicht eingestellt \u{2014} es gilt "
+                        + "das Seitenformat des Buches. Ein Hardcover ist in Wahrheit "
+                        + "größer als sein Block; was die Druckerei nennt, wird unter "
+                        + "Umschlag \u{2192} Maß der Druckerei eingetragen."
+                    : "Nettomaß nach dem Schneiden, eigens für den Umschlag "
+                        + "eingetragen. Der Buchblock misst daneben unverändert "
+                        + Druckvorgabe.masstext(CGSize(width: format.breite,
+                                                       height: format.hoehe)) + ".",
+                eingestellt: reise.umschlag.format != nil))
+            zeilen.append(Zeile(
+                name: "Umschlag \u{00B7} Anschnitt",
+                wert: Druckvorgabe.zahl(Umschlagmass.anschnitt(g, umschlag: reise.umschlag))
+                    + " mm",
+                erklaerung: reise.umschlag.anschnitt == nil
+                    ? "Ringsum, am Rücken keiner. Nicht eingestellt \u{2014} es gilt die "
+                        + "Zugabe des Buches."
+                    : "Ringsum, am Rücken keiner. Eigens für den Umschlag eingetragen; "
+                        + "der Innenteil behält seine "
+                        + Druckvorgabe.zahl(g.anschnitt) + " mm.",
+                eingestellt: reise.umschlag.anschnitt != nil))
         }
 
         zeilen.append(Zeile(

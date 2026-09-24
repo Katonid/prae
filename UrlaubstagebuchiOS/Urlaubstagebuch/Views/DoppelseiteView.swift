@@ -26,7 +26,22 @@ struct DoppelseiteView: View {
     // Die Höhe des ganzen Bogens: Endformat plus Anschnitt oben und unten.
     // Oben und unten wird immer geschnitten — dort ändert der Bund nichts.
     private var bogenhoehe: Double {
-        Double(werk.reise.format.groesse.height) + 2 * werk.reise.gestaltung.anschnittPt
+        Double(seitenmass.groesse.height) + 2 * bogenanschnitt
+    }
+
+    // DAS MASS DES BOGENS (ab 1.0.91). Auf dem Umschlag darf beides
+    // abweichen — das Format einer Hälfte und die Beschnittzugabe;
+    // aufgelöst in `Umschlagmass`, also dort, wo auch das PDF fragt.
+    private var seitenmass: Seitenformat {
+        istUmschlagbogen
+            ? Umschlagmass.seitenformat(werk.reise.format, umschlag: werk.reise.umschlag)
+            : werk.reise.format
+    }
+
+    private var bogenanschnitt: Double {
+        istUmschlagbogen
+            ? Umschlagmass.anschnittPt(werk.reise.gestaltung, umschlag: werk.reise.umschlag)
+            : werk.reise.gestaltung.anschnittPt
     }
 
     // Was eine HÄLFTE dieses Bogens einnimmt: das Endformat, außen der
@@ -34,8 +49,7 @@ struct DoppelseiteView: View {
     // Umschlaginnenseite und für den leeren Platz — beide müssen so breit
     // sein wie die Seite daneben, sonst wandert der Bund aus der Mitte.
     private var haelfte: CGSize {
-        let a = werk.reise.gestaltung.anschnittPt
-        return CGSize(width: Double(werk.reise.format.groesse.width) + a, height: bogenhoehe)
+        CGSize(width: Double(seitenmass.groesse.width) + bogenanschnitt, height: bogenhoehe)
     }
 
     // DER UMSCHLAGBOGEN (ab 1.0.50) ist seit 1.0.52 der Bogen mit der
@@ -100,7 +114,7 @@ struct DoppelseiteView: View {
     // der Bogen schon das Ganze, es gibt keine Nachbarseite, über die
     // etwas laufen könnte.
     private var umschlaggrund: some View {
-        let a = werk.reise.gestaltung.anschnittPt
+        let a = bogenanschnitt
         // DIESELBE FLÄCHE, DIE IM PDF STEHT (ab 1.0.78): zwei Endformate,
         // der Rücken dazwischen, ringsum EIN Anschnitt.
         //
