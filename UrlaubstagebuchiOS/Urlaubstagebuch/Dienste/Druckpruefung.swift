@@ -817,6 +817,42 @@ enum Druckpruefung {
     // das als Fehler auszugeben, was richtig ist — und nach dem dritten
     // solchen Hinweis liest niemand mehr eine Zeile dieser Prüfung.
     static func schutzzone(_ reise: Reise) -> [Zeile] {
+        var zeilen = anschnittkante(reise)
+        zeilen.append(contentsOf: sicherheitssaum(reise))
+        return zeilen
+    }
+
+    // ÜBER DIE SCHNITTKANTE HINAUS (ab 1.0.81).
+    //
+    // Der schlimmere der beiden Fälle, und bis 1.0.80 wurde er gar nicht
+    // geprüft: Ein Block, der über die Schnittkante ragt und nicht
+    // randabfallend ist, wird im gedruckten Buch ANGESCHNITTEN. Das fiel
+    // erst am Papier auf.
+    private static func anschnittkante(_ reise: Reise) -> [Zeile] {
+        var betroffen = 0
+        var stellen: [String] = []
+        for buchseite in reise.seitenfolge {
+            let liste = reise.ueberDerSchnittkante(buchseite)
+            betroffen += liste.count
+            if !liste.isEmpty, stellen.count < 4 { stellen.append(buchseite.kurzname) }
+        }
+        guard betroffen > 0 else { return [] }
+        var text = "Diese Bl\u{00F6}cke werden beim Beschneiden ANGESCHNITTEN \u{2014} "
+        text += "sie ragen \u{00FC}ber das Endformat hinaus, ohne auf randabfallend "
+        text += "gestellt zu sein. "
+        if !stellen.isEmpty {
+            text += "Zum Beispiel: " + stellen.joined(separator: ", ") + ". "
+        }
+        text += "Soll ein Block wirklich bis an die Kante laufen, geh\u{00F6}rt er auf "
+        text += "RANDABFALLEND (Block \u{2192} Lage auf der Seite); dann l\u{00E4}uft er "
+        text += "bis \u{00FC}ber den Anschnitt und ist hier nicht mehr gemeint. Auf der "
+        text += "Seite ist jeder betroffene Block dick rot umrandet."
+        return [Zeile(stufe: .warnung,
+                      titel: "\(betroffen) Bl\u{00F6}cke ragen \u{00FC}ber die Schnittkante",
+                      text: text)]
+    }
+
+    private static func sicherheitssaum(_ reise: Reise) -> [Zeile] {
         let saum = reise.gestaltung.sicherheitsabstand
         guard reise.gestaltung.hatSicherheitsabstand else {
             return [Zeile(
@@ -867,10 +903,52 @@ enum Druckpruefung {
         text += "Soll ein Block wirklich bis an die Kante laufen, geh\u{00F6}rt er auf RANDABFALLEND "
         text += "(Block \u{2192} Lage auf der Seite) \u{2014} dann wird er bis \u{00FC}ber den Anschnitt "
         text += "gezogen und ist hier nicht mehr gemeint. Auf der Seite selbst ist jeder "
-        text += "betroffene Block orange gestrichelt umrandet \u{2014} in derselben Farbe wie "
-        text += "die Linie, an der er zu nah steht."
+        text += "betroffene Block dick rot umrandet \u{2014} seit 1.0.81 auch dann, wenn "
+        text += "die Hilfslinien ausgeschaltet sind: Die Linien sind eine Hilfe beim "
+        text += "Anordnen, die Marke ist eine Warnung."
         return [Zeile(stufe: textbloecke > 0 ? .warnung : .hinweis,
                       titel: "\(betroffen) Bl\u{00F6}cke im Sicherheitsabstand",
+                      text: text)]
+    }
+
+    // HAT DAS BEIWERK NOCH PLATZ? (ab 1.0.82)
+    //
+    // Seitenzahl und Kopfzeile sitzen in den RÄNDERN — zwischen
+    // Satzspiegel und Sicherheitslinie. Seit die Ränder bis auf den
+    // Sicherheitsabstand hinuntergehen dürfen (gefragt 09/2026: „Der
+    // Satzspiegel könnte doch tatsächlich innerhalb des
+    // Sicherheitsabstandes ausgeführt werden."), kann dieser Streifen
+    // verschwinden. `Seitenbeiwerk` klemmt beides dann in die Schutzzone —
+    // also steht die Zahl im Text statt im Rand, und das ist kein
+    // Druckfehler, aber auch nicht das, was jemand eingestellt hat.
+    //
+    // Gemessen wird am ERGEBNIS: Überschneidet sich das gesetzte Rechteck
+    // mit dem Satzspiegel, ist der Rand zu knapp. Die Marke auf der Seite
+    // greift hier nicht — Seitenzahl und Kopfzeile sind keine Blöcke.
+    private static func beiwerkplatz(_ reise: Reise) -> [Zeile] {
+        guard reise.gestaltung.seitenzahlen || reise.gestaltung.kopfzeile else { return [] }
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        var eng: Set<String> = []
+        for buchseite in reise.seitenfolge {
+            for zeile in Seitenbeiwerk.zeilen(buchseite, reise: reise)
+            where zeile.rechteck.intersects(satz) {
+                eng.insert(zeile.id)
+            }
+        }
+        guard !eng.isEmpty else { return [] }
+        var was: [String] = []
+        if eng.contains("zahl") { was.append("Die Seitenzahl") }
+        if eng.contains("kopf") { was.append("Die Kopfzeile") }
+        var text = was.joined(separator: " und ") + " "
+        text += eng.count > 1 ? "haben " : "hat "
+        text += "zwischen Satzspiegel und Sicherheitslinie keinen Platz mehr und steht "
+        text += "deshalb im Textbereich. Angeschnitten wird nichts \u{2014} weiter als bis "
+        text += "an den Sicherheitsabstand r\u{00FC}ckt beides nie \u{2014}, aber es liegt "
+        text += "jetzt dort, wo der Flie\u{00DF}text anf\u{00E4}ngt. Abhilfe: den Rand oben "
+        text += "bzw. unten um ein paar Millimeter vergr\u{00F6}\u{00DF}ern (Gestalten "
+        text += "\u{2192} Satzspiegel) oder Seitenzahl und Kopfzeile abschalten."
+        return [Zeile(stufe: .hinweis,
+                      titel: "Seitenzahl oder Kopfzeile ohne eigenen Rand",
                       text: text)]
     }
 
@@ -895,6 +973,7 @@ enum Druckpruefung {
         }
 
         zeilen.append(contentsOf: schutzzone(reise))
+        zeilen.append(contentsOf: beiwerkplatz(reise))
         zeilen.append(contentsOf: bestellung(reise))
         zeilen.append(contentsOf: bildaufloesung(reise))
         zeilen.append(contentsOf: schriften(reise))

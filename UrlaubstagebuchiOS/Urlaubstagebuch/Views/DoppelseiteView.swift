@@ -7,17 +7,36 @@ import SwiftUI
 // bevor die erste wirkliche Buchseite anfängt."
 //
 // Gezeichnet wird mit `spacing: 0`: Im gebundenen Buch stoßen zwei
-// gegenüberliegende Seiten am Bund aneinander. Was dazwischen als heller
-// Streifen stehen bleibt, ist der ANSCHNITT beider Seiten — der wird
-// weggeschnitten, und wo er endet, zeigt die rote Schnittkante („…“ →
-// „Satzspiegel zeigen"). Ein Abstand dazwischen wäre bequemer zu zeichnen
-// und würde eine Lücke behaupten, die das Buch nicht hat.
+// gegenüberliegende Seiten am Bund aneinander. Ein Abstand dazwischen wäre
+// bequemer zu zeichnen und würde eine Lücke behaupten, die das Buch nicht
+// hat.
+//
+// **Und am Bund liegt seit 1.0.78 kein Anschnitt mehr** (gemeldet 09/2026:
+// „Laut Druckerei wird aber doch dort kein Beschnitt ausgeführt."). Bis
+// dahin trug jede Hälfte ihren Anschnitt ringsum; am Bund standen damit
+// zwei Streifen und zwei rote Schnittkanten, wo gefalzt und nicht
+// geschnitten wird. Jetzt stoßen die ENDFORMATE aneinander — genau so,
+// wie `Buchausgabe.doppelseitenPdf` den Bogen schreibt. Welche Kante
+// wegfällt, sagt `Bogenkante`.
 struct DoppelseiteView: View {
     @ObservedObject var werk: Reisewerk
     let bogen: Reisewerk.Doppelseite
     var massstab: Double
 
-    private var bogenmass: CGSize { werk.reise.gestaltung.bogen(werk.reise.format) }
+    // Die Höhe des ganzen Bogens: Endformat plus Anschnitt oben und unten.
+    // Oben und unten wird immer geschnitten — dort ändert der Bund nichts.
+    private var bogenhoehe: Double {
+        Double(werk.reise.format.groesse.height) + 2 * werk.reise.gestaltung.anschnittPt
+    }
+
+    // Was eine HÄLFTE dieses Bogens einnimmt: das Endformat, außen der
+    // Anschnitt, am Bund keiner. Gebraucht für den Platzhalter der
+    // Umschlaginnenseite und für den leeren Platz — beide müssen so breit
+    // sein wie die Seite daneben, sonst wandert der Bund aus der Mitte.
+    private var haelfte: CGSize {
+        let a = werk.reise.gestaltung.anschnittPt
+        return CGSize(width: Double(werk.reise.format.groesse.width) + a, height: bogenhoehe)
+    }
 
     // DER UMSCHLAGBOGEN (ab 1.0.50) ist seit 1.0.52 der Bogen mit der
     // Nummer 0 und steht damit außerhalb der Zählung des Buchblocks. Bis
@@ -65,7 +84,7 @@ struct DoppelseiteView: View {
                                 typografie: werk.reise.typografie,
                                 umschlag: werk.reise.umschlag,
                                 breite: rueckenbreite,
-                                laenge: Double(bogenmass.height),
+                                laenge: bogenhoehe,
                                 massstab: massstab)
                     }
                     seite(bogen.rechts, umschlag: bogen.endetMitUmschlag, vorn: false)
@@ -82,17 +101,22 @@ struct DoppelseiteView: View {
     // etwas laufen könnte.
     private var umschlaggrund: some View {
         let a = werk.reise.gestaltung.anschnittPt
-        // Gezeichnet wird über die Fläche, die WIRKLICH dasteht: zwei
-        // Bogen — jeder mit seinem eigenen Anschnitt — und der Rücken
-        // dazwischen. Der gedruckte Umschlag ist um zwei Anschnitte
-        // SCHMALER, denn innen stoßen die Hälften aneinander; hier stehen
-        // beide, wie in jeder Doppelseite dieser Ansicht seit 1.0.17. Das
-        // Bild ist damit auf dem Bildschirm eine Spur breiter gezeigt, als
-        // es gedruckt wird — bei 3 mm Anschnitt gut ein Prozent. Das ist
-        // eine Ungenauigkeit der ANSICHT und keine der Datei; sie steht
-        // hier, statt sie zu verschweigen.
-        let breite = 2 * (Double(werk.reise.format.groesse.width) + 2 * a) + rueckenbreite
-        let hoehe = Double(werk.reise.format.groesse.height) + 2 * a
+        // DIESELBE FLÄCHE, DIE IM PDF STEHT (ab 1.0.78): zwei Endformate,
+        // der Rücken dazwischen, ringsum EIN Anschnitt.
+        //
+        // Bis 1.0.77 stand hier jede Hälfte mit ihrem eigenen Anschnitt,
+        // also zwei zu viel — „eine Ungenauigkeit der ANSICHT und keine
+        // der Datei", so stand es an dieser Stelle. Hingeschrieben war
+        // sie damit, richtig wurde sie davon nicht: Die Vorschau zeigte
+        // den Umschlag gut ein Prozent breiter, als er gedruckt wird.
+        // Gerechnet wird jetzt über `Umschlagmass.bogen` — dieselbe
+        // Stelle, die auch `umschlagPdf` fragt.
+        let bogenmass = Umschlagmass.bogen(werk.reise.format,
+                                           gestaltung: werk.reise.gestaltung,
+                                           umschlag: werk.reise.umschlag,
+                                           innenseiten: werk.reise.innenseiten)
+        let breite = Double(bogenmass.width)
+        let hoehe = Double(bogenmass.height)
         var grund = werk.reise.umschlag.hintergrund ?? werk.reise.gestaltung.hintergrund
         // Über die Doppelseite ist hier nichts zu verteilen: Der Bogen IST
         // schon das Ganze. Dieselbe Zeile steht im PDF (`umschlagPdf`).
@@ -114,21 +138,29 @@ struct DoppelseiteView: View {
 
     @ViewBuilder
     private func seite(_ buchseite: Buchseite?, umschlag: Bool, vorn: Bool) -> some View {
+        // WELCHE KANTE AM BUND LIEGT, sagt die Stelle im Bogen und nicht
+        // die Seitennummer: Die linke Hälfte stößt rechts an, die rechte
+        // links. Beim Umschlag gilt dasselbe — dort ist die
+        // „Nachbarhälfte" der Rücken, und auch an ihm wird nicht
+        // geschnitten, sondern gefalzt.
+        let kante: Bogenkante = vorn ? .rechts : .links
         if let buchseite {
             SeitenflaecheView(werk: werk, buchseite: buchseite,
-                              ohneGrund: istUmschlagbogen, massstab: massstab)
+                              ohneGrund: istUmschlagbogen, bogenkante: kante,
+                              massstab: massstab)
                 // Siehe `SeitenflaecheView.==`: Der Körper dieser Ansicht
                 // läuft bei jedem Bildpunkt der Zoomgeste mit, und ohne
                 // den Vergleich zöge er beide Seiten des Bogens mit.
                 .equatable()
         } else if umschlag {
-            UmschlagInnenseite(groesse: bogenmass, massstab: massstab, vorn: vorn)
+            UmschlagInnenseite(groesse: haelfte, massstab: massstab, vorn: vorn)
         } else {
             // Keine Seite und kein Umschlag: Das gibt es nach der Bauweise
             // von `doppelseiten` nicht. Der Platz bleibt trotzdem stehen,
             // damit der Bund in der Mitte bleibt.
+            let masse = haelfte
             Color.clear
-                .frame(width: bogenmass.width * massstab, height: bogenmass.height * massstab)
+                .frame(width: masse.width * massstab, height: masse.height * massstab)
         }
     }
 

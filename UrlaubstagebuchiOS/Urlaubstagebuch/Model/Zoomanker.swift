@@ -89,6 +89,24 @@ struct Zoomanker {
     func elementhoehe(_ massstab: Double) -> Double { blatthoehe * massstab + beiwerk }
     func schritt(_ massstab: Double) -> Double { elementhoehe(massstab) + fuge }
 
+    /// WELCHES ELEMENT AN DIESER STELLE DES INHALTS LIEGT (ab 1.0.79).
+    ///
+    /// Ohne Klemmen und ohne `anzahl` — gebraucht wird sie dort, wo nur die
+    /// Frage „welche Reihe überdeckt die Mitte des Sichtfelds" zu
+    /// beantworten ist (`ReiseView.reiheInDerMitte`). Die Zahl der Elemente
+    /// kostet in `ReiseView` einen Lauf über das ganze Buch; sie hier zu
+    /// verlangen hieße, ihn in den Körper einer Ansicht zu ziehen — genau
+    /// die Falle, die 1.0.15 und 1.0.16 abgestellt haben.
+    ///
+    /// Und es ist DIESELBE Rechnung wie in `griff`: Wer sie in der Ansicht
+    /// nachbaut, bezahlt sie beim nächsten Mal, wenn sich eine Fuge ändert.
+    func stelle(bei hoch: Double, massstab: Double) -> Int? {
+        guard massstab > 0, blatthoehe > 0 else { return nil }
+        let roh = hoch - rand
+        guard roh >= 0 else { return 0 }
+        return Int(floor(roh / schritt(massstab)))
+    }
+
     /// Aus einem Punkt IM INHALT (so, wie eine Geste ihn meldet) wird der
     /// Griff. Alle Elemente sind gleich hoch — deshalb genügt eine
     /// Division, und es muss nichts gemessen werden.

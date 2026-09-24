@@ -810,7 +810,10 @@ struct BlockInspektor: View {
                     }
                 ))
                 Button {
-                    blatt = .gestaltung
+                    // Seit 1.0.79 das eigene Kartenblatt und nicht mehr die
+                    // Gestaltung: Dort lag es, solange jener Bildschirm die
+                    // Karte auch im Namen führte.
+                    blatt = .kartenstil
                 } label: {
                     Label("Für alle Karten im Buch einstellen \u{2026}", systemImage: "map")
                 }

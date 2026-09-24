@@ -173,7 +173,7 @@ enum Handbuch {
             Handbucheintrag(
                 id: "linien",
                 titel: "Die Linien auf der Seite",
-                text: "Blau der Satzspiegel, ROT gestrichelt die Schnittkante — dort wird beschnitten —, ORANGE der Sicherheitsabstand: Dort soll nichts stehen, was gelesen werden muss. Was hineinragt, wird orange umrandet, und unter dem Blatt steht, wie viele Blöcke es sind.",
+                text: "Drei Stück, und sie stehen seit 1.0.80 als Legende über der Bühne, solange sie eingeschaltet sind: ROT mit langen Strichen die Schnittkante — dort wird beschnitten —, BLAU mit kurzen der Sicherheitsabstand: Dort soll nichts stehen, was gelesen werden muss. GRAU und fein gepunktet der Satzspiegel, also der Rand, in den der Automat setzt. Was in den Sicherheitsabstand oder über die Schnittkante ragt, bekommt einen dicken roten Rahmen — auch dann, wenn die Hilfslinien ausgeschaltet sind: Die Linien sind eine Hilfe beim Anordnen, die Marke ist eine Warnung. Unter dem Blatt steht, wie viele Blöcke es sind.\n\nAuf dunklem Seitenhintergrund werden die Töne heller, und jede Linie trägt eine Kontur in der Gegenfarbe — sonst verschwände sie auf einem Foto.\n\nIn der Doppelseitenansicht fehlt die rote Linie AM BUND: Dort wird gefalzt oder gebunden und nicht geschnitten, und dort liegt auch kein Anschnitt — die beiden Endformate stoßen aneinander. Die blaue Linie bleibt, denn im Falz verschwindet trotzdem etwas.",
                 weg: "Drei-Punkte-Menü \u{2192} Linien zeigen",
                 ziel: nil,
                 stichworte: ["schnittkante", "anschnitt", "sicherheitsabstand", "satzspiegel", "gestrichelt", "hilfslinien"]),
@@ -359,10 +359,27 @@ enum Handbuch {
             Handbucheintrag(
                 id: "umschlag",
                 titel: "Der Umschlag",
-                text: "Er ist ein eigener Bogen: links die Rückseite, in der Mitte der Rücken, rechts die Titelseite. Die Rückenbreite kommt aus einer eingetragenen Zahl, aus der Tabelle des Druckdienstes oder aus der Rechnung — welche es war, steht immer dabei. Eigene Felder und Bilder gehen auf Titel- und Rückseite.",
+                text: "Er ist ein eigener Bogen: links die Rückseite, in der Mitte der Rücken, rechts die Titelseite. Die Rückenbreite kommt aus einer eingetragenen Zahl, aus der Tabelle des Druckdienstes oder aus der Rechnung — welche es war, steht immer dabei. Eigene Felder und Bilder gehen auf Titel- und Rückseite.\n\nNennt die Druckerei eine Rückenstärke (\u{201E}2 mm\u{201C}), wird sie unter \u{201E}Maß der Druckerei\u{201C} eingetragen und schlägt Tabelle wie Rechnung; sie gilt, sobald das Feld verlassen wird. Gleich darüber steht, was vom Bogen der Rücken ist und woher die Zahl stammt. \u{201E}Text auf dem Rücken\u{201C} betrifft nur die Schrift — die Breite bleibt, denn ein Buch hat einen Rücken, auch wenn nichts darauf steht.",
                 weg: "Buchsymbol \u{2192} Umschlag und Titelseite",
                 ziel: .umschlag,
-                stichworte: ["cover", "titelseite", "rücken", "u2", "u3", "hardcover"]),
+                stichworte: ["cover", "titelseite", "rücken", "ruecken", "rückenstärke",
+                             "u2", "u3", "hardcover", "bogenbreite", "428"]),
+            Handbucheintrag(
+                id: "kartenstil",
+                titel: "Wie die Karten aussehen",
+                text: "Kartenquelle (Apple, OpenStreetMap, OpenTopoMap oder ein eigener Kachelserver), hell oder dunkel, Beschriftung, Breite im Satz — und die REISEPUNKTE: nur die Linie, dezente Punkte, nur Anfang und Ziel, oder Punkte mit Ring. Was hier steht, gilt für alle Karten im Buch.\n\nEin einzelner Tag und eine einzelne Karte dürfen abweichen; das steht im Inspektor (Pinsel), wenn eine Karte gewählt ist. Was dort nicht ausdrücklich gesetzt ist, folgt weiter der Einstellung des Buches.",
+                weg: "Buchsymbol \u{2192} Karten",
+                ziel: .kartenstil,
+                stichworte: ["karte", "reisepunkte", "punkte", "spur", "linie", "osm",
+                             "openstreetmap", "satellit", "gelände", "kachel"]),
+            Handbucheintrag(
+                id: "raender",
+                titel: "Ränder und Satzspiegel",
+                text: "Der SATZSPIEGEL ist die Fläche, in die der Automat setzt; die drei Ränder (außen, oben, unten) spannen ihn auf. Von Haus aus 16 / 17 / 19 mm — übliche Buchränder, unten mehr als oben, weil der optische Mittelpunkt über dem geometrischen liegt. Das ist eine Entscheidung über das Aussehen und keine Vorgabe der Druckerei.\n\nDie technische Grenze ist der SICHERHEITSABSTAND, und bis dorthin gehen die Regler seit 1.0.82 auch hinunter — ein Knopf setzt alle drei auf einmal darauf. Zu bedenken: Beim Lesen liegt dort der Daumen, und am Bund verschwindet in der Bindung ohnehin ein Streifen. Seitenzahl und Kopfzeile rücken mit und bleiben innerhalb des Sicherheitsabstands; haben sie zwischen Satzspiegel und Linie keinen Platz mehr, sagt es die Druckprüfung.",
+                weg: "Buchsymbol \u{2192} Ränder und Druckzugaben",
+                ziel: .gestaltung,
+                stichworte: ["rand", "ränder", "raender", "satzspiegel", "margin",
+                             "16", "17", "19", "schmal"]),
             Handbucheintrag(
                 id: "seitenzahlen",
                 titel: "Seitenzahlen und Kopfzeile",

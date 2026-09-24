@@ -36,7 +36,7 @@ struct GestaltungView: View {
         text += "dort mehr, weil bei der Klebebindung ein Streifen im Falz verschwindet. "
         text += "Oben und unten gilt immer der \u{00E4}u\u{00DF}ere Wert: Dort wird "
         text += "geschnitten und nicht gebunden. Welche Seite innen liegt, wechselt von "
-        text += "Seite zu Seite \u{2014} die orange Linie auf dem Blatt wandert deshalb mit, "
+        text += "Seite zu Seite \u{2014} die blaue Linie auf dem Blatt wandert deshalb mit, "
         text += "und daran l\u{00E4}sst sich ablesen, dass die Zahl an der richtigen Kante "
         text += "ankommt.\n\n"
         text += "Bundsteg: zusätzlicher Rand zur Heftung, 0 mm ist erlaubt und die Vorgabe. "
@@ -146,9 +146,29 @@ struct GestaltungView: View {
                 }
 
                 Section {
-                    mmRegler("Rand außen", $werk.reise.gestaltung.randAussen, 5...45)
-                    mmRegler("Rand oben", $werk.reise.gestaltung.randOben, 5...45)
-                    mmRegler("Rand unten", $werk.reise.gestaltung.randUnten, 5...45)
+                    // BIS AN DEN SICHERHEITSABSTAND HERAN (ab 1.0.82).
+                    //
+                    // Gefragt 09/2026: „Warum ist denn der so weit vom Rand
+                    // entfernt? Der Satzspiegel könnte doch tatsächlich
+                    // innerhalb des Sicherheitsabstandes ausgeführt werden."
+                    //
+                    // Er kann es — nur ging der Regler bis 1.0.81 nur bis
+                    // 5 mm hinunter, und der Sicherheitsabstand liegt bei 3.
+                    // Die Untergrenze war eine gewählte Zahl ohne Grund; die
+                    // technische Grenze ist der Sicherheitsabstand, und die
+                    // steht als eigene Linie daneben.
+                    mmRegler("Rand außen", $werk.reise.gestaltung.randAussen, 0...45)
+                    mmRegler("Rand oben", $werk.reise.gestaltung.randOben, 0...45)
+                    mmRegler("Rand unten", $werk.reise.gestaltung.randUnten, 0...45)
+                    Button("Ränder auf den Sicherheitsabstand setzen") {
+                        werk.merken()
+                        let g = werk.reise.gestaltung
+                        werk.reise.gestaltung.randAussen = max(g.sicherheitsabstand,
+                                                               g.innensicherheit)
+                        werk.reise.gestaltung.randOben = g.sicherheitsabstand
+                        werk.reise.gestaltung.randUnten = g.sicherheitsabstand
+                    }
+                    .disabled(!werk.reise.gestaltung.hatSicherheitsabstand)
                     mmRegler("Fuge zwischen Bildern", $werk.reise.gestaltung.fuge, 0...15,
                              schritt: 0.5)
                     mmRegler("Eckenradius", $werk.reise.gestaltung.eckenradius, 0...10,
@@ -163,7 +183,7 @@ struct GestaltungView: View {
                     // niemals zum Vorschein."). Seit 1.0.50 stehen sie auch
                     // auf der Seite in der App — gerechnet von derselben
                     // Stelle. Wo sie trotzdem fehlen, sagt der Satz.
-                    Text("Seitenzahl und Kopfzeile stehen auf der Seite und im PDF. Nicht auf der Titelseite, nicht auf der Rückseite und nicht auf einer Seite, die ein Bild ganz ausfüllt: Dort stünde die Zahl auf dem Foto.")
+                    Text(satzspiegelhinweis)
                 }
 
                 // DIE BREITE DER TEXTSPALTE (ab 1.0.37). Sie steht in einem
@@ -191,18 +211,24 @@ struct GestaltungView: View {
                          + "Abschnitt „Vor dem Ausgeben geprüft“ — gemessen, nicht geschätzt.")
                 }
 
-                KartenbildWahl(titel: "Kartenbild", bild: $werk.reise.kartenbild)
-
-                Section("Karte im Satz") {
-                    ColorPicker("Akzentfarbe", selection: Binding(
-                        get: { werk.reise.akzent.farbe },
-                        set: { werk.reise.akzent = Farbwert($0) }
-                    ))
-                    VStack(alignment: .leading) {
-                        LabeledContent("Breite der Karte",
-                                       value: "\(Int(werk.reise.gestaltung.kartenanteil * 100)) %")
-                        Slider(value: $werk.reise.gestaltung.kartenanteil, in: 0.2...0.6)
-                    }
+                // DIE KARTEN SIND SEIT 1.0.79 EIN EIGENER MENÜPUNKT.
+                //
+                // Sie standen hier, solange dieser Bildschirm „Ränder,
+                // Karte, Seitenzahlen…" hieß. Seit 1.0.77 heißt er nach den
+                // Druckzugaben — und damit war die Karteneinstellung aus
+                // dem Menü verschwunden, ohne dass sie sich bewegt hätte
+                // (gemeldet 09/2026). Hier bleibt die Zeile als Auskunft
+                // stehen: Ein Bildschirm, der einen Wert nicht mehr führt,
+                // muss sagen, wo er jetzt steht — dieselbe Regel wie beim
+                // Seitenformat seit 1.0.27.
+                Section {
+                    LabeledContent("Reisepunkte", value: werk.reise.kartenbild.punktstil.name)
+                    LabeledContent("Breite der Karte",
+                                   value: "\(Int(werk.reise.gestaltung.kartenanteil * 100)) %")
+                } header: {
+                    Text("Karten")
+                } footer: {
+                    Text("Eingestellt wird das unter „Ganzes Buch → Karten…“ — dort stehen die Kartenquelle, die Beschriftung, die Reisepunkte und die Breite im Satz. Ein einzelner Tag und eine einzelne Karte dürfen davon abweichen; das steht im Inspektor.")
                 }
 
                 Section {
@@ -239,6 +265,33 @@ struct GestaltungView: View {
                 HintergrundView(werk: werk)
             }
         }
+    }
+
+    // WARUM DER SATZSPIEGEL WEITER INNEN LIEGT ALS DER SICHERHEITSABSTAND.
+    //
+    // Gefragt 09/2026, und die Antwort ist: Es sind zwei verschiedene
+    // Dinge, und nur eines davon ist eine Vorgabe der Druckerei.
+    private var satzspiegelhinweis: String {
+        let g = werk.reise.gestaltung
+        var text = "Der SICHERHEITSABSTAND ist die technische Untergrenze \u{2014} "
+        text += "n\u{00E4}her als "
+        text += g.hatSicherheitsabstand ? Druckvorgabe.zahl(g.sicherheitsabstand) + " mm"
+                                        : "die eingestellte Zugabe"
+        text += " an die Kante darf nichts, was gelesen werden muss. Der RAND hier ist "
+        text += "eine Entscheidung \u{00FC}ber das Aussehen: Wo der Flie\u{00DF}text "
+        text += "beginnt. Die Vorgaben (16 / 17 / 19 mm) sind \u{00FC}bliche Buchr\u{00E4}nder "
+        text += "und gew\u{00E4}hlt, nicht gemessen \u{2014} unten mehr als oben, weil "
+        text += "der optische Mittelpunkt \u{00FC}ber dem geometrischen liegt.\n\n"
+        text += "Bis an den Sicherheitsabstand heran geht es seit 1.0.82. Was dabei zu "
+        text += "bedenken ist: Beim Lesen liegt dort der Daumen, und am Bund verschwindet "
+        text += "in der Bindung ohnehin ein Streifen \u{2014} daf\u{00FC}r gibt es den "
+        text += "eigenen Innenwert. Seitenzahl und Kopfzeile r\u{00FC}cken automatisch "
+        text += "mit und bleiben innerhalb des Sicherheitsabstands; wird der Rand so "
+        text += "knapp, dass sie keinen Platz mehr haben, sagt es die Druckpr\u{00FC}fung.\n\n"
+        text += "Seitenzahl und Kopfzeile stehen auf der Seite und im PDF. Nicht auf der "
+        text += "Titelseite, nicht auf der R\u{00FC}ckseite und nicht auf einer Seite, die "
+        text += "ein Bild ganz ausf\u{00FC}llt: Dort st\u{00FC}nde die Zahl auf dem Foto."
+        return text
     }
 
     private var bogentext: String {

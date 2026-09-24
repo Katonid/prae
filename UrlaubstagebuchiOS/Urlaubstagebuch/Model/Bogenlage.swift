@@ -66,18 +66,54 @@ enum Bogenlage {
                       width: 2 * breite + 2 * anschnitt,
                       height: hoehe + 2 * anschnitt)
     }
+}
 
-    // Wie weit diese Fläche gegen die Mitte des BOGENS verschoben ist.
+// AN WELCHER KANTE DIE NACHBARHÄLFTE ANSTÖSST (ab 1.0.78).
+//
+// Gemeldet 09/2026: „In der Gestaltungsansicht sehe ich an der Falz innen
+// immer noch zwei gestrichelte Linien. Eine für den Beschnitt und eine für
+// den Sicherheitsabstand. Laut Druckerei wird aber doch dort kein Beschnitt
+// ausgeführt."
+//
+// **Er hat recht, und es ist auszurechnen.** Die Doppelseitenansicht setzte
+// seit 1.0.17 zwei volle Bogen ohne Abstand nebeneinander — jeder mit
+// seinem eigenen Anschnitt ringsum. Am Bund standen damit ZWEI
+// Anschnittstreifen und ZWEI Schnittkanten, und das behauptet einen Schnitt
+// an einer Stelle, an der gefalzt oder gebunden wird.
+//
+// In 1.0.58 stand hier noch, das sei „eine Ungenauigkeit der ANSICHT und
+// keine der Datei". Das stimmte, solange es nur Einzelseiten zu ausgeben
+// gab. Seit 1.0.69 schreibt `Buchausgabe.doppelseitenPdf` den Bogen so, wie
+// er gedruckt wird — „der Anschnitt liegt ringsum AUSSEN, am Bund keiner" —,
+// und seit 1.0.50 gilt dasselbe für den Umschlagbogen. Damit ist aus der
+// Ungenauigkeit eine Abweichung zwischen Ansicht und Datei geworden, und
+// die verbietet die erste Regel dieser App. **Merke: Eine Ungenauigkeit,
+// die man hinschreibt, bleibt nur so lange vertretbar, wie keine zweite
+// Stelle es besser macht.**
+//
+// `keine` ist die Einzelseitenansicht: Dort steht jede Seite für sich, und
+// die Einzelseiten-PDF trägt ringsum Anschnitt — dort ist die Schnittkante
+// an allen vier Seiten richtig.
+enum Bogenkante {
+    case links
+    case rechts
+    case keine
+}
+
+extension Bogenlage {
+    // Wie breit ein aufgeschlagener Bogen WIRKLICH ist: zwei Endformate,
+    // dazwischen der Rücken (beim Umschlag) und ringsum EIN Anschnitt — am
+    // Bund keiner.
     //
-    // Gebraucht von SwiftUI: Dort wird nicht in Seitenkoordinaten
-    // gezeichnet, sondern ein Bild in einen mittig ausgerichteten Stapel
-    // gelegt. Es ist dieselbe Zahl wie oben, nur anders ausgedrückt —
-    // eine halbe Seitenbreite nach rechts (linke Seite) oder nach links
-    // (rechte Seite).
-    static func versatz(rechts liegtRechts: Bool, format: CGSize,
-                        anschnitt: Double) -> Double
+    // Dieselbe Rechnung wie `Umschlagmass.bogen`, nur ohne den Umweg über
+    // den Umschlag; gebraucht wird sie dort, wo die Bühne ihre Breite
+    // misst. Zwei Fassungen ergäben eine Bühne, die schmaler ist als das,
+    // was darin steht — und dann ließe sich das letzte Stück nicht
+    // heranschieben (die Lehre aus 1.0.22).
+    static func doppelbogen(format: CGSize, anschnitt: Double,
+                            ruecken: Double = 0) -> CGSize
     {
-        let flaeche = bildflaeche(rechts: liegtRechts, format: format, anschnitt: anschnitt)
-        return Double(flaeche.midX) - Double(format.width) / 2
+        CGSize(width: 2 * Double(format.width) + max(0, ruecken) + 2 * anschnitt,
+               height: Double(format.height) + 2 * anschnitt)
     }
 }

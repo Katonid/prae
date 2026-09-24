@@ -92,7 +92,9 @@ enum Ausgabesteckbrief {
             name: "Bogen im PDF \u{00B7} Doppelseiten",
             wert: Druckvorgabe.masstext(doppelt),
             erklaerung: "Zwei Buchseiten nebeneinander. Am Bund liegt KEIN "
-                + "Anschnitt \u{2014} dort stoßen die beiden Endformate aneinander.",
+                + "Anschnitt \u{2014} dort stoßen die beiden Endformate aneinander. "
+                + "Der RÜCKEN zählt hier nicht mit: Der gehört zum Umschlagbogen, "
+                + "und dessen Maß steht in der Zeile darunter.",
             eingestellt: false))
 
         if reise.hatRueckseite {
@@ -175,7 +177,10 @@ enum Ausgabesteckbrief {
             erklaerung: "Liegt AUSSERHALB des Endformats und wird nach dem Druck "
                 + "weggeschnitten. Alles, was randabfallend sein soll, muss bis "
                 + "dorthin laufen \u{2014} sonst bleibt nach dem Schneiden ein "
-                + "weißer Faden stehen.",
+                + "weißer Faden stehen. Auf einer Doppelseite und am Umschlagbogen "
+                + "liegt er nur AUSSEN: Am Bund wird gefalzt oder gebunden. So "
+                + "zeigt es auch die Doppelseitenansicht, und dort fehlt am Bund "
+                + "deshalb die rote Schnittkante.",
             eingestellt: true,
             wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}"))
 

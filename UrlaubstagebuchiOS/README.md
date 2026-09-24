@@ -480,6 +480,292 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Satzspiegel darf bis an den Sicherheitsabstand (1.0.82)
+
+Gefragt 09/2026: „Warum ist denn der so weit vom Rand entfernt? Der
+Satzspiegel könnte doch tatsächlich innerhalb des Sicherheitsabstandes
+ausgeführt werden."
+
+Er könnte — und er konnte nicht: Die drei Regler für die Ränder gingen nur bis
+5 mm hinunter, der Sicherheitsabstand liegt bei 3. Die Untergrenze war eine
+gewählte Zahl ohne Grund.
+
+* **Die Regler gehen jetzt bis 0**, und ein Knopf setzt alle drei auf einmal
+  auf den geltenden Sicherheitsabstand (außen auf den größeren der beiden
+  Werte, denn am Bund darf ein eigener gelten).
+* **Die Vorgaben 16 / 17 / 19 mm sind gewählt und nicht gemessen** — übliche
+  Buchränder, unten mehr als oben, weil der optische Mittelpunkt über dem
+  geometrischen liegt. Das stand nirgends, und damit sah die Zahl aus wie eine
+  Vorschrift. Der Fußtext trennt jetzt beides: Der Sicherheitsabstand ist die
+  technische Untergrenze, der Rand eine Entscheidung über das Aussehen.
+* **Wer eine Grenze freigibt, sucht alles, was sich auf sie verlassen hat.**
+  Seitenzahl und Kopfzeile sitzen als Anteil in den Rändern (0,6 bzw. 0,42);
+  bei 3 mm Rand unten stünde die Seitenzahl 1,8 mm vom Papierrand und würde
+  angeschnitten. Und es fiele niemandem auf: Die rote Marke aus 1.0.81 greift
+  dort nicht, weil Seitenzahl und Kopfzeile keine Blöcke sind. Beide werden
+  deshalb in die Schutzzone geklemmt.
+* **Bleibt zwischen Satzspiegel und Sicherheitslinie kein Platz mehr, sagt es
+  die Druckprüfung.** Gemessen am Ergebnis: Überschneidet sich das gesetzte
+  Rechteck mit dem Satzspiegel, steht die Zahl im Text. Angeschnitten wird sie
+  nicht — aber sie liegt dann dort, wo der Fließtext anfängt, und das hat
+  niemand eingestellt.
+* **Was ein Rand sonst noch tut, steht dabei:** Beim Lesen liegt dort der
+  Daumen, und am Bund verschwindet in der Bindung ohnehin ein Streifen.
+
+### Nicht gemessen (1.0.82)
+
+Keine Seite ist damit gedruckt worden. Gerechnet ist die Geometrie. Ob ein
+Buch mit 3 mm Rändern gut aussieht, ist keine Frage, die diese App beantwortet
+— sie gibt die Einstellung frei und schreibt hin, was dabei zu bedenken ist.
+Ungeprüft bleibt auch, wie eng ein Druckdienst das nimmt: 3 mm sind sein
+Mindestabstand für Inhalt, und ob er einen Fließtext meint, der dort anfängt,
+sagt seine Vorgabe nicht.
+
+## Das Scrollen hing an den Bildern (1.0.81)
+
+Gemeldet 09/2026, zum wiederholten Mal: „Das Scrollen über mehrere Seiten
+hinweg gestaltet sich auf dem iPad echt schwierig. Offenbar muss da doch
+noch sehr viel im Hintergrund nachgeladen und aufgebaut werden."
+
+**Am Quelltext abzuzählen — und der Punkt stand seit 1.0.59 als offen im
+Papier:** `Bildarchiv.vorschau` liest bei einem Fehlschlag im Vorrat
+synchron von der Platte und entpackt das Bild sofort. Aufgerufen wurde sie
+im Körper der Seitenansicht, also auf dem Hauptfaden — und genau dann, wenn
+der `LazyVStack` beim Scrollen ein neues Blatt baut. Drei bis sechs Bilder
+je Seite, und das Hintergrundfoto ist dabei das größte: Es füllt Seite oder
+Doppelseite ganz aus.
+
+**Merke: Ein offener Punkt, der zweimal als „nicht gemessen" dasteht, ist
+beim dritten Befund der erste Verdacht.**
+
+`Vorschaubild` fragt jetzt zuerst den Vorrat (das kostet nichts) und holt
+nur bei einem Fehlschlag, abseits des Hauptfadens. Bis es da ist, bleibt die
+Fläche leer — kein Platzhalter mit Symbol: Eine Seite mit grauen Kästen
+sieht kaputter aus als eine, auf der das Bild eine Wimper später erscheint.
+
+**Und weil sich das hier nicht nachmessen lässt, misst es die App:** Der
+Befund unter „Bedienung prüfen" nennt seither „Bilder: n× aus dem Vorrat, m×
+von Platte". Bleibt m beim Blättern klein, liegt es nicht mehr an den
+Bildern — dann ist der nächste Verdacht der CoreText-Satz je Textkasten.
+
+## Ein dicker roter Rahmen um gefährdete Blöcke (1.0.81)
+
+Ansage des Nutzers, 09/2026: „Ich möchte ab jetzt, dass ein Element, was in
+den Beschnittbereich oder den Sicherheitsbereich hineinragt, mit einem noch
+besser zu sehenden Rand versehen wird. Gerne ein dicker roter Rand."
+
+Zwei Dinge sind daran neu, und beide sind eigene Befunde.
+
+**Der Anschnitt wurde gar nicht geprüft.** Markiert war seit 1.0.76 nur der
+Sicherheitsabstand — dabei ist der andere Fall der teurere: Ein Block, der
+über die Schnittkante ragt und nicht randabfallend ist, wird im gedruckten
+Buch angeschnitten, und das fiel erst am Papier auf.
+
+**Die Marke hängt nicht mehr an „Linien zeigen".** Sie tat es seit 1.0.76,
+und das war falsch: Die Linien sind eine Hilfe beim Anordnen, die Marke ist
+eine Warnung. **Eine Warnung, die sich mit den Hilfslinien abschalten lässt,
+ist keine.**
+
+Rot, obwohl die Schnittkante auch rot ist — das geht auf: Die Marke ist
+dreimal so dick, durchgezogen statt gestrichelt, läuft um einen Block und
+nicht am Blattrand und trägt eine Kontur.
+
+### Nicht gemessen (1.0.81)
+
+Nichts davon ist auf einem Gerät gesehen worden. Am Quelltext abgezählt ist
+die Ursache des zähen Scrollens — **dass es danach flüssig ist, folgt daraus
+nicht**: Es kann eine zweite Ursache darüberliegen. Genau dafür nennt der
+Befund jetzt zwei Zahlen statt einer Zusage. Umgestellt sind die drei
+Stellen der Bühne; die Listen und Blätter holen ihre kleinen Bilder
+weiterhin synchron.
+
+## Drei Linien, drei Farben, eine Kontur (1.0.80)
+
+Gemeldet 09/2026 mit Bildschirmfoto: „Die dünn gestrichelte rote Linie für
+den Mindestabstand kann ich nur schwer erkennen. Ich hätte hier gerne eine
+ebenso dicke Linie wie für den Beschnitt, nur in einer anderen Farbe … Ich
+frage mich, ob man diese Linien auch sieht, wenn der Seitenhintergrund
+dunkel gewählt wird. … Auf dem Beispielbild sind noch weitere Linien zu
+sehen. Welche sind das denn eigentlich?"
+
+**Drei Befunde in einer Frage, und alle drei treffen.**
+
+Der Sicherheitsabstand war dünner gestrichelt als die Schnittkante und
+orange — auf einem Buch mit warmer Akzentfarbe steht er damit neben einer
+roten Linie, die ihm ähnlich sieht. In 1.0.73 stand als Begründung: „**nicht
+blau**, das ist beim Einrasten seit jeher der NACHBAR". Der Satz stimmt, die
+Abwägung war falsch herum: Die Fanglinie des Nachbarn trägt ihren Namen am
+Strich und erscheint nur während einer Ziehbewegung; die Schutzzone steht
+dauernd da und trägt nichts. **Wer von zwei Auskünften eine benennen kann,
+gibt der anderen die klarere Farbe.**
+
+Seither: die Schnittkante ROT mit langen Strichen, der Sicherheitsabstand
+BLAU mit kurzen und gleich dick, der Satzspiegel GRAU und fein gepunktet.
+Die verschiedenen Strichbilder sind kein Zierat — für einen
+farbfehlsichtigen Menschen wären Rot und Blau sonst dieselbe Linie.
+
+**Die dritte Linie war der Satzspiegel, und niemand hatte sie je benannt.**
+Sie lief in der Akzentfarbe der App. Sie ist die schwächste der drei
+Auskünfte — eine Hilfe für den Satz, keine Angabe der Druckerei — und sieht
+jetzt auch so aus.
+
+**Auf dunklem Grund verschwanden alle drei.** `Seitenhintergrund.dunkel`
+gibt es seit 1.0.0, gefragt hatte sie nur der Textsatz. Jede Linie bekommt
+deshalb eine Kontur in der Gegenfarbe und auf dunklem Grund einen helleren
+Ton. Die Kontur ist der wichtigere Teil: Bei einem Foto als Hintergrund
+hilft keine Farbwahl, weil der Untergrund stellenweise hell und stellenweise
+dunkel ist.
+
+**Und die Frage „welche sind das eigentlich" ist ein Befund über die
+Oberfläche.** Die Legende gab es — in der Skizze unter „Ränder und
+Druckzugaben", also dort, wo man die Zahlen einstellt, und nicht dort, wo
+man die Linien sieht. Sie steht jetzt zusätzlich als Band über der Bühne,
+solange die Linien eingeschaltet sind.
+
+### Nicht gemessen (1.0.80)
+
+Keine Seite ist damit gesehen worden. Die Farben und Strichbilder sind
+**gewählt und nicht gemessen**. Ungeprüft ist auch, ob die Kontur auf einem
+Foto reicht und ob die Legende an der richtigen Stelle sitzt. **Der Befund
+zum dunklen Hintergrund ist am Quelltext hergeleitet, nicht gesehen.**
+
+## Das Datumsfeld hing einen Bogen hinterher (1.0.79)
+
+Gemeldet 09/2026 mit Bildschirmfoto: „Das Datumsfeld hängt immer mindestens
+einen Tag hinterher. Im Blickfeld sind eigentlich schon die Seiten des
+4. Augustes und auswählbar ist der 3."
+
+**Am Quelltext abzuzählen:** Seit 1.0.28 folgt der gewählte Tag dem, was
+oben im Bild steht — gemeldet über `onAppear`/`onDisappear` der Reihen, und
+gewonnen hat die KLEINSTE anwesende Nummer. Ein Bogen, der nur noch mit
+einem Streifen am oberen Bildschirmrand hängt, zählt damit genauso wie der,
+der den ganzen Schirm füllt. Auf dem Bildschirmfoto ist genau das zu sehen:
+oben der letzte Zentimeter von „Seiten 0 und 1", darunter vollflächig
+„Seiten 2 und 3".
+
+Dazu kommt, dass `onAppear` in einem `LazyVStack` gar nicht am Sichtrand
+feuert, sondern am Rand des Vorbereitungsbereichs — SwiftUI baut ein Stück
+im Voraus. **Merke: `onAppear` meldet Anwesenheit, nicht Sichtbarkeit.**
+
+Gewählt wird jetzt die Reihe, welche die MITTE des Sichtfelds überdeckt,
+gerechnet aus derselben Geometrie, an der auch der Zoom hängt. Der Auslöser
+bleibt `onAppear`/`onDisappear`: Gerechnet wird nur, wenn eine Reihe kommt
+oder geht, und nicht bei jedem Bildpunkt. Die Seitenvorwahl hing an
+derselben Zeile und ist mitgezogen.
+
+## Die Karten haben einen eigenen Menüpunkt (1.0.79)
+
+Frage des Nutzers, 09/2026: „Gibt es eigentlich irgendwo eine Möglichkeit,
+eine globale Einstellung für die Reisepunkte zu treffen? Im vorliegenden
+Fall möchte ich beispielsweise einstellen können, dass überall nur die Spur
+angezeigt wird und nicht die Punkte."
+
+**Es gab sie — und 1.0.77 hat sie versteckt.** Die buchweite Karteneinstellung
+lag hinter dem Menüpunkt „Ränder, Karte, Seitenzahlen…". Der wurde in 1.0.77
+umbenannt in „Ränder und Druckzugaben…", weil er nach seinem Inhalt heißen
+sollte — dahinter liegen tatsächlich Anschnitt, Sicherheitsabstand und
+Bundsteg. Mit dem Wort „Karte" ist aber der einzige Hinweis darauf
+verschwunden, dass auch die Karteneinstellung dort wohnt.
+
+**Wer einen Sammelbildschirm nach einem Teil seines Inhalts benennt, macht
+den anderen Teil unsichtbar.** Dreizehnte Auflage von „es war da, man fand es
+nicht" — und die erste, die aus einer Verbesserung entstanden ist. Die Karten
+stehen jetzt als eigener Punkt im Buch-Menü, wie „Fotos…" und „Textfelder…".
+In der Gestaltung bleibt eine Auskunft mit dem Weg dorthin.
+
+### Nicht gemessen (1.0.79)
+
+Nichts davon ist auf einem Gerät gesehen worden. Am Quelltext abgezählt ist
+die Ursache des hinterherhängenden Datums, und sie passt Punkt für Punkt zum
+Bildschirmfoto. **Ungeprüft ist die Abhilfe:** Ob die gemessene Lage des
+Inhalts im Augenblick des `onAppear` schon den neuen Stand trägt, ist die
+Lesart der Reihenfolge und keine Messung. Und ob ein Menüpunkt gefunden wird,
+sagt erst der nächste Befund — geändert sind Wege und Namen.
+
+## Am Bund wird nicht geschnitten (1.0.78)
+
+Gemeldet 09/2026, mit Bildschirmfotos: „In der Gestaltungsansicht sehe ich
+an der Falz innen immer noch zwei gestrichelte Linien. Eine für den
+Beschnitt und eine für den Sicherheitsabstand. Laut Druckerei wird aber doch
+dort kein Beschnitt ausgeführt. Und in den Seitenmaßen sieht man ja auch,
+dass drei Millimeter von einer Doppelseite ringsherum abgezogen werden, aber
+nicht innen. Also stimmt das ja nicht."
+
+**Er hat recht — und die Stelle stand seit 1.0.58 im Papier, als „richtig
+so".** Dort hieß es: „Am Bund liegen ZWEI Anschnitte, und die stehen doppelt
+da … Das ist keine Panne der Ansicht." Für die Einzelseiten-Ausgabe stimmte
+das: Dort trägt jede Seite ringsum Anschnitt. Seit 1.0.69 gibt es die
+Doppelseiten-Ausgabe, und die schreibt den Bogen so, wie er gedruckt wird —
+„der Anschnitt liegt ringsum AUSSEN, am Bund keiner"; seit 1.0.50 gilt
+dasselbe für den Umschlagbogen. Damit war aus einer hingeschriebenen
+Ungenauigkeit eine Abweichung zwischen Ansicht und Datei geworden, und die
+verbietet die erste Regel dieser App.
+
+**Merke: Eine Ungenauigkeit, die man hinschreibt, bleibt nur so lange
+vertretbar, wie keine zweite Stelle es besser macht.**
+
+`Bogenkante` sagt jetzt, an welcher Kante die Nachbarhälfte anstößt. Dort
+fällt der Anschnittstreifen weg und mit ihm die rote Schnittkante; die
+beiden Endformate stoßen aneinander. Die **orange** Linie bleibt: Dort wird
+zwar nicht geschnitten, aber im Falz verschwindet trotzdem etwas — genau
+dafür gibt es seit 1.0.76 den eigenen Innenwert.
+
+Mitgezogen wurde dabei dreierlei, und jedes wäre sonst ein stiller Fehler
+gewesen: die Breite der Bühne (`ReiseView.breitesterBogen` verdoppelte einen
+Einzelbogen, also zwei Anschnitte zu viel), der Grund des Umschlagbogens
+(der zeigte den Umschlag gut ein Prozent breiter, als er gedruckt wird) und
+die Fläche eines Hintergrundbildes über die Doppelseite — die wurde in
+`HintergrundFlaeche` **nachgebaut** statt gefragt. **Wer eine Rechnung
+nachbaut, bezahlt sie beim nächsten Mal, wenn sich ihre Voraussetzung
+ändert.**
+
+## 426 statt 428 — ein Schalter, der die Geometrie änderte (1.0.78)
+
+Gemeldet im selben Atemzug: „Auf der anderen Seite bekomme ich in das Format
+des Umschlages offenbar nicht die 2 mm Rückenbreite hineingesetzt. Ich kann
+sie zwar eingeben und bestätigen lassen, wobei auch diese Bestätigung etwas
+hakelig ist. Ich muss mehrmals drücken, aber nach wie vor steht dort als
+Gesamtbreite 426 mm und nicht 428, wie es sein müsste."
+
+**Die Zahl ist der Befund:** 426 = 2 × 210 + 2 × 3. Der Rücken zählte mit
+null — und die einzige Stelle im ganzen Quelltext, die null zurückgeben
+konnte, war `guard umschlag.rueckenZeigen else { return 0 }`. Gerechnet wäre
+die Breite bei einem Hardcover nie null (allein die Deckel tragen auf), eine
+Tabelle sagt entweder etwas oder gar nichts, und eine von Hand eingetragene
+Zahl schlägt seit 1.0.72 beides.
+
+Der Schalter hieß **„Rücken bedrucken"** und nahm die ganze Rückenbreite aus
+dem Bogenmaß. Wer keinen Titel auf dem Rücken wollte, bekam damit
+stillschweigend einen Umschlag ohne Rücken, und der Knopf „Rückenstärke
+übernehmen" nahm die Zahl an, ohne dass sie irgendwo ankam. **Ein Buch hat
+einen Rücken, auch wenn nichts darauf steht.** Er heißt jetzt „Text auf dem
+Rücken" und steuert nur noch die Schrift. Einband, Papierstärke und die
+Tabellen standen ebenfalls hinter ihm, obwohl sie allesamt die Breite
+bestimmen — sie stehen jetzt davor.
+
+**Ein Knopf unter einem Zahlenfeld braucht immer zwei Tipps.** Das ist kein
+Gefühl, sondern iOS: Solange ein Textfeld den Fokus hat, beendet der erste
+Tipp daneben die Eingabe, erst der zweite erreicht den Knopf. `.onSubmit`
+hilft nicht — ein `.decimalPad` hat keine Eingabetaste. Übernommen wird
+deshalb beim Verlassen des Feldes; der Knopf bleibt für den daneben, der ihn
+sucht. Und das Feld zeigt beim Öffnen, was gilt: Ohne Vorbelegung ließ sich
+nicht unterscheiden, ob nichts eingetragen ist oder nur nichts dasteht.
+Unter dem Bogenmaß steht seither „Davon Rücken" samt Herkunft.
+
+### Nicht gemessen (1.0.78)
+
+Keine Seite ist damit gesehen und keine Datei ausgegeben worden. Gerechnet
+und am Quelltext abgezählt sind **beide Ursachen**. **Ungeprüft bleibt, ob
+der zweite Befund wirklich daher kam:** Dass die Rechnung aufgeht, heißt
+nicht, dass dieser Schalter in seinem Buch aus war — der Abschnitt nennt
+jetzt Breite und Herkunft, und die nächste Rückmeldung sagt es mit Zahlen.
+Ebenso ungesehen: ob die Doppelseitenansicht ohne die Bundanschnitte auf dem
+Gerät ruhig aussieht, ob der Zoom über die schmalere Bühne stimmt und ob die
+Übernahme beim Fokuswechsel wirklich einen Tipp spart. **Und ein vorhandenes
+Buch, in dem der Rücken abgeschaltet war, bekommt nach dem Update einen
+breiteren Umschlagbogen** — die gewollte Richtung, aber eine Änderung an
+einem fertigen Buch.
+
 ## Ein Handbuch in der App (1.0.77)
 
 Ansage des Nutzers, 09/2026: „Die Funktionen sind sehr mannigfaltig und zum

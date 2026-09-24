@@ -337,17 +337,15 @@ struct Fanglinie: View {
     let laenge: Double
     let massstab: Double
 
+    // DIE FARBE STEHT IN `Seitenlinie` (ab 1.0.80) — dort, wo sie auch die
+    // stehenden Linien holen. Bis 1.0.79 stand sie hier ein zweites Mal,
+    // und die beiden Fassungen waren schon auseinandergelaufen: Der
+    // Sicherheitsabstand war hier orange und auf der Seite ebenfalls, der
+    // Satzspiegel hier `accentColor` und dort derselbe Ton — aber die
+    // Strichstärken unterschieden sich, und der Nutzer konnte die eine
+    // Linie von der anderen nicht trennen.
     private var farbe: Color {
-        switch linie.herkunft {
-        case .satz: return .accentColor
-        case .anschnitt: return .red
-        // ORANGE und nicht blau (ab 1.0.73): Blau ist hier seit jeher der
-        // NACHBAR, und dieselbe Farbe für zwei Auskünfte ist eine Auskunft
-        // weniger. Orange ist in dieser App die Warnfarbe, und „zu nah am
-        // Rand" ist genau das.
-        case .sicherheit: return .orange
-        case .nachbar: return .blue
-        }
+        linie.herkunft.linie.farbe(aufDunklem: false)
     }
 
     var body: some View {

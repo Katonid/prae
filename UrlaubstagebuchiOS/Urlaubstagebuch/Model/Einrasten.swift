@@ -37,12 +37,17 @@ enum Einrasten {
         case sicherheit
         case nachbar
 
-        var name: String {
+        var name: String { linie.name }
+
+        /// Welche der Linien auf der Seite gemeint ist. Farbe und Name
+        /// stehen seit 1.0.80 dort und nicht hier: Die Fanglinie ist
+        /// dieselbe Auskunft wie der stehende Rahmen, nur flüchtig.
+        var linie: Seitenlinie {
             switch self {
-            case .satz: return "Rand"
-            case .anschnitt: return "Schnittkante"
-            case .sicherheit: return "Sicherheitsabstand"
-            case .nachbar: return "Nachbar"
+            case .satz: return .satz
+            case .anschnitt: return .schnitt
+            case .sicherheit: return .sicherheit
+            case .nachbar: return .nachbar
             }
         }
     }

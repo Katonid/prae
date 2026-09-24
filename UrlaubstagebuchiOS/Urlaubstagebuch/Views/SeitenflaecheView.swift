@@ -21,6 +21,15 @@ struct SeitenflaecheView: View, Equatable {
     // darüberlegen, und auch nicht das weiße Papier darunter: Beides
     // verdeckte genau das Bild, um das es geht.
     var ohneGrund: Bool = false
+    // AN WELCHER KANTE DIE NACHBARHÄLFTE ANSTÖSST (ab 1.0.78).
+    //
+    // `.keine` ist die Einzelseitenansicht: Dort steht die Seite für sich,
+    // und die Einzelseiten-PDF trägt ringsum Anschnitt — die Schnittkante
+    // läuft also an allen vier Kanten. In einem BOGEN stößt eine Hälfte an
+    // die andere; dort wird gefalzt oder gebunden und nicht geschnitten,
+    // also gibt es an dieser Kante weder einen Anschnittstreifen noch eine
+    // Schnittkante. Ausführlich steht der Befund an `Bogenkante`.
+    var bogenkante: Bogenkante = .keine
     var massstab: Double
     // Der Maßstab des Bildschirms, an dem DIESE Seite hängt. Zusammen mit
     // dem Maßstab der Bühne sagt er, wie fein gerastert werden muss —
@@ -92,13 +101,31 @@ struct SeitenflaecheView: View, Equatable {
         links.werk === rechts.werk
             && links.bearbeitbar == rechts.bearbeitbar
             && links.ohneGrund == rechts.ohneGrund
+            && links.bogenkante == rechts.bogenkante
             && links.massstab == rechts.massstab
             && links.buchseite == rechts.buchseite
     }
 
     private var format: CGSize { werk.reise.format.groesse }
     private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
-    private var bogen: CGSize { werk.reise.gestaltung.bogen(werk.reise.format) }
+
+    // Der Anschnitt an der linken und an der rechten Kante. An der
+    // Bundkante eines Bogens ist er NULL — dort stößt die Nachbarhälfte an
+    // (siehe `Bogenkante`). Oben und unten steht er immer: Dort wird
+    // geschnitten, ganz gleich, wie das Buch gebunden ist.
+    private var anschnittLinks: Double { bogenkante == .links ? 0 : anschnitt }
+    private var anschnittRechts: Double { bogenkante == .rechts ? 0 : anschnitt }
+
+    // Die Fläche, die diese Seite in der Bühne einnimmt: das Endformat und
+    // der Anschnitt, den es an dieser Stelle wirklich gibt.
+    private var bogen: CGSize {
+        // `Double(...)` um jede Kante aus einem `CGSize`: Wo ein solcher
+        // Wert mit einem `Double` zusammenkommt, rechnet Swift nicht
+        // überall von selbst um — die Regel steht seit 1.0.0 im Papier und
+        // ist seither zweimal bezahlt worden.
+        CGSize(width: Double(format.width) + anschnittLinks + anschnittRechts,
+               height: Double(format.height) + 2 * anschnitt)
+    }
     private var satz: CGRect { werk.reise.gestaltung.satzspiegel(werk.reise.format) }
 
     // Der Streifen INNERHALB des Endformats, in dem nichts stehen soll, was
@@ -109,9 +136,17 @@ struct SeitenflaecheView: View, Equatable {
     //
     // Seit 1.0.76 hängt er an der BUNDSEITE: Eine Druckerei verlangt innen
     // oft mehr als außen, und welche Seite innen liegt, wechselt von Seite
-    // zu Seite (`Buchseite.bundlage`). Damit wandert die orange Linie
+    // zu Seite (`Buchseite.bundlage`). Damit wandert die blaue Linie
     // sichtbar mit — und das ist zugleich die Probe, dass die Zahl an der
     // richtigen Kante ankommt.
+    // OB DER GRUND DIESER SEITE DUNKEL IST (ab 1.0.80).
+    //
+    // Gefragt 09/2026: „Ich frage mich, ob man diese Linien auch sieht,
+    // wenn der Seitenhintergrund dunkel gewählt wird." Man sah sie nicht —
+    // die Farben standen fest im Quelltext, obwohl `Seitenhintergrund.dunkel`
+    // seit 1.0.0 dasteht; gefragt hat sie nur der Textsatz.
+    private var grundIstDunkel: Bool { hintergrund.dunkel }
+
     private var schutzzone: CGRect? {
         guard werk.reise.gestaltung.hatSicherheitsabstand else { return nil }
         return werk.reise.gestaltung.schutzzone(werk.reise.format,
@@ -133,10 +168,6 @@ struct SeitenflaecheView: View, Equatable {
     // Sie SOLLEN über die Kante laufen; sie zu markieren hieße, das als
     // Fehler auszugeben, was richtig ist — und nach der dritten falschen
     // Marke sieht niemand mehr hin.
-    private var zuNahAmRand: [Block] {
-        werk.reise.imSicherheitsabstand(buchseite)
-    }
-
     private var hintergrund: Seitenhintergrund {
         buchseite.seite.hintergrund ?? werk.reise.gestaltung.hintergrund
     }
@@ -179,8 +210,8 @@ struct SeitenflaecheView: View, Equatable {
                                    seite: buchseite.seite,
                                    format: format, anschnitt: anschnitt,
                                    bogen: bogen, liegtRechts: buchseite.liegtRechts,
-                                   massstab: massstab)
-                    .offset(x: -anschnitt, y: -anschnitt)
+                                   bogenkante: bogenkante, massstab: massstab)
+                    .offset(x: -anschnittLinks, y: -anschnitt)
                     .allowsHitTesting(false)
             }
 
@@ -194,35 +225,35 @@ struct SeitenflaecheView: View, Equatable {
                // selbst (ab 1.0.56) — es steht in derselben Antwort wie
                // der Rahmen, weil die Höhe am Seitenverhältnis genau
                // dieses Bildes hängt.
-               let zeichenbild = ort.bild,
-               // Gezählt wie jedes andere Vorschaubild (ab 1.0.59): Ein
-               // Wasserzeichen liegt auf JEDER Seite, und damit ist es die
-               // Art Bild, die sich am ehesten summiert.
-               let bild = werk.messer.sammelt("Fotos", {
-                   Bildarchiv.shared.vorschau(
-                       zeichenbild.datei, reise: werk.reise.id,
-                       kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
-                                                 massstab: massstab, groesste: 1600))
-               })
+               let zeichenbild = ort.bild
             {
-                // Gedreht wird um die Mitte des BILDRAHMENS, und die ist
-                // nach `Wasserzeichenlage.ort` dieselbe wie die des
-                // Platzes: `rotationEffect` dreht ohne weitere Angabe um
-                // die Mitte der Ansicht, also genau darum.
-                Image(uiImage: bild)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: ort.bildrahmen.width, height: ort.bildrahmen.height)
-                    .rotationEffect(.degrees(ort.winkel))
-                    .opacity(zeichen.deckung)
-                    .offset(x: ort.bildrahmen.minX, y: ort.bildrahmen.minY)
-                    .allowsHitTesting(false)
+                // Gezählt wie jedes andere Vorschaubild (ab 1.0.59) und
+                // seit 1.0.81 auch abseits des Hauptfadens geholt: Ein
+                // Wasserzeichen liegt auf JEDER Seite, und damit ist es die
+                // Art Bild, die sich am ehesten summiert.
+                Ladebild(
+                    datei: zeichenbild.datei, reise: werk.reise.id,
+                    kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
+                                              massstab: massstab, groesste: 1600),
+                    messer: werk.messer)
+                { bild in
+                    // Gedreht wird um die Mitte des BILDRAHMENS, und die ist
+                    // nach `Wasserzeichenlage.ort` dieselbe wie die des
+                    // Platzes: `rotationEffect` dreht ohne weitere Angabe um
+                    // die Mitte der Ansicht, also genau darum.
+                    Image(uiImage: bild)
+                        .resizable()
+                        .scaledToFit()
+                }
+                .frame(width: ort.bildrahmen.width, height: ort.bildrahmen.height)
+                .rotationEffect(.degrees(ort.winkel))
+                .opacity(zeichen.deckung)
+                .offset(x: ort.bildrahmen.minX, y: ort.bildrahmen.minY)
+                .allowsHitTesting(false)
             }
 
             if bearbeitbar, werk.zeigeSatzspiegel {
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 0.7, dash: [4, 4]))
-                    .foregroundStyle(Color.accentColor.opacity(0.35))
+                Hilfslinie(art: .satz, offen: .keine, dunkel: grundIstDunkel)
                     .frame(width: satz.width, height: satz.height)
                     .offset(x: satz.minX, y: satz.minY)
                     .allowsHitTesting(false)
@@ -270,17 +301,22 @@ struct SeitenflaecheView: View, Equatable {
                 if let linie = fangWaagerecht {
                     Fanglinie(linie: linie, senkrecht: false, laenge: bogen.width,
                               massstab: massstab)
-                        .offset(x: -anschnitt, y: linie.wert)
+                        .offset(x: -anschnittLinks, y: linie.wert)
                 }
             }
 
             // Die Schnittkante liegt ÜBER allem. Sie ist die Linie, an der
             // das Buch beschnitten wird; unter den randabfallenden Bildern
             // gezeichnet wäre sie genau dort versteckt, wo sie gebraucht wird.
+            //
+            // AM BUND WIRD NICHT GESCHNITTEN (ab 1.0.78). Gemeldet 09/2026:
+            // „Laut Druckerei wird aber doch dort kein Beschnitt
+            // ausgeführt." Dort stößt die Nachbarhälfte an — gefalzt oder
+            // gebunden, nicht geschnitten —, und eine Linie, die einen
+            // Schnitt behauptet, den es nicht gibt, ist schlimmer als
+            // keine. `Schnittlinien` lässt genau diese eine Kante weg.
             if bearbeitbar, anschnitt > 0.5, werk.zeigeSatzspiegel {
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 0.8, dash: [7, 4]))
-                    .foregroundStyle(Color.red.opacity(0.55))
+                Hilfslinie(art: .schnitt, offen: bogenkante, dunkel: grundIstDunkel)
                     .frame(width: format.width, height: format.height)
                     .allowsHitTesting(false)
             }
@@ -288,27 +324,55 @@ struct SeitenflaecheView: View, Equatable {
             // DER SICHERHEITSABSTAND, gleich daneben (ab 1.0.73).
             //
             // Er ist die Gegenrichtung zur Schnittkante und muss deshalb
-            // anders aussehen: ORANGE und feiner gestrichelt. Zwei rote
-            // Linien nebeneinander wären zwei Namen für dasselbe, und
-            // genau diese Verwechslung — Anschnitt gegen Sicherheitsabstand
-            // — ist der Anlass dieser Fassung. **Nicht blau**: Das ist beim
-            // Einrasten seit jeher der Nachbar, und dieselbe Farbe für zwei
-            // Auskünfte ist eine Auskunft weniger.
+            // anders aussehen. Bis 1.0.79 hieß das hier: orange und FEINER
+            // gestrichelt, ausdrücklich „nicht blau", weil Blau beim
+            // Einrasten der Nachbar ist. Beides ist seit 1.0.80 anders —
+            // der Nutzer konnte die feine Linie kaum erkennen, und die
+            // Abwägung gegen Blau war falsch herum: Die Fanglinie des
+            // Nachbarn trägt ihren Namen am Strich und erscheint nur
+            // während einer Ziehbewegung. Jetzt gleich dick wie die
+            // Schnittkante, blau, mit kürzeren Strichen — alles in
+            // `Seitenlinie`.
             if bearbeitbar, werk.zeigeSatzspiegel, let zone = schutzzone {
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 0.6, dash: [3, 3]))
-                    .foregroundStyle(Color.orange.opacity(0.55))
+                // AM BUND LÄUFT SIE HERUM, anders als die Schnittkante:
+                // Dort wird zwar nicht geschnitten, aber im Falz
+                // verschwindet ein Streifen — genau dafür gibt es seit
+                // 1.0.76 den eigenen Innenwert.
+                Hilfslinie(art: .sicherheit, offen: .keine, dunkel: grundIstDunkel)
                     .frame(width: zone.width, height: zone.height)
                     .offset(x: zone.minX, y: zone.minY)
                     .allowsHitTesting(false)
 
-                // Und was hineinragt, wird MARKIERT (ab 1.0.76) — in
-                // derselben Farbe wie die Linie, damit ohne ein Wort
-                // klar ist, worauf sich die Marke bezieht.
-                ForEach(zuNahAmRand) { block in
-                    Rectangle()
-                        .strokeBorder(style: StrokeStyle(lineWidth: 1.4, dash: [4, 3]))
-                        .foregroundStyle(Color.orange.opacity(0.9))
+            }
+
+            // WAS IN DEN ANSCHNITT ODER IN DEN SICHERHEITSABSTAND RAGT,
+            // BEKOMMT EINEN DICKEN ROTEN RAHMEN (ab 1.0.81).
+            //
+            // Ansage des Nutzers, 09/2026: „Ich möchte ab jetzt, dass ein
+            // Element, was in den Beschnittbereich oder den
+            // Sicherheitsbereich hineinragt, mit einem noch besser zu
+            // sehenden Rand versehen wird. Gerne ein dicker roter Rand."
+            //
+            // Zwei Dinge sind daran neu, und beide sind eigene Befunde:
+            //
+            // 1. **Der ANSCHNITT wurde gar nicht geprüft.** Markiert war
+            //    bis 1.0.80 nur der Sicherheitsabstand; ein Block, der über
+            //    die SCHNITTKANTE ragt und nicht randabfallend ist, wird im
+            //    gedruckten Buch angeschnitten — und das fiel erst am
+            //    Papier auf. `Reise.amRandGefaehrdet` prüft seither beides.
+            // 2. **Die Marke hängt NICHT mehr an „Linien zeigen".** Sie tat
+            //    es seit 1.0.76, und das war falsch: Die Linien sind eine
+            //    Hilfe beim Anordnen, die Marke ist eine WARNUNG. Eine
+            //    Warnung, die sich mit den Hilfslinien abschalten lässt,
+            //    ist keine.
+            //
+            // Rot — obwohl die Schnittkante auch rot ist. Das ist der
+            // Wunsch des Nutzers und es geht auf: Die Marke ist dreimal so
+            // dick, läuft um einen BLOCK und nicht am Blattrand, und sie
+            // trägt eine Kontur. Zu verwechseln sind die beiden nicht.
+            if bearbeitbar {
+                ForEach(werk.reise.amRandGefaehrdet(buchseite)) { block in
+                    Randmarke(dunkel: grundIstDunkel)
                         .frame(width: block.rahmen.breite, height: block.rahmen.hoehe)
                         .rotationEffect(.degrees(block.drehung))
                         .offset(x: block.rahmen.x, y: block.rahmen.y)
@@ -391,7 +455,7 @@ struct SeitenflaecheView: View, Equatable {
                 // das sich nicht schließen lässt.
                 Color.clear
                     .frame(width: bogen.width, height: bogen.height)
-                    .offset(x: -anschnitt, y: -anschnitt)
+                    .offset(x: -anschnittLinks, y: -anschnitt)
                     .contentShape(Rectangle())
                     .onTapGesture { werk.textBearbeitung = nil }
                 InlineText(werk: werk, block: block, tag: buchseite.tag, massstab: massstab)
@@ -457,7 +521,7 @@ struct SeitenflaecheView: View, Equatable {
         .contentShape(Rectangle())
         .onTapGesture(count: 2, coordinateSpace: .local) { punkt in doppeltipp(punkt) }
         .onTapGesture(count: 1, coordinateSpace: .local) { punkt in einfachtipp(punkt) }
-        .offset(x: anschnitt, y: anschnitt)
+        .offset(x: anschnittLinks, y: anschnitt)
         .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
         .clipped()
         .background(ohneGrund ? Color.clear : Color.white)
@@ -1018,6 +1082,93 @@ struct Ueberlaufmarke: View {
     }
 }
 
+// EINE HILFSLINIE — Kontur zuerst, dann die Farbe (ab 1.0.80).
+//
+// Die Kontur ist keine Zierde: Auf einem Seitenhintergrund, der dunkel ist
+// oder ein Foto trägt, verschwindet jede feste Farbe stellenweise. Erst die
+// breitere Linie in der Gegenfarbe, dann die schmalere farbige darauf —
+// dieselbe Bauweise wie bei den Linienzügen der Abfahrtstafel (1.1.9).
+//
+// Was WELCHE Linie ist, steht in `Seitenlinie` und nicht hier: Bis 1.0.79
+// standen die Farben in dieser Datei UND in `Fanglinie`, und zwei Fassungen
+// derselben Auskunft laufen auseinander.
+struct Hilfslinie: View {
+    let art: Seitenlinie
+    /// An welcher Kante der Rahmen offen bleibt — nur die Schnittkante
+    /// kennt das (am Bund wird nicht geschnitten, siehe `Bogenkante`).
+    var offen: Bogenkante = .keine
+    let dunkel: Bool
+
+    var body: some View {
+        ZStack {
+            Schnittlinien(offen: offen)
+                .stroke(Seitenlinie.kontur(aufDunklem: dunkel),
+                        style: StrokeStyle(lineWidth: art.breite + 1.1, dash: art.strich))
+            Schnittlinien(offen: offen)
+                .stroke(art.farbe(aufDunklem: dunkel),
+                        style: StrokeStyle(lineWidth: art.breite, dash: art.strich))
+        }
+    }
+}
+
+// DIE MARKE UM EINEN GEFÄHRDETEN BLOCK (ab 1.0.81).
+//
+// Dick, rot und durchgezogen — und mit einer Kontur darunter, damit sie
+// auch auf einem dunklen Grund oder auf einem Foto steht. Gestrichelt ist
+// sie bewusst NICHT mehr: Die drei Hilfslinien sind gestrichelt, und eine
+// Warnung soll anders aussehen als eine Hilfe.
+struct Randmarke: View {
+    let dunkel: Bool
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .strokeBorder(Seitenlinie.kontur(aufDunklem: dunkel),
+                              lineWidth: 5.2)
+            Rectangle()
+                .strokeBorder(dunkel ? Color(red: 1.0, green: 0.35, blue: 0.32)
+                                     : Color(red: 0.88, green: 0.07, blue: 0.07),
+                              lineWidth: 3.6)
+        }
+    }
+}
+
+// DIE SCHNITTKANTE — an der Bundkante eines Bogens fällt sie WEG (ab 1.0.78).
+//
+// Ein `Rectangle().strokeBorder` kann nur alle vier Kanten; gebraucht
+// werden drei. Gezeichnet wird deshalb ein Pfad, und die eine Kante, an
+// der die Nachbarhälfte anstößt, bleibt offen.
+//
+// Gestrichen wird NUR die senkrechte Kante am Bund. Oben und unten wird
+// immer geschnitten, ganz gleich, wie das Buch gebunden ist — und die
+// Außenkante ist die, an der das Messer ohnehin ansetzt.
+struct Schnittlinien: Shape {
+    var offen: Bogenkante
+
+    func path(in rahmen: CGRect) -> Path {
+        var pfad = Path()
+        let links = rahmen.minX
+        let rechts = rahmen.maxX
+        let oben = rahmen.minY
+        let unten = rahmen.maxY
+
+        pfad.move(to: CGPoint(x: links, y: oben))
+        pfad.addLine(to: CGPoint(x: rechts, y: oben))
+        pfad.move(to: CGPoint(x: links, y: unten))
+        pfad.addLine(to: CGPoint(x: rechts, y: unten))
+
+        if offen != .links {
+            pfad.move(to: CGPoint(x: links, y: oben))
+            pfad.addLine(to: CGPoint(x: links, y: unten))
+        }
+        if offen != .rechts {
+            pfad.move(to: CGPoint(x: rechts, y: oben))
+            pfad.addLine(to: CGPoint(x: rechts, y: unten))
+        }
+        return pfad
+    }
+}
+
 // MARK: - Hintergrund
 
 struct HintergrundFlaeche: View {
@@ -1033,24 +1184,37 @@ struct HintergrundFlaeche: View {
     // liegt; `nil` heißt „außerhalb des Buches", und dann gibt es keine
     // Doppelseite, über die etwas gehen könnte.
     var liegtRechts: Bool?
+    // An welcher Kante die Nachbarhälfte anstößt (ab 1.0.78) — dort gibt
+    // es keinen Anschnitt, und damit liegt die Ecke dieses Bogens auf der
+    // Kante des Endformats statt davor.
+    var bogenkante: Bogenkante = .keine
     var massstab: Double = 1
     @Environment(\.displayScale) private var geraet
 
-    // Wie groß das Hintergrundfoto gezeichnet wird und wie weit gegen die
-    // Bogenmitte verschoben — oder `nil`, wenn es schlicht diese eine
-    // Seite füllt. Über die Doppelseite ist es zwei Seitenbreiten breit
-    // und um eine halbe versetzt: nach rechts auf einer linken Seite, nach
-    // links auf einer rechten.
-    private var doppelflaeche: (breite: Double, hoehe: Double, versatz: Double)? {
-        guard hintergrund.ueberDoppelseite, let liegtRechts, let bogen else { return nil }
-        return (Double(bogen.width) + Double(format.width),
-                Double(bogen.height),
-                Bogenlage.versatz(rechts: liegtRechts, format: format, anschnitt: anschnitt))
+    // Wie weit die linke Bogenkante VOR dem Endformat liegt. An der
+    // Bundkante ist das null.
+    private var randLinks: Double { bogenkante == .links ? 0 : anschnitt }
+
+    // Die Fläche eines Bildes über die ganze Doppelseite, in
+    // SEITENkoordinaten — oder `nil`, wenn es schlicht diese eine Seite
+    // füllt.
+    //
+    // Gefragt wird `Bogenlage.bildflaeche`, also genau die Funktion, die
+    // auch das PDF bekommt. Bis 1.0.77 wurde hier selbst gerechnet
+    // (`bogen.width + format.width`), und das ging nur auf, solange der
+    // Bogen an beiden Seiten einen Anschnitt trug: Seit 1.0.78 fällt er
+    // am Bund weg, und die alte Zeile hätte die Fläche um einen Anschnitt
+    // zu schmal gemacht. **Merke: Wer eine Rechnung nachbaut, bezahlt sie
+    // beim nächsten Mal, wenn sich ihre Voraussetzung ändert.**
+    private var doppelflaeche: CGRect? {
+        guard hintergrund.ueberDoppelseite, let liegtRechts, bogen != nil else { return nil }
+        return Bogenlage.bildflaeche(rechts: liegtRechts, format: format,
+                                     anschnitt: anschnitt)
     }
 
     private var hintergrundkante: Int {
-        let breite = doppelflaeche?.breite ?? Double(bogen?.width ?? format.width)
-        let hoehe = doppelflaeche?.hoehe ?? Double(bogen?.height ?? format.height)
+        let breite = Double(doppelflaeche?.width ?? (bogen?.width ?? format.width))
+        let hoehe = Double(doppelflaeche?.height ?? (bogen?.height ?? format.height))
         return Bildschaerfe.kante(CGSize(width: breite, height: hoehe),
                                   geraet: Double(geraet), massstab: massstab,
                                   kleinste: 600, groesste: doppelflaeche == nil ? 2000 : 2800)
@@ -1068,25 +1232,30 @@ struct HintergrundFlaeche: View {
                 Papierkorn(staerke: hintergrund.koernung, saat: seite.id.saat)
             case .foto:
                 hintergrund.farbe.farbe
-                if let id = hintergrund.fotoID, let foto = werk.reise.foto(id),
-                   // Über die Doppelseite deckt dasselbe Bild die
-                   // doppelte Breite ab — mit derselben Kante wäre es auf
-                   // dem Bildschirm halb so fein. Das PDF holt ohnehin die
-                   // volle Auflösung (`auftrag.bildkante`). Wie fein es auf
-                   // dem BILDSCHIRM sein muss, hängt am Maßstab der Bühne
-                   // und steht in `Bildschaerfe` — bis 1.0.52 stand hier
-                   // eine feste Zahl, und die war beim Hineinzoomen zu klein.
-                   let bild = werk.messer.sammelt("Fotos", {
-                       Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                                  kante: hintergrundkante,
-                                                  farbkraft: hintergrund.farbkraftfaktor)
-                   })
-                {
-                    // Der Raum wird GEMESSEN und nicht angenommen: Die
-                    // Probe im Hintergrund-Blatt hat keinen Bogen, und
-                    // dort ist die Fläche das, was die Zeile hergibt.
-                    GeometryReader { raum in
-                        fotoflaeche(bild, raum: raum.size)
+                if let id = hintergrund.fotoID, let foto = werk.reise.foto(id) {
+                    // Über die Doppelseite deckt dasselbe Bild die
+                    // doppelte Breite ab — mit derselben Kante wäre es auf
+                    // dem Bildschirm halb so fein. Das PDF holt ohnehin die
+                    // volle Auflösung (`auftrag.bildkante`). Wie fein es auf
+                    // dem BILDSCHIRM sein muss, hängt am Maßstab der Bühne
+                    // und steht in `Bildschaerfe` — bis 1.0.52 stand hier
+                    // eine feste Zahl, und die war beim Hineinzoomen zu klein.
+                    //
+                    // Geholt wird es seit 1.0.81 abseits des Hauptfadens
+                    // (`Ladebild`). Gerade das HINTERGRUNDfoto ist das
+                    // größte Bild einer Seite — es füllt Seite oder
+                    // Doppelseite ganz aus.
+                    Ladebild(datei: foto.datei, reise: werk.reise.id,
+                                 kante: hintergrundkante,
+                                 farbkraft: hintergrund.farbkraftfaktor,
+                                 messer: werk.messer)
+                    { bild in
+                        // Der Raum wird GEMESSEN und nicht angenommen: Die
+                        // Probe im Hintergrund-Blatt hat keinen Bogen, und
+                        // dort ist die Fläche das, was die Zeile hergibt.
+                        GeometryReader { raum in
+                            fotoflaeche(bild, raum: raum.size)
+                        }
                     }
                 }
                 hintergrund.farbe.farbe.opacity(hintergrund.schleier)
@@ -1113,10 +1282,10 @@ struct HintergrundFlaeche: View {
         guard let flaeche = doppelflaeche else {
             return CGRect(origin: .zero, size: raum)
         }
-        let mitteX = Double(raum.width) / 2 + flaeche.versatz
-        return CGRect(x: mitteX - flaeche.breite / 2,
-                      y: Double(raum.height) / 2 - flaeche.hoehe / 2,
-                      width: flaeche.breite, height: flaeche.hoehe)
+        // Von Seitenkoordinaten (Ursprung = Ecke des Endformats) in die
+        // dieser Fläche (Ursprung = Ecke des Bogens). Das ist eine
+        // Verschiebung und keine zweite Rechnung.
+        return flaeche.offsetBy(dx: CGFloat(randLinks), dy: CGFloat(anschnitt))
     }
 
     // Gezeichnet wird über `gefuelltesZiel` und nicht mehr über
@@ -1282,20 +1451,27 @@ struct FotoKachel: View {
             // ALLE Aufrufe samt Gesamtdauer; ein Treffer im Zwischenspeicher
             // kostet nichts und fällt in der Summe nicht auf. Steht im
             // Befund „Fotos 12× 900 ms", ist die Frage beantwortet.
-            if let foto = werk.reise.foto(fotoID),
-               let bild = werk.messer.sammelt("Fotos", {
-                   Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                              kante: vorschaukante(raum.size))
-               })
-            {
-                // Dieselbe Rechnung wie im PDF — `zielrechteck` steht an
-                // einer Stelle und wird hier nur angewandt.
-                let ziel = block.ausschnitt.zielrechteck(bildgroesse: bild.size, rahmen: rahmen)
-                Image(uiImage: bild)
-                    .resizable()
-                    .frame(width: ziel.width, height: ziel.height)
-                    .offset(x: ziel.minX, y: ziel.minY)
-                    .clipped()
+            if let foto = werk.reise.foto(fotoID) {
+                // GEHOLT WIRD ABSEITS DES HAUPTFADENS (ab 1.0.81) — siehe
+                // `Ladebild`. Bis 1.0.80 stand hier ein synchroner Griff
+                // auf die Platte, mitten im Körper der Seite; beim Scrollen
+                // baut der `LazyVStack` laufend neue Blätter, und jedes zog
+                // seine drei bis sechs Bilder nach. Genau das war das
+                // gemeldete Ruckeln.
+                Ladebild(datei: foto.datei, reise: werk.reise.id,
+                             kante: vorschaukante(raum.size),
+                             messer: werk.messer)
+                { bild in
+                    // Dieselbe Rechnung wie im PDF — `zielrechteck` steht an
+                    // einer Stelle und wird hier nur angewandt.
+                    let ziel = block.ausschnitt.zielrechteck(bildgroesse: bild.size,
+                                                             rahmen: rahmen)
+                    Image(uiImage: bild)
+                        .resizable()
+                        .frame(width: ziel.width, height: ziel.height)
+                        .offset(x: ziel.minX, y: ziel.minY)
+                        .clipped()
+                }
             } else {
                 Rectangle()
                     .fill(Color(.systemGray6))

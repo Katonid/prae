@@ -136,6 +136,10 @@ struct ReiseView: View {
         case typografie
         case fotostil
         case textstil
+        // DIE KARTEN HABEN EINEN EIGENEN MENÜPUNKT (ab 1.0.79). Warum,
+        // steht an `KartenstilView`: Bis 1.0.78 lagen sie in der Gestaltung,
+        // und deren Menüpunkt heißt seit 1.0.77 nach den Druckzugaben.
+        case kartenstil
         case gestaltung
         case umschlag
         case seitenformat
@@ -169,6 +173,7 @@ struct ReiseView: View {
             case .typografie: return "typo"
             case .fotostil: return "fotostil"
             case .textstil: return "textstil"
+            case .kartenstil: return "kartenstil"
             case .gestaltung: return "gestaltung"
             case .umschlag: return "umschlag"
             case .seitenformat: return "format"
@@ -352,6 +357,24 @@ struct ReiseView: View {
                 }
                 .coordinateSpace(.named(Self.buehnenraum))
                 .background(Self.leinwand)
+                // WELCHE LINIE WAS BEDEUTET, steht über der Bühne (ab
+                // 1.0.80). Gefragt 09/2026: „Auf dem Beispielbild sind noch
+                // weitere Linien zu sehen. Welche sind das denn eigentlich?"
+                //
+                // Es gab die Legende — in der Skizze unter „Ränder und
+                // Druckzugaben", also dort, wo man die Zahlen einstellt und
+                // nicht dort, wo man die Linien sieht. Sie steht jetzt
+                // beides: hier, solange die Linien an sind, und dort
+                // weiterhin bei den Zahlen.
+                //
+                // Als ÜBERLAGERUNG und nicht als Zeile im Stapel: Eine
+                // Zeile nähme der Bühne Höhe, und `buehnenhoehe` geht in
+                // die Zoomrechnung ein. `allowsHitTesting(false)`, damit
+                // sie keine Geste schluckt — die Lehre aus 1.1.18 der
+                // Abfahrtstafel.
+                .overlay(alignment: .top) {
+                    if werk.zeigeSatzspiegel { Linienlegende() }
+                }
                 // Die Lupen können den Leser nicht selbst erreichen; sie
                 // legen ihren Wunsch hier ab.
                 .onChange(of: massstabwunsch) { _, wunsch in
@@ -546,6 +569,13 @@ struct ReiseView: View {
     private func seitenvorwahl() {
         let sichtbar = Set(seitenImBlick.values.flatMap { $0 })
         if let da = werk.gewaehlteSeite, sichtbar.contains(da) { return }
+        // DIE REIHE IN DER MITTE ZUERST (ab 1.0.79) — dieselbe Ursache wie
+        // beim gewählten Tag: Eine Reihe, die nur noch mit einem Streifen
+        // am Rand hängt, ist anwesend und nicht gemeint.
+        if let mitte = reiheInDerMitte(), let erste = seitenImBlick[mitte]?.first {
+            werk.gewaehlteSeite = erste
+            return
+        }
         // Von oben nach unten die erste Reihe, die überhaupt ein Blatt
         // hergibt: Die Ausgleichsseite wird gerechnet, auf sie geht
         // nichts, und eine Vorwahl darauf wäre ein Ziel, das der nächste
@@ -567,9 +597,52 @@ struct ReiseView: View {
         return [buchseite.seite.id]
     }
 
+    // GEZÄHLT WURDE ANWESENHEIT, GEMEINT IST SICHTBARKEIT (ab 1.0.79).
+    //
+    // Gemeldet 09/2026 mit Bildschirmfoto: „Das Datumsfeld hängt immer
+    // mindestens einen Tag hinterher. Im Blickfeld sind eigentlich schon die
+    // Seiten des 4. Augustes und auswählbar ist der 3."
+    //
+    // **Am Quelltext abzuzählen:** Bis 1.0.78 gewann die KLEINSTE anwesende
+    // Reihennummer. Ein Bogen, der nur noch mit einem Streifen oben am
+    // Bildschirmrand hängt, zählt damit genauso wie der, der den ganzen
+    // Schirm füllt — und gewinnt, weil seine Nummer kleiner ist. Auf dem
+    // Bildschirmfoto ist das genau zu sehen: oben der untere Zentimeter von
+    // „Seiten 0 und 1", darunter vollflächig „Seiten 2 und 3", und im
+    // Datumsfeld steht der Tag des ersten.
+    //
+    // Schlimmer noch: `onAppear` feuert in einem `LazyVStack` nicht am
+    // Sichtrand, sondern am Rand des Vorbereitungsbereichs — SwiftUI baut
+    // ein Stück im Voraus. Die „oberste anwesende" Reihe ist also oft eine,
+    // die gar nicht zu sehen ist.
+    //
+    // Gewählt wird deshalb die Reihe, welche die MITTE des Sichtfelds
+    // überdeckt. Gerechnet wird sie aus derselben Geometrie, an der auch der
+    // Zoom hängt (`Zoomanker.griff`) — und zwar erst beim Auslösen, nicht
+    // bei jedem Bildpunkt: `Inhaltslage` hat aus gutem Grund kein
+    // `@Published` (die Lehre aus 1.0.16). Der Auslöser bleibt
+    // `onAppear`/`onDisappear`, also etwas, das selten anfällt.
     private var tagImBlick: UUID? {
+        guard !imBlick.isEmpty else { return nil }
+        if let mitte = reiheInDerMitte(), let tag = imBlick[mitte] { return tag }
+        // Steht die Mitte auf einer Reihe, die sich (noch) nicht gemeldet
+        // hat, gilt wie bisher die oberste. Ein Rückfall und keine
+        // Behauptung: Lieber der alte Stand als gar keiner.
         guard let oberste = imBlick.keys.min() else { return nil }
         return imBlick[oberste]
+    }
+
+    /// Welche Reihe die Mitte des Sichtfelds überdeckt — `nil`, solange die
+    /// Bühne sich noch nicht gemeldet hat. Dieselbe Umrechnung wie in
+    /// `massstabSetzen`: Bildschirmpunkt minus Ursprung des Inhalts.
+    private func reiheInDerMitte() -> Int? {
+        guard buehnenhoehe > 1, lage.meldungen > 0 else { return nil }
+        // Dieselbe Umrechnung wie in `massstabSetzen`: Bildschirmpunkt
+        // minus Ursprung des Inhalts. Gefragt wird `elementmasse` und nicht
+        // `massstaebe` — die Zahl der Elemente kostet hier einen Lauf über
+        // das ganze Buch und wird für diese Frage nicht gebraucht.
+        let imInhalt = buehnenhoehe / 2 - Double(lage.ursprung.y)
+        return elementmasse.stelle(bei: imInhalt, massstab: massstabJetzt)
     }
 
     // Die Reihe, bei der ein Tag anfängt — das Ziel eines Sprungs aus der
@@ -652,15 +725,16 @@ struct ReiseView: View {
         // steht immer da, und sie kostet nichts: Gefragt wird nur nach den
         // Blöcken DIESER Seite, und der Körper läuft im `LazyVStack` nur
         // für die Blätter, die gerade zu sehen sind.
-        let zuNah = werk.reise.imSicherheitsabstand(buchseite).count
+        // Seit 1.0.81 zählt auch der ANSCHNITT mit: Ein Block, der über
+        // die Schnittkante ragt und nicht randabfallend ist, wird im
+        // gedruckten Buch angeschnitten. Genannt wird der schlimmere der
+        // beiden Fälle zuerst.
+        let ueber = werk.reise.ueberDerSchnittkante(buchseite).count
+        let zuNah = werk.reise.amRandGefaehrdet(buchseite).count
         if zuNah > 0 {
             name += " \u{00B7} \u{26A0}\u{FE0E} "
-            if zuNah == 1 {
-                name += "1 Block"
-            } else {
-                name += "\(zuNah) Blöcke"
-            }
-            name += " im Sicherheitsabstand"
+            name += zuNah == 1 ? "1 Block" : "\(zuNah) Blöcke"
+            name += ueber > 0 ? " ragen über die Schnittkante" : " im Sicherheitsabstand"
         }
         return name
     }
@@ -668,7 +742,7 @@ struct ReiseView: View {
     // Orange schlägt die Auswahlfarbe: Ein Hinweis, der nur dann auffällt,
     // wenn die Seite gerade nicht gewählt ist, wäre ein halber Hinweis.
     private func seitenfarbe(_ buchseite: Buchseite) -> Color {
-        if !werk.reise.imSicherheitsabstand(buchseite).isEmpty { return .orange }
+        if !werk.reise.amRandGefaehrdet(buchseite).isEmpty { return .orange }
         return istGewaehlt(buchseite) ? Color.accentColor : Color.secondary
     }
 
@@ -696,13 +770,19 @@ struct ReiseView: View {
     private var breitesterBogen: Double {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
         guard doppelseiten else { return bogen.width }
-        var breite = bogen.width * 2
-        if werk.reise.hatRueckseite {
-            breite += Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
-                                                   format: werk.reise.format,
-                                                   innenseiten: werk.reise.innenseiten)
-        }
-        return breite
+        // AM BUND LIEGT KEIN ANSCHNITT (ab 1.0.78). Bis 1.0.77 wurde hier
+        // die Breite eines Einzelbogens verdoppelt, also zwei Anschnitte
+        // zu viel gerechnet. Das war folgenlos, solange die Ansicht sie
+        // auch zeichnete — jetzt wäre die Bühne breiter als ihr Inhalt,
+        // und dann stünde beim Hineinzoomen rechts ein leerer Streifen.
+        let ruecken = werk.reise.hatRueckseite
+            ? Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
+                                           format: werk.reise.format,
+                                           innenseiten: werk.reise.innenseiten)
+            : 0
+        return Bogenlage.doppelbogen(format: werk.reise.format.groesse,
+                                     anschnitt: werk.reise.gestaltung.anschnittPt,
+                                     ruecken: ruecken).width
     }
 
     // Wohin nach einem Zoom gerollt wird. Die laufende Nummer gehört dazu,
@@ -897,14 +977,28 @@ struct ReiseView: View {
     // gelesen und nie im Körper: `sichtbareSeiten` geht über das ganze
     // Buch.
     private var massstaebe: Zoomanker {
+        var anker = elementmasse
+        anker.anzahl = doppelseiten ? werk.sichtbareDoppelseiten.count
+                                    : werk.sichtbareSeiten.count
+        return anker
+    }
+
+    // DIE GEOMETRIE OHNE DIE ZÄHLUNG (ab 1.0.79).
+    //
+    // `massstaebe` kostet einen Lauf über das ganze Buch, und genau deshalb
+    // steht darüber, dass es nur aus einem Handgriff heraus gelesen wird.
+    // `reiheInDerMitte` wird aber im KÖRPER gebraucht (über
+    // `onChange(of: tagImBlick)`) — und für die Frage „welche Reihe liegt
+    // in der Mitte" wird die Zahl der Elemente gar nicht gebraucht.
+    // Getrennt, statt die Rechnung ein zweites Mal hinzuschreiben.
+    private var elementmasse: Zoomanker {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
         return Zoomanker(blatthoehe: bogen.height,
-                         blattbreite: bogen.width * (doppelseiten ? 2 : 1),
+                         blattbreite: doppelseiten ? breitesterBogen : bogen.width,
                          beiwerk: Buehnenmasse.beiwerk,
                          fuge: Buehnenmasse.fuge,
                          rand: Buehnenmasse.rand,
-                         anzahl: doppelseiten ? werk.sichtbareDoppelseiten.count
-                                              : werk.sichtbareSeiten.count)
+                         anzahl: 0)
     }
 
     private func kennung(_ stelle: Int) -> String? {
@@ -1455,6 +1549,7 @@ struct ReiseView: View {
                 }
                 Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
                 Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
+                Button("Karten…", systemImage: "map") { blatt = .kartenstil }
                 Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
                     blatt = .hintergrund
                 }
@@ -1971,6 +2066,8 @@ struct ReiseView: View {
             FotostilView(werk: werk)
         case .textstil:
             TextstilView(werk: werk)
+        case .kartenstil:
+            KartenstilView(werk: werk)
         case .gestaltung:
             GestaltungView(werk: werk)
         case .umschlag:
