@@ -480,6 +480,47 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Zeitraum ist eine Rechnung, keine Wahrheit (1.0.97)
+
+> „Dadurch, dass ich ein Bild aus der Reisevorbereitung mit eingefügt habe,
+> steht jetzt auf dem Titel 4. Juni. Das trifft aber nicht für die Reise zu,
+> die fand erst später statt."
+
+Der Zeitraum unter dem Titel kam aus dem ersten und letzten Tag des Buches.
+Das ist die richtige VORGABE — sie stimmt von selbst und zieht mit, wenn ein
+Tag dazukommt. **Sie ist nur keine Wahrheit:** Ein Foto von der
+Reisevorbereitung legt einen Tag an, und von da an behauptet die Titelseite
+ein Datum, an dem niemand unterwegs war.
+
+* **Er lässt sich setzen** (Ganzes Buch → Titel, Umschlag und Rücken). Im
+  Feld steht als Platzhalter der gerechnete Zeitraum; **leer heißt weiterhin
+  „aus den Tagen"**, und ein vorhandenes Buch sieht nach dem Update
+  unverändert aus — dieselbe Regel wie beim Namen in der Übersicht seit
+  1.0.84: `nil` ist eine Abweichung und keine Kopie.
+* **„Nichts gesetzt" und „hier ausdrücklich keiner" sind zwei Aussagen**, und
+  deshalb steht ein eigener Schalter daneben. Ohne ihn hieße ein leeres Feld
+  „automatisch", und wer gar keinen Zeitraum auf dem Titel will, käme nie
+  dorthin (die Lehre aus `Block.ohneGrund`, 1.0.12).
+* **Aufgelöst wird an EINER Stelle** (`Reise.zeitraum`), gefragt von der
+  Titelseite, vom Regal und von den Angaben im PDF. Zwei Fassungen ergäben
+  ein Buch, dessen Umschlag etwas anderes sagt als seine Dateiangaben.
+* **Nebenbefund: Ausgeblendete Tage zählten mit.** Ein Tag, der nicht ins
+  Buch kommt, zog den Zeitraum trotzdem nach vorn — und zwar still, denn die
+  Seite, die es erklärt hätte, war ja gerade weggenommen worden. Gerechnet
+  wird jetzt aus den sichtbaren Tagen.
+
+Dazu, aus der Meldung davor („Ich weiß nicht mehr, an welcher Stelle ich
+überhaupt eine Seitenzahl eingegeben habe"): **Die Druckprüfung nennt den
+Weg zur bestellten Seitenzahl jetzt auch dann, wenn sie nicht passt.** Den
+Fall „noch nichts eingetragen" erklärte sie seit 1.0.72 — ausgerechnet der
+Fall, in dem man die Zahl ändern will, nannte ihn nicht. Im Handbuch steht
+sie seither als eigener Eintrag.
+
+**Nicht gemessen (1.0.97):** Keine Titelseite ist damit gesehen worden. Am
+Quelltext abgezählt ist, dass alle drei Leser (Titelseite, Regal,
+PDF-Angaben) dieselbe Stelle fragen und dass ein leeres Feld die Rechnung
+zurückholt.
+
 ## Ein Modus braucht einen sichtbaren Ausgang (1.0.96)
 
 > „Es gibt die Option, die Fehler im Buch anzeigen zu lassen. Ich möchte aber

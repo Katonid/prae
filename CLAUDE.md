@@ -7698,6 +7698,34 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **DER ZEITRAUM UNTER DEM TITEL IST EINE RECHNUNG, KEINE WAHRHEIT**
+  (`Reise.zeitraumtext`, `.zeitraumZeigen`, ab 1.0.97; Ansage des Nutzers
+  09/2026: „Dadurch, dass ich ein Bild aus der Reisevorbereitung mit
+  eingefügt habe, steht jetzt auf dem Titel 4. Juni. Das trifft aber nicht
+  für die Reise zu.").
+  - Er kam aus dem ersten und letzten Tag — die richtige VORGABE, denn sie
+    stimmt von selbst und zieht mit. Nur ist sie keine Wahrheit: Ein Foto
+    von der Reisevorbereitung legt einen Tag an, und die Titelseite
+    behauptet ein Datum, an dem niemand unterwegs war.
+  - **`nil` heißt „gerechnet"** — Abweichung, keine Kopie, wie bei
+    `regalname` seit 1.0.84. Der gerechnete Zeitraum steht als PLATZHALTER
+    im Feld; leer holt ihn zurück.
+  - **„Nichts gesetzt" und „ausdrücklich keiner" sind ZWEI Aussagen** und
+    brauchen zwei Felder (die Lehre aus `Block.ohneGrund`): ohne den
+    Schalter käme niemand zu „gar kein Zeitraum".
+  - **Aufgelöst an EINER Stelle** (`Reise.zeitraum`), gefragt von
+    Titelseite, Regal und den Angaben im PDF.
+  - **Nebenbefund: Ausgeblendete Tage zählten mit.** Was nicht ins Buch
+    kommt, darf nicht auf seinem Titel stehen; `gerechneterZeitraum` filtert
+    sie seit 1.0.97 heraus. **Wer eine Zahl aus `tage` rechnet, prüft, ob
+    `ausgeblendet` dazugehört.**
+- **WO EINE ZAHL EINGETRAGEN WIRD, GEHÖRT IN DIE MELDUNG ÜBER SIE**
+  (`Druckpruefung.bestellung`, ab 1.0.97; gemeldet 09/2026: „Ich weiß nicht
+  mehr, an welcher Stelle ich überhaupt eine Seitenzahl eingegeben habe.").
+  Den Fall „noch nichts eingetragen" erklärte die Zeile seit 1.0.72 —
+  ausgerechnet der Fall, in dem man die Zahl ÄNDERN will, nannte den Weg
+  nicht. Sechzehnte Auflage von „es war da, man fand es nicht", diesmal an
+  einer Meldung statt an einem Menü.
 - **EIN MODUS BRAUCHT EINEN SICHTBAREN AUSGANG — auch dieser** (Befundband in
   `ReiseView.baender`, ab 1.0.96; gemeldet 09/2026: „Es gibt die Option, die
   Fehler im Buch anzeigen zu lassen. Ich möchte aber auch genauso die Funktion
@@ -10019,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.96 (Build 97). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.97 (Build 98). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

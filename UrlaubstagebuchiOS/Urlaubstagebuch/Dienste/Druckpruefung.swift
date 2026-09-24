@@ -786,7 +786,18 @@ enum Druckpruefung {
         } else {
             text += "Die fehlenden Seiten füllt die Druckerei meist mit leeren auf, und die hat niemand gesehen. Wer sie gestalten will, legt sie über \u{201E}Seiten\u{201C} an. "
         }
-        text += "Gezählt wird der BUCHBLOCK samt Ausgleichsseite; der Umschlag zählt nicht mit."
+        text += "Gezählt wird der BUCHBLOCK samt Ausgleichsseite; der Umschlag zählt nicht mit. "
+        // WO DIE ZAHL STEHT, GEHÖRT IN DIE MELDUNG (ab 1.0.97).
+        //
+        // Gemeldet 09/2026: „Ich weiß nicht mehr, an welcher Stelle ich
+        // überhaupt eine Seitenzahl eingegeben habe." Der Fall „noch
+        // nichts eingetragen" nannte den Weg seit 1.0.72 — ausgerechnet
+        // der Fall, in dem man die Zahl ÄNDERN will, nannte ihn nicht.
+        text += "Eingetragen hast du sie unter \u{201E}\u{2026}\u{201C} \u{2192} "
+        text += "\u{201E}Als PDF sichern\u{2026}\u{201C}, im Abschnitt \u{201E}Was "
+        text += "ausgegeben wird\u{201C} als Zeile \u{201E}Bestellt \u{2026} "
+        text += "Innenseiten\u{201C}. Ein leeres Feld heißt: nichts bestellt, dann "
+        text += "wird hier nichts verglichen."
         return [Zeile(stufe: .warnung,
                       titel: "Innenteil: \(hat) statt \(bestellt) Seiten",
                       text: text)]

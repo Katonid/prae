@@ -416,6 +416,21 @@ enum Handbuch {
                              "markieren", "wo", "finden", "ausblenden", "unsichtbar",
                              "umrandung", "rahmen anpassen"]),
             Handbucheintrag(
+                id: "bestellteseiten",
+                titel: "Bestellte Seitenzahl",
+                text: "Wie viele Innenseiten bestellt sind, weiß nur der Mensch \u{2014} die App zählt nur, wie viele das Buch HAT. Eingetragen wird die Zahl im Ausgabeblatt, im Abschnitt \u{201E}Was ausgegeben wird\u{201C} als Zeile \u{201E}Bestellt \u{2026} Innenseiten\u{201C}; sie gilt für das ganze Buch und nicht für diese eine Ausgabe. Danach sagt die Druckprüfung VOR dem Hochladen, ob es passt.\n\nEin leeres Feld heißt: nichts bestellt, dann wird nichts verglichen. Gezählt wird der Buchblock samt Ausgleichsseite; der Umschlag zählt nicht mit, er ist ein eigenes Stück Papier.",
+                weg: "Drei-Punkte-Menü \u{2192} Als PDF sichern\u{2026}",
+                ziel: .ausgabe,
+                stichworte: ["seitenzahl", "bestellt", "zu viele", "zu wenige",
+                             "innenseiten", "druckerei"]),
+            Handbucheintrag(
+                id: "zeitraum",
+                titel: "Zeitraum unter dem Titel",
+                text: "Er wird aus dem ersten und letzten Tag des Buches gerechnet; ausgeblendete Tage zählen dabei nicht mit. Ein Foto aus der Reisevorbereitung legt aber einen Tag an, und dann steht auf dem Titel ein Datum, an dem niemand unterwegs war \u{2014} deshalb lässt sich die Zeile seit 1.0.97 auch von Hand setzen. Leer heißt: wieder rechnen; der Schalter daneben nimmt sie ganz weg.",
+                weg: "Ganzes Buch \u{2192} Titel, Umschlag und Rücken\u{2026}",
+                ziel: .umschlag,
+                stichworte: ["zeitraum", "datum", "untertitel", "titelseite", "von bis"]),
+            Handbucheintrag(
                 id: "ausgabeformat",
                 titel: "Ausgabeformat und Maße",
                 text: "Alle Zahlen auf einem Bildschirm, wie sie der Druckdienst braucht: Endformat, Bogenmaß im PDF, Anschnitt, Sicherheitsabstand, Ränder, Bundsteg, Rückenbreite, Bildgüte. Jede Zeile sagt, ob sie eine Einstellung ist und wo man sie ändert — kopierbar zum Vergleich mit der Bestellung.",
