@@ -123,7 +123,7 @@ struct BedienungView: View {
               wie: "Dasselbe Blatt → die neue Vorlage antippen → \u{201E}Format wechseln und Inhalt mitrechnen\u{201C}. Jede Länge wird mit demselben Faktor umgerechnet — Blöcke, Ränder, Schriftgrößen. A4 und A5 haben dasselbe Seitenverhältnis, dort geht es ohne Rest auf."),
         Griff(zeichen: "ruler",
               was: "Ränder, Bundsteg, Anschnitt",
-              wie: "\u{201E}Ganzes Buch\u{201C} (Buchsymbol oben rechts) → Ränder, Karte, Seitenzahlen. Der Anschnitt ist der Streifen, der nach dem Druck weggeschnitten wird — ohne ihn kann kein Bild bis an die Papierkante laufen."),
+              wie: "\u{201E}Ganzes Buch\u{201C} (Buchsymbol oben rechts) → Ränder und Druckzugaben. Der Anschnitt ist der Streifen, der nach dem Druck weggeschnitten wird — ohne ihn kann kein Bild bis an die Papierkante laufen."),
         Griff(zeichen: "square.on.square",
               was: "Ein Element auf eine andere Seite bringen \u{2014} verschieben oder kopieren",
               wie: "Element antippen, dann UNTEN in der Leiste das Menü mit seinem Namen (\u{201E}Foto\u{201C}, \u{201E}Textblock\u{201C}, \u{201E}Karte\u{201C} \u{2026}). Dort: eine Seite zurück oder vor, auf eine neue Seite, auf eine bestimmte \u{2014} und dasselbe als Kopie. Die Lage auf dem Blatt bleibt dabei. Denselben Abschnitt gibt es im Inspektor unter \u{201E}Auf welcher Seite\u{201C}.\n\nKopiert wird, was sich selbst gehört: Fotos, Karten, Linien, Flächen. Ein Tagebuchtext gehört dem TAG und steht einmal im Buch \u{2014} zum Aufteilen gibt es \u{201E}Rest auf die nächste Seite\u{201C}."),
@@ -159,10 +159,10 @@ struct BedienungView: View {
               wie: "„…“ oben rechts \u{2192} Broschüre drucken. Zwei Seiten kommen nebeneinander auf einen Bogen, in Heftfolge: beidseitig ausdrucken, in der Mitte falten, heften. Wendet der Drucker über die kurze Kante, hilft der Schalter „Rückseiten um 180° drehen“."),
         Griff(zeichen: "text.alignleft",
               was: "Wie breit der Text steht",
-              wie: "\u{201E}Ganzes Buch\u{201C} \u{2192} Ränder, Karte, Seitenzahlen \u{2192} Abschnitt „Textspalte“. Von Haus aus höchstens zwei Drittel der Satzbreite; wie viele Zeichen dabei auf einer Zeile stehen, misst die Prüfung vor dem Ausgeben."),
+              wie: "\u{201E}Ganzes Buch\u{201C} \u{2192} Ränder und Druckzugaben \u{2192} Abschnitt „Textspalte“. Von Haus aus höchstens zwei Drittel der Satzbreite; wie viele Zeichen dabei auf einer Zeile stehen, misst die Prüfung vor dem Ausgeben."),
         Griff(zeichen: "point.topleft.down.curvedto.point.bottomright.up",
               was: "Wie die Reisepunkte auf der Buchkarte aussehen",
-              wie: "\u{201E}Ganzes Buch\u{201C} \u{2192} Ränder, Karte, Seitenzahlen \u{2192} „Reisepunkte“. Wahlweise gar keine (nur die Linie), dezent in der Linienfarbe, nur Anfang und Ziel, oder mit hellem Ring."),
+              wie: "\u{201E}Ganzes Buch\u{201C} \u{2192} Ränder und Druckzugaben \u{2192} „Reisepunkte“. Wahlweise gar keine (nur die Linie), dezent in der Linienfarbe, nur Anfang und Ziel, oder mit hellem Ring."),
         Griff(zeichen: "map",
               was: "Nur DIESE eine Karte anders",
               wie: "Die Karte auf der Seite antippen \u{2192} „Auswahl“ (Pinsel oben rechts) \u{2192} Abschnitt „Diese Karte“ \u{2192} „Eigene Einstellung nur für diese Karte“. Darunter dieselbe Wahl wie im Buch \u{2014} Kartenanbieter, Stil, Helligkeit, Beschriftung und Reisepunkte \u{2014} und daneben ein eigener Ausschnitt.\n\nDer Schalter aus heißt „folgt dem Tag“, und wo der Tag nichts sagt, „folgt dem ganzen Buch“. Eine spätere Änderung am Buchganzen trifft die Karte damit weiterhin."),
@@ -201,7 +201,7 @@ struct BedienungView: View {
               wie: "\u{201E}\u{2026}\u{201C} oben rechts \u{2192} \u{201E}Linien zeigen\u{201C}. ROT gestrichelt ist die Schnittkante \u{2014} dort wird beschnitten, alles au\u{00DF}erhalb ist Anschnitt. ORANGE ist der Sicherheitsabstand; dort soll nichts stehen, was gelesen werden muss. Was hineinragt, wird orange umrandet, und unter dem Blatt steht, wie viele Bl\u{00F6}cke es sind."),
         Griff(zeichen: "book.pages",
               was: "Am Bund einen anderen Sicherheitsabstand",
-              wie: "Buchsymbol \u{2192} R\u{00E4}nder, Karte, Seitenzahlen \u{2192} \u{201E}Am Bund ein eigener Wert\u{201C}. Viele Druckereien verlangen innen mehr als au\u{00DF}en, weil im Falz ein Streifen verschwindet. Oben und unten gilt immer der \u{00E4}u\u{00DF}ere Wert. Die Skizze darunter zeigt beide Seiten nebeneinander."),
+              wie: "Buchsymbol \u{2192} R\u{00E4}nder und Druckzugaben \u{2192} \u{201E}Am Bund ein eigener Wert\u{201C}. Viele Druckereien verlangen innen mehr als au\u{00DF}en, weil im Falz ein Streifen verschwindet. Oben und unten gilt immer der \u{00E4}u\u{00DF}ere Wert. Die Skizze darunter zeigt beide Seiten nebeneinander."),
     ]
 
     var body: some View {

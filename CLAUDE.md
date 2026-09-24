@@ -7305,6 +7305,62 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **EIN HANDBUCH IN DER APP — UND JEDER EINTRAG TRÄGT SEINEN WEG**
+  (`Views/Handbuch.swift`, `Views/HandbuchView.swift`, ab 1.0.77; Ansage des
+  Nutzers 09/2026: „Die Funktionen sind sehr mannigfaltig und zum Teil auch
+  versteckt, so dass ich finde, dass das sinnvoll wäre.").
+  - **Zwei Listen, zwei Fragen.** Die Bedienungskarte (seit 1.0.10) zählt
+    die GESTEN auf — was man mit dem Finger tut, und das sieht man einer
+    Seite nicht an. Das Handbuch zählt die FUNKTIONEN auf und sagt, WO sie
+    stehen. Sie ersetzen einander nicht; das Fragezeichen unten führt
+    seither ins Handbuch, und die Gestenkarte steht dort als erster
+    Eintrag.
+  - **Ein Handbuch ohne Weg ist die Frage von vorhin noch einmal.** Jeder
+    Eintrag nennt den Menüpfad, und wo es ein Blatt dafür gibt, springt ein
+    Knopf dorthin. Wo es keins gibt (Gesten, Knöpfe in der Leiste), steht
+    nur der Weg — ein Knopf, der woanders landet, wäre schlechter als
+    keiner.
+  - **Der Sprung geht über den BLATTWUNSCH**, nicht über ein zweites Blatt:
+    Das Handbuch macht sich zu, die Wurzel öffnet das Ziel im `onDismiss`
+    (dieselbe Bauweise wie der geführte Weg seit 1.0.18). Dafür trägt
+    `alsNaechstes` jetzt Ziel UND Rückkehr. Bis 1.0.76 wurde die Rückkehr
+    ERSCHLOSSEN („alles außer dem Aufbau führt dorthin zurück"), und das
+    trug nur, solange ein einziger Weg sprang. **Der Wunsch trägt das Ziel,
+    kein Schalter daneben** (Regel seit 1.0.9).
+  - **Die Suche ebnet Umlaute EIN — ausdrücklich gegen die Hausregel.**
+    Die gilt dem Vergleich von NAMEN, wo eine falsche Gleichsetzung Schaden
+    anrichtet (Kürzel in Schulalarm, Haltestellen in der Abfahrtstafel). In
+    einer Volltextsuche ist es der umgekehrte Fall: Wer „Ruecken" tippt,
+    sucht den Rücken, und ein Treffer zu viel kostet nichts. **Wer eine
+    Regel umkehrt, schreibt den Grund dazu.**
+  - **Ein eigenes Kapitel „Was die App nicht kann".** Kein CMYK, kein
+    Textfluss um eine Form, keine eigenen Felder auf dem Buchrücken, die
+    Karte zeichnet die Verbindung und nicht den Weg. Lieber eine Lücke als
+    eine Zusage, die nicht hält — und was dort steht, ist nicht vergessen
+    worden, sondern bewusst nicht gebaut.
+- **EIN MENÜ MIT SECHZEHN EINTRÄGEN IST EIN VERSTECK** (ab 1.0.77). Das
+  „…"-Menü ist der Ort, an dem dreimal etwas lag, das niemand fand
+  (Broschüre 1.0.37, zwei Dateien 1.0.52, Druckprüfung 1.0.76) — und es trug
+  seine Einträge ungegliedert hintereinander. Jetzt fünf Abschnitte, benannt
+  nach dem, was man VORHAT: Vor dem Druck, Ausgeben, Das ganze Buch, Hilfen
+  beim Anordnen, Hilfe und Prüfen.
+- **WER EINEN MENÜPUNKT UMBENENNT, ZIEHT JEDEN VERWEIS MIT** (ab 1.0.77).
+  „Ränder, Karte, Seitenzahlen…" heißt jetzt „Ränder und Druckzugaben…" —
+  dahinter liegen Anschnitt, Sicherheitsabstand und Bundsteg, also alles,
+  was eine Druckerei verlangt, und der Name nannte nichts davon. Der alte
+  Name stand an ZWÖLF Stellen (Ausgabesteckbrief, Bedienungskarte,
+  Handbuch), teils als Klartext und teils in `\u{00E4}`-Schreibweise — wer
+  nur nach der einen Form sucht, lässt die andere stehen. Dabei fiel ein
+  Weg auf, den es seit mehreren Fassungen nicht mehr gab („Buch → Format,
+  Ränder, Karte" im Block-Inspektor). **Ein Weg, der auf einen Namen zeigt,
+  den es nicht mehr gibt, ist schlimmer als kein Weg** (Lehre aus 1.0.49).
+- **Nicht gemessen (1.0.77):** Nichts davon ist auf einem Gerät gesehen
+  worden. **Und das Wichtigste lässt sich hier grundsätzlich nicht
+  messen: Ob die Funktionen damit auffindbar SIND, sagt kein Handbuch,
+  sondern der nächste Mensch, der die App zum ersten Mal öffnet.** Geändert
+  sind Wege und Namen — dieselbe Einschränkung wie bei den Menüs in 1.0.20
+  und 1.0.49. Die Wege im Handbuch sind gegen den Quelltext geprüft, nicht
+  in der laufenden App abgeklickt.
 - **AM BUND GILT EIN ANDERER SICHERHEITSABSTAND — UND WELCHE SEITE INNEN
   LIEGT, WECHSELT** (`Gestaltung.sicherheitsabstandInnen`, `Bundlage`,
   `Buchseite.bundlage`, ab 1.0.76; Ansage des Nutzers 09/2026: „Im
@@ -8937,7 +8993,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.76 (Build 77). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.77 (Build 78). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

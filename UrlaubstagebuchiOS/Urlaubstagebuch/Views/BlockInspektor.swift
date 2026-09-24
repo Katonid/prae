@@ -935,7 +935,7 @@ struct BlockInspektor: View {
             Text("Wirkung")
         } footer: {
             if werk.reise.gestaltung.anschnitt < 0.5 {
-                Text("Randabfallend geht erst mit Anschnitt. Er steht unter „Buch“ → „Format, Ränder, Karte“ und sollte 3 mm betragen.")
+                Text("Randabfallend geht erst mit Anschnitt. Er steht unter Ganzes Buch → Ränder und Druckzugaben und sollte 3 mm betragen.")
             } else {
                 Text("Randabfallend heißt: Der Block wird bis über die Schnittkante gezogen, damit nach dem Beschneiden kein weißer Faden stehen bleibt.")
             }

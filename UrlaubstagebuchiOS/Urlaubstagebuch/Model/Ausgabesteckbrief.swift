@@ -177,7 +177,7 @@ enum Ausgabesteckbrief {
                 + "dorthin laufen \u{2014} sonst bleibt nach dem Schneiden ein "
                 + "weißer Faden stehen.",
             eingestellt: true,
-            wo: "Ganzes Buch \u{2192} Ränder, Karte, Seitenzahlen\u{2026}"))
+            wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}"))
 
         var schutzwert = "keiner"
         if g.hatSicherheitsabstand {
@@ -202,7 +202,7 @@ enum Ausgabesteckbrief {
             wert: schutzwert,
             erklaerung: schutzsatz,
             eingestellt: true,
-            wo: "Ganzes Buch \u{2192} Ränder, Karte, Seitenzahlen\u{2026}"))
+            wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}"))
 
         return Abschnitt(titel: "Die Zugaben", zeilen: zeilen,
                          fuss: "Der Anschnitt geht nach außen, der "
@@ -226,7 +226,7 @@ enum Ausgabesteckbrief {
             name: "Ränder",
             wert: raender,
             eingestellt: true,
-            wo: "Ganzes Buch \u{2192} Ränder, Karte, Seitenzahlen\u{2026}"))
+            wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}"))
 
         zeilen.append(bundstegzeile(g))
 
@@ -246,7 +246,7 @@ enum Ausgabesteckbrief {
             name: "Fuge zwischen Blöcken",
             wert: Druckvorgabe.zahl(g.fuge) + " mm",
             eingestellt: true,
-            wo: "Ganzes Buch \u{2192} Ränder, Karte, Seitenzahlen\u{2026}"))
+            wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}"))
 
         let spalte = satz.width * g.textspaltenanteil
         let anteil = Int((g.textspaltenanteil * 100).rounded())
@@ -280,7 +280,7 @@ enum Ausgabesteckbrief {
                     + "gelassen. Das ist die Vorgabe \u{2014} wer sie braucht, "
                     + "erfährt sie vom Druckdienst.",
                 eingestellt: true,
-                wo: "Ganzes Buch \u{2192} Ränder, Karte, Seitenzahlen\u{2026}")
+                wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}")
         }
         var satz = "Er wird auf BEIDE Seitenränder gerechnet, nicht nur auf "
         satz += "den inneren: Welche Seite innen liegt, hängt an der laufenden "
@@ -290,7 +290,7 @@ enum Ausgabesteckbrief {
                      wert: Druckvorgabe.zahl(g.bundsteg) + " mm",
                      erklaerung: satz,
                      eingestellt: true,
-                     wo: "Ganzes Buch \u{2192} Ränder, Karte, Seitenzahlen\u{2026}")
+                     wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}")
     }
 
     // MARK: - Der Umschlag
