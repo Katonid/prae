@@ -162,7 +162,7 @@ struct BedienungView: View {
               wie: "\u{201E}Ganzes Buch\u{201C} \u{2192} Ränder und Druckzugaben \u{2192} Abschnitt „Textspalte“. Von Haus aus höchstens zwei Drittel der Satzbreite; wie viele Zeichen dabei auf einer Zeile stehen, misst die Prüfung vor dem Ausgeben."),
         Griff(zeichen: "point.topleft.down.curvedto.point.bottomright.up",
               was: "Wie die Reisepunkte auf der Buchkarte aussehen",
-              wie: "\u{201E}Ganzes Buch\u{201C} \u{2192} Ränder und Druckzugaben \u{2192} „Reisepunkte“. Wahlweise gar keine (nur die Linie), dezent in der Linienfarbe, nur Anfang und Ziel, oder mit hellem Ring."),
+              wie: "\u{201E}Ganzes Buch\u{201C} \u{2192} Karten \u{2192} „Reisepunkte“. Wahlweise gar keine (nur die Linie), dezent in der Linienfarbe, nur Anfang und Ziel, oder mit hellem Ring. Das gilt für alle Karten im Buch; bis 1.0.78 lag es unter „Ränder und Druckzugaben“ und war dort nicht zu finden."),
         Griff(zeichen: "map",
               was: "Nur DIESE eine Karte anders",
               wie: "Die Karte auf der Seite antippen \u{2192} „Auswahl“ (Pinsel oben rechts) \u{2192} Abschnitt „Diese Karte“ \u{2192} „Eigene Einstellung nur für diese Karte“. Darunter dieselbe Wahl wie im Buch \u{2014} Kartenanbieter, Stil, Helligkeit, Beschriftung und Reisepunkte \u{2014} und daneben ein eigener Ausschnitt.\n\nDer Schalter aus heißt „folgt dem Tag“, und wo der Tag nichts sagt, „folgt dem ganzen Buch“. Eine spätere Änderung am Buchganzen trifft die Karte damit weiterhin."),
