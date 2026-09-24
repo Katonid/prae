@@ -84,10 +84,11 @@ enum Befundstellen {
                                 ("Umschlag: Rückseite", reise.umschlag.rueckbloecke)]
         {
             for block in bloecke where block.inhalt.istText {
-                guard let fehlt = fehlendeHoehe(block, tag: nil, reise: reise) else { continue }
+                guard let befund = Textpassung.pruefe(block, tag: nil, reise: reise)
+                else { continue }
                 liste.append(Befundstelle(
                     art: .textUeberlauf, block: block.id, seite: UUID(), ort: name,
-                    text: "\(block.inhalt.name): es fehlen \(Druckmass.mmText(fehlt))"))
+                    text: ueberlauftext(block, befund: befund)))
             }
         }
         return liste
@@ -127,10 +128,10 @@ enum Befundstellen {
 
         for block in geordnet {
             if block.inhalt.istText {
-                if let fehlt = fehlendeHoehe(block, tag: tag, reise: reise) {
+                if let befund = Textpassung.pruefe(block, tag: tag, reise: reise) {
                     liste.append(Befundstelle(
                         art: .textUeberlauf, block: block.id, seite: seite.id, ort: ort,
-                        text: "\(block.inhalt.name): es fehlen \(Druckmass.mmText(fehlt))"))
+                        text: ueberlauftext(block, befund: befund)))
                 }
                 let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -169,19 +170,23 @@ enum Befundstellen {
         return liste
     }
 
-    // WIE VIEL HÖHE FEHLT — `nil` heißt: Es passt.
+    // WAS HERAUSFÄLLT, STEHT IM BEFUND (ab 1.0.94).
     //
-    // Dieselbe Rechnung wie in `Reisewerk.fehlendeHoehe`, samt
-    // Innenabstand. Zwei Fassungen ergaben eine Seite, auf der die orange
-    // Marke schweigt und die Prüfung anschlägt.
-    static func fehlendeHoehe(_ block: Block, tag: Reisetag?, reise: Reise) -> Double? {
-        let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
-        guard !text.isEmpty, block.rahmen.breite > 1 else { return nil }
-        let bild = Seitensatz.schriftbild(block, reise: reise)
-        let rand = block.textrand(reise.gestaltung)
-        let noetig = Textmass.hoehe(text, bild: bild, breite: block.textbreite(rand: rand))
-            + 2 * rand
-        guard noetig > block.rahmen.hoehe + 0.5 else { return nil }
-        return noetig - block.rahmen.hoehe
+    // Gemeldet 09/2026: „Ich weiß nicht, wo da bei der Bildunterschrift
+    // Platz fehlt und wie man es beheben kann." Eine Millimeterzahl allein
+    // sagt nur, DASS etwas fehlt — die ersten Wörter des Überhangs sagen,
+    // WAS. Damit lässt sich die Stelle auf der Seite wiedererkennen, auch
+    // ohne die rote Marke.
+    private static func ueberlauftext(_ block: Block,
+                                      befund: Textpassung.Befund) -> String
+    {
+        let fehlt = Druckmass.mmText(befund.noetig - block.rahmen.hoehe)
+        var text = block.inhalt.name
+        text += ": es fehlen "
+        text += fehlt
+        text += ", heraus fällt \u{201E}"
+        text += Textpassung.anriss(befund.ueberhang)
+        text += "\u{201C}"
+        return text
     }
 }

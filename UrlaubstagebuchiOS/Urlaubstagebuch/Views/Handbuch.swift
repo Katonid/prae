@@ -202,7 +202,7 @@ enum Handbuch {
             Handbucheintrag(
                 id: "ueberlauf",
                 titel: "Wenn Text nicht in seinen Kasten passt",
-                text: "An der Unterkante erscheint eine orange Marke mit Pluszeichen. Dann hilft Rahmen an Text anpassen, oder der Kasten wird geteilt: Rest auf die nächste Seite nimmt genau das, was herausfällt. Für das ganze Buch zählt es die Druckprüfung.",
+                text: "An der Unterkante erscheint eine orange Marke mit Pluszeichen. Dann hilft Rahmen an Text anpassen, oder der Kasten wird geteilt: Rest auf die nächste Seite nimmt genau das, was herausfällt. Für das ganze Buch zählt es die Druckprüfung.\n\nGemeldet wird nur, was WIRKLICH herausfällt (ab 1.0.94): gemessen mit demselben Satz, der zeichnet. Bis dahin verglich die Prüfung eine großzügig gerundete Wunschhöhe mit dem Rahmen und meldete Bruchteile eines Millimeters, bei denen nichts fehlte. Im Befund steht seither auch, welche Wörter wegfallen.",
                 weg: "Leiste unten, bei gewähltem Textkasten",
                 ziel: nil,
                 stichworte: ["abgeschnitten", "fehlt", "überlauf", "zu klein", "teilen"]),
