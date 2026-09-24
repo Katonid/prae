@@ -33,7 +33,7 @@ struct TagListeView: View {
                 }
             }
         }
-        .navigationTitle(werk.reise.titel)
+        .navigationTitle(werk.reise.anzeigename)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

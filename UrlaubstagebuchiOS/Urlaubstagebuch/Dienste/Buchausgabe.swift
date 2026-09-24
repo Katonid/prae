@@ -546,7 +546,7 @@ enum Buchausgabe {
 
         var medienbox = CGRect(origin: .zero, size: bogen)
         let angaben: [String: Any] = [
-            kCGPDFContextTitle as String: reise.titel,
+            kCGPDFContextTitle as String: reise.anzeigename,
             kCGPDFContextCreator as String: "Urlaubstagebuch",
             kCGPDFContextSubject as String: reise.zeitraum,
         ]
@@ -674,7 +674,7 @@ enum Buchausgabe {
 
         var medienbox = CGRect(origin: .zero, size: bogen)
         let angaben: [String: Any] = [
-            kCGPDFContextTitle as String: reise.titel + " \u{2014} Brosch\u{00FC}re",
+            kCGPDFContextTitle as String: reise.anzeigename + " \u{2014} Brosch\u{00FC}re",
             kCGPDFContextCreator as String: "Urlaubstagebuch",
             kCGPDFContextSubject as String: reise.zeitraum,
         ]
@@ -758,7 +758,11 @@ enum Buchausgabe {
     static func dateiname(_ reise: Reise, auftrag: Auftrag,
                           broschuere: Bool = false,
                           doppelseiten: Bool = false) -> String {
-        let roh = reise.titel.isEmpty ? "Reisetagebuch" : reise.titel
+        // Der Name in der ÜBERSICHT und nicht der gedruckte Titel (ab
+        // 1.0.84): Eine Datei ist dazu da, im Ordner und im Fenster des
+        // Betrachters wiedergefunden zu werden — und genau dafür trägt
+        // dasselbe Buch für zwei Druckdienste zwei Namen.
+        let roh = reise.anzeigename
         let erlaubt = roh.components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
             .joined(separator: "-")
@@ -821,7 +825,7 @@ enum Buchausgabe {
 
         var medienbox = CGRect(origin: .zero, size: bogen)
         let angaben: [String: Any] = [
-            kCGPDFContextTitle as String: reise.titel + " — Umschlag",
+            kCGPDFContextTitle as String: reise.anzeigename + " — Umschlag",
             kCGPDFContextCreator as String: "Urlaubstagebuch",
             kCGPDFContextSubject as String: reise.zeitraum,
         ]
@@ -1140,7 +1144,7 @@ enum Buchausgabe {
 
         var medienbox = CGRect(origin: .zero, size: bogen)
         let angaben: [String: Any] = [
-            kCGPDFContextTitle as String: reise.titel + " — Doppelseiten",
+            kCGPDFContextTitle as String: reise.anzeigename + " — Doppelseiten",
             kCGPDFContextCreator as String: "Urlaubstagebuch",
             kCGPDFContextSubject as String: reise.zeitraum,
         ]

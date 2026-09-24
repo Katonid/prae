@@ -682,7 +682,7 @@ struct ReiseView: View {
 
     private var titelzeile: String {
         if werk.gewaehlterTag == Self.titelseitenKennung { return "Titelseite" }
-        return werk.tag?.datum.lang ?? werk.reise.titel
+        return werk.tag?.datum.lang ?? werk.reise.anzeigename
     }
 
     // WIE BREIT DER INHALT DER BÜHNE IST — ausgerechnet, nicht erfragt
@@ -1563,7 +1563,12 @@ struct ReiseView: View {
                 // der Gestaltung. Er ist nicht eine Seite unter Seiten,
                 // sondern das eine Stück Papier, das außen um das Buch
                 // liegt: Rückseite, Rücken, Titelseite.
-                Button("Umschlag und Titelseite…", systemImage: "book.closed.fill") {
+                // ER NENNT SEIT 1.0.84 AUCH DEN TITEL — weil der jetzt
+                // dahinterliegt. Ein Menüpunkt, der nicht sagt, was hinter
+                // ihm steht, ist so wenig wert wie ein Knopf, den niemand
+                // findet (dieselbe Lehre wie 1.0.79, wo eine Umbenennung
+                // die Karteneinstellung verschwinden ließ).
+                Button("Titel, Umschlag und Rücken…", systemImage: "book.closed.fill") {
                     blatt = .umschlag
                 }
                 Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }

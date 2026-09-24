@@ -124,7 +124,7 @@ enum Buchdatei {
     }
 
     static func dateiname(_ reise: Reise) -> String {
-        let roh = reise.titel.isEmpty ? "Reisebuch" : reise.titel
+        let roh = reise.anzeigename
         let sauber = roh.components(separatedBy: CharacterSet(charactersIn: "/\\:*?\"<>|"))
             .joined(separator: "-")
         return "\(sauber).\(endung)"
@@ -155,7 +155,10 @@ enum Buchdatei {
         var reise = kopf.reise
         if alsKopie {
             reise.id = UUID()
-            reise.titel += " (Kopie)"
+            // GEÄNDERT WIRD DER NAME IN DER ÜBERSICHT, nicht der gedruckte
+            // Titel (ab 1.0.84). Bis dahin stand „ (Kopie)" hinterher auf
+            // der Titelseite des Buches.
+            reise.regalname = reise.anzeigename + " (Kopie)"
         }
         reise.geaendert = Date()
 

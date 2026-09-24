@@ -86,8 +86,32 @@ struct Reisetag: Identifiable, Codable, Hashable {
 // Eine ganze Reise: das Buch.
 struct Reise: Identifiable, Codable {
     var id = UUID()
+    // DER TITEL IST, WAS AUF DER TITELSEITE STEHT — und sonst nichts.
     var titel: String = "Meine Reise"
     var untertitel: String = ""
+
+    // WIE DAS PROJEKT IN DER ÜBERSICHT HEISST (ab 1.0.84).
+    //
+    // Ansage des Nutzers, 09/2026: „Da ich dieses Projekt noch bei einem
+    // anderen Druckdienst mit anderen Maßen in Auftrag geben möchte, habe
+    // ich jetzt eine Kopie des Fotobuches erstellen lassen. … Was ich aber
+    // definitiv möchte, ist eine Trennung zwischen dem, was auf der
+    // Titelseite steht, und dem, wie ich das Projekt in der
+    // Übersichtsleiste der anderen Projekte benennen möchte."
+    //
+    // Bis 1.0.83 war das EIN Feld, und damit ließ sich der Fall gar nicht
+    // ausdrücken: Zwei Bücher mit demselben Inhalt für zwei Druckdienste
+    // heißen im Regal notgedrungen verschieden — auf der Titelseite aber
+    // gleich. Das Duplizieren schrieb deshalb „ (Kopie)" in den gedruckten
+    // TITEL: Wer die Kopie nicht von Hand umbenannte, hatte es im Buch
+    // stehen.
+    //
+    // `nil` heißt „wie der Titel" — eine ABWEICHUNG und keine Kopie,
+    // dieselbe Regel wie bei `Schriftabweichung`, `Block.wirkung` und
+    // `Kartenwahl`: Wer den Titel später ändert, ändert damit den Namen im
+    // Regal mit, solange er nichts anderes gesagt hat. Jedes vorhandene
+    // Buch sieht nach dem Update unverändert aus.
+    var regalname: String?
     var tage: [Reisetag] = []
     var fotos: [Foto] = []
     var typografie = Typografie()
@@ -125,6 +149,7 @@ struct Reise: Identifiable, Codable {
         id = b.wert(.id, UUID())
         titel = b.wert(.titel, "Meine Reise")
         untertitel = b.wert(.untertitel, "")
+        regalname = b.wahlweise(.regalname)
         tage = b.wert(.tage, [])
         fotos = b.wert(.fotos, [])
         typografie = b.wert(.typografie, Typografie())
@@ -152,6 +177,25 @@ struct Reise: Identifiable, Codable {
     fileprivate static func alterStil(_ decoder: Decoder) -> Kartenstil? {
         guard let alt = try? decoder.container(keyedBy: AlteSchluessel.self) else { return nil }
         return (try? alt.decodeIfPresent(Kartenstil.self, forKey: .kartenstil)) ?? nil
+    }
+
+    // WIE DIESES BUCH IN DER APP HEISST — die eine Stelle, an der der
+    // Regalname aufgelöst wird. Alles, was eine Datei benennt oder in
+    // einer Liste der App steht, fragt hier; alles, was GESETZT wird
+    // (Titelseite, Rücken, Kopfzeile), nimmt weiter `titel`. Zwei
+    // Auflösungen nebeneinander liefen auseinander, und dann hieße
+    // dasselbe Buch im Regal anders als in seiner Datei.
+    var anzeigename: String {
+        let eigen = (regalname ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !eigen.isEmpty { return eigen }
+        return titel.isEmpty ? "Reisebuch" : titel
+    }
+
+    // Trägt dieses Buch einen eigenen Namen für die Übersicht? Gefragt
+    // von der Oberfläche, um „wie der Titel" von „ausdrücklich anders" zu
+    // unterscheiden — dieselbe Trennung wie bei `Block.ohneGrund`.
+    var hatEigenenRegalnamen: Bool {
+        !((regalname ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     var buchstil: Buchstil {

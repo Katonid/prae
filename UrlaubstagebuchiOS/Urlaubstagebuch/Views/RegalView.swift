@@ -10,6 +10,11 @@ struct RegalView: View {
     @State private var einlesefehler: String?
     @State private var kopiert: String?
     @State private var kopiertGerade = false
+    // UMBENENNEN IM REGAL (ab 1.0.84). Geändert wird dabei der Name in der
+    // ÜBERSICHT und nie der gedruckte Titel — hier steht man vor der
+    // Liste, nicht vor dem Buch.
+    @State private var umzubenennen: Reise?
+    @State private var neuerName = ""
 
     var body: some View {
         NavigationStack {
@@ -86,6 +91,25 @@ struct RegalView: View {
             } message: {
                 Text("Wie soll das Buch heißen? Der Titel lässt sich später ändern.")
             }
+            .alert("Name in der Übersicht", isPresented: .init(
+                get: { umzubenennen != nil },
+                set: { if !$0 { umzubenennen = nil } }
+            )) {
+                TextField("Name", text: $neuerName)
+                Button("Übernehmen") {
+                    if let reise = umzubenennen { regal.umbenennen(reise, auf: neuerName) }
+                    umzubenennen = nil
+                }
+                if umzubenennen?.hatEigenenRegalnamen == true {
+                    Button("Wieder wie der Titel") {
+                        if let reise = umzubenennen { regal.umbenennen(reise, auf: "") }
+                        umzubenennen = nil
+                    }
+                }
+                Button("Abbrechen", role: .cancel) { umzubenennen = nil }
+            } message: {
+                Text(umbenenntext)
+            }
             .alert("Kopiert", isPresented: .init(
                 get: { kopiert != nil },
                 set: { if !$0 { kopiert = nil } }
@@ -127,8 +151,26 @@ struct RegalView: View {
         }
     }
 
+    private func umbenennen(_ reise: Reise) {
+        // Vorbelegt mit dem Namen, der GILT — nicht mit einem leeren Feld:
+        // Sonst ließe sich beim Öffnen nicht unterscheiden, ob nichts
+        // eingetragen ist oder nur nichts dasteht.
+        neuerName = reise.anzeigename
+        umzubenennen = reise
+    }
+
+    private var umbenenntext: String {
+        guard let reise = umzubenennen else { return "" }
+        var satz = "Dieser Name steht nur in der Übersicht, auf der Buchdatei und auf "
+        satz += "der PDF. Auf der Titelseite steht weiter \u{201E}\(reise.titel)\u{201C}."
+        if !reise.hatEigenenRegalnamen {
+            satz += "\n\nBisher folgt der Name dem Titel."
+        }
+        return satz
+    }
+
     private func einlesetext(_ befund: Buchdatei.Befund) -> String {
-        var satz = "\u{201E}\(befund.reise.titel)\u{201C} mit \(befund.reise.tage.count) Tagen "
+        var satz = "\u{201E}\(befund.reise.anzeigename)\u{201C} mit \(befund.reise.tage.count) Tagen "
             + "und \(befund.bilder) Bildern."
         if befund.fehlendeBilder > 0 {
             satz += " \(befund.fehlendeBilder) Bilder fehlen in der Datei."
@@ -217,11 +259,14 @@ struct RegalView: View {
                     Button("Löschen", role: .destructive) { zuLoeschen = reise }
                     Button("Duplizieren") { duplizieren(reise) }
                         .tint(.accentColor)
+                    Button("Umbenennen") { umbenennen(reise) }
+                        .tint(.gray)
                 }
                 // Daneben im Kontextmenü, und zwar bewusst zweimal: Eine
                 // Wischgeste kennt, wer sie kennt. Beides ruft dieselbe
                 // Stelle — zwei Wege zu einer Sache, nicht zwei Sachen.
                 .contextMenu {
+                    Button("Umbenennen", systemImage: "pencil") { umbenennen(reise) }
                     Button("Duplizieren", systemImage: "plus.square.on.square") {
                         duplizieren(reise)
                     }
@@ -245,7 +290,10 @@ private struct ReiseZeile: View {
         HStack(spacing: 14) {
             Vorschaubild(reise: reise)
             VStack(alignment: .leading, spacing: 3) {
-                Text(reise.titel)
+                // DER NAME IN DER ÜBERSICHT, nicht der gedruckte Titel
+                // (ab 1.0.84). Solange niemand etwas anderes eingetragen
+                // hat, sind beide dasselbe.
+                Text(reise.anzeigename)
                     .font(.headline)
                 if !reise.zeitraum.isEmpty {
                     Text(reise.zeitraum)

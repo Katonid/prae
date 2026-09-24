@@ -3,7 +3,6 @@ import SwiftUI
 struct GestaltungView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
-    @State private var titelfotoWahl = false
     @State private var hintergrundOffen = false
 
     // WAS DER BUNDSTEG TUT UND WAS NICHT (ab 1.0.58).
@@ -55,18 +54,30 @@ struct GestaltungView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Buch") {
-                    TextField("Titel", text: $werk.reise.titel)
-                    TextField("Untertitel", text: $werk.reise.untertitel, axis: .vertical)
-                    Toggle("Titelseite", isOn: $werk.reise.titelseite)
-                    if werk.reise.titelseite {
-                        Button {
-                            titelfotoWahl = true
-                        } label: {
-                            LabeledContent("Titelbild",
-                                           value: werk.reise.titelfoto == nil ? "ohne" : "gewählt")
-                        }
+                // DER TITEL IST UMGEZOGEN (ab 1.0.84).
+                //
+                // Ansage des Nutzers, 09/2026: „Dabei ist mir aufgefallen,
+                // dass der Titel des Buches versteckt in den Einstellungen
+                // zu den Rändern und der Druckausgabe steckt. Dort ist er
+                // nicht leicht zu finden."
+                //
+                // Er hat recht, und es war hier historisch gewachsen: Dieser
+                // Bildschirm hieß bis 1.0.77 „Ränder, Karte, Seitenzahlen“
+                // und war der Ort für alles, was sonst nirgends hinpasste.
+                // Ein Buchtitel gehört dorthin, wo er GEDRUCKT wird — auf
+                // die Titelseite, und die liegt im Umschlag. Hier bleibt
+                // eine Auskunft mit dem Weg, wie beim Seitenformat seit
+                // 1.0.27: Ein Bildschirm, der einen Wert nicht mehr führt,
+                // muss sagen, wo er jetzt steht.
+                Section {
+                    LabeledContent("Titel", value: werk.reise.titel)
+                    if werk.reise.hatEigenenRegalnamen {
+                        LabeledContent("In der Übersicht", value: werk.reise.anzeigename)
                     }
+                } header: {
+                    Text("Buch")
+                } footer: {
+                    Text("Titel, Untertitel und Titelbild stehen unter \u{201E}Ganzes Buch → Titel, Umschlag und Rücken\u{201C} — dort, wo sie gedruckt werden. Wie das Buch in der Übersicht der Reisetagebücher heißt, lässt sich seit 1.0.84 getrennt davon einstellen; es steht auf derselben Seite und im Regal unter \u{201E}Umbenennen\u{201C}.")
                 }
 
                 Section {
@@ -257,9 +268,6 @@ struct GestaltungView: View {
                         schliessen()
                     }
                 }
-            }
-            .sheet(isPresented: $titelfotoWahl) {
-                TitelfotoView(werk: werk)
             }
             .sheet(isPresented: $hintergrundOffen) {
                 HintergrundView(werk: werk)

@@ -7698,6 +7698,61 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **DER TITEL GEHÖRT AUF DIE TITELSEITE, DER NAME IN DIE ÜBERSICHT — UND DAS
+  SIND ZWEI DINGE** (`Reise.regalname`, `Reise.anzeigename`, ab 1.0.84;
+  Ansage des Nutzers 09/2026: „Da ich dieses Projekt noch bei einem anderen
+  Druckdienst mit anderen Maßen in Auftrag geben möchte, habe ich jetzt eine
+  Kopie des Fotobuches erstellen lassen. Dabei ist mir aufgefallen, dass der
+  Titel des Buches versteckt in den Einstellungen zu den Rändern und der
+  Druckausgabe steckt. … Was ich aber definitiv möchte, ist eine Trennung
+  zwischen dem, was auf der Titelseite steht, und dem, wie ich das Projekt in
+  der Übersichtsleiste der anderen Projekte benennen möchte.").
+  - **Sein Fall lässt sich mit EINEM Feld gar nicht ausdrücken.** Zwei Bücher
+    mit demselben Inhalt für zwei Druckdienste müssen im Regal zu
+    unterscheiden sein — auf der Titelseite aber gerade nicht. **Und die App
+    hat den Unterschied schon bezahlt, ohne ihn zu kennen:** `duplizieren`
+    schrieb „ (Kopie)" in den gedruckten TITEL, ebenso das Einlesen einer
+    Buchdatei als Kopie. Wer die Kopie nicht von Hand umbenannte, hatte das
+    Wort auf der Titelseite stehen. **Merke: Wenn ein Name an zwei Orten
+    auftaucht und einer davon gedruckt wird, sind es zwei Felder.**
+  - **`nil` heißt „wie der Titel" — Abweichung, keine Kopie**, dieselbe Regel
+    wie bei `Schriftabweichung`, `Block.wirkung` und `Kartenwahl`: Wer den
+    Titel ändert, ändert den Namen im Regal mit, solange er nichts anderes
+    gesagt hat, und jedes vorhandene Buch sieht nach dem Update unverändert
+    aus. Ein LEERES Feld setzt `nil` und nicht einen leeren Namen — sonst
+    hieße das Buch „nichts" und wäre nicht mehr davon loszukommen (dieselbe
+    Trennung wie `Block.ohneGrund`).
+  - **Aufgelöst wird an EINER Stelle** (`Reise.anzeigename`). Gefragt wird
+    sie von allem, was eine DATEI benennt oder in einer Liste der App steht:
+    Regal, Buchdatei, PDF-Dateiname und -Titel, Druckauftrag, die Befunde und
+    die Überschrift der Bühne. `titel` bleibt, wo GESETZT wird: Titelseite,
+    Buchrücken, Kopfzeile. Zwei Auflösungen nebeneinander liefen auseinander,
+    und dann hieße dasselbe Buch im Regal anders als in seiner Datei.
+  - **Der Dateiname und der PDF-Titel folgen dem PROJEKT, nicht dem Buch.**
+    Beides ist dazu da, die Datei im Ordner und im Fenster des Betrachters
+    wiederzufinden — zwei PDFs, die beide „Kanada 2026" heißen, sind genau
+    der Fehler, um den es hier geht.
+  - **Der Titel steht jetzt dort, wo er gedruckt wird** (Ganzes Buch → Titel,
+    Umschlag und Rücken). Er lag unter „Ränder und Druckzugaben…", weil
+    dieser Bildschirm bis 1.0.77 „Ränder, Karte, Seitenzahlen" hieß und der
+    Ort für alles war, was sonst nirgends hinpasste. **Vierzehnte Auflage von
+    „es war da, man fand es nicht"** — und die zweite, bei der nicht der Weg
+    zu kurz, sondern die Zuordnung falsch war (nach dem Tagebuch-Stil in
+    1.0.32). In der Gestaltung bleibt eine **Auskunft mit dem Weg** (Regel
+    seit 1.0.27), und der Menüpunkt NENNT den Titel jetzt: Ein Menüpunkt, der
+    nicht sagt, was dahinterliegt, kostete 1.0.79 schon einmal eine Funktion.
+  - **Umbenannt wird auch im Regal** — lange tippen oder wischen. Wer vor der
+    Liste steht, meint die Liste; der Alert sagt ausdrücklich, dass auf der
+    Titelseite weiter der Titel steht. Ein offenes Buch wird dabei über sein
+    `Reisewerk` geändert und nicht an ihm vorbei auf die Platte geschrieben —
+    sonst überschriebe der nächste Sicherungslauf den neuen Namen gleich
+    wieder.
+- **Nicht gemessen (1.0.84):** Nichts davon ist auf einem Gerät gesehen
+  worden. Am Quelltext ABGEZÄHLT ist, wo der Name gedruckt wird und wo er nur
+  benennt — jede der Stellen ist einzeln durchgegangen. **Ob der Titel jetzt
+  gefunden wird, sagt erst der nächste Befund:** Geändert sind Wege und Namen,
+  und das ist keine Messung (dieselbe Einschränkung wie bei den Menüs in
+  1.0.20, 1.0.49 und 1.0.77). **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.83):** Keine Seite ist damit gesehen worden. **Am
   Quelltext ABGEZÄHLT sind die beiden blinden Flecken** (Fotorand außerhalb
   des Rahmens, Drehung ungerechnet) und die Größenordnung, um die sie die
@@ -9405,7 +9460,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.83 (Build 84). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.84 (Build 85). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

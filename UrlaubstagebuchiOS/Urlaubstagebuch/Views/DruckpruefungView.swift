@@ -109,7 +109,7 @@ struct DruckpruefungView: View {
     // kommt verkürzt an.
     private var befundtext: String {
         var zeilen: [String] = []
-        zeilen.append("Druckprüfung — " + werk.reise.titel)
+        zeilen.append("Druckprüfung — " + werk.reise.anzeigename)
         zeilen.append(werk.reise.format.name + " \u{00B7} " + werk.reise.format.masstext)
         zeilen.append("")
         for zeile in befund {
