@@ -79,16 +79,56 @@ enum Textpassung {
                       ueberhang: rest)
     }
 
-    /// Die Höhe, auf die „Rahmen an Text anpassen" den Block zieht. Hier
-    /// ist der Zuschlag aus `Textmass.hoehe` RICHTIG: Der Rahmen soll
-    /// großzügig sein, damit die letzte Zeile nicht an der Kante klebt.
+    // DIE HÖHE, DIE HILFT — mit DERSELBEN Messung gesucht, die auch prüft
+    // (ab 1.0.96).
+    //
+    // Bis 1.0.95 nannte sie `Textmass.hoehe`, also
+    // `CTFramesetterSuggestFrameSizeWithConstraints` samt Zuschlag —
+    // geprüft wird aber mit `Textmass.passtBis`, also mit einem echten
+    // `CTFrame`. **Zwei Messungen für eine Frage, und genau davor warnt
+    // dieses Haus an jeder anderen Stelle.** Wo sie auseinandergehen,
+    // blieb `max(gemessen, mindestens + 1)` übrig: „Rahmen an Text
+    // anpassen" machte den Kasten um einen Punkt höher, die Prüfung
+    // meldete ihn weiter — und der Mensch davor hatte keinen Weg mehr
+    // (Ansage des Nutzers 09/2026: „Ich weiß tatsächlich nicht, wie ich
+    // das ändern kann, so dass kein Fehler gemeldet wird.").
+    //
+    // Gesucht wird deshalb aufwärts, bis `passtBis` den GANZEN Text setzt:
+    // Erst die gemessene Satzhöhe als Anfang, dann je eine Zeile mehr.
+    // Damit ist die genannte Millimeterzahl die, die wirklich hilft — und
+    // ein Knopf, der sie einsetzt, löst den Befund garantiert auf.
     private static func noetigeHoehe(_ text: String, bild: Schriftbild, breite: Double,
                                      rand: Double, mindestens: Double) -> Double
     {
-        let gemessen = Textmass.hoehe(text, bild: bild, breite: breite) + 2 * rand
+        let start = max(Textmass.hoehe(text, bild: bild, breite: breite),
+                        mindestens - 2 * rand + 1)
+        var innen = start
+        let schritt = max(bild.zeilenhoehe, 4)
+        // Zwölf Zeilen sind die Grenze, nicht die Erwartung: Ohne sie
+        // liefe die Schleife bei einem Text, den CoreText in dieser Breite
+        // gar nicht setzen kann, für immer.
+        for _ in 0..<12 {
+            if passtGanz(text, bild: bild, breite: breite, hoehe: innen) { break }
+            innen += schritt
+        }
         // Nur WACHSEN: Ein Kasten, der beim Anpassen kleiner würde, nähme
         // eine Größe weg, die jemand mit der Hand eingestellt hat.
-        return max(gemessen, mindestens + 1)
+        return max(innen + 2 * rand, mindestens + 1)
+    }
+
+    private static func passtGanz(_ text: String, bild: Schriftbild,
+                                  breite: Double, hoehe: Double) -> Bool
+    {
+        guard hoehe > 1 else { return false }
+        let passt = Textmass.passtBis(text, bild: bild,
+                                      groesse: CGSize(width: breite, height: hoehe))
+        let einheiten = Array(text.utf16)
+        guard passt < einheiten.count else { return true }
+        // Bleibt nur Leerraum übrig, gilt es als gesetzt — dieselbe Regel
+        // wie in `pruefe`, sonst wüchse ein Kasten wegen eines
+        // abschließenden Zeilenwechsels ins Leere.
+        return String(utf16: Array(einheiten[max(0, passt)...]))
+            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// Die ersten Wörter des Überhangs — für den Befund. Ohne sie steht

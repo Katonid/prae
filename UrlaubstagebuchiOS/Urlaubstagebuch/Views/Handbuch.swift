@@ -409,11 +409,12 @@ enum Handbuch {
             Handbucheintrag(
                 id: "druckpruefung",
                 titel: "Druckprüfung",
-                text: "Was einem Druckdienst auffallen würde: zu grobe Bilder, fehlender Anschnitt, Text, der nicht in seinen Kasten passt, Blöcke im Sicherheitsabstand, eine ungerade Seitenzahl. Sortiert nach Dringlichkeit und kopierbar.\n\nWo ein Befund eine Stelle im Buch nennt, steht darunter \u{201E}Im Buch zeigen\u{201C} (ab 1.0.93): Die Prüfung macht sich zu, die betroffenen Kästen werden ROT UMRANDET, und die Ansicht springt zum ersten. Unten in der Leiste steht dann \u{201E}Befund 3 von 12\u{201C} \u{2014} ein Tipp darauf geht zum nächsten, am Ende wieder von vorn. Was behoben ist, verliert seine Marke von selbst; ganz abschalten lässt sich das unter \u{201E}Hilfen beim Anordnen\u{201C}.",
+                text: "Was einem Druckdienst auffallen würde: zu grobe Bilder, fehlender Anschnitt, Text, der nicht in seinen Kasten passt, Blöcke im Sicherheitsabstand, eine ungerade Seitenzahl. Sortiert nach Dringlichkeit und kopierbar.\n\nWo ein Befund eine Stelle im Buch nennt, steht darunter \u{201E}Im Buch zeigen\u{201C} (ab 1.0.93): Die Prüfung macht sich zu, die betroffenen Kästen werden ROT UMRANDET, und die Ansicht springt zum ersten. Unten in der Leiste steht dann \u{201E}Befund 3 von 12\u{201C} \u{2014} ein Tipp darauf geht zum nächsten, am Ende wieder von vorn. Was behoben ist, verliert seine Marke von selbst.\n\nSolange die Marken stehen, liegt ÜBER DER SEITE ein rotes Band (ab 1.0.96): Es nennt die Zahl der Befunde, \u{201E}Weiter\u{201C} springt zum nächsten, \u{201E}Rahmen anpassen\u{201C} zieht alle zu kleinen Kästen auf einmal auf ihre nötige Höhe, und \u{201E}Ausblenden\u{201C} nimmt die Umrandungen wieder weg. Denselben Knopf gibt es in der Prüfung selbst.",
                 weg: "Drei-Punkte-Menü \u{2192} Druckprüfung",
                 ziel: .druckpruefung,
                 stichworte: ["prüfen", "fehler", "kontrolle", "dpi", "auflösung", "rot umrandet",
-                             "markieren", "wo", "finden"]),
+                             "markieren", "wo", "finden", "ausblenden", "unsichtbar",
+                             "umrandung", "rahmen anpassen"]),
             Handbucheintrag(
                 id: "ausgabeformat",
                 titel: "Ausgabeformat und Maße",

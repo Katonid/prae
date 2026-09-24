@@ -480,6 +480,64 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ein Modus braucht einen sichtbaren Ausgang (1.0.96)
+
+> „Es gibt die Option, die Fehler im Buch anzeigen zu lassen. Ich möchte aber
+> auch genauso die Funktion haben, die Umrandungen wieder unsichtbar zu
+> machen." — und davor: „Ich weiß tatsächlich nicht, wie ich das … ändern
+> kann, so dass kein Fehler gemeldet wird."
+
+**Zwei Befunde in einer Meldung, und beide treffen.**
+
+### Der Ausgang fehlte
+
+Eingeschaltet wurden die roten Umrandungen mit einem Knopf, der unter dem
+Befund steht („Im Buch zeigen"). Ausgeschaltet nur mit einem Schalter im
+Drei-Punkte-Menü unter „Hilfen beim Anordnen" — drei Ebenen weit weg von dem,
+was man sieht. Auf der Bühne stand dafür ein rotes Warndreieck in der
+Fußleiste, und eine Werkzeugleiste zeigt von einem `Label` nur das Symbol,
+sobald es eng wird: **ein rotes Dreieck ohne ein Wort.** Es sagte weder, wie
+viele Befunde es gibt, noch dass ein Tipp weiterspringt, noch wie man die
+Marken wieder loswird.
+
+**Die Regel dazu steht seit 1.0.9 im Papier** — „Wer einen Modus baut, baut
+den Ausgang mit, und zwar sichtbar" — und sie galt für diesen Modus nicht.
+Sie kam damals vom offenen Textfeld; dass sie für jeden Modus gilt, stand
+zwar da, aber niemand hat sie beim Bauen der Marken gezogen.
+
+Über der Seite liegt jetzt ein rotes Band mit vier Angaben in Worten:
+**„⚠ Befund 3 von 21 · Weiter · Rahmen anpassen (21) · Ausblenden"**. Der
+wortlose Knopf in der Fußleiste ist weg.
+
+### Und der Weg zur Lösung fehlte auch
+
+„Rahmen an Text anpassen" gab es — für EINEN Kasten, den man vorher antippen
+muss. Bei einundzwanzig Kästen ist das einundzwanzigmal derselbe Weg. Der
+Knopf im Band (und derselbe in der Prüfung) nimmt sie alle auf einmal und
+nennt die Zahl, die er anfasst. Gemerkt wird einmal, aufgefrischt wird einmal
+am Ende — `befundeAuffrischen` geht über jeden Block des Buches.
+
+### Dabei kam ein dritter Fehler heraus
+
+Was „Rahmen an Text anpassen" einsetzte, kam aus `Textmass.hoehe`
+(`CTFramesetterSuggestFrameSizeWithConstraints` samt Zuschlag) — **geprüft
+wird aber seit 1.0.94 mit `Textmass.passtBis`, also mit einem echten
+`CTFrame`.** Zwei Messungen für eine Frage, und genau davor warnt dieses
+Papier an jeder anderen Stelle. Wo sie auseinandergehen, blieb
+`max(gemessen, jetzt + 1)` übrig: Der Knopf machte den Kasten einen Punkt
+höher, die Prüfung meldete ihn weiter — und der Mensch davor hätte keinen Weg
+mehr gehabt. Gesucht wird die nötige Höhe seit 1.0.96 mit **derselben
+Messung, die auch prüft**: aufwärts, bis `passtBis` den ganzen Text setzt.
+
+**Nicht gemessen (1.0.96):** Keine Seite ist damit gesehen worden. Am
+Quelltext abgezählt ist, dass ein `Label` in der Werkzeugleiste seinen Text
+verlieren kann und dass die beiden Messungen auseinandergehen können. **Ob
+die einundzwanzig gemeldeten Kästen mit 1.0.94 ohnehin verschwinden, ist
+nicht nachgesehen** — die Zahl 0,3 mm ist auf den Punkt der Zuschlag von
+einem Punkt aus `Textmass.hoehe`, was dafür spricht; gezeigt haben es die
+Bildschirmfotos einer älteren Fassung, und sicher ist es erst nach dem
+nächsten Lauf.
+
 ## Einstellungen, die ein Buch überleben (1.0.95)
 
 > „Mir schwebt jetzt vor, gewisse Einstellungen, die ich für ein Fotobuch

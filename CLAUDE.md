@@ -7698,6 +7698,43 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **EIN MODUS BRAUCHT EINEN SICHTBAREN AUSGANG — auch dieser** (Befundband in
+  `ReiseView.baender`, ab 1.0.96; gemeldet 09/2026: „Es gibt die Option, die
+  Fehler im Buch anzeigen zu lassen. Ich möchte aber auch genauso die Funktion
+  haben, die Umrandungen wieder unsichtbar zu machen.").
+  - **Die Regel steht seit 1.0.9 im Papier** („Wer einen Modus baut, baut den
+    Ausgang mit — und zwar sichtbar") und galt für die Befundmarken aus 1.0.93
+    nicht: Eingeschaltet wurden sie mit einem Knopf UNTER dem Befund,
+    ausgeschaltet nur mit einem Schalter drei Ebenen weit weg im
+    Drei-Punkte-Menü. **Eine Regel, die für den nächsten Modus nicht gezogen
+    wird, ist keine Regel, sondern eine Notiz.**
+  - **Ein `Label` in einer Werkzeugleiste verliert seinen TEXT, sobald es eng
+    wird.** Auf der Bühne stand deshalb ein rotes Warndreieck ohne ein Wort —
+    es sagte weder die Zahl der Befunde noch, dass ein Tipp weiterspringt.
+    **Wer eine Auskunft in eine Werkzeugleiste legt, prüft, ob sie dort
+    ankommt**; das Band über der Seite hat Platz für Worte.
+  - **Und der Weg zur LÖSUNG gehört dazu.** „Rahmen an Text anpassen" gab es
+    für EINEN Kasten, den man vorher antippen muss — bei einundzwanzig ist das
+    einundzwanzigmal derselbe Weg. `Reisewerk.alleRahmenAnpassen` nimmt sie
+    zusammen, merkt EINMAL und frischt EINMAL am Ende auf (`befundeAuffrischen`
+    geht über jeden Block des Buches). Der Knopf nennt die Zahl, die er
+    anfasst.
+  - **DIE NÖTIGE HÖHE WIRD MIT DERSELBEN MESSUNG GESUCHT, DIE AUCH PRÜFT**
+    (`Textpassung.noetigeHoehe`). Bis 1.0.95 kam sie aus `Textmass.hoehe`
+    (`SuggestFrameSize` samt Zuschlag), geprüft wird seit 1.0.94 mit
+    `Textmass.passtBis` (echter `CTFrame`). Wo die beiden auseinandergehen,
+    blieb `max(gemessen, jetzt + 1)` übrig: Der Knopf machte den Kasten einen
+    Punkt höher, und die Prüfung meldete ihn weiter — **ein Knopf, der einen
+    Befund nicht auflösen kann, ist schlimmer als keiner.** Dieselbe Lehre wie
+    überall in diesem Papier, nur diesmal zwischen PRÜFUNG und ABHILFE.
+- **Nicht gemessen (1.0.96):** Keine Seite ist damit gesehen worden. Am
+  Quelltext abgezählt ist beides — dass ein `Label` dort seinen Text verliert
+  und dass die beiden Messungen auseinandergehen können. **Ob die
+  einundzwanzig gemeldeten Kästen schon mit 1.0.94 verschwinden, ist nicht
+  nachgesehen**: Die 0,3 mm sind auf den Punkt der Zuschlag von einem Punkt,
+  was dafür spricht — die Bildschirmfotos zeigten aber eine ältere Fassung
+  (1.0.93, am Wortlaut der Prüfzeile erkennbar), und sicher ist es erst nach
+  dem nächsten Lauf. **Nicht als erledigt darstellen.**
 - **EINE VORLAGE TRÄGT EINSTELLUNGEN UND NIE INHALT** (`Model/Vorlage.swift`,
   `Dienste/Vorlagenablage.swift`, `Views/VorlagenView.swift`, ab 1.0.95;
   Ansage des Nutzers 09/2026: „gewisse Einstellungen, die ich für ein Fotobuch
@@ -9982,7 +10019,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.95 (Build 96). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.96 (Build 97). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

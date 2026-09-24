@@ -1242,14 +1242,17 @@ struct ReiseView: View {
             // dafür wären ein Dutzend Male zwei Tipps. Am letzten Befund
             // geht es wieder von vorn los — ein Knopf, der plötzlich nichts
             // mehr tut, sieht kaputt aus.
-            if werk.zeigeBefunde, !werk.befundstellen.isEmpty {
-                Button {
-                    werk.naechsterBefund()
-                } label: {
-                    Label(befundzaehler, systemImage: "exclamationmark.triangle.fill")
-                }
-                .tint(.red)
-            }
+            // DER WORTLOSE KNOPF IST WEG (ab 1.0.96).
+            //
+            // Hier stand ein rotes Warndreieck mit `Label(befundzaehler,
+            // …)` — und eine Werkzeugleiste zeigt von einem `Label` nur
+            // das Symbol, sobald es eng wird. Auf dem iPad stand dort also
+            // ein rotes Dreieck ohne ein Wort: Es sagte weder, wie viele
+            // Befunde es gibt, noch dass ein Tipp weiterspringt, noch wie
+            // man die roten Umrandungen wieder loswird (gemeldet 09/2026:
+            // „Ich möchte aber auch genauso die Funktion haben, die
+            // Umrandungen wieder unsichtbar zu machen."). Alles davon
+            // steht jetzt im Befundband über der Bühne, mit Worten.
 
             Spacer()
 
@@ -2078,6 +2081,19 @@ struct ReiseView: View {
     @ViewBuilder
     private var baender: some View {
         VStack(spacing: 6) {
+            // DAS BEFUNDBAND STEHT OBEN (ab 1.0.96).
+            //
+            // Wer die roten Umrandungen sieht, sucht hier: wie viele es
+            // sind, wie man weiterkommt und wie man sie wieder loswird.
+            // **Ein Zustand ohne sichtbaren Ausgang ist ein
+            // hängengebliebenes Programm** — die Regel steht seit 1.0.9 im
+            // Papier (sie kam damals vom offenen Textfeld) und galt für
+            // diesen Modus nicht: Eingeschaltet wurde er mit einem Knopf
+            // in der Druckprüfung, ausgeschaltet nur mit einem Schalter
+            // drei Ebenen weit weg im Drei-Punkte-Menü.
+            if werk.zeigeBefunde, !werk.befundstellen.isEmpty {
+                befundband
+            }
             if werk.ausschnittsmodus != nil {
                 band("Bildausschnitt: Ziehen verschiebt das Bild im Rahmen.",
                      farbe: .accentColor) {
@@ -2118,6 +2134,50 @@ struct ReiseView: View {
         }
         .padding(.top, 8)
         .animation(.default, value: werk.meldung?.id)
+    }
+
+    // Drei Knöpfe, weil es drei Fragen sind: weiterkommen, auflösen,
+    // wegräumen. Die `band`-Funktion darunter trägt nur einen.
+    private var befundband: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+                .font(.footnote)
+            Text(befundzaehler)
+                .font(.footnote)
+            Button("Weiter") { werk.naechsterBefund() }
+                .font(.footnote.weight(.semibold))
+            if werk.anpassbareBefunde > 0 {
+                Button(anpassknopf) { rahmenAnpassen() }
+                    .font(.footnote.weight(.semibold))
+            }
+            Button("Ausblenden") { werk.zeigeBefunde = false }
+                .font(.footnote.weight(.semibold))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.red.opacity(0.5)))
+        .padding(.horizontal, 14)
+    }
+
+    private var anpassknopf: String {
+        "Rahmen anpassen (\(werk.anpassbareBefunde))"
+    }
+
+    // Der Weg von der Meldung zur Lösung. Ohne ihn nennt die App einen
+    // Fehler und lässt einen damit stehen — und genau das war die Meldung.
+    private func rahmenAnpassen() {
+        let zahl = werk.alleRahmenAnpassen()
+        let satz: String
+        if zahl == 0 {
+            satz = "Kein Rahmen ließ sich anpassen."
+        } else if zahl == 1 {
+            satz = "Ein Rahmen wurde an seinen Text angepasst. Der Tag gilt damit als von Hand bearbeitet; mit \u{201E}Widerrufen\u{201C} zurückzunehmen."
+        } else {
+            satz = "\(zahl) Rahmen wurden an ihren Text angepasst. Diese Tage gelten damit als von Hand bearbeitet; mit \u{201E}Widerrufen\u{201C} zurückzunehmen."
+        }
+        werk.meldung = Reisewerk.Meldung(text: satz)
     }
 
     private func band(_ text: String, farbe: Color, knopf: String = "Fertig",
