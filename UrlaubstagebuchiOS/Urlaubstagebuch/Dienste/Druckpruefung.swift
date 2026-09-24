@@ -905,7 +905,10 @@ enum Druckpruefung {
         text += "gezogen und ist hier nicht mehr gemeint. Auf der Seite selbst ist jeder "
         text += "betroffene Block dick rot umrandet \u{2014} seit 1.0.81 auch dann, wenn "
         text += "die Hilfslinien ausgeschaltet sind: Die Linien sind eine Hilfe beim "
-        text += "Anordnen, die Marke ist eine Warnung."
+        text += "Anordnen, die Marke ist eine Warnung. Gemessen wird seit 1.0.83 der "
+        text += "GEZEICHNETE Umriss: Der wei\u{00DF}e Fotorand liegt au\u{00DF}erhalb des "
+        text += "Rahmens, und ein gedrehter Block steht mit seiner ECKE weiter drau\u{00DF}en "
+        text += "als mit seiner Kante \u{2014} beides z\u{00E4}hlt jetzt mit."
         return [Zeile(stufe: textbloecke > 0 ? .warnung : .hinweis,
                       titel: "\(betroffen) Bl\u{00F6}cke im Sicherheitsabstand",
                       text: text)]

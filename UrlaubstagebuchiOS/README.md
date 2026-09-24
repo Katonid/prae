@@ -480,6 +480,53 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Eine Ecke genügt — gemessen wird der gezeichnete Umriss (1.0.83)
+
+Gemeldet 09/2026: „Wenn ich jetzt ein Element in den Sicherheitsbereich
+hineinschiebe, erscheint noch kein roter Rand. Auch nicht, wenn ich ihn in
+den Beschnittbereich schiebe. Erst wenn er definitiv über den weißen Rand
+hinausragt, wird es rot. … Der Rahmen soll bereits rot erscheinen, wenn eine
+Ecke des Elementes in den Sicherheitsbereich hineinragt."
+
+**Geprüft wurde seit 1.0.76 der Rahmen des Blocks — und der ist kleiner als
+das, was auf der Seite steht.** Zwei Gründe, beide am Quelltext abzuzählen:
+
+* **Der weiße Fotorand liegt außerhalb des Rahmens.** So zeichnet ihn die
+  Seite und so das PDF; im Stil „Fotoalbum" sind das 2,6 mm ringsum — bei
+  einem Sicherheitsabstand von 3 mm fast der ganze Streifen.
+* **Die Drehung wurde gar nicht gerechnet.** In den lebhaften Stilen
+  (Tagebuch, Fotoalbum, Postkarte) ist jede Kachel um bis zu 2,1 Grad
+  gedreht; ihre **Ecke** steht damit weiter draußen als ihre Kante — bei
+  einem Block von 300 Punkt Höhe um gut 5 Punkt.
+
+Zusammen verschiebt das die Marke um mehrere Millimeter nach außen, und das
+ist der Betrag, um den es in der Meldung geht. `Block.umriss` rechnet jetzt
+beides ein und gibt das kleinste Rechteck um die vier gedrehten Ecken zurück.
+
+* **Der Schatten bleibt draußen.** Er liegt ebenfalls außerhalb des Rahmens,
+  ist aber weich, hat keine Kante und ist kein Inhalt; ihn mitzumessen hieße,
+  jeden Block mit Schatten zu markieren.
+* **Die Nachsicht von einem halben Punkt ist weg** (jetzt ein Zehntelpunkt).
+  Gefangen wird beim Schieben mit einer Toleranz von sechs Bildschirmpunkten,
+  und damit parkt ein Block regelmäßig genau auf einer Linie — was dahinter
+  noch als „nicht drin" galt, war ein Stück Sicherheitsabstand.
+* **Die Marke liegt um denselben Umriss, den sie prüft.** Eine Marke, die den
+  weißen Fotorand ausließe, säße innerhalb dessen, was man sieht.
+* **Und weil sich das hier nicht nachmessen lässt, sagt es die App.** Unter
+  „Bedienung prüfen" stehen für den gewählten Block Rahmen, gerechneter
+  Umriss, Drehung, Fotorand, Endformat, Schutzzone und das Urteil samt Grund —
+  „randabfallend, wird nie markiert" ist eines davon.
+
+### Nicht gemessen (1.0.83)
+
+Keine Seite ist damit gesehen worden. Am Quelltext abgezählt sind die beiden
+blinden Flecken und die Größenordnung, um die sie die Marke nach außen
+schieben; sie passt zu dem, was gemeldet wurde. **Bewiesen ist damit nicht,
+dass es die Ursache war** — es kann eine zweite darüberliegen. Genau deshalb
+nennt die Probe Zahlen statt einer Zusage: Beim nächsten Mal sagt der Befund,
+ob die App den Block überhaupt für gefährdet hält oder ob es an der Zeichnung
+liegt.
+
 ## Der Satzspiegel darf bis an den Sicherheitsabstand (1.0.82)
 
 Gefragt 09/2026: „Warum ist denn der so weit vom Rand entfernt? Der

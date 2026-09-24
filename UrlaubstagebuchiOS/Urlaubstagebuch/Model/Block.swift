@@ -359,6 +359,71 @@ struct Block: Identifiable, Codable, Hashable {
         )
     }
 
+    // DER GEZEICHNETE UMRISS — vier Ecken, nicht ein Rechteck (ab 1.0.83).
+    //
+    // Gemeldet 09/2026: „Wenn ich jetzt ein Element in den
+    // Sicherheitsbereich hineinschiebe, erscheint noch kein roter Rand …
+    // Erst wenn er definitiv über den weißen Rand hinausragt, wird es rot.
+    // Der Rahmen soll bereits rot erscheinen, wenn eine Ecke des Elementes
+    // in den Sicherheitsbereich hineinragt."
+    //
+    // Gemessen wurde bis 1.0.82 der RAHMEN — und der ist kleiner als das,
+    // was auf der Seite steht. Zwei Gründe, beide am Quelltext abzuzählen:
+    //
+    // 1. **Der weiße Fotorand liegt AUSSERHALB des Rahmens.** So zeichnet
+    //    ihn die Seite (`padding(randPt)`, weiße Fläche, dann
+    //    `padding(-randPt)`) und so das PDF. Im Stil „Fotoalbum" sind das
+    //    2,6 mm ringsum — bei einem Sicherheitsabstand von 3 mm fast der
+    //    ganze Streifen.
+    // 2. **Die Drehung wurde gar nicht gerechnet.** In den lebhaften
+    //    Stilen (Tagebuch, Fotoalbum, Postkarte) ist jede Kachel seit
+    //    1.0.36 um bis zu 2,1 Grad gedreht; ihre ECKE steht damit weiter
+    //    draußen als ihre Kante — bei einem Block von 300 Punkt Höhe um
+    //    gut 5 Punkt. Und die Ecke ist genau das, wonach gefragt wurde.
+    //
+    // Beides zusammen verschiebt die Marke um mehrere Millimeter nach
+    // außen, und das ist der Betrag, um den es in der Meldung geht.
+    //
+    // **Der SCHATTEN bleibt draußen.** Er liegt ebenfalls außerhalb des
+    // Rahmens, ist aber weich, hat keine Kante und ist kein Inhalt; ihn
+    // mitzumessen hieße, jeden Block mit Schatten am Satzspiegel zu
+    // markieren — und nach der dritten falschen Marke sieht niemand mehr
+    // hin.
+    func umriss(_ gestaltung: Gestaltung) -> CGRect {
+        let rand = Druckmass.pt(max(wirkung(gestaltung).fotorand, 0))
+        let kasten = rahmen.rect.insetBy(dx: CGFloat(-rand), dy: CGFloat(-rand))
+        guard abs(drehung) > 0.01 else { return kasten }
+
+        // Gedreht wird um die MITTE — so macht es `rotationEffect` ohne
+        // weitere Angabe, und so zeichnet auch das PDF. Zurück kommt das
+        // kleinste achsenparallele Rechteck um die vier gedrehten Ecken.
+        let halbeBreite = Double(kasten.width) / 2
+        let halbeHoehe = Double(kasten.height) / 2
+        let mitteX = Double(kasten.midX)
+        let mitteY = Double(kasten.midY)
+        let bogen = drehung * .pi / 180
+        let kosinus = cos(bogen)
+        let sinus = sin(bogen)
+
+        var kleinstesX = Double.infinity
+        var kleinstesY = Double.infinity
+        var groesstesX = -Double.infinity
+        var groesstesY = -Double.infinity
+        for ecke in [(-halbeBreite, -halbeHoehe), (halbeBreite, -halbeHoehe),
+                     (halbeBreite, halbeHoehe), (-halbeBreite, halbeHoehe)]
+        {
+            let x = mitteX + ecke.0 * kosinus - ecke.1 * sinus
+            let y = mitteY + ecke.0 * sinus + ecke.1 * kosinus
+            kleinstesX = min(kleinstesX, x)
+            kleinstesY = min(kleinstesY, y)
+            groesstesX = max(groesstesX, x)
+            groesstesY = max(groesstesY, y)
+        }
+        return CGRect(x: kleinstesX, y: kleinstesY,
+                      width: groesstesX - kleinstesX,
+                      height: groesstesY - kleinstesY)
+    }
+
     // Folgt dieser Block in allen vier Stücken dem Buch?
     var folgtDemBuch: Bool {
         schatten == nil && fotorand == nil && randbreite == nil && rand == nil

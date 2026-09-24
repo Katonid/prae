@@ -173,10 +173,27 @@ extension Reise {
         let seite = CGRect(origin: .zero, size: format.groesse)
         return buchseite.seite.bloecke.filter { block in
             guard !block.randabfallend else { return false }
-            let r = block.rahmen.rect
-            return r.minX < seite.minX - 0.5 || r.minY < seite.minY - 0.5
-                || r.maxX > seite.maxX + 0.5 || r.maxY > seite.maxY + 0.5
+            return Reise.ragtHinaus(block.umriss(gestaltung), aus: seite)
         }
+    }
+
+    // EINE ECKE GENÜGT — und gemessen wird ein Zehntelpunkt (ab 1.0.83).
+    //
+    // Gefragt wird, ob der gezeichnete Umriss (`Block.umriss`: Fotorand
+    // und Drehung eingerechnet) irgendwo aus der Fläche herausragt. Die
+    // Nachsicht lag bis 1.0.82 bei einem halben Punkt — das klingt nach
+    // nichts und ist an genau dieser Stelle zu viel: Gefangen wird beim
+    // Schieben mit `6 / massstab` Toleranz (`Einrasten`), und damit parkt
+    // ein Block regelmäßig GENAU auf einer Linie. Ein halber Punkt
+    // Nachsicht dahinter heißt: Er darf ein Stück hineinragen, ohne dass
+    // etwas gemeldet wird. Ein Zehntelpunkt ist das, was eine
+    // Gleitkommarechnung braucht, und sonst nichts.
+    static let randnachsicht: Double = 0.1
+
+    static func ragtHinaus(_ umriss: CGRect, aus flaeche: CGRect) -> Bool {
+        let luft = randnachsicht
+        return umriss.minX < flaeche.minX - luft || umriss.minY < flaeche.minY - luft
+            || umriss.maxX > flaeche.maxX + luft || umriss.maxY > flaeche.maxY + luft
     }
 
     /// Beides zusammen — für die Marke auf der Seite und für die Zeile
@@ -197,9 +214,7 @@ extension Reise {
         let zone = gestaltung.schutzzone(format, bund: buchseite.bundlage)
         return buchseite.seite.bloecke.filter { block in
             guard !block.randabfallend else { return false }
-            let r = block.rahmen.rect
-            return r.minX < zone.minX - 0.5 || r.minY < zone.minY - 0.5
-                || r.maxX > zone.maxX + 0.5 || r.maxY > zone.maxY + 0.5
+            return Reise.ragtHinaus(block.umriss(gestaltung), aus: zone)
         }
     }
 
