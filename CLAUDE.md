@@ -7698,6 +7698,61 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **AM BUND BRAUCHT NICHT JEDE DRUCKEREI EINEN ANSCHNITT**
+  (`Gestaltung.anschnittAmBund`, `offeneKante(_:)`, ab 1.0.85; Ansage des
+  Nutzers 09/2026 mit der Vorgabe seines Druckdienstes vor Augen: „Auch hier
+  stimmt es wieder nicht, weil die App in der Mitte auch die 3 mm abzieht.
+  Hier soll es aber nicht der Fall sein. Ich möchte also noch die
+  Einstellmöglichkeit auf den Beschnitt an der Falz verzichten zu können.").
+  - **Die Vorgabe rechnet es vor, und damit ist es keine Auslegung:**
+    Bruttomaß 208 × 276 mm, Beschnittzugabe oben | unten | außen | innen =
+    3 | 3 | 3 | 0, Nettomaß 205 × 270 mm. Waagerecht wird der Anschnitt genau
+    EINMAL abgezogen (208 − 3 = 205), senkrecht zweimal. Die App zog ihn
+    immer zweimal ab und zeigte 202 × 270 — drei Millimeter zu schmal.
+  - **Die Sache war schon halb gebaut, und genau das ist der Befund.** Für
+    die DOPPELSEITEN-Ausgabe gilt seit 1.0.69 „der Anschnitt liegt ringsum
+    AUSSEN, am Bund keiner", für den Umschlagbogen seit 1.0.50, und die
+    Doppelseitenansicht lässt ihn seit 1.0.78 über `Bogenkante` weg. Was
+    fehlte, war der Fall, den dieser Dienst verlangt: EINZELSEITEN, die
+    trotzdem am Bund nichts zuzugeben haben, weil die Druckerei sie selbst
+    zusammenlegt. **Merke: Eine Regel, die für die eine Ausgabeart gilt, ist
+    damit noch keine Einstellung — wer sie fest einbaut, kann sie für die
+    andere nicht mehr abschalten.**
+  - **Die Breite hängt nicht an der Seite, die LAGE schon.**
+    `Gestaltung.bogen` rechnet waagerecht eine Zugabe statt zweier —
+    dieselbe Zahl für jede Seite; WO das Endformat darin liegt, sagt
+    `anschnittLinksPt(_:)`, und das wechselt mit `Buchseite.bundlage`.
+    Deshalb wandern TrimBox und Verschiebung seit 1.0.85 IN die
+    Seitenschleife: Eine feste TrimBox verschöbe die Hälfte aller Seiten um
+    drei Millimeter, und zwar still — die Datei sieht tadellos aus, und erst
+    das geschnittene Buch zeigt es.
+  - **Aufgelöst wird an EINER Stelle** (`Gestaltung.offeneKante(_:)`),
+    gefragt von der Ansicht, vom PDF und von der Druckprüfung. In der
+    DOPPELSEITENansicht ist die Kante trotzdem immer offen, ganz gleich was
+    eingestellt ist: Dort stoßen zwei Endformate aneinander, und das ist die
+    Sache selbst und keine Einstellung. Die Entscheidung trifft deshalb der
+    Aufrufer und nicht die Seitenfläche.
+  - **Das Anschnittrechteck bleibt RINGSUM** (`Gestaltung.randabfallend`).
+    Ein Bild darf am Bund über das Endformat hinauslaufen; die MediaBox
+    beschneidet es. Ein Streifen zu viel deckt die Kante sicher ab, ein
+    fehlender wäre der weiße Faden. **Was die Ansicht daran FÄNGT, ist eine
+    andere Frage** — `SeitenflaecheView.fangbogen` lässt die offene Kante
+    weg: Eine Kante, an der etwas einrastet, ohne dass man sie sieht, ist
+    dieselbe Art stiller Widerspruch wie eine Linie ohne Wirkung (1.0.11).
+  - **Der Schalter steht an ZWEI Stellen** — bei den Druckzugaben, wo der
+    Anschnitt eingestellt wird, und unter „Maß der Druckerei", wo er die
+    Umrechnung entscheidet. Dieselbe Einstellung, eine Quelle; wer die Zahl
+    der Druckerei vor sich hat, soll die Regel daneben umlegen können, ohne
+    den Bildschirm zu wechseln. Vorgabe bleibt AN: Jedes vorhandene Buch
+    gibt danach dieselbe Datei aus wie vorher.
+- **Nicht gemessen (1.0.85):** Keine Datei ist damit ausgegeben worden.
+  **GERECHNET und an der Vorgabe des Druckdienstes nachgerechnet** ist die
+  Umrechnung — 208 − 3 = 205 und 276 − 6 = 270 gehen auf das Nettomaß auf,
+  das der Dienst selbst nennt. **Ungeprüft bleibt alles danach:** ob dieser
+  Dienst die Datei so annimmt, ob eine TrimBox, die von Seite zu Seite die
+  Kante wechselt, bei ihm durchgeht, und wie das Blatt auf dem Gerät
+  aussieht, wenn die rote Schnittkante am Bund aufhört. **Nicht als erledigt
+  darstellen.**
 - **DER TITEL GEHÖRT AUF DIE TITELSEITE, DER NAME IN DIE ÜBERSICHT — UND DAS
   SIND ZWEI DINGE** (`Reise.regalname`, `Reise.anzeigename`, ab 1.0.84;
   Ansage des Nutzers 09/2026: „Da ich dieses Projekt noch bei einem anderen
@@ -9460,7 +9515,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.84 (Build 85). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.85 (Build 86). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

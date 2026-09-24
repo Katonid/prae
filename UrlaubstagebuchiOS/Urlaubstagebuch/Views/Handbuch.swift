@@ -352,10 +352,11 @@ enum Handbuch {
             Handbucheintrag(
                 id: "zugaben",
                 titel: "Anschnitt, Sicherheitsabstand, Bundsteg",
-                text: "Der ANSCHNITT liegt außerhalb des Endformats und wird weggeschnitten; dorthin muss alles laufen, was randabfallend sein soll. Der SICHERHEITSABSTAND liegt innerhalb; dort soll nichts stehen, was gelesen werden muss — am Bund darf ein eigener Wert gelten. Der BUNDSTEG ist zusätzlicher Rand zur Heftung und von Haus aus null.",
+                text: "Der ANSCHNITT liegt außerhalb des Endformats und wird weggeschnitten; dorthin muss alles laufen, was randabfallend sein soll. Der SICHERHEITSABSTAND liegt innerhalb; dort soll nichts stehen, was gelesen werden muss — am Bund darf ein eigener Wert gelten. Der BUNDSTEG ist zusätzlicher Rand zur Heftung und von Haus aus null.\n\nAM BUND lässt sich der Anschnitt abschalten. Manche Druckdienste verlangen genau das \u{2014} \u{201E}Beschnittzugabe oben | unten | außen | innen = 3 | 3 | 3 | 0 mm\u{201C}. Dann ist die PDF-Seite waagerecht nur um EINE Zugabe breiter als das Endformat, und aus einem geforderten Bogen von 208 mm werden 205 mm Endformat und nicht 202. Auf dem Blatt hört die rote Schnittkante am Bund auf; welche Seite innen liegt, wechselt von Seite zu Seite.",
                 weg: "Buchsymbol \u{2192} Ränder und Druckzugaben",
                 ziel: .gestaltung,
-                stichworte: ["beschnitt", "bleed", "rand", "falz", "bund", "3 mm", "5 mm"]),
+                stichworte: ["beschnitt", "bleed", "rand", "falz", "bund", "3 mm", "5 mm",
+                             "bruttomaß", "nettomaß", "innen", "0 mm"]),
             Handbucheintrag(
                 id: "buchtitel",
                 titel: "Titel \u{2014} und wie das Buch in der \u{00DC}bersicht hei\u{00DF}t",

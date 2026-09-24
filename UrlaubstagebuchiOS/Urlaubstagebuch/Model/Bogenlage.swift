@@ -91,9 +91,12 @@ enum Bogenlage {
 // die man hinschreibt, bleibt nur so lange vertretbar, wie keine zweite
 // Stelle es besser macht.**
 //
-// `keine` ist die Einzelseitenansicht: Dort steht jede Seite für sich, und
-// die Einzelseiten-PDF trägt ringsum Anschnitt — dort ist die Schnittkante
-// an allen vier Seiten richtig.
+// `keine` heißt: ringsum Anschnitt, die Schnittkante läuft an allen vier
+// Kanten. Das ist der Regelfall der Einzelseitenansicht — es sei denn, der
+// Anschnitt am Bund ist abgeschaltet (`Gestaltung.anschnittAmBund`, ab
+// 1.0.85); dann hört auch eine einzelne Seite dort am Endformat auf, und
+// die Einzelseiten-PDF tut es mit ihr. Welche Kante offen ist, sagt
+// `Gestaltung.offeneKante(_:)`.
 enum Bogenkante {
     case links
     case rechts

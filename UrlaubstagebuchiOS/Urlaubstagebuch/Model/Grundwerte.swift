@@ -309,6 +309,32 @@ struct Gestaltung: Codable, Hashable {
     // der Standard, manche Buchdienste verlangen fünf.
     var anschnitt: Double = 3
 
+    // KEIN ANSCHNITT AM BUND (ab 1.0.85).
+    //
+    // Ansage des Nutzers, 09/2026, mit der Vorgabe seines Druckdienstes vor
+    // Augen: „Auch hier stimmt es wieder nicht, weil die App in der Mitte
+    // auch die 3 mm abzieht. Hier soll es aber nicht der Fall sein. Ich
+    // möchte also noch die Einstellmöglichkeit auf den Beschnitt an der
+    // Falz verzichten zu können."
+    //
+    // **Die Vorgabe rechnet vor, worum es geht:** Bruttomaß 208 × 276 mm,
+    // Beschnittzugabe oben | unten | außen | innen = 3 | 3 | 3 | 0,
+    // Nettomaß 205 × 270 mm. Waagerecht wird der Anschnitt also genau
+    // EINMAL abgezogen (208 − 3 = 205), senkrecht zweimal (276 − 6 = 270).
+    // Diese App zog ihn bis 1.0.84 immer zweimal ab und kam damit auf
+    // 202 × 270 — drei Millimeter zu schmal.
+    //
+    // **Die Sache selbst war schon halb gebaut.** Für die
+    // DOPPELSEITEN-Ausgabe gilt seit 1.0.69 „der Anschnitt liegt ringsum
+    // AUSSEN, am Bund keiner", für den Umschlagbogen seit 1.0.50, und die
+    // Doppelseitenansicht lässt ihn seit 1.0.78 über `Bogenkante` weg. Was
+    // fehlte, war genau dieser Fall: EINZELSEITEN, die trotzdem am Bund
+    // nichts zuzugeben haben, weil die Druckerei sie selbst zusammenlegt.
+    //
+    // `true` bleibt die Vorgabe — jedes vorhandene Buch sieht nach dem
+    // Update unverändert aus.
+    var anschnittAmBund: Bool = true
+
     // Der BUNDSTEG ist der zusätzliche Rand zur Heftung hin. Bei einer
     // Klebebindung verschwindet sonst der innere Rand im Falz.
     //
@@ -415,6 +441,7 @@ struct Gestaltung: Codable, Hashable {
         randUnten = b.wert(.randUnten, 19.0)
         fuge = b.wert(.fuge, 4.0)
         anschnitt = b.wert(.anschnitt, 3.0)
+        anschnittAmBund = b.wert(.anschnittAmBund, true)
         sicherheitsabstand = b.wert(.sicherheitsabstand, 5.0)
         sicherheitsabstandInnen = b.wahlweise(.sicherheitsabstandInnen)
         bundsteg = b.wert(.bundsteg, 0.0)
@@ -443,12 +470,50 @@ struct Gestaltung: Codable, Hashable {
     var fugePt: Double { Druckmass.pt(fuge) }
     var eckenradiusPt: Double { Druckmass.pt(eckenradius) }
 
-    // Der bedruckbare Bogen: Endformat plus Anschnitt an allen vier Kanten.
-    // Das ist die Größe der PDF-Seite.
+    // Der bedruckbare Bogen: Endformat plus Anschnitt. Das ist die Größe
+    // der PDF-Seite einer EINZELNEN Seite.
+    //
+    // Waagerecht hängt die Zugabe seit 1.0.85 an `anschnittAmBund`: Liegt
+    // am Bund keiner, wird er nur EINMAL zugegeben. Welche der beiden
+    // Kanten ihn trägt, wechselt von Seite zu Seite — die BREITE ist davon
+    // unberührt, und nur die steht hier. Wo die Endformatkante im Bogen
+    // liegt, sagt `anschnittLinksPt(_:)`.
     func bogen(_ format: Seitenformat) -> CGSize {
         let end = format.groesse
-        let zugabe = anschnittPt * 2
-        return CGSize(width: end.width + zugabe, height: end.height + zugabe)
+        let quer = anschnittPt * (anschnittAmBund ? 2 : 1)
+        return CGSize(width: end.width + quer, height: end.height + 2 * anschnittPt)
+    }
+
+    // AN WELCHER KANTE DIESER SEITE KEIN ANSCHNITT LIEGT (ab 1.0.85).
+    //
+    // Die eine Stelle, die `anschnittAmBund` mit der Buchbinderei
+    // zusammenbringt: Bei einer rechten Seite liegt der Bund links, bei
+    // einer linken rechts (`Buchseite.bundlage`), und der AUSSENbogen des
+    // Umschlags hat gar keinen. Gefragt von der Ansicht, vom PDF und von
+    // der Druckprüfung — zwei Fassungen ergäben eine Vorschau, die anders
+    // beschneidet als die Datei.
+    //
+    // In der DOPPELSEITENansicht ist die Kante immer offen, ganz gleich was
+    // hier steht: Dort stoßen zwei Endformate aneinander, und das ist keine
+    // Einstellung, sondern die Sache selbst (siehe `Bogenkante`). Die
+    // Entscheidung trifft deshalb der Aufrufer.
+    func offeneKante(_ bund: Bundlage) -> Bogenkante {
+        guard !anschnittAmBund else { return .keine }
+        switch bund {
+        case .links: return .links
+        case .rechts: return .rechts
+        case .ohne: return .keine
+        }
+    }
+
+    /// Wie weit die linke Bogenkante VOR dem Endformat liegt — in Punkten.
+    func anschnittLinksPt(_ bund: Bundlage) -> Double {
+        offeneKante(bund) == .links ? 0 : anschnittPt
+    }
+
+    /// Dasselbe für rechts.
+    func anschnittRechtsPt(_ bund: Bundlage) -> Double {
+        offeneKante(bund) == .rechts ? 0 : anschnittPt
     }
 
     // Der Satzspiegel liegt im ENDFORMAT und hat seinen Ursprung in dessen
@@ -562,6 +627,14 @@ struct Gestaltung: Codable, Hashable {
 
     // Der volle Bogen in Seitenkoordinaten — von -anschnitt bis
     // Endformat + anschnitt. Was hier hineinreicht, läuft randabfallend.
+    //
+    // RINGSUM, und das bleibt auch so, wenn am Bund kein Anschnitt liegt
+    // (ab 1.0.85): Ein Bild darf dort über das Endformat hinauslaufen —
+    // gezeigt und gedruckt wird es bis zur Bogenkante, den Rest beschneidet
+    // die MediaBox. Ein Streifen zu viel deckt die Kante sicher ab; ein
+    // fehlender wäre der weiße Faden. Was die Ansicht daran FÄNGT, ist eine
+    // andere Frage — dort wird die offene Kante weggelassen
+    // (`SeitenflaecheView.fangbogen`).
     func randabfallend(_ format: Seitenformat) -> CGRect {
         let groesse = format.groesse
         return CGRect(x: -anschnittPt, y: -anschnittPt,

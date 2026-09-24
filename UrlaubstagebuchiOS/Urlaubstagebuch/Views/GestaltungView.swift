@@ -31,7 +31,16 @@ struct GestaltungView: View {
         text += "\u{00FC}blich. Die Pr\u{00FC}fung vor dem Ausgeben z\u{00E4}hlt, was "
         text += "hineinragt; randabfallende Bl\u{00F6}cke sind ausgenommen, die sollen "
         text += "ja \u{00FC}ber die Kante laufen.\n\n"
-        text += "Am BUND darf ein anderer Wert gelten \u{2014} viele Druckereien verlangen "
+        text += "Am BUND l\u{00E4}sst sich der Anschnitt ganz abschalten. Manche Dienste "
+        text += "verlangen genau das \u{2014} \u{201E}Beschnittzugabe oben | unten | "
+        text += "au\u{00DF}en | innen = 3 | 3 | 3 | 0 mm\u{201C}: Sie legen die Seiten "
+        text += "selbst zusammen, und dort wird nichts geschnitten. Dann ist die PDF-Seite "
+        text += "waagerecht nur um EINE Zugabe breiter als das Endformat, und aus einem "
+        text += "geforderten Bogen von 208 mm werden 205 mm Endformat und nicht 202. Welche "
+        text += "Kante die Zugabe tr\u{00E4}gt, wechselt von Seite zu Seite \u{2014} das "
+        text += "Blatt auf der B\u{00FC}hne zeigt es, dort h\u{00F6}rt die rote "
+        text += "Schnittkante am Bund auf.\n\n"
+        text += "Der SICHERHEITSABSTAND am Bund darf ebenfalls ein anderer sein \u{2014} viele Druckereien verlangen "
         text += "dort mehr, weil bei der Klebebindung ein Streifen im Falz verschwindet. "
         text += "Oben und unten gilt immer der \u{00E4}u\u{00DF}ere Wert: Dort wird "
         text += "geschnitten und nicht gebunden. Welche Seite innen liegt, wechselt von "
@@ -98,6 +107,14 @@ struct GestaltungView: View {
 
                 Section {
                     mmRegler("Anschnitt", $werk.reise.gestaltung.anschnitt, 0...8, schritt: 1)
+                    // AM BUND BRAUCHT NICHT JEDE DRUCKEREI EINEN (ab
+                    // 1.0.85). Steht der Schalter aus, ist die PDF-Seite
+                    // waagerecht nur um EINE Zugabe breiter als das
+                    // Endformat, und welche Kante sie trägt, wechselt von
+                    // Seite zu Seite. Vorgabe bleibt an: Jedes vorhandene
+                    // Buch gibt danach dieselbe Datei aus wie vorher.
+                    Toggle("Anschnitt auch am Bund",
+                           isOn: $werk.reise.gestaltung.anschnittAmBund)
                     // DIE GEGENRICHTUNG (ab 1.0.73). Sie steht unmittelbar
                     // unter dem Anschnitt, weil die beiden dauernd
                     // verwechselt werden — und nebeneinander lässt sich der
