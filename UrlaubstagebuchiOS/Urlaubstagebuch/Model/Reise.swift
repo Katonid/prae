@@ -47,6 +47,9 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // Karte kann das nicht, sie zeigt die Spur DIESES Tages.
     var kartentext: String = ""
     var kartentextZeigen: Bool = false
+    // Dieselbe Ausnahme wie beim Foto (ab 1.0.88): `nil` heißt „wie im
+    // Buch".
+    var kartentextAusrichtung: Ausrichtung?
     // Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht
     // ins Buch. Ihn zu löschen wäre der einzige andere Weg gewesen — und
     // ein gelöschter Tagebuchtag ist weg.
@@ -79,6 +82,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         datumstext = b.wahlweise(.datumstext)
         kartentext = b.wert(.kartentext, "")
         kartentextZeigen = b.wert(.kartentextZeigen, false)
+        kartentextAusrichtung = b.wahlweise(.kartentextAusrichtung)
         ausgeblendet = b.wert(.ausgeblendet, false)
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {

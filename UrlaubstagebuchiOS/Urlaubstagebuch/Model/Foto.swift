@@ -46,6 +46,24 @@ struct Foto: Identifiable, Codable, Hashable {
     // eingeschaltet ist; der Text bleibt auch dann stehen, wenn sie es
     // nicht ist — wer sie abschaltet, soll seinen Satz nicht verlieren.
     var unterschriftZeigen: Bool = false
+    // WIE SIE AUSGERICHTET IST — nur für DIESES Bild (ab 1.0.88).
+    //
+    // Gemeldet 09/2026 mit einem Bild, auf dem die Zeile halb unter dem
+    // Nachbarfoto verschwindet: „Ich möchte bei jedem Bild die Möglichkeit
+    // haben, die Standardausrichtung zu durchbrechen und einmalig
+    // einstellen können, ob links, rechts oder zentriert ausgerichtet
+    // wird."
+    //
+    // `nil` heißt „wie im Buch" — eine ABWEICHUNG und keine Kopie, wie
+    // überall in diesem Haus: Wer die Rolle „Bildunterschrift" später
+    // umstellt, stellt damit auch dieses Bild um, solange er nichts
+    // anderes gesagt hat.
+    //
+    // Sie steht am FOTO und nicht in der Blockabweichung, obwohl es die
+    // dort auch gäbe (`Schriftabweichung.ausrichtung`, seit 1.0.0): Ein
+    // Block wird beim Neuanordnen neu gebaut, und die Einstellung wäre
+    // still weg. Dieselbe Regel wie beim TEXT der Unterschrift.
+    var unterschriftAusrichtung: Ausrichtung?
     // Was der Nutzer bewusst weggelassen hat, kommt beim nächsten
     // Neuanordnen nicht zurück — sonst wäre jede Aufräumarbeit umsonst.
     var abgelegt: Bool = false
@@ -82,6 +100,7 @@ struct Foto: Identifiable, Codable, Hashable {
         // stehen, ist vor diesem Feld entstanden — sie jetzt stillschweigend
         // auszublenden nähme dem Nutzer Arbeit weg, die er gemacht hat.
         unterschriftZeigen = b.wert(.unterschriftZeigen, !unterschrift.isEmpty)
+        unterschriftAusrichtung = b.wahlweise(.unterschriftAusrichtung)
         abgelegt = b.wert(.abgelegt, false)
         grafik = b.wert(.grafik, false)
     }
@@ -92,6 +111,7 @@ struct Foto: Identifiable, Codable, Hashable {
          aufnahme: Date? = nil, tagesschluessel: String? = nil,
          koordinate: Koordinate? = nil, ortsquelle: Ortsquelle = .keiner,
          unterschrift: String = "", unterschriftZeigen: Bool = false,
+         unterschriftAusrichtung: Ausrichtung? = nil,
          abgelegt: Bool = false, grafik: Bool = false)
     {
         self.id = id
@@ -104,6 +124,7 @@ struct Foto: Identifiable, Codable, Hashable {
         self.ortsquelle = ortsquelle
         self.unterschrift = unterschrift
         self.unterschriftZeigen = unterschriftZeigen
+        self.unterschriftAusrichtung = unterschriftAusrichtung
         self.abgelegt = abgelegt
         self.grafik = grafik
     }

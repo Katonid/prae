@@ -1484,7 +1484,7 @@ struct BlockInhaltView: View {
         case .titel, .unterueberschrift, .datum, .text:
             Textkasten(
                 text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
-                bild: Seitensatz.schriftbild(block, reise: werk.reise),
+                bild: Seitensatz.schriftbild(block, reise: werk.reise, tag: tag),
                 rand: wirkung.textrand,
                 massstab: massstab
             )
@@ -1523,7 +1523,7 @@ struct BlockInhaltView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else {
                 Textkasten(text: text,
-                           bild: Seitensatz.schriftbild(block, reise: werk.reise),
+                           bild: Seitensatz.schriftbild(block, reise: werk.reise, tag: tag),
                            rand: wirkung.textrand,
                            massstab: massstab)
             }

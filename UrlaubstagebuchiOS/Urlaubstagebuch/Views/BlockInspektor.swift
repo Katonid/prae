@@ -450,7 +450,12 @@ struct BlockInspektor: View {
             Stepper(value: binden(block, \.groesse, gilt.groesse), in: 4...80, step: 0.5) {
                 LabeledContent("Größe", value: String(format: "%.1f pt", gilt.groesse))
             }
-            Picker("Ausrichtung", selection: binden(block, \.ausrichtung, gilt.ausrichtung)) {
+            // BEI EINER UNTERSCHRIFT SCHREIBT DIESER PICKER WOANDERS HIN
+            // (ab 1.0.88): an das Foto bzw. an den Tag und nicht in die
+            // Abweichung des Blocks. Der Block wird beim Neuanordnen neu
+            // gebaut — eine Einstellung dort wäre still weg, und es gäbe
+            // zwei Wege zu derselben Sache, die auseinanderlaufen.
+            Picker("Ausrichtung", selection: ausrichtung(block, gilt: gilt.ausrichtung)) {
                 ForEach(Ausrichtung.allCases) { art in
                     Label(art.name, systemImage: art.symbol).tag(art)
                 }
@@ -650,8 +655,38 @@ struct BlockInspektor: View {
                             werk.reise.setzeFoto(geaendert)
                         }
                     ), axis: .vertical)
-                    Text("Schrift, Größe und Farbe stellst du unter Ganzes Buch \u{2192} "
-                         + "Schrift und Ausrichtung für alle Bildunterschriften auf einmal ein.")
+                    // DIE AUSRICHTUNG NUR FÜR DIESES BILD (ab 1.0.88).
+                    //
+                    // Gemeldet 09/2026 an einer Zeile, die halb unter dem
+                    // Nachbarfoto verschwand: „Ich möchte bei jedem Bild
+                    // die Möglichkeit haben, die Standardausrichtung zu
+                    // durchbrechen."
+                    //
+                    // Sie steht HIER und nicht nur am Unterschriftenblock:
+                    // Die Zeile ist flach und liegt im Zweifel unter einem
+                    // Bild — dann ist sie gar nicht anzutippen, und der
+                    // Weg über ihren eigenen Inspektor ist zu.
+                    Picker("Ausrichtung", selection: Binding(
+                        get: { foto.unterschriftAusrichtung ?? buchausrichtung },
+                        set: { neu in
+                            var geaendert = foto
+                            geaendert.unterschriftAusrichtung = neu
+                            werk.reise.setzeFoto(geaendert)
+                        }
+                    )) {
+                        ForEach(Ausrichtung.allCases) { art in
+                            Label(art.name, systemImage: art.symbol).tag(art)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    if foto.unterschriftAusrichtung != nil {
+                        Button("Wieder wie im Buch") {
+                            var geaendert = foto
+                            geaendert.unterschriftAusrichtung = nil
+                            werk.reise.setzeFoto(geaendert)
+                        }
+                    }
+                    Text(unterschriftsatz(eigen: foto.unterschriftAusrichtung != nil))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -664,6 +699,57 @@ struct BlockInspektor: View {
                 }
             }
         }
+    }
+
+    /// Wohin der Ausrichtungs-Picker schreibt: bei einer Bild- oder
+    /// Kartenunterschrift an die dauerhafte Stelle, sonst in die
+    /// Abweichung des Blocks.
+    private func ausrichtung(_ block: Block, gilt: Ausrichtung) -> Binding<Ausrichtung> {
+        switch block.inhalt {
+        case let .bildunterschrift(id):
+            return Binding(
+                get: { werk.reise.foto(id)?.unterschriftAusrichtung ?? gilt },
+                set: { neu in
+                    guard var foto = werk.reise.foto(id) else { return }
+                    foto.unterschriftAusrichtung = neu
+                    werk.reise.setzeFoto(foto)
+                }
+            )
+        case .kartenunterschrift:
+            // Der Tag DES BLOCKS und nie der gewählte (Lehre aus 1.0.51).
+            let stelle = werk.block(block.id)?.tag
+            return Binding(
+                get: {
+                    guard let stelle, werk.reise.tage.indices.contains(stelle) else { return gilt }
+                    return werk.reise.tage[stelle].kartentextAusrichtung ?? gilt
+                },
+                set: { neu in
+                    guard let stelle, werk.reise.tage.indices.contains(stelle) else { return }
+                    werk.reise.tage[stelle].kartentextAusrichtung = neu
+                }
+            )
+        default:
+            return binden(block, \.ausrichtung, gilt)
+        }
+    }
+
+    /// Die Ausrichtung, die für Unterschriften im ganzen Buch gilt — der
+    /// Wert, den der Picker zeigt, solange es keine Ausnahme gibt.
+    private var buchausrichtung: Ausrichtung {
+        werk.reise.typografie.bildunterschrift.ausrichtung
+    }
+
+    private func unterschriftsatz(eigen: Bool) -> String {
+        var text = "Schrift, Größe und Farbe stellst du unter Ganzes Buch \u{2192} Schrift "
+        text += "für alle Bildunterschriften auf einmal ein. "
+        if eigen {
+            text += "Die Ausrichtung gilt nur für dieses Bild und übersteht jedes "
+            text += "Neuanordnen \u{2014} sie steht am Foto und nicht im Block."
+        } else {
+            text += "Die Ausrichtung folgt dem Buch; hier eingestellt gilt sie nur "
+            text += "für dieses Bild."
+        }
+        return text
     }
 
     // WO DIESE KARTE HINGEHÖRT.
@@ -704,6 +790,20 @@ struct BlockInspektor: View {
                         get: { tag.kartentext },
                         set: { neu in werk.reise.tage[stelle].kartentext = neu }
                     ), axis: .vertical)
+                    Picker("Ausrichtung", selection: Binding(
+                        get: { tag.kartentextAusrichtung ?? buchausrichtung },
+                        set: { neu in werk.reise.tage[stelle].kartentextAusrichtung = neu }
+                    )) {
+                        ForEach(Ausrichtung.allCases) { art in
+                            Label(art.name, systemImage: art.symbol).tag(art)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    if tag.kartentextAusrichtung != nil {
+                        Button("Wieder wie im Buch") {
+                            werk.reise.tage[stelle].kartentextAusrichtung = nil
+                        }
+                    }
                 }
             } header: {
                 Text("Unterschrift")
