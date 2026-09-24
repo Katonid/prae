@@ -10424,6 +10424,59 @@ Befunde, und keiner davon war Geschmack:
   **Erst pushen, Bau abwarten, Fehler beheben — den PR-Link erst
   herausgeben, wenn der Bau grün ist.**
 
+## Projekt Fernweh (gemeinsames Reisetagebuch, native iOS-App)
+
+- App-Code: `FernwehiOS/` (ein Target: App, iPhone + iPad, iOS 17, keine
+  fremden Abhängigkeiten), Bundle-Id `de.familie.fernweh`, iCloud-Container
+  `iCloud.de.familie.fernweh`, Homescreen-Name „Fernweh". Anlass (Ansage des
+  Nutzers, 09/2026): „so etwas wie Polarsteps für mich selbst und einige
+  wenige Miturlauber bzw. Betrachter". Ausführlich: `FernwehiOS/README.md`.
+- **Abgleich über `NSPersistentCloudKitContainer`, nicht über eine eigene
+  Maschine wie Tafelbild.** Eine Reise ist ein Geflecht (Reise → Einträge →
+  Fotos, dazu Spuren), und geteilt wird immer das ganze. Genau das kann der
+  Container: Er legt die Reise samt allem Anhängenden in eine Zone, teilt sie
+  per `CKShare` und nimmt Späteres von selbst auf. Zwei Speicher (privat,
+  geteilt); **ein neues Objekt muss in den Speicher seiner Reise**
+  (`Persistenz.anlegen(_:bei:)`) — eine Beziehung über zwei Speicher weist
+  Core Data ab.
+- **Das Datenmodell steht im Quelltext** (`Model/Modell.swift`), nicht als
+  `.xcdatamodeld`. CloudKit verlangt: alles optional oder mit Vorgabe, keine
+  Eindeutigkeit, jede Beziehung optional mit Umkehrung, nichts geordnet.
+  **Attribute nur anhängen** — umbenennen bricht jede Reise in einer iCloud.
+  Nach jedem neuen Attribut: Debug-Bau → Einstellungen → „CloudKit-Schema
+  anlegen", dann „Deploy Schema Changes to Production".
+- **Miturlauber und Betrachter sind Apples eigenes Blatt mit zwei
+  Voreinstellungen** (`Teilen.swift`): `availablePermissions` nur
+  `.allowReadWrite` bzw. nur `.allowReadOnly`. Ob jemand schreiben darf,
+  entscheidet `container.canUpdateRecord` — Betrachter bekommen keinen
+  Bearbeiten-Knopf. Das Blatt wird über UIKit präsentiert, nie in einem
+  SwiftUI-`.sheet` (schwarz, Lehre aus Tafelbild 1.0.60), und mit einer
+  fertigen Freigabe geöffnet (Tafelbild 1.1.1).
+- **Reisespur = Tagesspurs Strategie** (`Model/Aufzeichner.swift`): „Immer",
+  `CLBackgroundActivitySession` im Vordergrund aufgebaut, Auto-Pause aus,
+  eigener Ruhemodus (grob statt aus), Besuche + signifikante Ortswechsel +
+  150-m-Zaun für den Neustart durch iOS. Rohpunkte sofort auf die Platte (eine
+  Datei je Tag), in die Reise gedünnt (15 m) je Tag UND Gerät — jede
+  Mitreisende trägt ihre eigene Spur bei; Kilometer zählt je Tag die längste,
+  sonst doppelt gezählt.
+- **Bearbeitete Fotos**: Gemerkt werden `localIdentifier` UND
+  `PHCloudIdentifier`. Angezeigt wird aus der eigenen Mediathek (immer die
+  aktuelle Fassung); die mitreisende Kopie (2048 px) erneuert `Fotodienst.abgleichen`
+  bei `modificationDate`-Änderung — beim Aktivwerden und auf
+  `PHPhotoLibraryChangeObserver`.
+- `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
+  im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1).
+  `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
+  `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
+  Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
+  (`aps-environment` development/production, Lehre aus Schulalarm 1.0.18).
+- Das App-Symbol rechnet `FernwehiOS/scripts/make-icon.py`.
+- Übersetzt wird in GitHub Actions (Eintrag `("FernwehiOS", "Fernweh")` in
+  `welche-apps.py`). **Erst pushen, Bau abwarten, Fehler beheben — den
+  PR-Link erst herausgeben, wenn der Bau grün ist.** Ein grüner Bau beweist
+  NICHT, dass sich signieren lässt.
+
 ## Projekt Anstoß (Fußball-Liveticker, native iOS-App)
 
 - App-Code: `AnstossiOS/` (ein Target: App, iPhone + iPad, iOS 17).

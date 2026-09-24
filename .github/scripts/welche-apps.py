@@ -53,6 +53,7 @@ APPS = [
     ("AlarmiOS", "Alarm"),
     ("AnstossiOS", "Anstoss"),
     ("CadUsdEuriOS", "CadUsdEur"),
+    ("FernwehiOS", "Fernweh"),
     ("FlightMateiOS", "FlightMate"),
     ("HimmelskompassiOS", "Himmelskompass"),
     ("KartenwalletiOS", "Kartenwallet"),
