@@ -518,9 +518,13 @@ zeichnet jede Hälfte ihren eigenen Seitenhintergrund. Es greift ab vier
 Inhaltsseiten — zwei abzuziehen ließe sonst kein Buch übrig, das sich binden
 lässt.
 
+Beide Umschlagbogen stehen in **einer** Datei — Außenseite (U4+U1) als erste
+Seite, Innenseite (U2+U3) als zweite. So hat es die beauftragte Druckerei auf
+Nachfrage bestätigt.
+
 **Nicht gemessen:** Keine Datei ist damit gedruckt worden. Gerechnet ist die
-Paarung; ob die Druckerei die beiden Umschlagbogen in einer Datei erwartet
-oder in zweien, sagt ihre Mail nicht.
+Paarung; dass die beiden Bogen in dieser Reihenfolge stehen, folgt der
+Anschauung und keiner Ansage der Druckerei.
 
 ## Anschnitt und Sicherheitsabstand (1.0.73)
 

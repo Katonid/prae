@@ -7363,9 +7363,11 @@ Befunde, und keiner davon war Geschmack:
 - **Nicht gemessen (1.0.74):** Keine Datei ist damit gedruckt worden.
   **Gerechnet und am Quelltext durchgezählt** ist die Paarung (U2 links neben
   Seite 1, U3 rechts neben der letzten; bei vier Blockseiten Bogen 1 = U2|1,
-  Bogen 2 = 2|3, Bogen 3 = 4|U3). **Ungeprüft bleibt, ob diese Druckerei die
-  Datei so annimmt** — dass sie U2/U3 bedrucken kann, steht in ihrer Mail;
-  wie sie die beiden Bogen erwartet (eine Datei oder zwei), nicht. Ebenso
+  Bogen 2 = 2|3, Bogen 3 = 4|U3). **Wie die Druckerei die beiden Bogen
+  erwartet, ist seit 09/2026 BEANTWORTET: „Sie erwartet die Umschlagbogen in
+  einer Datei."** Genau so gibt die App sie aus — eine Datei mit zwei Seiten,
+  außen zuerst. **Die REIHENFOLGE darin ist damit nicht bestätigt**; sie folgt
+  der Anschauung (umgeschlagen liegt außen zuerst) und keiner Ansage. Ebenso
   ungesehen: ob ein Hintergrundbild über die Doppelseite an der neuen
   Paarung aufgeht. **Ein Wasserzeichen über die Doppelseite gibt es nicht
   und gab es nie** — über die Doppelseite kann der HINTERGRUND laufen
