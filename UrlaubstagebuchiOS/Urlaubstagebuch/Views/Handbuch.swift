@@ -1,0 +1,496 @@
+import Foundation
+
+// DAS HANDBUCH — was die App kann und wo es steht (ab 1.0.77).
+//
+// Ansage des Nutzers, 09/2026: „Die Funktionen sind sehr mannigfaltig und
+// zum Teil auch versteckt, so dass ich finde, dass das sinnvoll wäre."
+//
+// Er hat recht, und die Entwicklungsgeschichte gibt ihm zwölfmal recht:
+// Von der Bildunterschrift (1.0.6) bis zur Druckprüfung (1.0.76) wurde
+// immer wieder etwas nicht gefunden, das vollständig gebaut war — von
+// jemandem, der die App kennt.
+//
+// **Die Bedienungskarte (`BedienungView`) bleibt daneben stehen und wird
+// nicht ersetzt.** Sie zählt die GESTEN auf — was man mit dem Finger tut,
+// und das sieht man einer Seite nicht an. Dieses Handbuch zählt die
+// FUNKTIONEN auf und sagt, wo sie stehen. Zwei verschiedene Fragen.
+//
+// **Jeder Eintrag trägt seinen WEG**, und wo es geht, springt ein Knopf
+// dorthin. Ein Handbuch, das eine Funktion beschreibt und einen suchen
+// lässt, ist die Frage von vorhin noch einmal.
+struct Handbucheintrag: Identifiable {
+    let id: String
+    var titel: String
+    var text: String
+    /// Wo es in der App steht. Leer, wo es keinen Menüweg gibt (Gesten).
+    var weg: String = ""
+    /// Wohin der Knopf springt. `nil` heißt: Es gibt kein Blatt dafür —
+    /// dann steht nur der Weg da, und das ist ehrlicher als ein Knopf,
+    /// der woanders landet.
+    var ziel: ReiseView.Blatt?
+    /// Wörter, unter denen jemand sucht, die aber nicht im Text stehen.
+    var stichworte: [String] = []
+}
+
+struct Handbuchkapitel: Identifiable {
+    let id: String
+    var titel: String
+    var symbol: String
+    var einleitung: String = ""
+    var eintraege: [Handbucheintrag]
+}
+
+enum Handbuch {
+    // MARK: - Suche
+
+    /// Alle Einträge, die zu einer Eingabe passen — samt dem Kapitel, in
+    /// dem sie stehen.
+    ///
+    /// **Hier werden Umlaute AUSDRÜCKLICH eingeebnet**, anders als überall
+    /// sonst in diesem Haus. Die Regel „Umlaute nicht einebnen" gilt dem
+    /// Vergleich von NAMEN: Dort richtet eine falsche Gleichsetzung
+    /// Schaden an (zwei Personen, zwei Haltestellen). Eine Volltextsuche
+    /// in einer Hilfe ist der umgekehrte Fall — wer Ruecken tippt, sucht
+    /// den Rücken, und ein Treffer zu viel kostet nichts.
+    static func suche(_ eingabe: String) -> [(kapitel: String, eintrag: Handbucheintrag)] {
+        let woerter = geglaettet(eingabe)
+            .split(separator: " ")
+            .map(String.init)
+            .filter { !$0.isEmpty }
+        guard !woerter.isEmpty else { return [] }
+        var treffer: [(kapitel: String, eintrag: Handbucheintrag)] = []
+        for kapitel in kapitel {
+            for eintrag in kapitel.eintraege {
+                var heuhaufen = geglaettet(eintrag.titel) + " "
+                heuhaufen += geglaettet(eintrag.text) + " "
+                heuhaufen += geglaettet(eintrag.weg) + " "
+                heuhaufen += geglaettet(eintrag.stichworte.joined(separator: " ")) + " "
+                heuhaufen += geglaettet(kapitel.titel)
+                if woerter.allSatisfy({ heuhaufen.contains($0) }) {
+                    treffer.append((kapitel: kapitel.titel, eintrag: eintrag))
+                }
+            }
+        }
+        return treffer
+    }
+
+    private static func geglaettet(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive],
+                     locale: Locale(identifier: "de_DE"))
+    }
+
+    // MARK: - Der Inhalt
+
+    static let kapitel: [Handbuchkapitel] = [
+        anfang, buehne, bloecke, tage, aussehen, umschlagUndFormat,
+        ausgeben, sichern, grenzen,
+    ]
+
+    private static let anfang = Handbuchkapitel(
+        id: "anfang",
+        titel: "Der Anfang",
+        symbol: "sparkles",
+        einleitung: "Aus einem Tagebuchtext, einer Reisespur und einem Stapel Fotos wird ein gesetztes Buch. Die App ordnet dabei selbst zu — nach dem Datum.",
+        eintraege: [
+            Handbucheintrag(
+                id: "aufbau",
+                titel: "In drei Schritten zum ersten Buch",
+                text: "Tagebuchtext, Reisespur, Fotos — in dieser Reihenfolge. Der Text legt die Tage an, die Spur hängt je eine Karte an ihren Tag, die Fotos verteilen sich über ihr Aufnahmedatum. Hinterher steht ein Bericht da, Tag für Tag: Zeichen, Fotos, Orte, Seiten — und was fehlt.",
+                weg: "Plus-Knopf \u{2192} Buch aufbauen",
+                ziel: .aufbau,
+                stichworte: ["anfangen", "start", "erstes buch", "einlesen", "import"]),
+            Handbucheintrag(
+                id: "text",
+                titel: "Tagebuchtext einlesen",
+                text: "Aus Text, Word (.docx), PDF oder RTF. Die App sucht Datumszeilen, erkennt die Überschrift dahinter und eine zweite Überschrift in der Zeile darunter. Hart umbrochener Text wird wieder zu Absätzen zusammengeführt — wie sie zu dem Schluss kommt, steht mit Zahlen in der Vorschau. Übernommen wird erst auf Knopfdruck.",
+                weg: "Plus-Knopf \u{2192} Tagebuchtext",
+                ziel: .textimport,
+                stichworte: ["word", "docx", "pdf", "rtf", "absatz", "überschrift", "datum"]),
+            Handbucheintrag(
+                id: "fotos",
+                titel: "Fotos einlesen",
+                text: "Einzeln aus der Mediathek oder als ganzer Zeitraum — eine Reise ist ein Zeitraum, und den kennt die Mediathek. Aus Dateien geht es auch; dort kommt das Bild unangetastet an. Ohne Datum liest die App den Dateinamen; hilft auch der nicht, entscheidest du vorher, an welchen Tag die Bilder gehen.",
+                weg: "Plus-Knopf \u{2192} Fotos aus der Mediathek",
+                ziel: .fotos,
+                stichworte: ["bilder", "mediathek", "zeitraum", "alle", "datum"]),
+            Handbucheintrag(
+                id: "ort",
+                titel: "Woher die Orte kommen",
+                text: "Aus dem Aufnahmeort im Foto. Den gibt iOS nur heraus, wenn die App Zugriff auf die Mediathek hat — ohne die Erlaubnis kommen die Fotos an und die Karte bleibt leer. Alles andere läuft trotzdem, und die Punkte lassen sich von Hand auf der Karte setzen.",
+                weg: "Tagesmenü unten rechts \u{2192} Reisepunkte",
+                ziel: nil,
+                stichworte: ["gps", "standort", "karte", "erlaubnis", "berechtigung", "exif"]),
+            Handbucheintrag(
+                id: "spur",
+                titel: "Reisespur einlesen",
+                text: "Aus einer Sicherung der App Tagesspur oder aus einer GPX-Datei. Benannte Aufenthalte bleiben immer erhalten; die Strecke dazwischen wird ausgedünnt, sonst wäre sie ein Knäuel. Ein erneutes Einlesen desselben Tages ersetzt seine Spurpunkte.",
+                weg: "Plus-Knopf \u{2192} Reisespur",
+                ziel: .tagesspur,
+                stichworte: ["gpx", "tagesspur", "strecke", "route"]),
+            Handbucheintrag(
+                id: "ablage",
+                titel: "Fotos ohne Tag",
+                text: "Was sich keinem Tag zuordnen ließ, liegt in der Fotoablage und wird dort gezählt — es verschwindet nie stillschweigend. Von dort lässt es sich einem Tag geben.",
+                weg: "Plus-Knopf \u{2192} Fotoablage",
+                ziel: .ablage,
+                stichworte: ["heimatlos", "übrig", "ohne datum"]),
+        ])
+
+    private static let buehne = Handbuchkapitel(
+        id: "buehne",
+        titel: "Die Arbeitsfläche",
+        symbol: "rectangle.on.rectangle",
+        einleitung: "Alle Seiten des Buches liegen fortlaufend untereinander. Die Liste links ist eine Sprungmarke, kein Filter.",
+        eintraege: [
+            Handbucheintrag(
+                id: "doppelseiten",
+                titel: "Einzelseiten oder Doppelseiten",
+                text: "Der Umschalter steht unten links. Seite 1 ist eine rechte Seite — links davon liegt die Innenseite des Umschlags. So liegt das Buch später auf dem Tisch, und so wird auch ein Hintergrundbild über die Doppelseite verteilt.",
+                weg: "Unten links, neben dem Maßstab",
+                ziel: nil,
+                stichworte: ["bogen", "aufgeschlagen", "links", "rechts"]),
+            Handbucheintrag(
+                id: "zoom",
+                titel: "Näher heran",
+                text: "Zwei Finger auf der Seite. Der Knopf unten nennt den Maßstab und schaltet zwischen Einpassen und Originalgröße. Liegt ein Foto ausgewählt unter den Fingern, zoomen sie das Bild in seinem Rahmen statt die Seite.",
+                weg: "Zwei Finger, oder der Prozentknopf unten",
+                ziel: nil,
+                stichworte: ["vergrößern", "maßstab", "einpassen", "lupe"]),
+            Handbucheintrag(
+                id: "seitewaehlen",
+                titel: "Eine Seite auswählen",
+                text: "Ein Tipp auf das Blatt. Die gewählte Seite ist umrandet und steht in der Beschriftung darunter. Darauf wirken das Einsetzen von Bildern und Feldern sowie das Einfügen aus der Ablage.",
+                weg: "Tipp auf das Blatt",
+                ziel: nil,
+                stichworte: ["auswahl", "markieren"]),
+            Handbucheintrag(
+                id: "gesten",
+                titel: "Alle Gesten auf einen Blick",
+                text: "Antippen, doppelt tippen, ziehen, drehen, zwei Finger: Was auf der Seite geht, steht in der Bedienungskarte — Geste für Geste.",
+                weg: "Die Gestenkarte öffnen",
+                ziel: .bedienung,
+                stichworte: ["geste", "finger", "tippen", "ziehen", "bedienung"]),
+            Handbucheintrag(
+                id: "linien",
+                titel: "Die Linien auf der Seite",
+                text: "Blau der Satzspiegel, ROT gestrichelt die Schnittkante — dort wird beschnitten —, ORANGE der Sicherheitsabstand: Dort soll nichts stehen, was gelesen werden muss. Was hineinragt, wird orange umrandet, und unter dem Blatt steht, wie viele Blöcke es sind.",
+                weg: "Drei-Punkte-Menü \u{2192} Linien zeigen",
+                ziel: nil,
+                stichworte: ["schnittkante", "anschnitt", "sicherheitsabstand", "satzspiegel", "gestrichelt", "hilfslinien"]),
+        ])
+
+    private static let bloecke = Handbuchkapitel(
+        id: "bloecke",
+        titel: "Text, Bilder, Karten",
+        symbol: "square.on.square",
+        einleitung: "Alles auf einer Seite ist ein Block: Textkasten, Foto, Karte, Linie, Fläche. Erst antippen, dann anfassen — ohne Auswahl bleibt die Seite zum Blättern.",
+        eintraege: [
+            Handbucheintrag(
+                id: "einsetzen",
+                titel: "Etwas einsetzen",
+                text: "Textfeld, Bild aus Dateien oder aus der Mediathek, Karte, Trennlinie, Farbfläche. Es landet auf der gewählten Seite. Ein so eingesetztes Bild gilt als Grafik: Es bekommt keinen Tag, keinen Punkt auf der Karte und taucht in keiner Fotoliste auf.",
+                weg: "Plus-Knopf \u{2192} oberster Abschnitt",
+                ziel: nil,
+                stichworte: ["textfeld", "grafik", "linie", "fläche", "hinzufügen"]),
+            Handbucheintrag(
+                id: "textschreiben",
+                titel: "Text ändern",
+                text: "Doppeltipp auf den Textkasten. Getippt wird in der Schrift, in der gedruckt wird. Der Kasten wächst beim Tippen mit; kleiner wird er nie von selbst.",
+                weg: "Doppeltipp auf den Text",
+                ziel: nil,
+                stichworte: ["bearbeiten", "schreiben", "tippen"]),
+            Handbucheintrag(
+                id: "ueberlauf",
+                titel: "Wenn Text nicht in seinen Kasten passt",
+                text: "An der Unterkante erscheint eine orange Marke mit Pluszeichen. Dann hilft Rahmen an Text anpassen, oder der Kasten wird geteilt: Rest auf die nächste Seite nimmt genau das, was herausfällt. Für das ganze Buch zählt es die Druckprüfung.",
+                weg: "Leiste unten, bei gewähltem Textkasten",
+                ziel: nil,
+                stichworte: ["abgeschnitten", "fehlt", "überlauf", "zu klein", "teilen"]),
+            Handbucheintrag(
+                id: "verschieben",
+                titel: "Einen Block auf eine andere Seite",
+                text: "Ausschneiden, dann die Zielseite antippen, dann einfügen — das geht über Seiten- und Tagesgrenzen hinweg. Für den Nachbarn gibt es die Abkürzung eine Seite vor oder zurück. Ein Tagebuchtext bleibt bei seinem Tag; warum, sagt die App an Ort und Stelle.",
+                weg: "Blockmenü unten (trägt den Namen des Blocks)",
+                ziel: nil,
+                stichworte: ["kopieren", "ausschneiden", "einfügen", "ablage", "seite wechseln"]),
+            Handbucheintrag(
+                id: "ausschnitt",
+                titel: "Bildausschnitt statt Rahmen",
+                text: "Zwei Finger über dem gewählten Foto verschieben und zoomen das Bild IM Rahmen. Die Griffe an den Kanten ändern dagegen den Rahmen auf der Seite. Gefüllt wird immer: Was übersteht, wird beschnitten.",
+                weg: "Zwei Finger über dem gewählten Foto",
+                ziel: nil,
+                stichworte: ["zuschneiden", "crop", "bildausschnitt", "zoom"]),
+            Handbucheintrag(
+                id: "einrasten",
+                titel: "Einrasten an Rand und Nachbarn",
+                text: "Beim Schieben fängt ein Block an Satzspiegel, Schnittkante, Sicherheitsabstand und an den Kanten der Nachbarn. Eine Linie sagt dabei, woran. Abschalten geht; der genaue Wert in Millimetern steht im Inspektor unter Lage.",
+                weg: "Drei-Punkte-Menü \u{2192} An Rand und Nachbarn einrasten",
+                ziel: nil,
+                stichworte: ["fangen", "ausrichten", "raster", "magnet"]),
+            Handbucheintrag(
+                id: "unterschrift",
+                titel: "Bildunterschrift",
+                text: "Ein Doppeltipp auf das Foto schaltet sie ein — oder der Knopf in der Leiste unten. Der Text gehört dem Foto und reist mit ihm mit. Wo eine eingeschaltete Unterschrift leer bleibt, steht auf dem Bildschirm eine dünne Marke; im Druck bleibt die Zeile leer, und die Druckprüfung zählt sie.",
+                weg: "Doppeltipp auf das Foto",
+                ziel: nil,
+                stichworte: ["beschriftung", "caption", "text unter dem bild"]),
+        ])
+
+    private static let tage = Handbuchkapitel(
+        id: "tage",
+        titel: "Ein Tag",
+        symbol: "calendar",
+        einleitung: "Der Inhalt gehört dem Tag, die Seiten sind ein Vorschlag darüber. Deshalb lässt sich jederzeit neu setzen, ohne dass Inhalt verloren geht.",
+        eintraege: [
+            Handbucheintrag(
+                id: "tagesmenue",
+                titel: "Alles zu diesem Tag",
+                text: "Das Menü unten rechts trägt das Datum des Tages, der oben im Bild steht. Dort liegen Text und Fotos, die Reisepunkte, die Seiten und das Neuanordnen.",
+                weg: "Unten rechts, der Knopf mit dem Datum",
+                ziel: nil,
+                stichworte: ["tag", "datum", "tagesmenü"]),
+            Handbucheintrag(
+                id: "ueberschriften",
+                titel: "Überschrift, zweite Überschrift, Datumszeile",
+                text: "Sie stehen am Tag und nicht im Block — deshalb überleben sie jedes Neuanordnen. Eintippen lassen sie sich im Tagesmenü oder mit einem Doppeltipp auf der Seite. Wie die Datumszeile aussieht, entscheidet das Buch; ein einzelner Tag darf abweichen.",
+                weg: "Tagesmenü \u{2192} Text und Fotos",
+                ziel: nil,
+                stichworte: ["titel", "kopfzeile", "datumszeile", "unterüberschrift"]),
+            Handbucheintrag(
+                id: "muster",
+                titel: "Wie die Seiten gesetzt werden",
+                text: "Nach Inhalt gesetzt ist der Regelfall: Die App misst den Text und die Bilder und verteilt sie so, dass die Seite gefüllt ist. Daneben gibt es feste Muster — Text zuerst, Karte oben, ganzseitige Bilder. Ein Muster lässt sich für alle Tage übernehmen.",
+                weg: "Tagesmenü \u{2192} Seiten setzen",
+                ziel: nil,
+                stichworte: ["layout", "muster", "anordnung", "vorlage"]),
+            Handbucheintrag(
+                id: "handarbeit",
+                titel: "Was von Hand geändert wurde, bleibt",
+                text: "Sobald ein Block verschoben, gedreht oder in der Größe geändert wurde, gilt der Tag als Handarbeit und wird beim automatischen Neuanordnen übersprungen. Ein ausdrückliches Neuanordnen fragt vorher nach. In der Tagesliste steht an solchen Tagen ein Zeichen.",
+                weg: "Tagesmenü \u{2192} Seiten neu anordnen",
+                ziel: nil,
+                stichworte: ["neu anordnen", "zurücksetzen", "automatik", "überschreiben"]),
+            Handbucheintrag(
+                id: "seitenliste",
+                titel: "Seiten einfügen und entfernen",
+                text: "Die Seitenliste eines Tages zeigt, was auf jeder Seite steht, und lässt an einer bestimmten Stelle eine leere einfügen oder eine entfernen. Eine von Hand angelegte Seite bleibt auch beim Neuanordnen stehen.",
+                weg: "Tagesmenü \u{2192} Seiten",
+                ziel: nil,
+                stichworte: ["leere seite", "einfügen", "löschen", "reihenfolge"]),
+            Handbucheintrag(
+                id: "punkte",
+                titel: "Reisepunkte ändern",
+                text: "Auf einer bildschirmfüllenden Karte: ein Tipp wählt einen Punkt, das Fadenkreuz versetzt ihn, die Uhrzeit wird getippt. Mehrere Zeitstempel lassen sich gemeinsam verschieben — für eine Kamera, deren Uhr auf der Zeit von zu Hause stand. Ausreißer markiert die App, gelöscht wird nie von selbst.",
+                weg: "Tagesmenü \u{2192} Reisepunkte",
+                ziel: nil,
+                stichworte: ["karte", "gps", "uhrzeit", "zeitzone", "ausreißer"]),
+        ])
+
+    private static let aussehen = Handbuchkapitel(
+        id: "aussehen",
+        titel: "Wie das Buch aussieht",
+        symbol: "paintbrush",
+        einleitung: "Alles hier gilt dem GANZEN Buch. Was an einer einzelnen Stelle nicht ausdrücklich anders gesetzt ist, folgt dieser Einstellung — auch später noch.",
+        eintraege: [
+            Handbucheintrag(
+                id: "stil",
+                titel: "Stil wählen",
+                text: "Sechs Stile setzen alles auf einmal: Schrift, Farbe, Ränder, Fugen, Wirkung der Fotos und die Vorliebe für bestimmte Seitenmuster. Ein Stil ist ein Anfang und keine Schranke — danach lässt sich jede Einzelheit weiter ändern.",
+                weg: "Buchsymbol \u{2192} Stil wählen",
+                ziel: .stil,
+                stichworte: ["fotobuch", "magazin", "album", "tagebuch", "postkarte", "aussehen"]),
+            Handbucheintrag(
+                id: "schrift",
+                titel: "Schrift und Ausrichtung",
+                text: "Vier Rollen: Titel, zweite Überschrift, Fließtext, Bildunterschrift. Dazu Blocksatz, Silbentrennung und der Absatzabstand. Welche Schriften zur Wahl stehen, misst die App auf dem Gerät — mitgeliefert wird keine.",
+                weg: "Buchsymbol \u{2192} Schrift und Ausrichtung",
+                ziel: .typografie,
+                stichworte: ["schriftart", "font", "blocksatz", "silbentrennung", "größe", "absatz"]),
+            Handbucheintrag(
+                id: "fotostil",
+                titel: "Wie sich Fotos abheben",
+                text: "Schatten, weißer Rand, Linie — einmal für alle Fotos des Buches. Ein einzelnes Foto darf abweichen; im Inspektor steht dann, dass es abweicht, und ein Knopf nimmt das zurück.",
+                weg: "Buchsymbol \u{2192} Fotos",
+                ziel: .fotostil,
+                stichworte: ["schatten", "rand", "rahmen", "polaroid"]),
+            Handbucheintrag(
+                id: "textstil",
+                titel: "Wie Textfelder aussehen",
+                text: "Farbiger Grund, Innenabstand, Linie, Schatten — für alle Textfelder auf einmal. Ein halbdurchsichtiger Grund lässt ein Foto darunter durchscheinen und hält die Schrift trotzdem lesbar.",
+                weg: "Buchsymbol \u{2192} Textfelder",
+                ziel: .textstil,
+                stichworte: ["hintergrund", "kasten", "deckkraft", "transparenz"]),
+            Handbucheintrag(
+                id: "hintergrund",
+                titel: "Seitenhintergrund",
+                text: "Einfarbig, Verlauf, Foto mit Schleier oder Papierkorn. Ein Foto lässt sich zoomen und verschieben und darf über die ganze Doppelseite laufen. Nimmt der Schleier den Farben ihre Kraft, holt ein Regler sie zurück.",
+                weg: "Buchsymbol \u{2192} Seitenhintergrund",
+                ziel: .hintergrund,
+                stichworte: ["papier", "farbe", "verlauf", "doppelseite", "schleier"]),
+            Handbucheintrag(
+                id: "wasserzeichen",
+                titel: "Wasserzeichen",
+                text: "Bis zu zehn Bilder, halbdurchsichtig, auf jeder Seite an einer freien Stelle — die sucht die App selbst und weicht Fotos aus. Welches Bild wo liegt und wie schräg es steht, lässt sich je Seite von Hand nachstellen.",
+                weg: "Buchsymbol \u{2192} Wasserzeichen",
+                ziel: .wasserzeichen,
+                stichworte: ["logo", "symbol", "stempel", "durchsichtig"]),
+        ])
+
+    private static let umschlagUndFormat = Handbuchkapitel(
+        id: "format",
+        titel: "Format, Ränder, Umschlag",
+        symbol: "book.closed",
+        einleitung: "Was die Druckerei verlangt, steht hier — und was daraus folgt, steht in der Übersicht über alle Maße.",
+        eintraege: [
+            Handbucheintrag(
+                id: "seitenformat",
+                titel: "Seitenformat",
+                text: "Sieben Vorlagen und ein freies Maß. Wer das Format wechselt, kann das ganze Buch mitrechnen lassen: Blöcke, Ränder und Schriftgrößen werden mit demselben Faktor umgerechnet — A4 nach A5 geht dabei auf den Punkt auf. Eigene Maße lassen sich als Vorlage sichern.",
+                weg: "Buchsymbol \u{2192} Seitenformat",
+                ziel: .seitenformat,
+                stichworte: ["a4", "a5", "quadratisch", "größe", "maß", "umrechnen"]),
+            Handbucheintrag(
+                id: "zugaben",
+                titel: "Anschnitt, Sicherheitsabstand, Bundsteg",
+                text: "Der ANSCHNITT liegt außerhalb des Endformats und wird weggeschnitten; dorthin muss alles laufen, was randabfallend sein soll. Der SICHERHEITSABSTAND liegt innerhalb; dort soll nichts stehen, was gelesen werden muss — am Bund darf ein eigener Wert gelten. Der BUNDSTEG ist zusätzlicher Rand zur Heftung und von Haus aus null.",
+                weg: "Buchsymbol \u{2192} Ränder und Druckzugaben",
+                ziel: .gestaltung,
+                stichworte: ["beschnitt", "bleed", "rand", "falz", "bund", "3 mm", "5 mm"]),
+            Handbucheintrag(
+                id: "umschlag",
+                titel: "Der Umschlag",
+                text: "Er ist ein eigener Bogen: links die Rückseite, in der Mitte der Rücken, rechts die Titelseite. Die Rückenbreite kommt aus einer eingetragenen Zahl, aus der Tabelle des Druckdienstes oder aus der Rechnung — welche es war, steht immer dabei. Eigene Felder und Bilder gehen auf Titel- und Rückseite.",
+                weg: "Buchsymbol \u{2192} Umschlag und Titelseite",
+                ziel: .umschlag,
+                stichworte: ["cover", "titelseite", "rücken", "u2", "u3", "hardcover"]),
+            Handbucheintrag(
+                id: "seitenzahlen",
+                titel: "Seitenzahlen und Kopfzeile",
+                text: "Beide gehören dem Buch und nicht einer Seite — sie werden beim Zeichnen jeder Seite ergänzt. Auf der Titelseite, der Rückseite und auf jeder Seite, die ein Bild ganz ausfüllt, stehen sie nicht.",
+                weg: "Buchsymbol \u{2192} Ränder und Druckzugaben",
+                ziel: .gestaltung,
+                stichworte: ["paginierung", "nummer", "kopfzeile"]),
+        ])
+
+    private static let ausgeben = Handbuchkapitel(
+        id: "ausgeben",
+        titel: "Prüfen und ausgeben",
+        symbol: "printer",
+        einleitung: "Ein Buch geht einmal in den Druck und kommt eine Woche später als Stapel Papier zurück. Deshalb steht vor dem Ausgeben die Prüfung.",
+        eintraege: [
+            Handbucheintrag(
+                id: "druckpruefung",
+                titel: "Druckprüfung",
+                text: "Was einem Druckdienst auffallen würde: zu grobe Bilder, fehlender Anschnitt, Text, der nicht in seinen Kasten passt, Blöcke im Sicherheitsabstand, eine ungerade Seitenzahl. Sortiert nach Dringlichkeit und kopierbar.",
+                weg: "Drei-Punkte-Menü \u{2192} Druckprüfung",
+                ziel: .druckpruefung,
+                stichworte: ["prüfen", "fehler", "kontrolle", "dpi", "auflösung"]),
+            Handbucheintrag(
+                id: "ausgabeformat",
+                titel: "Ausgabeformat und Maße",
+                text: "Alle Zahlen auf einem Bildschirm, wie sie der Druckdienst braucht: Endformat, Bogenmaß im PDF, Anschnitt, Sicherheitsabstand, Ränder, Bundsteg, Rückenbreite, Bildgüte. Jede Zeile sagt, ob sie eine Einstellung ist und wo man sie ändert — kopierbar zum Vergleich mit der Bestellung.",
+                weg: "Drei-Punkte-Menü \u{2192} Ausgabeformat und Maße",
+                ziel: .ausgabeformat,
+                stichworte: ["maße", "bogen", "trimbox", "bestellung", "druckerei"]),
+            Handbucheintrag(
+                id: "pdf",
+                titel: "Als PDF sichern",
+                text: "Das ganze Buch als Druckvorlage: Endformat und Anschnitt stehen als TrimBox und BleedBox darin, der Text bleibt Text. Die Bildgüte lässt sich wählen; darunter steht, wie groß die Datei ungefähr wird — bevor sie geschrieben ist.",
+                weg: "Drei-Punkte-Menü \u{2192} Als PDF sichern",
+                ziel: .ausgabe,
+                stichworte: ["export", "druckvorlage", "datei", "hochladen"]),
+            Handbucheintrag(
+                id: "anordnung",
+                titel: "Doppelseiten, Umschlag getrennt, Broschüre",
+                text: "Manche Dienste wollen fertige Doppelseiten, andere zwei Dateien — eine für den Umschlag, eine für den Innenteil. Und für den eigenen Drucker gibt es die Broschüre: Die Seiten werden so umsortiert, dass ein gefalteter Stapel ein Heft ergibt.",
+                weg: "Drei-Punkte-Menü \u{2192} Abschnitt Ausgeben",
+                ziel: nil,
+                stichworte: ["doppelseite", "umschlag", "broschüre", "rückenstich", "drucken", "heft"]),
+            Handbucheintrag(
+                id: "bildguete",
+                titel: "Warum die Datei so groß wird",
+                text: "Jedes Bild wird auf die Fläche gerechnet, die es auf dem Papier einnimmt. Wer die Güte hochsetzt, bekommt mehr Bildpunkte je Zentimeter und eine größere Datei; die Schätzung darunter sagt vorher, wie viel es wird. 300 dpi ist das, was Druckdienste verlangen.",
+                weg: "Drei-Punkte-Menü \u{2192} Als PDF sichern",
+                ziel: .ausgabe,
+                stichworte: ["gigabyte", "groß", "dpi", "auflösung", "qualität"]),
+        ])
+
+    private static let sichern = Handbuchkapitel(
+        id: "sichern",
+        titel: "Sichern und weitergeben",
+        symbol: "icloud",
+        einleitung: "Ein Reisetagebuch gibt es nur einmal. Deshalb wird über eine temporäre Datei gesichert, die getauscht wird — eine halb geschriebene Reise wäre der Verlust eines Buches.",
+        eintraege: [
+            Handbucheintrag(
+                id: "icloud",
+                titel: "Über iCloud abgleichen",
+                text: "Bücher liegen dann im iCloud-Ordner der App und stehen auf jedem Gerät. Umschalten kopiert und löscht nichts — wer zurückschaltet, findet seine Bücher auf dem Gerät vor. Bei einem Konflikt gewinnt der neuere Stand, und der andere bleibt als eigene Fassung liegen.",
+                weg: "Bücherregal \u{2192} Zahnrad \u{2192} Einstellungen",
+                ziel: nil,
+                stichworte: ["synchronisieren", "ipad", "iphone", "wolke", "konflikt"]),
+            Handbucheintrag(
+                id: "datei",
+                titel: "Buch als Datei",
+                text: "Eine .reisebuch-Datei trägt das ganze Buch samt aller Bilder. Vor dem Einlesen sagt die App, was darin steht und ob sie ein vorhandenes Buch ersetzen würde.",
+                weg: "Drei-Punkte-Menü \u{2192} Buch als Datei sichern",
+                ziel: nil,
+                stichworte: ["export", "backup", "weitergeben", "teilen", "reisebuch"]),
+            Handbucheintrag(
+                id: "duplizieren",
+                titel: "Ein Buch duplizieren",
+                text: "Kopiert wird beides — die Beschreibung und der Bilderordner. Ein Buch mit fremdem Bilderordner wäre eine Zeitbombe: Wer die Kopie löscht, nähme dem Urbuch alle Fotos mit.",
+                weg: "Drei-Punkte-Menü \u{2192} Dieses Buch duplizieren",
+                ziel: nil,
+                stichworte: ["kopie", "variante", "sicherung"]),
+            Handbucheintrag(
+                id: "widerrufen",
+                titel: "Rückgängig",
+                text: "Der Knopf oben links nimmt die letzten fünfundzwanzig Schritte zurück. Gemerkt wird beim ANFANG einer Geste, nicht bei jedem Bildpunkt — sonst wäre der Stapel nach einer Fingerbewegung voll.",
+                weg: "Oben links, neben Bücher",
+                ziel: nil,
+                stichworte: ["undo", "zurück", "versehen"]),
+        ])
+
+    private static let grenzen = Handbuchkapitel(
+        id: "grenzen",
+        titel: "Was die App nicht kann",
+        symbol: "exclamationmark.triangle",
+        einleitung: "Lieber eine Lücke als eine Zusage, die nicht hält. Was hier steht, ist nicht vergessen worden, sondern bewusst nicht gebaut.",
+        eintraege: [
+            Handbucheintrag(
+                id: "cmyk",
+                titel: "Kein CMYK",
+                text: "Die Bilder bleiben in RGB. Für Fotobuchdienste ist das richtig — sie verlangen RGB ausdrücklich und rechnen selbst um. Wer bei einer Offsetdruckerei mit ISO Coated v2 bestellt, muss die Datei vorher umwandeln lassen; iOS kann kein CMYK-PDF schreiben.",
+                weg: "",
+                ziel: nil,
+                stichworte: ["farbraum", "offset", "iso coated", "druckerei"]),
+            Handbucheintrag(
+                id: "umfliessen",
+                titel: "Text fließt nicht um ein Bild herum",
+                text: "Ein Textkasten ist ein Rechteck. Text um eine Form herum zu setzen hieße, jede Zeile einzeln zu setzen — mit einem zweiten Umbruch neben dem, mit dem die App misst. Was geht: ein Bild NEBEN dem Text, mit einer schmalen Spalte daneben.",
+                weg: "",
+                ziel: nil,
+                stichworte: ["umfluss", "textfluss", "form"]),
+            Handbucheintrag(
+                id: "ruecken",
+                titel: "Auf dem Buchrücken steht eine Zeile",
+                text: "Der Rücken ist ein rund zwölf Millimeter breiter Streifen mit eigener Geometrie. Er trägt einen einstellbaren Text; eigene Felder oder Bilder gibt es dort nicht.",
+                weg: "",
+                ziel: nil,
+                stichworte: ["rücken", "buchrücken", "beschriftung"]),
+            Handbucheintrag(
+                id: "karte",
+                titel: "Die Karte zeigt die Verbindung, nicht den Weg",
+                text: "Gezeichnet wird die Linie von Punkt zu Punkt. Welche Straße dazwischen lag, steht in keinem Foto — und eine erfundene Route sähe aus wie eine Auskunft. Unter der Karte steht das auch.",
+                weg: "",
+                ziel: nil,
+                stichworte: ["route", "strecke", "straße", "luftlinie"]),
+            Handbucheintrag(
+                id: "schrifteinbettung",
+                titel: "Ob eine Schrift im PDF landet, wird gemessen",
+                text: "Ob eine Schrift eingebettet werden DARF, steht in ihr selbst — die Druckprüfung liest es aus. Ob sie danach wirklich in der Datei steht, sagt erst ein Blick in das fertige PDF. Versprochen wird es nicht.",
+                weg: "Drei-Punkte-Menü \u{2192} Druckprüfung",
+                ziel: .druckpruefung,
+                stichworte: ["font", "einbetten", "lizenz"]),
+        ])
+}

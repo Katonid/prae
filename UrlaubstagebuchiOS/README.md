@@ -480,6 +480,81 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ein Handbuch in der App (1.0.77)
+
+Ansage des Nutzers, 09/2026: „Die Funktionen sind sehr mannigfaltig und zum
+Teil auch versteckt, so dass ich finde, dass das sinnvoll wäre. Und an der
+Stelle wäre es vielleicht auch noch einmal sinnvoll, wenn du die
+Menüstruktur bzw. die enthaltenen Funktionen daraufhin überprüfst, ob sie
+intuitiv auffindbar sind."
+
+### Neun Kapitel, eine Suche, ein Sprung
+
+`Views/Handbuch.swift` trägt den Inhalt, `Views/HandbuchView.swift` zeigt
+ihn. Neun Kapitel — Der Anfang, Die Arbeitsfläche, Text/Bilder/Karten, Ein
+Tag, Wie das Buch aussieht, Format/Ränder/Umschlag, Prüfen und ausgeben,
+Sichern und weitergeben, **Was die App nicht kann**.
+
+**Jeder Eintrag trägt seinen WEG.** Ein Handbuch, das eine Funktion
+beschreibt und einen danach suchen lässt, ist die Frage von vorhin noch
+einmal. Wo es ein Blatt dafür gibt, springt ein Knopf gleich dorthin; wo es
+keins gibt (Gesten, Knöpfe in der Leiste), steht nur der Weg — das ist
+ehrlicher als ein Knopf, der woanders landet.
+
+**Der Sprung geht über den Blattwunsch.** Das Handbuch ist selbst ein
+Blatt, und ein Blatt über einem Blatt wäre auf dem iPad ein Kärtchen auf
+einem Kärtchen. Es macht sich zu, und die Wurzel öffnet das Ziel im
+`onDismiss` — dieselbe Bauweise wie beim geführten Weg „Buch aufbauen" seit
+1.0.18. Dafür trägt `alsNaechstes` seit 1.0.77 **beides**: das Ziel und ob
+es danach zurückgeht. Bis 1.0.76 wurde die Rückkehr erschlossen („alles
+außer dem Aufbau führt dorthin zurück"), und das trug nur, solange ein
+einziger Weg sprang. Ein Schalter daneben wäre der naheliegende Griff und
+der falsche — **der Wunsch trägt das Ziel** (Regel seit 1.0.9).
+
+**Die Suche ebnet Umlaute ein**, und das ist ausdrücklich der Gegenfall zur
+Hausregel. Die gilt dem Vergleich von NAMEN, wo eine falsche Gleichsetzung
+Schaden anrichtet (zwei Personen, zwei Haltestellen). In einer Volltextsuche
+kostet ein Treffer zu viel nichts, und wer „Ruecken" tippt, sucht den
+Rücken.
+
+### Die Bedienungskarte bleibt
+
+Sie zählt die **Gesten** auf — was man mit dem Finger tut, und das sieht man
+einer Seite nicht an. Das Handbuch zählt die **Funktionen** auf und sagt, wo
+sie stehen. Zwei verschiedene Fragen, zwei Listen. Das Fragezeichen unten
+führt seit 1.0.77 ins Handbuch, und dort steht die Gestenkarte als erster
+Eintrag — ein Tipp weiter, dafür daneben die Antwort auf die andere Hälfte
+der Frage.
+
+### Das Mehr-Menü ist nach Fragen geordnet
+
+Es trug sechzehn Einträge ohne Gliederung — und genau dieses Menü ist der
+Ort, an dem dreimal etwas lag, das niemand fand (Broschüre 1.0.37, zwei
+Dateien 1.0.52, Druckprüfung 1.0.76). Jetzt fünf Abschnitte, benannt nach
+dem, was man vorhat: **Vor dem Druck**, **Ausgeben**, **Das ganze Buch**,
+**Hilfen beim Anordnen**, **Hilfe und Prüfen**.
+
+### Zwei Wege hießen nach dem, was nicht drinsteht
+
+- **„Ränder, Karte, Seitenzahlen…"** heißt jetzt **„Ränder und
+  Druckzugaben…"**. Dahinter liegen Anschnitt, Sicherheitsabstand und
+  Bundsteg — also alles, was eine Druckerei verlangt, und der Name nannte
+  nichts davon. **Wer einen Menüpunkt umbenennt, zieht jeden Verweis mit**:
+  Er stand an zwölf Stellen (Steckbrief, Bedienungskarte, Handbuch).
+- Im Block-Inspektor stand ein Weg, den es seit mehreren Fassungen nicht
+  mehr gibt („Buch → Format, Ränder, Karte"). Beim Umbenennen aufgefallen.
+  **Ein Weg, der auf einen Namen zeigt, den es nicht mehr gibt, ist
+  schlimmer als kein Weg** — dieselbe Lehre wie 1.0.49.
+
+### Nicht gemessen (1.0.77)
+
+Nichts davon ist auf einem Gerät gesehen worden. Und das Wichtigste: **Ob
+die Funktionen damit auffindbar SIND, sagt kein Handbuch, sondern der
+nächste Mensch, der die App zum ersten Mal öffnet.** Geändert sind Wege und
+Namen, und das ist keine Messung — dieselbe Einschränkung wie bei den Menüs
+in 1.0.20 und 1.0.49. Die Wege im Handbuch sind gegen den Quelltext
+geprüft, nicht in der laufenden App abgeklickt.
+
 ## Zwei Linien, zwei Zahlen, ein Menüpunkt (1.0.76)
 
 Ansage des Nutzers, 09/2026: „Jetzt lese ich, dass die Druckerei zusätzlich

@@ -92,7 +92,23 @@ struct ReiseView: View {
     // dem iPad ein Kärtchen auf einem Kärtchen — deshalb macht das eine zu
     // und das nächste auf, im `onDismiss`. Dieselbe Regel wie bei den
     // Dateiwählern in Tafelbild: Der Wunsch trägt das Ziel.
-    @State private var alsNaechstes: Blatt?
+    @State private var alsNaechstes: Blattwunsch?
+
+    // DER WUNSCH TRÄGT DAS ZIEL — UND OB ES ZURÜCKGEHT (ab 1.0.77).
+    //
+    // Bis 1.0.76 stand hier nur das Ziel, und die Rückkehr wurde im
+    // `onDismiss` erschlossen: Alles außer dem Aufbau selbst führte
+    // wieder dorthin zurück. Das trug, solange nur der geführte Weg
+    // sprang. Das Handbuch springt aber auch — und von dort soll es
+    // NICHT in den Aufbau weitergehen. Ein Schalter daneben wäre der
+    // naheliegende Griff und der falsche (Regel seit 1.0.9): Der Wunsch
+    // trägt beides.
+    struct Blattwunsch {
+        var ziel: Blatt
+        /// Ob nach dem Ziel wieder der Aufbau kommt. Beim geführten Weg
+        /// ja, bei einem Sprung aus dem Handbuch nein.
+        var zurueckZumAufbau: Bool = false
+    }
 
     // Der Wunsch trägt das Ziel, kein Schalter daneben — dieselbe Regel
     // wie bei den Dateiwählern in Tafelbild. Ein `URL` ist nicht
@@ -127,6 +143,7 @@ struct ReiseView: View {
         case ausgabe
         case ausgabeformat
         case druckpruefung
+        case handbuch
         case zweiDateien
         case nurUmschlag
         case doppelseiten
@@ -159,6 +176,7 @@ struct ReiseView: View {
             case .ausgabe: return "ausgabe"
             case .ausgabeformat: return "ausgabeformat"
             case .druckpruefung: return "druckpruefung"
+            case .handbuch: return "handbuch"
             case .zweiDateien: return "zweidateien"
             case .nurUmschlag: return "nurumschlag"
             case .doppelseiten: return "doppelseiten"
@@ -180,12 +198,16 @@ struct ReiseView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .sheet(item: $blatt, onDismiss: {
-            guard let naechstes = alsNaechstes else { return }
+            guard let wunsch = alsNaechstes else { return }
             // Nach einem Einleseschritt geht es zurück in den Aufbau — dort
-            // steht dann, was daraus geworden ist. Nach dem Aufbau selbst
-            // endet die Kette.
-            alsNaechstes = naechstes.id == "aufbau" ? nil : .aufbau
-            blatt = naechstes
+            // steht dann, was daraus geworden ist. Ein Sprung aus dem
+            // Handbuch endet dagegen an seinem Ziel.
+            if wunsch.zurueckZumAufbau {
+                alsNaechstes = Blattwunsch(ziel: .aufbau)
+            } else {
+                alsNaechstes = nil
+            }
+            blatt = wunsch.ziel
         }) { welches in
             blattInhalt(welches)
         }
@@ -1052,10 +1074,15 @@ struct ReiseView: View {
             // Finger, acht Punkte am Rand. Deshalb steht hier ein Fragezeichen
             // und nicht in einem Menü: Wer nicht weiß, wie etwas geht, klappt
             // kein Menü auf, in dem er es vermutet.
+            //
+            // Seit 1.0.77 führt es ins HANDBUCH statt gleich in die
+            // Gestenkarte. Die steht dort als erster Eintrag — ein Tipp
+            // weiter, dafür daneben die Antwort auf die andere Hälfte der
+            // Frage: nicht nur WIE etwas geht, sondern WO es steht.
             Button {
-                blatt = .bedienung
+                blatt = .handbuch
             } label: {
-                Label("Bedienung", systemImage: "questionmark.circle")
+                Label("Hilfe", systemImage: "questionmark.circle")
             }
 
             Spacer()
@@ -1445,7 +1472,7 @@ struct ReiseView: View {
                     blatt = .umschlag
                 }
                 Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
-                Button("Ränder, Karte, Seitenzahlen…", systemImage: "ruler") {
+                Button("Ränder und Druckzugaben…", systemImage: "ruler") {
                     blatt = .gestaltung
                 }
             }
@@ -1457,126 +1484,137 @@ struct ReiseView: View {
     // ALLES SELTENE.
     private var mehrMenue: some View {
         Menu {
-            // WAS GERADE AUSGEGEBEN WIRD (eigener Punkt ab 1.0.75).
+            // DAS MENÜ IST NACH FRAGEN GEORDNET (ab 1.0.77).
             //
-            // Ansage des Nutzers, 09/2026: „Das gipfelt jetzt in einer
-            // Fülle von Formaten. Vielleicht wäre es gut, sich innerhalb
-            // der App irgendwo anzeigen lassen zu können, wie denn jetzt
-            // das Ausgabeformat aussieht und wie die einzelnen Werte sind."
-            //
-            // Er steht VOR dem Ausgeben, weil man ihn davor braucht — und
-            // als eigener Punkt, nicht als Zeile im Ausgabeblatt: Das ist
-            // der Ort, an dem in 1.0.37 und 1.0.52 zweimal etwas lag, das
-            // niemand fand. Vom Ausgabeblatt aus führt trotzdem ein Weg
-            // dorthin, mit der dort gewählten Bildgüte.
-            // DIE DRUCKPRÜFUNG ALS EIGENER PUNKT (ab 1.0.76).
-            //
-            // Ansage des Nutzers, 09/2026: „Damit sind wir an der Stelle,
-            // wo ich gerne einen Menüpunkt einbauen würde namens
-            // Druckprüfung. … Zu diesem Punkt meine ich mich zu erinnern,
-            // dass mir die App an irgendeiner Stelle bereits
-            // rückgemeldet hat, dass beispielsweise Text nicht ganz in ein
-            // Textfeld gepasst hat. Ich finde diesen Menüpunkt leider
-            // nicht mehr wieder."
-            //
-            // Er hat sie gesehen: `Druckpruefung.vorab` läuft seit 1.0.1
-            // und zählt abgeschnittenen Text mit. Sie stand aber
-            // ausschließlich im Ausgabeblatt, unter der halben Seite
-            // Einstellungen — zwölfte Auflage von „es war da, man fand es
-            // nicht". Sie steht deshalb GANZ OBEN und heißt nach der
-            // Sache.
-            Button("Druckprüfung…", systemImage: "checkmark.seal") {
-                blatt = .druckpruefung
-            }
-            Button("Ausgabeformat und Maße…", systemImage: "doc.text.magnifyingglass") {
-                blatt = .ausgabeformat
-            }
-            Divider()
-            Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
-            // ZWEI DATEIEN FÜR DEN DRUCKDIENST (eigener Punkt ab 1.0.52).
-            //
-            // Den Weg gibt es seit 1.0.50 — als eine von drei Zeilen in
-            // einem Picker hinter „Als PDF sichern…". Gefunden hat ihn
-            // niemand: „Ich möchte bei der Exportfunktion Einbauen, dass
-            // automatisch ein Export von zwei PDF-Dateien vorgenommen
-            // werden soll." (09/2026). Zehnte Auflage von „es war da, man
-            // fand es nicht", und dieselbe Antwort wie bei der Broschüre in
-            // 1.0.37: derselbe Bildschirm, nur mit Vorwahl und mit einem
-            // Namen, der die Sache nennt statt des Werkzeugs.
-            if werk.reise.hatRueckseite {
-                Button("Umschlag und Innenteil getrennt…", systemImage: "doc.on.doc") {
-                    blatt = .zweiDateien
+            // Es trug sechzehn Einträge ohne Gliederung — und genau
+            // dieses Menü ist der Ort, an dem dreimal etwas lag, das
+            // niemand fand (Broschüre 1.0.37, zwei Dateien 1.0.52,
+            // Druckprüfung 1.0.76). Die Abschnitte heißen nach dem, was
+            // man vorhat, und nicht nach dem Handwerk.
+            Section("Vor dem Druck") {
+                // WAS GERADE AUSGEGEBEN WIRD (eigener Punkt ab 1.0.75).
+                //
+                // Ansage des Nutzers, 09/2026: „Das gipfelt jetzt in einer
+                // Fülle von Formaten. Vielleicht wäre es gut, sich innerhalb
+                // der App irgendwo anzeigen lassen zu können, wie denn jetzt
+                // das Ausgabeformat aussieht und wie die einzelnen Werte sind."
+                //
+                // Er steht VOR dem Ausgeben, weil man ihn davor braucht — und
+                // als eigener Punkt, nicht als Zeile im Ausgabeblatt: Das ist
+                // der Ort, an dem in 1.0.37 und 1.0.52 zweimal etwas lag, das
+                // niemand fand. Vom Ausgabeblatt aus führt trotzdem ein Weg
+                // dorthin, mit der dort gewählten Bildgüte.
+                // DIE DRUCKPRÜFUNG ALS EIGENER PUNKT (ab 1.0.76).
+                //
+                // Ansage des Nutzers, 09/2026: „Damit sind wir an der Stelle,
+                // wo ich gerne einen Menüpunkt einbauen würde namens
+                // Druckprüfung. … Zu diesem Punkt meine ich mich zu erinnern,
+                // dass mir die App an irgendeiner Stelle bereits
+                // rückgemeldet hat, dass beispielsweise Text nicht ganz in ein
+                // Textfeld gepasst hat. Ich finde diesen Menüpunkt leider
+                // nicht mehr wieder."
+                //
+                // Er hat sie gesehen: `Druckpruefung.vorab` läuft seit 1.0.1
+                // und zählt abgeschnittenen Text mit. Sie stand aber
+                // ausschließlich im Ausgabeblatt, unter der halben Seite
+                // Einstellungen — zwölfte Auflage von „es war da, man fand es
+                // nicht". Sie steht deshalb GANZ OBEN und heißt nach der
+                // Sache.
+                Button("Druckprüfung…", systemImage: "checkmark.seal") {
+                    blatt = .druckpruefung
                 }
-                // NUR DER UMSCHLAG (ab 1.0.67). Ansage des Nutzers,
-                // 09/2026: „damit ich jetzt nicht wieder beide Teile
-                // exportieren muss, denn das PDF für das eigentliche Buch
-                // ist mittlerweile knapp 4 GB groß." Ein eigener Punkt und
-                // nicht nur eine Zeile im Picker: Wer am Umschlag etwas
-                // ändert, sucht genau diesen Weg — und der Picker im Blatt
-                // ist derselbe Ort, an dem in 1.0.52 zehn Fassungen lang
-                // etwas stand, das niemand fand.
-                Button("Nur den Umschlag…", systemImage: "book.closed") {
-                    blatt = .nurUmschlag
+                Button("Ausgabeformat und Maße…", systemImage: "doc.text.magnifyingglass") {
+                    blatt = .ausgabeformat
                 }
             }
-            // DOPPELSEITEN (ab 1.0.69). Ansage des Nutzers, 09/2026:
-            // „Offenbar will Saal Digital ein Upload eines PDF mit fertig
-            // gestalteten Doppelseiten." Ein eigener Punkt aus demselben
-            // Grund wie bei den beiden darüber: Der Picker im Blatt ist der
-            // Ort, an dem in 1.0.52 zehn Fassungen lang etwas stand, das
-            // niemand fand.
-            Button("Doppelseiten ausgeben…", systemImage: "rectangle.split.2x1") {
-                blatt = .doppelseiten
+            Section("Ausgeben") {
+                Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
+                // ZWEI DATEIEN FÜR DEN DRUCKDIENST (eigener Punkt ab 1.0.52).
+                //
+                // Den Weg gibt es seit 1.0.50 — als eine von drei Zeilen in
+                // einem Picker hinter „Als PDF sichern…". Gefunden hat ihn
+                // niemand: „Ich möchte bei der Exportfunktion Einbauen, dass
+                // automatisch ein Export von zwei PDF-Dateien vorgenommen
+                // werden soll." (09/2026). Zehnte Auflage von „es war da, man
+                // fand es nicht", und dieselbe Antwort wie bei der Broschüre in
+                // 1.0.37: derselbe Bildschirm, nur mit Vorwahl und mit einem
+                // Namen, der die Sache nennt statt des Werkzeugs.
+                if werk.reise.hatRueckseite {
+                    Button("Umschlag und Innenteil getrennt…", systemImage: "doc.on.doc") {
+                        blatt = .zweiDateien
+                    }
+                    // NUR DER UMSCHLAG (ab 1.0.67). Ansage des Nutzers,
+                    // 09/2026: „damit ich jetzt nicht wieder beide Teile
+                    // exportieren muss, denn das PDF für das eigentliche Buch
+                    // ist mittlerweile knapp 4 GB groß." Ein eigener Punkt und
+                    // nicht nur eine Zeile im Picker: Wer am Umschlag etwas
+                    // ändert, sucht genau diesen Weg — und der Picker im Blatt
+                    // ist derselbe Ort, an dem in 1.0.52 zehn Fassungen lang
+                    // etwas stand, das niemand fand.
+                    Button("Nur den Umschlag…", systemImage: "book.closed") {
+                        blatt = .nurUmschlag
+                    }
+                }
+                // DOPPELSEITEN (ab 1.0.69). Ansage des Nutzers, 09/2026:
+                // „Offenbar will Saal Digital ein Upload eines PDF mit fertig
+                // gestalteten Doppelseiten." Ein eigener Punkt aus demselben
+                // Grund wie bei den beiden darüber: Der Picker im Blatt ist der
+                // Ort, an dem in 1.0.52 zehn Fassungen lang etwas stand, das
+                // niemand fand.
+                Button("Doppelseiten ausgeben…", systemImage: "rectangle.split.2x1") {
+                    blatt = .doppelseiten
+                }
+                // EIN EIGENER MENÜPUNKT FÜR DIE BROSCHÜRE (ab 1.0.37).
+                //
+                // Es gibt sie seit 1.0.27, vollständig gebaut — gefunden hat
+                // sie niemand (Ansage des Nutzers, 09/2026). Sie lag drei
+                // Ebenen tief: hinter „…", darin hinter „Als PDF sichern…"
+                // (klingt nach einer Datei, nicht nach einem Drucker) und dort
+                // hinter einem zugeklappten Picker namens „Umfang" (klingt nach
+                // Seitenzahl). Sechste Auflage von „es war da, man fand es
+                // nicht" — dieselbe Lehre wie beim Gruppenchat in Schulalarm,
+                // beim Sichtumschalter der Abfahrtstafel und bei den
+                // Foto-Einstellungen in 1.0.10.
+                //
+                // Kein zweiter Bildschirm: derselbe, nur mit Vorwahl.
+                Button("Broschüre drucken…", systemImage: "printer") { blatt = .broschuere }
             }
-            // EIN EIGENER MENÜPUNKT FÜR DIE BROSCHÜRE (ab 1.0.37).
-            //
-            // Es gibt sie seit 1.0.27, vollständig gebaut — gefunden hat
-            // sie niemand (Ansage des Nutzers, 09/2026). Sie lag drei
-            // Ebenen tief: hinter „…", darin hinter „Als PDF sichern…"
-            // (klingt nach einer Datei, nicht nach einem Drucker) und dort
-            // hinter einem zugeklappten Picker namens „Umfang" (klingt nach
-            // Seitenzahl). Sechste Auflage von „es war da, man fand es
-            // nicht" — dieselbe Lehre wie beim Gruppenchat in Schulalarm,
-            // beim Sichtumschalter der Abfahrtstafel und bei den
-            // Foto-Einstellungen in 1.0.10.
-            //
-            // Kein zweiter Bildschirm: derselbe, nur mit Vorwahl.
-            Button("Broschüre drucken…", systemImage: "printer") { blatt = .broschuere }
-            Button("Buch als Datei sichern…", systemImage: "shippingbox") { buchSichern() }
-            // ERST SICHERN, DANN KOPIEREN (ab 1.0.33).
-            //
-            // `Regal.duplizieren` liest das Buch aus dem Modell, und das
-            // Sichern läuft sonst verzögert. Ohne diese Zeile fehlte der
-            // Kopie genau das, was man in den letzten Minuten getan hat —
-            // und zwar still, denn die Kopie steht ja da.
-            Button("Dieses Buch duplizieren", systemImage: "plus.square.on.square") {
-                werk.sofortSichern()
-                let buch = werk.reise
-                Task {
-                    let satz = await regal.duplizieren(buch)
-                    werk.meldung = Reisewerk.Meldung(text: satz)
+            Section("Das ganze Buch") {
+                Button("Buch als Datei sichern…", systemImage: "shippingbox") { buchSichern() }
+                // ERST SICHERN, DANN KOPIEREN (ab 1.0.33).
+                //
+                // `Regal.duplizieren` liest das Buch aus dem Modell, und das
+                // Sichern läuft sonst verzögert. Ohne diese Zeile fehlte der
+                // Kopie genau das, was man in den letzten Minuten getan hat —
+                // und zwar still, denn die Kopie steht ja da.
+                Button("Dieses Buch duplizieren", systemImage: "plus.square.on.square") {
+                    werk.sofortSichern()
+                    let buch = werk.reise
+                    Task {
+                        let satz = await regal.duplizieren(buch)
+                        werk.meldung = Reisewerk.Meldung(text: satz)
+                    }
+                }
+                Divider()
+                // ALLES NEU VERTEILEN LASSEN (ab 1.0.38).
+                //
+                // „Alle unberührten Tage neu anordnen" gab es schon — es
+                // überspringt aber jeden Tag mit Handarbeit, und Handarbeit ist
+                // bereits ein verschobener Block. Wer eine neue Fassung der
+                // Satzmaschine auf ein fertiges Buch anwenden will, kam damit
+                // nicht weiter und musste jeden angefassten Tag einzeln über
+                // das Tagesmenü nachziehen.
+                //
+                // Der Menüpunkt heißt nach der SACHE und nicht nach dem
+                // Handwerk, und er führt auf eine Vorschau statt sofort
+                // loszulegen: Was wegfällt, steht vorher da, Tag für Tag.
+                Button("Alles neu verteilen…", systemImage: "arrow.triangle.2.circlepath") {
+                    blatt = .neuverteilen
+                }
+                Button("Alle unberührten Tage neu anordnen", systemImage: "arrow.clockwise") {
+                    werk.alleNeuAnordnen(nurUnberuehrte: true)
                 }
             }
-            Divider()
-            // ALLES NEU VERTEILEN LASSEN (ab 1.0.38).
-            //
-            // „Alle unberührten Tage neu anordnen" gab es schon — es
-            // überspringt aber jeden Tag mit Handarbeit, und Handarbeit ist
-            // bereits ein verschobener Block. Wer eine neue Fassung der
-            // Satzmaschine auf ein fertiges Buch anwenden will, kam damit
-            // nicht weiter und musste jeden angefassten Tag einzeln über
-            // das Tagesmenü nachziehen.
-            //
-            // Der Menüpunkt heißt nach der SACHE und nicht nach dem
-            // Handwerk, und er führt auf eine Vorschau statt sofort
-            // loszulegen: Was wegfällt, steht vorher da, Tag für Tag.
-            Button("Alles neu verteilen…", systemImage: "arrow.triangle.2.circlepath") {
-                blatt = .neuverteilen
-            }
-            Button("Alle unberührten Tage neu anordnen", systemImage: "arrow.clockwise") {
-                werk.alleNeuAnordnen(nurUnberuehrte: true)
-            }
-            Divider()
             Section("Hilfen beim Anordnen") {
                 // DER SCHALTER HEISST NACH ALLEN DREI LINIEN (ab 1.0.76).
                 //
@@ -1597,8 +1635,13 @@ struct ReiseView: View {
                 // `@AppStorage` gehört in eine View und nie ins `Reisewerk`.
                 Toggle("An Rand und Nachbarn einrasten", isOn: $einrastenAn)
             }
-            Divider()
-            Section("Prüfen") {
+            Section("Hilfe und Prüfen") {
+                // DIE HILFE STEHT AUCH HIER (ab 1.0.77). Das
+                // Fragezeichen unten ist der kurze Weg; wer ein Menü
+                // aufklappt und nicht findet, was er sucht, soll von
+                // dort aus ins Handbuch kommen statt zurück auf die
+                // Bühne.
+                Button("Handbuch…", systemImage: "book") { blatt = .handbuch }
                 Toggle("Bedienung prüfen", isOn: $werk.zeigeGriffprobe)
                 // Der Befund wird abgetippt oder abfotografiert, solange er
                 // nur auf der Seite steht — und eine Messung, die man
@@ -1898,7 +1941,12 @@ struct ReiseView: View {
     private func blattInhalt(_ welches: Blatt) -> some View {
         switch welches {
         case .aufbau:
-            AufbauView(werk: werk) { ziel in alsNaechstes = ziel }
+            AufbauView(werk: werk) { ziel in
+                // Der geführte Weg kehrt nach jedem Einleseschritt in den
+                // Aufbau zurück — außer nach dem Aufbau selbst.
+                alsNaechstes = Blattwunsch(ziel: ziel,
+                                           zurueckZumAufbau: ziel.id != "aufbau")
+            }
         case .stil:
             StilView(werk: werk)
         case .hintergrund:
@@ -1937,6 +1985,8 @@ struct ReiseView: View {
             Ausgabeformatblatt(werk: werk)
         case .druckpruefung:
             Druckpruefungblatt(werk: werk)
+        case .handbuch:
+            Handbuchblatt { ziel in alsNaechstes = Blattwunsch(ziel: ziel) }
         case .zweiDateien:
             AusgabeView(werk: werk, vorwahl: .getrennt)
         case .nurUmschlag:
