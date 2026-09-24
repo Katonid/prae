@@ -124,6 +124,10 @@ actor Kartenwerk {
         let form = UIGraphicsImageRendererFormat()
         form.scale = massstab
         form.opaque = true
+        // STANDARDBEREICH heißt sRGB (ab 1.0.89). Ohne diese Zeile nimmt
+        // der Zeichner den erweiterten Bereich des Geräts, und die Karte
+        // trüge ein anderes Profil als alles andere in der Datei.
+        form.preferredRange = .standard
         let zeichner = UIGraphicsImageRenderer(size: groesse, format: form)
         return zeichner.image { zusammenhang in
             untergrund.bild.draw(in: CGRect(origin: .zero, size: groesse))

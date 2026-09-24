@@ -531,11 +531,19 @@ struct Layoutautomat {
                 let hoehe = min(satz.width / aufmacher.seitenverhaeltnis, satz.height * 0.45)
                 let breite = min(satz.width, hoehe * aufmacher.seitenverhaeltnis)
                 let links = satz.minX + (satz.width - breite) / 2
-                bloecke.append(fotoblock(aufmacher, x: links, y: y, breite: breite, hoehe: hoehe))
+                // DIE DRITTE STELLE, und sie hat `angelegt` bis 1.0.89
+                // nicht gefragt. Sie fällt nur auf, wenn das Bild hier
+                // gedreht IST — der Automat dreht an dieser Stelle nichts,
+                // von Hand gedreht wird es trotzdem. Seit 1.0.90 legt die
+                // Reparatur beim Öffnen jede Zeile ohne Handarbeit an ihr
+                // Bild an; hier steht es zusätzlich, damit es gar nicht
+                // erst schief entsteht.
+                let band = fotoblock(aufmacher, x: links, y: y, breite: breite, hoehe: hoehe)
+                bloecke.append(band)
                 if let zeile = unterschriftBlock(aufmacher, x: links, y: y + hoehe,
                                                  breite: breite)
                 {
-                    bloecke.append(zeile)
+                    bloecke.append(angelegt(zeile, an: band))
                 }
                 y += hoehe + unterschriftHoehe(aufmacher, breite: breite) + fuge + 4
             }

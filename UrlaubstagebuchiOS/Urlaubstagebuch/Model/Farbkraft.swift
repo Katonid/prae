@@ -106,8 +106,13 @@ enum Farbkraft {
         guard let sieb = CIFilter(name: "CIColorControls") else { return bild }
         sieb.setValue(ein, forKey: kCIInputImageKey)
         sieb.setValue(stark, forKey: kCIInputSaturationKey)
+        // AUSDRÜCKLICH IN sRGB (ab 1.0.89). Ohne Angabe schreibt CoreImage
+        // in seinen Arbeitsraum, und das gesättigte Bild trüge im PDF ein
+        // anderes Profil als das ungesättigte daneben.
         guard let aus = sieb.outputImage,
-              let fertig = rechner.createCGImage(aus, from: ein.extent)
+              let fertig = rechner.createCGImage(aus, from: ein.extent,
+                                                 format: .RGBA8,
+                                                 colorSpace: Farbraum.sRGB)
         else { return bild }
         return UIImage(cgImage: fertig, scale: bild.scale, orientation: bild.imageOrientation)
     }
@@ -133,7 +138,9 @@ enum Farbkraft {
 
     private static func verkleinert(_ bild: UIImage) -> CGImage? {
         guard let quelle = bild.cgImage else { return nil }
-        let raum = CGColorSpaceCreateDeviceRGB()
+        // Im selben Raum wie die Ausgabe (ab 1.0.89): Gemessen wird, was
+        // in der Datei landet, und nicht, was das Gerät gerade führt.
+        let raum = Farbraum.sRGB
         guard let feld = CGContext(data: nil, width: messkante, height: messkante,
                                    bitsPerComponent: 8, bytesPerRow: messkante * 4,
                                    space: raum,
@@ -151,7 +158,9 @@ enum Farbkraft {
         let speicher = UnsafeMutablePointer<UInt8>.allocate(capacity: laenge)
         defer { speicher.deallocate() }
         speicher.initialize(repeating: 0, count: laenge)
-        let raum = CGColorSpaceCreateDeviceRGB()
+        // Im selben Raum wie die Ausgabe (ab 1.0.89): Gemessen wird, was
+        // in der Datei landet, und nicht, was das Gerät gerade führt.
+        let raum = Farbraum.sRGB
         guard let feld = CGContext(data: speicher, width: messkante, height: messkante,
                                    bitsPerComponent: 8, bytesPerRow: messkante * 4,
                                    space: raum,

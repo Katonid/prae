@@ -480,6 +480,45 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die Zeile legt sich ans Bild (1.0.90)
+
+Mitgedreht wird seit 1.0.86 — aber nur dort, wo eine Zeile **entsteht**.
+Eine Seite, die vorher gesetzt wurde, liegt fertig auf der Platte und kommt
+nie wieder durch den Automaten; und der Aufmacher („Bild zuerst") fragte
+als einzige der drei Stellen nicht nach der Neigung.
+
+Beim Öffnen eines Buches legt sich jetzt jede Unterschrift an ihr Bild —
+Neigung und Lage —, **außer sie wurde von Hand angefasst**. Wer sie selbst
+gesetzt, gedreht oder mit ihrem Bild verschoben hat, behält sie, wie sie
+ist. Der Abstand zum Bild bleibt in jedem Fall unangetastet.
+
+**Nicht gemessen (1.0.90):** Ob die gemeldete Zeile aus einem alten Stand
+stammt oder aus dem Aufmacher, ließ sich nicht entscheiden — beide Lücken
+sind geschlossen.
+
+
+## Farbraum: sRGB (1.0.89)
+
+Bis 1.0.88 liefen drei Wege nebeneinander: Die Farben der App gingen als
+`DeviceRGB` in die Datei — also **ohne Profil** —, die Fotos behielten das
+ihrer Datei (ein iPhone-Foto ist häufig **Display P3**), und die Karten
+entstanden im Vorgabebereich des Geräts.
+
+Jetzt wandelt die App selbst:
+
+- Flächen, Schrift, Linien und Verläufe tragen den sRGB-Raum ausdrücklich.
+- Fotos, Wasserzeichen und Karten werden beim Ausgeben nach sRGB
+  umgerechnet — nur, wenn sie nicht schon dort sind.
+- Durchsichtigkeit bleibt erhalten; misslingt die Umwandlung, geht das Bild
+  unverändert durch.
+- Die Druckprüfung nennt, welche Profile die Bilddateien tragen und wie
+  viele umgerechnet werden.
+
+**Nicht gemessen (1.0.89):** In keine ausgegebene Datei ist hineingesehen
+worden. Ob CoreGraphics den Raum wirklich als ICC-Profil ins PDF schreibt,
+sagt erst ein Blick hinein.
+
+
 ## Die Ausrichtung je Bild (1.0.88)
 
 Die Unterschrift folgt der Rolle „Bildunterschrift" im Buch — und die steht

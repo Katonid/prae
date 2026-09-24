@@ -220,7 +220,7 @@ enum Seitensatz {
             UIColor(white: 0, alpha: 0.72).cgColor,
         ] as CFArray
         let stellen: [CGFloat] = [0, 0.45, 1]
-        guard let verlauf = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+        guard let verlauf = CGGradient(colorsSpace: Farbraum.sRGB,
                                        colors: farben, locations: stellen)
         else {
             zusammenhang.restoreGState()
@@ -296,7 +296,7 @@ enum Seitensatz {
             break
         case .verlauf:
             let farben = [grund.farbe.uiFarbe.cgColor, grund.zweitfarbe.uiFarbe.cgColor] as CFArray
-            if let verlauf = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            if let verlauf = CGGradient(colorsSpace: Farbraum.sRGB,
                                         colors: farben, locations: [0, 1])
             {
                 let bogen = grund.winkel * .pi / 180

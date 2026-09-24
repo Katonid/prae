@@ -734,6 +734,66 @@ final class Reisewerk: ObservableObject, Identifiable {
         for stelle in reise.tage.indices where reise.tage[stelle].seiten.isEmpty {
             seitenNeuSetzen(stelle, mit: werkzeug)
         }
+        zeilenAnsBildLegen()
+    }
+
+    // JEDE UNTERSCHRIFT LIEGT AN IHREM BILD (ab 1.0.90).
+    //
+    // Ansage des Nutzers, 09/2026, an einer Zeile, die waagerecht unter
+    // einem schief stehenden Bild hing: „Ich hätte es gerne so, dass die
+    // Schrift sich automatisch mit dem Bild mitdreht und am unteren Rand zu
+    // sehen ist."
+    //
+    // Mitgedreht wird seit 1.0.86 — an den Stellen, die eine Zeile ANLEGEN,
+    // und beim Drehen von Hand. Was dabei nicht abgedeckt war: eine Seite,
+    // die vor 1.0.86 gesetzt wurde, und der Aufmacher in `bildZuerst`, der
+    // `angelegt` bis 1.0.89 nicht fragte. **Merke: Wer eine Regel an den
+    // Entstehungsstellen einbaut, erreicht damit keinen einzigen Block, der
+    // schon auf der Platte liegt.**
+    //
+    // Angelegt wird deshalb beim Öffnen, und zwar nur, was NICHT von Hand
+    // angefasst wurde: `vonHand` schützt jede Zeile, die jemand selbst
+    // gesetzt, gedreht oder mit ihrem Bild verschoben hat (beides setzt es
+    // seit 1.0.86). Gerechnet wird dieselbe Lage, die der Automat rechnet —
+    // eine zweite Fassung ergäbe eine Seite, die nach dem Öffnen anders
+    // aussieht als nach dem Neuanordnen.
+    //
+    // Geschrieben wird nur, wo sich wirklich etwas ändert: `reise` sichert
+    // über sein `didSet`, und ohne Zuweisung gibt es keine. Ein
+    // Sicherungslauf bei jedem Öffnen wäre ein geänderter Zeitstempel für
+    // nichts — und beim Abgleich ein Buch, das sich ohne Zutun als neuer
+    // ausgibt.
+    @discardableResult
+    func zeilenAnsBildLegen() -> Int {
+        var gerichtet = 0
+        for t in reise.tage.indices {
+            for s in reise.tage[t].seiten.indices {
+                let bloecke = reise.tage[t].seiten[s].bloecke
+                for (stelle, zeile) in bloecke.enumerated() where !zeile.vonHand {
+                    let bildart: Blockinhalt
+                    switch zeile.inhalt {
+                    case let .bildunterschrift(id): bildart = .foto(id)
+                    case .kartenunterschrift: bildart = .karte
+                    default: continue
+                    }
+                    guard let bild = bloecke.first(where: { $0.inhalt == bildart })
+                    else { continue }
+                    // Der Abstand bleibt, wie er ist: Gerichtet wird die
+                    // NEIGUNG und die Lage, die aus ihr folgt — wie weit
+                    // die Zeile unter dem Bild steht, hat entweder der
+                    // Automat gerechnet oder jemand mit der Hand gesetzt.
+                    guard abs(zeile.drehung - bild.drehung) > 0.01 else { continue }
+                    let ungedreht = zeile.rahmen.gedreht(um: bild.rahmen.mitte,
+                                                         grad: -zeile.drehung)
+                    reise.tage[t].seiten[s].bloecke[stelle].rahmen =
+                        ungedreht.gedreht(um: bild.rahmen.mitte, grad: bild.drehung)
+                    reise.tage[t].seiten[s].bloecke[stelle].drehung = bild.drehung
+                    reise.tage[t].seiten[s].bloecke[stelle].ebene = bild.ebene
+                    gerichtet += 1
+                }
+            }
+        }
+        return gerichtet
     }
 
     // MARK: - Blöcke

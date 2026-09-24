@@ -1,5 +1,6 @@
 import CoreGraphics
 import CoreText
+import ImageIO
 import Foundation
 import UIKit
 
@@ -965,6 +966,60 @@ enum Druckpruefung {
                       text: text)]
     }
 
+    // WELCHEN FARBRAUM DIE DATEI TRÄGT (ab 1.0.89).
+    //
+    // Gefragt 09/2026: „ist der Farbraum eigentlich sRGB?" Die ehrliche
+    // Antwort war damals nein — die Farben der App gingen als `/DeviceRGB`
+    // ins PDF, also ohne Profil, und die Fotos behielten ihr eigenes.
+    // Seither wandelt die Ausgabe (`Farbraum`), und diese Zeile sagt, was
+    // dabei ANFÄLLT: wie viele Bilder schon sRGB sind und wie viele
+    // umgerechnet werden.
+    //
+    // Gemessen wird an den ORIGINALEN auf der Platte, nicht an der
+    // fertigen Datei — was wirklich darin steht, sagt erst ein Blick
+    // hinein. Gedeckelt auf 40 Bilder: Jede Prüfung öffnet eine Datei, und
+    // bei zweihundert Fotos wäre das ein Lauf über das ganze Archiv für
+    // eine Zahl, die nach vierzig feststeht.
+    private static func farbraum(_ reise: Reise) -> [Zeile] {
+        var gezaehlt = 0
+        var gewandelt = 0
+        var namen: [String: Int] = [:]
+        for foto in reise.fotos.prefix(40) {
+            let ort = Bildarchiv.shared.pfad(reise.id, datei: foto.datei)
+            guard let quelle = CGImageSourceCreateWithURL(ort as CFURL, nil),
+                  let bild = CGImageSourceCreateImageAtIndex(quelle, 0,
+                                                             [kCGImageSourceShouldCache: false] as CFDictionary)
+            else { continue }
+            gezaehlt += 1
+            let name = Farbraum.name(bild.colorSpace)
+            namen[name, default: 0] += 1
+            if !Farbraum.istSRGB(bild.colorSpace) { gewandelt += 1 }
+        }
+        var text = "Alles, was diese App zeichnet \u{2014} Flächen, Schrift, Linien, "
+        text += "Verläufe \u{2014} steht seit 1.0.89 ausdrücklich im sRGB-Raum in der "
+        text += "Datei; vorher stand dort `DeviceRGB`, also gar kein Profil. "
+        text += "Fotos und Karten werden beim Ausgeben nach sRGB umgerechnet, soweit "
+        text += "sie nicht schon dort sind. "
+        if gezaehlt > 0 {
+            let liste = namen.sorted { $0.value > $1.value }
+                .prefix(3)
+                .map { "\($0.key): \($0.value)" }
+                .joined(separator: ", ")
+            text += "Nachgesehen in \(gezaehlt) Bilddateien \u{2014} \(liste). "
+            if gewandelt > 0 {
+                text += "\(gewandelt) davon werden umgerechnet. "
+            } else {
+                text += "Keines muss umgerechnet werden. "
+            }
+        }
+        text += "CMYK kann iOS nicht schreiben; Fotobuchdienste verlangen ohnehin RGB "
+        text += "und rechnen selbst in ihren Druckfarbraum um. Wer bei einer "
+        text += "Offsetdruckerei mit ISO Coated v2 bestellt, muss die Datei vorher "
+        text += "umwandeln lassen. **Was wirklich in der fertigen Datei steht, sagt "
+        text += "erst ein Blick hinein** \u{2014} gemessen ist hier, was auf der Platte liegt."
+        return [Zeile(stufe: .hinweis, titel: "Farbraum: sRGB", text: text)]
+    }
+
     // HAT DAS BEIWERK NOCH PLATZ? (ab 1.0.82)
     //
     // Seitenzahl und Kopfzeile sitzen in den RÄNDERN — zwischen
@@ -1093,12 +1148,7 @@ enum Druckpruefung {
             ))
         }
 
-        // Farbraum
-        zeilen.append(Zeile(
-            stufe: .hinweis,
-            titel: "Die Bilder bleiben in RGB",
-            text: "Für Fotobücher ist das richtig — die Dienste rechnen selbst in ihren Druckfarbraum um und verlangen ausdrücklich RGB. Wer bei einer klassischen Offsetdruckerei bestellt, die CMYK mit ISO Coated v2 will, muss die Datei vorher umwandeln lassen; diese App kann das nicht."
-        ))
+        zeilen.append(contentsOf: farbraum(reise))
 
         let bund = gestaltung.bundsteg
         if bund < 3, reise.seitenzahl > 40 {
