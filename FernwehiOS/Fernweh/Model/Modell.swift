@@ -341,3 +341,10 @@ final class Spur: NSManagedObject {
     var punktListe: [Spurpunkt] { Spurpunkt.entpacken(punkte) }
     var besuchListe: [Besuch] { Besuch.entpacken(besuche) }
 }
+
+// SwiftUI braucht `Identifiable` für `ForEach` — die Kennung des Objekts in
+// Core Data ist dafür die eine, die sich nie ändert.
+extension Reise: Identifiable { var id: NSManagedObjectID { objectID } }
+extension Eintrag: Identifiable { var id: NSManagedObjectID { objectID } }
+extension Foto: Identifiable { var id: NSManagedObjectID { objectID } }
+extension Spur: Identifiable { var id: NSManagedObjectID { objectID } }
