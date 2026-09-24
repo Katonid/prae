@@ -10047,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.99 (Build 100). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.100 (Build 101). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10143,6 +10143,48 @@ Befunde, und keiner davon war Geschmack:
     ungeprüft bleibt, ob der Dienst die Datei mit dem aufgefüllten Umfang
     annimmt, und die neue Vergleichszeile ist selbst noch nie
     angeschlagen.
+- **EIN ABSTURZ NIMMT JEDE MELDUNG MIT, DIE IM SPEICHER STEHT**
+  (`Dienste/Absturzspur.swift`, ab 1.0.100; gemeldet 09/2026: „Leider
+  stürzt die App nun immer ab, wenn ich ein Foto aus der Galerie auf den
+  Schmutztitel positionieren will.").
+  - **Die Ursache war am Quelltext NICHT zu finden.** Der ganze Weg ist
+    durchgesehen — Wähler, Daten holen, Datei ablegen, Maße lesen, Block
+    setzen, Seite zeichnen, Inspektor, Fußleiste, Einrasten,
+    Wasserzeichen; jede Stelle ist mit `guard let` und `indices`
+    abgesichert, und im ganzen Ziel steht kein einziges erzwungenes
+    Auspacken. **Also wird nicht geraten** — in diesem Papier stehen genug
+    Fälle, in denen die erste Erklärung eine Vermutung war (das Zoomen der
+    Abfahrtstafel dreimal, die Griffe dieser App fünfmal).
+  - **Eine Probe, die einen ABSTURZ überleben soll, muss auf die PLATTE,
+    bevor der Schritt läuft.** `UserDefaults` sammelt und schreibt später;
+    nach einem Absturz ist der Wert oft nicht da. `Absturzspur.beginnt`
+    schreibt synchron eine winzige Datei, `endet` räumt sie weg, und was
+    beim nächsten Start noch daliegt, steht kopierbar im Regal.
+  - **Die Spur bleibt nach dem Einsetzen noch drei Sekunden liegen**
+    (`endetSpaeter`). Ob es beim Einsetzen kracht oder beim ersten
+    Neuzeichnen danach, ist die entscheidende Hälfte der Frage: Das eine
+    wäre ein Fehler im Modell, das andere einer in der Ansicht.
+  - **Der Preis gehört dazugesagt:** ein Dateizugriff je Schritt. Er steht
+    deshalb nur an den wenigen Schritten, um die es geht, und nie in einer
+    Schleife, die je Bildpunkt läuft. **Wer eine Spur an einer heißen
+    Stelle einbaut, misst vorher, was sie kostet.**
+  - **`max(NaN, x)` GIBT NaN ZURÜCK.** Swifts `max` vergleicht, und jeder
+    Vergleich mit NaN ist falsch. Aus einer Höhe von NaN wird ein
+    `.frame(height: NaN)`, und daran stirbt SwiftUI mit „Invalid frame
+    dimension". In `grafikEinfuegen` ist das Seitenverhältnis seither auf
+    `isFinite` geprüft. Beim Suchen gefunden und unabhängig richtig —
+    **als Ursache ist es NICHT behauptet.**
+  - **`Dictionary(uniqueKeysWithValues:)` TRAPT bei einem Doppel.**
+    `Reise.fotoIndex` baute so sein Wörterbuch, und das baut jeder Neusatz
+    einer Seite: Zwei Fotos mit derselben Kennung hätten die ganze App
+    mitgenommen. `setzeFoto` hält die Liste sauber, `Fotoeinfuhr` hängt
+    aber unmittelbar an, und eine eingelesene Buchdatei bringt mit, was
+    sie mitbringt. Seit 1.0.100 `uniquingKeysWith`. Ebenfalls beim Suchen
+    gefunden und **nicht als Ursache behauptet**.
+  - **Nicht gemessen (1.0.100):** Der Absturz ist damit NICHT behoben —
+    diese Fassung macht ihn sprechend. Ob der nächste Versuch wieder
+    abstürzt, ist offen; wenn ja, steht danach im Regal, in welchem
+    Schritt. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

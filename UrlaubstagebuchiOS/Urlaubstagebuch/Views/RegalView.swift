@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RegalView: View {
     @EnvironmentObject private var regal: Regal
@@ -241,6 +242,31 @@ struct RegalView: View {
 
     private var liste: some View {
         List {
+            // DIE APP SAGT, WORAN SIE GESTORBEN IST (ab 1.0.100).
+            //
+            // Ein Absturz nimmt jede Meldung mit, die im Speicher steht —
+            // deshalb legt `Absturzspur` ihren Schritt vorher auf die
+            // Platte. Hier steht er, kopierbar, und verschwindet nach dem
+            // ersten Lesen: Ein Befund, der zweimal erschiene, sähe aus wie
+            // ein zweiter Absturz.
+            if let befund = regal.absturzbefund {
+                Section {
+                    Label("Beim letzten Mal ist die App abgestürzt.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(befund)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                    Button("Befund kopieren", systemImage: "doc.on.doc") {
+                        UIPasteboard.general.string = befund
+                    }
+                    Button("Weglegen") { regal.absturzbefund = nil }
+                } header: {
+                    Text("Absturz")
+                } footer: {
+                    Text("Der letzte Schritt vor dem Absturz. Schick ihn mit \u{2014} er sagt, an welcher Stelle es passiert ist.")
+                }
+            }
             if regal.unlesbar > 0 {
                 // Eine Reise, die sich nicht lesen lässt, wird gezählt und
                 // nicht verschwiegen. Eine Liste, die stillschweigend kürzer

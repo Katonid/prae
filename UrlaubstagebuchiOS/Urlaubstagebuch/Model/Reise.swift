@@ -313,8 +313,19 @@ struct Reise: Identifiable, Codable {
         gestaltung.seitenzahlen = neu.seitenzahlen
     }
 
+    // `uniquingKeysWith` und NICHT `uniqueKeysWithValues` (ab 1.0.100).
+    //
+    // Das Zweite lässt die ganze App abstürzen, sobald zwei Fotos dieselbe
+    // Kennung tragen — und dieses Wörterbuch baut `Reise.automat`, also
+    // jeder Neusatz einer Seite. `setzeFoto` hält die Liste zwar sauber,
+    // `Fotoeinfuhr` hängt aber unmittelbar an, und eine eingelesene
+    // Buchdatei bringt mit, was sie mitbringt. Ein Doppel ist damit nicht
+    // ausgeschlossen, nur unwahrscheinlich — und der Preis dafür wäre der
+    // Absturz statt eines Fotos zu viel. Gefunden beim Suchen nach der
+    // Ursache des Absturzes von 1.0.99; **dass es DIESE war, ist damit
+    // nicht gesagt.**
     var fotoIndex: [UUID: Foto] {
-        Dictionary(uniqueKeysWithValues: fotos.map { ($0.id, $0) })
+        Dictionary(fotos.map { ($0.id, $0) }, uniquingKeysWith: { _, neueres in neueres })
     }
 
     mutating func setzeFoto(_ foto: Foto) {
