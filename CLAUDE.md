@@ -7305,6 +7305,73 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **EIN BUCH KOMMT ÜBER iCLOUD AN, BEVOR SEINE BILDER DA SIND**
+  (`Dienste/Wolkenbilder.swift`, ab 1.0.71; gemeldet 09/2026: „Auf dem iPad
+  ist kein Arbeiten möglich. Vielleicht liegt es daran, dass ich das Projekt
+  insgesamt auf einem anderen Gerät erstellt und verarbeitet habe."). **Der
+  Verdacht des Nutzers trifft, und die Stelle lässt sich am Quelltext
+  abzählen — es sind zwei Fehler übereinander:**
+  - **`Wolke.herunterladenAnstossen` sah nur die OBERSTE Ebene.** Es lief
+    über `Reisen/` und stieß dort an, was nicht `.current` war — also die
+    JSON-Dateien und die Ordner. Die Bilder liegen zwei Ebenen tiefer, in
+    `Reisen/<Kennung>/Bilder/`; **nach keiner einzigen Bilddatei wurde je
+    gefragt.** Ein Buch vom anderen Gerät ist damit binnen Sekunden lesbar
+    (die JSON-Datei ist klein) und hat trotzdem keines seiner zweihundert
+    Bilder. Angestoßen wird jetzt für das OFFENE Buch, nicht für alle: Fünf
+    Bücher zu je zweihundert Bildern auf einmal sind genau der Schwall, dem
+    iCloud Drive aus dem Weg gehen soll — und genau deshalb steht es dort
+    und nicht im alten Lauf.
+  - **Ein Bild, das nicht da war, wurde bei JEDEM Bildpunkt neu gesucht.**
+    `Bildarchiv.vorschau` gab `nil` zurück, und ein `nil` wurde nirgends
+    gemerkt — der Vorrat hält nur Treffer. Aufgerufen wird es aber im KÖRPER
+    einer SwiftUI-Ansicht, also bei jeder Neuzeichnung der Bühne, und die
+    läuft beim Schieben und Zoomen im Sekundentakt und öfter. Bei einem
+    Buch, dessen Bilder in der Wolke liegen, war das je Seite und Bildpunkt
+    ein vergeblicher Griff auf das Dateisystem, auf dem HAUPTFADEN. **Das
+    ist die Form, in der sich „kein Arbeiten möglich" erklärt: Nicht eine
+    Rechnung ist zu teuer, sondern dieselbe vergebliche Suche läuft
+    hundertfach.**
+  - **Der Fehlgriff wird mit seiner ZEIT gemerkt, nicht bloß weggeworfen**
+    (`Bildarchiv.fehlgriffe`, `wartezeit` 3 s). Ein Merker ohne Ablauf wäre
+    der bequemere Weg und der falsche — er zeigte ein heruntergeladenes Bild
+    erst nach einem Neustart. So steht ein ankommendes Bild von selbst
+    binnen drei Sekunden auf der Seite, und „Jetzt holen" räumt den Merker
+    sofort weg: Ein Knopf, der nichts tut, weil eine Sperre noch läuft, ist
+    für den Menschen davor ein kaputter Knopf.
+  - **„Liegt noch in iCloud" und „ist weg" sind NICHT dasselbe.** Das eine
+    löst sich von selbst, das andere nie; beides als graue Fläche zu zeigen
+    lässt den Menschen davor raten — dieselbe Regel wie beim Wort „Plan" in
+    der Abfahrtstafel. Das Band über der Bühne zählt beides getrennt, rot
+    nur für das, was wirklich fehlt.
+  - **Wie ein nicht heruntergeladenes Bild AUSSIEHT, ist von hier aus nicht
+    zu messen** — geprüft werden deshalb BEIDE bekannten Gestalten: der
+    Platzhalter `.<Name>.icloud` und `isUbiquitousItem` am Namen selbst. Nur
+    eine zu fragen hieße, sich auf eine Darstellung zu verlassen, die Apple
+    zwischen zwei Fassungen ändern darf; der Preis wäre, dass ein Bild, das
+    gleich ankommt, als „fehlt ganz" gemeldet würde.
+  - **Das Nachsehen läuft abseits des Hauptfadens und hört von selbst auf.**
+    Zweihundert Abfragen an das Dateisystem, über iCloud jede mit Wartezeit;
+    zurück kommt nur die Zahl. Wiederholt wird, solange etwas LÄDT — ein
+    Band, dessen Zahl nicht kleiner wird, sieht aus wie ein Fehler, und ein
+    Lauf, der ewig weiterzählt, ist einer.
+  - **Die WASSERZEICHEN gehören dazu** (`Wolkenbilder.dateien`). Sie stehen
+    in keiner Fotoliste und liegen im selben Ordner — wer sie vergisst,
+    stößt sie nie an, und eines liegt auf JEDER Seite. Dieselbe Überlegung
+    wie in `Buchdatei.schreiben`. **Wer eine neue Bildart anlegt, trägt sie
+    dort ein.**
+- **Nicht gemessen (1.0.71):** Auf einem Gerät gesehen hat das niemand.
+  **Am Quelltext ABGEZÄHLT ist die Ursache**, und sie passt zu dem, was der
+  Nutzer beschreibt. **Dass das iPad danach flüssig ist, folgt daraus
+  NICHT**: Es kann eine zweite Ursache darüberliegen — bei der fehlenden
+  Umschlagabbildung in 1.0.67/1.0.68 war genau das der Fall, und die
+  sichtbare war die harmlosere. Weiterhin ungemessen sind die beiden
+  offenen Punkte, die schon dastanden: dass `Bildarchiv.vorschau` auch bei
+  vorhandenen Bildern SYNCHRON auf dem Hauptfaden liest (offen seit 1.0.59)
+  und dass die Bühne seit 1.0.28 das GANZE Buch trägt. **Genau deshalb nennt
+  der Befund unter „Bedienung prüfen" seit 1.0.71 vier Zahlen statt einer
+  Zusage** — gesamt, auf dem Gerät, in iCloud, fehlen, dazu wie viele Namen
+  gerade als nicht lesbar gemerkt sind. **Nicht als erledigt darstellen** —
+  der nächste Befund des Nutzers ist hier die Messung.
 - **ZWEI BUCHSEITEN AUF EINE PDF-SEITE, LINKS DIE GERADE**
   (`Buchausgabe.doppelseitenPdf`, ab 1.0.69; Ansage des Nutzers 09/2026:
   „Offenbar will Saal Digital ein Upload eines PDF mit fertig gestalteten
@@ -8508,7 +8575,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.70 (Build 71). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.71 (Build 72). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

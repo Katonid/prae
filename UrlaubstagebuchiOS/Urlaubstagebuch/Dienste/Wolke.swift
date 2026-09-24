@@ -201,6 +201,15 @@ enum Wolke {
     // Eine Datei in iCloud ist nicht unbedingt auf dem Gerät. Ohne diesen
     // Anstoß stünde im Regal ein Buch, das sich nicht öffnen lässt, und
     // niemand wüsste warum.
+    //
+    // DIESER LAUF SIEHT NUR DIE OBERSTE EBENE, und das ist seit 1.0.71
+    // Absicht statt Versehen: Hier geht es um die JSON-Dateien, damit das
+    // Regal überhaupt Bücher zeigt. Die BILDER liegen zwei Ebenen tiefer
+    // (`Reisen/<Kennung>/Bilder/`) und wurden bis 1.0.70 nie angefordert —
+    // daher „kein Arbeiten möglich" auf dem zweiten Gerät. Sie holt
+    // `Wolkenbilder.anstossen`, und zwar für das OFFENE Buch: Fünf Bücher
+    // zu je zweihundert Bildern auf einmal wären genau der Schwall, dem
+    // iCloud Drive aus dem Weg gehen soll.
     static func herunterladenAnstossen() {
         guard stand == .an else { return }
         let dateien = FileManager.default

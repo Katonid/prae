@@ -480,6 +480,40 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ein Buch vom anderen Gerät: wo die Bilder bleiben (1.0.71)
+
+Gemeldet: „Auf dem iPad ist kein Arbeiten möglich. Vielleicht liegt es
+daran, dass ich das Projekt insgesamt auf einem anderen Gerät erstellt und
+verarbeitet habe."
+
+Der Verdacht trifft. Ein Buch reist über iCloud Drive in zwei sehr
+ungleichen Hälften: Die JSON-Datei ist ein paar hundert Kilobyte und ist
+sofort da, die zweihundert Bilder sind es nicht. Zwei Fehler lagen
+übereinander:
+
+* **Nach den Bildern wurde nie gefragt.** Der Anstoß zum Herunterladen lief
+  nur über die oberste Ebene des Ordners `Reisen`. Die Bilder liegen zwei
+  Ebenen tiefer, in `Reisen/<Kennung>/Bilder/` — keine einzige Bilddatei
+  wurde je angefordert.
+* **Ein fehlendes Bild wurde bei jedem Bildpunkt neu gesucht.** Der
+  Bildvorrat merkt sich nur Treffer. Gefragt wird aber beim Zeichnen jeder
+  Seite, also beim Schieben und Zoomen viele Male je Sekunde — und jedes
+  Mal ging derselbe vergebliche Griff auf das Dateisystem, auf dem
+  Hauptfaden.
+
+Seit 1.0.71 stößt die App die Bilder des offenen Buches an, merkt sich einen
+Fehlgriff für drei Sekunden und **sagt, was los ist**: Über der Bühne steht,
+wie viele Bilder noch in iCloud liegen, mit einem Knopf „Jetzt holen"; die
+Zahl wird kleiner, während sie ankommen. Was wirklich fehlt — weder hier
+noch in der Wolke — steht rot daneben, denn das löst sich nicht von selbst.
+
+Unter **Anordnen → „Bedienung prüfen" → „Befund kopieren"** stehen die
+Zahlen: wie viele Bilder das Buch nennt, wie viele auf dem Gerät liegen, wie
+viele in iCloud, wie viele fehlen.
+
+**Nicht gemessen:** Gesehen hat das niemand. Abgezählt ist die Ursache; ob
+das iPad danach flüssig ist, sagt erst der nächste Befund.
+
 ## Warum die Datei so groß war (1.0.70)
 
 62 Seiten ergaben vier Gigabyte — mehr, als ein Druckdienst annimmt. Daran
