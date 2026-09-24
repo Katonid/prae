@@ -27,7 +27,8 @@ struct Fotostilfelder: View {
                 LabeledContent("Weißer Rand",
                                value: String(format: "%.1f mm", werk.reise.gestaltung.fotorand)
                                    .replacingOccurrences(of: ".", with: ","))
-                Slider(value: $werk.reise.gestaltung.fotorand, in: 0...10, step: 0.5)
+                Slider(value: $werk.reise.gestaltung.fotorand, in: 0...10, step: 0.5,
+                       onEditingChanged: zeilenNachziehen)
             }
             VStack(alignment: .leading) {
                 LabeledContent("Linie ringsum",
@@ -38,10 +39,18 @@ struct Fotostilfelder: View {
                 get: { (werk.reise.gestaltung.fotorandfarbe ?? .leise).farbe },
                 set: { werk.reise.gestaltung.fotorandfarbe = Farbwert($0) }
             ))
+            VStack(alignment: .leading) {
+                LabeledContent("Abstand der Bildunterschrift",
+                               value: String(format: "%.1f mm",
+                                             werk.reise.gestaltung.unterschriftabstand)
+                                   .replacingOccurrences(of: ".", with: ","))
+                Slider(value: $werk.reise.gestaltung.unterschriftabstand,
+                       in: 0...12, step: 0.5, onEditingChanged: zeilenNachziehen)
+            }
         } header: {
             Text("Für alle Fotos des Buches")
         } footer: {
-            Text("Der weiße Rand ist der Streifen um das Bild, wie ihn ein Sofortbild hat. Die Linie liegt außen darum herum.")
+            Text("Der weiße Rand ist der Streifen um das Bild, wie ihn ein Sofortbild hat. Die Linie liegt außen darum herum.\n\nDer Abstand der Bildunterschrift wird ab der Unterkante des SICHTBAREN Bildes gemessen, also hinter dem weißen Rand — der liegt außerhalb und zählt im Satz sonst nicht mit. Geändert wird er an allen Seiten, die nicht von Hand angefasst wurden; eine selbst verschobene Zeile bleibt, wo sie ist.")
         }
 
         Section {
@@ -51,6 +60,22 @@ struct Fotostilfelder: View {
         } footer: {
             Text("Ein einzelnes Foto darf von diesen Werten abweichen — das stellt man am Foto selbst ein (Block → Wirkung). Dieser Knopf nimmt alle solchen Abweichungen im ganzen Buch zurück.")
         }
+    }
+
+    // BEIM LOSLASSEN, NICHT BEI JEDEM BILDPUNKT (ab 1.0.92).
+    //
+    // Beide Regler verschieben die Soll-Lage jeder Bildunterschrift: der
+    // weiße Rand, weil er außerhalb des Rahmens liegt, und der Abstand
+    // ohnehin. Ohne das Nachziehen bliebe jede schon gesetzte Zeile
+    // stehen — für den Menschen davor ein Regler, der nichts tut.
+    //
+    // `zeilenAnsBildLegen` läuft über jede Seite des Buches und schreibt
+    // in `reise`; bei jedem Bildpunkt einer Schiebebewegung wäre das ein
+    // Sicherungslauf je Bildpunkt. `onEditingChanged` meldet das Ende der
+    // Geste — dort genau einmal.
+    private func zeilenNachziehen(_ laeuft: Bool) {
+        guard !laeuft else { return }
+        werk.zeilenAnsBildLegen()
     }
 }
 

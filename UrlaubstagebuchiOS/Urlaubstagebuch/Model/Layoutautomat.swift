@@ -1716,8 +1716,8 @@ struct Layoutautomat {
                           rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: kartenhoehe),
                           schatten: stil.schatten == .keiner ? nil : stil.schatten)
         let unten = Block(inhalt: .kartenunterschrift,
-                          rahmen: Rahmen(x: x, y: y + kartenhoehe + unterschriftfuge,
-                                         breite: breite, hoehe: zeile - unterschriftfuge))
+                          rahmen: Rahmen(x: x, y: y + kartenhoehe + kartenfuge,
+                                         breite: breite, hoehe: zeile - kartenfuge))
         return [karte, unten]
     }
 
@@ -1727,7 +1727,7 @@ struct Layoutautomat {
     private func kartenzeileHoehe(breite: Double) -> Double {
         guard let text = kartenzeile else { return 0 }
         return Textmass.hoehe(text, bild: typografie.bildunterschrift, breite: breite)
-            + unterschriftfuge
+            + kartenfuge
     }
 
     // Nur wo sie eingeschaltet IST, kostet sie Platz. Bis 1.0.4 rechnete
@@ -1749,7 +1749,22 @@ struct Layoutautomat {
     // sieben Punkte, und die Zeile verschwand darunter. Gemeldet 09/2026
     // („sie ist sogar zum großen Teil vom Bild verdeckt") — zusammen mit
     // der Drehung, die den Rest verdeckte.
-    private var unterschriftfuge: Double { Druckmass.pt(gestaltung.fotorand) + 3 }
+    // Gerechnet wird sie seit 1.0.92 in `Gestaltung.unterschriftfugePt` —
+    // dieselbe Stelle, die auch `Reisewerk.zeilenAnsBildLegen` fragt, wenn
+    // es eine schon gesetzte Zeile ausrichtet. Bis 1.0.91 standen hier
+    // feste drei Punkte hinter dem weißen Rand; das ist gut ein Millimeter
+    // und sieht im Druck aus, als klebte die Zeile am Bild.
+    private var unterschriftfuge: Double {
+        gestaltung.unterschriftfugePt(fotorand: gestaltung.fotorand)
+    }
+
+    // EINE KARTE HAT KEINEN WEISSEN RAND. Ihn mitzurechnen war ein alter
+    // blinder Fleck: Die Kartenzeile bekam den Abstand eines Fotos, und
+    // die Karte darüber wurde um genau diesen Betrag kürzer, ohne dass
+    // irgendwo Weiß gewesen wäre. Gefragt wird deshalb mit `fotorand: 0`.
+    private var kartenfuge: Double {
+        gestaltung.unterschriftfugePt(fotorand: 0)
+    }
 
     // EINE ZEILE, DIE ZU IHREM BILD GEHÖRT (ab 1.0.86).
     //
