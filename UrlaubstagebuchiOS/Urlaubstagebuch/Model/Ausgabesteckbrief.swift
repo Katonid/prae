@@ -92,7 +92,9 @@ enum Ausgabesteckbrief {
             name: "Bogen im PDF \u{00B7} Doppelseiten",
             wert: Druckvorgabe.masstext(doppelt),
             erklaerung: "Zwei Buchseiten nebeneinander. Am Bund liegt KEIN "
-                + "Anschnitt \u{2014} dort stoßen die beiden Endformate aneinander.",
+                + "Anschnitt \u{2014} dort stoßen die beiden Endformate aneinander. "
+                + "Der RÜCKEN zählt hier nicht mit: Der gehört zum Umschlagbogen, "
+                + "und dessen Maß steht in der Zeile darunter.",
             eingestellt: false))
 
         if reise.hatRueckseite {
