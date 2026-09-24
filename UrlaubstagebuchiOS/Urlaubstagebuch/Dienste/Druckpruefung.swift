@@ -817,6 +817,42 @@ enum Druckpruefung {
     // das als Fehler auszugeben, was richtig ist — und nach dem dritten
     // solchen Hinweis liest niemand mehr eine Zeile dieser Prüfung.
     static func schutzzone(_ reise: Reise) -> [Zeile] {
+        var zeilen = anschnittkante(reise)
+        zeilen.append(contentsOf: sicherheitssaum(reise))
+        return zeilen
+    }
+
+    // ÜBER DIE SCHNITTKANTE HINAUS (ab 1.0.81).
+    //
+    // Der schlimmere der beiden Fälle, und bis 1.0.80 wurde er gar nicht
+    // geprüft: Ein Block, der über die Schnittkante ragt und nicht
+    // randabfallend ist, wird im gedruckten Buch ANGESCHNITTEN. Das fiel
+    // erst am Papier auf.
+    private static func anschnittkante(_ reise: Reise) -> [Zeile] {
+        var betroffen = 0
+        var stellen: [String] = []
+        for buchseite in reise.seitenfolge {
+            let liste = reise.ueberDerSchnittkante(buchseite)
+            betroffen += liste.count
+            if !liste.isEmpty, stellen.count < 4 { stellen.append(buchseite.kurzname) }
+        }
+        guard betroffen > 0 else { return [] }
+        var text = "Diese Bl\u{00F6}cke werden beim Beschneiden ANGESCHNITTEN \u{2014} "
+        text += "sie ragen \u{00FC}ber das Endformat hinaus, ohne auf randabfallend "
+        text += "gestellt zu sein. "
+        if !stellen.isEmpty {
+            text += "Zum Beispiel: " + stellen.joined(separator: ", ") + ". "
+        }
+        text += "Soll ein Block wirklich bis an die Kante laufen, geh\u{00F6}rt er auf "
+        text += "RANDABFALLEND (Block \u{2192} Lage auf der Seite); dann l\u{00E4}uft er "
+        text += "bis \u{00FC}ber den Anschnitt und ist hier nicht mehr gemeint. Auf der "
+        text += "Seite ist jeder betroffene Block dick rot umrandet."
+        return [Zeile(stufe: .warnung,
+                      titel: "\(betroffen) Bl\u{00F6}cke ragen \u{00FC}ber die Schnittkante",
+                      text: text)]
+    }
+
+    private static func sicherheitssaum(_ reise: Reise) -> [Zeile] {
         let saum = reise.gestaltung.sicherheitsabstand
         guard reise.gestaltung.hatSicherheitsabstand else {
             return [Zeile(
@@ -867,8 +903,9 @@ enum Druckpruefung {
         text += "Soll ein Block wirklich bis an die Kante laufen, geh\u{00F6}rt er auf RANDABFALLEND "
         text += "(Block \u{2192} Lage auf der Seite) \u{2014} dann wird er bis \u{00FC}ber den Anschnitt "
         text += "gezogen und ist hier nicht mehr gemeint. Auf der Seite selbst ist jeder "
-        text += "betroffene Block blau gestrichelt umrandet \u{2014} in derselben Farbe wie "
-        text += "die Linie, an der er zu nah steht."
+        text += "betroffene Block dick rot umrandet \u{2014} seit 1.0.81 auch dann, wenn "
+        text += "die Hilfslinien ausgeschaltet sind: Die Linien sind eine Hilfe beim "
+        text += "Anordnen, die Marke ist eine Warnung."
         return [Zeile(stufe: textbloecke > 0 ? .warnung : .hinweis,
                       titel: "\(betroffen) Bl\u{00F6}cke im Sicherheitsabstand",
                       text: text)]

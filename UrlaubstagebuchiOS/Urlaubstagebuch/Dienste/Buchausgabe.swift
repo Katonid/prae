@@ -154,6 +154,44 @@ extension Reise {
     // Sie SOLLEN über die Kante laufen; sie zu melden hieße, das als
     // Fehler auszugeben, was richtig ist — und nach der dritten falschen
     // Marke sieht niemand mehr hin.
+    // ÜBER DIE SCHNITTKANTE HINAUS — und nicht randabfallend (ab 1.0.81).
+    //
+    // Ansage des Nutzers, 09/2026: „Ich möchte ab jetzt, dass ein Element,
+    // was in den Beschnittbereich oder den Sicherheitsbereich hineinragt,
+    // mit einem noch besser zu sehenden Rand versehen wird."
+    //
+    // Den Sicherheitsabstand prüft die App seit 1.0.76; den ANSCHNITT nicht
+    // — und das ist der teurere der beiden Fälle: Ein Block, der über die
+    // Schnittkante ragt, wird im gedruckten Buch ANGESCHNITTEN. Bisher fiel
+    // das erst am Papier auf.
+    //
+    // **Randabfallende Blöcke sind ausgenommen, und zwar ohne Ausnahme.**
+    // Sie SOLLEN über die Kante laufen; sie zu melden hieße, das als Fehler
+    // auszugeben, was richtig ist — und nach der dritten falschen Marke
+    // sieht niemand mehr hin. Dieselbe Regel wie beim Sicherheitsabstand.
+    func ueberDerSchnittkante(_ buchseite: Buchseite) -> [Block] {
+        let seite = CGRect(origin: .zero, size: format.groesse)
+        return buchseite.seite.bloecke.filter { block in
+            guard !block.randabfallend else { return false }
+            let r = block.rahmen.rect
+            return r.minX < seite.minX - 0.5 || r.minY < seite.minY - 0.5
+                || r.maxX > seite.maxX + 0.5 || r.maxY > seite.maxY + 0.5
+        }
+    }
+
+    /// Beides zusammen — für die Marke auf der Seite und für die Zeile
+    /// unter dem Blatt. Ein Block, der über die Schnittkante ragt, liegt
+    /// ohnehin auch im Sicherheitsabstand; gezählt wird er einmal.
+    func amRandGefaehrdet(_ buchseite: Buchseite) -> [Block] {
+        var gesehen = Set<UUID>()
+        var liste: [Block] = []
+        for block in ueberDerSchnittkante(buchseite) + imSicherheitsabstand(buchseite)
+        where gesehen.insert(block.id).inserted {
+            liste.append(block)
+        }
+        return liste
+    }
+
     func imSicherheitsabstand(_ buchseite: Buchseite) -> [Block] {
         guard gestaltung.hatSicherheitsabstand else { return [] }
         let zone = gestaltung.schutzzone(format, bund: buchseite.bundlage)

@@ -7305,6 +7305,79 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **EIN VORSCHAUBILD HIELT DEN HAUPTFADEN AN — seit 1.0.59 als offen
+  notiert** (`Views/Vorschaubild.swift`, `Bildarchiv.ausVorrat`/`.holen`, ab
+  1.0.81; gemeldet 09/2026, zum wiederholten Mal: „Das Scrollen über mehrere
+  Seiten hinweg gestaltet sich auf dem iPad echt schwierig. Offenbar muss da
+  doch noch sehr viel im Hintergrund nachgeladen und aufgebaut werden.").
+  - **Am Quelltext abzuzählen, und der Punkt stand dort seit 1.0.59:**
+    `Bildarchiv.vorschau` liest bei einem Fehlschlag im Vorrat SYNCHRON von
+    der Platte und entpackt das Bild sofort
+    (`kCGImageSourceShouldCacheImmediately`) — aufgerufen wurde sie im
+    KÖRPER der Seitenansicht, also auf dem Hauptfaden. Beim Scrollen baut
+    der `LazyVStack` laufend neue Blätter, und jedes zog seine drei bis
+    sechs Bilder nach; das Hintergrundfoto ist dabei das größte, es füllt
+    Seite oder Doppelseite ganz aus. **Merke: Ein offener Punkt, der
+    zweimal als „nicht gemessen" dasteht, ist beim dritten Befund der erste
+    Verdacht.**
+  - **`ausVorrat` fragt nur den Vorrat und kostet nichts**; ist dort nichts,
+    holt `Vorschaubild` es über `holen` abseits des Hauptfadens.
+    `Task.detached` und nicht bloß `Task`: Ein nacktes `Task` in einer
+    `@MainActor`-Ansicht erbt den Hauptfaden — dann wäre nichts gewonnen
+    (dieselbe Falle wie bei Schulalarms `BackgroundRefresh`, nur
+    andersherum).
+  - **Kein Platzhalter mit Symbol.** Eine Seite, auf der für einen
+    Augenblick graue Kästen mit Bildzeichen stehen, sieht kaputter aus als
+    eine, auf der das Bild eine Wimper später erscheint.
+  - **Der Schlüssel nennt Datei, Kante UND Farbkraft.** Eine vergessene
+    Stelle zeigte nach dem Umstellen das Bild von vorhin — dieselbe Falle
+    wie beim `merkmal` des Kartenbildes in 1.0.51.
+  - **Die Zähler im `Bildarchiv` sind GESPERRT.** `vorschau` läuft seit
+    1.0.81 auch aus einem Hintergrundfaden; zwei Fäden, die auf dieselbe
+    Zahl addieren, sind ein Datenrennen — auch wenn die Zahl nur eine
+    Auskunft ist.
+  - **Und weil sich das hier nicht nachmessen lässt, misst es die App:** Der
+    Befund unter „Bedienung prüfen" nennt seither „Bilder: n× aus dem
+    Vorrat, m× von Platte". Bleibt m beim Blättern klein, liegt es nicht
+    mehr an den Bildern — dann ist der nächste Verdacht der CoreText-Satz je
+    Textkasten. Dasselbe Muster wie Schulalarms Stufenprobe.
+  - **Offen und nicht als erledigt darstellen:** Umgestellt sind die drei
+    Stellen der BÜHNE (Fotokachel, Hintergrundfoto, Wasserzeichen). Die
+    Listen und Blätter (Regal, Tagesliste, Hintergrundwahl, Stilwahl) holen
+    ihre kleinen Bilder weiterhin synchron; sie scrollen auch, sind aber
+    nicht der gemeldete Fall, und eine Sache wird auf einmal geändert.
+- **WAS IN DEN ANSCHNITT ODER IN DEN SICHERHEITSABSTAND RAGT, BEKOMMT EINEN
+  DICKEN ROTEN RAHMEN** (`Reise.ueberDerSchnittkante`, `.amRandGefaehrdet`,
+  `Randmarke`, ab 1.0.81; Ansage des Nutzers 09/2026: „Ich möchte ab jetzt,
+  dass ein Element, was in den Beschnittbereich oder den Sicherheitsbereich
+  hineinragt, mit einem noch besser zu sehenden Rand versehen wird. Gerne
+  ein dicker roter Rand.").
+  - **Der ANSCHNITT wurde gar nicht geprüft.** Markiert war seit 1.0.76 nur
+    der Sicherheitsabstand — dabei ist der andere Fall der teurere: Ein
+    Block, der über die Schnittkante ragt und nicht randabfallend ist, wird
+    im gedruckten Buch ANGESCHNITTEN, und das fiel erst am Papier auf. Die
+    Druckprüfung zählt ihn seither als eigene Zeile.
+  - **Die Marke hängt NICHT mehr an „Linien zeigen".** Sie tat es seit
+    1.0.76, und das war falsch: Die Linien sind eine Hilfe beim Anordnen,
+    die Marke ist eine WARNUNG. **Eine Warnung, die sich mit den
+    Hilfslinien abschalten lässt, ist keine.**
+  - **Rot, obwohl die Schnittkante auch rot ist** — das ist die Ansage des
+    Nutzers, und sie geht auf: Die Marke ist dreimal so dick, durchgezogen
+    statt gestrichelt, läuft um einen BLOCK und nicht am Blattrand und
+    trägt eine Kontur. Zu verwechseln sind die beiden nicht.
+  - **Randabfallende Blöcke bleiben ausgenommen, ohne Ausnahme** — sie
+    SOLLEN über die Kante laufen; nach der dritten falschen Marke sieht
+    niemand mehr hin.
+- **Nicht gemessen (1.0.81):** Nichts davon ist auf einem Gerät gesehen
+  worden. **Am Quelltext ABGEZÄHLT ist die Ursache des zähen Scrollens** (ein
+  synchroner Griff auf die Platte samt sofortigem Entpacken, im Körper jeder
+  Seite, bei jedem neuen Blatt) — **dass es danach flüssig ist, folgt daraus
+  NICHT**: Es kann eine zweite Ursache darüberliegen, und der
+  wahrscheinlichste nächste Verdacht ist der CoreText-Satz je Textkasten.
+  Genau dafür nennt der Befund jetzt zwei Zahlen statt einer Zusage. Ebenso
+  ungesehen: ob die leere Fläche vor dem Eintreffen des Bildes stört und ob
+  ein dicker roter Rahmen neben der roten Schnittkante wirklich zu
+  unterscheiden ist. **Nichts davon als erledigt darstellen.**
 - **DREI LINIEN, DREI FARBEN — UND EINE KONTUR, DAMIT MAN SIE AUF JEDEM
   GRUND SIEHT** (`Model/Seitenlinien.swift`, ab 1.0.80; gemeldet 09/2026 mit
   Bildschirmfoto: „Die dünn gestrichelte rote Linie für den Mindestabstand
@@ -9236,7 +9309,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.80 (Build 81). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.81 (Build 82). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

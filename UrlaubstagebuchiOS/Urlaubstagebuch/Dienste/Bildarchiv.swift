@@ -98,12 +98,84 @@ final class Bildarchiv {
     // unverändert. Gestreckt wird HIER und nicht in der Ansicht: Das Sieb
     // kostet einen vollen Durchgang über das Bild, und der Körper einer
     // SwiftUI-Ansicht läuft bei jedem Neuzeichnen.
+    // NUR DER VORRAT — nie die Platte (ab 1.0.81).
+    //
+    // Gemeldet 09/2026, zum wiederholten Mal: „Das Scrollen über mehrere
+    // Seiten hinweg gestaltet sich auf dem iPad echt schwierig. Offenbar
+    // muss da doch noch sehr viel im Hintergrund nachgeladen und aufgebaut
+    // werden."
+    //
+    // **Er hat recht, und der Punkt stand seit 1.0.59 als offen im Papier:**
+    // `vorschau` liest bei einem Fehlschlag im Vorrat SYNCHRON von der
+    // Platte und entpackt das Bild sofort
+    // (`kCGImageSourceShouldCacheImmediately`) — im KÖRPER einer
+    // SwiftUI-Ansicht, also auf dem Hauptfaden. Beim Scrollen baut der
+    // `LazyVStack` laufend neue Blätter, und jedes zieht drei bis sechs
+    // Bilder von der Platte. Genau das ist das Ruckeln.
+    //
+    // Diese Fassung fragt nur den Vorrat und kostet damit nichts. Wer sie
+    // benutzt, zeigt bei `nil` eine leere Fläche und stößt `holen` an.
+    func ausVorrat(_ datei: String, kante: Int, farbkraft: Double = 1) -> UIImage? {
+        let merker = schluessel(datei, kante: kante, kraft: Farbkraft.stufe(farbkraft))
+        return vorrat.object(forKey: merker as NSString)
+    }
+
+    /// Dasselbe abseits des Hauptfadens. Das Ergebnis liegt danach im
+    /// Vorrat, und `ausVorrat` findet es beim nächsten Durchgang.
+    ///
+    /// `Task.detached` und nicht bloß `Task`: Ein nacktes `Task` in einer
+    /// `@MainActor`-Ansicht erbt den Hauptfaden — dann wäre nichts
+    /// gewonnen. Dieselbe Falle wie bei Schulalarms `BackgroundRefresh`,
+    /// nur andersherum.
+    func holen(_ datei: String, reise: UUID, kante: Int,
+               farbkraft: Double = 1) async -> UIImage?
+    {
+        await Task.detached(priority: .userInitiated) {
+            Bildarchiv.shared.vorschau(datei, reise: reise, kante: kante,
+                                       farbkraft: farbkraft)
+        }.value
+    }
+
+    // Wie oft ein Bild aus dem Vorrat kam und wie oft von der Platte.
+    // Steht im Befund unter „Bedienung prüfen": Bleibt die zweite Zahl beim
+    // Scrollen klein, liegt es nicht mehr an den Bildern.
+    //
+    // GESPERRT wie die Fehlgriffe: `vorschau` läuft seit 1.0.81 auch aus
+    // einem Hintergrundfaden (`holen`), und zwei Fäden, die auf dieselbe
+    // Zahl addieren, sind ein Datenrennen — auch wenn die Zahl nur eine
+    // Auskunft ist.
+    private var ausVorratZaehler = 0
+    private var vonPlatteZaehler = 0
+
+    var ladebefund: (vorrat: Int, platte: Int) {
+        schloss.lock()
+        defer { schloss.unlock() }
+        return (ausVorratZaehler, vonPlatteZaehler)
+    }
+
+    func zaehlerZuruecksetzen() {
+        schloss.lock()
+        ausVorratZaehler = 0
+        vonPlatteZaehler = 0
+        schloss.unlock()
+    }
+
+    private func zaehle(vorrat treffer: Bool) {
+        schloss.lock()
+        if treffer { ausVorratZaehler += 1 } else { vonPlatteZaehler += 1 }
+        schloss.unlock()
+    }
+
     func vorschau(_ datei: String, reise: UUID, kante: Int,
                   farbkraft: Double = 1) -> UIImage?
     {
         let kraft = Farbkraft.stufe(farbkraft)
         let merker = schluessel(datei, kante: kante, kraft: kraft)
-        if let da = vorrat.object(forKey: merker as NSString) { return da }
+        if let da = vorrat.object(forKey: merker as NSString) {
+            zaehle(vorrat: true)
+            return da
+        }
+        zaehle(vorrat: false)
         if kuerzlichDaneben(datei) { return nil }
         let ort = pfad(reise, datei: datei)
         guard let quelle = CGImageSourceCreateWithURL(ort as CFURL, nil) else {

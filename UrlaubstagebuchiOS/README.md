@@ -480,6 +480,64 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Das Scrollen hing an den Bildern (1.0.81)
+
+Gemeldet 09/2026, zum wiederholten Mal: „Das Scrollen über mehrere Seiten
+hinweg gestaltet sich auf dem iPad echt schwierig. Offenbar muss da doch
+noch sehr viel im Hintergrund nachgeladen und aufgebaut werden."
+
+**Am Quelltext abzuzählen — und der Punkt stand seit 1.0.59 als offen im
+Papier:** `Bildarchiv.vorschau` liest bei einem Fehlschlag im Vorrat
+synchron von der Platte und entpackt das Bild sofort. Aufgerufen wurde sie
+im Körper der Seitenansicht, also auf dem Hauptfaden — und genau dann, wenn
+der `LazyVStack` beim Scrollen ein neues Blatt baut. Drei bis sechs Bilder
+je Seite, und das Hintergrundfoto ist dabei das größte: Es füllt Seite oder
+Doppelseite ganz aus.
+
+**Merke: Ein offener Punkt, der zweimal als „nicht gemessen" dasteht, ist
+beim dritten Befund der erste Verdacht.**
+
+`Vorschaubild` fragt jetzt zuerst den Vorrat (das kostet nichts) und holt
+nur bei einem Fehlschlag, abseits des Hauptfadens. Bis es da ist, bleibt die
+Fläche leer — kein Platzhalter mit Symbol: Eine Seite mit grauen Kästen
+sieht kaputter aus als eine, auf der das Bild eine Wimper später erscheint.
+
+**Und weil sich das hier nicht nachmessen lässt, misst es die App:** Der
+Befund unter „Bedienung prüfen" nennt seither „Bilder: n× aus dem Vorrat, m×
+von Platte". Bleibt m beim Blättern klein, liegt es nicht mehr an den
+Bildern — dann ist der nächste Verdacht der CoreText-Satz je Textkasten.
+
+## Ein dicker roter Rahmen um gefährdete Blöcke (1.0.81)
+
+Ansage des Nutzers, 09/2026: „Ich möchte ab jetzt, dass ein Element, was in
+den Beschnittbereich oder den Sicherheitsbereich hineinragt, mit einem noch
+besser zu sehenden Rand versehen wird. Gerne ein dicker roter Rand."
+
+Zwei Dinge sind daran neu, und beide sind eigene Befunde.
+
+**Der Anschnitt wurde gar nicht geprüft.** Markiert war seit 1.0.76 nur der
+Sicherheitsabstand — dabei ist der andere Fall der teurere: Ein Block, der
+über die Schnittkante ragt und nicht randabfallend ist, wird im gedruckten
+Buch angeschnitten, und das fiel erst am Papier auf.
+
+**Die Marke hängt nicht mehr an „Linien zeigen".** Sie tat es seit 1.0.76,
+und das war falsch: Die Linien sind eine Hilfe beim Anordnen, die Marke ist
+eine Warnung. **Eine Warnung, die sich mit den Hilfslinien abschalten lässt,
+ist keine.**
+
+Rot, obwohl die Schnittkante auch rot ist — das geht auf: Die Marke ist
+dreimal so dick, durchgezogen statt gestrichelt, läuft um einen Block und
+nicht am Blattrand und trägt eine Kontur.
+
+### Nicht gemessen (1.0.81)
+
+Nichts davon ist auf einem Gerät gesehen worden. Am Quelltext abgezählt ist
+die Ursache des zähen Scrollens — **dass es danach flüssig ist, folgt daraus
+nicht**: Es kann eine zweite Ursache darüberliegen. Genau dafür nennt der
+Befund jetzt zwei Zahlen statt einer Zusage. Umgestellt sind die drei
+Stellen der Bühne; die Listen und Blätter holen ihre kleinen Bilder
+weiterhin synchron.
+
 ## Drei Linien, drei Farben, eine Kontur (1.0.80)
 
 Gemeldet 09/2026 mit Bildschirmfoto: „Die dünn gestrichelte rote Linie für

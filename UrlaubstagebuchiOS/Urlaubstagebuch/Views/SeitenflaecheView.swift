@@ -168,10 +168,6 @@ struct SeitenflaecheView: View, Equatable {
     // Sie SOLLEN über die Kante laufen; sie zu markieren hieße, das als
     // Fehler auszugeben, was richtig ist — und nach der dritten falschen
     // Marke sieht niemand mehr hin.
-    private var zuNahAmRand: [Block] {
-        werk.reise.imSicherheitsabstand(buchseite)
-    }
-
     private var hintergrund: Seitenhintergrund {
         buchseite.seite.hintergrund ?? werk.reise.gestaltung.hintergrund
     }
@@ -229,29 +225,31 @@ struct SeitenflaecheView: View, Equatable {
                // selbst (ab 1.0.56) — es steht in derselben Antwort wie
                // der Rahmen, weil die Höhe am Seitenverhältnis genau
                // dieses Bildes hängt.
-               let zeichenbild = ort.bild,
-               // Gezählt wie jedes andere Vorschaubild (ab 1.0.59): Ein
-               // Wasserzeichen liegt auf JEDER Seite, und damit ist es die
-               // Art Bild, die sich am ehesten summiert.
-               let bild = werk.messer.sammelt("Fotos", {
-                   Bildarchiv.shared.vorschau(
-                       zeichenbild.datei, reise: werk.reise.id,
-                       kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
-                                                 massstab: massstab, groesste: 1600))
-               })
+               let zeichenbild = ort.bild
             {
-                // Gedreht wird um die Mitte des BILDRAHMENS, und die ist
-                // nach `Wasserzeichenlage.ort` dieselbe wie die des
-                // Platzes: `rotationEffect` dreht ohne weitere Angabe um
-                // die Mitte der Ansicht, also genau darum.
-                Image(uiImage: bild)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: ort.bildrahmen.width, height: ort.bildrahmen.height)
-                    .rotationEffect(.degrees(ort.winkel))
-                    .opacity(zeichen.deckung)
-                    .offset(x: ort.bildrahmen.minX, y: ort.bildrahmen.minY)
-                    .allowsHitTesting(false)
+                // Gezählt wie jedes andere Vorschaubild (ab 1.0.59) und
+                // seit 1.0.81 auch abseits des Hauptfadens geholt: Ein
+                // Wasserzeichen liegt auf JEDER Seite, und damit ist es die
+                // Art Bild, die sich am ehesten summiert.
+                Vorschaubild(
+                    datei: zeichenbild.datei, reise: werk.reise.id,
+                    kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
+                                              massstab: massstab, groesste: 1600),
+                    messer: werk.messer)
+                { bild in
+                    // Gedreht wird um die Mitte des BILDRAHMENS, und die ist
+                    // nach `Wasserzeichenlage.ort` dieselbe wie die des
+                    // Platzes: `rotationEffect` dreht ohne weitere Angabe um
+                    // die Mitte der Ansicht, also genau darum.
+                    Image(uiImage: bild)
+                        .resizable()
+                        .scaledToFit()
+                }
+                .frame(width: ort.bildrahmen.width, height: ort.bildrahmen.height)
+                .rotationEffect(.degrees(ort.winkel))
+                .opacity(zeichen.deckung)
+                .offset(x: ort.bildrahmen.minX, y: ort.bildrahmen.minY)
+                .allowsHitTesting(false)
             }
 
             if bearbeitbar, werk.zeigeSatzspiegel {
@@ -345,17 +343,36 @@ struct SeitenflaecheView: View, Equatable {
                     .offset(x: zone.minX, y: zone.minY)
                     .allowsHitTesting(false)
 
-                // Und was hineinragt, wird MARKIERT (ab 1.0.76) — in
-                // derselben Farbe wie die Linie, damit ohne ein Wort
-                // klar ist, worauf sich die Marke bezieht.
-                ForEach(zuNahAmRand) { block in
-                    Rectangle()
-                        .strokeBorder(style: StrokeStyle(lineWidth: 1.4, dash: [4, 3]))
-                        // DIESELBE FARBE WIE DIE LINIE, an der er zu nah
-                        // steht — sonst wäre ohne ein Wort nicht klar,
-                        // worauf sich die Marke bezieht.
-                        .foregroundStyle(Seitenlinie.sicherheit
-                            .farbe(aufDunklem: grundIstDunkel).opacity(0.95))
+            }
+
+            // WAS IN DEN ANSCHNITT ODER IN DEN SICHERHEITSABSTAND RAGT,
+            // BEKOMMT EINEN DICKEN ROTEN RAHMEN (ab 1.0.81).
+            //
+            // Ansage des Nutzers, 09/2026: „Ich möchte ab jetzt, dass ein
+            // Element, was in den Beschnittbereich oder den
+            // Sicherheitsbereich hineinragt, mit einem noch besser zu
+            // sehenden Rand versehen wird. Gerne ein dicker roter Rand."
+            //
+            // Zwei Dinge sind daran neu, und beide sind eigene Befunde:
+            //
+            // 1. **Der ANSCHNITT wurde gar nicht geprüft.** Markiert war
+            //    bis 1.0.80 nur der Sicherheitsabstand; ein Block, der über
+            //    die SCHNITTKANTE ragt und nicht randabfallend ist, wird im
+            //    gedruckten Buch angeschnitten — und das fiel erst am
+            //    Papier auf. `Reise.amRandGefaehrdet` prüft seither beides.
+            // 2. **Die Marke hängt NICHT mehr an „Linien zeigen".** Sie tat
+            //    es seit 1.0.76, und das war falsch: Die Linien sind eine
+            //    Hilfe beim Anordnen, die Marke ist eine WARNUNG. Eine
+            //    Warnung, die sich mit den Hilfslinien abschalten lässt,
+            //    ist keine.
+            //
+            // Rot — obwohl die Schnittkante auch rot ist. Das ist der
+            // Wunsch des Nutzers und es geht auf: Die Marke ist dreimal so
+            // dick, läuft um einen BLOCK und nicht am Blattrand, und sie
+            // trägt eine Kontur. Zu verwechseln sind die beiden nicht.
+            if bearbeitbar {
+                ForEach(werk.reise.amRandGefaehrdet(buchseite)) { block in
+                    Randmarke(dunkel: grundIstDunkel)
                         .frame(width: block.rahmen.breite, height: block.rahmen.hoehe)
                         .rotationEffect(.degrees(block.drehung))
                         .offset(x: block.rahmen.x, y: block.rahmen.y)
@@ -1094,6 +1111,28 @@ struct Hilfslinie: View {
     }
 }
 
+// DIE MARKE UM EINEN GEFÄHRDETEN BLOCK (ab 1.0.81).
+//
+// Dick, rot und durchgezogen — und mit einer Kontur darunter, damit sie
+// auch auf einem dunklen Grund oder auf einem Foto steht. Gestrichelt ist
+// sie bewusst NICHT mehr: Die drei Hilfslinien sind gestrichelt, und eine
+// Warnung soll anders aussehen als eine Hilfe.
+struct Randmarke: View {
+    let dunkel: Bool
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .strokeBorder(Seitenlinie.kontur(aufDunklem: dunkel),
+                              lineWidth: 5.2)
+            Rectangle()
+                .strokeBorder(dunkel ? Color(red: 1.0, green: 0.35, blue: 0.32)
+                                     : Color(red: 0.88, green: 0.07, blue: 0.07),
+                              lineWidth: 3.6)
+        }
+    }
+}
+
 // DIE SCHNITTKANTE — an der Bundkante eines Bogens fällt sie WEG (ab 1.0.78).
 //
 // Ein `Rectangle().strokeBorder` kann nur alle vier Kanten; gebraucht
@@ -1193,25 +1232,30 @@ struct HintergrundFlaeche: View {
                 Papierkorn(staerke: hintergrund.koernung, saat: seite.id.saat)
             case .foto:
                 hintergrund.farbe.farbe
-                if let id = hintergrund.fotoID, let foto = werk.reise.foto(id),
-                   // Über die Doppelseite deckt dasselbe Bild die
-                   // doppelte Breite ab — mit derselben Kante wäre es auf
-                   // dem Bildschirm halb so fein. Das PDF holt ohnehin die
-                   // volle Auflösung (`auftrag.bildkante`). Wie fein es auf
-                   // dem BILDSCHIRM sein muss, hängt am Maßstab der Bühne
-                   // und steht in `Bildschaerfe` — bis 1.0.52 stand hier
-                   // eine feste Zahl, und die war beim Hineinzoomen zu klein.
-                   let bild = werk.messer.sammelt("Fotos", {
-                       Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                                  kante: hintergrundkante,
-                                                  farbkraft: hintergrund.farbkraftfaktor)
-                   })
-                {
-                    // Der Raum wird GEMESSEN und nicht angenommen: Die
-                    // Probe im Hintergrund-Blatt hat keinen Bogen, und
-                    // dort ist die Fläche das, was die Zeile hergibt.
-                    GeometryReader { raum in
-                        fotoflaeche(bild, raum: raum.size)
+                if let id = hintergrund.fotoID, let foto = werk.reise.foto(id) {
+                    // Über die Doppelseite deckt dasselbe Bild die
+                    // doppelte Breite ab — mit derselben Kante wäre es auf
+                    // dem Bildschirm halb so fein. Das PDF holt ohnehin die
+                    // volle Auflösung (`auftrag.bildkante`). Wie fein es auf
+                    // dem BILDSCHIRM sein muss, hängt am Maßstab der Bühne
+                    // und steht in `Bildschaerfe` — bis 1.0.52 stand hier
+                    // eine feste Zahl, und die war beim Hineinzoomen zu klein.
+                    //
+                    // Geholt wird es seit 1.0.81 abseits des Hauptfadens
+                    // (`Vorschaubild`). Gerade das HINTERGRUNDfoto ist das
+                    // größte Bild einer Seite — es füllt Seite oder
+                    // Doppelseite ganz aus.
+                    Vorschaubild(datei: foto.datei, reise: werk.reise.id,
+                                 kante: hintergrundkante,
+                                 farbkraft: hintergrund.farbkraftfaktor,
+                                 messer: werk.messer)
+                    { bild in
+                        // Der Raum wird GEMESSEN und nicht angenommen: Die
+                        // Probe im Hintergrund-Blatt hat keinen Bogen, und
+                        // dort ist die Fläche das, was die Zeile hergibt.
+                        GeometryReader { raum in
+                            fotoflaeche(bild, raum: raum.size)
+                        }
                     }
                 }
                 hintergrund.farbe.farbe.opacity(hintergrund.schleier)
@@ -1407,20 +1451,27 @@ struct FotoKachel: View {
             // ALLE Aufrufe samt Gesamtdauer; ein Treffer im Zwischenspeicher
             // kostet nichts und fällt in der Summe nicht auf. Steht im
             // Befund „Fotos 12× 900 ms", ist die Frage beantwortet.
-            if let foto = werk.reise.foto(fotoID),
-               let bild = werk.messer.sammelt("Fotos", {
-                   Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                              kante: vorschaukante(raum.size))
-               })
-            {
-                // Dieselbe Rechnung wie im PDF — `zielrechteck` steht an
-                // einer Stelle und wird hier nur angewandt.
-                let ziel = block.ausschnitt.zielrechteck(bildgroesse: bild.size, rahmen: rahmen)
-                Image(uiImage: bild)
-                    .resizable()
-                    .frame(width: ziel.width, height: ziel.height)
-                    .offset(x: ziel.minX, y: ziel.minY)
-                    .clipped()
+            if let foto = werk.reise.foto(fotoID) {
+                // GEHOLT WIRD ABSEITS DES HAUPTFADENS (ab 1.0.81) — siehe
+                // `Vorschaubild`. Bis 1.0.80 stand hier ein synchroner Griff
+                // auf die Platte, mitten im Körper der Seite; beim Scrollen
+                // baut der `LazyVStack` laufend neue Blätter, und jedes zog
+                // seine drei bis sechs Bilder nach. Genau das war das
+                // gemeldete Ruckeln.
+                Vorschaubild(datei: foto.datei, reise: werk.reise.id,
+                             kante: vorschaukante(raum.size),
+                             messer: werk.messer)
+                { bild in
+                    // Dieselbe Rechnung wie im PDF — `zielrechteck` steht an
+                    // einer Stelle und wird hier nur angewandt.
+                    let ziel = block.ausschnitt.zielrechteck(bildgroesse: bild.size,
+                                                             rahmen: rahmen)
+                    Image(uiImage: bild)
+                        .resizable()
+                        .frame(width: ziel.width, height: ziel.height)
+                        .offset(x: ziel.minX, y: ziel.minY)
+                        .clipped()
+                }
             } else {
                 Rectangle()
                     .fill(Color(.systemGray6))

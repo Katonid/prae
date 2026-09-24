@@ -725,15 +725,16 @@ struct ReiseView: View {
         // steht immer da, und sie kostet nichts: Gefragt wird nur nach den
         // Blöcken DIESER Seite, und der Körper läuft im `LazyVStack` nur
         // für die Blätter, die gerade zu sehen sind.
-        let zuNah = werk.reise.imSicherheitsabstand(buchseite).count
+        // Seit 1.0.81 zählt auch der ANSCHNITT mit: Ein Block, der über
+        // die Schnittkante ragt und nicht randabfallend ist, wird im
+        // gedruckten Buch angeschnitten. Genannt wird der schlimmere der
+        // beiden Fälle zuerst.
+        let ueber = werk.reise.ueberDerSchnittkante(buchseite).count
+        let zuNah = werk.reise.amRandGefaehrdet(buchseite).count
         if zuNah > 0 {
             name += " \u{00B7} \u{26A0}\u{FE0E} "
-            if zuNah == 1 {
-                name += "1 Block"
-            } else {
-                name += "\(zuNah) Blöcke"
-            }
-            name += " im Sicherheitsabstand"
+            name += zuNah == 1 ? "1 Block" : "\(zuNah) Blöcke"
+            name += ueber > 0 ? " ragen über die Schnittkante" : " im Sicherheitsabstand"
         }
         return name
     }
@@ -741,7 +742,7 @@ struct ReiseView: View {
     // Orange schlägt die Auswahlfarbe: Ein Hinweis, der nur dann auffällt,
     // wenn die Seite gerade nicht gewählt ist, wäre ein halber Hinweis.
     private func seitenfarbe(_ buchseite: Buchseite) -> Color {
-        if !werk.reise.imSicherheitsabstand(buchseite).isEmpty { return .orange }
+        if !werk.reise.amRandGefaehrdet(buchseite).isEmpty { return .orange }
         return istGewaehlt(buchseite) ? Color.accentColor : Color.secondary
     }
 

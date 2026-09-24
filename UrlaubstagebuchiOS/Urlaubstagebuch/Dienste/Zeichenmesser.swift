@@ -64,6 +64,19 @@ final class Zeichenmesser {
     // je Neuzeichnung, und danach sucht man. Die LETZTE Dauer sagt darüber
     // nichts; sie ist gerade dann klein, wenn der Zwischenspeicher
     // zufällig traf. Gedeutet wird hier nichts, gezählt wird alles.
+    // Dasselbe für Arbeit, die NICHT auf dem Hauptfaden läuft (ab 1.0.81):
+    // Gemeldet wird die fertige Dauer, statt sie hier zu messen. Gebraucht
+    // von `Vorschaubild`, seit die Bilder abseits geholt werden — sonst
+    // stünde im Befund nach dem Umbau gar nichts mehr über sie, und dann
+    // ließe sich nicht mehr sagen, ob es wirkt.
+    func melde(_ name: String, dauer: Double) {
+        var stand = summen[name] ?? Summe()
+        if Date().timeIntervalSince(stand.seit) > 5 { stand = Summe() }
+        stand.anzahl += 1
+        stand.summe += dauer * 1000
+        summen[name] = stand
+    }
+
     func sammelt<W>(_ name: String, _ arbeit: () -> W) -> W {
         let anfang = Date()
         let ergebnis = arbeit()
@@ -76,10 +89,22 @@ final class Zeichenmesser {
         return ergebnis
     }
 
+    // WOHER DIE BILDER KAMEN (ab 1.0.81).
+    //
+    // Seit die Vorschaubilder abseits des Hauptfadens geholt werden
+    // (`Vorschaubild`), ist das die Zahl, an der sich das Scrollen messen
+    // lässt: Bleibt „von Platte" beim Blättern klein, liegt es nicht mehr
+    // an den Bildern. Der Zähler wohnt im `Bildarchiv`, weil nur dort
+    // bekannt ist, ob der Vorrat getroffen hat.
+    var ladezeile: String {
+        let stand = Bildarchiv.shared.ladebefund
+        return "Bilder: \(stand.vorrat)× aus dem Vorrat, \(stand.platte)× von Platte"
+    }
+
     // Der Befund, ohne Deutung — und IMMER mit der Zeitspanne dabei: Eine
     // Rate ohne ihren Zeitraum ist keine Messung.
     var befund: String {
-        var teile: [String] = []
+        var teile: [String] = [ladezeile]
         for (name, stand) in zaehler.sorted(by: { $0.key < $1.key }) {
             let spanne = max(Date().timeIntervalSince(stand.seit), 0.001)
             teile.append(String(format: "%@ %.0f/s (%d in %.1fs)",
