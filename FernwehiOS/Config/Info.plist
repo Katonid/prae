@@ -20,21 +20,16 @@
 	<key>CKSharingSupported</key>
 	<true/>
 
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Damit ein neuer Tagebucheintrag den Ort bekommt, an dem du gerade bist, und damit sich die Reisespur aufzeichnen lässt.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Mit „Immer“ zeichnet Fernweh die Reisespur eines Urlaubstages auch dann auf, wenn das iPhone in der Tasche liegt — und nimmt sie wieder auf, nachdem iOS die App beendet hat. Aufgezeichnet wird nur, solange eine Reise läuft und die Aufzeichnung eingeschaltet ist.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
 	<dict>
 		<key>Reisespur</key>
 		<string>Mit der ungefähren Ortung liegt jeder Punkt der Reisespur mehrere hundert Meter daneben. Für die Spur braucht die App den genauen Standort.</string>
 	</dict>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Damit du deinen Tagebuchtext diktieren kannst. Aus der Aufnahme wird Text; die Aufnahme selbst wird nicht gespeichert.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Damit aus deinem Diktat Text wird — mit den Orten des Tages als Hinweisen, damit Ortsnamen richtig ankommen.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Damit dir zu jedem Reisetag die Fotos dieses Tages zur Auswahl angeboten werden — und damit ein Foto, das du später in der Fotos-App bearbeitest, auch im Tagebuch bearbeitet erscheint.</string>
+
+	<!-- Die Texte der Berechtigungsabfragen stehen als Build-Einstellung
+	     (INFOPLIST_KEY_…) im pbxproj, nicht hier. Standen sie hier, wollte
+	     Xcode sie beim Öffnen des Reiters „General“ selbst dorthin umziehen
+	     und brach dabei ab (Xcode 27, Absturz beim Öffnen des Projekts). -->
 
 	<!-- location: die Reisespur im Hintergrund.
 	     remote-notification: CloudKit meldet Änderungen der Miturlauber

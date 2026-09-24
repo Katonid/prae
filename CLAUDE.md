@@ -10472,11 +10472,23 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
   (`aps-environment` development/production, Lehre aus Schulalarm 1.0.18).
+- **Berechtigungstexte stehen als Build-Einstellung, NICHT in der Info.plist**
+  (`INFOPLIST_KEY_NS…UsageDescription`, ab 1.0.2, gemeldet 09/2026: „Xcode
+  stürzt ab, wenn ich das Projekt öffne“). Der Absturzbericht (Xcode 27) zeigt
+  den Weg: Reiter „General“ → `launchScreenBinding` → `PBXTarget
+  _adjustBuildSettingsForProductSettings` → Assertion in
+  `DVTMutableMacroDefinitionTable`. Xcode will Schlüssel, für die es eine
+  Build-Einstellung gibt, selbst aus der Info.plist dorthin umziehen und bricht
+  dabei ab. Tagesspur und Kassenbuch führen dieselben Texte (samt „Immer“) als
+  Build-Einstellung und öffnen sich. **In die Info.plist gehört nur, was keine
+  `INFOPLIST_KEY_`-Entsprechung hat** (Hintergrundmodi, `CKSharingSupported`,
+  das Wörterbuch für die genaue Ortung). Welcher der Texte die Assertion
+  auslöste, ist nicht gemessen — umgezogen sind alle fünf.
 - **Diktieren** (`Model/Diktat.swift`, ab 1.0.1, Wunsch des Nutzers: „die
   Apple-Spracherkennung versteht vieles nicht richtig … vielleicht gibt es
   Alternativen"). Ab iOS 26 Apples NEUES Modell (`SpeechAnalyzer` +
