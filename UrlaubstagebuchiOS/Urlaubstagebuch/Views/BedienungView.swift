@@ -138,7 +138,7 @@ struct BedienungView: View {
               wie: "„…“ oben rechts → „Alles neu verteilen…“. Nötig, wenn eine neue Fassung der App anders setzt als früher: Ein fertiges Buch wird davon NICHT von selbst umgestellt. Vorher steht Tag für Tag da, was wegfällt — und Text, der auf einer Seite bearbeitet wurde, wandert zuerst in den Tagebuchtext zurück."),
         Griff(zeichen: "ruler.fill",
               was: "Einrasten an Rand und Fotos",
-              wie: "„…“ oben rechts → Hilfen beim Anordnen → „An Rand und Nachbarn einrasten“. Beim Schieben zeigt eine Linie, woran gerade gefangen wird — Rand, Schnittkante oder Nachbar. Auf den Millimeter genau geht es über Block → Lage auf der Seite."),
+              wie: "„…“ oben rechts → Hilfen beim Anordnen → „An Rand und Nachbarn einrasten“. Beim Schieben zeigt eine Linie, woran gerade gefangen wird — Rand, Schnittkante, Sicherheitsabstand oder Nachbar. Auf den Millimeter genau geht es über Block → Lage auf der Seite."),
         Griff(zeichen: "mappin.and.ellipse",
               was: "Einen Reisepunkt ändern oder löschen",
               wie: "Das Tagesmenü unten rechts \u{2192} Reisepunkte \u{2192} „Punkte auf der Karte“ (oder ein Tipp auf die kleine Karte ganz oben). Die Karte geht über den ganzen Bildschirm auf, und jeder Punkt darauf ist ANTIPPBAR: Der getroffene wird hervorgehoben, die Karte schiebt man unter das Fadenkreuz und tippt „Übernehmen“ \u{2014} oder „Löschen“. Über die Liste geht es auch; auf der Karte findet man einen bestimmten Punkt leichter wieder."),

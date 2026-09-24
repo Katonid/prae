@@ -101,6 +101,16 @@ struct SeitenflaecheView: View, Equatable {
     private var bogen: CGSize { werk.reise.gestaltung.bogen(werk.reise.format) }
     private var satz: CGRect { werk.reise.gestaltung.satzspiegel(werk.reise.format) }
 
+    // Der Streifen INNERHALB des Endformats, in dem nichts stehen soll, was
+    // gelesen werden muss (ab 1.0.73). `nil` heißt: abgeschaltet — dann
+    // wird auch keine Linie gezeichnet und an nichts gefangen; eine Linie
+    // ohne Wirkung wäre eine Behauptung (dieselbe Regel wie beim
+    // Einrasten seit 1.0.11).
+    private var schutzzone: CGRect? {
+        guard werk.reise.gestaltung.sicherheitsabstand > 0.5 else { return nil }
+        return werk.reise.gestaltung.schutzzone(werk.reise.format)
+    }
+
     private var hintergrund: Seitenhintergrund {
         buchseite.seite.hintergrund ?? werk.reise.gestaltung.hintergrund
     }
@@ -246,6 +256,22 @@ struct SeitenflaecheView: View, Equatable {
                     .strokeBorder(style: StrokeStyle(lineWidth: 0.8, dash: [7, 4]))
                     .foregroundStyle(Color.red.opacity(0.55))
                     .frame(width: format.width, height: format.height)
+                    .allowsHitTesting(false)
+            }
+
+            // DER SICHERHEITSABSTAND, gleich daneben (ab 1.0.73).
+            //
+            // Er ist die Gegenrichtung zur Schnittkante und muss deshalb
+            // anders aussehen: BLAU und feiner gestrichelt. Zwei rote
+            // Linien nebeneinander wären zwei Namen für dasselbe, und
+            // genau diese Verwechslung — Anschnitt gegen Sicherheitsabstand
+            // — ist der Anlass dieser Fassung.
+            if bearbeitbar, werk.zeigeSatzspiegel, let zone = schutzzone {
+                Rectangle()
+                    .strokeBorder(style: StrokeStyle(lineWidth: 0.6, dash: [3, 3]))
+                    .foregroundStyle(Color.blue.opacity(0.45))
+                    .frame(width: zone.width, height: zone.height)
+                    .offset(x: zone.minX, y: zone.minY)
                     .allowsHitTesting(false)
             }
 
@@ -749,6 +775,7 @@ struct SeitenflaecheView: View, Equatable {
                 satz: satz,
                 bogen: werk.reise.gestaltung.anschnitt > 0.5
                     ? werk.reise.gestaltung.randabfallend(werk.reise.format) : nil,
+                schutz: schutzzone,
                 toleranz: 6 / massstab
             )
         } else {
@@ -814,6 +841,7 @@ struct SeitenflaecheView: View, Equatable {
             satz: satz,
             bogen: werk.reise.gestaltung.anschnitt > 0.5
                 ? werk.reise.gestaltung.randabfallend(werk.reise.format) : nil,
+            schutz: schutzzone,
             nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id }
         )
         let toleranz = einrastenAn ? 7 / massstab : 0

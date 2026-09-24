@@ -480,6 +480,44 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Anschnitt und Sicherheitsabstand (1.0.73)
+
+Beim Vergleich mit DIN A4 fällt auf, dass die geforderten 216 × 303 mm
+größer sind — und daraus folgt richtig, dass ein Sicherheitsabstand zum
+Rand sinnvoll ist. Nur ist die Seite nicht größer: Sie bleibt A4. Größer ist
+die **Datei**, weil der Anschnitt außen dranhängt und weggeschnitten wird.
+
+Was den Sicherheitsabstand nötig macht, ist dieselbe Ursache aus der anderen
+Richtung. Jede Schneidemaschine hat ein Spiel von einem knappen Millimeter,
+und ein Stapel Bücher wird nie auf den Punkt genau getroffen:
+
+- Der **Anschnitt** liegt **außerhalb** des Endformats. Er sorgt dafür, dass
+  bei einem Schnitt nach innen kein weißer Faden stehen bleibt. Dorthin
+  gehört alles, was randabfallend sein soll.
+- Der **Sicherheitsabstand** liegt **innerhalb**. Er sorgt dafür, dass bei
+  einem Schnitt nach außen nichts Gelesenes abgeschnitten wird. Dort soll
+  nichts stehen, was gelesen werden muss.
+
+Er ist ab dieser Fassung eingebaut, mit 5 mm voreingestellt und unter
+Gestalten direkt unter dem Anschnitt einstellbar. Auf der Seite zeigt ihn
+eine **blaue** Linie, gleich neben der roten Schnittkante — zwei rote Linien
+nebeneinander wären zwei Namen für dasselbe, und genau diese Verwechslung
+ist der Anlass. Blöcke rasten daran ein wie an jeder anderen Kante.
+
+Die Prüfung vor dem Ausgeben zählt, was hineinragt, und nennt Textblöcke
+eigens: Ein angeschnittenes Wort sieht man dem PDF nicht an, dem gedruckten
+Buch sofort. **Randabfallende Blöcke sind ausgenommen** — die sollen über
+die Kante laufen. Wer einen Block wirklich bis an den Rand will, schaltet
+ihn auf randabfallend.
+
+Beim Formatwechsel wird der Abstand nicht mitgerechnet, genau wie der
+Anschnitt: Das Spiel der Schneidemaschine ist dasselbe, ob eine Seite A4
+misst oder A5.
+
+**Nicht gemessen:** Keine Seite ist damit gedruckt worden. Die 5 mm sind
+gewählt und nicht gemessen — 3 bis 5 mm sind das, was Druckdienste
+üblicherweise nennen; verbindlich ist die Angabe der eigenen Druckerei.
+
 ## Was die Druckerei verlangt, ist der Bogen (1.0.72)
 
 Der erste echte Druckauftrag kam mit drei Beanstandungen zurück. Alle drei

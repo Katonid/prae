@@ -7305,6 +7305,61 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **ANSCHNITT UND SICHERHEITSABSTAND SIND ZWEI STREIFEN IN ENTGEGENGESETZTE
+  RICHTUNGEN** (`Gestaltung.sicherheitsabstand`, `.schutzzone`, ab 1.0.73;
+  Befund des Nutzers 09/2026 an seinem ersten Druckauftrag: „wenn ich die von
+  der Druckerei geforderten Werte mit dem Standardformat DIN A4 vergleiche,
+  dann sind die Maße ja größer. Das heißt, die Druckerei erwartet von mir
+  eine größere Seite, spricht aber auch von Beschnitt. Ich denke daher, dass
+  es sinnvoll sein dürfte, einen Sicherheitsabstand zum Rand zu halten.").
+  **Der Schluss ist richtig, die Begründung trifft daneben — und beides
+  gehört gesagt.** Die SEITE wird nicht größer; sie bleibt A4. Größer ist die
+  DATEI, weil der Anschnitt außen dranhängt und weggeschnitten wird. Wer den
+  Satz „die erwarten eine größere Seite" zu Ende denkt, trägt 216 × 303 als
+  Seitenformat ein — und genau das ist die Falle aus 1.0.72.
+  - **Was den Abstand nötig macht, ist etwas anderes als der Anschnitt, und
+    zwar dieselbe Ursache aus der anderen Richtung**: Jede Schneidemaschine
+    hat ein Spiel von einem knappen Millimeter, und ein Stapel Bücher wird
+    nie auf den Punkt genau getroffen. Der Anschnitt sorgt dafür, dass bei
+    einem Schnitt NACH INNEN kein weißer Faden stehen bleibt; der
+    Sicherheitsabstand dafür, dass bei einem Schnitt NACH AUSSEN nichts
+    Gelesenes abgeschnitten wird. **Der Anschnitt liegt AUSSERHALB des
+    Endformats, der Sicherheitsabstand INNERHALB.**
+  - **Die App kannte ihn bis 1.0.72 gar nicht.** Die Ränder (16/17/19 mm)
+    halten den Satzspiegel weit genug innen, und auch Seitenzahl und
+    Kopfzeile sitzen sicher (`Seitenbeiwerk` rechnet mit Anteilen der
+    Ränder). Ungeschützt war alles, was jemand VON HAND an die Kante
+    geschoben hat — und seit 1.0.61 lassen sich Blöcke frei setzen.
+  - **Gezeichnet wird BLAU und feiner gestrichelt**, gleich neben der roten
+    Schnittkante. Zwei rote Linien nebeneinander wären zwei Namen für
+    dasselbe, und genau diese Verwechslung ist der Anlass der Fassung.
+    Abgeschaltet (0 mm) wird auch keine Linie gezeichnet und an nichts
+    gefangen — eine Linie ohne Wirkung wäre eine Behauptung (die Regel steht
+    seit 1.0.11 da).
+  - **Er ist eine Fangkante wie die anderen** (`Einrasten.Herkunft.sicherheit`).
+    Wer einen Block an die Kante schiebt, soll dort fangen und nicht daneben;
+    die Linie beim Schieben nennt ihn beim Namen.
+  - **Gezählt wird am ERGEBNIS, nicht an der Absicht**
+    (`Druckpruefung.schutzzone`): jeder Block, der wirklich hineinragt, mit
+    Tag und Seite, und Textblöcke eigens — Text ist der Fall, um den es geht.
+    **Randabfallende Blöcke sind ohne Ausnahme ausgenommen.** Sie SOLLEN über
+    die Kante laufen; sie zu melden hieße, das als Fehler auszugeben, was
+    richtig ist — und nach dem dritten solchen Hinweis liest niemand mehr
+    eine Zeile dieser Prüfung. Wer einen Block wirklich bis an die Kante
+    will, schaltet ihn auf randabfallend; die Meldung sagt das auch.
+  - **Beim Formatwechsel wird er NICHT mitgerechnet** — aus demselben Grund
+    wie der Anschnitt: Das Spiel der Schneidemaschine ist dasselbe, ob eine
+    Seite A4 misst oder A5. Wer ihn mitschrumpfte, bekäme auf der kleineren
+    Seite genau dort weniger Schutz, wo der Rand ohnehin knapper wird.
+    `Formatwechsel` zählt die Längen einzeln auf, also ist er von selbst
+    draußen — der Kommentar dort sagt seit 1.0.73, dass das eine Entscheidung
+    ist und kein Vergessen.
+- **Nicht gemessen (1.0.73):** Keine Seite ist damit gedruckt worden.
+  **Gewählt und nicht gemessen** sind die Vorgabe von 5 mm und die Spanne des
+  Reglers (0 bis 12 mm); 3 bis 5 mm sind das, was Druckdienste üblicherweise
+  nennen, und diese App hat es an keinem nachgeprüft. Ob der blaue Strich auf
+  einem Gerät neben dem roten zu unterscheiden ist, hat ebenfalls niemand
+  gesehen. **Nicht als erledigt darstellen.**
 - **WAS EINE DRUCKEREI NENNT, IST DER BOGEN — NICHT DIE SEITE**
   (`Model/Druckvorgabe.swift`, ab 1.0.72; gemeldet 09/2026 aus dem ERSTEN
   echten Druckauftrag: „Das Format der erhaltenen Daten stimmt nicht mit der
@@ -8667,7 +8722,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.72 (Build 73). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.73 (Build 74). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

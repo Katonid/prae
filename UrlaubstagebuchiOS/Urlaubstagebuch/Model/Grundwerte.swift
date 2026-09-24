@@ -415,6 +415,7 @@ struct Gestaltung: Codable, Hashable {
         randUnten = b.wert(.randUnten, 19.0)
         fuge = b.wert(.fuge, 4.0)
         anschnitt = b.wert(.anschnitt, 3.0)
+        sicherheitsabstand = b.wert(.sicherheitsabstand, 5.0)
         bundsteg = b.wert(.bundsteg, 0.0)
         fotoschatten = b.wert(.fotoschatten, Schattenart.keiner)
         fotorand = b.wert(.fotorand, 0.0)
@@ -454,6 +455,46 @@ struct Gestaltung: Codable, Hashable {
     // randabfallender Block beginnt bei -anschnitt und ist um die doppelte
     // Zugabe breiter. Das hält alle Koordinaten der Seite bei den Zahlen,
     // die auf dem Lineal stehen.
+    // DER SICHERHEITSABSTAND — der Streifen INNERHALB des Endformats, in
+    // dem nichts Wichtiges stehen soll (ab 1.0.73).
+    //
+    // Befund des Nutzers, 09/2026, an seinem ersten Druckauftrag: „wenn ich
+    // die von der Druckerei geforderten Werte mit dem Standardformat DIN A4
+    // vergleiche, dann sind die Maße ja größer … Ich denke daher, dass es
+    // sinnvoll sein dürfte, einen Sicherheitsabstand zum Rand zu halten."
+    //
+    // **Der Schluss ist richtig, die Begründung trifft daneben — und der
+    // Unterschied ist wichtig.** Die SEITE wird nicht größer; sie bleibt
+    // A4. Größer ist die DATEI, weil der Anschnitt außen dranhängt und nach
+    // dem Druck weggeschnitten wird. Was den Sicherheitsabstand nötig
+    // macht, ist etwas anderes: Jede Schneidemaschine hat ein Spiel von
+    // einem knappen Millimeter, und ein Stapel Bücher wird nie auf den
+    // Punkt genau getroffen. Läuft eine Seitenzahl drei Millimeter vor der
+    // Kante, steht sie im einen Buch mittig und im nächsten halb
+    // angeschnitten.
+    //
+    // **Es sind also zwei Streifen in entgegengesetzte Richtungen**, und
+    // sie werden gern verwechselt: Der ANSCHNITT liegt AUSSERHALB des
+    // Endformats, und dorthin gehört alles, was randabfallend sein soll.
+    // Der SICHERHEITSABSTAND liegt INNERHALB, und dort soll nichts stehen,
+    // was gelesen werden muss.
+    //
+    // Er wird beim Formatwechsel NICHT mitgerechnet — aus demselben Grund
+    // wie der Anschnitt: Das Spiel der Schneidemaschine ist dasselbe, ob
+    // eine Seite A4 misst oder A5.
+    var sicherheitsabstand: Double = 5
+
+    /// Die Fläche, in der alles Wichtige bleiben soll. Der Satzspiegel
+    /// liegt normalerweise weit innerhalb; gefährlich wird es bei Blöcken,
+    /// die jemand von Hand an die Kante geschoben hat.
+    func schutzzone(_ format: Seitenformat) -> CGRect {
+        let groesse = format.groesse
+        let saum = Druckmass.pt(max(0, sicherheitsabstand))
+        return CGRect(x: saum, y: saum,
+                      width: max(0, groesse.width - 2 * saum),
+                      height: max(0, groesse.height - 2 * saum))
+    }
+
     func satzspiegel(_ format: Seitenformat) -> CGRect {
         let groesse = format.groesse
         let seite = Druckmass.pt(randAussen + bundsteg)

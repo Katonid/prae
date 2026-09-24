@@ -200,7 +200,7 @@ struct AusgabeView: View {
                     }
                     Text(bestellhinweis)
                         .font(.caption)
-                        .foregroundStyle(bestellpasst ? .secondary : .orange)
+                        .foregroundStyle(bestellpasst ? Color.secondary : Color.orange)
                     Picker("Bildgüte", selection: $guete) {
                         ForEach(Bildguete.allCases) { g in Text(g.name).tag(g) }
                     }

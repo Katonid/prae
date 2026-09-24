@@ -166,7 +166,7 @@ struct UmschlagView: View {
         } footer: {
             Text(druckereihinweis)
                 .foregroundStyle(bogenbreite.isEmpty || rueckenAusBogen != nil
-                    ? .secondary : .red)
+                    ? Color.secondary : Color.red)
         }
     }
 

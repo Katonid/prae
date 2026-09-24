@@ -83,7 +83,7 @@ struct FormatView: View {
                 } footer: {
                     Text(bogenhinweis)
                         .foregroundStyle(ausBogen == nil && !bogenBreite.isEmpty
-                            ? .red : .secondary)
+                            ? Color.red : Color.secondary)
                 }
 
                 Section {

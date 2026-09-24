@@ -20,7 +20,18 @@ struct GestaltungView: View {
     // Der Satz steht hier, weil hier die Frage entsteht.
     private var zugabenhinweis: String {
         var text = "Anschnitt: 3 mm sind der Standard, manche Buchdienste verlangen 5 mm. "
-        text += "Ohne ihn kann kein Bild bis an die Papierkante laufen.\n\n"
+        text += "Ohne ihn kann kein Bild bis an die Papierkante laufen. Er liegt AUSSERHALB "
+        text += "des Endformats und wird weggeschnitten \u{2014} deshalb ist die PDF-Seite "
+        text += "gr\u{00F6}\u{00DF}er als das bestellte Format.\n\n"
+        text += "Sicherheitsabstand: die Gegenrichtung, INNERHALB des Endformats. Dort soll "
+        text += "nichts stehen, was gelesen werden muss. Der Grund ist derselbe wie beim "
+        text += "Anschnitt: Jede Schneidemaschine hat ein Spiel von einem knappen "
+        text += "Millimeter, und ein Stapel B\u{00FC}cher wird nie auf den Punkt genau "
+        text += "getroffen \u{2014} eine Seitenzahl dicht an der Kante steht dann im einen "
+        text += "Buch mittig und im n\u{00E4}chsten halb angeschnitten. 3 bis 5 mm sind "
+        text += "\u{00FC}blich. Die Pr\u{00FC}fung vor dem Ausgeben z\u{00E4}hlt, was "
+        text += "hineinragt; randabfallende Bl\u{00F6}cke sind ausgenommen, die sollen "
+        text += "ja \u{00FC}ber die Kante laufen.\n\n"
         text += "Bundsteg: zusätzlicher Rand zur Heftung, 0 mm ist erlaubt und die Vorgabe. "
         text += "Er wird auf beide Seitenränder gerechnet — welche Seite innen liegt, hängt "
         text += "an der laufenden Seitenzahl, und die verschiebt sich, sobald ein Tag eine "
@@ -69,6 +80,12 @@ struct GestaltungView: View {
 
                 Section {
                     mmRegler("Anschnitt", $werk.reise.gestaltung.anschnitt, 0...8, schritt: 1)
+                    // DIE GEGENRICHTUNG (ab 1.0.73). Sie steht unmittelbar
+                    // unter dem Anschnitt, weil die beiden dauernd
+                    // verwechselt werden — und nebeneinander lässt sich der
+                    // Unterschied in einem Satz sagen.
+                    mmRegler("Sicherheitsabstand",
+                             $werk.reise.gestaltung.sicherheitsabstand, 0...12, schritt: 1)
                     mmRegler("Bundsteg", $werk.reise.gestaltung.bundsteg, 0...15, schritt: 1)
                 } header: {
                     Text("Druckzugaben")
