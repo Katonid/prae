@@ -7698,6 +7698,47 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **ALLES, WAS IN DIE DATEI GEHT, IST sRGB** (`Dienste/Farbraum.swift`, ab
+  1.0.89; gefragt 09/2026: „ist der Farbraum eigentlich sRGB?", danach die
+  Ansage: „Ich möchte die automatische Umwandlung in der App.").
+  - **Die ehrliche Antwort war: nicht durchgehend, und drei Wege liefen
+    nebeneinander.** Die Farben der App kamen über
+    `UIColor(red:green:blue:alpha:)` und die Verläufe über
+    `CGColorSpaceCreateDeviceRGB()` — beides landet im PDF als
+    `/DeviceRGB`, also OHNE Profil; jeder Betrachter liest es faktisch als
+    sRGB, dagestanden hat es nie. Die FOTOS behielten das Profil ihrer
+    Datei, und ein iPhone-Foto ist seit Jahren häufig **Display P3** — im
+    selben Buch standen damit P3-Bilder neben profillosen Textfarben. Und
+    die KARTEN entstanden im Vorgabebereich des Geräts.
+  - **Gewandelt wird an EINER Stelle** (`Farbraum`), gefragt von den
+    Farben (`Farbwert.cgFarbe`), den Verläufen, den Ausgabebildern
+    (`Bildarchiv.fuerAusgabe`), der Sättigung (`Farbkraft`) und den
+    Kartenzeichnern (`preferredRange = .standard`). Wer einen neuen Weg in
+    die Datei baut, fragt dort.
+  - **Nur, was nicht schon sRGB IST.** Ein Bild ohne Not durch einen
+    Bitmap-Kontext zu schicken kostet Speicher (3600 Punkte Kante sind rund
+    39 MB) und Genauigkeit — und der häufigste Fall ist das Bild, das schon
+    passt.
+  - **Durchsichtigkeit bleibt durchsichtig.** Eine freigestellte Grafik
+    bekäme sonst einen weißen Kasten — und `Seitensatz.jpegEingebettet`
+    entscheidet an genau diesem Kanal, ob es komprimieren darf.
+  - **Misslingt die Umwandlung, kommt das Bild unverändert zurück.** Ein
+    Bild ohne Umwandlung ist besser als kein Bild; das ist der Stand von
+    vor 1.0.89 und nicht schlechter als vorher.
+  - **Die Prüfung zählt, was anfällt** (`Druckpruefung.farbraum`): wie viele
+    Bilddateien welches Profil tragen und wie viele umgerechnet werden —
+    gemessen an den ORIGINALEN auf der Platte, gedeckelt auf vierzig, und
+    mit dem Satz dabei, dass erst ein Blick in die fertige Datei sagt, was
+    wirklich darin steht.
+- **Nicht gemessen (1.0.89):** In keine ausgegebene Datei ist hineingesehen
+  worden. **Am Quelltext ABGEZÄHLT ist, welcher Weg welchen Raum benutzt
+  hat** — `/DeviceRGB` bei Farben und Verläufen, das Dateiprofil bei
+  Fotos. **Ungeprüft bleibt das Ergebnis:** ob CoreGraphics den benannten
+  Raum wirklich als ICC-Profil in das PDF schreibt, ob `jpegData` das
+  Profil eines sRGB-Bildes mitschreibt und ob ein Druckdienst die Datei
+  danach anders behandelt. Ebenso ungemessen, was die Umwandlung an
+  Zeit kostet — sie läuft je Bild beim Ausgeben. **Nicht als erledigt
+  darstellen.**
 - **DIE AUSRICHTUNG EINER UNTERSCHRIFT GEHÖRT DEM BILD** (`Foto.unterschriftAusrichtung`,
   `Reisetag.kartentextAusrichtung`, ab 1.0.88; gemeldet 09/2026 an einer
   Zeile, die halb unter dem Nachbarfoto verschwand: „Hier verschwindet der
@@ -9669,7 +9710,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.88 (Build 89). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.89 (Build 90). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

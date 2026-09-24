@@ -480,6 +480,28 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Farbraum: sRGB (1.0.89)
+
+Bis 1.0.88 liefen drei Wege nebeneinander: Die Farben der App gingen als
+`DeviceRGB` in die Datei — also **ohne Profil** —, die Fotos behielten das
+ihrer Datei (ein iPhone-Foto ist häufig **Display P3**), und die Karten
+entstanden im Vorgabebereich des Geräts.
+
+Jetzt wandelt die App selbst:
+
+- Flächen, Schrift, Linien und Verläufe tragen den sRGB-Raum ausdrücklich.
+- Fotos, Wasserzeichen und Karten werden beim Ausgeben nach sRGB
+  umgerechnet — nur, wenn sie nicht schon dort sind.
+- Durchsichtigkeit bleibt erhalten; misslingt die Umwandlung, geht das Bild
+  unverändert durch.
+- Die Druckprüfung nennt, welche Profile die Bilddateien tragen und wie
+  viele umgerechnet werden.
+
+**Nicht gemessen (1.0.89):** In keine ausgegebene Datei ist hineingesehen
+worden. Ob CoreGraphics den Raum wirklich als ICC-Profil ins PDF schreibt,
+sagt erst ein Blick hinein.
+
+
 ## Die Ausrichtung je Bild (1.0.88)
 
 Die Unterschrift folgt der Rolle „Bildunterschrift" im Buch — und die steht

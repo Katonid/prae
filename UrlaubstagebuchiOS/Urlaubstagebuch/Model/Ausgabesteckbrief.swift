@@ -140,8 +140,11 @@ enum Ausgabesteckbrief {
     }
 
     private static var farbsatz: String {
-        var text = "Geschrieben wird in RGB; Fotobuchdienste verlangen das so "
-        text += "und wandeln selbst um. CMYK kann iOS nicht schreiben. "
+        var text = "Geschrieben wird in sRGB (ab 1.0.89): Was die App zeichnet, trägt "
+        text += "den Raum ausdrücklich, Fotos und Karten werden beim Ausgeben "
+        text += "dorthin umgerechnet \u{2014} ein iPhone-Foto ist sonst häufig "
+        text += "Display P3. Fotobuchdienste verlangen RGB und rechnen selbst in "
+        text += "ihren Druckfarbraum um; CMYK kann iOS nicht schreiben. "
         text += "Der Text steht als Text in der Datei, nicht als Bild."
         return text
     }

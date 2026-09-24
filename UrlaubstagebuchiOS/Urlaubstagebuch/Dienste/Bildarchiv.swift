@@ -213,7 +213,11 @@ final class Bildarchiv {
         ]
         guard let bild = CGImageSourceCreateThumbnailAtIndex(quelle, 0, wunsch as CFDictionary)
         else { return nil }
-        return UIImage(cgImage: bild)
+        // NACH sRGB, und zwar HIER (ab 1.0.89). Ein iPhone-Foto ist
+        // häufig Display P3; ungewandelt stünde es so im PDF, während die
+        // Textfarben daneben sRGB tragen. Gewandelt wird nur, was nicht
+        // schon dort ist — siehe `Farbraum`.
+        return UIImage(cgImage: Farbraum.nachSRGB(bild))
     }
 
     func aufraeumen() {

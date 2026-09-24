@@ -136,7 +136,20 @@ struct Farbwert: Codable, Hashable {
     }
 
     var farbe: Color { Color(.sRGB, red: rot, green: gruen, blue: blau, opacity: deckung) }
-    var uiFarbe: UIColor { UIColor(red: rot, green: gruen, blue: blau, alpha: deckung) }
+
+    // IM sRGB-RAUM, ausdrücklich (ab 1.0.89).
+    //
+    // `UIColor(red:green:blue:alpha:)` schreibt im PDF ein `/DeviceRGB`,
+    // also eine Farbe OHNE Profil. Gelesen wird sie von jedem Betrachter
+    // als sRGB — dasteht hat es nie. Mit dem benannten Raum steht es
+    // drin; auf dem Bildschirm ändert sich nichts, die Zahlen sind
+    // dieselben.
+    var cgFarbe: CGColor {
+        CGColor(colorSpace: Farbraum.sRGB, components: [rot, gruen, blau, deckung])
+            ?? UIColor(red: rot, green: gruen, blue: blau, alpha: deckung).cgColor
+    }
+
+    var uiFarbe: UIColor { UIColor(cgColor: cgFarbe) }
 
     static let tinte = Farbwert(rot: 0.13, gruen: 0.12, blau: 0.11)
     static let leise = Farbwert(rot: 0.44, gruen: 0.42, blau: 0.40)

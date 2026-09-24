@@ -147,6 +147,7 @@ enum Kachelkarte {
         let mosaikForm = UIGraphicsImageRendererFormat()
         mosaikForm.scale = 1
         mosaikForm.opaque = true
+        mosaikForm.preferredRange = .standard
         let mosaik = UIGraphicsImageRenderer(size: mosaikGroesse, format: mosaikForm).image { lage in
             UIColor.white.setFill()
             lage.fill(CGRect(origin: .zero, size: mosaikGroesse))
@@ -164,6 +165,10 @@ enum Kachelkarte {
         let form = UIGraphicsImageRendererFormat()
         form.scale = massstab
         form.opaque = true
+        // STANDARDBEREICH heißt sRGB (ab 1.0.89). Ohne diese Zeile nimmt
+        // der Zeichner den erweiterten Bereich des Geräts, und die Karte
+        // trüge ein anderes Profil als alles andere in der Datei.
+        form.preferredRange = .standard
         let zeichner = UIGraphicsImageRenderer(size: groesse, format: form)
         let fertig = zeichner.image { zusammenhang in
             UIColor.white.setFill()
