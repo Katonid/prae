@@ -54,7 +54,7 @@ enum Druckpruefung {
         return [Zeile(
             stufe: .warnung,
             titel: "\(stellen.count) Textkästen sind zu klein",
-            text: "Unten fällt Text heraus und steht so auch nicht im PDF. \u{201E}Im Buch zeigen\u{201C} umrandet die Kästen rot und springt zum ersten; \u{201E}Rahmen an Text anpassen\u{201C} löst es auf.\n" + liste.prefix(12).joined(separator: "\n"),
+            text: "Unten fällt Text heraus und steht so auch nicht im PDF \u{2014} was genau, steht hinter jeder Zeile. \u{201E}Im Buch zeigen\u{201C} umrandet die Kästen rot und springt zum ersten; \u{201E}Rahmen an Text anpassen\u{201C} löst es auf.\n" + liste.prefix(12).joined(separator: "\n"),
             stellen: stellen
         )]
     }

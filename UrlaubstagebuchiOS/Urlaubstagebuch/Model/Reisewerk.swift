@@ -1429,20 +1429,13 @@ final class Reisewerk: ObservableObject, Identifiable {
     // herausfallen, sieht auf dem Bildschirm aus wie ein Kasten, der zu
     // Ende ist — das ist der eine Fehler, den ein Tagebuch nicht machen
     // darf.
+    // Gerechnet wird in `Textpassung` — der einen Stelle, die auch die
+    // Druckprüfung fragt (ab 1.0.94). Bis 1.0.93 stand dieselbe Rechnung
+    // zweimal da, mit dem Kommentar „zwei Fassungen ergaben eine Seite, auf
+    // der die Marke schweigt und die Prüfung anschlägt" — und sie standen
+    // trotzdem getrennt.
     func fehlendeHoehe(_ block: Block, tag: Reisetag?) -> Double? {
-        guard block.inhalt.istText else { return nil }
-        let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
-        guard !text.isEmpty, block.rahmen.breite > 1 else { return nil }
-        let bild = Seitensatz.schriftbild(block, reise: reise)
-        // Gemessen wird in der TEXTbreite, nicht in der Blockbreite: Liegt
-        // ein Innenabstand darum, steht dem Text weniger zur Verfügung, und
-        // eine Messung ohne ihn meldete „passt", während im Druck eine Zeile
-        // fehlt. Zurückgegeben wird wieder eine BLOCKhöhe — der Rahmen ist
-        // es, den der Knopf danach hochzieht.
-        let rand = block.textrand(reise.gestaltung)
-        let noetig = Textmass.hoehe(text, bild: bild, breite: block.textbreite(rand: rand))
-            + 2 * rand
-        return noetig > block.rahmen.hoehe + 0.5 ? noetig : nil
+        Textpassung.pruefe(block, tag: tag, reise: reise)?.noetig
     }
 
     // Den Rahmen so hoch machen, dass der Text hineinpasst. Nur WACHSEN:

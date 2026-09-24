@@ -7698,6 +7698,40 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **EINE SETZHÖHE IST KEINE PRÜFSCHWELLE** (`Model/Textpassung.swift`, ab
+  1.0.94; gemeldet 09/2026 mit zwei Bildschirmfotos: „Ich weiß nicht, wo da
+  bei der Bildunterschrift Platz fehlt und wie man es beheben kann.").
+  - Die Druckprüfung nannte 28 zu kleine Textkästen, darunter
+    „Bildunterschrift, es fehlen 0,3 mm" — und die Zeile stand daneben
+    vollständig auf der Seite. **Die Ursache steht in `Textmass.hoehe`:**
+    `ceil(…) + 1`, „ein Punkt Zuschlag, damit eine abgeschnittene letzte
+    Zeile nicht wie ein Fehler im Buch aussieht". Beim SETZEN richtig, als
+    PRÜFSCHWELLE falsch — verglichen wurde diese großzügige Zahl mit der
+    Rahmenhöhe, und jede Rundung dazwischen (etwa die aus `Formatwechsel`,
+    der Rahmen und Schriftgrößen je für sich auf ein Zehntel rundet) ergab
+    einen Fehlbetrag von Bruchteilen eines Millimeters. **Ein Befund, den
+    man auf der Seite nicht sehen kann, ist kein Befund, sondern Lärm — und
+    er verdeckt die echten.**
+  - **Gemessen wird am ERGEBNIS.** `Seitensatz.zeichneText` legt einen
+    `CTFrame` über das Blockrechteck; was darin keinen Platz hat, wird nicht
+    gezeichnet, und genau das zählt `Textmass.passtBis` (dieselbe Maschine,
+    dieselbe Silbentrennung, dieselbe Breite). Bleibt nach dem Trimmen
+    nichts übrig, ist nichts zu melden.
+  - **Im Befund steht, WAS herausfällt** (`Textpassung.anriss`). Eine
+    Millimeterzahl sagt nur, DASS etwas fehlt; die ersten Wörter des
+    Überhangs sagen, wo man hinsehen muss.
+  - **Der Zuschlag bleibt, wo er hingehört:** `Textpassung.noetigeHoehe`
+    nimmt ihn für „Rahmen an Text anpassen" — dort SOLL der Rahmen
+    großzügig sein. Gewachsen wird nur, nie geschrumpft.
+  - **Und es ist EINE Stelle.** Bis 1.0.93 stand dieselbe Rechnung zweimal
+    da (`Reisewerk.fehlendeHoehe` für die orange Marke,
+    `Befundstellen.fehlendeHoehe` für die Prüfung) — mit dem Kommentar „zwei
+    Fassungen ergaben eine Seite, auf der die Marke schweigt und die Prüfung
+    anschlägt". **Ein Kommentar, der eine Doppelung benennt, hebt sie nicht
+    auf.**
+  - **Nicht gemessen (1.0.94):** Keine Seite ist damit gesehen worden. Wie
+    viele der 28 gemeldeten Kästen danach übrig bleiben, sagt erst der
+    nächste Lauf. **Nicht als erledigt darstellen.**
 - **EINE PRÜFUNG, DIE EINE STELLE NENNT, ABER NICHT ZEIGT, VERSCHIEBT DIE
   ARBEIT NUR** (`Model/Befundstelle.swift`, `Reisewerk.befundstellen`,
   `.zeigeBefunde`, ab 1.0.93; Ansage des Nutzers 09/2026: „Ich möchte, dass
@@ -9879,7 +9913,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.93 (Build 94). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.94 (Build 95). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

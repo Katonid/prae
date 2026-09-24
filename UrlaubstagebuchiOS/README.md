@@ -480,6 +480,43 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Gemeldet wird, was wirklich herausfällt (1.0.94)
+
+> „Ich weiß nicht, wo da bei der Bildunterschrift Platz fehlt und wie man es
+> beheben kann."
+
+Die Druckprüfung nannte 28 zu kleine Textkästen, darunter „Bildunterschrift,
+es fehlen 0,3 mm" — und auf der Seite daneben stand die Zeile vollständig da.
+
+**Die Ursache steht in `Textmass.hoehe`:** Die gibt nicht die nötige Höhe
+zurück, sondern eine **großzügige** — `ceil(…) + 1`, „ein Punkt Zuschlag,
+damit eine abgeschnittene letzte Zeile nicht wie ein Fehler im Buch
+aussieht". Beim **Setzen** ist das richtig. Als **Prüfschwelle** war es
+falsch: Verglichen wurde diese großzügige Zahl mit der Rahmenhöhe, und jede
+Rundung dazwischen — etwa die aus einem Formatwechsel, der Rahmen und
+Schriftgrößen je für sich auf ein Zehntel rundet — meldete einen Fehlbetrag
+von Bruchteilen eines Millimeters. **Ein Befund über 0,3 mm, den man nicht
+sehen kann, ist kein Befund, sondern Lärm — und er verdeckt die echten.**
+
+* **Gemessen wird am Ergebnis.** `Seitensatz.zeichneText` legt einen
+  `CTFrame` über das Blockrechteck, und was darin keinen Platz hat, wird
+  nicht gezeichnet. Genau das zählt `Textmass.passtBis` — dieselbe Maschine,
+  dieselbe Silbentrennung, dieselbe Breite. Bleibt nichts übrig, ist nichts
+  zu melden.
+* **Im Befund steht, WAS herausfällt** — die ersten Wörter des Überhangs.
+  Eine Millimeterzahl allein sagt nur, dass etwas fehlt; damit lässt sich
+  die Stelle wiedererkennen.
+* **Und es ist EINE Stelle** (`Textpassung`). Bis 1.0.93 stand dieselbe
+  Rechnung zweimal da — für die orange Marke und für die Druckprüfung —, mit
+  dem Kommentar „zwei Fassungen ergaben eine Seite, auf der die Marke
+  schweigt und die Prüfung anschlägt". Sie standen trotzdem getrennt.
+
+**Nicht gemessen (1.0.94):** Keine Seite ist damit gesehen worden. Am
+Quelltext abgezählt ist, warum die alte Schwelle zu fein war und dass
+`passtBis` dieselbe Rechnung ist wie das Zeichnen. **Wie viele der 28
+gemeldeten Kästen danach übrig bleiben, sagt erst der nächste Lauf** — und
+bei denen, die bleiben, steht dann dabei, welche Wörter fehlen.
+
 ## Die Befunde stehen auf der Seite (1.0.93)
 
 > „Ich möchte, dass nach der Dokumentprüfung alle Stellen im Dokument, an
