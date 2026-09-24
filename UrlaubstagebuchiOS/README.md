@@ -480,6 +480,47 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Satzspiegel darf bis an den Sicherheitsabstand (1.0.82)
+
+Gefragt 09/2026: „Warum ist denn der so weit vom Rand entfernt? Der
+Satzspiegel könnte doch tatsächlich innerhalb des Sicherheitsabstandes
+ausgeführt werden."
+
+Er könnte — und er konnte nicht: Die drei Regler für die Ränder gingen nur bis
+5 mm hinunter, der Sicherheitsabstand liegt bei 3. Die Untergrenze war eine
+gewählte Zahl ohne Grund.
+
+* **Die Regler gehen jetzt bis 0**, und ein Knopf setzt alle drei auf einmal
+  auf den geltenden Sicherheitsabstand (außen auf den größeren der beiden
+  Werte, denn am Bund darf ein eigener gelten).
+* **Die Vorgaben 16 / 17 / 19 mm sind gewählt und nicht gemessen** — übliche
+  Buchränder, unten mehr als oben, weil der optische Mittelpunkt über dem
+  geometrischen liegt. Das stand nirgends, und damit sah die Zahl aus wie eine
+  Vorschrift. Der Fußtext trennt jetzt beides: Der Sicherheitsabstand ist die
+  technische Untergrenze, der Rand eine Entscheidung über das Aussehen.
+* **Wer eine Grenze freigibt, sucht alles, was sich auf sie verlassen hat.**
+  Seitenzahl und Kopfzeile sitzen als Anteil in den Rändern (0,6 bzw. 0,42);
+  bei 3 mm Rand unten stünde die Seitenzahl 1,8 mm vom Papierrand und würde
+  angeschnitten. Und es fiele niemandem auf: Die rote Marke aus 1.0.81 greift
+  dort nicht, weil Seitenzahl und Kopfzeile keine Blöcke sind. Beide werden
+  deshalb in die Schutzzone geklemmt.
+* **Bleibt zwischen Satzspiegel und Sicherheitslinie kein Platz mehr, sagt es
+  die Druckprüfung.** Gemessen am Ergebnis: Überschneidet sich das gesetzte
+  Rechteck mit dem Satzspiegel, steht die Zahl im Text. Angeschnitten wird sie
+  nicht — aber sie liegt dann dort, wo der Fließtext anfängt, und das hat
+  niemand eingestellt.
+* **Was ein Rand sonst noch tut, steht dabei:** Beim Lesen liegt dort der
+  Daumen, und am Bund verschwindet in der Bindung ohnehin ein Streifen.
+
+### Nicht gemessen (1.0.82)
+
+Keine Seite ist damit gedruckt worden. Gerechnet ist die Geometrie. Ob ein
+Buch mit 3 mm Rändern gut aussieht, ist keine Frage, die diese App beantwortet
+— sie gibt die Einstellung frei und schreibt hin, was dabei zu bedenken ist.
+Ungeprüft bleibt auch, wie eng ein Druckdienst das nimmt: 3 mm sind sein
+Mindestabstand für Inhalt, und ob er einen Fließtext meint, der dort anfängt,
+sagt seine Vorgabe nicht.
+
 ## Das Scrollen hing an den Bildern (1.0.81)
 
 Gemeldet 09/2026, zum wiederholten Mal: „Das Scrollen über mehrere Seiten

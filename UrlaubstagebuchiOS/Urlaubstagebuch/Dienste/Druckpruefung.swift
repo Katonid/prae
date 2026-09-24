@@ -911,6 +911,47 @@ enum Druckpruefung {
                       text: text)]
     }
 
+    // HAT DAS BEIWERK NOCH PLATZ? (ab 1.0.82)
+    //
+    // Seitenzahl und Kopfzeile sitzen in den RÄNDERN — zwischen
+    // Satzspiegel und Sicherheitslinie. Seit die Ränder bis auf den
+    // Sicherheitsabstand hinuntergehen dürfen (gefragt 09/2026: „Der
+    // Satzspiegel könnte doch tatsächlich innerhalb des
+    // Sicherheitsabstandes ausgeführt werden."), kann dieser Streifen
+    // verschwinden. `Seitenbeiwerk` klemmt beides dann in die Schutzzone —
+    // also steht die Zahl im Text statt im Rand, und das ist kein
+    // Druckfehler, aber auch nicht das, was jemand eingestellt hat.
+    //
+    // Gemessen wird am ERGEBNIS: Überschneidet sich das gesetzte Rechteck
+    // mit dem Satzspiegel, ist der Rand zu knapp. Die Marke auf der Seite
+    // greift hier nicht — Seitenzahl und Kopfzeile sind keine Blöcke.
+    private static func beiwerkplatz(_ reise: Reise) -> [Zeile] {
+        guard reise.gestaltung.seitenzahlen || reise.gestaltung.kopfzeile else { return [] }
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        var eng: Set<String> = []
+        for buchseite in reise.seitenfolge {
+            for zeile in Seitenbeiwerk.zeilen(buchseite, reise: reise)
+            where zeile.rechteck.intersects(satz) {
+                eng.insert(zeile.id)
+            }
+        }
+        guard !eng.isEmpty else { return [] }
+        var was: [String] = []
+        if eng.contains("zahl") { was.append("Die Seitenzahl") }
+        if eng.contains("kopf") { was.append("Die Kopfzeile") }
+        var text = was.joined(separator: " und ") + " "
+        text += eng.count > 1 ? "haben " : "hat "
+        text += "zwischen Satzspiegel und Sicherheitslinie keinen Platz mehr und steht "
+        text += "deshalb im Textbereich. Angeschnitten wird nichts \u{2014} weiter als bis "
+        text += "an den Sicherheitsabstand r\u{00FC}ckt beides nie \u{2014}, aber es liegt "
+        text += "jetzt dort, wo der Flie\u{00DF}text anf\u{00E4}ngt. Abhilfe: den Rand oben "
+        text += "bzw. unten um ein paar Millimeter vergr\u{00F6}\u{00DF}ern (Gestalten "
+        text += "\u{2192} Satzspiegel) oder Seitenzahl und Kopfzeile abschalten."
+        return [Zeile(stufe: .hinweis,
+                      titel: "Seitenzahl oder Kopfzeile ohne eigenen Rand",
+                      text: text)]
+    }
+
     static func vorab(_ reise: Reise) -> [Zeile] {
         var zeilen: [Zeile] = []
         let format = reise.format
@@ -932,6 +973,7 @@ enum Druckpruefung {
         }
 
         zeilen.append(contentsOf: schutzzone(reise))
+        zeilen.append(contentsOf: beiwerkplatz(reise))
         zeilen.append(contentsOf: bestellung(reise))
         zeilen.append(contentsOf: bildaufloesung(reise))
         zeilen.append(contentsOf: schriften(reise))

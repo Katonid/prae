@@ -7621,6 +7621,50 @@ Befunde, und keiner davon war Geschmack:
   Update einen breiteren Umschlagbogen** — das ist die gewollte Richtung,
   aber es ist eine Änderung an einem fertigen Buch. **Nichts davon als
   erledigt darstellen.**
+- **DER SATZSPIEGEL DARF BIS AN DEN SICHERHEITSABSTAND** (ab 1.0.82; gefragt
+  09/2026: „Okay, den Satzspiegel hatte ich vergessen. Warum ist denn der so
+  weit vom Rand entfernt? Der Satzspiegel könnte doch tatsächlich innerhalb
+  des Sicherheitsabstandes ausgeführt werden."). **Er könnte, und er konnte
+  nicht** — die drei Regler gingen nur bis 5 mm hinunter, der
+  Sicherheitsabstand liegt bei 3. Die Untergrenze war eine gewählte Zahl ohne
+  Grund; die technische Grenze ist der Sicherheitsabstand, und der steht seit
+  1.0.80 als eigene blaue Linie daneben. Die Spanne ist jetzt `0...45`, dazu
+  ein Knopf, der alle drei auf einmal darauf setzt (außen auf den größeren der
+  beiden Werte, denn dort kann der Bund einen eigenen tragen).
+  - **Die Vorgaben 16 / 17 / 19 sind GEWÄHLT und nicht gemessen** — übliche
+    Buchränder, unten mehr als oben, weil der optische Mittelpunkt über dem
+    geometrischen liegt. Das stand nirgends, und deshalb sah die Zahl aus wie
+    eine Vorschrift. Der Fußtext des Abschnitts trennt jetzt beides: Der
+    Sicherheitsabstand ist die technische Untergrenze, der Rand eine
+    Entscheidung über das Aussehen.
+  - **Wer eine Grenze freigibt, sucht alles, was sich bisher auf sie verlassen
+    hat.** `Seitenbeiwerk` setzt Seitenzahl und Kopfzeile als ANTEIL der
+    Ränder (0,6 bzw. 0,42). Solange die Ränder 16 bis 19 mm maßen, lag das von
+    selbst weit genug innen; bei 3 mm Rand unten stünde die Seitenzahl 1,8 mm
+    vom Papierrand und würde ANGESCHNITTEN. **Und es fiele niemandem auf:**
+    Die rote Marke aus 1.0.81 greift dort nicht, denn Seitenzahl und Kopfzeile
+    sind keine Blöcke — sie gehören dem Buch und werden beim Zeichnen ergänzt
+    (Regel seit 1.0.0). Geklemmt wird deshalb in `Seitenbeiwerk` selbst, in die
+    Schutzzone hinein und nicht über den Satzspiegel hinaus.
+  - **Wird der Rand so knapp, dass zwischen Satzspiegel und Sicherheitslinie
+    nichts mehr bleibt, SAGT es die Druckprüfung** (`beiwerkplatz`). Gemessen
+    wird am ERGEBNIS: Überschneidet sich das gesetzte Rechteck mit dem
+    Satzspiegel, steht die Zahl im Text. Angeschnitten wird sie nicht — aber
+    sie liegt dann dort, wo der Fließtext anfängt, und das hat niemand
+    eingestellt. Als Hinweis und nicht als Warnung: Es ist eine Folge der
+    eigenen Einstellung und kein Druckfehler.
+  - **Was der Rand sonst noch tut, steht dabei:** Beim Lesen liegt dort der
+    Daumen, und am Bund verschwindet in der Bindung ohnehin ein Streifen —
+    dafür gibt es seit 1.0.76 den eigenen Innenwert.
+- **Nicht gemessen (1.0.82):** Keine Seite ist damit gedruckt worden.
+  Gerechnet ist die Geometrie (dass die Seitenzahl bei 3 mm Rand auf 1,8 mm an
+  die Kante käme und dass das Klemmen sie in die Schutzzone holt). **Ob ein
+  Buch mit 3 mm Rändern gut aussieht, ist keine Frage, die diese App
+  beantwortet** — sie gibt die Einstellung frei und schreibt hin, was dabei zu
+  bedenken ist. Ungeprüft bleibt auch, wie eng ein Druckdienst das nimmt:
+  3 mm sind sein Mindestabstand für INHALT, und ob er einen Fließtext meint,
+  der dort anfängt, sagt seine Vorgabe nicht. **Nicht als erledigt
+  darstellen.**
 - **EIN HANDBUCH IN DER APP — UND JEDER EINTRAG TRÄGT SEINEN WEG**
   (`Views/Handbuch.swift`, `Views/HandbuchView.swift`, ab 1.0.77; Ansage des
   Nutzers 09/2026: „Die Funktionen sind sehr mannigfaltig und zum Teil auch
@@ -9309,7 +9353,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.81 (Build 82). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.82 (Build 83). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
