@@ -191,18 +191,24 @@ struct GestaltungView: View {
                          + "Abschnitt „Vor dem Ausgeben geprüft“ — gemessen, nicht geschätzt.")
                 }
 
-                KartenbildWahl(titel: "Kartenbild", bild: $werk.reise.kartenbild)
-
-                Section("Karte im Satz") {
-                    ColorPicker("Akzentfarbe", selection: Binding(
-                        get: { werk.reise.akzent.farbe },
-                        set: { werk.reise.akzent = Farbwert($0) }
-                    ))
-                    VStack(alignment: .leading) {
-                        LabeledContent("Breite der Karte",
-                                       value: "\(Int(werk.reise.gestaltung.kartenanteil * 100)) %")
-                        Slider(value: $werk.reise.gestaltung.kartenanteil, in: 0.2...0.6)
-                    }
+                // DIE KARTEN SIND SEIT 1.0.79 EIN EIGENER MENÜPUNKT.
+                //
+                // Sie standen hier, solange dieser Bildschirm „Ränder,
+                // Karte, Seitenzahlen…" hieß. Seit 1.0.77 heißt er nach den
+                // Druckzugaben — und damit war die Karteneinstellung aus
+                // dem Menü verschwunden, ohne dass sie sich bewegt hätte
+                // (gemeldet 09/2026). Hier bleibt die Zeile als Auskunft
+                // stehen: Ein Bildschirm, der einen Wert nicht mehr führt,
+                // muss sagen, wo er jetzt steht — dieselbe Regel wie beim
+                // Seitenformat seit 1.0.27.
+                Section {
+                    LabeledContent("Reisepunkte", value: werk.reise.kartenbild.punktstil.name)
+                    LabeledContent("Breite der Karte",
+                                   value: "\(Int(werk.reise.gestaltung.kartenanteil * 100)) %")
+                } header: {
+                    Text("Karten")
+                } footer: {
+                    Text("Eingestellt wird das unter „Ganzes Buch → Karten…“ — dort stehen die Kartenquelle, die Beschriftung, die Reisepunkte und die Breite im Satz. Ein einzelner Tag und eine einzelne Karte dürfen davon abweichen; das steht im Inspektor.")
                 }
 
                 Section {

@@ -7305,6 +7305,76 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **GEZÄHLT WURDE ANWESENHEIT, GEMEINT IST SICHTBARKEIT**
+  (`ReiseView.reiheInDerMitte`, ab 1.0.79; gemeldet 09/2026 mit
+  Bildschirmfoto: „Das Datumsfeld hängt immer mindestens einen Tag
+  hinterher. Im Blickfeld sind eigentlich schon die Seiten des 4. Augustes
+  und auswählbar ist der 3. Das stört.").
+  - **Am Quelltext abzuzählen:** `tagImBlick` nahm seit 1.0.28 die KLEINSTE
+    anwesende Reihennummer. Ein Bogen, der nur noch mit einem Streifen oben
+    am Bildschirmrand hängt, zählt damit genauso wie der, der den ganzen
+    Schirm füllt — und gewinnt, weil seine Nummer kleiner ist. Auf dem
+    Bildschirmfoto ist genau das zu sehen: oben der letzte Zentimeter von
+    „Seiten 0 und 1", darunter vollflächig „Seiten 2 und 3", und im
+    Datumsfeld der Tag des ersten.
+  - **Dazu feuert `onAppear` in einem `LazyVStack` nicht am Sichtrand**,
+    sondern am Rand des Vorbereitungsbereichs — SwiftUI baut ein Stück im
+    Voraus. Die „oberste anwesende" Reihe ist also oft eine, die gar nicht
+    zu sehen ist. **Merke: `onAppear` meldet Anwesenheit, nicht
+    Sichtbarkeit; wer aus mehreren Meldungen EINE auswählt, braucht ein
+    Maß dafür, welche gemeint ist.**
+  - **Gewählt wird die Reihe, welche die MITTE des Sichtfelds überdeckt** —
+    gerechnet aus derselben Geometrie, an der auch der Zoom hängt
+    (`Zoomanker.griff`), und mit derselben Umrechnung wie `massstabSetzen`.
+    Der AUSLÖSER bleibt `onAppear`/`onDisappear`: Gerechnet wird damit nur,
+    wenn eine Reihe kommt oder geht, und nicht bei jedem Bildpunkt —
+    `Inhaltslage` hat aus gutem Grund kein `@Published` (die Lehre aus
+    1.0.16). Findet sich für die Mitte keine Meldung, gilt wie bisher die
+    oberste: ein Rückfall und keine Behauptung.
+  - **Die Seitenvorwahl hing an derselben Zeile** (`seitenvorwahl`, seit
+    1.0.61) und ist mitgezogen. Wer eine Auswahl aus „was man sieht"
+    ableitet, hat sie meist an mehr als einer Stelle.
+- **WER EINEN SAMMELBILDSCHIRM NACH EINEM TEIL SEINES INHALTS BENENNT, MACHT
+  DEN ANDEREN TEIL UNSICHTBAR** (`Views/KartenstilView.swift`, ab 1.0.79;
+  Frage des Nutzers 09/2026: „Gibt es eigentlich irgendwo eine Möglichkeit,
+  eine globale Einstellung für die Reisepunkte zu treffen? Im vorliegenden
+  Fall möchte ich beispielsweise einstellen können, dass überall nur die
+  Spur angezeigt wird und nicht die Punkte.").
+  - **Es gab sie — und 1.0.77 hat sie versteckt.** Die buchweite
+    `KartenbildWahl` lag in `GestaltungView`, und deren Menüpunkt hieß
+    „Ränder, Karte, Seitenzahlen…". In 1.0.77 wurde er zu „Ränder und
+    Druckzugaben…", weil er nach seinem Inhalt heißen sollte — dahinter
+    liegen tatsächlich Anschnitt, Sicherheitsabstand und Bundsteg. Mit dem
+    Wort „Karte" ist aber der einzige Hinweis darauf verschwunden, dass
+    auch die Karteneinstellung dort wohnt. **Dreizehnte Auflage von „es war
+    da, man fand es nicht" — und die erste, die aus einer Verbesserung
+    entstanden ist.** Merke: Wer einen Menüpunkt umbenennt, zählt vorher
+    auf, was alles dahinterliegt.
+  - Die Karten bekommen deshalb einen EIGENEN Menüpunkt („Ganzes Buch →
+    Karten…"), wie „Fotos…" (1.0.10) und „Textfelder…" (1.0.12) und aus
+    demselben Grund: Es ist eine Wirkung, die für alle gilt, und sie wird
+    dort gesucht, wo die Frage entsteht. Gezeigt wird dieselbe
+    `KartenbildWahl`, die auch Tag und einzelne Karte benutzen — zwei
+    Fassungen desselben Formulars liefen auseinander.
+  - **In der Gestaltung bleibt eine AUSKUNFT mit dem Weg** (Reisepunkte und
+    Kartenbreite als Zeile, dazu wo es eingestellt wird). Ein Bildschirm,
+    der einen Wert nicht mehr führt, muss sagen, wo er jetzt steht —
+    dieselbe Regel wie beim Seitenformat seit 1.0.27. Und der Knopf „Für
+    alle Karten im Buch einstellen" im Inspektor zeigt seither dorthin; ein
+    Weg, der auf einen Bildschirm zeigt, der die Sache nicht mehr führt,
+    ist schlimmer als kein Weg (Lehre aus 1.0.49).
+- **Nicht gemessen (1.0.79):** Nichts davon ist auf einem Gerät gesehen
+  worden. **Am Quelltext ABGEZÄHLT ist die Ursache des hinterherhängenden
+  Datums** (die kleinste anwesende Nummer gewinnt, und `onAppear` meldet
+  früher als das Auge sieht) — und sie passt Punkt für Punkt zum
+  Bildschirmfoto. **Ungeprüft ist die Abhilfe:** Ob `Inhaltslage.ursprung`
+  im Augenblick des `onAppear` schon den neuen Stand trägt, ist die Lesart
+  der Reihenfolge und keine Messung; hinkt sie um einen Durchgang, steht
+  das Datum weiterhin eine Reihe daneben — dann ist der nächste Griff, die
+  Rechnung an `onChange(of: lage.meldungen)` zu hängen. Ebenso ungesehen,
+  ob der neue Menüpunkt gefunden wird: Geändert sind Wege und Namen, und
+  das ist keine Messung (dieselbe Einschränkung wie bei den Menüs in
+  1.0.20 und 1.0.49). **Nichts davon als erledigt darstellen.**
 - **AM BUND WIRD NICHT GESCHNITTEN — und die Ansicht behauptete es doch**
   (`Bogenkante`, `Schnittlinien`, ab 1.0.78; gemeldet 09/2026: „In der
   Gestaltungsansicht sehe ich an der Falz innen immer noch zwei gestrichelte
@@ -9104,7 +9174,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.78 (Build 79). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.79 (Build 80). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

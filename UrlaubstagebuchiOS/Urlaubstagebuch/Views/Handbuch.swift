@@ -365,6 +365,14 @@ enum Handbuch {
                 stichworte: ["cover", "titelseite", "rücken", "ruecken", "rückenstärke",
                              "u2", "u3", "hardcover", "bogenbreite", "428"]),
             Handbucheintrag(
+                id: "kartenstil",
+                titel: "Wie die Karten aussehen",
+                text: "Kartenquelle (Apple, OpenStreetMap, OpenTopoMap oder ein eigener Kachelserver), hell oder dunkel, Beschriftung, Breite im Satz — und die REISEPUNKTE: nur die Linie, dezente Punkte, nur Anfang und Ziel, oder Punkte mit Ring. Was hier steht, gilt für alle Karten im Buch.\n\nEin einzelner Tag und eine einzelne Karte dürfen abweichen; das steht im Inspektor (Pinsel), wenn eine Karte gewählt ist. Was dort nicht ausdrücklich gesetzt ist, folgt weiter der Einstellung des Buches.",
+                weg: "Buchsymbol \u{2192} Karten",
+                ziel: .kartenstil,
+                stichworte: ["karte", "reisepunkte", "punkte", "spur", "linie", "osm",
+                             "openstreetmap", "satellit", "gelände", "kachel"]),
+            Handbucheintrag(
                 id: "seitenzahlen",
                 titel: "Seitenzahlen und Kopfzeile",
                 text: "Beide gehören dem Buch und nicht einer Seite — sie werden beim Zeichnen jeder Seite ergänzt. Auf der Titelseite, der Rückseite und auf jeder Seite, die ein Bild ganz ausfüllt, stehen sie nicht.",

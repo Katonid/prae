@@ -480,6 +480,59 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Das Datumsfeld hing einen Bogen hinterher (1.0.79)
+
+Gemeldet 09/2026 mit Bildschirmfoto: „Das Datumsfeld hängt immer mindestens
+einen Tag hinterher. Im Blickfeld sind eigentlich schon die Seiten des
+4. Augustes und auswählbar ist der 3."
+
+**Am Quelltext abzuzählen:** Seit 1.0.28 folgt der gewählte Tag dem, was
+oben im Bild steht — gemeldet über `onAppear`/`onDisappear` der Reihen, und
+gewonnen hat die KLEINSTE anwesende Nummer. Ein Bogen, der nur noch mit
+einem Streifen am oberen Bildschirmrand hängt, zählt damit genauso wie der,
+der den ganzen Schirm füllt. Auf dem Bildschirmfoto ist genau das zu sehen:
+oben der letzte Zentimeter von „Seiten 0 und 1", darunter vollflächig
+„Seiten 2 und 3".
+
+Dazu kommt, dass `onAppear` in einem `LazyVStack` gar nicht am Sichtrand
+feuert, sondern am Rand des Vorbereitungsbereichs — SwiftUI baut ein Stück
+im Voraus. **Merke: `onAppear` meldet Anwesenheit, nicht Sichtbarkeit.**
+
+Gewählt wird jetzt die Reihe, welche die MITTE des Sichtfelds überdeckt,
+gerechnet aus derselben Geometrie, an der auch der Zoom hängt. Der Auslöser
+bleibt `onAppear`/`onDisappear`: Gerechnet wird nur, wenn eine Reihe kommt
+oder geht, und nicht bei jedem Bildpunkt. Die Seitenvorwahl hing an
+derselben Zeile und ist mitgezogen.
+
+## Die Karten haben einen eigenen Menüpunkt (1.0.79)
+
+Frage des Nutzers, 09/2026: „Gibt es eigentlich irgendwo eine Möglichkeit,
+eine globale Einstellung für die Reisepunkte zu treffen? Im vorliegenden
+Fall möchte ich beispielsweise einstellen können, dass überall nur die Spur
+angezeigt wird und nicht die Punkte."
+
+**Es gab sie — und 1.0.77 hat sie versteckt.** Die buchweite Karteneinstellung
+lag hinter dem Menüpunkt „Ränder, Karte, Seitenzahlen…". Der wurde in 1.0.77
+umbenannt in „Ränder und Druckzugaben…", weil er nach seinem Inhalt heißen
+sollte — dahinter liegen tatsächlich Anschnitt, Sicherheitsabstand und
+Bundsteg. Mit dem Wort „Karte" ist aber der einzige Hinweis darauf
+verschwunden, dass auch die Karteneinstellung dort wohnt.
+
+**Wer einen Sammelbildschirm nach einem Teil seines Inhalts benennt, macht
+den anderen Teil unsichtbar.** Dreizehnte Auflage von „es war da, man fand es
+nicht" — und die erste, die aus einer Verbesserung entstanden ist. Die Karten
+stehen jetzt als eigener Punkt im Buch-Menü, wie „Fotos…" und „Textfelder…".
+In der Gestaltung bleibt eine Auskunft mit dem Weg dorthin.
+
+### Nicht gemessen (1.0.79)
+
+Nichts davon ist auf einem Gerät gesehen worden. Am Quelltext abgezählt ist
+die Ursache des hinterherhängenden Datums, und sie passt Punkt für Punkt zum
+Bildschirmfoto. **Ungeprüft ist die Abhilfe:** Ob die gemessene Lage des
+Inhalts im Augenblick des `onAppear` schon den neuen Stand trägt, ist die
+Lesart der Reihenfolge und keine Messung. Und ob ein Menüpunkt gefunden wird,
+sagt erst der nächste Befund — geändert sind Wege und Namen.
+
 ## Am Bund wird nicht geschnitten (1.0.78)
 
 Gemeldet 09/2026, mit Bildschirmfotos: „In der Gestaltungsansicht sehe ich

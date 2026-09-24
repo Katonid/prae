@@ -136,6 +136,10 @@ struct ReiseView: View {
         case typografie
         case fotostil
         case textstil
+        // DIE KARTEN HABEN EINEN EIGENEN MENÜPUNKT (ab 1.0.79). Warum,
+        // steht an `KartenstilView`: Bis 1.0.78 lagen sie in der Gestaltung,
+        // und deren Menüpunkt heißt seit 1.0.77 nach den Druckzugaben.
+        case kartenstil
         case gestaltung
         case umschlag
         case seitenformat
@@ -169,6 +173,7 @@ struct ReiseView: View {
             case .typografie: return "typo"
             case .fotostil: return "fotostil"
             case .textstil: return "textstil"
+            case .kartenstil: return "kartenstil"
             case .gestaltung: return "gestaltung"
             case .umschlag: return "umschlag"
             case .seitenformat: return "format"
@@ -546,6 +551,13 @@ struct ReiseView: View {
     private func seitenvorwahl() {
         let sichtbar = Set(seitenImBlick.values.flatMap { $0 })
         if let da = werk.gewaehlteSeite, sichtbar.contains(da) { return }
+        // DIE REIHE IN DER MITTE ZUERST (ab 1.0.79) — dieselbe Ursache wie
+        // beim gewählten Tag: Eine Reihe, die nur noch mit einem Streifen
+        // am Rand hängt, ist anwesend und nicht gemeint.
+        if let mitte = reiheInDerMitte(), let erste = seitenImBlick[mitte]?.first {
+            werk.gewaehlteSeite = erste
+            return
+        }
         // Von oben nach unten die erste Reihe, die überhaupt ein Blatt
         // hergibt: Die Ausgleichsseite wird gerechnet, auf sie geht
         // nichts, und eine Vorwahl darauf wäre ein Ziel, das der nächste
@@ -567,9 +579,52 @@ struct ReiseView: View {
         return [buchseite.seite.id]
     }
 
+    // GEZÄHLT WURDE ANWESENHEIT, GEMEINT IST SICHTBARKEIT (ab 1.0.79).
+    //
+    // Gemeldet 09/2026 mit Bildschirmfoto: „Das Datumsfeld hängt immer
+    // mindestens einen Tag hinterher. Im Blickfeld sind eigentlich schon die
+    // Seiten des 4. Augustes und auswählbar ist der 3."
+    //
+    // **Am Quelltext abzuzählen:** Bis 1.0.78 gewann die KLEINSTE anwesende
+    // Reihennummer. Ein Bogen, der nur noch mit einem Streifen oben am
+    // Bildschirmrand hängt, zählt damit genauso wie der, der den ganzen
+    // Schirm füllt — und gewinnt, weil seine Nummer kleiner ist. Auf dem
+    // Bildschirmfoto ist das genau zu sehen: oben der untere Zentimeter von
+    // „Seiten 0 und 1", darunter vollflächig „Seiten 2 und 3", und im
+    // Datumsfeld steht der Tag des ersten.
+    //
+    // Schlimmer noch: `onAppear` feuert in einem `LazyVStack` nicht am
+    // Sichtrand, sondern am Rand des Vorbereitungsbereichs — SwiftUI baut
+    // ein Stück im Voraus. Die „oberste anwesende" Reihe ist also oft eine,
+    // die gar nicht zu sehen ist.
+    //
+    // Gewählt wird deshalb die Reihe, welche die MITTE des Sichtfelds
+    // überdeckt. Gerechnet wird sie aus derselben Geometrie, an der auch der
+    // Zoom hängt (`Zoomanker.griff`) — und zwar erst beim Auslösen, nicht
+    // bei jedem Bildpunkt: `Inhaltslage` hat aus gutem Grund kein
+    // `@Published` (die Lehre aus 1.0.16). Der Auslöser bleibt
+    // `onAppear`/`onDisappear`, also etwas, das selten anfällt.
     private var tagImBlick: UUID? {
+        guard !imBlick.isEmpty else { return nil }
+        if let mitte = reiheInDerMitte(), let tag = imBlick[mitte] { return tag }
+        // Steht die Mitte auf einer Reihe, die sich (noch) nicht gemeldet
+        // hat, gilt wie bisher die oberste. Ein Rückfall und keine
+        // Behauptung: Lieber der alte Stand als gar keiner.
         guard let oberste = imBlick.keys.min() else { return nil }
         return imBlick[oberste]
+    }
+
+    /// Welche Reihe die Mitte des Sichtfelds überdeckt — `nil`, solange die
+    /// Bühne sich noch nicht gemeldet hat. Dieselbe Umrechnung wie in
+    /// `massstabSetzen`: Bildschirmpunkt minus Ursprung des Inhalts.
+    private func reiheInDerMitte() -> Int? {
+        guard buehnenhoehe > 1, lage.meldungen > 0 else { return nil }
+        // Dieselbe Umrechnung wie in `massstabSetzen`: Bildschirmpunkt
+        // minus Ursprung des Inhalts. Gefragt wird `elementmasse` und nicht
+        // `massstaebe` — die Zahl der Elemente kostet hier einen Lauf über
+        // das ganze Buch und wird für diese Frage nicht gebraucht.
+        let imInhalt = buehnenhoehe / 2 - Double(lage.ursprung.y)
+        return elementmasse.stelle(bei: imInhalt, massstab: massstabJetzt)
     }
 
     // Die Reihe, bei der ein Tag anfängt — das Ziel eines Sprungs aus der
@@ -903,14 +958,28 @@ struct ReiseView: View {
     // gelesen und nie im Körper: `sichtbareSeiten` geht über das ganze
     // Buch.
     private var massstaebe: Zoomanker {
+        var anker = elementmasse
+        anker.anzahl = doppelseiten ? werk.sichtbareDoppelseiten.count
+                                    : werk.sichtbareSeiten.count
+        return anker
+    }
+
+    // DIE GEOMETRIE OHNE DIE ZÄHLUNG (ab 1.0.79).
+    //
+    // `massstaebe` kostet einen Lauf über das ganze Buch, und genau deshalb
+    // steht darüber, dass es nur aus einem Handgriff heraus gelesen wird.
+    // `reiheInDerMitte` wird aber im KÖRPER gebraucht (über
+    // `onChange(of: tagImBlick)`) — und für die Frage „welche Reihe liegt
+    // in der Mitte" wird die Zahl der Elemente gar nicht gebraucht.
+    // Getrennt, statt die Rechnung ein zweites Mal hinzuschreiben.
+    private var elementmasse: Zoomanker {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
         return Zoomanker(blatthoehe: bogen.height,
                          blattbreite: doppelseiten ? breitesterBogen : bogen.width,
                          beiwerk: Buehnenmasse.beiwerk,
                          fuge: Buehnenmasse.fuge,
                          rand: Buehnenmasse.rand,
-                         anzahl: doppelseiten ? werk.sichtbareDoppelseiten.count
-                                              : werk.sichtbareSeiten.count)
+                         anzahl: 0)
     }
 
     private func kennung(_ stelle: Int) -> String? {
@@ -1461,6 +1530,7 @@ struct ReiseView: View {
                 }
                 Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
                 Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
+                Button("Karten…", systemImage: "map") { blatt = .kartenstil }
                 Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
                     blatt = .hintergrund
                 }
@@ -1977,6 +2047,8 @@ struct ReiseView: View {
             FotostilView(werk: werk)
         case .textstil:
             TextstilView(werk: werk)
+        case .kartenstil:
+            KartenstilView(werk: werk)
         case .gestaltung:
             GestaltungView(werk: werk)
         case .umschlag:
