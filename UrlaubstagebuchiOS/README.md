@@ -480,6 +480,64 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Zwei Fassungen, und man sieht ihnen an, was sie sind (1.0.102)
+
+Gemeldet 09/2026: „Ich weiß nicht, von welchem Gerät und von wann diese
+unterschiedlichen Fassungen sind. Deshalb kann ich auch nicht beurteilen,
+welches die aktuelle ist, die ich behalten will."
+
+Geändert zwei Geräte dasselbe Buch, ohne sich dazwischen zu sehen, stellt die
+App die jüngere ins Regal und legt die andere daneben (seit 1.0.4). In den
+Einstellungen stand davon bis 1.0.101 der **Dateiname** — sechsunddreißig
+Zeichen Kennung und eine Zahl — und daneben zwei Knöpfe, von denen einer
+löscht. Daran ist nichts zu entscheiden.
+
+* **Das WANN lag die ganze Zeit in den Dateien.** Jede Reise trägt ihr
+  `geaendert`; verglichen werden musste es nur. Gelesen wird deshalb
+  BEIDES — die beiseitegelegte Fassung und die, die gerade im Regal steht —
+  und hingeschrieben wird der **Unterschied**: wie viele Tage, Fotos, Seiten
+  und Zeichen Tagebuchtext jede hat, welche wie viel älter ist, ob sie anders
+  heißt. **Mit Sekunden**, denn ohne sie sehen zwei Stände gleich alt aus, die
+  es nicht sind (dieselbe Lehre wie bei Tafelbilds Bestandsaufnahme).
+* **Das GERÄT lag nirgends.** Keine Fassung dieser App hat es je vermerkt, und
+  nachtragen lässt es sich nicht. Für jede Konfliktdatei, die heute auf der
+  Platte liegt, steht dort deshalb „nicht vermerkt" — und nicht etwas
+  Plausibles. Ab 1.0.102 schreibt es `Ablage.sichern` mit, also an der einen
+  Stelle, an der ein Buch auf die Platte geht: Wer gesichert hat, hat auch
+  geschrieben.
+* **Den echten Gerätenamen gibt iOS nicht heraus.** Seit iOS 16 liefert
+  `UIDevice.current.name` nur noch die Modellbezeichnung („iPad"); für den
+  Namen, den der Mensch vergeben hat, gibt es ein eigenes Recht. Eines davon
+  in die Entitlements-Datei zu schreiben, ohne dass die App-Id es trägt, hat
+  dieses Projekt in 1.0.44 den **ganzen Bau** gekostet — das wird nicht
+  wiederholt. Der Name ist deshalb ein selbst vergebener: vorbelegt mit
+  Modell plus einem gewürfelten Kürzel (sonst hießen zwei iPads beide „iPad"),
+  änderbar in den Einstellungen unter „Abgleich". **Nicht aus
+  `identifierForVendor`** — das ist eine Kennung des Geräts, und sie reiste mit
+  dem Buch in die Wolke und in jede weitergegebene Buchdatei.
+* **„Diese Fassung nehmen" TAUSCHT jetzt, statt zu löschen.** Bis 1.0.101
+  räumte dieser Weg die geltende Fassung weg — ein Tausch war damit endgültig,
+  und das ausgerechnet an der Stelle, an der jemand gerade zugegeben hat, dass
+  er es nicht beurteilen kann. Die bisherige wird jetzt ihrerseits
+  beiseitegelegt und steht danach in derselben Liste. Das ist dieselbe Regel,
+  unter der die Konfliktfassung überhaupt liegen bleibt: Ein Abgleich, der
+  stillschweigend einen Abend Arbeit wegnimmt, ist schlimmer als zwei Bücher,
+  die man vergleichen muss. Die Fotos bleiben in beiden Fällen unberührt —
+  beide Fassungen teilen sich denselben Bilderordner.
+* **Verworfen wird erst nach einer Rückfrage**, und gerechnet wird das Ganze
+  EINMAL beim Öffnen und nicht im Körper der Ansicht: Dahinter stecken zwei
+  vollständige JSON-Läufe je Konflikt.
+
+**Nicht gemessen (1.0.102):** Auf einem Gerät hat das niemand gesehen. Am
+Quelltext abgezählt ist, was in den Dateien steht und was nicht — und der
+zweite Teil ist der wichtigere: **Für die Konfliktdatei, die heute auf seinem
+Gerät liegt, bleibt das Gerät unbekannt.** Diese Fassung kann das nicht
+nachholen, sie kann es nur ab jetzt vermerken; bis beide Geräte einmal
+gesichert haben, steht in mindestens einer Zeile weiter „nicht vermerkt".
+Ungeprüft ist auch, ob `UIDevice.current.model` auf Mac Catalyst etwas
+Brauchbares sagt — dort greift der eigene Zweig („Mac"), gesehen hat es
+niemand.
+
 ## Ein fehlender Absturzbericht ist selbst ein Befund (1.0.101)
 
 Gemeldet 09/2026, nach 1.0.100: „Jedes Mal stürzt die App ab, aber es

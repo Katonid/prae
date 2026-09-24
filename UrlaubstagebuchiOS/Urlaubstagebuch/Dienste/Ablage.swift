@@ -31,7 +31,15 @@ enum Ablage {
     }
 
     static func sichern(_ reise: Reise) throws {
-        let daten = try kodierer().encode(reise)
+        // WER GESCHRIEBEN HAT, STEHT IM BUCH (ab 1.0.102). Hier und
+        // nirgends sonst: Das ist die eine Stelle, an der ein Buch auf die
+        // Platte geht, und damit die einzige, an der die Angabe gar nicht
+        // falsch sein kann. Gebraucht wird sie beim Abgleich — zwei
+        // Fassungen desselben Buches lassen sich ohne sie nicht
+        // auseinanderhalten.
+        var kopie = reise
+        kopie.geaendertAuf = Geraetename.eigener
+        let daten = try kodierer().encode(kopie)
         let ziel = datei(reise.id)
         let zwischen = ziel.appendingPathExtension("neu")
         try daten.write(to: zwischen, options: .atomic)

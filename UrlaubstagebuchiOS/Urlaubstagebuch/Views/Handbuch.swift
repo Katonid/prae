@@ -482,6 +482,14 @@ enum Handbuch {
                 ziel: nil,
                 stichworte: ["synchronisieren", "ipad", "iphone", "wolke", "konflikt"]),
             Handbucheintrag(
+                id: "konfliktfassungen",
+                titel: "Zwei Fassungen desselben Buches",
+                text: "Haben zwei Geräte dasselbe Buch geändert, ohne sich dazwischen zu sehen, stellt die App die jüngere ins Regal und legt die andere daneben. Sie steht in den Einstellungen; ein Tipp darauf zeigt beide nebeneinander \u{2014} Zeitpunkt auf die Sekunde, Gerät, Tage, Fotos, Seiten, Zeichen und was sich unterscheidet. \u{201E}Diese Fassung nehmen\u{201C} TAUSCHT die beiden: Die bisherige wird ihrerseits beiseitegelegt, es geht also nichts verloren. Auf welchem Gerät eine Fassung entstand, vermerkt die App erst seit 1.0.102 \u{2014} bei älteren Dateien steht dort \u{201E}nicht vermerkt\u{201C}, und geraten wird nicht. Wie dieses Gerät heißt, steht in den Einstellungen unter \u{201E}Abgleich\u{201C} und ist änderbar.",
+                weg: "Bücherregal \u{2192} Zahnrad \u{2192} Fassungen aus einem Abgleich",
+                ziel: nil,
+                stichworte: ["konflikt", "fassung", "abgleich", "gerät", "doppelt",
+                             "synchronisieren", "wolke", "icloud", "vergleichen"]),
+            Handbucheintrag(
                 id: "vorlagen",
                 titel: "Vorlagen: Aussehen und Druckerei",
                 text: "Einstellungen, die man einmal trifft und wiederverwendet. Zwei Arten, weil sie sich unabhängig ändern: AUSSEHEN (Schrift, Farben, Ränder, wie sich Fotos abheben, Hintergrund, Wasserzeichen) und DRUCKEREI (Seitenformat, Anschnitt, Sicherheitsabstand, Bundsteg, Umschlagbogen, Rückenstärke). Eine Vorlage trägt Einstellungen und nie Inhalt \u{2014} kein Foto, keinen Text, keine Seiten. Sie liegt neben den Büchern und geht mit dem Abgleich in die Wolke; als Datei mit der Endung .reisevorlage lässt sie sich weitergeben. Ein neues Buch kann gleich mit einer anfangen.",
