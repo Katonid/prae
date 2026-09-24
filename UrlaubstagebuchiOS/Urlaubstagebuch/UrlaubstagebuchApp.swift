@@ -172,7 +172,14 @@ final class Regal: ObservableObject {
     func duplizieren(_ reise: Reise) async -> String {
         var kopie = reise
         kopie.id = UUID()
-        kopie.titel = Regal.kopietitel(reise.titel, vorhandene: reisen.map(\.titel))
+        // BENANNT WIRD DIE KOPIE, NICHT DAS BUCH (ab 1.0.84). Bis 1.0.83
+        // stand „ (Kopie)" im gedruckten TITEL — wer ein Buch für einen
+        // zweiten Druckdienst duplizierte und es nicht von Hand
+        // umbenannte, hatte das Wort auf der Titelseite. Geändert wird
+        // deshalb der Name in der Übersicht; die Titelseite bleibt, wie
+        // sie war.
+        kopie.regalname = Regal.kopietitel(reise.anzeigename,
+                                           vorhandene: reisen.map(\.anzeigename))
         kopie.geaendert = Date()
         let alt = reise.id
         let neu = kopie.id
@@ -200,11 +207,11 @@ final class Regal: ObservableObject {
             return "Die Kopie ließ sich nicht sichern: \(error.localizedDescription)"
         }
         neuLesen()
-        return "\u{201E}\(kopie.titel)\u{201C} steht im Regal."
+        return "\u{201E}\(kopie.anzeigename)\u{201C} steht im Regal."
     }
 
     // „Reise (Kopie)", dann „Reise (Kopie 2)". Ein zweites Buch mit
-    // demselben Titel wäre im Regal nicht auseinanderzuhalten — die
+    // demselben Namen wäre im Regal nicht auseinanderzuhalten — die
     // Kennung sieht man dort nicht.
     static func kopietitel(_ titel: String, vorhandene: [String]) -> String {
         let genommen = Set(vorhandene)
@@ -213,6 +220,31 @@ final class Regal: ObservableObject {
         var zahl = 2
         while genommen.contains("\(titel) (Kopie \(zahl))"), zahl < 100 { zahl += 1 }
         return "\(titel) (Kopie \(zahl))"
+    }
+
+    // UMBENENNEN HEISST: DEN NAMEN IN DER ÜBERSICHT SETZEN (ab 1.0.84).
+    // Der gedruckte Titel wird hier nie angefasst — wer vor dem Regal
+    // steht, meint die Liste und nicht die Titelseite. Leer nimmt die
+    // Abweichung zurück, dann folgt der Name wieder dem Titel.
+    //
+    // Ein offenes Buch wird über sein Werk geändert und nicht an ihm
+    // vorbei auf die Platte geschrieben: Sonst überschriebe der nächste
+    // Sicherungslauf des Werks den neuen Namen gleich wieder.
+    func umbenennen(_ reise: Reise, auf name: String) {
+        let sauber = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let neu: String? = sauber.isEmpty ? nil : sauber
+        if let werk = offen, werk.reise.id == reise.id {
+            werk.merken()
+            werk.reise.regalname = neu
+            werk.sofortSichern()
+            neuLesen()
+            return
+        }
+        var geaendert = reise
+        geaendert.regalname = neu
+        geaendert.geaendert = Date()
+        try? Ablage.sichern(geaendert)
+        neuLesen()
     }
 
     func loeschen(_ id: UUID) {

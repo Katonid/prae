@@ -20,6 +20,7 @@ struct UmschlagView: View {
     @State private var hintergrund = false
     @State private var schriftwahl = false
     @State private var fotowahl = false
+    @State private var titelfotoWahl = false
     @State private var stufeSeiten = ""
     @State private var stufeMm = ""
     // Die beiden Zahlen, die eine Druckerei nennt (ab 1.0.72): die
@@ -58,6 +59,7 @@ struct UmschlagView: View {
     var body: some View {
         NavigationStack {
             Form {
+                titelangaben
                 Section {
                     Toggle("Umschlag als Bogen", isOn: $werk.reise.umschlag.alsBogen)
                     if umschlag.alsBogen {
@@ -108,7 +110,7 @@ struct UmschlagView: View {
 
                 gestaltung
             }
-            .navigationTitle("Umschlag")
+            .navigationTitle("Titel und Umschlag")
             .navigationBarTitleDisplayMode(.inline)
             // Das Feld zeigt, WAS GILT — nicht eine leere Zeile über einer
             // Zahl, die längst eingetragen ist. Ohne die Vorbelegung ließ
@@ -146,6 +148,9 @@ struct UmschlagView: View {
                     },
                     set: { werk.reise.umschlag.schriftfamilie = $0 }
                 ), titel: "Schrift des Umschlags")
+            }
+            .sheet(isPresented: $titelfotoWahl) {
+                TitelfotoView(werk: werk)
             }
             .sheet(isPresented: $fotowahl) {
                 HintergrundfotoView(werk: werk) { id in
@@ -577,6 +582,79 @@ struct UmschlagView: View {
         text += "nicht zur Beschriftung \u{2014} sie steht oben unter \u{201E}Ma\u{00DF} "
         text += "der Druckerei\u{201C} und geht dort in den Bogen ein. Wer wirklich keinen "
         text += "R\u{00FC}cken hat, tr\u{00E4}gt dort 0 mm ein."
+        return text
+    }
+
+    // MARK: - Titel und Name in der Übersicht
+
+    // WAS GEDRUCKT WIRD UND WIE DAS PROJEKT HEISST, SIND ZWEI DINGE
+    // (ab 1.0.84).
+    //
+    // Ansage des Nutzers, 09/2026: „Was ich aber definitiv möchte, ist eine
+    // Trennung zwischen dem, was auf der Titelseite steht, und dem, wie ich
+    // das Projekt in der Übersichtsleiste der anderen Projekte benennen
+    // möchte." Der Anlass ist ein zweiter Druckdienst mit anderen Maßen:
+    // Dasselbe Buch liegt dann zweimal im Regal und muss dort zu
+    // unterscheiden sein — auf der Titelseite aber gerade nicht.
+    //
+    // Beides steht hier NEBENEINANDER und nicht auf zwei Bildschirmen: Wer
+    // den Titel tippt, ist genau die Person, die als Nächstes fragt, wie
+    // das Buch denn im Regal heißt. Der Name in der Übersicht ist eine
+    // ABWEICHUNG: Das Feld zeigt den geltenden Namen, und solange niemand
+    // etwas anderes eingetragen hat, folgt er dem Titel.
+    private var titelangaben: some View {
+        Section {
+            TextField("Titel", text: $werk.reise.titel)
+            TextField("Untertitel", text: $werk.reise.untertitel, axis: .vertical)
+            Toggle("Titelseite", isOn: $werk.reise.titelseite)
+            if werk.reise.titelseite {
+                Button {
+                    titelfotoWahl = true
+                } label: {
+                    LabeledContent("Titelbild",
+                                   value: werk.reise.titelfoto == nil ? "ohne" : "gewählt")
+                }
+            }
+            TextField("Name in der Übersicht", text: regalnameFeld)
+            if werk.reise.hatEigenenRegalnamen {
+                Button("Wieder wie der Titel") {
+                    werk.merken()
+                    werk.reise.regalname = nil
+                }
+            }
+        } header: {
+            Text("Titel des Buches")
+        } footer: {
+            Text(titelfusstext)
+        }
+    }
+
+    // Leer heißt `nil` und damit „wie der Titel" — nicht „heißt nichts".
+    // Ein leerer String im Feld wäre ein eigener Name, den man nicht mehr
+    // los wird; dieselbe Trennung wie bei `Block.ohneGrund`.
+    private var regalnameFeld: Binding<String> {
+        Binding(
+            get: { werk.reise.regalname ?? "" },
+            set: { neu in
+                let sauber = neu.trimmingCharacters(in: .whitespacesAndNewlines)
+                werk.reise.regalname = sauber.isEmpty ? nil : neu
+            }
+        )
+    }
+
+    private var titelfusstext: String {
+        var text = "Titel, Untertitel und Titelbild stehen auf der gedruckten "
+        text += "Titelseite \u{2014} und der Titel au\u{00DF}erdem auf dem "
+        text += "Buchr\u{00FC}cken, solange dort nichts anderes eingetragen ist.\n\n"
+        text += "Der NAME IN DER \u{00DC}BERSICHT wird nie gedruckt. Er steht im Regal, "
+        text += "auf der Buchdatei und auf der PDF \u{2014} also \u{00FC}berall dort, wo "
+        text += "man dieses Buch unter anderen wiederfinden muss. Leer hei\u{00DF}t: "
+        text += "wie der Titel."
+        if werk.reise.hatEigenenRegalnamen {
+            text += "\n\nDieses Buch hei\u{00DF}t in der \u{00DC}bersicht "
+            text += "\u{201E}" + werk.reise.anzeigename + "\u{201C} und auf der "
+            text += "Titelseite \u{201E}" + werk.reise.titel + "\u{201C}."
+        }
         return text
     }
 

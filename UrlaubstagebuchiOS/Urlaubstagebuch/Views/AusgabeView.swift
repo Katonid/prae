@@ -338,7 +338,7 @@ struct AusgabeView: View {
             .onChange(of: drucken) { _, neu in
                 guard neu, let fertig else { return }
                 drucken = false
-                Druckauftrag.zeigen(fertig, titel: werk.reise.titel,
+                Druckauftrag.zeigen(fertig, titel: werk.reise.anzeigename,
                                     beidseitig: umfang == .broschuere)
             }
             .task {

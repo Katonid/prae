@@ -480,6 +480,40 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Titel und der Name in der Übersicht (1.0.84)
+
+Gemeldet 09/2026, nachdem der Nutzer sein Buch für einen **zweiten
+Druckdienst mit anderen Maßen** dupliziert hatte: Der Titel steckte
+„versteckt in den Einstellungen zu den Rändern und der Druckausgabe", und
+gewünscht ist „eine Trennung zwischen dem, was auf der Titelseite steht,
+und dem, wie ich das Projekt in der Übersichtsleiste der anderen Projekte
+benennen möchte".
+
+**Sein Fall lässt sich mit einem einzigen Feld gar nicht ausdrücken.** Zwei
+Bücher mit demselben Inhalt für zwei Druckdienste müssen im Regal zu
+unterscheiden sein — auf der Titelseite aber gerade nicht. Und die App hat
+den Unterschied längst bezahlt, ohne ihn zu kennen: Das Duplizieren schrieb
+„ (Kopie)" in den **gedruckten** Titel.
+
+- **`Reise.regalname` ist eine Abweichung, keine Kopie.** `nil` heißt „wie
+  der Titel"; wer den Titel ändert, ändert den Namen im Regal mit, solange er
+  nichts anderes gesagt hat. Jedes vorhandene Buch sieht nach dem Update
+  unverändert aus. Ein leeres Feld nimmt die Abweichung zurück, statt das
+  Buch „nichts" zu nennen.
+- **Aufgelöst wird an einer Stelle** (`Reise.anzeigename`). Dort fragt alles,
+  was eine Datei benennt oder in einer Liste der App steht: Regal, Buchdatei,
+  PDF-Dateiname und -Titel, Druckauftrag, die kopierbaren Befunde. Der
+  gedruckte `titel` bleibt auf Titelseite, Buchrücken und Kopfzeile.
+- **Der Titel steht jetzt dort, wo er gedruckt wird:** Ganzes Buch → *Titel,
+  Umschlag und Rücken*. In den Druckzugaben bleibt eine Auskunft mit dem Weg.
+- **Umbenennen geht auch im Regal** — lange tippen oder wischen; der Hinweis
+  sagt ausdrücklich, dass auf der Titelseite weiter der Titel steht.
+
+**Nicht gemessen (1.0.84):** Nichts davon ist auf einem Gerät gesehen worden.
+Abgezählt ist am Quelltext, welche Stelle druckt und welche nur benennt. Ob
+der Titel jetzt gefunden wird, sagt erst der nächste Befund — geändert sind
+Wege und Namen, und das ist keine Messung.
+
 ## Eine Ecke genügt — gemessen wird der gezeichnete Umriss (1.0.83)
 
 Gemeldet 09/2026: „Wenn ich jetzt ein Element in den Sicherheitsbereich

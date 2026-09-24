@@ -314,7 +314,7 @@ enum Ausgabesteckbrief {
                 ? "Rückseite, Rücken und Titelseite werden zusammen ausgegeben."
                 : "Die Titelseite ist die gewöhnliche Seite 1 und wird mitgebunden.",
             eingestellt: true,
-            wo: "Ganzes Buch \u{2192} Umschlag und Titelseite\u{2026}"))
+            wo: "Ganzes Buch \u{2192} Titel, Umschlag und Rücken\u{2026}"))
 
         if reise.hatRueckseite {
             zeilen.append(rueckenzeile(reise))
@@ -326,7 +326,7 @@ enum Ausgabesteckbrief {
                     : "Sie kommen von der Druckerei \u{2014} beim Hardcover ist das "
                         + "das Vorsatzpapier.",
                 eingestellt: true,
-                wo: "Ganzes Buch \u{2192} Umschlag und Titelseite\u{2026}"))
+                wo: "Ganzes Buch \u{2192} Titel, Umschlag und Rücken\u{2026}"))
             if u.innenseitenBogen {
                 zeilen.append(innenzeile(reise))
             }
@@ -349,7 +349,7 @@ enum Ausgabesteckbrief {
                      wert: breitentext,
                      erklaerung: satz,
                      eingestellt: true,
-                     wo: "Ganzes Buch \u{2192} Umschlag und Titelseite\u{2026}")
+                     wo: "Ganzes Buch \u{2192} Titel, Umschlag und Rücken\u{2026}")
     }
 
     private static func innenzeile(_ reise: Reise) -> Zeile {
@@ -365,7 +365,7 @@ enum Ausgabesteckbrief {
                      wert: traegt ? "ja" : "nein",
                      erklaerung: satz,
                      eingestellt: true,
-                     wo: "Ganzes Buch \u{2192} Umschlag und Titelseite\u{2026}")
+                     wo: "Ganzes Buch \u{2192} Titel, Umschlag und Rücken\u{2026}")
     }
 
     // MARK: - Die Bilder
@@ -407,7 +407,7 @@ enum Ausgabesteckbrief {
                      bildbefund: String = "") -> String
     {
         var zeilen: [String] = []
-        zeilen.append("Ausgabeformat \u{2014} " + reise.titel)
+        zeilen.append("Ausgabeformat \u{2014} " + reise.anzeigename)
         let datum = DateFormatter.localizedString(from: Date(), dateStyle: .medium,
                                                   timeStyle: .short)
         zeilen.append(datum)
