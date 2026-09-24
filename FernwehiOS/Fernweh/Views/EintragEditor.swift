@@ -1,0 +1,453 @@
+import SwiftUI
+import Photos
+import CoreLocation
+
+/// Einen Tagebucheintrag schreiben.
+///
+/// Drei Dinge liegen schon bereit, wenn das Blatt aufgeht:
+/// * **Der Titel** — der Name des Ortes, an dem du gerade bist (bei einem
+///   vergangenen Tag der erste wichtige Ort dieses Tages). Er ist ein
+///   Vorschlag und als solcher markiert; wer tippt, ersetzt ihn.
+/// * **Die Orte des Tages** — aus der Reisespur: wo du länger warst. Ein
+///   Tipp übernimmt einen Ort in den Eintrag (und, solange der Titel noch
+///   der Vorschlag ist, auch als Titel).
+/// * **Die Fotos des Tages** — alle Aufnahmen dieses Kalendertages aus der
+///   Mediathek, zum Antippen.
+struct EintragEditor: View {
+    @ObservedObject var reise: Reise
+    let eintrag: Eintrag?
+    let tag: Date?
+
+    @Environment(\.dismiss) private var schliessen
+    @EnvironmentObject private var fotodienst: Fotodienst
+    @EnvironmentObject private var aufzeichner: Aufzeichner
+
+    @State private var datum = Date()
+    @State private var titel = ""
+    @State private var titelIstVorschlag = false
+    @State private var text = ""
+    @State private var hier: Tagesort?
+    @State private var hierLand = ""
+    @State private var ort: Tagesort?
+    @State private var tagesorte: [Tagesort] = []
+    @State private var gewaehlteOrte: [Tagesort] = []
+    @State private var sucheOrte = false
+    @State private var assets: [PHAsset] = []
+    @State private var auswahl: [String] = []
+    @State private var entfernt: Set<NSManagedObjectIDKey> = []
+    @State private var speichert = false
+    @State private var fortschritt = 0
+    @State private var vorbereitet = false
+    @FocusState private var textFokus: Bool
+
+    /// Hashbarer Schlüssel für ein Foto, das entfernt werden soll.
+    struct NSManagedObjectIDKey: Hashable { let uri: String }
+
+    private var istNeu: Bool { eintrag == nil }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    titelFeld
+                    orteLeiste
+                    textFeld
+                    if let eintrag, !eintrag.fotoListe.isEmpty { vorhandeneFotos(eintrag) }
+                    fotoAuswahl
+                    zeitWahl
+                }
+                .padding(18)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle(istNeu ? "Neuer Eintrag" : "Eintrag bearbeiten")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { schliessen() }.disabled(speichert) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Sichern") { Task { await sichern() } }
+                        .fontWeight(.semibold)
+                        .disabled(speichert)
+                }
+            }
+            .overlay { if speichert { Speicherhinweis(fertig: fortschritt, gesamt: auswahl.count) } }
+            .task { await vorbereiten() }
+            .onChange(of: Tag.schluessel(datum)) { _, _ in
+                Task { await tagLaden(neu: false) }
+            }
+            .interactiveDismissDisabled(speichert)
+        }
+    }
+
+    // MARK: - Titel und Orte
+
+    private var titelFeld: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text(Tag.wochentagLang.string(from: datum))
+                    .font(.caption.weight(.heavy))
+                    .textCase(.uppercase)
+                    .foregroundStyle(reise.palette.haupt)
+                if titelIstVorschlag && !titel.isEmpty {
+                    Label("Vorschlag aus deinem Standort", systemImage: "sparkles")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            TextField("Wo warst du?", text: $titel, axis: .vertical)
+                .font(Stil.titel(28))
+                .onChange(of: titel) { alt, neu in
+                    // Wer selbst tippt, hat keinen Vorschlag mehr vor sich.
+                    if titelIstVorschlag, alt != neu, neu != ort?.name { titelIstVorschlag = false }
+                }
+            if let ort {
+                Label(ort.name, systemImage: "mappin.and.ellipse")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var orteLeiste: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Orte des Tages").font(.headline)
+                if sucheOrte { ProgressView().controlSize(.small) }
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if let hier {
+                        Ortsknopf(ort: hier, symbol: "location.fill", an: ort?.id == hier.id, farbe: reise.palette.haupt) {
+                            waehlen(hier)
+                        }
+                    }
+                    ForEach(tagesorte) { t in
+                        let an = gewaehlteOrte.contains(t)
+                        Ortsknopf(ort: t, symbol: an ? "checkmark.circle.fill" : "mappin", an: an, farbe: reise.palette.haupt) {
+                            umschalten(t)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            if !sucheOrte && tagesorte.isEmpty && hier == nil {
+                Text(aufzeichner.eingeschaltet
+                     ? "Aus der Reisespur dieses Tages ergeben sich noch keine Orte."
+                     : "Mit eingeschalteter Reisespur schlägt Fernweh hier die Orte des Tages vor.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if !gewaehlteOrte.isEmpty {
+                Text("\(gewaehlteOrte.count) \(gewaehlteOrte.count == 1 ? "Ort" : "Orte") im Eintrag")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private struct Ortsknopf: View {
+        let ort: Tagesort
+        let symbol: String
+        let an: Bool
+        let farbe: Color
+        let aktion: () -> Void
+
+        var body: some View {
+            Button(action: aktion) {
+                HStack(spacing: 6) {
+                    Image(systemName: symbol)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(ort.name).lineLimit(1)
+                        if let zeit = ort.zeit {
+                            Text(Tag.uhrzeit.string(from: zeit)).font(.caption2).opacity(0.75)
+                        }
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .foregroundStyle(an ? Color.white : Color.primary)
+                .background(an ? AnyShapeStyle(farbe.gradient) : AnyShapeStyle(Color(uiColor: .secondarySystemGroupedBackground)),
+                            in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func waehlen(_ t: Tagesort) {
+        withAnimation(.spring(duration: 0.3)) {
+            ort = t
+            if titel.isEmpty || titelIstVorschlag {
+                titel = t.name
+                titelIstVorschlag = true
+            }
+        }
+    }
+
+    private func umschalten(_ t: Tagesort) {
+        withAnimation(.spring(duration: 0.3)) {
+            if let i = gewaehlteOrte.firstIndex(of: t) {
+                gewaehlteOrte.remove(at: i)
+            } else {
+                gewaehlteOrte.append(t)
+                gewaehlteOrte.sort { ($0.zeit ?? .distantPast) < ($1.zeit ?? .distantPast) }
+                if ort == nil || titelIstVorschlag || titel.isEmpty { waehlen(t) }
+            }
+        }
+    }
+
+    // MARK: - Text
+
+    private var textFeld: some View {
+        ZStack(alignment: .topLeading) {
+            if text.isEmpty {
+                Text("Was ist heute passiert? Was hast du gegessen, wen getroffen, worüber gelacht?")
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 8)
+                    .allowsHitTesting(false)
+            }
+            TextEditor(text: $text)
+                .focused($textFokus)
+                .frame(minHeight: 160)
+                .scrollContentBackground(.hidden)
+        }
+        .font(.body)
+        .padding(10)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    // MARK: - Fotos
+
+    private func vorhandeneFotos(_ eintrag: Eintrag) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Im Eintrag").font(.headline)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(eintrag.fotoListe) { foto in
+                        let schluessel = NSManagedObjectIDKey(uri: foto.objectID.uriRepresentation().absoluteString)
+                        let weg = entfernt.contains(schluessel)
+                        FotoBild(foto: foto, kante: 240)
+                            .frame(width: 92, height: 92)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .opacity(weg ? 0.3 : 1)
+                            .overlay(alignment: .topTrailing) {
+                                Button {
+                                    if weg { entfernt.remove(schluessel) } else { entfernt.insert(schluessel) }
+                                } label: {
+                                    Image(systemName: weg ? "arrow.uturn.backward.circle.fill" : "xmark.circle.fill")
+                                        .font(.title3)
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.white, .black.opacity(0.6))
+                                }
+                                .padding(4)
+                            }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var fotoAuswahl: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Fotos vom \(Tag.kurz.string(from: datum))").font(.headline)
+                Spacer()
+                if !assets.isEmpty {
+                    Button(auswahl.count == assets.count ? "Keine" : "Alle") {
+                        withAnimation {
+                            auswahl = auswahl.count == assets.count ? [] : assets.map(\.localIdentifier)
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+            }
+            if !fotodienst.darfLesen {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Erlaube den Zugriff auf deine Fotos, dann liegen hier die Aufnahmen dieses Tages bereit.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Button("Fotos erlauben") {
+                        Task {
+                            await fotodienst.erlaubnisAnfragen()
+                            await tagLaden(neu: false)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            } else if assets.isEmpty {
+                Text("An diesem Tag gibt es keine Fotos in deiner Mediathek.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 4)], spacing: 4) {
+                    ForEach(assets, id: \.localIdentifier) { asset in
+                        let stelle = auswahl.firstIndex(of: asset.localIdentifier)
+                        AssetBild(asset: asset)
+                            .aspectRatio(1, contentMode: .fit)
+                            .overlay {
+                                if stelle != nil {
+                                    RoundedRectangle(cornerRadius: 6).strokeBorder(reise.palette.haupt, lineWidth: 3)
+                                }
+                            }
+                            .overlay(alignment: .topTrailing) {
+                                ZStack {
+                                    Circle()
+                                        .fill(stelle != nil ? AnyShapeStyle(reise.palette.haupt) : AnyShapeStyle(Color.black.opacity(0.25)))
+                                    Circle().strokeBorder(.white, lineWidth: 1.5)
+                                    if let stelle { Text("\(stelle + 1)").font(.caption2.weight(.bold)).foregroundStyle(.white) }
+                                }
+                                .frame(width: 24, height: 24)
+                                .padding(5)
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .contentShape(Rectangle())
+                            .onTapGesture { fotoUmschalten(asset) }
+                    }
+                }
+                if fotodienst.status == .limited {
+                    Text("Du hast Fernweh nur einen Teil deiner Fotos freigegeben — hier steht nur, was darin liegt.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func fotoUmschalten(_ asset: PHAsset) {
+        withAnimation(.spring(duration: 0.25)) {
+            if let i = auswahl.firstIndex(of: asset.localIdentifier) {
+                auswahl.remove(at: i)
+            } else {
+                auswahl.append(asset.localIdentifier)
+            }
+        }
+    }
+
+    private var zeitWahl: some View {
+        DatePicker("Zeitpunkt", selection: $datum,
+                   in: reise.anfang...max(reise.anfang, Tag.ende(reise.schluss).addingTimeInterval(-60)))
+            .font(.subheadline)
+            .padding(12)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    // MARK: - Laden
+
+    private func vorbereiten() async {
+        guard !vorbereitet else { return }
+        vorbereitet = true
+        if let eintrag {
+            datum = eintrag.datum ?? Date()
+            titel = eintrag.titel ?? ""
+            text = eintrag.text ?? ""
+            gewaehlteOrte = eintrag.ortListe
+            if let k = eintrag.koordinate {
+                ort = Tagesort(name: eintrag.ortsname ?? "", breite: k.latitude, laenge: k.longitude, zeit: nil)
+            }
+            hierLand = eintrag.land ?? ""
+        } else if let tag, Tag.schluessel(tag) != Tag.schluessel(Date()) {
+            // Ein vergangener Tag: am frühen Abend, dann steht der Eintrag
+            // hinter allem, was tagsüber passiert ist.
+            datum = Tag.kalender.date(bySettingHour: 19, minute: 0, second: 0, of: tag) ?? tag
+        } else {
+            datum = Date()
+        }
+        await tagLaden(neu: istNeu)
+    }
+
+    private func tagLaden(neu: Bool) async {
+        aufzeichner.uebertragen()
+        assets = fotodienst.fotos(am: datum)
+        let vorhanden = Set(eintrag?.fotoListe.compactMap(\.assetID) ?? [])
+        assets.removeAll { vorhanden.contains($0.localIdentifier) }
+        auswahl.removeAll { id in !assets.contains { $0.localIdentifier == id } }
+
+        let heute = Tag.schluessel(datum) == Tag.schluessel(Date())
+        sucheOrte = true
+        if heute, neu, let standort = await aufzeichner.einmalOrten(),
+           let name = await Ortsnamen.shared.name(fuer: standort.coordinate) {
+            let t = Tagesort(name: name.titel, breite: standort.coordinate.latitude,
+                             laenge: standort.coordinate.longitude, zeit: Date())
+            hier = t
+            hierLand = name.land
+            if titel.isEmpty { waehlen(t) }
+        }
+        tagesorte = await Tagesorte.orte(von: reise, am: datum)
+            .filter { t in hier.map { $0.name != t.name } ?? true }
+        sucheOrte = false
+        if neu, titel.isEmpty, let erster = tagesorte.first { waehlen(erster) }
+    }
+
+    // MARK: - Sichern
+
+    private func sichern() async {
+        speichert = true
+        let persistenz = Persistenz.shared
+        let ziel = eintrag ?? persistenz.anlegen(Eintrag.self, bei: reise)
+        if eintrag == nil {
+            ziel.kennung = UUID()
+            ziel.erstellt = Date()
+            ziel.autor = Geraet.name
+            ziel.reise = reise
+        }
+        ziel.datum = datum
+        ziel.titel = titel.trimmingCharacters(in: .whitespacesAndNewlines)
+        ziel.text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        ziel.ortListe = gewaehlteOrte
+        ziel.geaendert = Date()
+        if let ort {
+            ziel.breite = ort.breite
+            ziel.laenge = ort.laenge
+            ziel.hatOrt = true
+            ziel.ortsname = ort.name
+        }
+        if !hierLand.isEmpty, ort?.id == hier?.id { ziel.land = hierLand }
+
+        for foto in ziel.fotoListe
+        where entfernt.contains(NSManagedObjectIDKey(uri: foto.objectID.uriRepresentation().absoluteString)) {
+            persistenz.kontext.delete(foto)
+        }
+        persistenz.sichern()
+
+        let gewaehlt = auswahl.compactMap { id in assets.first { $0.localIdentifier == id } }
+        await fotodienst.uebernehmen(gewaehlt, in: ziel) { fertig in fortschritt = fertig }
+
+        // Ohne eigenen Ort nimmt der Eintrag den seines ersten Fotos.
+        if !ziel.hatOrt, let k = ziel.fotoListe.compactMap(\.koordinate).first {
+            ziel.breite = k.latitude
+            ziel.laenge = k.longitude
+            ziel.hatOrt = true
+            if let name = await Ortsnamen.shared.name(fuer: k) {
+                ziel.ortsname = name.titel
+                ziel.land = name.land
+                if ziel.titel?.isEmpty ?? true { ziel.titel = name.titel }
+            }
+        } else if (ziel.land ?? "").isEmpty, let k = ziel.koordinate,
+                  let name = await Ortsnamen.shared.name(fuer: k) {
+            ziel.land = name.land
+        }
+        persistenz.sichern()
+        speichert = false
+        schliessen()
+    }
+}
+
+private struct Speicherhinweis: View {
+    let fertig: Int
+    let gesamt: Int
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.25).ignoresSafeArea()
+            VStack(spacing: 12) {
+                ProgressView(value: gesamt == 0 ? 1 : Double(fertig), total: Double(max(gesamt, 1)))
+                    .frame(width: 180)
+                Text(gesamt == 0 ? "Wird gesichert …" : "Fotos werden übernommen · \(min(fertig, gesamt)) von \(gesamt)")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .padding(24)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+}
