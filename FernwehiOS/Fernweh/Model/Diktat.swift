@@ -1,5 +1,5 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import Speech
 
 /// Diktieren in den Tagebuchtext.
