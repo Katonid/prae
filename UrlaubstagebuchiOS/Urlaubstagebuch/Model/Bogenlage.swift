@@ -98,12 +98,6 @@ enum Bogenkante {
     case links
     case rechts
     case keine
-
-    /// Für eine Seite, die in einem Bogen liegt: Die Nachbarhälfte stößt
-    /// links an, wenn diese Seite rechts liegt — und umgekehrt.
-    static func fuer(liegtRechts: Bool) -> Bogenkante {
-        liegtRechts ? .links : .rechts
-    }
 }
 
 extension Bogenlage {

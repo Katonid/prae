@@ -124,7 +124,15 @@ struct UmschlagView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { schliessen() }
+                    Button("Fertig") {
+                        // Wer eine Zahl eingetippt hat und gleich schließt,
+                        // hat sie gemeint. Ob `onChange(of: fokus)` vor dem
+                        // Schließen noch feuert, ist NICHT zugesichert —
+                        // und eine Zahl, die beim Zumachen verlorengeht,
+                        // wäre wieder der Knopf, der schweigt.
+                        rueckenUebernehmen()
+                        schliessen()
+                    }
                 }
             }
             .sheet(isPresented: $hintergrund) {
