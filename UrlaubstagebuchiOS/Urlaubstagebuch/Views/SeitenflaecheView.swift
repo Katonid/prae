@@ -106,9 +106,35 @@ struct SeitenflaecheView: View, Equatable {
     // wird auch keine Linie gezeichnet und an nichts gefangen; eine Linie
     // ohne Wirkung wäre eine Behauptung (dieselbe Regel wie beim
     // Einrasten seit 1.0.11).
+    //
+    // Seit 1.0.76 hängt er an der BUNDSEITE: Eine Druckerei verlangt innen
+    // oft mehr als außen, und welche Seite innen liegt, wechselt von Seite
+    // zu Seite (`Buchseite.bundlage`). Damit wandert die orange Linie
+    // sichtbar mit — und das ist zugleich die Probe, dass die Zahl an der
+    // richtigen Kante ankommt.
     private var schutzzone: CGRect? {
-        guard werk.reise.gestaltung.sicherheitsabstand > 0.5 else { return nil }
-        return werk.reise.gestaltung.schutzzone(werk.reise.format)
+        guard werk.reise.gestaltung.hatSicherheitsabstand else { return nil }
+        return werk.reise.gestaltung.schutzzone(werk.reise.format,
+                                                bund: buchseite.bundlage)
+    }
+
+    // WAS IN DEN SICHERHEITSABSTAND RAGT (ab 1.0.76).
+    //
+    // Ansage des Nutzers, 09/2026: „Dann möchte ich, dass die App sich
+    // bemerkbar macht, falls an irgendeiner Stelle einer dieser
+    // Sicherheitsabstände nicht berücksichtigt wurde."
+    //
+    // Die Druckprüfung zählt es fürs ganze Buch — die sieht aber nur, wer
+    // sie öffnet. Hier wird es an der Stelle sichtbar, an der es passiert:
+    // ein orange gestrichelter Rahmen um den Block, in derselben Farbe wie
+    // die Linie, an der er zu nah steht.
+    //
+    // **Randabfallende Blöcke sind ausgenommen, und zwar ohne Ausnahme.**
+    // Sie SOLLEN über die Kante laufen; sie zu markieren hieße, das als
+    // Fehler auszugeben, was richtig ist — und nach der dritten falschen
+    // Marke sieht niemand mehr hin.
+    private var zuNahAmRand: [Block] {
+        werk.reise.imSicherheitsabstand(buchseite)
     }
 
     private var hintergrund: Seitenhintergrund {
@@ -275,6 +301,19 @@ struct SeitenflaecheView: View, Equatable {
                     .frame(width: zone.width, height: zone.height)
                     .offset(x: zone.minX, y: zone.minY)
                     .allowsHitTesting(false)
+
+                // Und was hineinragt, wird MARKIERT (ab 1.0.76) — in
+                // derselben Farbe wie die Linie, damit ohne ein Wort
+                // klar ist, worauf sich die Marke bezieht.
+                ForEach(zuNahAmRand) { block in
+                    Rectangle()
+                        .strokeBorder(style: StrokeStyle(lineWidth: 1.4, dash: [4, 3]))
+                        .foregroundStyle(Color.orange.opacity(0.9))
+                        .frame(width: block.rahmen.breite, height: block.rahmen.hoehe)
+                        .rotationEffect(.degrees(block.drehung))
+                        .offset(x: block.rahmen.x, y: block.rahmen.y)
+                        .allowsHitTesting(false)
+                }
             }
 
             // Die Griffe sind eine ZEICHNUNG und nehmen keinen Finger an —

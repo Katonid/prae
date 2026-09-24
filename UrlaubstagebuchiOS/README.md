@@ -480,6 +480,130 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Zwei Linien, zwei Zahlen, ein Menüpunkt (1.0.76)
+
+Ansage des Nutzers, 09/2026: „Jetzt lese ich, dass die Druckerei zusätzlich
+einen Sicherheitsabstand für Inhalte vom DIN A4 Seitenrand einfordert. Im
+vorliegenden Fall soll der 3 mm vom Rand betragen und 5 mm an der Innenseite
+dort, wo die Seite verklebt wird."
+
+### Am Bund darf ein eigener Wert gelten
+
+Den Sicherheitsabstand gibt es seit 1.0.73 — als EINE Zahl ringsum. Das
+reicht nicht: Außen entscheidet das Spiel der Schneidemaschine, innen
+verschwindet ein Streifen im Falz, und das sind zwei verschiedene Ursachen
+mit zwei verschiedenen Zahlen. `Gestaltung.sicherheitsabstandInnen` ist
+deshalb dazugekommen.
+
+**`nil` heißt „wie außen" und ist keine Kopie** — dieselbe Regel wie bei
+`Schriftabweichung`, `Block.wirkung` und `Kartenwahl`. Jedes vorhandene Buch
+sieht nach dem Update unverändert aus, und wer später den äußeren Wert
+ändert, ändert damit auch den inneren, solange er nichts anderes gesagt hat.
+
+**Oben und unten gilt immer der äußere Wert.** Dort wird geschnitten und
+nicht gebunden.
+
+**Welche Seite innen liegt, wechselt von Seite zu Seite.** Entschieden wird
+das über `Buchseite.bundlage`, die ihrerseits `liegtRechts` fragt — also
+über die eine Stelle, die es ohnehin weiß (seit 1.0.47). Der
+AUSSENbogen des Umschlags hat keinen Bund: Er wird umgelegt und nicht
+gebunden — dieselbe Überlegung, aus der `Umschlagmass.satzspiegel` den
+Bundsteg wieder herausrechnet.
+
+Beim Formatwechsel wird er NICHT mitgerechnet, und zwar auch der innere
+nicht: Was im Falz verschwindet, hängt an der Bindung und nicht am
+Papierformat.
+
+### Die zwei gestrichelten Linien
+
+„Ich brauche also bei der Ansicht auf dem iPad zwei gestrichelte Linien, die
+um eine Seite herumlaufen. Einmal die Schnittlinie und einmal die Linie für
+den Sicherheitsabstand."
+
+Beide gibt es seit 1.0.73 — ROT gestrichelt die Schnittkante, ORANGE der
+Sicherheitsabstand. Was fehlte, waren drei Dinge:
+
+- Der Schalter hieß **„Satzspiegel zeigen"** und schaltet in Wahrheit alle
+  drei Linien. Wer die Schnittlinie sucht, sucht nicht unter „Satzspiegel";
+  er heißt jetzt „Linien zeigen: Satzspiegel, Schnitt, Sicherheit".
+- Die orange Linie stand ringsum gleich weit innen. Jetzt **wandert sie mit
+  der Bundseite** — und das ist zugleich die Probe, dass die Zahl an der
+  richtigen Kante ankommt.
+- Eine Stelle, an der sich nachsehen lässt, WELCHE welche ist:
+  `Schutzzonenskizze` steht dort, wo die Zahlen eingestellt werden, und
+  zeigt **zwei gegenüberliegende Seiten** mit dem Bund in der Mitte.
+  Gezeichnet mit derselben Rechnung wie das Blatt daneben.
+
+### Die App macht sich bemerkbar
+
+„Dann möchte ich, dass die App sich bemerkbar macht, falls an irgendeiner
+Stelle einer dieser Sicherheitsabstände nicht berücksichtigt wurde."
+
+Zweimal, auf zwei Wegen:
+
+- **Auf der Seite** bekommt jeder Block, der hineinragt, einen orange
+  gestrichelten Rahmen — in derselben Farbe wie die Linie, an der er zu nah
+  steht.
+- **Unter dem Blatt** steht es in Worten („⚠ 2 Blöcke im
+  Sicherheitsabstand"), und zwar unabhängig davon, ob die Linien
+  eingeschaltet sind. Die Beschriftungszeile ist ohnehin da und behält ihre
+  feste Höhe — `Zoomanker` rechnet mit ihr.
+
+**Randabfallende Blöcke sind ausgenommen, ohne Ausnahme.** Sie SOLLEN über
+die Kante laufen; sie zu markieren hieße, das als Fehler auszugeben, was
+richtig ist — und nach der dritten falschen Marke sieht niemand mehr hin.
+
+Geprüft wird an EINER Stelle (`Reise.imSicherheitsabstand(_:)`), gefragt von
+der Seite, von der Bühne und von der Druckprüfung. Drei Fassungen derselben
+Prüfung fänden irgendwann Verschiedenes.
+
+### Der Menüpunkt „Druckprüfung"
+
+„Damit sind wir an der Stelle, wo ich gerne einen Menüpunkt einbauen würde
+namens Druckprüfung. … Zu diesem Punkt meine ich mich zu erinnern, dass mir
+die App an irgendeiner Stelle bereits rückgemeldet hat, dass beispielsweise
+Text nicht ganz in ein Textfeld gepasst hat. Ich finde diesen Menüpunkt
+leider nicht mehr wieder."
+
+**Er hat sie gesehen, und sie war nicht zu finden.** `Druckpruefung.vorab`
+läuft seit 1.0.1 und zählt abgeschnittenen Text mit — sie stand aber
+ausschließlich IM Ausgabeblatt, unter der halben Seite Einstellungen. Wer
+nicht gerade ausgeben will, kommt nie daran vorbei. **Zwölfte Auflage von
+„es war da, man fand es nicht"** — dieselbe Lehre wie bei der Broschüre
+(1.0.37), den zwei Dateien (1.0.52) und dem Ausgabeformat (1.0.75).
+
+Sie steht jetzt als erster Punkt unter „…", sortiert nach Dringlichkeit
+(erst was zu klären ist, dann Hinweise, dann Geprüftes), und der Befund ist
+kopierbar. **Kein zweiter Prüfer:** dieselbe Funktion, dieselbe Zeile, nur
+an einer Stelle, an der man sie sucht. Das Ausgabeblatt behält seinen
+Abschnitt und nennt den zweiten Weg.
+
+### Der Pinsel ist ein Overlay, keine Spalte
+
+„Sobald ich auf den Pinsel tippe, klappt rechts eine ganze Seite auf, die
+bewirkt, dass der Bearbeitungsbereich verkleinert wird. Das möchte ich
+nicht."
+
+`.inspector` legt auf dem iPad eine feste Spalte NEBEN den Inhalt und nimmt
+ihm deren Breite — im Hochformat ein knappes Drittel, und genau dort steht
+das Blatt, an dem gearbeitet wird. Der Inspektor hängt seit 1.0.76 als
+**Popover** am Pinselknopf: Er deckt nur einen Teil ab und geht bei einem
+Tipp daneben wieder zu. Auf dem iPhone macht SwiftUI daraus von selbst ein
+Blatt — dort wäre ein Popover eine Briefmarke. Ein Stapel darum gibt dem
+Blatt einen sichtbaren Ausgang, und wer aus dem Inspektor heraus ein Blatt
+öffnet, bekommt kein Blatt über einem Popover.
+
+### Nicht gemessen (1.0.76)
+
+Nichts davon ist auf einem Gerät gesehen worden. Gerechnet ist die
+Geometrie — dass die orange Linie auf einer rechten Seite links weiter
+innen läuft und auf einer linken rechts. **Ungeprüft bleibt**, ob das
+Popover auf dem iPad an der gewünschten Stelle aufgeht und ob sich die
+Blätter, die der Inspektor öffnet, darin verhalten wie in der Spalte; das
+ist die Lesart der Dokumentation und keine Messung. Und die **Zahlen der
+Druckerei sind ihre**: 3 mm außen und 5 mm am Bund sind eingetragen, nicht
+nachgeprüft — verbindlich bleibt die Angabe des Druckdienstes.
+
 ## Ausgabeformat und Maße an einer Stelle (1.0.75)
 
 Nach der dritten Druckerei weiß niemand mehr, was gerade gilt: Die eine will

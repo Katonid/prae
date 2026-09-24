@@ -260,8 +260,16 @@ struct AusgabeView: View {
                     Text("Der Text wird als Text gesetzt, nicht als Bild — das PDF bleibt durchsuchbar und wiegt einen Bruchteil. Endformat und Anschnitt stehen als TrimBox und BleedBox darin.")
                 }
 
-                Section("Vor dem Ausgeben geprüft") {
+                Section {
                     ForEach(befundVorab) { zeile in BefundZeile(zeile: zeile) }
+                } header: {
+                    Text("Vor dem Ausgeben geprüft")
+                } footer: {
+                    // Dieselbe Prüfung steht seit 1.0.76 als eigener
+                    // Menüpunkt da („…" → Druckprüfung), denn hier findet
+                    // sie nur, wer ohnehin ausgeben will. Der Satz sagt,
+                    // wo sie sonst noch steht — zwei Zugänge, EINE Stelle.
+                    Text("Dieselbe Prüfung steht auch unter \u{201E}…\u{201C} \u{2192} Druckprüfung, ohne den Umweg über das Ausgeben.")
                 }
 
                 if laeuft {

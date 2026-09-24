@@ -416,6 +416,7 @@ struct Gestaltung: Codable, Hashable {
         fuge = b.wert(.fuge, 4.0)
         anschnitt = b.wert(.anschnitt, 3.0)
         sicherheitsabstand = b.wert(.sicherheitsabstand, 5.0)
+        sicherheitsabstandInnen = b.wahlweise(.sicherheitsabstandInnen)
         bundsteg = b.wert(.bundsteg, 0.0)
         fotoschatten = b.wert(.fotoschatten, Schattenart.keiner)
         fotorand = b.wert(.fotorand, 0.0)
@@ -484,15 +485,68 @@ struct Gestaltung: Codable, Hashable {
     // eine Seite A4 misst oder A5.
     var sicherheitsabstand: Double = 5
 
+    // DER SICHERHEITSABSTAND AN DER BUNDSEITE (ab 1.0.76).
+    //
+    // Ansage des Nutzers, 09/2026: „Jetzt lese ich, dass die Druckerei
+    // zusätzlich einen Sicherheitsabstand für Inhalte vom DIN A4 Seitenrand
+    // einfordert. Im vorliegenden Fall soll der 3 mm vom Rand betragen und
+    // 5 mm an der Innenseite dort, wo die Seite verklebt wird."
+    //
+    // Das sind ZWEI verschiedene Ursachen, und deshalb zwei Zahlen: Außen
+    // entscheidet das Spiel der Schneidemaschine, innen verschwindet ein
+    // Streifen im Falz — bei einer Klebebindung mehr als bei einer
+    // Fadenheftung, und beides sagt der Druckdienst und nicht diese App.
+    //
+    // **`nil` heißt „wie außen" und ist keine Kopie** — dieselbe Regel wie
+    // bei `Schriftabweichung`, `Block.wirkung` und `Kartenwahl`: Wer den
+    // äußeren Wert später ändert, ändert damit auch den inneren, solange er
+    // nichts anderes gesagt hat. Jedes vorhandene Buch sieht nach dem
+    // Update deshalb unverändert aus.
+    //
+    // Welche Seite innen liegt, weiß die Gestaltung NICHT — das hängt an
+    // der laufenden Seitenzahl (`Buchseite.bundlage`). Sie wird deshalb
+    // hereingereicht, wie es der Bundsteg seit 1.0.1 anders löst: Der geht
+    // auf beide Ränder, weil er den Satzspiegel verschiebt und eine Seite
+    // sonst beim Umbruch die Seite wechselte. Der Sicherheitsabstand
+    // verschiebt nichts, er prüft nur — er darf die Seiten also
+    // unterscheiden.
+    var sicherheitsabstandInnen: Double?
+
+    /// Was an der Bundseite gilt. Ohne eigenen Wert der äußere.
+    var innensicherheit: Double { sicherheitsabstandInnen ?? sicherheitsabstand }
+
+    /// Ob innen etwas anderes gilt als außen — für jede Stelle, die das
+    /// hinschreibt. Unter einem Zehntelmillimeter ist es dasselbe.
+    var sicherheitAsymmetrisch: Bool {
+        abs(innensicherheit - sicherheitsabstand) > 0.05
+    }
+
     /// Die Fläche, in der alles Wichtige bleiben soll. Der Satzspiegel
     /// liegt normalerweise weit innerhalb; gefährlich wird es bei Blöcken,
     /// die jemand von Hand an die Kante geschoben hat.
-    func schutzzone(_ format: Seitenformat) -> CGRect {
+    func schutzzone(_ format: Seitenformat, bund: Bundlage = .ohne) -> CGRect {
         let groesse = format.groesse
-        let saum = Druckmass.pt(max(0, sicherheitsabstand))
-        return CGRect(x: saum, y: saum,
-                      width: max(0, groesse.width - 2 * saum),
-                      height: max(0, groesse.height - 2 * saum))
+        let aussen = Druckmass.pt(max(0, sicherheitsabstand))
+        let innen = Druckmass.pt(max(0, innensicherheit))
+        // Oben und unten gilt IMMER der äußere Wert: Dort wird geschnitten
+        // und nicht gebunden.
+        let links: Double
+        let rechts: Double
+        switch bund {
+        case .links: links = innen; rechts = aussen
+        case .rechts: links = aussen; rechts = innen
+        case .ohne: links = aussen; rechts = aussen
+        }
+        return CGRect(x: links, y: aussen,
+                      width: max(0, groesse.width - links - rechts),
+                      height: max(0, groesse.height - 2 * aussen))
+    }
+
+    /// Ob überhaupt einer gilt. `0` heißt abgeschaltet — dann wird keine
+    /// Linie gezeichnet, an nichts gefangen und nichts gemeldet; eine
+    /// Linie ohne Wirkung wäre eine Behauptung (Regel seit 1.0.11).
+    var hatSicherheitsabstand: Bool {
+        sicherheitsabstand > 0.5 || innensicherheit > 0.5
     }
 
     func satzspiegel(_ format: Seitenformat) -> CGRect {
