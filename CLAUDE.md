@@ -10047,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.101 (Build 102). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.102 (Build 103). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10213,6 +10213,64 @@ Befunde, und keiner davon war Geschmack:
   - **Nicht gemessen (1.0.101):** Der Absturz ist weiterhin nicht behoben
     und seine Ursache nicht bekannt. Diese Fassung macht nur die Frage
     entscheidbar.
+- **ZWEI FASSUNGEN, UND MAN SIEHT IHNEN AN, WAS SIE SIND**
+  (`Dienste/Konfliktbefund.swift`, `Dienste/Geraetename.swift`,
+  `Views/Konfliktansicht.swift`, ab 1.0.102; gemeldet 09/2026: „Ich weiß
+  nicht, von welchem Gerät und von wann diese unterschiedlichen Fassungen
+  sind. Deshalb kann ich auch nicht beurteilen, welches die aktuelle ist,
+  die ich behalten will.").
+  - **Das WANN lag die ganze Zeit in den Dateien.** Jede Reise trägt ihr
+    `geaendert` — in den Einstellungen stand bis 1.0.101 der DATEINAME und
+    sonst nichts, und daneben zwei Knöpfe, von denen einer löscht. Gelesen
+    wird jetzt BEIDES, die beiseitegelegte Fassung und die geltende, und
+    hingeschrieben wird der UNTERSCHIED (Tage, Fotos, Seiten, Zeichen
+    Tagebuchtext, Zeitabstand, abweichender Name). **Mit Sekunden** — ohne
+    sie sehen zwei Stände gleich alt aus, die es nicht sind (die Lehre aus
+    Tafelbilds Bestandsaufnahme).
+  - **Das GERÄT lag nirgends, und das wird GESAGT statt geraten.** Keine
+    Fassung dieser App hat es je vermerkt; nachtragen lässt es sich nicht.
+    Für jede Konfliktdatei, die heute auf der Platte liegt, steht dort
+    „nicht vermerkt". Geschrieben wird es ab 1.0.102 in `Ablage.sichern` —
+    der einen Stelle, an der ein Buch auf die Platte geht, und damit der
+    einzigen, an der die Angabe gar nicht falsch sein kann.
+  - **Den echten Gerätenamen gibt iOS nicht heraus.** Seit iOS 16 liefert
+    `UIDevice.current.name` nur die Modellbezeichnung; für den vom Menschen
+    vergebenen gibt es ein eigenes Recht. **Eines davon einzutragen, ohne
+    dass die App-Id es trägt, hat dieses Projekt in 1.0.44 den ganzen Bau
+    gekostet** — das wird nicht wiederholt. Der Name ist deshalb ein selbst
+    vergebener: vorbelegt mit Modell plus gewürfeltem Kürzel (sonst hießen
+    zwei iPads beide „iPad"), änderbar in den Einstellungen. **Nicht aus
+    `identifierForVendor`** — das ist eine Kennung des Geräts und reiste mit
+    dem Buch in die Wolke und in jede weitergegebene Buchdatei; ein selbst
+    vergebenes Kürzel sagt genauso viel und ist keine.
+  - **Gebildet wird der Vorschlag EINMAL beim Start, auf dem Hauptfaden.**
+    Gesichert wird ein Buch auch abseits davon, und UIKit gehört dorthin;
+    danach kommt `Geraetename.eigener` ohne UIKit aus.
+  - **„Diese Fassung nehmen" TAUSCHT, statt zu löschen** (`Wolke.fassungNehmen`).
+    Bis 1.0.101 räumte dieser Weg die geltende Fassung weg — ein Tausch war
+    damit endgültig, und das ausgerechnet dort, wo jemand gerade zugegeben
+    hat, dass er es nicht beurteilen kann. Die bisherige wird jetzt
+    ihrerseits beiseitegelegt. Dieselbe Regel, unter der die Konfliktfassung
+    überhaupt liegen bleibt: **Ein Abgleich, der stillschweigend einen Abend
+    Arbeit wegnimmt, ist schlimmer als zwei Bücher, die man vergleichen
+    muss.** Die Bilder bleiben unberührt — beide Fassungen tragen dieselbe
+    Kennung und damit denselben Bilderordner.
+  - **Wie eine beiseitegelegte Fassung heißt, steht an EINER Stelle**
+    (`Wolke.beiseiteName`). Zwei Stellen liefen auseinander, und der Name
+    ist kein Schmuck: Vorn steht die Kennung des Buches, daran findet die
+    Fassung zurück an ihren Platz und zu ihren Bildern.
+  - **Gerechnet wird EINMAL beim Öffnen**, nicht im Körper der Ansicht:
+    Dahinter stecken zwei vollständige JSON-Läufe je Konflikt (dieselbe
+    Falle wie bei der Netzkarte der Abfahrtstafel). Aus demselben Grund sind
+    die Unterschiedssätze GESPEICHERT und nicht berechnet.
+  - **Nicht gemessen (1.0.102):** Auf einem Gerät hat das niemand gesehen.
+    Am Quelltext abgezählt ist, was in den Dateien steht und was nicht —
+    und der zweite Teil ist der wichtigere: **Für die Konfliktdatei, die
+    heute auf seinem Gerät liegt, bleibt das Gerät unbekannt.** Diese
+    Fassung kann das nicht nachholen; bis beide Geräte einmal gesichert
+    haben, steht in mindestens einer Zeile weiter „nicht vermerkt".
+    Ungeprüft ist auch, was `UIDevice.current.model` auf Mac Catalyst sagt
+    — dort greift der eigene Zweig („Mac").
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

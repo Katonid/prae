@@ -11,6 +11,11 @@ struct UrlaubstagebuchApp: App {
             RegalView()
                 .environmentObject(regal)
                 .task {
+                    // Wie dieses Gerät heißt, wird EINMAL gebildet und
+                    // liegt danach in den Voreinstellungen: Gesichert wird
+                    // ein Buch auch abseits des Hauptfadens, und UIKit
+                    // gehört dorthin (ab 1.0.102).
+                    Geraetename.vorbereiten()
                     // Selbst installierte Schriften gelten nur für DIESEN
                     // Prozess und müssen bei jedem Start wieder angemeldet
                     // werden (ab 1.0.41, `Model/Geraeteschriften.swift`).

@@ -215,6 +215,20 @@ struct Reise: Identifiable, Codable {
 
     var geaendert: Date = Date()
 
+    // AUF WELCHEM GERÄT DIESE FASSUNG ZULETZT GESICHERT WURDE (ab 1.0.102).
+    //
+    // Gemeldet 09/2026: „Ich weiß nicht, von welchem Gerät und von wann
+    // diese unterschiedlichen Fassungen sind." Das WANN stand immer schon
+    // hier (`geaendert`) — das Gerät stand nirgends.
+    //
+    // `nil` heißt „nicht vermerkt", und das ist keine Lücke, sondern eine
+    // Auskunft: Jede Datei, die vor 1.0.102 geschrieben wurde, trägt es
+    // nicht, und nachtragen lässt es sich nicht. Geschrieben wird es an
+    // genau EINER Stelle — in `Ablage.sichern`, also dort, wo ein Buch auf
+    // die Platte geht. Damit stimmt es immer: Wer gesichert hat, hat auch
+    // geschrieben.
+    var geaendertAuf: String?
+
     init() {}
 
     // Derselbe nachsichtige Leser wie beim Tag — und aus demselben Grund.
@@ -242,6 +256,7 @@ struct Reise: Identifiable, Codable {
         schmutztitelbloecke = b.wert(.schmutztitelbloecke, [Block]())
         schlussbloecke = b.wert(.schlussbloecke, [Block]())
         geaendert = b.wert(.geaendert, Date())
+        geaendertAuf = b.wahlweise(.geaendertAuf)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
         } else {

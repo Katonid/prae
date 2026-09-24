@@ -285,9 +285,7 @@ enum Wolke {
             // Die Verliererin zuerst wegschreiben, dann erst auflösen: Nach
             // `isResolved` räumt iCloud sie weg, und danach ist sie fort.
             guard fassung !== bester else { continue }
-            let name = ort.deletingPathExtension().lastPathComponent
-                + konfliktmarke + "\(Int(Date().timeIntervalSince1970))-\(beiseite).json"
-            let ziel = ort.deletingLastPathComponent().appendingPathComponent(name)
+            let ziel = beiseiteName(fuer: ort, nummer: beiseite)
             if (try? FileManager.default.copyItem(at: fassung.url, to: ziel)) != nil {
                 beiseite += 1
             }
@@ -299,6 +297,55 @@ enum Wolke {
         for fassung in andere { fassung.isResolved = true }
         try? NSFileVersion.removeOtherVersionsOfItem(at: ort)
         return beiseite
+    }
+
+    /// Wie eine beiseitegelegte Fassung heißt.
+    ///
+    /// An EINER Stelle, weil zwei Stellen auseinanderliefen — und der Name
+    /// ist kein Schmuck: Vorn steht die Kennung des Buches (so findet die
+    /// Fassung zurück an ihren Platz und zu ihren Bildern), dahinter der
+    /// Zeitpunkt, an dem der Konflikt bemerkt wurde.
+    static func beiseiteName(fuer ort: URL, nummer: Int) -> URL {
+        var zahl = nummer
+        var ziel: URL
+        repeat {
+            let name = ort.deletingPathExtension().lastPathComponent
+                + konfliktmarke + "\(Int(Date().timeIntervalSince1970))-\(zahl).json"
+            ziel = ort.deletingLastPathComponent().appendingPathComponent(name)
+            zahl += 1
+        } while FileManager.default.fileExists(atPath: ziel.path) && zahl < nummer + 50
+        return ziel
+    }
+
+    /// EINE BEISEITEGELEGTE FASSUNG ZUR GELTENDEN MACHEN (ab 1.0.102).
+    ///
+    /// **Die geltende wird dabei NICHT weggeworfen**, sondern ihrerseits
+    /// beiseitegelegt. Bis 1.0.101 löschte dieser Weg sie — und damit war
+    /// ein Tausch endgültig, obwohl genau hier die größte Unsicherheit
+    /// sitzt: Wer nicht beurteilen kann, welche Fassung die richtige ist,
+    /// greift gelegentlich daneben. Das ist dieselbe Regel, unter der die
+    /// Konfliktfassung überhaupt liegen bleibt: Ein Abgleich, der
+    /// stillschweigend einen Abend Arbeit wegnimmt, ist schlimmer als zwei
+    /// Bücher, die man vergleichen muss.
+    ///
+    /// Die BILDER bleiben unberührt: Beide Fassungen tragen dieselbe
+    /// Kennung und damit denselben Bilderordner.
+    @discardableResult
+    static func fassungNehmen(_ ort: URL) -> Bool {
+        let name = ort.lastPathComponent
+        guard let strich = name.range(of: konfliktmarke) else { return false }
+        let ziel = ort.deletingLastPathComponent()
+            .appendingPathComponent(String(name[name.startIndex..<strich.lowerBound]) + ".json")
+        let dateien = FileManager.default
+        // Erst die geltende in Sicherheit bringen, dann tauschen. Scheitert
+        // das, bleibt alles, wie es war — ein halb getauschtes Buch wäre
+        // der schlechtere Zustand.
+        if dateien.fileExists(atPath: ziel.path) {
+            let beiseite = beiseiteName(fuer: ziel, nummer: 0)
+            guard (try? dateien.moveItem(at: ziel, to: beiseite)) != nil else { return false }
+        }
+        guard (try? dateien.moveItem(at: ort, to: ziel)) != nil else { return false }
+        return true
     }
 
     static func konfliktdateien() -> [URL] {

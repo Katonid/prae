@@ -12,13 +12,15 @@ struct EinstellungenView: View {
     @State private var arbeitet = false
     @State private var bericht: String?
     @State private var waehler = false
-    @State private var konflikte: [URL] = []
+    @State private var befunde: [Konfliktbefund] = []
+    @State private var geraetename = Geraetename.istSelbstVergeben ? Geraetename.eigener : ""
+    @FocusState private var namensfeld: Bool
 
     var body: some View {
         NavigationStack {
             Form {
                 abgleich
-                if !konflikte.isEmpty { konfliktabschnitt }
+                if !befunde.isEmpty { konfliktabschnitt }
                 austausch
                 ablageort
                 fassung
@@ -30,7 +32,9 @@ struct EinstellungenView: View {
                     Button("Fertig") { schliessen() }
                 }
             }
-            .task { konflikte = Wolke.konfliktdateien() }
+            // Je Konflikt werden ZWEI ganze Bücher eingelesen — das
+            // gehört in eine Aufgabe und nicht in den Körper einer Ansicht.
+            .task { befunde = await Konfliktbefund.alle() }
             .fullScreenCover(isPresented: $waehler) {
                 Dateiwahl(typen: buchtypen) { urls in
                     waehler = false
@@ -111,6 +115,22 @@ struct EinstellungenView: View {
             ))
             .disabled(arbeitet)
             LabeledContent("Zustand", value: Wolke.stand.text)
+            // WIE DIESES GERÄT IN EINEM BUCH VERMERKT WIRD (ab 1.0.102).
+            // Übernommen wird beim VERLASSEN des Feldes und bei der
+            // Eingabetaste: Ein Knopf daneben bräuchte immer zwei Tipps,
+            // solange das Feld den Fokus hat (die Lehre aus 1.0.78).
+            HStack {
+                Text("Dieses Gerät")
+                Spacer(minLength: 12)
+                TextField(Geraetename.vorschlag, text: $geraetename)
+                    .multilineTextAlignment(.trailing)
+                    .focused($namensfeld)
+                    .submitLabel(.done)
+                    .onSubmit { namenUebernehmen() }
+            }
+            .onChange(of: namensfeld) { _, jetzt in
+                if !jetzt { namenUebernehmen() }
+            }
             if arbeitet {
                 HStack {
                     ProgressView()
@@ -137,29 +157,35 @@ struct EinstellungenView: View {
         }
     }
 
+    // DIE BEIDEN FASSUNGEN SAGEN, WAS SIE SIND (ab 1.0.102).
+    //
+    // Gemeldet 09/2026: „Ich weiß nicht, von welchem Gerät und von wann
+    // diese unterschiedlichen Fassungen sind. Deshalb kann ich auch nicht
+    // beurteilen, welches die aktuelle ist, die ich behalten will."
+    //
+    // Hier stand bis 1.0.101 der DATEINAME — sechsunddreißig Zeichen
+    // Kennung und eine Zahl — und daneben zwei Knöpfe, von denen einer
+    // löscht. Jetzt steht in der Zeile, wann und wo beide Fassungen
+    // gesichert wurden, und dahinter liegt der volle Vergleich.
     @ViewBuilder
     private var konfliktabschnitt: some View {
         Section {
-            ForEach(konflikte, id: \.self) { ort in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(ort.lastPathComponent)
-                        .font(.footnote)
-                        .lineLimit(2)
-                    HStack {
-                        Button("Diese Fassung nehmen") { konfliktNehmen(ort) }
-                            .buttonStyle(.bordered)
-                        Button("Verwerfen", role: .destructive) { konfliktVerwerfen(ort) }
-                            .buttonStyle(.bordered)
-                    }
-                    .font(.caption)
+            ForEach(befunde) { befund in
+                NavigationLink {
+                    Konfliktansicht(befund: befund,
+                                    nehmen: { konfliktNehmen(befund.ort) },
+                                    verwerfen: { konfliktVerwerfen(befund.ort) })
+                } label: {
+                    Konfliktzeile(befund: befund)
                 }
             }
         } header: {
             Text("Fassungen aus einem Abgleich")
         } footer: {
             Text("Zu diesen Büchern gab es zwei Stände auf einmal. Die jüngere "
-                 + "Fassung steht im Regal; das hier ist die andere. Sieh sie dir an, "
-                 + "bevor du eine verwirfst \u{2014} die App hat nur nach dem Zeitpunkt "
+                 + "Fassung steht im Regal; das hier ist die andere. Tippe eine an: "
+                 + "Dann stehen beide nebeneinander \u{2014} mit Zeitpunkt, Gerät und "
+                 + "dem, was sich unterscheidet. Die App hat nur nach dem Zeitpunkt "
                  + "entschieden, nicht nach dem Inhalt.")
         }
     }
@@ -207,7 +233,7 @@ struct EinstellungenView: View {
             // zurückgenommen — der Schalter folgt, statt etwas zu zeigen,
             // was nicht gilt.
             wolkeAn = Wolke.gewuenscht
-            konflikte = Wolke.konfliktdateien()
+            befunde = await Konfliktbefund.alle()
             regal.wolkeGewechselt()
         }
     }
@@ -215,22 +241,35 @@ struct EinstellungenView: View {
 
 
 
+    private func namenUebernehmen() {
+        let vorher = Geraetename.eigener
+        Geraetename.setzen(geraetename)
+        // Ein Name, der sich nicht geändert hat, wird nicht geschrieben —
+        // und ein leeres Feld heißt „wieder der Vorschlag".
+        geraetename = Geraetename.istSelbstVergeben ? Geraetename.eigener : ""
+        if Geraetename.eigener != vorher { befundeAuffrischen() }
+    }
+
+    // DIE GELTENDE FASSUNG WIRD NICHT WEGGEWORFEN (ab 1.0.102). Bis
+    // 1.0.101 löschte dieser Weg sie — damit war ein Tausch endgültig,
+    // und das ausgerechnet an der Stelle, an der jemand gerade zugegeben
+    // hat, dass er es nicht beurteilen kann. Getauscht wird jetzt:
+    // `Wolke.fassungNehmen` legt die bisherige ihrerseits beiseite.
     private func konfliktNehmen(_ ort: URL) {
-        // Der Name der Konfliktdatei trägt die Kennung des Buches vorn — so
-        // findet die Fassung zurück an ihren Platz, und die Bilder, die
-        // unter dieser Kennung liegen, passen weiter dazu.
-        let name = ort.lastPathComponent
-        guard let strich = name.range(of: Wolke.konfliktmarke) else { return }
-        let ziel = ort.deletingLastPathComponent()
-            .appendingPathComponent(String(name[name.startIndex..<strich.lowerBound]) + ".json")
-        try? FileManager.default.removeItem(at: ziel)
-        try? FileManager.default.moveItem(at: ort, to: ziel)
-        konflikte = Wolke.konfliktdateien()
+        guard Wolke.fassungNehmen(ort) else {
+            bericht = "Die Fassung ließ sich nicht übernehmen. Es hat sich nichts geändert."
+            return
+        }
+        befundeAuffrischen()
         regal.neuLesen()
     }
 
     private func konfliktVerwerfen(_ ort: URL) {
         try? FileManager.default.removeItem(at: ort)
-        konflikte = Wolke.konfliktdateien()
+        befundeAuffrischen()
+    }
+
+    private func befundeAuffrischen() {
+        Task { befunde = await Konfliktbefund.alle() }
     }
 }
