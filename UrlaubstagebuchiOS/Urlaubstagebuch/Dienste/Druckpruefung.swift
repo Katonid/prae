@@ -955,6 +955,27 @@ enum Druckpruefung {
                       text: text)]
     }
 
+    // WIE GROSS DIE PDF-SEITE IST — und warum.
+    //
+    // Seit 1.0.85 h\u{00E4}ngt die Breite an `anschnittAmBund`: Liegt am Bund
+    // keiner, wird waagerecht nur EINE Zugabe gerechnet. Der Satz nennt
+    // beides, denn genau diese Zahl h\u{00E4}lt der Nutzer gegen seine
+    // Bestellung.
+    private static func bogensatz(_ gestaltung: Gestaltung, bogen: CGSize) -> String {
+        let mass = "\(Druckmass.mmText(bogen.width)) x \(Druckmass.mmText(bogen.height))"
+        let zugabe = Druckvorgabe.zahl(gestaltung.anschnitt)
+        var text = "Die PDF-Seite misst \(mass) \u{2014} Endformat plus \(zugabe) mm "
+        if gestaltung.anschnittAmBund {
+            text += "Anschnitt an jeder Kante. "
+        } else {
+            text += "Anschnitt oben, unten und au\u{00DF}en; am Bund keiner. Welche "
+            text += "der beiden Kanten die Zugabe tr\u{00E4}gt, wechselt von Seite zu "
+            text += "Seite \u{2014} die TrimBox sagt es je Seite. "
+        }
+        text += "Endformat und Anschnitt stehen als TrimBox und BleedBox in der Datei."
+        return text
+    }
+
     static func vorab(_ reise: Reise) -> [Zeile] {
         var zeilen: [Zeile] = []
         let format = reise.format
@@ -964,7 +985,7 @@ enum Druckpruefung {
         zeilen.append(Zeile(
             stufe: .gut,
             titel: "Endformat \(format.masstext)",
-            text: "Die PDF-Seite misst \(Druckmass.mmText(bogen.width)) x \(Druckmass.mmText(bogen.height)) — Endformat plus \(Int(gestaltung.anschnitt)) mm Anschnitt an jeder Kante. Endformat und Anschnitt stehen als TrimBox und BleedBox in der Datei."
+            text: bogensatz(gestaltung, bogen: bogen)
         ))
 
         if gestaltung.anschnitt < 2.5 {

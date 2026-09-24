@@ -30,10 +30,15 @@ enum Druckvorgabe {
     /// `nil`, wenn dabei nichts Gültiges herauskommt — das ist der Fall,
     /// wenn jemand versehentlich ein Endformat in diese Felder tippt und
     /// der Anschnitt es unter die Untergrenze zieht.
+    ///
+    /// `amBund` ist die Einstellung aus 1.0.85. Ist sie aus, liegt am Bund
+    /// kein Anschnitt, und waagerecht wird er nur EINMAL abgezogen —
+    /// genau so rechnet die Vorgabe, die den Fall ausgelöst hat:
+    /// 208 × 276 mit 3 | 3 | 3 | 0 ergibt 205 × 270 und nicht 202 × 270.
     static func endformat(bogenBreite: Double, bogenHoehe: Double,
-                          anschnitt: Double) -> Seitenformat?
+                          anschnitt: Double, amBund: Bool = true) -> Seitenformat?
     {
-        let b = bogenBreite - 2 * anschnitt
+        let b = bogenBreite - (amBund ? 2 : 1) * anschnitt
         let h = bogenHoehe - 2 * anschnitt
         guard Seitenformat.gueltig(b), Seitenformat.gueltig(h) else { return nil }
         return Seitenformat(breite: runden(b), hoehe: runden(h))
@@ -41,8 +46,10 @@ enum Druckvorgabe {
 
     /// Das Bogenmaß in Millimetern, das aus einem Format folgt — die Zahl,
     /// die im PDF steht und die eine Druckerei prüft.
-    static func bogen(_ format: Seitenformat, anschnitt: Double) -> CGSize {
-        CGSize(width: format.breite + 2 * anschnitt,
+    static func bogen(_ format: Seitenformat, anschnitt: Double,
+                      amBund: Bool = true) -> CGSize
+    {
+        CGSize(width: format.breite + (amBund ? 2 : 1) * anschnitt,
                height: format.hoehe + 2 * anschnitt)
     }
 
@@ -83,10 +90,10 @@ enum Druckvorgabe {
     /// Es ist ein HINWEIS und keine Sperre. Wer wirklich 216 × 303 als
     /// Endformat bestellt hat, soll es eintragen können.
     static func bogenverdacht(breite: Double, hoehe: Double,
-                              anschnitt: Double) -> Seitenformat?
+                              anschnitt: Double, amBund: Bool = true) -> Seitenformat?
     {
         guard anschnitt > 0.05 else { return nil }
-        let b = breite - 2 * anschnitt
+        let b = breite - (amBund ? 2 : 1) * anschnitt
         let h = hoehe - 2 * anschnitt
         guard Seitenformat.gueltig(b), Seitenformat.gueltig(h) else { return nil }
         return Seitenformat.vorlagen.first {

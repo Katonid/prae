@@ -450,7 +450,16 @@ struct ReiseView: View {
         let seiten = werk.sichtbareSeiten
         ForEach(seiten) { buchseite in
             VStack(spacing: Buehnenmasse.beschriftungsabstand) {
-                SeitenflaecheView(werk: werk, buchseite: buchseite, massstab: massstabJetzt)
+                // AN WELCHER KANTE KEIN ANSCHNITT LIEGT, sagt die
+                // Gestaltung (ab 1.0.85): Ist er am Bund abgeschaltet,
+                // hört das Blatt dort am Endformat auf — und mit ihm die
+                // rote Schnittkante. Entschieden wird das HIER und nicht
+                // in der Seitenfläche, weil die Doppelseitenansicht die
+                // Kante immer offen hat und `==` den Wert vergleicht.
+                SeitenflaecheView(werk: werk, buchseite: buchseite,
+                                  bogenkante: werk.reise.gestaltung
+                                      .offeneKante(buchseite.bundlage),
+                                  massstab: massstabJetzt)
                     // Ohne `.equatable()` baut die Zweifingergeste jede
                     // sichtbare Seite bei jedem Bildpunkt neu auf — siehe
                     // `SeitenflaecheView.==`. Wer eine dritte Aufrufstelle

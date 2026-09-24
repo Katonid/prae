@@ -74,6 +74,15 @@ struct FormatView: View {
                     }
                     LabeledContent("Anschnitt",
                                    value: Druckvorgabe.zahl(werk.reise.gestaltung.anschnitt) + " mm")
+                    // WO DER ANSCHNITT LIEGT, steht hier und nicht nur in
+                    // der Gestaltung (ab 1.0.85): Es ist die Zahl, die
+                    // diese Umrechnung entscheidet, und eine Angabe der
+                    // Druckerei. Wer sie hier braucht, soll sie hier
+                    // umstellen können.
+                    Toggle("Auch am Bund", isOn: $werk.reise.gestaltung.anschnittAmBund)
+                    LabeledContent("Abgezogen",
+                                   value: werk.reise.gestaltung.anschnittAmBund
+                                       ? "an allen vier Kanten" : "an drei Kanten")
                     if let end = ausBogen {
                         LabeledContent("Ergibt das Endformat", value: end.masstext)
                         Button("Dieses Format übernehmen") { formatWuenschen(end) }
@@ -252,12 +261,20 @@ struct FormatView: View {
     private var ausBogen: Seitenformat? {
         guard let b = zahlAus(bogenBreite), let h = zahlAus(bogenHoehe) else { return nil }
         return Druckvorgabe.endformat(bogenBreite: b, bogenHoehe: h,
-                                      anschnitt: werk.reise.gestaltung.anschnitt)
+                                      anschnitt: werk.reise.gestaltung.anschnitt,
+                                      amBund: werk.reise.gestaltung.anschnittAmBund)
     }
 
     private var bogenhinweis: String {
         let a = Druckvorgabe.zahl(werk.reise.gestaltung.anschnitt)
-        let grund = "Viele Druckereien nennen das Maß MIT Beschnitt \u{2014} \u{201E}legen Sie Ihre Daten im Format 216 x 303 mm an\u{201C}. Diese Zahl geh\u{00F6}rt hierher und nicht in das Feld darunter: Abgezogen werden \(a) mm an jeder der vier Kanten, und heraus kommt das Endformat, in dem das Buch nachher in der Hand liegt."
+        // AM BUND WIRD NUR EINMAL ABGEZOGEN, wenn der Anschnitt dort
+        // abgeschaltet ist (ab 1.0.85). Das ist genau die Rechnung der
+        // Vorgabe, die den Fall ausgel\u{00F6}st hat: 208 \u{2212} 3 = 205.
+        var kanten = "an jeder der vier Kanten"
+        if !werk.reise.gestaltung.anschnittAmBund {
+            kanten = "oben, unten und au\u{00DF}en \u{2014} am Bund nicht, dort wird nicht geschnitten"
+        }
+        let grund = "Viele Druckereien nennen das Maß MIT Beschnitt \u{2014} \u{201E}legen Sie Ihre Daten im Format 216 x 303 mm an\u{201C}. Diese Zahl geh\u{00F6}rt hierher und nicht in das Feld darunter: Abgezogen werden \(a) mm \(kanten), und heraus kommt das Endformat, in dem das Buch nachher in der Hand liegt."
         if ausBogen == nil, !bogenBreite.isEmpty {
             return "Daraus wird kein g\u{00FC}ltiges Endformat. " + grund
         }
@@ -268,11 +285,13 @@ struct FormatView: View {
     private var bogenverdacht: Seitenformat? {
         guard let eigen = eigenesMass else { return nil }
         return Druckvorgabe.bogenverdacht(breite: eigen.breite, hoehe: eigen.hoehe,
-                                          anschnitt: werk.reise.gestaltung.anschnitt)
+                                          anschnitt: werk.reise.gestaltung.anschnitt,
+                                          amBund: werk.reise.gestaltung.anschnittAmBund)
     }
 
     private func verdachtstext(_ eigen: Seitenformat, gemeint: Seitenformat) -> String {
-        let bogen = Druckvorgabe.bogen(eigen, anschnitt: werk.reise.gestaltung.anschnitt)
+        let bogen = Druckvorgabe.bogen(eigen, anschnitt: werk.reise.gestaltung.anschnitt,
+                                       amBund: werk.reise.gestaltung.anschnittAmBund)
         return "Als Endformat eingetragen ergibt \(eigen.masstext) eine PDF-Seite von "
             + "\(Druckvorgabe.masstext(bogen)) \u{2014} also noch einmal Anschnitt obendrauf. "
             + "Verlangt die Druckerei \(eigen.masstext), dann meint sie den Bogen, und das "

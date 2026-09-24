@@ -23,9 +23,11 @@ struct SeitenflaecheView: View, Equatable {
     var ohneGrund: Bool = false
     // AN WELCHER KANTE DIE NACHBARHÄLFTE ANSTÖSST (ab 1.0.78).
     //
-    // `.keine` ist die Einzelseitenansicht: Dort steht die Seite für sich,
-    // und die Einzelseiten-PDF trägt ringsum Anschnitt — die Schnittkante
-    // läuft also an allen vier Kanten. In einem BOGEN stößt eine Hälfte an
+    // `.keine` heißt: ringsum Anschnitt, die Schnittkante läuft an allen
+    // vier Kanten. Das ist die Einzelseitenansicht — es sei denn, der
+    // Anschnitt am Bund ist abgeschaltet (ab 1.0.85); dann hört auch eine
+    // einzelne Seite dort am Endformat auf, und der Aufrufer sagt es über
+    // `Gestaltung.offeneKante(_:)`. In einem BOGEN stößt eine Hälfte an
     // die andere; dort wird gefalzt oder gebunden und nicht geschnitten,
     // also gibt es an dieser Kante weder einen Anschnittstreifen noch eine
     // Schnittkante. Ausführlich steht der Befund an `Bogenkante`.
@@ -127,6 +129,29 @@ struct SeitenflaecheView: View, Equatable {
                height: Double(format.height) + 2 * anschnitt)
     }
     private var satz: CGRect { werk.reise.gestaltung.satzspiegel(werk.reise.format) }
+
+    // DIE FANGKANTEN DES ANSCHNITTS — ohne die, die es hier nicht gibt.
+    //
+    // An einer offenen Bundkante wird kein Anschnittstreifen gezeichnet;
+    // eine Kante, an der etwas einrastet, ohne dass man sie sieht, wäre
+    // genau die Art stiller Widerspruch, gegen die seit 1.0.11 gilt: Eine
+    // Linie ohne Wirkung ist eine Behauptung — und eine Wirkung ohne Linie
+    // erst recht.
+    private var fangbogen: CGRect? {
+        guard werk.reise.gestaltung.anschnitt > 0.5 else { return nil }
+        let voll = werk.reise.gestaltung.randabfallend(werk.reise.format)
+        switch bogenkante {
+        case .links:
+            return CGRect(x: 0, y: voll.minY,
+                          width: voll.maxX, height: voll.height)
+        case .rechts:
+            return CGRect(x: voll.minX, y: voll.minY,
+                          width: Double(format.width) - Double(voll.minX),
+                          height: voll.height)
+        case .keine:
+            return voll
+        }
+    }
 
     // Der Streifen INNERHALB des Endformats, in dem nichts stehen soll, was
     // gelesen werden muss (ab 1.0.73). `nil` heißt: abgeschaltet — dann
@@ -947,8 +972,7 @@ struct SeitenflaecheView: View, Equatable {
                 dx: wert.translation.width, dy: wert.translation.height,
                 nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id },
                 satz: satz,
-                bogen: werk.reise.gestaltung.anschnitt > 0.5
-                    ? werk.reise.gestaltung.randabfallend(werk.reise.format) : nil,
+                bogen: fangbogen,
                 schutz: schutzzone,
                 toleranz: 6 / massstab
             )
@@ -1013,8 +1037,7 @@ struct SeitenflaecheView: View, Equatable {
         // finge eine Ecke an etwas, woran die Kante daneben nicht fängt.
         let alle = Einrasten.kanten(
             satz: satz,
-            bogen: werk.reise.gestaltung.anschnitt > 0.5
-                ? werk.reise.gestaltung.randabfallend(werk.reise.format) : nil,
+            bogen: fangbogen,
             schutz: schutzzone,
             nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id }
         )

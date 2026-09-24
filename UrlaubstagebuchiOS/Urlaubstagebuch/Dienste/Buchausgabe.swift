@@ -560,19 +560,28 @@ enum Buchausgabe {
         // Die drei Boxen. Die TrimBox ist das Endformat, die BleedBox der
         // bedruckte Bogen. Beide werden als rohe `CGRect`-Bytes übergeben —
         // so verlangt es CoreGraphics, ein `NSValue` nimmt es nicht an.
-        var trimbox = CGRect(x: anschnitt, y: anschnitt,
-                             width: endformat.width, height: endformat.height)
+        //
+        // WO DAS ENDFORMAT IM BOGEN LIEGT, WECHSELT SEIT 1.0.85 VON SEITE
+        // ZU SEITE. Liegt am Bund kein Anschnitt, ist der Bogen nur um eine
+        // Zugabe breiter als das Endformat — und die liegt bei einer
+        // rechten Seite rechts, bei einer linken links. Die Boxen gehören
+        // deshalb IN die Schleife; eine feste TrimBox verschöbe die Hälfte
+        // aller Seiten um drei Millimeter, und zwar still: Die Datei sieht
+        // tadellos aus, und erst das geschnittene Buch zeigt es.
         var bleedbox = medienbox
-        let seiteninfo: [String: Any] = [
-            kCGPDFContextMediaBox as String: Data(bytes: &medienbox,
-                                                  count: MemoryLayout<CGRect>.size),
-            kCGPDFContextTrimBox as String: Data(bytes: &trimbox,
-                                                 count: MemoryLayout<CGRect>.size),
-            kCGPDFContextBleedBox as String: Data(bytes: &bleedbox,
-                                                  count: MemoryLayout<CGRect>.size),
-        ]
 
         for (stelle, buchseite) in seiten.enumerated() {
+            let randLinks = reise.gestaltung.anschnittLinksPt(buchseite.bundlage)
+            var trimbox = CGRect(x: randLinks, y: anschnitt,
+                                 width: endformat.width, height: endformat.height)
+            let seiteninfo: [String: Any] = [
+                kCGPDFContextMediaBox as String: Data(bytes: &medienbox,
+                                                      count: MemoryLayout<CGRect>.size),
+                kCGPDFContextTrimBox as String: Data(bytes: &trimbox,
+                                                     count: MemoryLayout<CGRect>.size),
+                kCGPDFContextBleedBox as String: Data(bytes: &bleedbox,
+                                                      count: MemoryLayout<CGRect>.size),
+            ]
             zusammenhang.beginPDFPage(seiteninfo as CFDictionary)
             zusammenhang.saveGState()
             // CoreGraphics zeichnet ein PDF von unten links, UIKit von oben
@@ -582,8 +591,9 @@ enum Buchausgabe {
             zusammenhang.scaleBy(x: 1, y: -1)
             // Und dann in die Ecke des ENDFORMATS: Ab hier sind die
             // Koordinaten genau die, die im Modell stehen, und der
-            // Anschnitt ist negativer Raum.
-            zusammenhang.translateBy(x: anschnitt, y: anschnitt)
+            // Anschnitt ist negativer Raum. Waagerecht ist er es seit
+            // 1.0.85 nur an der Kante, die ihn wirklich trägt.
+            zusammenhang.translateBy(x: randLinks, y: anschnitt)
 
             // Kein `UIGraphicsPushContext` mehr: Das steht seit 1.0.68 in
             // `Seitensatz.mitUIKit`, also dort, wo UIKit wirklich zeichnet.
@@ -1262,6 +1272,12 @@ enum Buchausgabe {
         // Der Hintergrund läuft IMMER bis in den Anschnitt — eine Fläche,
         // die am Endformat aufhört, hätte nach dem Beschneiden genau den
         // weißen Faden, wegen dem es den Anschnitt gibt.
+        //
+        // RINGSUM, auch wenn am Bund keiner liegt (ab 1.0.85): Was dort
+        // über das Endformat hinausläuft, beschneidet die MediaBox von
+        // selbst. Ein Streifen zu viel ist harmlos, ein fehlender wäre
+        // genau der weiße Faden — und welche Kante offen ist, wechselt von
+        // Seite zu Seite.
         let bogenrechteck = CGRect(x: -anschnitt, y: -anschnitt,
                                    width: endformat.width + 2 * anschnitt,
                                    height: endformat.height + 2 * anschnitt)

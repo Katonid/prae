@@ -480,6 +480,38 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Kein Anschnitt am Bund (1.0.85)
+
+Manche Druckdienste legen die Innenseiten selbst zusammen und verlangen
+deshalb **innen keine Beschnittzugabe**: „Bruttomaß 208 × 276 mm,
+Beschnittzugabe oben | unten | außen | innen = 3 | 3 | 3 | 0 mm, Nettomaß
+205 × 270 mm."
+
+Bis 1.0.84 zog die App den Anschnitt immer an allen vier Kanten ab und
+machte aus denselben 208 mm ein Endformat von 202 — drei Millimeter zu
+schmal. Unter **Ganzes Buch → Ränder und Druckzugaben** (und gleich noch
+einmal unter **Maß der Druckerei**) lässt sich der Anschnitt am Bund jetzt
+abschalten. Dann gilt:
+
+- Die PDF-Seite ist waagerecht nur um **eine** Zugabe breiter als das
+  Endformat. Welche der beiden Kanten sie trägt, wechselt von Seite zu
+  Seite — die TrimBox sagt es je Seite, und auf dem Blatt hört die rote
+  Schnittkante am Bund auf.
+- Die Umrechnung unter „Maß der Druckerei" zieht waagerecht nur einmal ab:
+  aus 208 × 276 werden 205 × 270.
+- Doppelseiten-Ausgabe und Umschlagbogen ändern sich nicht — dort lag am
+  Bund noch nie einer.
+
+Die Vorgabe bleibt **an**: Jedes vorhandene Buch gibt dieselbe Datei aus
+wie vorher.
+
+**Nicht gemessen (1.0.85):** Keine Datei ist damit ausgegeben worden.
+Gerechnet und an der Vorgabe des Druckdienstes nachgerechnet ist die
+Umrechnung; ob dieser Dienst die Datei annimmt und ob eine TrimBox, die
+von Seite zu Seite die Kante wechselt, bei ihm durchgeht, sagt erst der
+nächste Befund.
+
+
 ## Der Titel und der Name in der Übersicht (1.0.84)
 
 Gemeldet 09/2026, nachdem der Nutzer sein Buch für einen **zweiten

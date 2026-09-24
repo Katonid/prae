@@ -407,6 +407,10 @@ struct AusgabeView: View {
     private var bogenmass: String {
         let reise = werk.reise
         let anschnitt = reise.gestaltung.anschnitt
+        // Am Bund liegt seit 1.0.85 unter Umständen keiner — bei
+        // Einzelseiten. Doppelseitenbogen und Umschlag rechnen unverändert:
+        // Dort lag am Bund nie einer.
+        let amBund = reise.gestaltung.anschnittAmBund
         switch umfang {
         case .nurUmschlag:
             return Druckvorgabe.masstext(umschlagbogenMm) + " (U4+U1)"
@@ -417,11 +421,13 @@ struct AusgabeView: View {
         case .broschuere:
             return broschuerenmass
         case .getrennt:
-            let einzeln = Druckvorgabe.bogen(reise.format, anschnitt: anschnitt)
+            let einzeln = Druckvorgabe.bogen(reise.format, anschnitt: anschnitt,
+                                             amBund: amBund)
             return Druckvorgabe.masstext(einzeln) + " \u{2B27} "
                 + Druckvorgabe.masstext(umschlagbogenMm)
         case .ganzesBuch, .nurInnenteil:
-            return Druckvorgabe.masstext(Druckvorgabe.bogen(reise.format, anschnitt: anschnitt))
+            return Druckvorgabe.masstext(Druckvorgabe.bogen(reise.format, anschnitt: anschnitt,
+                                                            amBund: amBund))
         }
     }
 

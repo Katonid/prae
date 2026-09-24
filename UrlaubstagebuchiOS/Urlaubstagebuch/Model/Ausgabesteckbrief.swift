@@ -82,8 +82,9 @@ enum Ausgabesteckbrief {
 
         zeilen.append(Zeile(
             name: "Bogen im PDF \u{00B7} Buchseiten",
-            wert: Druckvorgabe.masstext(Druckvorgabe.bogen(format, anschnitt: g.anschnitt)),
-            erklaerung: bogensatz,
+            wert: Druckvorgabe.masstext(Druckvorgabe.bogen(format, anschnitt: g.anschnitt,
+                                                           amBund: g.anschnittAmBund)),
+            erklaerung: bogensatz(g),
             eingestellt: false))
 
         let doppelt = CGSize(width: 2 * format.breite + 2 * g.anschnitt,
@@ -123,9 +124,17 @@ enum Ausgabesteckbrief {
         return Abschnitt(titel: "Die Datei", zeilen: zeilen, fuss: farbsatz)
     }
 
-    private static var bogensatz: String {
+    private static func bogensatz(_ g: Gestaltung) -> String {
         var text = "Das ist die Zahl, die eine Druckerei prüft: Endformat "
-        text += "plus zweimal Anschnitt. Sie gehört in KEIN Formatfeld \u{2014} "
+        if g.anschnittAmBund {
+            text += "plus zweimal Anschnitt. "
+        } else {
+            // AM BUND KEINER (ab 1.0.85) — waagerecht also nur eine Zugabe.
+            text += "plus Anschnitt: senkrecht zweimal, waagerecht nur EINMAL, "
+            text += "denn am Bund liegt keiner. Welche Kante ihn trägt, wechselt "
+            text += "von Seite zu Seite. "
+        }
+        text += "Sie gehört in KEIN Formatfeld \u{2014} "
         text += "wer sie dort einträgt, bekommt den Anschnitt ein zweites Mal."
         return text
     }
@@ -169,7 +178,8 @@ enum Ausgabesteckbrief {
 
         var anschnittwert = "keiner"
         if g.anschnitt > 0.05 {
-            anschnittwert = Druckvorgabe.zahl(g.anschnitt) + " mm ringsum"
+            anschnittwert = Druckvorgabe.zahl(g.anschnitt)
+                + (g.anschnittAmBund ? " mm ringsum" : " mm \u{2014} am Bund keiner")
         }
         zeilen.append(Zeile(
             name: "Anschnitt",
@@ -180,7 +190,9 @@ enum Ausgabesteckbrief {
                 + "weißer Faden stehen. Auf einer Doppelseite und am Umschlagbogen "
                 + "liegt er nur AUSSEN: Am Bund wird gefalzt oder gebunden. So "
                 + "zeigt es auch die Doppelseitenansicht, und dort fehlt am Bund "
-                + "deshalb die rote Schnittkante.",
+                + "deshalb die rote Schnittkante. Verlangt die Druckerei das auch "
+                + "für EINZELNE Seiten (\u{201E}innen 0 mm\u{201C}), wird er mit "
+                + "dem Schalter daneben abgeschaltet.",
             eingestellt: true,
             wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}"))
 
