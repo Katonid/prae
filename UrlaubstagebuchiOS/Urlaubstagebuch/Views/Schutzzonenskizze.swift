@@ -50,7 +50,7 @@ struct Schutzzonenskizze: View {
             .font(.caption2)
             .foregroundStyle(.secondary)
 
-            Text("Zwei gegenüberliegende Seiten. In der Mitte liegt der Bund.")
+            Text("Zwei gegenüberliegende Seiten. In der Mitte liegt der Bund — dort wird gefalzt oder gebunden und nicht geschnitten, deshalb läuft die rote Linie nicht herum.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -58,17 +58,26 @@ struct Schutzzonenskizze: View {
         .frame(maxWidth: .infinity)
     }
 
-    // Eine Seite: das Papier, die rote Schnittkante ringsum und die orange
-    // Linie an der Stelle, an der sie für DIESE Seite läuft.
+    // Eine Seite: das Papier, die rote Schnittkante — und die orange Linie
+    // an der Stelle, an der sie für DIESE Seite läuft.
+    //
+    // **Am Bund fehlt die rote Linie** (ab 1.0.78): Dort wird gefalzt oder
+    // gebunden und nicht geschnitten. Gezeichnet wird deshalb dasselbe
+    // `Schnittlinien`, das auch auf der Seite liegt — zwei Fassungen
+    // zeigten hier etwas anderes als das Blatt daneben.
     private func seite(bund: Bundlage) -> some View {
         let zone = gestaltung.schutzzone(format, bund: bund)
+        // Der Bund liegt in der Mitte der Skizze: Bei der linken Seite
+        // rechts, bei der rechten links — also genau die Kante, an der die
+        // Nachbarseite anstößt.
+        let offen: Bogenkante = bund == .rechts ? .rechts : .links
         return ZStack(alignment: .topLeading) {
             Rectangle()
                 .fill(Color(uiColor: .secondarySystemBackground))
 
-            Rectangle()
-                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                .foregroundStyle(Color.red.opacity(0.7))
+            Schnittlinien(offen: offen)
+                .stroke(Color.red.opacity(0.7),
+                        style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
 
             if gestaltung.hatSicherheitsabstand {
                 Rectangle()

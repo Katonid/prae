@@ -21,6 +21,15 @@ struct SeitenflaecheView: View, Equatable {
     // darüberlegen, und auch nicht das weiße Papier darunter: Beides
     // verdeckte genau das Bild, um das es geht.
     var ohneGrund: Bool = false
+    // AN WELCHER KANTE DIE NACHBARHÄLFTE ANSTÖSST (ab 1.0.78).
+    //
+    // `.keine` ist die Einzelseitenansicht: Dort steht die Seite für sich,
+    // und die Einzelseiten-PDF trägt ringsum Anschnitt — die Schnittkante
+    // läuft also an allen vier Kanten. In einem BOGEN stößt eine Hälfte an
+    // die andere; dort wird gefalzt oder gebunden und nicht geschnitten,
+    // also gibt es an dieser Kante weder einen Anschnittstreifen noch eine
+    // Schnittkante. Ausführlich steht der Befund an `Bogenkante`.
+    var bogenkante: Bogenkante = .keine
     var massstab: Double
     // Der Maßstab des Bildschirms, an dem DIESE Seite hängt. Zusammen mit
     // dem Maßstab der Bühne sagt er, wie fein gerastert werden muss —
@@ -92,13 +101,31 @@ struct SeitenflaecheView: View, Equatable {
         links.werk === rechts.werk
             && links.bearbeitbar == rechts.bearbeitbar
             && links.ohneGrund == rechts.ohneGrund
+            && links.bogenkante == rechts.bogenkante
             && links.massstab == rechts.massstab
             && links.buchseite == rechts.buchseite
     }
 
     private var format: CGSize { werk.reise.format.groesse }
     private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
-    private var bogen: CGSize { werk.reise.gestaltung.bogen(werk.reise.format) }
+
+    // Der Anschnitt an der linken und an der rechten Kante. An der
+    // Bundkante eines Bogens ist er NULL — dort stößt die Nachbarhälfte an
+    // (siehe `Bogenkante`). Oben und unten steht er immer: Dort wird
+    // geschnitten, ganz gleich, wie das Buch gebunden ist.
+    private var anschnittLinks: Double { bogenkante == .links ? 0 : anschnitt }
+    private var anschnittRechts: Double { bogenkante == .rechts ? 0 : anschnitt }
+
+    // Die Fläche, die diese Seite in der Bühne einnimmt: das Endformat und
+    // der Anschnitt, den es an dieser Stelle wirklich gibt.
+    private var bogen: CGSize {
+        // `Double(...)` um jede Kante aus einem `CGSize`: Wo ein solcher
+        // Wert mit einem `Double` zusammenkommt, rechnet Swift nicht
+        // überall von selbst um — die Regel steht seit 1.0.0 im Papier und
+        // ist seither zweimal bezahlt worden.
+        CGSize(width: Double(format.width) + anschnittLinks + anschnittRechts,
+               height: Double(format.height) + 2 * anschnitt)
+    }
     private var satz: CGRect { werk.reise.gestaltung.satzspiegel(werk.reise.format) }
 
     // Der Streifen INNERHALB des Endformats, in dem nichts stehen soll, was
@@ -179,8 +206,8 @@ struct SeitenflaecheView: View, Equatable {
                                    seite: buchseite.seite,
                                    format: format, anschnitt: anschnitt,
                                    bogen: bogen, liegtRechts: buchseite.liegtRechts,
-                                   massstab: massstab)
-                    .offset(x: -anschnitt, y: -anschnitt)
+                                   bogenkante: bogenkante, massstab: massstab)
+                    .offset(x: -anschnittLinks, y: -anschnitt)
                     .allowsHitTesting(false)
             }
 
@@ -270,17 +297,24 @@ struct SeitenflaecheView: View, Equatable {
                 if let linie = fangWaagerecht {
                     Fanglinie(linie: linie, senkrecht: false, laenge: bogen.width,
                               massstab: massstab)
-                        .offset(x: -anschnitt, y: linie.wert)
+                        .offset(x: -anschnittLinks, y: linie.wert)
                 }
             }
 
             // Die Schnittkante liegt ÜBER allem. Sie ist die Linie, an der
             // das Buch beschnitten wird; unter den randabfallenden Bildern
             // gezeichnet wäre sie genau dort versteckt, wo sie gebraucht wird.
+            //
+            // AM BUND WIRD NICHT GESCHNITTEN (ab 1.0.78). Gemeldet 09/2026:
+            // „Laut Druckerei wird aber doch dort kein Beschnitt
+            // ausgeführt." Dort stößt die Nachbarhälfte an — gefalzt oder
+            // gebunden, nicht geschnitten —, und eine Linie, die einen
+            // Schnitt behauptet, den es nicht gibt, ist schlimmer als
+            // keine. `Schnittlinien` lässt genau diese eine Kante weg.
             if bearbeitbar, anschnitt > 0.5, werk.zeigeSatzspiegel {
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 0.8, dash: [7, 4]))
-                    .foregroundStyle(Color.red.opacity(0.55))
+                Schnittlinien(offen: bogenkante)
+                    .stroke(Color.red.opacity(0.55),
+                            style: StrokeStyle(lineWidth: 0.8, dash: [7, 4]))
                     .frame(width: format.width, height: format.height)
                     .allowsHitTesting(false)
             }
@@ -391,7 +425,7 @@ struct SeitenflaecheView: View, Equatable {
                 // das sich nicht schließen lässt.
                 Color.clear
                     .frame(width: bogen.width, height: bogen.height)
-                    .offset(x: -anschnitt, y: -anschnitt)
+                    .offset(x: -anschnittLinks, y: -anschnitt)
                     .contentShape(Rectangle())
                     .onTapGesture { werk.textBearbeitung = nil }
                 InlineText(werk: werk, block: block, tag: buchseite.tag, massstab: massstab)
@@ -457,7 +491,7 @@ struct SeitenflaecheView: View, Equatable {
         .contentShape(Rectangle())
         .onTapGesture(count: 2, coordinateSpace: .local) { punkt in doppeltipp(punkt) }
         .onTapGesture(count: 1, coordinateSpace: .local) { punkt in einfachtipp(punkt) }
-        .offset(x: anschnitt, y: anschnitt)
+        .offset(x: anschnittLinks, y: anschnitt)
         .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
         .clipped()
         .background(ohneGrund ? Color.clear : Color.white)
@@ -1018,6 +1052,42 @@ struct Ueberlaufmarke: View {
     }
 }
 
+// DIE SCHNITTKANTE — an der Bundkante eines Bogens fällt sie WEG (ab 1.0.78).
+//
+// Ein `Rectangle().strokeBorder` kann nur alle vier Kanten; gebraucht
+// werden drei. Gezeichnet wird deshalb ein Pfad, und die eine Kante, an
+// der die Nachbarhälfte anstößt, bleibt offen.
+//
+// Gestrichen wird NUR die senkrechte Kante am Bund. Oben und unten wird
+// immer geschnitten, ganz gleich, wie das Buch gebunden ist — und die
+// Außenkante ist die, an der das Messer ohnehin ansetzt.
+struct Schnittlinien: Shape {
+    var offen: Bogenkante
+
+    func path(in rahmen: CGRect) -> Path {
+        var pfad = Path()
+        let links = rahmen.minX
+        let rechts = rahmen.maxX
+        let oben = rahmen.minY
+        let unten = rahmen.maxY
+
+        pfad.move(to: CGPoint(x: links, y: oben))
+        pfad.addLine(to: CGPoint(x: rechts, y: oben))
+        pfad.move(to: CGPoint(x: links, y: unten))
+        pfad.addLine(to: CGPoint(x: rechts, y: unten))
+
+        if offen != .links {
+            pfad.move(to: CGPoint(x: links, y: oben))
+            pfad.addLine(to: CGPoint(x: links, y: unten))
+        }
+        if offen != .rechts {
+            pfad.move(to: CGPoint(x: rechts, y: oben))
+            pfad.addLine(to: CGPoint(x: rechts, y: unten))
+        }
+        return pfad
+    }
+}
+
 // MARK: - Hintergrund
 
 struct HintergrundFlaeche: View {
@@ -1033,24 +1103,37 @@ struct HintergrundFlaeche: View {
     // liegt; `nil` heißt „außerhalb des Buches", und dann gibt es keine
     // Doppelseite, über die etwas gehen könnte.
     var liegtRechts: Bool?
+    // An welcher Kante die Nachbarhälfte anstößt (ab 1.0.78) — dort gibt
+    // es keinen Anschnitt, und damit liegt die Ecke dieses Bogens auf der
+    // Kante des Endformats statt davor.
+    var bogenkante: Bogenkante = .keine
     var massstab: Double = 1
     @Environment(\.displayScale) private var geraet
 
-    // Wie groß das Hintergrundfoto gezeichnet wird und wie weit gegen die
-    // Bogenmitte verschoben — oder `nil`, wenn es schlicht diese eine
-    // Seite füllt. Über die Doppelseite ist es zwei Seitenbreiten breit
-    // und um eine halbe versetzt: nach rechts auf einer linken Seite, nach
-    // links auf einer rechten.
-    private var doppelflaeche: (breite: Double, hoehe: Double, versatz: Double)? {
-        guard hintergrund.ueberDoppelseite, let liegtRechts, let bogen else { return nil }
-        return (Double(bogen.width) + Double(format.width),
-                Double(bogen.height),
-                Bogenlage.versatz(rechts: liegtRechts, format: format, anschnitt: anschnitt))
+    // Wie weit die linke Bogenkante VOR dem Endformat liegt. An der
+    // Bundkante ist das null.
+    private var randLinks: Double { bogenkante == .links ? 0 : anschnitt }
+
+    // Die Fläche eines Bildes über die ganze Doppelseite, in
+    // SEITENkoordinaten — oder `nil`, wenn es schlicht diese eine Seite
+    // füllt.
+    //
+    // Gefragt wird `Bogenlage.bildflaeche`, also genau die Funktion, die
+    // auch das PDF bekommt. Bis 1.0.77 wurde hier selbst gerechnet
+    // (`bogen.width + format.width`), und das ging nur auf, solange der
+    // Bogen an beiden Seiten einen Anschnitt trug: Seit 1.0.78 fällt er
+    // am Bund weg, und die alte Zeile hätte die Fläche um einen Anschnitt
+    // zu schmal gemacht. **Merke: Wer eine Rechnung nachbaut, bezahlt sie
+    // beim nächsten Mal, wenn sich ihre Voraussetzung ändert.**
+    private var doppelflaeche: CGRect? {
+        guard hintergrund.ueberDoppelseite, let liegtRechts, bogen != nil else { return nil }
+        return Bogenlage.bildflaeche(rechts: liegtRechts, format: format,
+                                     anschnitt: anschnitt)
     }
 
     private var hintergrundkante: Int {
-        let breite = doppelflaeche?.breite ?? Double(bogen?.width ?? format.width)
-        let hoehe = doppelflaeche?.hoehe ?? Double(bogen?.height ?? format.height)
+        let breite = Double(doppelflaeche?.width ?? (bogen?.width ?? format.width))
+        let hoehe = Double(doppelflaeche?.height ?? (bogen?.height ?? format.height))
         return Bildschaerfe.kante(CGSize(width: breite, height: hoehe),
                                   geraet: Double(geraet), massstab: massstab,
                                   kleinste: 600, groesste: doppelflaeche == nil ? 2000 : 2800)
@@ -1113,10 +1196,10 @@ struct HintergrundFlaeche: View {
         guard let flaeche = doppelflaeche else {
             return CGRect(origin: .zero, size: raum)
         }
-        let mitteX = Double(raum.width) / 2 + flaeche.versatz
-        return CGRect(x: mitteX - flaeche.breite / 2,
-                      y: Double(raum.height) / 2 - flaeche.hoehe / 2,
-                      width: flaeche.breite, height: flaeche.hoehe)
+        // Von Seitenkoordinaten (Ursprung = Ecke des Endformats) in die
+        // dieser Fläche (Ursprung = Ecke des Bogens). Das ist eine
+        // Verschiebung und keine zweite Rechnung.
+        return flaeche.offsetBy(dx: CGFloat(randLinks), dy: CGFloat(anschnitt))
     }
 
     // Gezeichnet wird über `gefuelltesZiel` und nicht mehr über

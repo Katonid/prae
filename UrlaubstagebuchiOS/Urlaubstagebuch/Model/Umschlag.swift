@@ -38,6 +38,15 @@ struct Umschlag: Codable, Hashable {
 
     // MARK: - Der Rücken
 
+    // Ob SCHRIFT auf dem Rücken steht — und sonst nichts (ab 1.0.78).
+    //
+    // Bis 1.0.77 nahm er zugleich die ganze RÜCKENBREITE aus dem Bogenmaß
+    // (`Umschlagmass.rueckenbreite` bog ganz vorn auf null ab). Wer ihn
+    // abschaltete, weil er keinen Titel auf dem Rücken wollte, bekam damit
+    // stillschweigend einen Umschlag ohne Rücken — und eine von Hand
+    // eingetragene Rückenstärke war wirkungslos, obwohl der Knopf sie
+    // annahm. Genau das wurde 09/2026 gemeldet. Ein Buch hat einen Rücken,
+    // auch wenn nichts darauf steht.
     var rueckenZeigen: Bool = true
     // WO die Schrift auf dem Rücken steht und WOHIN sie läuft (ab 1.0.63).
     //
@@ -338,8 +347,16 @@ struct Umschlag: Codable, Hashable {
         mitTitelfoto ? 1 : 0.5
     }
 
-    // Was auf dem Rücken steht — leer heißt Buchtitel.
+    // Was auf dem Rücken steht — leer heißt Buchtitel, und leer ist es
+    // auch, wenn gar keine Schrift dorthin soll.
+    //
+    // Die Prüfung steht seit 1.0.78 HIER und nicht bei den beiden
+    // Zeichnern: Sowohl `Buchausgabe.zeichneRuecken` als auch die Ansicht
+    // fragen diese Funktion und lassen einen leeren Text weg. Zwei
+    // Prüfungen liefen auseinander, und dann stünde der Titel im PDF und
+    // nicht auf dem Bildschirm.
     func rueckenbeschriftung(titel: String) -> String {
+        guard rueckenZeigen else { return "" }
         let eigen = rueckentext.trimmingCharacters(in: .whitespacesAndNewlines)
         return eigen.isEmpty ? titel : eigen
     }

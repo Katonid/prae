@@ -28,6 +28,22 @@ struct UmschlagView: View {
     @State private var festerRuecken = ""
     @State private var bogenbreite = ""
 
+    // WER EIN FELD VERLÄSST, HAT SEINE ZAHL GEMEINT (ab 1.0.78).
+    //
+    // Gemeldet 09/2026: „Ich kann sie zwar eingeben und bestätigen lassen,
+    // wobei auch diese Bestätigung etwas hakelig ist. Ich muss mehrmals
+    // drücken." Das ist kein Gefühl, sondern iOS: Solange ein Textfeld den
+    // Fokus hat, geht der erste Tipp daneben an die Tastatur — er beendet
+    // die Eingabe. Erst der zweite erreicht den Knopf.
+    //
+    // `.onSubmit` hilft hier nicht: Ein `.decimalPad` hat keine
+    // Eingabetaste. Also wird beim Verlassen des Feldes übernommen, und
+    // der Knopf bleibt für den daneben, der ihn sucht. **Merke: Ein Knopf
+    // unter einem Zahlenfeld braucht immer zwei Tipps — wer das nicht will,
+    // übernimmt beim Fokuswechsel.**
+    private enum Feld: Hashable { case ruecken, bogen }
+    @FocusState private var fokus: Feld?
+
     private var umschlag: Umschlag { werk.reise.umschlag }
 
     private var rueckenMm: Double {
@@ -81,10 +97,12 @@ struct UmschlagView: View {
                 if umschlag.alsBogen {
                     druckereimass
                     ruecken
-                    if umschlag.rueckenZeigen {
-                        vorlagentabelle
-                        rueckentabelle
-                    }
+                    // Die Tabellen bestimmen die BREITE und standen bis
+                    // 1.0.77 hinter dem Schalter für die Beschriftung —
+                    // wer keinen Titel auf dem Rücken wollte, kam nicht
+                    // mehr an sie heran. Zwei verschiedene Fragen.
+                    vorlagentabelle
+                    rueckentabelle
                     rueckseite
                 }
 
@@ -92,6 +110,18 @@ struct UmschlagView: View {
             }
             .navigationTitle("Umschlag")
             .navigationBarTitleDisplayMode(.inline)
+            // Das Feld zeigt, WAS GILT — nicht eine leere Zeile über einer
+            // Zahl, die längst eingetragen ist. Ohne die Vorbelegung ließ
+            // sich beim Öffnen nicht unterscheiden, ob nichts eingetragen
+            // ist oder nur nichts dasteht.
+            .onAppear {
+                if let fest = umschlag.rueckenbreiteVonHand, festerRuecken.isEmpty {
+                    festerRuecken = Druckvorgabe.zahl(fest)
+                }
+            }
+            .onChange(of: fokus) { vorher, _ in
+                if vorher == .ruecken { rueckenUebernehmen() }
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { schliessen() }
@@ -132,6 +162,22 @@ struct UmschlagView: View {
     private var druckereimass: some View {
         Section {
             LabeledContent("Bogen mit Anschnitt", value: Druckvorgabe.masstext(umschlagbogenMm))
+            // WAS VOM BOGEN DER RÜCKEN IST — und woher die Zahl stammt
+            // (ab 1.0.78). Ohne diese Zeile ließ sich nicht sehen, ob eine
+            // eingetippte Rückenstärke überhaupt ankommt; genau daran hing
+            // der gemeldete Fall (426 statt 428). Eine gerechnete Zahl als
+            // Angabe des Druckdienstes auszugeben wäre die Art Lüge, die
+            // diese App nicht erzählt — deshalb steht die Herkunft dabei.
+            LabeledContent("Davon Rücken") {
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(zahl(rueckenMm, "mm"))
+                    Text(Umschlagmass.rueckenherkunft(umschlag, format: werk.reise.format,
+                                                      innenseiten: werk.reise.innenseiten))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
             HStack {
                 Text("Rückenstärke")
                 Spacer()
@@ -139,14 +185,11 @@ struct UmschlagView: View {
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .frame(width: 80)
+                    .focused($fokus, equals: .ruecken)
                 Text("mm").foregroundStyle(.secondary)
             }
-            Button("Rückenstärke übernehmen") {
-                guard let wert = zahlAus(festerRuecken), wert >= 0, wert <= 80 else { return }
-                werk.merken()
-                werk.reise.umschlag.rueckenbreiteVonHand = wert
-            }
-            .disabled(zahlAus(festerRuecken) == nil)
+            Button("Rückenstärke übernehmen") { rueckenUebernehmen() }
+                .disabled(zahlAus(festerRuecken) == nil)
             HStack {
                 Text("Bogenbreite")
                 Spacer()
@@ -154,19 +197,20 @@ struct UmschlagView: View {
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .frame(width: 80)
+                    .focused($fokus, equals: .bogen)
                 Text("mm").foregroundStyle(.secondary)
             }
             if let aus = rueckenAusBogen {
                 Button("Ergibt \(zahl(aus, "mm")) Rücken \u{2014} übernehmen") {
-                    werk.merken()
-                    werk.reise.umschlag.rueckenbreiteVonHand = aus
-                    festerRuecken = ""
+                    setzeRuecken(aus)
+                    festerRuecken = Druckvorgabe.zahl(aus)
                 }
             }
             if umschlag.rueckenbreiteVonHand != nil {
                 Button("Wieder rechnen lassen") {
                     werk.merken()
                     werk.reise.umschlag.rueckenbreiteVonHand = nil
+                    festerRuecken = ""
                 }
             }
         } header: {
@@ -245,6 +289,21 @@ struct UmschlagView: View {
             + "Druckerei auch die Innenseiten (U2+U3), wird das hier eingeschaltet."
     }
 
+    // Übernommen wird nur bei ECHTER Änderung: `werk.merken()` legt einen
+    // Rückgängig-Stand an, und der Stapel ist flach (25 Stände). Ein Feld,
+    // das man zweimal ansieht, ohne es zu ändern, darf ihn nicht leeren.
+    private func setzeRuecken(_ wert: Double) {
+        let sauber = min(max(0, wert), 80)
+        guard umschlag.rueckenbreiteVonHand != sauber else { return }
+        werk.merken()
+        werk.reise.umschlag.rueckenbreiteVonHand = sauber
+    }
+
+    private func rueckenUebernehmen() {
+        guard let wert = zahlAus(festerRuecken) else { return }
+        setzeRuecken(wert)
+    }
+
     private func zahlAus(_ text: String) -> Double? {
         Double(text.replacingOccurrences(of: ",", with: ".")
             .trimmingCharacters(in: .whitespaces))
@@ -254,7 +313,26 @@ struct UmschlagView: View {
 
     private var ruecken: some View {
         Section {
-            Toggle("Rücken bedrucken", isOn: $werk.reise.umschlag.rueckenZeigen)
+            // WIE DICK — das gilt immer, auch ohne Schrift auf dem Rücken.
+            Picker("Einband", selection: $werk.reise.umschlag.einband) {
+                ForEach(Umschlag.Einband.allCases) { art in Text(art.name).tag(art) }
+            }
+            VStack(alignment: .leading) {
+                LabeledContent("Papier je Blatt", value: zahl(umschlag.papierstaerke, "mm"))
+                Slider(value: $werk.reise.umschlag.papierstaerke, in: 0.06...0.35, step: 0.01)
+            }
+            if umschlag.einband == .hardcover {
+                VStack(alignment: .leading) {
+                    LabeledContent("Deckel zusammen",
+                                   value: zahl(umschlag.deckenstaerke, "mm"))
+                    Slider(value: $werk.reise.umschlag.deckenstaerke, in: 0...12, step: 0.5)
+                }
+            }
+            LabeledContent("Rückenbreite", value: zahl(rueckenMm, "mm"))
+
+            // WAS DARAUF STEHT — eine andere Frage, und seit 1.0.78 auch
+            // ein anderer Schalter.
+            Toggle("Text auf dem Rücken", isOn: $werk.reise.umschlag.rueckenZeigen)
             if umschlag.rueckenZeigen {
                 TextField("Buchtitel", text: $werk.reise.umschlag.rueckentext)
                 // WO die Schrift steht und WOHIN sie läuft (ab 1.0.63,
@@ -269,21 +347,6 @@ struct UmschlagView: View {
                     LabeledContent("Lage auf dem Rücken", value: lagetext)
                     Slider(value: $werk.reise.umschlag.rueckenlage, in: 0...1, step: 0.05)
                 }
-                Picker("Einband", selection: $werk.reise.umschlag.einband) {
-                    ForEach(Umschlag.Einband.allCases) { art in Text(art.name).tag(art) }
-                }
-                VStack(alignment: .leading) {
-                    LabeledContent("Papier je Blatt", value: zahl(umschlag.papierstaerke, "mm"))
-                    Slider(value: $werk.reise.umschlag.papierstaerke, in: 0.06...0.35, step: 0.01)
-                }
-                if umschlag.einband == .hardcover {
-                    VStack(alignment: .leading) {
-                        LabeledContent("Deckel zusammen",
-                                       value: zahl(umschlag.deckenstaerke, "mm"))
-                        Slider(value: $werk.reise.umschlag.deckenstaerke, in: 0...12, step: 0.5)
-                    }
-                }
-                LabeledContent("Rückenbreite", value: zahl(rueckenMm, "mm"))
             }
         } header: {
             Text("Rücken")
@@ -500,7 +563,12 @@ struct UmschlagView: View {
             text += "Wer seine Tabelle hat, trägt sie unten ein; dann zählt sie statt "
             text += "dieser Rechnung. "
         }
-        text += "Die Schrift läuft von oben nach unten, wie es hierzulande üblich ist."
+        text += "Die Schrift läuft von oben nach unten, wie es hierzulande üblich ist.\n\n"
+        text += "\u{201E}Text auf dem R\u{00FC}cken\u{201C} betrifft NUR die Schrift. Die "
+        text += "BREITE des R\u{00FC}ckens bleibt, denn sie geh\u{00F6}rt zum Buch und "
+        text += "nicht zur Beschriftung \u{2014} sie steht oben unter \u{201E}Ma\u{00DF} "
+        text += "der Druckerei\u{201C} und geht dort in den Bogen ein. Wer wirklich keinen "
+        text += "R\u{00FC}cken hat, tr\u{00E4}gt dort 0 mm ein."
         return text
     }
 

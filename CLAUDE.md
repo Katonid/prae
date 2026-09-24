@@ -7305,6 +7305,117 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **AM BUND WIRD NICHT GESCHNITTEN — und die Ansicht behauptete es doch**
+  (`Bogenkante`, `Schnittlinien`, ab 1.0.78; gemeldet 09/2026: „In der
+  Gestaltungsansicht sehe ich an der Falz innen immer noch zwei gestrichelte
+  Linien. Eine für den Beschnitt und eine für den Sicherheitsabstand. Laut
+  Druckerei wird aber doch dort kein Beschnitt ausgeführt. Und in den
+  Seitenmaßen sieht man ja auch, dass drei Millimeter von einer Doppelseite
+  ringsherum abgezogen werden, aber nicht innen.").
+  - **Er hat recht, und die Stelle steht seit 1.0.58 im Papier — als
+    „richtig so".** Dort hieß es: „Am Bund liegen ZWEI Anschnitte, und die
+    stehen doppelt da … Das ist keine Panne der Ansicht." Für die
+    EINZELSEITEN-Ausgabe stimmte das: Dort trägt jede Seite ringsum
+    Anschnitt. Seit 1.0.69 gibt es die DOPPELSEITEN-Ausgabe, und die
+    schreibt den Bogen so, wie er gedruckt wird — „der Anschnitt liegt
+    ringsum AUSSEN, am Bund keiner"; seit 1.0.50 gilt dasselbe für den
+    Umschlagbogen. **Damit war aus einer hingeschriebenen Ungenauigkeit eine
+    Abweichung zwischen Ansicht und Datei geworden** — und die verbietet die
+    erste Regel dieser App. **Merke: Eine Ungenauigkeit, die man
+    hinschreibt, bleibt nur so lange vertretbar, wie keine zweite Stelle es
+    besser macht. Wer eine Ausgabe hinzufügt, prüft, welche Erklärung sie
+    widerlegt.**
+  - **`Bogenkante` sagt, an welcher Kante die Nachbarhälfte anstößt** —
+    `.links`, `.rechts`, `.keine`. Dort fällt der Anschnittstreifen weg und
+    mit ihm die rote Schnittkante; die Endformate stoßen aneinander, genau
+    wie in `doppelseitenPdf`. `.keine` ist die Einzelseitenansicht, und dort
+    bleibt alles, wie es war: Die Einzelseiten-PDF trägt ringsum Anschnitt.
+  - **Die ORANGE Linie bleibt am Bund, und das ist kein Versehen.** Dort
+    wird nicht geschnitten, aber es verschwindet etwas im Falz — genau
+    dafür gibt es seit 1.0.76 den eigenen Innenwert. Zwei Linien an einer
+    Kante waren zu viel, eine ist die Auskunft.
+  - **`Rectangle().strokeBorder` kann nur alle vier Kanten**, gebraucht
+    werden drei. `Schnittlinien` ist deshalb ein `Shape`. **Wer eine neue
+    Aufrufstelle anlegt, gibt ihr die Kante mit** — auch `Schutzzonenskizze`
+    zeichnet seither dasselbe.
+  - **Die Bühne wird schmaler, und das musste mitgezogen werden**
+    (`ReiseView.breitesterBogen`, `massstaebe`). Bis 1.0.77 wurde die Breite
+    eines Einzelbogens verdoppelt, also zwei Anschnitte zu viel. Das war
+    folgenlos, solange die Ansicht sie auch zeichnete; jetzt stünde rechts
+    ein leerer Streifen, und der Zoom rechnete auf einer falschen Zahl (die
+    Lehre aus 1.0.22). Gerechnet wird an EINER Stelle
+    (`Bogenlage.doppelbogen`).
+  - **`HintergrundFlaeche` baute die Doppelseitenfläche NACH** (`bogen.width
+    + format.width`). Das ging nur auf, solange der Bogen an beiden Seiten
+    einen Anschnitt trug. Sie fragt jetzt `Bogenlage.bildflaeche`, also die
+    Funktion, die auch das PDF bekommt. **Wer eine Rechnung nachbaut,
+    bezahlt sie beim nächsten Mal, wenn sich ihre Voraussetzung ändert.**
+    `Bogenlage.versatz` wird damit nirgends mehr gebraucht und ist
+    ersatzlos entfernt — ein Feld, das niemand liest, ist ein halb gebautes
+    Vorhaben.
+- **EIN SCHALTER, DER NACH DER BESCHRIFTUNG HEISST, DARF NICHT DIE GEOMETRIE
+  ÄNDERN** (`Umschlagmass.rueckenbreite`, ab 1.0.78; gemeldet 09/2026: „Auf
+  der anderen Seite bekomme ich in das Format des Umschlages offenbar nicht
+  die 2 mm Rückenbreite hineingesetzt. Ich kann sie zwar eingeben und
+  bestätigen lassen … aber nach wie vor steht dort als Gesamtbreite 426 mm
+  und nicht 428, wie es sein müsste.").
+  - **Die Zahl IST der Befund, und sie ist nachzurechnen:** 426 =
+    2 × 210 + 2 × 3. Der Rücken zählte also mit null — und die einzige
+    Stelle im ganzen Quelltext, die null zurückgeben konnte, war
+    `guard umschlag.rueckenZeigen else { return 0 }`. Gerechnet wäre die
+    Breite bei einem Hardcover nie null (allein die Deckel tragen auf), eine
+    Tabelle sagt entweder etwas oder gar nichts, und eine von Hand
+    eingetragene Zahl schlägt seit 1.0.72 beides. **Wo eine Zahl um genau
+    einen Summanden danebenliegt, wird nicht geraten, sondern der Summand
+    gesucht.**
+  - Der Schalter heißt „Rücken bedrucken" und nahm die ganze RÜCKENBREITE
+    aus dem Bogenmaß. Wer keinen Titel auf dem Rücken wollte, bekam damit
+    stillschweigend einen Umschlag ohne Rücken, und der Knopf „Rückenstärke
+    übernehmen" nahm die Zahl an, ohne dass sie irgendwo ankam — ein Knopf,
+    der schweigt. **Ein Buch hat einen Rücken, auch wenn nichts darauf
+    steht.** Er heißt jetzt „Text auf dem Rücken" und steuert nur noch die
+    Schrift; die Prüfung steht in `rueckenbeschriftung`, also an der einen
+    Stelle, die Bildschirm UND PDF fragen. Wer wirklich keinen Rücken hat,
+    trägt 0 mm ein (das geht ausdrücklich) oder gibt den Umschlag ohne Bogen
+    aus. Dieselbe Trennung wie bei `Block.ohneGrund` und
+    `sicherheitsabstandInnen`: zwei Fragen, zwei Felder.
+  - **Einband, Papierstärke und die Tabellen lagen hinter demselben
+    Schalter** und waren damit unerreichbar, sobald er aus war — obwohl sie
+    allesamt die BREITE bestimmen. Sie stehen jetzt davor.
+  - **Ein Knopf unter einem Zahlenfeld braucht immer zwei Tipps** („wobei
+    auch diese Bestätigung etwas hakelig ist. Ich muss mehrmals drücken.").
+    Das ist kein Gefühl, sondern iOS: Solange ein Textfeld den Fokus hat,
+    beendet der erste Tipp daneben die Eingabe, erst der zweite erreicht den
+    Knopf. `.onSubmit` hilft nicht — ein `.decimalPad` hat keine
+    Eingabetaste. Übernommen wird deshalb beim Verlassen des Feldes
+    (`@FocusState`), der Knopf bleibt für den daneben, der ihn sucht.
+    **Gemerkt wird nur bei echter Änderung:** Der Rückgängig-Stapel ist
+    flach (25 Stände), und ein zweimal angesehenes Feld darf ihn nicht
+    leeren.
+  - **Das Feld zeigt, WAS GILT.** Ohne Vorbelegung ließ sich beim Öffnen
+    nicht unterscheiden, ob nichts eingetragen ist oder nur nichts dasteht.
+    Und unter dem Bogenmaß steht seither „Davon Rücken" samt Herkunft —
+    ohne diese Zeile war gar nicht zu sehen, ob eine eingetippte Zahl
+    ankommt. Eine gerechnete Zahl als Angabe des Druckdienstes auszugeben
+    wäre die Art Lüge, die diese App nicht erzählt.
+- **Nicht gemessen (1.0.78):** Keine Seite ist damit gesehen und keine Datei
+  ausgegeben worden. **Gerechnet und am Quelltext abgezählt sind BEIDE
+  Ursachen** — dass die Doppelseitenansicht zwei Anschnitte und zwei
+  Schnittkanten an den Bund legte (sie stand dort seit 1.0.17 und war seit
+  1.0.69 im Widerspruch zur Ausgabe), und dass `rueckenZeigen` die einzige
+  Stelle war, die die Rückenbreite auf null ziehen konnte (426 = 2 × 210 +
+  2 × 3 geht auf den Millimeter auf). **Ungeprüft bleibt, ob der zweite
+  Befund WIRKLICH daher kam:** Dass die Rechnung stimmt, heißt nicht, dass
+  dieser Schalter in seinem Buch aus war — seit 1.0.78 nennt der Abschnitt
+  deshalb Breite und Herkunft, und die nächste Rückmeldung sagt es mit
+  Zahlen statt mit einer Vermutung. Ebenso ungesehen: ob die
+  Doppelseitenansicht nach dem Wegfall der Bundanschnitte auf dem Gerät
+  ruhig aussieht, ob der Zoom über die schmalere Bühne noch stimmt und ob
+  die Übernahme beim Fokuswechsel wirklich einen Tipp spart. **Und ein
+  vorhandenes Buch, in dem der Rücken abgeschaltet war, bekommt nach dem
+  Update einen breiteren Umschlagbogen** — das ist die gewollte Richtung,
+  aber es ist eine Änderung an einem fertigen Buch. **Nichts davon als
+  erledigt darstellen.**
 - **EIN HANDBUCH IN DER APP — UND JEDER EINTRAG TRÄGT SEINEN WEG**
   (`Views/Handbuch.swift`, `Views/HandbuchView.swift`, ab 1.0.77; Ansage des
   Nutzers 09/2026: „Die Funktionen sind sehr mannigfaltig und zum Teil auch
@@ -8993,7 +9104,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.77 (Build 78). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.78 (Build 79). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -480,6 +480,90 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Am Bund wird nicht geschnitten (1.0.78)
+
+Gemeldet 09/2026, mit Bildschirmfotos: „In der Gestaltungsansicht sehe ich
+an der Falz innen immer noch zwei gestrichelte Linien. Eine für den
+Beschnitt und eine für den Sicherheitsabstand. Laut Druckerei wird aber doch
+dort kein Beschnitt ausgeführt. Und in den Seitenmaßen sieht man ja auch,
+dass drei Millimeter von einer Doppelseite ringsherum abgezogen werden, aber
+nicht innen. Also stimmt das ja nicht."
+
+**Er hat recht — und die Stelle stand seit 1.0.58 im Papier, als „richtig
+so".** Dort hieß es: „Am Bund liegen ZWEI Anschnitte, und die stehen doppelt
+da … Das ist keine Panne der Ansicht." Für die Einzelseiten-Ausgabe stimmte
+das: Dort trägt jede Seite ringsum Anschnitt. Seit 1.0.69 gibt es die
+Doppelseiten-Ausgabe, und die schreibt den Bogen so, wie er gedruckt wird —
+„der Anschnitt liegt ringsum AUSSEN, am Bund keiner"; seit 1.0.50 gilt
+dasselbe für den Umschlagbogen. Damit war aus einer hingeschriebenen
+Ungenauigkeit eine Abweichung zwischen Ansicht und Datei geworden, und die
+verbietet die erste Regel dieser App.
+
+**Merke: Eine Ungenauigkeit, die man hinschreibt, bleibt nur so lange
+vertretbar, wie keine zweite Stelle es besser macht.**
+
+`Bogenkante` sagt jetzt, an welcher Kante die Nachbarhälfte anstößt. Dort
+fällt der Anschnittstreifen weg und mit ihm die rote Schnittkante; die
+beiden Endformate stoßen aneinander. Die **orange** Linie bleibt: Dort wird
+zwar nicht geschnitten, aber im Falz verschwindet trotzdem etwas — genau
+dafür gibt es seit 1.0.76 den eigenen Innenwert.
+
+Mitgezogen wurde dabei dreierlei, und jedes wäre sonst ein stiller Fehler
+gewesen: die Breite der Bühne (`ReiseView.breitesterBogen` verdoppelte einen
+Einzelbogen, also zwei Anschnitte zu viel), der Grund des Umschlagbogens
+(der zeigte den Umschlag gut ein Prozent breiter, als er gedruckt wird) und
+die Fläche eines Hintergrundbildes über die Doppelseite — die wurde in
+`HintergrundFlaeche` **nachgebaut** statt gefragt. **Wer eine Rechnung
+nachbaut, bezahlt sie beim nächsten Mal, wenn sich ihre Voraussetzung
+ändert.**
+
+## 426 statt 428 — ein Schalter, der die Geometrie änderte (1.0.78)
+
+Gemeldet im selben Atemzug: „Auf der anderen Seite bekomme ich in das Format
+des Umschlages offenbar nicht die 2 mm Rückenbreite hineingesetzt. Ich kann
+sie zwar eingeben und bestätigen lassen, wobei auch diese Bestätigung etwas
+hakelig ist. Ich muss mehrmals drücken, aber nach wie vor steht dort als
+Gesamtbreite 426 mm und nicht 428, wie es sein müsste."
+
+**Die Zahl ist der Befund:** 426 = 2 × 210 + 2 × 3. Der Rücken zählte mit
+null — und die einzige Stelle im ganzen Quelltext, die null zurückgeben
+konnte, war `guard umschlag.rueckenZeigen else { return 0 }`. Gerechnet wäre
+die Breite bei einem Hardcover nie null (allein die Deckel tragen auf), eine
+Tabelle sagt entweder etwas oder gar nichts, und eine von Hand eingetragene
+Zahl schlägt seit 1.0.72 beides.
+
+Der Schalter hieß **„Rücken bedrucken"** und nahm die ganze Rückenbreite aus
+dem Bogenmaß. Wer keinen Titel auf dem Rücken wollte, bekam damit
+stillschweigend einen Umschlag ohne Rücken, und der Knopf „Rückenstärke
+übernehmen" nahm die Zahl an, ohne dass sie irgendwo ankam. **Ein Buch hat
+einen Rücken, auch wenn nichts darauf steht.** Er heißt jetzt „Text auf dem
+Rücken" und steuert nur noch die Schrift. Einband, Papierstärke und die
+Tabellen standen ebenfalls hinter ihm, obwohl sie allesamt die Breite
+bestimmen — sie stehen jetzt davor.
+
+**Ein Knopf unter einem Zahlenfeld braucht immer zwei Tipps.** Das ist kein
+Gefühl, sondern iOS: Solange ein Textfeld den Fokus hat, beendet der erste
+Tipp daneben die Eingabe, erst der zweite erreicht den Knopf. `.onSubmit`
+hilft nicht — ein `.decimalPad` hat keine Eingabetaste. Übernommen wird
+deshalb beim Verlassen des Feldes; der Knopf bleibt für den daneben, der ihn
+sucht. Und das Feld zeigt beim Öffnen, was gilt: Ohne Vorbelegung ließ sich
+nicht unterscheiden, ob nichts eingetragen ist oder nur nichts dasteht.
+Unter dem Bogenmaß steht seither „Davon Rücken" samt Herkunft.
+
+### Nicht gemessen (1.0.78)
+
+Keine Seite ist damit gesehen und keine Datei ausgegeben worden. Gerechnet
+und am Quelltext abgezählt sind **beide Ursachen**. **Ungeprüft bleibt, ob
+der zweite Befund wirklich daher kam:** Dass die Rechnung aufgeht, heißt
+nicht, dass dieser Schalter in seinem Buch aus war — der Abschnitt nennt
+jetzt Breite und Herkunft, und die nächste Rückmeldung sagt es mit Zahlen.
+Ebenso ungesehen: ob die Doppelseitenansicht ohne die Bundanschnitte auf dem
+Gerät ruhig aussieht, ob der Zoom über die schmalere Bühne stimmt und ob die
+Übernahme beim Fokuswechsel wirklich einen Tipp spart. **Und ein vorhandenes
+Buch, in dem der Rücken abgeschaltet war, bekommt nach dem Update einen
+breiteren Umschlagbogen** — die gewollte Richtung, aber eine Änderung an
+einem fertigen Buch.
+
 ## Ein Handbuch in der App (1.0.77)
 
 Ansage des Nutzers, 09/2026: „Die Funktionen sind sehr mannigfaltig und zum

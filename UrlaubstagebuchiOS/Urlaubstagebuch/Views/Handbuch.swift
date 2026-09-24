@@ -173,7 +173,7 @@ enum Handbuch {
             Handbucheintrag(
                 id: "linien",
                 titel: "Die Linien auf der Seite",
-                text: "Blau der Satzspiegel, ROT gestrichelt die Schnittkante — dort wird beschnitten —, ORANGE der Sicherheitsabstand: Dort soll nichts stehen, was gelesen werden muss. Was hineinragt, wird orange umrandet, und unter dem Blatt steht, wie viele Blöcke es sind.",
+                text: "Blau der Satzspiegel, ROT gestrichelt die Schnittkante — dort wird beschnitten —, ORANGE der Sicherheitsabstand: Dort soll nichts stehen, was gelesen werden muss. Was hineinragt, wird orange umrandet, und unter dem Blatt steht, wie viele Blöcke es sind.\n\nIn der Doppelseitenansicht fehlt die rote Linie AM BUND: Dort wird gefalzt oder gebunden und nicht geschnitten, und dort liegt auch kein Anschnitt — die beiden Endformate stoßen aneinander. Die orange Linie bleibt, denn im Falz verschwindet trotzdem etwas.",
                 weg: "Drei-Punkte-Menü \u{2192} Linien zeigen",
                 ziel: nil,
                 stichworte: ["schnittkante", "anschnitt", "sicherheitsabstand", "satzspiegel", "gestrichelt", "hilfslinien"]),
@@ -359,10 +359,11 @@ enum Handbuch {
             Handbucheintrag(
                 id: "umschlag",
                 titel: "Der Umschlag",
-                text: "Er ist ein eigener Bogen: links die Rückseite, in der Mitte der Rücken, rechts die Titelseite. Die Rückenbreite kommt aus einer eingetragenen Zahl, aus der Tabelle des Druckdienstes oder aus der Rechnung — welche es war, steht immer dabei. Eigene Felder und Bilder gehen auf Titel- und Rückseite.",
+                text: "Er ist ein eigener Bogen: links die Rückseite, in der Mitte der Rücken, rechts die Titelseite. Die Rückenbreite kommt aus einer eingetragenen Zahl, aus der Tabelle des Druckdienstes oder aus der Rechnung — welche es war, steht immer dabei. Eigene Felder und Bilder gehen auf Titel- und Rückseite.\n\nNennt die Druckerei eine Rückenstärke (\u{201E}2 mm\u{201C}), wird sie unter \u{201E}Maß der Druckerei\u{201C} eingetragen und schlägt Tabelle wie Rechnung; sie gilt, sobald das Feld verlassen wird. Gleich darüber steht, was vom Bogen der Rücken ist und woher die Zahl stammt. \u{201E}Text auf dem Rücken\u{201C} betrifft nur die Schrift — die Breite bleibt, denn ein Buch hat einen Rücken, auch wenn nichts darauf steht.",
                 weg: "Buchsymbol \u{2192} Umschlag und Titelseite",
                 ziel: .umschlag,
-                stichworte: ["cover", "titelseite", "rücken", "u2", "u3", "hardcover"]),
+                stichworte: ["cover", "titelseite", "rücken", "ruecken", "rückenstärke",
+                             "u2", "u3", "hardcover", "bogenbreite", "428"]),
             Handbucheintrag(
                 id: "seitenzahlen",
                 titel: "Seitenzahlen und Kopfzeile",

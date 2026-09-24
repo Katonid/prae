@@ -696,13 +696,19 @@ struct ReiseView: View {
     private var breitesterBogen: Double {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
         guard doppelseiten else { return bogen.width }
-        var breite = bogen.width * 2
-        if werk.reise.hatRueckseite {
-            breite += Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
-                                                   format: werk.reise.format,
-                                                   innenseiten: werk.reise.innenseiten)
-        }
-        return breite
+        // AM BUND LIEGT KEIN ANSCHNITT (ab 1.0.78). Bis 1.0.77 wurde hier
+        // die Breite eines Einzelbogens verdoppelt, also zwei Anschnitte
+        // zu viel gerechnet. Das war folgenlos, solange die Ansicht sie
+        // auch zeichnete — jetzt wäre die Bühne breiter als ihr Inhalt,
+        // und dann stünde beim Hineinzoomen rechts ein leerer Streifen.
+        let ruecken = werk.reise.hatRueckseite
+            ? Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
+                                           format: werk.reise.format,
+                                           innenseiten: werk.reise.innenseiten)
+            : 0
+        return Bogenlage.doppelbogen(format: werk.reise.format.groesse,
+                                     anschnitt: werk.reise.gestaltung.anschnittPt,
+                                     ruecken: ruecken).width
     }
 
     // Wohin nach einem Zoom gerollt wird. Die laufende Nummer gehört dazu,
@@ -899,7 +905,7 @@ struct ReiseView: View {
     private var massstaebe: Zoomanker {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
         return Zoomanker(blatthoehe: bogen.height,
-                         blattbreite: bogen.width * (doppelseiten ? 2 : 1),
+                         blattbreite: doppelseiten ? breitesterBogen : bogen.width,
                          beiwerk: Buehnenmasse.beiwerk,
                          fuge: Buehnenmasse.fuge,
                          rand: Buehnenmasse.rand,

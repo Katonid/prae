@@ -175,7 +175,10 @@ enum Ausgabesteckbrief {
             erklaerung: "Liegt AUSSERHALB des Endformats und wird nach dem Druck "
                 + "weggeschnitten. Alles, was randabfallend sein soll, muss bis "
                 + "dorthin laufen \u{2014} sonst bleibt nach dem Schneiden ein "
-                + "weißer Faden stehen.",
+                + "weißer Faden stehen. Auf einer Doppelseite und am Umschlagbogen "
+                + "liegt er nur AUSSEN: Am Bund wird gefalzt oder gebunden. So "
+                + "zeigt es auch die Doppelseitenansicht, und dort fehlt am Bund "
+                + "deshalb die rote Schnittkante.",
             eingestellt: true,
             wo: "Ganzes Buch \u{2192} Ränder und Druckzugaben\u{2026}"))
 

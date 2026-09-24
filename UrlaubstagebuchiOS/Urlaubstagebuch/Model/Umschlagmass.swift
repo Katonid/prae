@@ -28,10 +28,29 @@ enum Umschlagmass {
     // einstellbar: Wie dick ein Blatt aufträgt, weiß der Druckdienst und
     // nicht diese App. Ein Hardcover legt die beiden Deckel obendrauf; bei
     // einem Softcover zählen sie nicht mit.
+    // DIE BREITE HÄNGT NICHT AN DER BESCHRIFTUNG (ab 1.0.78).
+    //
+    // Gemeldet 09/2026: „bekomme ich in das Format des Umschlages offenbar
+    // nicht die 2 mm Rückenbreite hineingesetzt. Ich kann sie zwar eingeben
+    // und bestätigen lassen … aber nach wie vor steht dort als Gesamtbreite
+    // 426 mm und nicht 428, wie es sein müsste."
+    //
+    // **Die Zahl ist der Beweis:** 426 = 2 × 210 + 2 × 3. Der Rücken zählte
+    // also mit null, und die EINZIGE Stelle im ganzen Quelltext, die null
+    // zurückgeben konnte, stand hier — `guard umschlag.rueckenZeigen`. Ein
+    // gerechneter Wert wäre bei einem Hardcover nie null (allein die Deckel
+    // tragen auf), und eine Tabelle sagt entweder etwas oder gar nichts.
+    //
+    // Der Schalter heißt „Text auf dem Rücken". Wer ihn abschaltet, will
+    // keine Schrift — er sagt damit nichts darüber, wie dick sein Buch ist.
+    // **Ein Schalter, der nach der Beschriftung heißt, darf nicht die
+    // Geometrie ändern**; das ist dieselbe Trennung wie bei `Block.ohneGrund`
+    // und bei `sicherheitsabstandInnen`. Wer wirklich keinen Rücken hat,
+    // trägt 0 mm von Hand ein (das geht ausdrücklich) oder gibt den
+    // Umschlag ohne Bogen aus.
     static func rueckenbreite(_ umschlag: Umschlag, format: Seitenformat,
                               innenseiten: Int) -> Double
     {
-        guard umschlag.rueckenZeigen else { return 0 }
         // EINE VON HAND EINGETRAGENE ZAHL SCHLÄGT ALLES (ab 1.0.72). Wer
         // sie einträgt, hat sie vom Druckdienst — genauer wird es nicht.
         if let fest = umschlag.rueckenbreiteVonHand { return max(0, fest) }
@@ -54,7 +73,6 @@ enum Umschlagmass {
     static func rueckenherkunft(_ umschlag: Umschlag, format: Seitenformat,
                                 innenseiten: Int) -> String
     {
-        guard umschlag.rueckenZeigen else { return "" }
         if umschlag.rueckenbreiteVonHand != nil {
             return "von Hand eingetragen"
         }
