@@ -375,17 +375,17 @@ struct TitelfotoView: View {
                             werk.reise.titelfoto = werk.reise.titelfoto == foto.id ? nil : foto.id
                         } label: {
                             ZStack(alignment: .topTrailing) {
-                                if let bild = Bildarchiv.shared.vorschau(
-                                    foto.datei, reise: werk.reise.id, kante: 300)
-                                {
-                                    Image(uiImage: bild)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(height: 96)
-                                        .clipped()
-                                } else {
-                                    Rectangle().fill(Color(.systemGray5)).frame(height: 96)
+                                ZStack {
+                                    Rectangle().fill(Color(.systemGray5))
+                                    Ladebild(datei: foto.datei, reise: werk.reise.id,
+                                             kante: 300) { bild in
+                                        Image(uiImage: bild)
+                                            .resizable()
+                                            .scaledToFill()
+                                    }
                                 }
+                                .frame(height: 96)
+                                .clipped()
                                 if werk.reise.titelfoto == foto.id {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.white, Color.accentColor)

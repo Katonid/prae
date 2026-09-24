@@ -358,16 +358,16 @@ private struct Skizze: View {
                             y: Double(ort.bildrahmen.minY) * faktor,
                             width: Double(ort.bildrahmen.width) * faktor,
                             height: Double(ort.bildrahmen.height) * faktor)
-        if let zeichenbild = ort.bild,
-           let bild = Bildarchiv.shared.vorschau(zeichenbild.datei, reise: reise, kante: 400)
-        {
-            Image(uiImage: bild)
-                .resizable()
-                .scaledToFit()
-                .frame(width: rahmen.width, height: rahmen.height)
-                .rotationEffect(.degrees(ort.winkel))
-                .opacity(max(zeichen.deckung, 0.25))
-                .offset(x: rahmen.minX, y: rahmen.minY)
+        if let zeichenbild = ort.bild {
+            Ladebild(datei: zeichenbild.datei, reise: reise, kante: 400) { bild in
+                Image(uiImage: bild)
+                    .resizable()
+                    .scaledToFit()
+            }
+            .frame(width: rahmen.width, height: rahmen.height)
+            .rotationEffect(.degrees(ort.winkel))
+            .opacity(max(zeichen.deckung, 0.25))
+            .offset(x: rahmen.minX, y: rahmen.minY)
         } else {
             Rectangle()
                 .fill(Color.accentColor.opacity(0.3))

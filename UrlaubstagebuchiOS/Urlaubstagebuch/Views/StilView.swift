@@ -165,10 +165,15 @@ private struct Stilprobe: View {
     @ViewBuilder
     private func probebild(breite: CGFloat, hoehe: CGFloat) -> some View {
         let inhalt = Group {
-            if let foto = beispielfoto,
-               let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id, kante: 200)
-            {
-                Image(uiImage: bild).resizable().scaledToFill()
+            if let foto = beispielfoto {
+                ZStack {
+                    LinearGradient(colors: [stil.akzent.farbe.opacity(0.55),
+                                            stil.akzent.farbe.opacity(0.2)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Ladebild(datei: foto.datei, reise: werk.reise.id, kante: 200) { bild in
+                        Image(uiImage: bild).resizable().scaledToFill()
+                    }
+                }
             } else {
                 LinearGradient(colors: [stil.akzent.farbe.opacity(0.55),
                                         stil.akzent.farbe.opacity(0.2)],

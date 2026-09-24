@@ -96,13 +96,12 @@ private struct TagZeile: View {
         ZStack {
             RoundedRectangle(cornerRadius: 7)
                 .fill(.quaternary)
-            if let erstes = tag.fotos.first,
-               let foto = reise.foto(erstes),
-               let bild = Bildarchiv.shared.vorschau(foto.datei, reise: reise.id, kante: 120)
-            {
-                Image(uiImage: bild)
-                    .resizable()
-                    .scaledToFill()
+            if let erstes = tag.fotos.first, let foto = reise.foto(erstes) {
+                Ladebild(datei: foto.datei, reise: reise.id, kante: 120) { bild in
+                    Image(uiImage: bild)
+                        .resizable()
+                        .scaledToFill()
+                }
             } else {
                 Image(systemName: "calendar")
                     .font(.system(size: 15))

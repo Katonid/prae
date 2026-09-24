@@ -165,18 +165,16 @@ struct WasserzeichenView: View {
 
     @ViewBuilder
     private func bildchen(_ eintrag: Zeichenbild) -> some View {
-        if let bild = Bildarchiv.shared.vorschau(eintrag.datei, reise: werk.reise.id,
-                                                 kante: 120)
-        {
-            Image(uiImage: bild)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
-        } else {
+        ZStack {
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(.systemGray5))
-                .frame(width: 40, height: 40)
+            Ladebild(datei: eintrag.datei, reise: werk.reise.id, kante: 120) { bild in
+                Image(uiImage: bild)
+                    .resizable()
+                    .scaledToFit()
+            }
         }
+        .frame(width: 40, height: 40)
     }
 
     // Ein Dateiname ist eine UUID und sagt niemandem etwas. Gezählt wird
@@ -265,15 +263,14 @@ struct WasserzeichenView: View {
     private var probe: some View {
         ZStack {
             werk.reise.gestaltung.papier.farbe
-            if let erstes = bilder.first,
-               let bild = Bildarchiv.shared.vorschau(erstes.datei, reise: werk.reise.id,
-                                                     kante: 600)
-            {
-                Image(uiImage: bild)
-                    .resizable()
-                    .scaledToFit()
-                    .padding(28)
-                    .opacity(zeichen?.deckung ?? 0.1)
+            if let erstes = bilder.first {
+                Ladebild(datei: erstes.datei, reise: werk.reise.id, kante: 600) { bild in
+                    Image(uiImage: bild)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(28)
+                        .opacity(zeichen?.deckung ?? 0.1)
+                }
             }
             VStack(alignment: .leading, spacing: 5) {
                 Text("Über den Pass")

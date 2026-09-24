@@ -29,11 +29,17 @@ enum Tempomesser {
         var dauer: TimeInterval
         var zusatz: String
         var wann: Date
+        /// Wie viele Messungen in dieser Zeile zusammengefasst sind.
+        /// Eins heißt: eine einzelne Messung.
+        var anzahl: Int = 1
 
         var text: String {
             var satz = dauer >= 1
                 ? String(format: "%.1f s", dauer)
                 : String(format: "%.0f ms", dauer * 1000)
+            if anzahl > 1 {
+                satz = "\(anzahl)\u{00D7} \u{00B7} zusammen " + satz
+            }
             if !zusatz.isEmpty { satz += " \u{00B7} " + zusatz }
             return satz
         }
@@ -47,6 +53,38 @@ enum Tempomesser {
         sperre.withLock {
             laeufe.removeAll { $0.name == name }
             laeufe.append((name, lauf))
+        }
+    }
+
+    // WAS OFT UND KURZ IST, WIRD GEZÄHLT UND NICHT ÜBERSCHRIEBEN (ab
+    // 1.0.104).
+    //
+    // Ein Vorschaubild wird in einer Achtelsekunde entpackt; eine Liste
+    // holt dreißig davon. `melde` behielte davon nur das letzte, und eine
+    // Zeile „Vorschaubild: 40 ms" sagte dann das Gegenteil dessen, was
+    // wirklich anfiel. Gezählt wird deshalb Zahl UND Summe.
+    //
+    // **Nach einer Pause fängt die Zählung neu an** (`sammelfenster`,
+    // 20 Sekunden — gewählt und nicht gemessen): Sonst summierte sich ein
+    // ganzer Nachmittag zu einer Zahl, die über keinen Vorgang mehr etwas
+    // aussagt. Die Zeile nennt ihren Zeitpunkt ohnehin dazu.
+    static let sammelfenster: TimeInterval = 20
+
+    static func sammeln(_ name: String, dauer: TimeInterval) {
+        let jetzt = Date()
+        sperre.withLock {
+            if let stelle = laeufe.firstIndex(where: { $0.name == name }) {
+                var lauf = laeufe[stelle].lauf
+                laeufe.remove(at: stelle)
+                if jetzt.timeIntervalSince(lauf.wann) < sammelfenster {
+                    lauf.dauer += dauer
+                    lauf.anzahl += 1
+                    lauf.wann = jetzt
+                    laeufe.append((name, lauf))
+                    return
+                }
+            }
+            laeufe.append((name, Lauf(dauer: dauer, zusatz: "", wann: jetzt)))
         }
     }
 

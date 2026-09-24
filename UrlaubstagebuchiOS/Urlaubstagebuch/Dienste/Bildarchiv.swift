@@ -68,9 +68,16 @@ final class Bildarchiv {
     }
 
     @discardableResult
+    // Eine Aufnahme aus der Mediathek kann sehr groß sein — gemessen
+    // 09/2026 auf dem Mac: 37 MB für EIN Bild. Was dieses Schreiben
+    // kostet, stand bis 1.0.103 nirgends; gemessen war nur das Holen
+    // davor (53 ms). Deshalb steht die Zahl jetzt daneben.
     func ablegen(_ daten: Data, reise: UUID, endung: String = "jpg") throws -> String {
+        let anfang = Date()
         let name = UUID().uuidString + "." + endung
         try daten.write(to: pfad(reise, datei: name), options: .atomic)
+        Tempomesser.melde("Bild ablegen", dauer: Date().timeIntervalSince(anfang),
+                          zusatz: "\(daten.count / 1024) KB")
         return name
     }
 
@@ -177,6 +184,21 @@ final class Bildarchiv {
         }
         zaehle(vorrat: false)
         if kuerzlichDaneben(datei) { return nil }
+        // WAS EIN BILD VON DER PLATTE KOSTET, WIRD GEZÄHLT (ab 1.0.104).
+        //
+        // Die drei Zahlen aus 1.0.103 haben das Regal, das Sichern und das
+        // Holen aus der Mediathek entlastet — alle drei sind schnell. Was
+        // auf dem Weg zum „Öffnen dauerte" danach noch übrig bleibt, ist
+        // das ENTPACKEN der Bilder, und das stand nirgends.
+        //
+        // Gezählt und nicht gemeldet: Ein einzelnes Vorschaubild ist immer
+        // schnell, dreißig davon sind es nicht — und nur die Summe
+        // beantwortet die Frage.
+        let entpackanfang = Date()
+        defer {
+            Tempomesser.sammeln("Bild von Platte",
+                                dauer: Date().timeIntervalSince(entpackanfang))
+        }
         let ort = pfad(reise, datei: datei)
         guard let quelle = CGImageSourceCreateWithURL(ort as CFURL, nil) else {
             vermerkeFehlgriff(datei)

@@ -158,17 +158,17 @@ struct FotoZeile: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            if let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id, kante: 160) {
-                Image(uiImage: bild)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            } else {
+            ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color(.systemGray5))
-                    .frame(width: 52, height: 52)
+                Ladebild(datei: foto.datei, reise: werk.reise.id, kante: 160) { bild in
+                    Image(uiImage: bild)
+                        .resizable()
+                        .scaledToFill()
+                }
             }
+            .frame(width: 52, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
             VStack(alignment: .leading, spacing: 2) {
                 Text(beschriftung)
                     .font(.subheadline)

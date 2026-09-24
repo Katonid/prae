@@ -480,6 +480,76 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die Zahlen entlasten drei Stellen — also liegt es an der vierten (1.0.104)
+
+Die Messung aus 1.0.103 hat geantwortet, und sie hat gegen meine eigene
+Vermutung entschieden (Befund des Nutzers, 09/2026):
+
+    Regal lesen:            190 ms · 2 Bücher
+    Buch sichern:            78 ms · 6117 KB JSON
+    Bild aus der Mediathek:  53 ms · 37721 KB
+
+**Keine der drei Zahlen erklärt „das Öffnen dauerte".** Das Einlesen des
+Regals, das Sichern und das Holen aus der Mediathek sind schnell — und genau
+das ist ein Befund: Er sagt, wo NICHT zu suchen ist. Eine Probe, die drei
+Stellen entlastet, ist nicht gescheitert; das ist ihr Sinn (dieselbe Lehre
+wie bei der Zeile „Soll/Ist" in Abfahrtstafel 1.0.24, die die Geometrie
+entlastet hat).
+
+**Was übrig bleibt, stand seit 1.0.81 als offener Punkt im Papier.** Dort
+heißt es wörtlich: „Umgestellt sind die drei Stellen der BÜHNE. Die Listen
+und Blätter (Regal, Tagesliste, Hintergrundwahl, Stilwahl) holen ihre
+kleinen Bilder weiterhin synchron; sie scrollen auch, sind aber nicht der
+gemeldete Fall, und eine Sache wird auf einmal geändert." **Jetzt sind sie
+der gemeldete Fall** — das Regal ist das erste, was beim Start zu sehen ist,
+und die Tagesliste das erste beim Aufschlagen eines Buches.
+
+**Merke: Ein offener Punkt, der zweimal als „nicht gemessen" dasteht, ist
+beim dritten Befund der erste Verdacht.**
+
+* **Es waren ELF Stellen, nicht vier.** Nachgezählt: Regal (Titelfoto),
+  Tagesliste (erstes Foto des Tages), Fotoliste eines Tages, Stilwahl,
+  Wasserzeichenliste, Wasserzeichenprobe, Wasserzeichen je Seite,
+  Hintergrundwahl (ein Raster über ALLE Fotos des Buches), Titelfotowahl
+  (ebenso), dazu Probebild und Randanteil im Hintergrundblatt. Sie holen
+  ihre Bilder seit 1.0.104 über `Ladebild`, also abseits des Hauptfadens —
+  dieselbe Bauweise, die die Bühne seit 1.0.81 benutzt. Ein zweiter Weg
+  dafür wäre ein zweiter Weg zu derselben Sache.
+* **Der Hebel ist die Größe der Aufnahme.** Ein Kärtchen von 120 Punkten
+  Kante wird aus einer Datei von 37 MB gerechnet — die Zahl steht in seiner
+  eigenen Messung. Ein Vorschaubild ist nie teuer, weil es klein ist,
+  sondern weil das Original groß ist.
+* **Ein `.task` läuft auf dem HAUPTFADEN.** Im Hintergrundblatt lagen zwei
+  Bilder darin (900 und 600 Punkte Kante) und dazu ein Lauf über jeden
+  Bildpunkt des einen (`Farbkraft.randanteil`). Es sah aus wie „abseits", war
+  aber nur „später". Beides geht jetzt über `Bildarchiv.holen` bzw. eine
+  abgesetzte Aufgabe.
+* **Was oft und kurz ist, wird GEZÄHLT und nicht überschrieben**
+  (`Tempomesser.sammeln`). Ein Vorschaubild ist in einer Achtelsekunde
+  entpackt, eine Liste holt dreißig davon — `melde` behält davon nur das
+  letzte, und die Zeile sähe dann harmlos aus. Gezählt werden Zahl UND
+  Summe; nach zwanzig Sekunden Ruhe fängt die Zählung neu an, sonst
+  summierte sich ein Nachmittag zu einer Zahl, die über keinen Vorgang mehr
+  etwas aussagt. Die zwanzig Sekunden sind **gewählt und nicht gemessen**.
+* **Drei Stellen sind dazugekommen, die noch nie gemessen wurden:** „Buch
+  öffnen" (`Reisewerk` samt `fehlendeSeitenNachholen` — „Regal lesen" misst
+  nur das Entziffern der Bücher, nicht das Aufschlagen eines Buches), „Bild
+  ablegen" (das Schreiben der 37 MB auf die Platte) und „Bild von Platte"
+  (Zahl und Summe der Entpackvorgänge).
+
+**Nicht gemessen (1.0.104):** Auf einem Gerät hat das niemand gesehen. **Am
+Quelltext ABGEZÄHLT ist, wo die synchronen Griffe lagen** — elf Stellen, alle
+im Körper einer Ansicht oder in einem `.task` auf dem Hauptfaden. **Dass der
+Mac danach flüssig ist, folgt daraus NICHT:** Es kann eine zweite Ursache
+darüberliegen, und in diesem Papier stehen genug Fälle, in denen die erste
+Erklärung eine Vermutung war. Genau deshalb sagen die drei neuen Zeilen beim
+nächsten Mal eine Zahl statt einer Zusage. **Die Kette NACH dem Ablegen eines
+Bildes ist bewusst nicht umgebaut** (Rückgängig-Stapel, Sichern, Neuzeichnen)
+— dort steht seit 1.0.100 ein ungeklärter Absturz offen, und zwei Änderungen
+auf einmal ließen den nächsten Befund nicht mehr zuordnen; sie sagt jetzt
+nur, was sie kostet. Ebenso ungeprüft bleibt, ob eine kurz leere Fläche in
+einer Liste stört, bis das Bild eine Wimper später da ist.
+
 ## Ein Gigabyte gehört nicht auf den Hauptfaden (1.0.103)
 
 Gemeldet 09/2026 vom Mac: „Leider reagiert die App sehr träge. Das Öffnen

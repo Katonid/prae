@@ -141,10 +141,17 @@ final class Regal: ObservableObject {
         }
     }
 
+    // Was das ÖFFNEN kostet, steht seit 1.0.104 daneben. „Regal lesen"
+    // misst nur das Entziffern der Bücher (gemessen 190 ms für zwei) —
+    // das Aufschlagen eines Buches ist etwas anderes: Hier werden fehlende
+    // Seiten gesetzt, und darin steckt der Satz mit CoreText.
     func oeffnen(_ reise: Reise) {
+        let anfang = Date()
         let werk = Reisewerk(reise: reise)
         werk.fehlendeSeitenNachholen()
         offen = werk
+        Tempomesser.melde("Buch öffnen", dauer: Date().timeIntervalSince(anfang),
+                          zusatz: "\(reise.tage.count) Tage, \(reise.fotos.count) Fotos")
     }
 
     // EIN NEUES BUCH DARF MIT EINER VORLAGE ANFANGEN (ab 1.0.95).
