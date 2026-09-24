@@ -126,6 +126,32 @@ struct Umschlag: Codable, Hashable {
     // verspräche eine Gestaltung, die hier niemand braucht.
     var innenseitenFarbe: Farbwert?
 
+    // DIE INNENSEITEN TRAGEN INHALT (ab 1.0.74).
+    //
+    // Ansage des Nutzers, 09/2026: „Die von mir beauftragte Druckerei
+    // schafft es offenbar auch, die Innenseiten des Umschlages bereits zu
+    // bedrucken. Das heißt, ich könnte zwei Seiten insgesamt am Dokument
+    // sparen, wenn ich die erste Tagebuchseite und die letzte
+    // Tagebuchseite jeweils auf die Innenseite des Umschlages setze."
+    //
+    // **Und er hat die Folge gleich mitgenannt:** „Dadurch würden sich
+    // aber alle Seiten innerhalb des Dokumentes verschieben. Eine linke
+    // Seite würde zur rechten bzw. umgekehrt." Genau so ist es, und es
+    // folgt aus der Buchbinderei — die erste Inhaltsseite lag rechts
+    // (Seite 1 ist ein Recto); wandert sie auf U2, das links liegt, rückt
+    // alles Folgende um eine Stelle vor.
+    //
+    // **Umstellen kostet deshalb keinen Umbau am Inhalt.** Die
+    // Seitenfolge wird gerechnet (`Reise.seitenfolge`), die Blöcke stehen
+    // in ihren Seiten; wer den Schalter umlegt, sieht die neue Paarung
+    // sofort und kann sie genauso zurücknehmen. Dass der Satzspiegel dabei
+    // stimmt, liegt am Bundsteg: Der wird seit 1.0.1 auf BEIDE Ränder
+    // gerechnet, eben weil sich die Seitenlage verschieben kann.
+    //
+    // Wirksam nur mit Umschlagbogen und mitgelieferten Innenseiten — und
+    // nur, wenn genug Seiten da sind (siehe `Reise.umschlagTraegtInhalt`).
+    var innenseitenInhalt: Bool = false
+
     // DIE TABELLE DES DRUCKDIENSTES (ab 1.0.52).
     //
     // Ansage des Nutzers, 09/2026: „Bei Saal Digital werden in einer
@@ -261,6 +287,7 @@ struct Umschlag: Codable, Hashable {
         rueckenbreiteVonHand = b.wahlweise(.rueckenbreiteVonHand)
         innenseitenBogen = b.wert(.innenseitenBogen, false)
         innenseitenFarbe = b.wahlweise(.innenseitenFarbe)
+        innenseitenInhalt = b.wert(.innenseitenInhalt, false)
         rueckentabelle = b.wert(.rueckentabelle, [Rueckenstufe]())
         tabellenvorlage = b.wahlweise(.tabellenvorlage)
         ohneVorlage = b.wert(.ohneVorlage, false)

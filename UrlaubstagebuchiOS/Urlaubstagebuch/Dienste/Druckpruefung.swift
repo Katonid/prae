@@ -542,73 +542,76 @@ enum Druckpruefung {
     // — sie zeigt ja ihre Hälfte; dass die andere Hälfte woanders steht,
     // fällt erst im aufgeschlagenen Buch auf. Also wird es gezählt.
     static func doppelseitenhintergrund(_ reise: Reise) -> [Zeile] {
-        // Dieselbe Nummerierung wie `seitenfolge` — nur ohne das
-        // Titelblatt zu SETZEN: Gebraucht wird hier seine Nummer und
-        // nicht seine Seite. Einen eigenen Hintergrund hat es nicht, es
-        // folgt dem Buch.
+        // DIE FOLGE WIRD GEFRAGT, NICHT NACHGEBAUT (ab 1.0.74).
         //
-        // Der UMSCHLAG zählt seit 1.0.52 nicht mit: Gilt er als Bogen,
-        // gehört die Titelseite ihm, und der Buchblock beginnt bei 1. Wer
-        // sie mitzählt, verschiebt jede Seite auf die andere Buchhälfte
-        // und meldet daraufhin lauter Bogen, die „nicht aufgehen".
-        var seiten: [(nummer: Int, grund: Seitenhintergrund, wo: String)] = []
-        var nummer = 1
-        if reise.titelseite, !reise.hatRueckseite {
-            seiten.append((nummer, reise.gestaltung.hintergrund, "Titelblatt"))
-            nummer += 1
-        }
-        for tag in reise.tage where !tag.ausgeblendet {
-            for seite in tag.seiten {
-                seiten.append((nummer, seite.hintergrund ?? reise.gestaltung.hintergrund,
-                               tag.datum.mittel))
-                nummer += 1
+        // Bis 1.0.73 zählte diese Prüfung die Seiten selbst durch — eine
+        // zweite Zählung neben `Reise.seitenfolge`, und genau davor warnt
+        // der Fall von 1.0.52 („wer eine Zählung ändert, sucht nach jeder
+        // Stelle, die sie nachbaut"). Seit U2 und U3 Inhalt tragen dürfen,
+        // hätte der Nachbau jede Seite auf die falsche Buchhälfte gelegt
+        // und daraufhin lauter Bogen gemeldet, die „nicht aufgehen".
+        //
+        // Das Titelblatt muss dafür nicht GESETZT werden: Gebraucht werden
+        // Nummer, Lage und Hintergrund, und einen eigenen Hintergrund hat
+        // es nicht — eine leere Seite genügt und kostet keine
+        // CoreText-Messung.
+        let folge = reise.seitenfolge(
+            titelblatt: reise.titelseite ? Seite() : nil,
+            rueckblatt: reise.hatRueckseite ? Seite() : nil)
+
+        func grundVon(_ buchseite: Buchseite) -> Seitenhintergrund {
+            // Der Außenbogen folgt dem Umschlag, alles andere dem Buch.
+            if buchseite.teil == .rueckseite || buchseite.teil == .titel {
+                return reise.umschlag.hintergrund ?? reise.gestaltung.hintergrund
             }
-        }
-        // Und die Ausgleichsseite (ab 1.0.60). Sie hat keinen eigenen
-        // Hintergrund und folgt dem Buch — spannt der über die
-        // Doppelseite, trägt sie die zweite Hälfte, und der letzte Bogen
-        // geht damit auf. Ohne diese Zeile meldete die Prüfung genau
-        // dort eine halbe Doppelseite: **Wer eine Zählung ändert, sucht
-        // nach jeder Stelle, die sie nachbaut.**
-        if Reise.brauchtAusgleich(nummer - 1) {
-            seiten.append((nummer, reise.gestaltung.hintergrund, "ergänzte letzte Seite"))
-            nummer += 1
+            return buchseite.seite.hintergrund ?? reise.gestaltung.hintergrund
         }
         func spannt(_ grund: Seitenhintergrund) -> UUID? {
             guard grund.art == .foto, grund.ueberDoppelseite else { return nil }
             return grund.fotoID
         }
-        guard seiten.contains(where: { spannt($0.grund) != nil }) else { return [] }
+        func wo(_ buchseite: Buchseite) -> String {
+            buchseite.tag?.datum.mittel ?? buchseite.kurzname
+        }
 
-        var nachNummer: [Int: (nummer: Int, grund: Seitenhintergrund, wo: String)] = [:]
-        for seite in seiten { nachNummer[seite.nummer] = seite }
+        // Der Außenbogen bleibt draußen: Dort ist ein Bild über beide
+        // Hälften der Regelfall und kein Befund (`Umschlag`), und die
+        // Rückenbreite dazwischen macht die Rechnung ohnehin zu einer
+        // anderen.
+        let bogen = Dictionary(grouping: folge.filter { $0.bogennummer > 0 },
+                               by: \.bogennummer)
+        guard folge.contains(where: { spannt(grundVon($0)) != nil }) else { return [] }
+
         var ganz = 0
         var halb: [String] = []
         var amUmschlag = 0
-        let letzte = seiten.map { $0.nummer }.max() ?? 0
-        var zaehler = 0
-        while 2 * zaehler <= letzte {
-            // Links die gerade, rechts die ungerade Nummer — dieselbe
-            // Paarung wie in `Bogenlage` und in der Doppelseitenansicht.
-            let links = nachNummer[2 * zaehler]
-            let rechts = nachNummer[2 * zaehler + 1]
-            zaehler += 1
-            let bildLinks = links.flatMap { spannt($0.grund) }
-            let bildRechts = rechts.flatMap { spannt($0.grund) }
+        for nummer in bogen.keys.sorted() {
+            let seiten = bogen[nummer] ?? []
+            let links = seiten.first { !$0.liegtRechts }
+            let rechts = seiten.first { $0.liegtRechts }
+            let bildLinks = links.flatMap { spannt(grundVon($0)) }
+            let bildRechts = rechts.flatMap { spannt(grundVon($0)) }
             if bildLinks == nil, bildRechts == nil { continue }
             if bildLinks != nil, bildLinks == bildRechts { ganz += 1; continue }
             // Eine fehlende Nachbarseite ist kein Versehen, sondern das
-            // Buch: Vor Seite 1 und hinter der letzten liegt die
-            // Innenseite des Umschlags, und die kommt von der Druckerei.
+            // Buch: Vor der ersten Seite und hinter der letzten liegt die
+            // Innenseite des Umschlags. Trägt die seit 1.0.74 Inhalt, gibt
+            // es diesen Fall am ersten und letzten Bogen gar nicht mehr —
+            // dann stehen dort zwei echte Seiten, und ein halber Bogen ist
+            // wieder ein Befund.
             if links == nil || rechts == nil { amUmschlag += 1; continue }
-            let offen = links?.wo ?? "?"
-            halb.append("Seiten \(2 * (zaehler - 1)) und \(2 * zaehler - 1) (\(offen))")
+            halb.append("Bogen \(nummer): \(wo(links!)) / \(wo(rechts!))")
         }
 
         var text = "\(ganz) Doppelseiten zeigen ein durchgehendes Bild."
         if amUmschlag > 0 {
             text += " Bei \(amUmschlag) fällt die andere Hälfte auf die Innenseite des "
             text += "Umschlags und wird nie gedruckt — das ist der erste oder der letzte Bogen."
+        }
+        if reise.umschlagTraegtInhalt {
+            text += " Die Innenseiten des Umschlags tragen Inhalt, also gibt es diesen Fall "
+            text += "hier nicht: U2 liegt links neben der ersten Seite, U3 rechts neben der "
+            text += "letzten."
         }
         if halb.isEmpty {
             text += " Kein Bogen zeigt zwei verschiedene Hälften."

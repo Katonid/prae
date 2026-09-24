@@ -48,6 +48,14 @@ struct UmschlagView: View {
                         Toggle("Innenseiten U2+U3 mitliefern",
                                isOn: $werk.reise.umschlag.innenseitenBogen)
                         if umschlag.innenseitenBogen {
+                            Toggle("Erste und letzte Seite dorthin setzen",
+                                   isOn: $werk.reise.umschlag.innenseitenInhalt)
+                            if umschlag.innenseitenInhalt, !werk.reise.umschlagTraegtInhalt {
+                                Label("Dafür sind zu wenige Seiten da.",
+                                      systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
+                                    .font(.callout)
+                            }
                             ColorPicker("Farbe von U2+U3", selection: Binding(
                                 get: { (umschlag.innenseitenFarbe ?? .papier).farbe },
                                 set: { werk.reise.umschlag.innenseitenFarbe = Farbwert($0) }
@@ -203,6 +211,29 @@ struct UmschlagView: View {
     }
 
     private var innenseitenhinweis: String {
+        if umschlag.innenseitenBogen, umschlag.innenseitenInhalt {
+            let geht = werk.reise.umschlagTraegtInhalt
+            var text = "Die erste und die letzte Tagebuchseite werden auf die Innenseiten "
+            text += "des Umschlags gesetzt \u{2014} das spart zwei Seiten im Buchblock. "
+            text += "**Dadurch wechselt jede Seite die Buchh\u{00E4}lfte**: Was rechts lag, "
+            text += "liegt links, und was gegen\u{00FC}berlag, liegt es nicht mehr. "
+            text += "Sichtbar wird das in der Doppelseitenansicht (Knopf unten neben dem "
+            text += "Ma\u{00DF}stab); l\u{00E4}uft ein Hintergrundbild \u{00FC}ber die "
+            text += "Doppelseite, verteilt es sich ebenfalls neu. Der Satz selbst bleibt "
+            text += "unangetastet \u{2014} umlegen und zur\u{00FC}cknehmen kostet nichts. "
+            if geht {
+                let seiten = werk.reise.innenseiten
+                text += "Der Buchblock hat damit \(seiten) Seiten, und die R\u{00FC}ckenbreite "
+                text += "rechnet mit dieser Zahl. "
+            } else {
+                text += "Es greift erst ab vier Inhaltsseiten \u{2014} zwei davon abzuziehen "
+                text += "lie\u{00DF}e sonst kein Buch \u{00FC}brig, das sich binden l\u{00E4}sst. "
+            }
+            text += "F\u{00FC}r U2 und U3 gelten die Ma\u{00DF}e des UMSCHLAGS: Anschnitt nur "
+            text += "au\u{00DF}en, am Bund keiner \u{2014} dort wird gefalzt und nicht "
+            text += "geschnitten."
+            return text
+        }
         if umschlag.innenseitenBogen {
             return "Die Umschlagdatei bekommt eine ZWEITE Seite in denselben Maßen: die "
                 + "Innenseiten U2 und U3. Manche Druckereien verlangen sie, andere legen "

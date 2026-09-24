@@ -7305,6 +7305,72 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **DIE INNENSEITEN DES UMSCHLAGS DÜRFEN INHALT TRAGEN — UND DANN WECHSELT
+  JEDE SEITE DIE BUCHHÄLFTE** (`Umschlag.innenseitenInhalt`,
+  `Buchteil.innenVorn`/`.innenHinten`, ab 1.0.74; Ansage des Nutzers
+  09/2026: „Die von mir beauftragte Druckerei schafft es offenbar auch, die
+  Innenseiten des Umschlages bereits zu bedrucken. Das heißt, ich könnte zwei
+  Seiten insgesamt am Dokument sparen … Dadurch würden sich aber alle Seiten
+  innerhalb des Dokumentes verschieben. Eine linke Seite würde zur rechten
+  bzw. umgekehrt.").
+  **Er hat die Folge selbst mitgenannt, und sie stimmt** — sie folgt aus der
+  Buchbinderei: Die erste Inhaltsseite lag rechts (Seite 1 ist ein Recto),
+  links davon die leere Innenseite des Deckels. Wandert sie auf U2, das
+  LINKS liegt, rückt alles Folgende um eine Stelle vor; was gegenüberlag,
+  liegt es nicht mehr.
+  - **Nichts davon muss eigens gebaut werden.** Es fällt aus `seitenfolge`
+    heraus, weil `nummer` erst bei der dritten Inhaltsseite bei 1 anfängt —
+    und Paarung wie Hintergrundhälfte hängen seit 1.0.47 an
+    `Buchseite.liegtRechts`, also an genau einer Stelle. **Das ist der
+    Lohn dafür, dass die Seitenfolge gerechnet wird und nicht gespeichert:**
+    Umlegen und Zurücknehmen kostet keinen Umbau am Satz, und die
+    Doppelseitenansicht zeigt die neue Paarung sofort.
+  - **Dass der Satzspiegel dabei stimmt, liegt am Bundsteg.** Er wird seit
+    1.0.1 auf BEIDE Ränder gerechnet, mit genau dieser Begründung: „Welche
+    Seite innen liegt, hängt an der laufenden Seitenzahl, und die
+    verschiebt sich." Eine Fassung, die ihn nur innen rechnete, bräuchte
+    hier einen Neusatz des ganzen Buches.
+  - **`Buchseite.bogen` ist seit 1.0.74 GESPEICHERT, nicht gerechnet.** Bis
+    1.0.73 folgte der Bogen allein aus der Seitennummer; eine
+    Umschlaginnenseite trägt aber die Nummer 0 und liegt trotzdem auf einem
+    Bogen des Buches (U2 neben Seite 1, U3 neben der letzten). Vergeben wird
+    er dort, wo auch die Nummer vergeben wird — in `seitenfolge`, der einen
+    Stelle für beides. Ohne das läge U2 auf Bogen 0 und damit neben der
+    TITELSEITE.
+  - **`blockseiten` zieht die zwei ab**, und das ist nicht Kosmetik: An
+    dieser Zahl hängt die RÜCKENBREITE. Ein Rücken, der zwei Seiten zu dick
+    gerechnet ist, passt nicht auf das gebundene Buch.
+  - **`tag == nil` reicht als Umschlagprüfung NICHT mehr.** U2 und U3 tragen
+    Inhalt und damit einen Tag — und gehören trotzdem auf den Umschlagbogen.
+    Die Ausgabefilter fragen seither zusätzlich `amUmschlag`; ohne das
+    stünden sie mitten im Innenteil, in einem Maß, das dort nicht gilt.
+  - **Auf dem Innenbogen zeichnet jede Hälfte ihren EIGENEN Grund**
+    (`ohneGrund: false`), anders als auf dem Außenbogen. Dort liegt ein
+    Grund über den ganzen Bogen samt Rücken; hier trägt jede Hälfte eine
+    Tagebuchseite, und die soll aussehen wie eine. Die Farbe für U2+U3 gilt
+    damit nur noch, wenn die Innenseiten LEER bleiben — sie bleibt als Grund
+    darunter stehen und trägt den Rücken.
+  - **Erst ab vier Inhaltsseiten** (`Reise.umschlagTraegtInhalt`). Zwei
+    abzuziehen ließe sonst kein Buch übrig, das sich binden lässt.
+  - **Die Druckprüfung FRAGT die Folge, statt sie nachzubauen** (ab 1.0.74).
+    `doppelseitenhintergrund` zählte die Seiten bis 1.0.73 selbst durch —
+    eine zweite Zählung, und genau davor warnt der Fall von 1.0.52. Sie
+    hätte hier jede Seite auf die falsche Hälfte gelegt und daraufhin lauter
+    Bogen gemeldet, die „nicht aufgehen". Das Titelblatt muss dafür nicht
+    gesetzt werden: Gebraucht werden Nummer, Lage und Hintergrund, und einen
+    eigenen Hintergrund hat es nicht — eine leere `Seite()` genügt und kostet
+    keine CoreText-Messung.
+- **Nicht gemessen (1.0.74):** Keine Datei ist damit gedruckt worden.
+  **Gerechnet und am Quelltext durchgezählt** ist die Paarung (U2 links neben
+  Seite 1, U3 rechts neben der letzten; bei vier Blockseiten Bogen 1 = U2|1,
+  Bogen 2 = 2|3, Bogen 3 = 4|U3). **Ungeprüft bleibt, ob diese Druckerei die
+  Datei so annimmt** — dass sie U2/U3 bedrucken kann, steht in ihrer Mail;
+  wie sie die beiden Bogen erwartet (eine Datei oder zwei), nicht. Ebenso
+  ungesehen: ob ein Hintergrundbild über die Doppelseite an der neuen
+  Paarung aufgeht. **Ein Wasserzeichen über die Doppelseite gibt es nicht
+  und gab es nie** — über die Doppelseite kann der HINTERGRUND laufen
+  (`Seitenhintergrund.ueberDoppelseite`, seit 1.0.47); das Wasserzeichen
+  liegt je Seite einzeln. **Nichts davon als erledigt darstellen.**
 - **ANSCHNITT UND SICHERHEITSABSTAND SIND ZWEI STREIFEN IN ENTGEGENGESETZTE
   RICHTUNGEN** (`Gestaltung.sicherheitsabstand`, `.schutzzone`, ab 1.0.73;
   Befund des Nutzers 09/2026 an seinem ersten Druckauftrag: „wenn ich die von
@@ -8727,7 +8793,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.73 (Build 74). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.74 (Build 75). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -480,6 +480,48 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Inhalt auf den Innenseiten des Umschlags (1.0.74)
+
+Kann die Druckerei U2 und U3 bedrucken, lassen sich zwei Seiten sparen: Die
+erste und die letzte Tagebuchseite wandern auf die Innenseiten des Deckels.
+Der Schalter steht unter Umschlag → „Erste und letzte Seite dorthin setzen".
+
+**Dadurch wechselt jede Seite die Buchhälfte**, und das ist keine Panne,
+sondern Buchbinderei. Seite 1 ist eine rechte Seite; links davon lag bisher
+die leere Innenseite des Deckels. Wandert die erste Inhaltsseite auf U2 —
+und U2 liegt links —, rückt alles Folgende um eine Stelle vor:
+
+| | bisher | mit Inhalt auf U2/U3 |
+|---|---|---|
+| Bogen 1 | *(leer)* \| Inhalt A | Inhalt A \| Inhalt B |
+| Bogen 2 | Inhalt B \| Inhalt C | Inhalt C \| Inhalt D |
+| Bogen 3 | Inhalt D \| Inhalt E | Inhalt E \| Inhalt F |
+
+Was gegenüberlag, liegt es nicht mehr; andere Seiten liegen dafür nebeneinander.
+
+**Umlegen kostet keinen Umbau.** Die Seitenfolge wird gerechnet, nicht
+gespeichert — der Satz bleibt unangetastet, und in der Doppelseitenansicht
+(Knopf unten neben dem Maßstab) sieht man die neue Paarung sofort. Zurück
+geht es genauso. Dass der Satzspiegel dabei stimmt, liegt am Bundsteg: Der
+wird seit jeher auf beide Ränder gerechnet, eben weil sich die Seitenlage
+verschieben kann.
+
+Läuft ein Hintergrundbild über die Doppelseite, verteilt es sich mit der
+neuen Paarung ebenfalls neu — die Prüfung vor dem Ausgeben zählt, welche
+Bogen aufgehen. **Ein Wasserzeichen über die Doppelseite gibt es nicht:**
+Über die Doppelseite kann der Hintergrund laufen; das Wasserzeichen liegt
+je Seite einzeln.
+
+Drei Dinge ziehen automatisch mit: Die Rückenbreite rechnet mit zwei Seiten
+weniger, der Innenteil gibt sie nicht mehr aus, und auf dem Innenbogen
+zeichnet jede Hälfte ihren eigenen Seitenhintergrund. Es greift ab vier
+Inhaltsseiten — zwei abzuziehen ließe sonst kein Buch übrig, das sich binden
+lässt.
+
+**Nicht gemessen:** Keine Datei ist damit gedruckt worden. Gerechnet ist die
+Paarung; ob die Druckerei die beiden Umschlagbogen in einer Datei erwartet
+oder in zweien, sagt ihre Mail nicht.
+
 ## Anschnitt und Sicherheitsabstand (1.0.73)
 
 Beim Vergleich mit DIN A4 fällt auf, dass die geforderten 216 × 303 mm
