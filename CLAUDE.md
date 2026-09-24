@@ -10047,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.100 (Build 101). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.101 (Build 102). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10185,6 +10185,34 @@ Befunde, und keiner davon war Geschmack:
     diese Fassung macht ihn sprechend. Ob der nächste Versuch wieder
     abstürzt, ist offen; wenn ja, steht danach im Regal, in welchem
     Schritt. **Nicht als erledigt darstellen.**
+- **EIN FEHLENDER ABSTURZBERICHT IST SELBST EIN BEFUND** (ab 1.0.101;
+  gemeldet 09/2026: „Jedes Mal stürzt die App ab, aber es wird nirgendwo
+  etwas eingetragen, auch in der Systemsteuerung nicht."). Ein
+  gewöhnlicher Absturz legt IMMER einen Bericht ab; bleibt er aus, kommen
+  drei Dinge in Frage — und alle drei sind seither unterscheidbar.
+  - **DIE APP ZEIGTE IHRE FASSUNGSNUMMER NIRGENDS.** Von außen war nicht
+    zu entscheiden, ob auf dem Gerät überhaupt die Fassung lief, über die
+    geredet wurde — und genau daran blieb die Diagnose hängen. Sie steht
+    jetzt in den Einstellungen, samt Build-Nummer. **Wer über einen
+    Befund redet, muss sagen können, woran er entstanden ist.**
+  - **WO NICHTS STEHT, HAT DER ERSTE VERMERKTE SCHRITT NOCH NICHT
+    GELAUFEN.** Also muss der erste Schritt früher liegen: Die Spur fängt
+    seither beim Antippen des Menüpunkts an, vor dem Blatt und vor dem
+    fremden Fenster, und der Wähler meldet sich noch einmal, sobald er
+    steht.
+  - **EIN SPEICHERTOD SCHREIBT KEINEN BERICHT UNTER DEM NAMEN DER APP.**
+    iOS legt ihn als `JetsamEvent` ab. Jede Zeile der Spur nennt deshalb
+    `os_proc_available_memory` — fällt die Zahl kurz vor dem Ende gegen
+    null, ist es keiner Rechnung anzulasten, sondern der Bildgröße.
+  - **Eine Spur, die das Lesen mitnimmt, gibt es EINMAL zu sehen.** Bis
+    1.0.100 räumte `aufgelesen()` sie gleich weg — begründet damit, ein
+    zweimal erscheinender Befund sähe aus wie ein zweiter Absturz. Das
+    stimmt und war trotzdem falsch: Wer im falschen Augenblick nicht
+    hinsah, hatte ihn für immer verloren. Weggelegt wird jetzt auf
+    Tippen. **Merke: Ein Befund, der sich selbst löscht, ist keiner.**
+  - **Nicht gemessen (1.0.101):** Der Absturz ist weiterhin nicht behoben
+    und seine Ursache nicht bekannt. Diese Fassung macht nur die Frage
+    entscheidbar.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

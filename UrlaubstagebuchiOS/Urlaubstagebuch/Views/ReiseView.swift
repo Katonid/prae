@@ -1556,7 +1556,18 @@ struct ReiseView: View {
                     Button("Textfeld", systemImage: "text.alignleft") {
                         werk.blockHinzufuegen(.text("Neuer Text"), aufSeite: seite)
                     }
-                    Button("Bild aus Dateien\u{2026}", systemImage: "photo") { blatt = .grafik }
+                    // DIE SPUR FÄNGT HIER AN, NICHT ERST IM WÄHLER (ab
+                    // 1.0.101). Gemeldet 09/2026: „Jedes Mal stürzt die App
+                    // ab, aber es wird nirgendwo etwas eingetragen." Wenn
+                    // nichts dasteht, hat der erste vermerkte Schritt noch
+                    // nicht gelaufen — also muss der erste Schritt früher
+                    // liegen: beim Tippen, vor dem Blatt und vor dem
+                    // fremden Fenster.
+                    Button("Bild aus Dateien\u{2026}", systemImage: "photo") {
+                        Absturzspur.beginnt("Wähler „Bild aus Dateien\u{201C} wird geöffnet "
+                            + "(\(werk.seitenname(seite) ?? "?"))")
+                        blatt = .grafik
+                    }
                     // BILDER AUS DER MEDIATHEK, OHNE DATUMSLOGIK (ab 1.0.65).
                     //
                     // Ansage des Nutzers, 09/2026: „Nachdem dies geschehen
@@ -1574,6 +1585,8 @@ struct ReiseView: View {
                     // Auskunft, sondern Lärm.
                     Button("Bild aus der Mediathek\u{2026}",
                            systemImage: "photo.on.rectangle.angled") {
+                        Absturzspur.beginnt("Wähler „Bild aus der Mediathek\u{201C} wird "
+                            + "geöffnet (\(werk.seitenname(seite) ?? "?"))")
                         blatt = .bildAusFotos
                     }
                     // EINE KARTE BRAUCHT EINEN TAG. Sie zeichnet die Spur

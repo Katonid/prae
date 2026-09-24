@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 // Was für die ganze App gilt und nicht für ein einzelnes Buch: wo die
@@ -20,6 +21,7 @@ struct EinstellungenView: View {
                 if !konflikte.isEmpty { konfliktabschnitt }
                 austausch
                 ablageort
+                fassung
             }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
@@ -53,6 +55,45 @@ struct EinstellungenView: View {
     }
 
     // MARK: - Abgleich
+
+    // WELCHE FASSUNG HIER LÄUFT (ab 1.0.101).
+    //
+    // Bis 1.0.100 stand das NIRGENDS in der App. Gemeldet 09/2026 nach
+    // einem Absturz: „es wird nirgendwo etwas eingetragen" — und von hier
+    // aus war nicht zu entscheiden, ob auf dem Gerät überhaupt die
+    // Fassung lief, über die geredet wurde. Ein Befund ohne seine Fassung
+    // ist keine Auskunft, sondern eine Verwechslungsgefahr.
+    //
+    // Daneben steht die letzte Absturzspur: Sie bleibt liegen, bis jemand
+    // sie weglegt — bis 1.0.100 verschwand sie nach dem ersten Blick, und
+    // wer in dem Augenblick nicht hinsah, hatte sie für immer verloren.
+    @ViewBuilder
+    private var fassung: some View {
+        Section {
+            LabeledContent("Fassung", value: Absturzspur.Fassung.text)
+                .textSelection(.enabled)
+            if let befund = regal.absturzbefund {
+                Text(befund)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                Button("Befund kopieren", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string = befund
+                }
+                Button("Weglegen") {
+                    Absturzspur.weglegen()
+                    regal.absturzbefund = nil
+                }
+            }
+        } header: {
+            Text(regal.absturzbefund == nil ? "Über diese App" : "Letzter Absturz")
+        } footer: {
+            if regal.absturzbefund == nil {
+                Text("Steht hier eine Absturzspur, war der letzte Schritt vor einem Absturz vermerkt. Jetzt steht keine da.")
+            } else {
+                Text("Der letzte Schritt, den die App vor dem Absturz vermerkt hat. Er bleibt stehen, bis du ihn weglegst.")
+            }
+        }
+    }
 
     @ViewBuilder
     private var abgleich: some View {
