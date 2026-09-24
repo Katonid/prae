@@ -2,9 +2,11 @@
 """Erzeugt das App-Symbol von Fernweh — reines Python, ohne fremde
 Bibliotheken (wie die Symbolskripte der anderen Apps dieses Repos).
 
-Eine Farbe und eine Form (Lehre aus dem Reisebuch 1.0.20): ein weißer,
-geschwungener Reiseweg, der in einer Stecknadel endet, auf einem diagonalen
-Verlauf von Abendsonne über Magenta nach Nachtblau. Die dunkle Kontur unter
+Ein Stift, der die Reisespur zeichnet (Wunsch des Nutzers zu 1.0.1: „Reise
+kann ich erkennen, aber nicht Tagebuch"). Die Stecknadel aus 1.0.0 sagte
+nur „Karte"; der Stift sagt „schreiben". Eine Farbe und eine Form bleiben
+die Regel (Lehre aus dem Reisebuch 1.0.20): weißer Weg und weißer Stift auf
+einem diagonalen Verlauf von Abendsonne über Magenta nach Nachtblau. Die dunkle Kontur unter
 dem Weiß hält die Linie auch dort, wo der Verlauf hell ist. Alles bleibt
 zwischen 140 und 884 — was näher an der Ecke liegt, schneidet iOS weg.
 
@@ -39,10 +41,19 @@ def verlauf(x, y):
     return mischen(SONNE, MAGENTA, t / 0.55) if t < 0.55 else mischen(MAGENTA, NACHT, (t - 0.55) / 0.45)
 
 
+SPITZE = (590, 470)
+WINKEL = math.radians(45)
+LAENGE = 360
+HOLZ = (255, 222, 186)
+MINE = (52, 32, 84)
+KAPPE = (255, 170, 80)
+BAND = (232, 70, 120)
+
+
 def kurve():
     stuecke = [
-        ((230, 820), (330, 600), (560, 820), (560, 600)),
-        ((560, 600), (560, 420), (700, 470), (700, 380)),
+        ((230, 820), (330, 610), (520, 800), (500, 610)),
+        ((500, 610), (485, 500), (540, 480), SPITZE),
     ]
     punkte = []
     for p0, p1, p2, p3 in stuecke:
@@ -72,18 +83,29 @@ def deckung(d, radius):
     return max(0.0, min(1.0, radius - d + 0.5))
 
 
-def nadel(x, y):
-    """Abstand zur Stecknadel: ein Kreis mit einer Spitze nach unten."""
-    cx, cy, r = 700, 260, 118
-    d_kreis = math.hypot(x - cx, y - cy) - r
-    # Spitze: Dreieck von den Tangentenpunkten bis (700, 420)
-    spitze_y = 420
-    if cy <= y <= spitze_y:
-        halb = r * 0.86 * (spitze_y - y) / (spitze_y - cy)
-        d_drei = abs(x - cx) - halb
+def stift(x, y):
+    """Abstand zum Stift und die Stelle entlang seiner Achse (0 = Spitze).
+
+    Der Stift liegt schräg nach rechts oben, die Spitze sitzt am Ende des
+    Weges. Gerechnet als Radius, der sich entlang der Achse ändert: Kegel an
+    der Spitze, gerader Schaft, runde Kappe.
+    """
+    ax, ay = math.cos(WINKEL), -math.sin(WINKEL)
+    dx, dy = x - SPITZE[0], y - SPITZE[1]
+    t = dx * ax + dy * ay
+    quer = abs(-dx * ay + dy * ax)
+    radius = 46
+    if t < 0:
+        return math.hypot(dx, dy), t
+    if t < 90:
+        r = radius * t / 90
+    elif t < LAENGE - radius:
+        r = radius
+    elif t <= LAENGE:
+        r = math.sqrt(max(0.0, radius * radius - (t - (LAENGE - radius)) ** 2))
     else:
-        d_drei = 1e9
-    return min(d_kreis, d_drei)
+        return 1e9, t
+    return quer - r, t
 
 
 def main():
@@ -93,20 +115,27 @@ def main():
         zeile = bytearray([0])
         for x in range(GROESSE):
             farbe = verlauf(x, y)
-            if 150 <= x <= 860 and 110 <= y <= 880:
-                d = abstand(x, y, linie) if y > 360 else 1e9
+            if 150 <= x <= 880 and 110 <= y <= 880:
+                d = abstand(x, y, linie)
                 start = math.hypot(x - 230, y - 820)
-                n = nadel(x, y)
-                # Erst EINE Kontur um alles, dann EIN Weiß darüber — sonst
-                # legt sich die Kontur des Weges als grauer Ring über Punkt
-                # und Nadel.
-                kontur = max(deckung(d, 44), deckung(start, 62), deckung(n, 12))
-                weiss = max(deckung(d, 30), deckung(start, 48), deckung(n, 0))
+                s_d, t = stift(x, y)
+                kontur = max(deckung(d, 44), deckung(start, 62), deckung(s_d, 12))
                 farbe = mischen(farbe, KONTUR, kontur * 0.45)
-                farbe = mischen(farbe, WEISS, weiss)
+                farbe = mischen(farbe, WEISS, max(deckung(d, 30), deckung(start, 48)))
                 farbe = mischen(farbe, SONNE, deckung(start, 26))
-                loch = math.hypot(x - 700, y - 260)
-                farbe = mischen(farbe, MAGENTA, deckung(loch, 46))
+                innen = deckung(s_d, 0)
+                if innen > 0:
+                    if t < 34:
+                        teil = MINE
+                    elif t < 90:
+                        teil = HOLZ
+                    elif LAENGE - 110 < t < LAENGE - 76:
+                        teil = BAND
+                    elif t > LAENGE - 60:
+                        teil = KAPPE
+                    else:
+                        teil = WEISS
+                    farbe = mischen(farbe, teil, innen)
             zeile += bytes(int(round(c)) for c in farbe)
         zeilen.append(bytes(zeile))
     roh = zlib.compress(b"".join(zeilen), 9)

@@ -448,6 +448,9 @@ struct EintragKarte: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                if let wetter = eintrag.tageswetter {
+                    WetterLeiste(wetter: wetter, kompakt: true)
+                }
                 if let text = eintrag.text, !text.isEmpty {
                     Text(text)
                         .font(.callout)

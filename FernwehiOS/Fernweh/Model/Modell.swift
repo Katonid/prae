@@ -112,6 +112,8 @@ enum Modell {
             attribut("autor", .stringAttributeType, vorgabe: ""),
             attribut("erstellt", .dateAttributeType),
             attribut("geaendert", .dateAttributeType),
+            // ab 1.0.1 — angehängt, nicht eingeschoben (siehe oben).
+            attribut("wetter", .stringAttributeType, vorgabe: ""),
             eintragReise,
             eintragFotos,
         ]
@@ -261,8 +263,14 @@ final class Eintrag: NSManagedObject {
     @NSManaged var autor: String?
     @NSManaged var erstellt: Date?
     @NSManaged var geaendert: Date?
+    @NSManaged var wetter: String?
     @NSManaged var reise: Reise?
     @NSManaged var fotos: NSSet?
+
+    var tageswetter: Tageswetter? {
+        get { Tageswetter.lesen(wetter) }
+        set { wetter = newValue?.text ?? "" }
+    }
 
     var fotoListe: [Foto] {
         ((fotos as? Set<Foto>) ?? []).sorted {

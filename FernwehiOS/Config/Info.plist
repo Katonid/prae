@@ -29,6 +29,10 @@
 		<key>Reisespur</key>
 		<string>Mit der ungefähren Ortung liegt jeder Punkt der Reisespur mehrere hundert Meter daneben. Für die Spur braucht die App den genauen Standort.</string>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Damit du deinen Tagebuchtext diktieren kannst. Aus der Aufnahme wird Text; die Aufnahme selbst wird nicht gespeichert.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Damit aus deinem Diktat Text wird — mit den Orten des Tages als Hinweisen, damit Ortsnamen richtig ankommen.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Damit dir zu jedem Reisetag die Fotos dieses Tages zur Auswahl angeboten werden — und damit ein Foto, das du später in der Fotos-App bearbeitest, auch im Tagebuch bearbeitet erscheint.</string>
 
