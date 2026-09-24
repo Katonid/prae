@@ -126,6 +126,7 @@ struct ReiseView: View {
         case bedienung
         case ausgabe
         case ausgabeformat
+        case druckpruefung
         case zweiDateien
         case nurUmschlag
         case doppelseiten
@@ -157,6 +158,7 @@ struct ReiseView: View {
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
             case .ausgabeformat: return "ausgabeformat"
+            case .druckpruefung: return "druckpruefung"
             case .zweiDateien: return "zweidateien"
             case .nurUmschlag: return "nurumschlag"
             case .doppelseiten: return "doppelseiten"
@@ -177,10 +179,6 @@ struct ReiseView: View {
             buehne
         }
         .navigationSplitViewStyle(.balanced)
-        .inspector(isPresented: $inspektor) {
-            BlockInspektor(werk: werk, blatt: $blatt)
-                .inspectorColumnWidth(min: 260, ideal: 310, max: 380)
-        }
         .sheet(item: $blatt, onDismiss: {
             guard let naechstes = alsNaechstes else { return }
             // Nach einem Einleseschritt geht es zurück in den Aufbau — dort
@@ -193,6 +191,14 @@ struct ReiseView: View {
         }
         .sheet(item: $buchdatei) { wunsch in
             Teilenblatt(gegenstaende: [wunsch.ort])
+        }
+        // Wer aus dem Inspektor heraus ein Blatt öffnet (etwa „Für alle
+        // Fotos einstellen"), soll nicht ein Blatt über einem Popover
+        // bekommen. Verglichen wird die Kennung und nicht der Fall selbst:
+        // `Blatt` trägt assoziierte Werte, und `onChange` verlangt
+        // Gleichheit.
+        .onChange(of: blatt?.id) { _, neu in
+            if neu != nil { inspektor = false }
         }
         .overlay(alignment: .top) { baender }
         .alert("Seiten neu anordnen?", isPresented: .init(
@@ -415,7 +421,7 @@ struct ReiseView: View {
                 // muss die Farbe nicht deuten müssen.
                 Text(seitenname(buchseite))
                     .font(.caption2)
-                    .foregroundStyle(istGewaehlt(buchseite) ? Color.accentColor : .secondary)
+                    .foregroundStyle(seitenfarbe(buchseite))
                     .frame(height: Buehnenmasse.beschriftung)
             }
             // Die Kennung, auf die `scrollTo` zielt.
@@ -611,7 +617,37 @@ struct ReiseView: View {
     // nicht mit: „Seite 0" stünde unter der Rückseite, und die ist keine
     // Seite des Buchblocks, sondern die linke Hälfte des Umschlagbogens.
     private func seitenname(_ buchseite: Buchseite) -> String {
-        istGewaehlt(buchseite) ? buchseite.kurzname + " \u{00B7} ausgewählt" : buchseite.kurzname
+        var name = buchseite.kurzname
+        if istGewaehlt(buchseite) { name += " \u{00B7} ausgewählt" }
+        // DIE APP MACHT SICH BEMERKBAR (ab 1.0.76).
+        //
+        // Ansage des Nutzers, 09/2026: „Dann möchte ich, dass die App sich
+        // bemerkbar macht, falls an irgendeiner Stelle einer dieser
+        // Sicherheitsabstände nicht berücksichtigt wurde."
+        //
+        // Auf der Seite steht die orange Marke um den Block — die sieht
+        // aber nur, wer die Hilfslinien eingeschaltet hat. Diese Zeile
+        // steht immer da, und sie kostet nichts: Gefragt wird nur nach den
+        // Blöcken DIESER Seite, und der Körper läuft im `LazyVStack` nur
+        // für die Blätter, die gerade zu sehen sind.
+        let zuNah = werk.reise.imSicherheitsabstand(buchseite).count
+        if zuNah > 0 {
+            name += " \u{00B7} \u{26A0}\u{FE0E} "
+            if zuNah == 1 {
+                name += "1 Block"
+            } else {
+                name += "\(zuNah) Blöcke"
+            }
+            name += " im Sicherheitsabstand"
+        }
+        return name
+    }
+
+    // Orange schlägt die Auswahlfarbe: Ein Hinweis, der nur dann auffällt,
+    // wenn die Seite gerade nicht gewählt ist, wäre ein halber Hinweis.
+    private func seitenfarbe(_ buchseite: Buchseite) -> Color {
+        if !werk.reise.imSicherheitsabstand(buchseite).isEmpty { return .orange }
+        return istGewaehlt(buchseite) ? Color.accentColor : Color.secondary
     }
 
     private func istGewaehlt(_ buchseite: Buchseite) -> Bool {
@@ -942,11 +978,44 @@ struct ReiseView: View {
         // die TÄTIGKEIT und nichts über den GELTUNGSBEREICH — und der ist
         // hier der ganze Unterschied. Die Beschriftungen nennen ihn seither
         // beim Namen: „Auswahl" gegen „Ganzes Buch".
+        //
+        // DER INSPEKTOR IST EIN OVERLAY, KEINE SPALTE (ab 1.0.76).
+        //
+        // Befund des Nutzers, 09/2026: „Sobald ich auf den Pinsel tippe,
+        // klappt rechts eine ganze Seite auf, die bewirkt, dass der
+        // Bearbeitungsbereich verkleinert wird. Das möchte ich nicht. Bei
+        // den anderen Menüpunkten ist es ja auch möglich, dass sich so ein
+        // Overlay-Fenster kurz öffnet, bis die entsprechende Option
+        // ausgewählt wird."
+        //
+        // `.inspector` legt auf dem iPad eine feste Spalte NEBEN den
+        // Inhalt und nimmt ihm deren Breite — auf einem iPad im Hochformat
+        // ist das ein knappes Drittel, und genau dort steht das Blatt, an
+        // dem gearbeitet wird. Ein Popover hängt am Knopf, deckt nur einen
+        // Teil ab und geht bei einem Tipp daneben wieder zu. Auf dem
+        // iPhone macht SwiftUI daraus von selbst ein Blatt — dort wäre ein
+        // Popover eine Briefmarke.
+        //
+        // Der Stapel darum ist kein Zierat: Ohne ihn gäbe es im Blatt auf
+        // dem iPhone keinen sichtbaren Ausgang („Wer einen Modus baut,
+        // baut den Ausgang mit — und zwar sichtbar", seit 1.0.9).
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 inspektor.toggle()
             } label: {
                 Label("Auswahl", systemImage: "paintbrush")
+            }
+            .popover(isPresented: $inspektor) {
+                NavigationStack {
+                    BlockInspektor(werk: werk, blatt: $blatt)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Fertig") { inspektor = false }
+                            }
+                        }
+                }
+                .frame(idealWidth: 360, idealHeight: 560)
             }
         }
 
@@ -1400,9 +1469,29 @@ struct ReiseView: View {
             // der Ort, an dem in 1.0.37 und 1.0.52 zweimal etwas lag, das
             // niemand fand. Vom Ausgabeblatt aus führt trotzdem ein Weg
             // dorthin, mit der dort gewählten Bildgüte.
+            // DIE DRUCKPRÜFUNG ALS EIGENER PUNKT (ab 1.0.76).
+            //
+            // Ansage des Nutzers, 09/2026: „Damit sind wir an der Stelle,
+            // wo ich gerne einen Menüpunkt einbauen würde namens
+            // Druckprüfung. … Zu diesem Punkt meine ich mich zu erinnern,
+            // dass mir die App an irgendeiner Stelle bereits
+            // rückgemeldet hat, dass beispielsweise Text nicht ganz in ein
+            // Textfeld gepasst hat. Ich finde diesen Menüpunkt leider
+            // nicht mehr wieder."
+            //
+            // Er hat sie gesehen: `Druckpruefung.vorab` läuft seit 1.0.1
+            // und zählt abgeschnittenen Text mit. Sie stand aber
+            // ausschließlich im Ausgabeblatt, unter der halben Seite
+            // Einstellungen — zwölfte Auflage von „es war da, man fand es
+            // nicht". Sie steht deshalb GANZ OBEN und heißt nach der
+            // Sache.
+            Button("Druckprüfung…", systemImage: "checkmark.seal") {
+                blatt = .druckpruefung
+            }
             Button("Ausgabeformat und Maße…", systemImage: "doc.text.magnifyingglass") {
                 blatt = .ausgabeformat
             }
+            Divider()
             Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
             // ZWEI DATEIEN FÜR DEN DRUCKDIENST (eigener Punkt ab 1.0.52).
             //
@@ -1489,7 +1578,17 @@ struct ReiseView: View {
             }
             Divider()
             Section("Hilfen beim Anordnen") {
-                Toggle("Satzspiegel zeigen", isOn: $werk.zeigeSatzspiegel)
+                // DER SCHALTER HEISST NACH ALLEN DREI LINIEN (ab 1.0.76).
+                //
+                // Er schaltet den Satzspiegel (blau), die Schnittkante
+                // (rot gestrichelt) und den Sicherheitsabstand (orange
+                // gestrichelt) zusammen — hieß aber nach einer von dreien.
+                // Wer nach der Schnittlinie sucht, sucht nicht unter
+                // „Satzspiegel"; dieselbe Lehre wie bei jedem anderen
+                // Menüpunkt dieser App, der nach dem Handwerk statt nach
+                // der Sache hieß.
+                Toggle("Linien zeigen: Satzspiegel, Schnitt, Sicherheit",
+                       isOn: $werk.zeigeSatzspiegel)
                 // Einrasten lässt sich abschalten — die zweite Hälfte des
                 // Wunsches nach einem Randindikator, der „im Einzelfall auch
                 // veränderbar" ist. Eine Hilfe, aus der man nicht aussteigen
@@ -1836,6 +1935,8 @@ struct ReiseView: View {
             AusgabeView(werk: werk)
         case .ausgabeformat:
             Ausgabeformatblatt(werk: werk)
+        case .druckpruefung:
+            Druckpruefungblatt(werk: werk)
         case .zweiDateien:
             AusgabeView(werk: werk, vorwahl: .getrennt)
         case .nurUmschlag:

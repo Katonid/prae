@@ -32,6 +32,13 @@ struct GestaltungView: View {
         text += "\u{00FC}blich. Die Pr\u{00FC}fung vor dem Ausgeben z\u{00E4}hlt, was "
         text += "hineinragt; randabfallende Bl\u{00F6}cke sind ausgenommen, die sollen "
         text += "ja \u{00FC}ber die Kante laufen.\n\n"
+        text += "Am BUND darf ein anderer Wert gelten \u{2014} viele Druckereien verlangen "
+        text += "dort mehr, weil bei der Klebebindung ein Streifen im Falz verschwindet. "
+        text += "Oben und unten gilt immer der \u{00E4}u\u{00DF}ere Wert: Dort wird "
+        text += "geschnitten und nicht gebunden. Welche Seite innen liegt, wechselt von "
+        text += "Seite zu Seite \u{2014} die orange Linie auf dem Blatt wandert deshalb mit, "
+        text += "und daran l\u{00E4}sst sich ablesen, dass die Zahl an der richtigen Kante "
+        text += "ankommt.\n\n"
         text += "Bundsteg: zusätzlicher Rand zur Heftung, 0 mm ist erlaubt und die Vorgabe. "
         text += "Er wird auf beide Seitenränder gerechnet — welche Seite innen liegt, hängt "
         text += "an der laufenden Seitenzahl, und die verschiebt sich, sobald ein Tag eine "
@@ -84,8 +91,19 @@ struct GestaltungView: View {
                     // unter dem Anschnitt, weil die beiden dauernd
                     // verwechselt werden — und nebeneinander lässt sich der
                     // Unterschied in einem Satz sagen.
-                    mmRegler("Sicherheitsabstand",
+                    mmRegler("Sicherheitsabstand außen",
                              $werk.reise.gestaltung.sicherheitsabstand, 0...12, schritt: 1)
+                    // AM BUND GILT OFT ETWAS ANDERES (ab 1.0.76). `nil`
+                    // heißt „wie außen" — eine Abweichung und keine Kopie:
+                    // Wer den äußeren Wert später ändert, ändert damit auch
+                    // den inneren, solange er nichts anderes gesagt hat.
+                    Toggle("Am Bund ein eigener Wert", isOn: bundeigen)
+                    if werk.reise.gestaltung.sicherheitsabstandInnen != nil {
+                        mmRegler("Sicherheitsabstand am Bund",
+                                 bundwert, 0...20, schritt: 1)
+                    }
+                    Schutzzonenskizze(gestaltung: werk.reise.gestaltung,
+                                      format: werk.reise.format)
                     mmRegler("Bundsteg", $werk.reise.gestaltung.bundsteg, 0...15, schritt: 1)
                 } header: {
                     Text("Druckzugaben")
@@ -226,6 +244,26 @@ struct GestaltungView: View {
     private var bogentext: String {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
         return "\(Druckmass.mmText(bogen.width)) x \(Druckmass.mmText(bogen.height))"
+    }
+
+    // Ob am Bund ein eigener Wert gilt. Das Einschalten setzt ihn auf den
+    // äußeren — von dort aus wird geschoben; das Ausschalten nimmt ihn
+    // ersatzlos zurück, und dann folgt er wieder dem äußeren.
+    private var bundeigen: Binding<Bool> {
+        Binding(
+            get: { werk.reise.gestaltung.sicherheitsabstandInnen != nil },
+            set: { an in
+                werk.reise.gestaltung.sicherheitsabstandInnen =
+                    an ? werk.reise.gestaltung.sicherheitsabstand : nil
+            }
+        )
+    }
+
+    private var bundwert: Binding<Double> {
+        Binding(
+            get: { werk.reise.gestaltung.innensicherheit },
+            set: { werk.reise.gestaltung.sicherheitsabstandInnen = $0 }
+        )
     }
 
     private func mmRegler(_ name: String, _ wert: Binding<Double>,

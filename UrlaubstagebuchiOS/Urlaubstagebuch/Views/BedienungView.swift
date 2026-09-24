@@ -195,7 +195,13 @@ struct BedienungView: View {
               wie: "\u{201E}\u{2026}\u{201C} oben rechts \u{2192} Ausgabeformat und Ma\u{00DF}e. Dort steht alles auf einmal: Endformat, das Bogenma\u{00DF} im PDF (je nachdem, ob Einzelseiten, Doppelseiten oder Umschlag), Anschnitt, Sicherheitsabstand, R\u{00E4}nder, Bundsteg ja oder nein und wie viel, R\u{00FC}ckenbreite samt ihrer Herkunft, U2+U3 und die Bildg\u{00FC}te. Jede Zeile sagt, ob sie eine Einstellung ist und wo man sie umstellt; \u{201E}Alles kopieren\u{201C} legt den ganzen Steckbrief in die Zwischenablage \u{2014} zum Vergleich mit dem, was der Druckdienst verlangt."),
         Griff(zeichen: "checkmark.seal",
               was: "Vor dem Druck prüfen",
-              wie: "„…“ oben rechts → Als PDF sichern. Dort steht, was einem Druckdienst auffallen würde: zu grobe Bilder, fehlender Anschnitt, abgeschnittener Text."),
+              wie: "\u{201E}\u{2026}\u{201C} oben rechts \u{2192} Druckpr\u{00FC}fung. Dort steht, was einem Druckdienst auffallen w\u{00FC}rde: zu grobe Bilder, fehlender Anschnitt, Text, der nicht in seinen Kasten passt, Bl\u{00F6}cke im Sicherheitsabstand. Dieselbe Prüfung steht auch im Ausgabeblatt \u{2014} dort aber erst, wenn man ohnehin ausgeben will."),
+        Griff(zeichen: "rectangle.dashed",
+              was: "Die beiden gestrichelten Linien auf der Seite",
+              wie: "\u{201E}\u{2026}\u{201C} oben rechts \u{2192} \u{201E}Linien zeigen\u{201C}. ROT gestrichelt ist die Schnittkante \u{2014} dort wird beschnitten, alles au\u{00DF}erhalb ist Anschnitt. ORANGE ist der Sicherheitsabstand; dort soll nichts stehen, was gelesen werden muss. Was hineinragt, wird orange umrandet, und unter dem Blatt steht, wie viele Bl\u{00F6}cke es sind."),
+        Griff(zeichen: "book.pages",
+              was: "Am Bund einen anderen Sicherheitsabstand",
+              wie: "Buchsymbol \u{2192} R\u{00E4}nder, Karte, Seitenzahlen \u{2192} \u{201E}Am Bund ein eigener Wert\u{201C}. Viele Druckereien verlangen innen mehr als au\u{00DF}en, weil im Falz ein Streifen verschwindet. Oben und unten gilt immer der \u{00E4}u\u{00DF}ere Wert. Die Skizze darunter zeigt beide Seiten nebeneinander."),
     ]
 
     var body: some View {

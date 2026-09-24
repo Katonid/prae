@@ -7305,6 +7305,100 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **AM BUND GILT EIN ANDERER SICHERHEITSABSTAND — UND WELCHE SEITE INNEN
+  LIEGT, WECHSELT** (`Gestaltung.sicherheitsabstandInnen`, `Bundlage`,
+  `Buchseite.bundlage`, ab 1.0.76; Ansage des Nutzers 09/2026: „Im
+  vorliegenden Fall soll der 3 mm vom Rand betragen und 5 mm an der
+  Innenseite dort, wo die Seite verklebt wird.").
+  - **Es sind zwei Ursachen, also zwei Zahlen.** Außen entscheidet das
+    Spiel der Schneidemaschine (so steht es seit 1.0.73 hier), innen
+    verschwindet ein Streifen im Falz — bei einer Klebebindung mehr als bei
+    einer Fadenheftung. **Oben und unten gilt immer der äußere Wert**: Dort
+    wird geschnitten und nicht gebunden.
+  - **`nil` heißt „wie außen" und ist keine Kopie** — dieselbe Regel wie bei
+    `Schriftabweichung`, `Block.wirkung` und `Kartenwahl`. Jedes vorhandene
+    Buch sieht nach dem Update unverändert aus, und wer später den äußeren
+    Wert ändert, ändert den inneren mit.
+  - **Die Bundseite wird HEREINGEREICHT, nicht geraten.** `Gestaltung` weiß
+    nicht, welche Seite innen liegt — das hängt an der laufenden
+    Seitenzahl. `Buchseite.bundlage` fragt dafür `liegtRechts`, also die
+    eine Stelle, die es seit 1.0.47 ohnehin weiß; der AUSSENbogen des
+    Umschlags hat keinen Bund (er wird umgelegt, nicht gebunden — dieselbe
+    Überlegung, aus der `Umschlagmass.satzspiegel` den Bundsteg wieder
+    herausrechnet).
+  - **Der Unterschied zum BUNDSTEG ist kein Widerspruch.** Der geht seit
+    1.0.1 auf BEIDE Seitenränder, gerade WEIL eine Seite beim Umbruch die
+    Buchhälfte wechselt — er verschiebt den Satzspiegel, und ein Satz, der
+    je nach Seitenzahl anders steht, wäre nicht zu setzen. Der
+    Sicherheitsabstand verschiebt nichts, er PRÜFT nur — er darf die Seiten
+    also unterscheiden.
+  - **Beim Formatwechsel bleibt er draußen, beide Werte.** Was im Falz
+    verschwindet, hängt an der Bindung und nicht am Papierformat.
+- **DIE ZWEI GESTRICHELTEN LINIEN GAB ES — DER SCHALTER HIESS NACH EINER VON
+  DREIEN** (ab 1.0.76). Rot gestrichelt ist die Schnittkante, orange der
+  Sicherheitsabstand, blau der Satzspiegel; alle drei hängen an EINEM
+  Schalter, und der hieß „Satzspiegel zeigen". Wer nach der Schnittlinie
+  sucht, sucht nicht unter „Satzspiegel" — er heißt jetzt „Linien zeigen:
+  Satzspiegel, Schnitt, Sicherheit". Dazu zeigt `Schutzzonenskizze` dort,
+  wo die Zahlen eingestellt werden, **zwei gegenüberliegende Seiten** mit
+  dem Bund in der Mitte — gezeichnet mit derselben Rechnung wie das Blatt
+  daneben, denn eine zweite Fassung zeigte hier etwas anderes als dort.
+- **EINE WARNUNG, DIE NUR IN EINEM BLATT STEHT, SIEHT NIEMAND**
+  (`Reise.imSicherheitsabstand(_:)`, ab 1.0.76; Ansage des Nutzers 09/2026:
+  „Dann möchte ich, dass die App sich bemerkbar macht, falls an irgendeiner
+  Stelle einer dieser Sicherheitsabstände nicht berücksichtigt wurde.").
+  Zwei Wege, und beide sind nötig: Auf der SEITE bekommt jeder betroffene
+  Block einen orange gestrichelten Rahmen (in der Farbe der Linie, an der er
+  zu nah steht) — das sieht aber nur, wer die Linien eingeschaltet hat;
+  UNTER dem Blatt steht es in Worten und unabhängig davon. Die
+  Beschriftungszeile war ohnehin da und behält ihre feste Höhe, denn
+  `Zoomanker` rechnet mit ihr.
+  **Geprüft wird an EINER Stelle**, gefragt von der Seite, der Bühne und der
+  Druckprüfung: Drei Fassungen derselben Prüfung fänden irgendwann
+  Verschiedenes, und dann meldete die eine, was die andere nicht zeigt.
+  **Randabfallende Blöcke bleiben ausgenommen, ohne Ausnahme** — nach der
+  dritten falschen Marke sieht niemand mehr hin.
+- **DIE DRUCKPRÜFUNG LAG IM AUSGABEBLATT — ALSO HINTER DER ABSICHT,
+  AUSZUGEBEN** (`Views/DruckpruefungView.swift`, ab 1.0.76; Ansage des
+  Nutzers 09/2026: „Zu diesem Punkt meine ich mich zu erinnern, dass mir die
+  App an irgendeiner Stelle bereits rückgemeldet hat, dass beispielsweise
+  Text nicht ganz in ein Textfeld gepasst hat. Ich finde diesen Menüpunkt
+  leider nicht mehr wieder.").
+  **Er hat sie gesehen.** `Druckpruefung.vorab` läuft seit 1.0.1 und zählt
+  `abgeschnittenerText` mit — sie stand aber ausschließlich im Ausgabeblatt,
+  unter der halben Seite Einstellungen. **Zwölfte Auflage von „es war da,
+  man fand es nicht"**, dieselbe Lehre wie bei der Broschüre (1.0.37), den
+  zwei Dateien (1.0.52) und dem Ausgabeformat (1.0.75), und dieselbe
+  Antwort: eigener Menüpunkt, nach der SACHE benannt, ganz oben.
+  **Kein zweiter Prüfer** — dieselbe Funktion und dieselbe Zeile
+  (`BefundZeile`), nur sortiert nach Dringlichkeit und kopierbar; das
+  Ausgabeblatt behält seinen Abschnitt und nennt den zweiten Weg.
+  **Merke: Eine Prüfung gehört nicht hinter die Handlung, für die sie
+  prüft.**
+- **`.inspector` IST EINE SPALTE UND NIMMT DER BÜHNE IHRE BREITE** (ab
+  1.0.76; Befund des Nutzers 09/2026: „Sobald ich auf den Pinsel tippe,
+  klappt rechts eine ganze Seite auf, die bewirkt, dass der
+  Bearbeitungsbereich verkleinert wird. Das möchte ich nicht."). Auf einem
+  iPad im Hochformat ist das ein knappes Drittel — und genau dort steht das
+  Blatt, an dem gearbeitet wird. Der Inspektor hängt seither als **Popover**
+  am Pinselknopf: Er deckt nur einen Teil ab und geht bei einem Tipp daneben
+  wieder zu; auf dem iPhone macht SwiftUI daraus von selbst ein Blatt, wo
+  ein Popover eine Briefmarke wäre. Zwei Dinge gehören dazu: ein Stapel
+  darum, damit das Blatt einen sichtbaren Ausgang hat (Regel seit 1.0.9),
+  und ein `onChange` auf das geöffnete Blatt — wer aus dem Inspektor heraus
+  eines öffnet, bekommt sonst ein Blatt über einem Popover.
+  **Der Grund, aus dem der Inspektor Blätter statt `NavigationLink`s
+  benutzt, bleibt gültig** (1.0.29): Er bringt weiterhin keinen eigenen
+  Stapel mit, den seine Unterseiten benutzen könnten.
+- **Nicht gemessen (1.0.76):** Nichts davon ist auf einem Gerät gesehen
+  worden. Gerechnet ist die Geometrie — dass die orange Linie auf einer
+  rechten Seite links weiter innen läuft und auf einer linken rechts.
+  **Ungeprüft bleibt, ob das Popover auf dem iPad an der gewünschten Stelle
+  aufgeht** und ob sich die Blätter, die der Inspektor öffnet, darin
+  verhalten wie in der Spalte; das ist die Lesart der Dokumentation und
+  keine Messung. Die Zahlen 3 mm außen und 5 mm am Bund sind die der
+  Druckerei — eingetragen, nicht nachgeprüft. **Nicht als erledigt
+  darstellen.**
 - **NACH DER DRITTEN DRUCKEREI WEISS NIEMAND MEHR, WAS GILT**
   (`Model/Ausgabesteckbrief.swift`, `Views/AusgabeformatView.swift`, ab
   1.0.75; Ansage des Nutzers 09/2026: „Bei einer anderen Druckerei wird bei
@@ -8843,7 +8937,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.75 (Build 76). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.76 (Build 77). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

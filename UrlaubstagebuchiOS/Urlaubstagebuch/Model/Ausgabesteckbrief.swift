@@ -180,15 +180,27 @@ enum Ausgabesteckbrief {
             wo: "Ganzes Buch \u{2192} Ränder, Karte, Seitenzahlen\u{2026}"))
 
         var schutzwert = "keiner"
-        if g.sicherheitsabstand > 0.05 {
-            schutzwert = Druckvorgabe.zahl(g.sicherheitsabstand) + " mm ringsum"
+        if g.hatSicherheitsabstand {
+            if g.sicherheitAsymmetrisch {
+                schutzwert = Druckvorgabe.zahl(g.sicherheitsabstand) + " mm außen, "
+                schutzwert += Druckvorgabe.zahl(g.innensicherheit) + " mm am Bund"
+            } else {
+                schutzwert = Druckvorgabe.zahl(g.sicherheitsabstand) + " mm ringsum"
+            }
+        }
+        var schutzsatz = "Liegt INNERHALB des Endformats. Dort soll nichts stehen, "
+        schutzsatz += "was gelesen werden muss: Jede Schneidemaschine hat ein Spiel "
+        schutzsatz += "von einem knappen Millimeter."
+        if g.sicherheitAsymmetrisch {
+            schutzsatz += " Am Bund gilt ein eigener Wert \u{2014} dort verschwindet "
+            schutzsatz += "bei der Bindung ein Streifen im Falz. Oben und unten gilt "
+            schutzsatz += "der äußere: Dort wird geschnitten und nicht gebunden. "
+            schutzsatz += "Welche Seite innen liegt, wechselt von Seite zu Seite."
         }
         zeilen.append(Zeile(
             name: "Sicherheitsabstand",
             wert: schutzwert,
-            erklaerung: "Liegt INNERHALB des Endformats. Dort soll nichts stehen, "
-                + "was gelesen werden muss: Jede Schneidemaschine hat ein Spiel "
-                + "von einem knappen Millimeter.",
+            erklaerung: schutzsatz,
             eingestellt: true,
             wo: "Ganzes Buch \u{2192} Ränder, Karte, Seitenzahlen\u{2026}"))
 

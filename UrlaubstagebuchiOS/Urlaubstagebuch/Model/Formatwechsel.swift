@@ -90,7 +90,9 @@ enum Formatwechsel {
         // Anschnitt (ab 1.0.73): Das Spiel der Schneidemaschine ist
         // dasselbe, ob eine Seite A4 misst oder A5. Wer ihn mitschrumpfte,
         // bekäme auf der kleineren Seite genau dort weniger Schutz, wo der
-        // Rand ohnehin knapper wird.
+        // Rand ohnehin knapper wird. Das gilt seit 1.0.76 für BEIDE Werte
+        // — auch für den am Bund: Was im Falz verschwindet, hängt an der
+        // Bindung und nicht am Papierformat.
         var g = reise.gestaltung
         g.randAussen = gerundet(g.randAussen * f)
         g.randOben = gerundet(g.randOben * f)

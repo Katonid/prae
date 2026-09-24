@@ -818,29 +818,35 @@ enum Druckpruefung {
     // solchen Hinweis liest niemand mehr eine Zeile dieser Prüfung.
     static func schutzzone(_ reise: Reise) -> [Zeile] {
         let saum = reise.gestaltung.sicherheitsabstand
-        guard saum > 0.5 else {
+        guard reise.gestaltung.hatSicherheitsabstand else {
             return [Zeile(
                 stufe: .hinweis,
                 titel: "Kein Sicherheitsabstand eingestellt",
                 text: "Jede Schneidemaschine hat ein Spiel von einem knappen Millimeter, und ein Stapel B\u{00FC}cher wird nie auf den Punkt genau getroffen. Ohne Abstand kann eine Seitenzahl im einen Buch mittig stehen und im n\u{00E4}chsten halb angeschnitten. Eingestellt wird er unter \u{201E}Gestalten\u{201C}; 3 bis 5 mm sind \u{00FC}blich."
             )]
         }
-        let zone = reise.gestaltung.schutzzone(reise.format)
+        // JE SEITE EINE EIGENE ZONE (ab 1.0.76): Innen gilt oft ein
+        // anderer Wert als außen, und welche Seite innen liegt, wechselt
+        // von Seite zu Seite. Eine Zone für das ganze Buch prüfte auf
+        // jeder zweiten Seite die falsche Kante.
         var betroffen = 0
         var textbloecke = 0
         var stellen: [String] = []
         for buchseite in reise.seitenfolge {
-            for block in buchseite.seite.bloecke where !block.randabfallend {
-                let r = block.rahmen.rect
-                guard r.minX < zone.minX - 0.5 || r.minY < zone.minY - 0.5
-                    || r.maxX > zone.maxX + 0.5 || r.maxY > zone.maxY + 0.5
-                else { continue }
+            // Dieselbe Stelle, die auch die Marke auf der Seite setzt —
+            // sonst meldete die eine, was die andere nicht zeigt.
+            for block in reise.imSicherheitsabstand(buchseite) {
                 betroffen += 1
                 if block.inhalt.istText { textbloecke += 1 }
                 if stellen.count < 4 { stellen.append(buchseite.kurzname) }
             }
         }
-        let masstext = Druckvorgabe.zahl(saum) + " mm"
+        var masstext = Druckvorgabe.zahl(saum) + " mm"
+        if reise.gestaltung.sicherheitAsymmetrisch {
+            masstext += " außen, "
+            masstext += Druckvorgabe.zahl(reise.gestaltung.innensicherheit)
+            masstext += " mm am Bund"
+        }
         guard betroffen > 0 else {
             return [Zeile(
                 stufe: .gut,
@@ -860,8 +866,9 @@ enum Druckpruefung {
         }
         text += "Soll ein Block wirklich bis an die Kante laufen, geh\u{00F6}rt er auf RANDABFALLEND "
         text += "(Block \u{2192} Lage auf der Seite) \u{2014} dann wird er bis \u{00FC}ber den Anschnitt "
-        text += "gezogen und ist hier nicht mehr gemeint. Die orange Linie unter \u{201E}Satzspiegel "
-        text += "zeigen\u{201C} zeigt, wo der Abstand l\u{00E4}uft."
+        text += "gezogen und ist hier nicht mehr gemeint. Auf der Seite selbst ist jeder "
+        text += "betroffene Block orange gestrichelt umrandet \u{2014} in derselben Farbe wie "
+        text += "die Linie, an der er zu nah steht."
         return [Zeile(stufe: textbloecke > 0 ? .warnung : .hinweis,
                       titel: "\(betroffen) Bl\u{00F6}cke im Sicherheitsabstand",
                       text: text)]

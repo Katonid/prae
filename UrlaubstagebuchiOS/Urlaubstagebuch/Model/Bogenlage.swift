@@ -15,6 +15,23 @@ import Foundation
 // als Funktion und wird von dort mitbenutzt: Zwei Fassungen derselben
 // Regel liefen auseinander, und dann zeigte die Doppelseitenansicht eine
 // andere Paarung als der Druck.
+// WO DER BUND LIEGT — die Seite, an der geklebt oder geheftet wird.
+//
+// Sie wechselt von Seite zu Seite: Bei einer rechten Seite liegt der Bund
+// LINKS, bei einer linken RECHTS. Genau deshalb steht das hier und nicht
+// als Feld irgendwo — es ist dieselbe Buchbinderei wie `Bogenlage.rechts`,
+// und zwei Fassungen liefen auseinander.
+//
+// `ohne` ist der AUSSENbogen des Umschlags: Der wird nicht gebunden,
+// sondern umgelegt — dort gibt es keine Seite, an der etwas verschwindet
+// (dieselbe Überlegung, aus der `Umschlagmass.satzspiegel` den Bundsteg
+// wieder herausrechnet).
+enum Bundlage {
+    case links
+    case rechts
+    case ohne
+}
+
 enum Bogenlage {
     // `nummer` zählt den BUCHBLOCK ab 1; die erste Seite ist eine rechte.
     // Der Umschlag zählt darin nicht mit — er ist ein eigenes Stück

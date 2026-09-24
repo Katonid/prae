@@ -99,6 +99,24 @@ struct Buchseite: Identifiable, Equatable {
 
     var bogennummer: Int { bogen }
 
+    /// An welcher Seite diese Seite gebunden wird (ab 1.0.76).
+    ///
+    /// Gebraucht vom Sicherheitsabstand: Eine Druckerei verlangt innen
+    /// mehr als außen, weil im Falz ein Streifen verschwindet — und
+    /// welche Seite innen liegt, hängt an der laufenden Seitenzahl.
+    /// Entschieden wird das über `liegtRechts`, also über die eine Stelle,
+    /// die es ohnehin weiß.
+    ///
+    /// Der AUSSENbogen des Umschlags hat keinen Bund: Er wird umgelegt und
+    /// nicht gebunden. U2 und U3 haben einen — sie liegen im
+    /// aufgeschlagenen Buch neben der ersten und der letzten Seite.
+    var bundlage: Bundlage {
+        switch teil {
+        case .rueckseite, .titel: return .ohne
+        default: return liegtRechts ? .links : .rechts
+        }
+    }
+
     /// Wie diese Seite heißt — unter ihrem Blatt auf der Bühne und in
     /// jedem Befund. An EINER Stelle, weil „Seite 0" unter der Rückseite
     /// genau der Satz wäre, den 1.0.52 abstellt.
@@ -122,6 +140,29 @@ extension Reise {
         // Kein Tag heißt Umschlag — Titelseite oder Rückseite.
         if buchseite.tag == nil, !zeichen.aufTitelblatt { return nil }
         return zeichen
+    }
+
+    // WAS AUF DIESER SEITE IN DEN SICHERHEITSABSTAND RAGT (ab 1.0.76).
+    //
+    // An EINER Stelle, weil es an dreien gebraucht wird: von der Seite
+    // (orange Marke um den Block), von der Bühne (die Zeile unter dem
+    // Blatt) und von der Druckprüfung (die Zahl fürs ganze Buch). Drei
+    // Fassungen derselben Prüfung fänden irgendwann Verschiedenes, und
+    // dann meldete die eine etwas, das die andere nicht zeigt.
+    //
+    // **Randabfallende Blöcke sind ausgenommen, und zwar ohne Ausnahme.**
+    // Sie SOLLEN über die Kante laufen; sie zu melden hieße, das als
+    // Fehler auszugeben, was richtig ist — und nach der dritten falschen
+    // Marke sieht niemand mehr hin.
+    func imSicherheitsabstand(_ buchseite: Buchseite) -> [Block] {
+        guard gestaltung.hatSicherheitsabstand else { return [] }
+        let zone = gestaltung.schutzzone(format, bund: buchseite.bundlage)
+        return buchseite.seite.bloecke.filter { block in
+            guard !block.randabfallend else { return false }
+            let r = block.rahmen.rect
+            return r.minX < zone.minX - 0.5 || r.minY < zone.minY - 0.5
+                || r.maxX > zone.maxX + 0.5 || r.maxY > zone.maxY + 0.5
+        }
     }
 
     var automat: Layoutautomat {
