@@ -480,6 +480,55 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Was die Druckerei verlangt, ist der Bogen (1.0.72)
+
+Der erste echte Druckauftrag kam mit drei Beanstandungen zurück. Alle drei
+sind jetzt in der App zu erledigen — und die erste war keine.
+
+**„Bitte legen Sie Ihre Daten im Format 216 mm x 303 mm an."** Nachgerechnet:
+216 − 2 × 3 = 210, 303 − 2 × 3 = 297. Verlangt wird A4 hoch mit 3 mm
+Anschnitt, und genau das gibt diese App seit jeher aus. Beim Umschlag
+dasselbe: 2 × 210 + 2 mm Rücken + 2 × 3 mm ergibt 428 × 303 — Wort für Wort
+die zweite Forderung derselben Mail. Die Zahlen waren nie falsch. Sie
+standen nur nirgends so da, dass man sie gegen eine Bestellung halten
+konnte.
+
+Deshalb steht im Ausgabeblatt jetzt die Zeile **„Bogen im PDF"**: das Maß,
+das die Datei wirklich hat, passend zur gewählten Anordnung — Einzelseiten,
+Doppelseiten und Umschlag sind drei verschiedene Zahlen.
+
+**Und die Zahl der Druckerei lässt sich eintippen.** Im Formatblatt gibt es
+dafür ein eigenes Feld: Man tippt 216 × 303, darunter steht sofort „ergibt
+das Endformat 210 × 297 mm", und ein Knopf übernimmt es. Das ist mehr als
+Bequemlichkeit — es fängt einen Fehler ab, der wie eine Lösung aussieht:
+Trägt man 216 × 303 als *Endformat* ein, wird die PDF-Seite 222 × 309 mm
+groß, und dabei rechnet die App jeden Block, jeden Rand und jede
+Schriftgröße des Buches um. Wer es trotzdem unten eintippt, bekommt einen
+Hinweis mit beiden Zahlen — einen Hinweis, keine Sperre.
+
+**Die Rückenstärke lässt sich eintragen.** „2 mm Rückenstärke" ist eine
+Zahl, fertig; bisher ging das nur als Tabellenzeile. Sie schlägt Tabelle und
+Rechnung, und in der App steht dabei, woher sie kommt. Nennt die Druckerei
+stattdessen nur die Bogenbreite, folgt die Rückenstärke daraus.
+
+**Die bestellte Seitenzahl** („Sie haben ein Produkt mit 60 Innenseiten
+bestellt, uns allerdings zu viele Seiten zugeschickt") trägt man im
+Ausgabeblatt ein. Danach steht dort und in der Druckprüfung, ob es passt —
+vor dem Hochladen statt in der Antwortmail zwei Tage später. Ohne
+eingetragene Bestellung wird nichts behauptet.
+
+**Die Innenseiten des Umschlags (U2+U3)** liefert die App auf Wunsch mit:
+eine zweite Seite in der Umschlagdatei, gleiche Maße, gleiche Boxen, in
+einer wählbaren Farbe. Manche Druckereien verlangen sie, andere legen dort
+ihr eigenes Vorsatzpapier ein. Geliefert wird eine Fläche, kein Satz —
+Blöcke lassen sich darauf nicht setzen.
+
+**Nicht gemessen:** Keine Datei ist damit hochgeladen worden. Gerechnet und
+an der Mail nachgerechnet sind beide Maße; **warum die erste Lieferung
+abgewiesen wurde, ist damit nicht geklärt** — dass die Rechnung stimmt,
+heißt nicht, dass die Einstellungen dieses Buches stimmten. Genau deshalb
+schreibt die App die Zahlen jetzt hin, statt sie zu behaupten.
+
 ## Ein Buch vom anderen Gerät: wo die Bilder bleiben (1.0.71)
 
 Gemeldet: „Auf dem iPad ist kein Arbeiten möglich. Vielleicht liegt es

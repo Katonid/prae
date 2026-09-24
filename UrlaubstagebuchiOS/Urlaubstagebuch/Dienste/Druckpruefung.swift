@@ -756,6 +756,47 @@ enum Druckpruefung {
         return [Zeile(stufe: stufe, titel: titel, text: text)]
     }
 
+    // WIE VIELE INNENSEITEN BESTELLT SIND — und wie viele es sind
+    // (ab 1.0.72).
+    //
+    // Gemeldet 09/2026 aus einem echten Auftrag: „Sie haben ein Produkt
+    // mit 60 Innenseiten bestellt, uns allerdings zu viele Seiten für den
+    // Innenteil zugeschickt."
+    //
+    // Die App zählt die Seiten längst; was fehlte, ist die Zahl daneben,
+    // gegen die sie sich halten lässt. Ohne eingetragene Bestellung wird
+    // NICHTS behauptet — eine Warnung über eine Seitenzahl, die niemand
+    // bestellt hat, ist keine Auskunft.
+    static func bestellung(_ reise: Reise) -> [Zeile] {
+        let hat = reise.innenseiten
+        guard let bestellt = reise.bestellteSeiten, bestellt > 0 else {
+            return [Zeile(
+                stufe: .hinweis,
+                titel: "Innenteil: \(hat) Seiten",
+                text: "Wie viele Seiten bestellt sind, weiß nur der Mensch \u{2014} unter \u{201E}Ausgeben\u{201C} lässt sich die Zahl eintragen. Dann steht hier, ob es passt, und zwar VOR dem Hochladen statt in der Antwortmail zwei Tage später."
+            )]
+        }
+        if hat == bestellt {
+            return [Zeile(
+                stufe: .gut,
+                titel: "Innenteil: \(hat) von \(bestellt) Seiten",
+                text: "Der Innenteil hat genau so viele Seiten, wie bestellt sind. Der Umschlag zählt dabei nicht mit \u{2014} er ist ein eigenes Stück Papier."
+            )]
+        }
+        let zuviel = hat > bestellt
+        let wort = zuviel ? "zu viele" : "zu wenige"
+        var text = "Bestellt sind \(bestellt), der Innenteil hat \(hat) \u{2014} \(abs(hat - bestellt)) \(wort). "
+        if zuviel {
+            text += "Eine Druckerei nimmt das nicht an. Seiten lassen sich über \u{201E}Seiten\u{201C} im Tagesmenü entfernen, ein ganzer Tag über \u{201E}ausblenden\u{201C} \u{2014} ausgeblendet bleibt er vollständig erhalten und kommt nur nicht ins Buch. "
+        } else {
+            text += "Die fehlenden Seiten füllt die Druckerei meist mit leeren auf, und die hat niemand gesehen. Wer sie gestalten will, legt sie über \u{201E}Seiten\u{201C} an. "
+        }
+        text += "Gezählt wird der BUCHBLOCK samt Ausgleichsseite; der Umschlag zählt nicht mit."
+        return [Zeile(stufe: .warnung,
+                      titel: "Innenteil: \(hat) statt \(bestellt) Seiten",
+                      text: text)]
+    }
+
     static func vorab(_ reise: Reise) -> [Zeile] {
         var zeilen: [Zeile] = []
         let format = reise.format
@@ -776,6 +817,7 @@ enum Druckpruefung {
             ))
         }
 
+        zeilen.append(contentsOf: bestellung(reise))
         zeilen.append(contentsOf: bildaufloesung(reise))
         zeilen.append(contentsOf: schriften(reise))
         zeilen.append(contentsOf: abgeschnittenerText(reise))

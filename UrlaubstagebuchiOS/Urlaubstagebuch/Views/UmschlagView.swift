@@ -22,6 +22,11 @@ struct UmschlagView: View {
     @State private var fotowahl = false
     @State private var stufeSeiten = ""
     @State private var stufeMm = ""
+    // Die beiden Zahlen, die eine Druckerei nennt (ab 1.0.72): die
+    // Rückenstärke und die Breite des ganzen Bogens. Aus der zweiten folgt
+    // die erste, wenn Format und Anschnitt feststehen.
+    @State private var festerRuecken = ""
+    @State private var bogenbreite = ""
 
     private var umschlag: Umschlag { werk.reise.umschlag }
 
@@ -39,15 +44,34 @@ struct UmschlagView: View {
             Form {
                 Section {
                     Toggle("Umschlag als Bogen", isOn: $werk.reise.umschlag.alsBogen)
+                    if umschlag.alsBogen {
+                        Toggle("Innenseiten U2+U3 mitliefern",
+                               isOn: $werk.reise.umschlag.innenseitenBogen)
+                        if umschlag.innenseitenBogen {
+                            ColorPicker("Farbe von U2+U3", selection: Binding(
+                                get: { (umschlag.innenseitenFarbe ?? .papier).farbe },
+                                set: { werk.reise.umschlag.innenseitenFarbe = Farbwert($0) }
+                            ))
+                            if umschlag.innenseitenFarbe != nil {
+                                Button("Wieder Papierfarbe") {
+                                    werk.reise.umschlag.innenseitenFarbe = nil
+                                }
+                            }
+                        }
+                    }
                 } header: {
                     Text("Aufbau")
                 } footer: {
                     Text(umschlag.alsBogen
                          ? "Die Titelseite ist die rechte Hälfte eines Bogens, links liegt die Rückseite des Buches und dazwischen der Rücken. So legen es die Buchdienste an, und so sieht es der Mensch, der das fertige Buch in die Hand nimmt. \u{201E}Umschlag als eigene Datei\u{201C} gibt genau diesen einen Bogen aus."
                          : "Aus: Es gibt nur die Titelseite, und links auf dem ersten Bogen liegt wie bisher die Innenseite des Umschlags. Für eine Ringbindung oder eine Broschüre ist das das Richtige — dort gibt es keinen Rücken und keine bedruckbare Rückseite.")
+                    if umschlag.alsBogen {
+                        Text(innenseitenhinweis)
+                    }
                 }
 
                 if umschlag.alsBogen {
+                    druckereimass
                     ruecken
                     if umschlag.rueckenZeigen {
                         vorlagentabelle
@@ -83,6 +107,116 @@ struct UmschlagView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Was die Druckerei verlangt (ab 1.0.72)
+
+    // ZWEI ZAHLEN AUS EINER MAIL, und beide standen bis 1.0.71 nirgends so
+    // da, dass man sie hätte eintragen können.
+    //
+    // Gemeldet 09/2026 aus einem echten Auftrag: „Bitte legen Sie für die
+    // Aussenseiten (U4+U1) … eine Doppelseite im Format 428 mm x 303 mm
+    // an. Dieses Format beinhaltet 2 mm Rückenstärke und 3 mm Beschnitt."
+    //
+    // Die Rückenstärke ließ sich nur als Tabellenzeile eintragen, und das
+    // Bogenmaß gar nicht. Beides geht jetzt — und die Zahl, die die App
+    // WIRKLICH ausgibt, steht obenan: Sie ist es, die eine Druckerei prüft.
+    private var druckereimass: some View {
+        Section {
+            LabeledContent("Bogen mit Anschnitt", value: Druckvorgabe.masstext(umschlagbogenMm))
+            HStack {
+                Text("Rückenstärke")
+                Spacer()
+                TextField("mm", text: $festerRuecken)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 80)
+                Text("mm").foregroundStyle(.secondary)
+            }
+            Button("Rückenstärke übernehmen") {
+                guard let wert = zahlAus(festerRuecken), wert >= 0, wert <= 80 else { return }
+                werk.merken()
+                werk.reise.umschlag.rueckenbreiteVonHand = wert
+            }
+            .disabled(zahlAus(festerRuecken) == nil)
+            HStack {
+                Text("Bogenbreite")
+                Spacer()
+                TextField("mm", text: $bogenbreite)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 80)
+                Text("mm").foregroundStyle(.secondary)
+            }
+            if let aus = rueckenAusBogen {
+                Button("Ergibt \(zahl(aus, "mm")) Rücken \u{2014} übernehmen") {
+                    werk.merken()
+                    werk.reise.umschlag.rueckenbreiteVonHand = aus
+                    festerRuecken = ""
+                }
+            }
+            if umschlag.rueckenbreiteVonHand != nil {
+                Button("Wieder rechnen lassen") {
+                    werk.merken()
+                    werk.reise.umschlag.rueckenbreiteVonHand = nil
+                }
+            }
+        } header: {
+            Text("Maß der Druckerei")
+        } footer: {
+            Text(druckereihinweis)
+                .foregroundStyle(bogenbreite.isEmpty || rueckenAusBogen != nil
+                    ? .secondary : .red)
+        }
+    }
+
+    // Das Maß, das im PDF steht — in Millimetern, wie es in einer
+    // Bestellung steht. Gerechnet über dieselbe Stelle wie die Ausgabe;
+    // zwei Fassungen nennten zwei Zahlen, und die Druckerei prüft eine.
+    private var umschlagbogenMm: CGSize {
+        let pt = Umschlagmass.bogen(werk.reise.format, gestaltung: werk.reise.gestaltung,
+                                    umschlag: umschlag, innenseiten: werk.reise.innenseiten)
+        return CGSize(width: Druckmass.mm(pt.width), height: Druckmass.mm(pt.height))
+    }
+
+    private var rueckenAusBogen: Double? {
+        guard let b = zahlAus(bogenbreite) else { return nil }
+        return Druckvorgabe.rueckenAusBogen(b, format: werk.reise.format,
+                                            anschnitt: werk.reise.gestaltung.anschnitt)
+    }
+
+    private var druckereihinweis: String {
+        var text = "Oben steht, was diese App ausgibt: zwei Seiten, der Rücken und ringsum "
+        text += "\(zahl(werk.reise.gestaltung.anschnitt, "mm")) Anschnitt. Das ist die Zahl, "
+        text += "die eine Druckerei prüft \u{2014} sie lässt sich gegen die Bestellung halten. "
+        if let b = zahlAus(bogenbreite), rueckenAusBogen == nil {
+            text += "\u{26A0}\u{FE0F} Aus \(Druckvorgabe.zahl(b)) mm folgt kein Rücken: Schon zwei "
+            text += "Seiten und der Anschnitt sind breiter. Dann passt das SEITENFORMAT nicht "
+            text += "zu dieser Angabe \u{2014} das ist der wichtigere Befund, und er wird unter "
+            text += "\u{201E}Format\u{201C} geklärt. "
+        } else {
+            text += "Nennt sie eine Rückenstärke, wird sie hier eingetragen und schlägt "
+            text += "Tabelle wie Rechnung. Nennt sie nur die Bogenbreite, folgt die "
+            text += "Rückenstärke daraus \u{2014} Format und Anschnitt stehen ja fest. "
+        }
+        return text
+    }
+
+    private var innenseitenhinweis: String {
+        if umschlag.innenseitenBogen {
+            return "Die Umschlagdatei bekommt eine ZWEITE Seite in denselben Maßen: die "
+                + "Innenseiten U2 und U3. Manche Druckereien verlangen sie, andere legen "
+                + "dort ihr eigenes Vorsatzpapier ein \u{2014} verbindlich ist, was in der "
+                + "Bestellung steht. Geliefert wird eine Fläche in der gewählten Farbe; "
+                + "Blöcke lassen sich darauf nicht setzen."
+        }
+        return "Aus: Die Umschlagdatei trägt nur die Außenseite (U4+U1). Verlangt die "
+            + "Druckerei auch die Innenseiten (U2+U3), wird das hier eingeschaltet."
+    }
+
+    private func zahlAus(_ text: String) -> Double? {
+        Double(text.replacingOccurrences(of: ",", with: ".")
+            .trimmingCharacters(in: .whitespaces))
     }
 
     // MARK: - Der Rücken

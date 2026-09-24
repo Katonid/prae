@@ -686,6 +686,38 @@ enum Buchausgabe {
 
         zusammenhang.restoreGState()
         zusammenhang.endPDFPage()
+
+        // DIE INNENSEITEN DES UMSCHLAGS, U2 UND U3 (ab 1.0.72).
+        //
+        // Ein ZWEITER Bogen in derselben Datei, in denselben Maßen und mit
+        // denselben Boxen — so hat es die Druckerei verlangt („für die
+        // Aussenseiten (U4+U1) und die Innenseiten (U2+U3) jeweils eine
+        // Doppelseite"). Er kommt NACH dem Außenbogen: Umgeschlagen liegt
+        // außen zuerst, und eine Datei, deren Reihenfolge man erklären
+        // muss, ist eine Fehlerquelle.
+        //
+        // Gezeichnet wird eine FLÄCHE und sonst nichts — kein Rücken, keine
+        // Blöcke. Der Rückentext gehört auf die Außenseite; ihn hier noch
+        // einmal zu setzen hieße, ihn im fertigen Buch zweimal zu haben,
+        // einmal davon unsichtbar zwischen Deckel und erster Seite.
+        if reise.umschlag.innenseitenBogen {
+            zusammenhang.beginPDFPage(seiteninfo as CFDictionary)
+            zusammenhang.saveGState()
+            zusammenhang.translateBy(x: 0, y: bogen.height)
+            zusammenhang.scaleBy(x: 1, y: -1)
+            zusammenhang.translateBy(x: anschnitt, y: anschnitt)
+
+            var innen = Seitenhintergrund.weiss
+            innen.farbe = reise.umschlag.innenseitenFarbe ?? .papier
+            Seitensatz.zeichneHintergrund(
+                innen, rechteck: bogenrechteck,
+                bild: nil, saat: reise.id.saat, bildflaeche: nil,
+                jpegGuete: auftrag.jpegGuete, in: zusammenhang)
+
+            zusammenhang.restoreGState()
+            zusammenhang.endPDFPage()
+        }
+
         zusammenhang.closePDF()
         await MainActor.run { fortschritt(1) }
         return ziel

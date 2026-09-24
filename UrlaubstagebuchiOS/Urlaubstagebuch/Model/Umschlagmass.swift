@@ -32,6 +32,9 @@ enum Umschlagmass {
                               innenseiten: Int) -> Double
     {
         guard umschlag.rueckenZeigen else { return 0 }
+        // EINE VON HAND EINGETRAGENE ZAHL SCHLÄGT ALLES (ab 1.0.72). Wer
+        // sie einträgt, hat sie vom Druckdienst — genauer wird es nicht.
+        if let fest = umschlag.rueckenbreiteVonHand { return max(0, fest) }
         // DIE TABELLE DES DRUCKDIENSTES SCHLÄGT DIE RECHNUNG (ab 1.0.52).
         // Sie ist die einzige Angabe, die gilt — gerechnet wird nur, wo
         // keine dasteht oder wo sie über dieses Buch nichts sagt. Seit
@@ -52,6 +55,9 @@ enum Umschlagmass {
                                 innenseiten: Int) -> String
     {
         guard umschlag.rueckenZeigen else { return "" }
+        if umschlag.rueckenbreiteVonHand != nil {
+            return "von Hand eingetragen"
+        }
         if umschlag.eigeneTabellenbreite(innenseiten: innenseiten) != nil {
             return "aus der eingetragenen Tabelle des Druckdienstes"
         }

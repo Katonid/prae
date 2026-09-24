@@ -7305,6 +7305,98 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **WAS EINE DRUCKEREI NENNT, IST DER BOGEN — NICHT DIE SEITE**
+  (`Model/Druckvorgabe.swift`, ab 1.0.72; gemeldet 09/2026 aus dem ERSTEN
+  echten Druckauftrag: „Das Format der erhaltenen Daten stimmt nicht mit der
+  Bestellung überein. Bitte legen Sie Ihre Daten im Format 216 mm x 303 mm
+  an. Dieses beinhaltet das bestellte Endformat und die benötigte
+  Beschnittzugabe.").
+  **Nachgerechnet, und die App hatte recht:** 216 − 2 × 3 = 210,
+  303 − 2 × 3 = 297. Verlangt wird **A4 hoch mit 3 mm Anschnitt**, und genau
+  das gibt `Gestaltung.bogen` seit 1.0.1 aus. Ebenso der Umschlag:
+  2 × 210 + 2 (Rücken) + 2 × 3 = **428 × 303**, Wort für Wort die zweite
+  Forderung derselben Mail. **Die Zahlen waren nie falsch — sie standen nur
+  nirgends so da, dass man sie gegen eine Bestellung halten konnte.**
+  - **Die Falle, um die es geht:** Seit 1.0.52 lässt sich ein eigenes Maß
+    als Format eintragen. Wer die Zahl der Druckerei DORT einträgt, bekommt
+    eine PDF-Seite von 222 × 309 mm — Endformat plus ein zweites Mal
+    Anschnitt —, und die Datei kommt wieder zurück. Schlimmer:
+    `Formatwechsel` rechnet dabei jeden Block, jeden Rand und jede
+    Schriftgröße des Buches um. **Ein Fehler, der wie eine Lösung aussieht.**
+  - **Gefragt wird deshalb nach dem Maß der DRUCKEREI, nicht nach dem
+    Endformat** (eigener Abschnitt im Formatblatt). Zwei Felder, darunter
+    live das Endformat, das daraus folgt. Und wer doch unten tippt, bekommt
+    den Hinweis: `Druckvorgabe.bogenverdacht` prüft, ob das eingetippte Maß
+    nach Abzug des Anschnitts auf eine bekannte Vorlage fällt. **Eng gefasst
+    mit Absicht** — ein Hinweis, der bei jedem zweiten Maß erscheint, wird
+    nach dem dritten Mal überlesen —, und **ein Hinweis und keine Sperre**:
+    Wer wirklich 216 × 303 als Endformat bestellt hat, soll es eintragen
+    können.
+  - **Das Bogenmaß steht jetzt dort, wo die Datei entsteht** (Ausgabeblatt,
+    Zeile „Bogen im PDF"). Bis 1.0.71 stand dort nur das Endformat, also die
+    Seite, wie sie geschnitten in der Hand liegt — geprüft wird aber die
+    DATEI. Es folgt der gewählten Anordnung: Einzelseiten, Doppelseiten und
+    Umschlag sind drei verschiedene Maße, und gerechnet wird über dieselben
+    Stellen wie die Ausgabe. Zwei Fassungen nennten zwei Zahlen, und die
+    Druckerei prüft eine.
+  - **Die Rückenstärke lässt sich eintragen** (`Umschlag.rueckenbreiteVonHand`).
+    Dieselbe Mail: „Dieses Format beinhaltet 2 mm Rückenstärke". Zwei
+    Millimeter — eine Zahl, fertig; eintragen ließ sie sich bis 1.0.71 nur
+    als Tabellenzeile („ab 0 Seiten: 2 mm"), also über einen Umweg, den
+    niemand findet, wenn er eine einzelne Zahl vor sich hat. Sie schlägt
+    Tabelle UND Rechnung, und `rueckenherkunft` sagt „von Hand eingetragen".
+    Daneben die Gegenrichtung: Nennt die Druckerei nur die Bogenbreite,
+    folgt die Rückenstärke daraus (`Druckvorgabe.rueckenAusBogen`) — Format
+    und Anschnitt stehen ja fest.
+  - **Passt die Bogenbreite gar nicht, ist das der wichtigere Befund.**
+    Bleibt nach Abzug zweier Seiten und des Anschnitts nichts übrig, wird
+    keine Rückenstärke geraten, sondern gesagt, dass das SEITENFORMAT nicht
+    zu der Angabe passt.
+  - **Die bestellte Seitenzahl ist eine Zahl, die nur der Mensch kennt**
+    (`Reise.bestellteSeiten`, ab 1.0.72). Zweiter Punkt derselben Mail: „Sie
+    haben ein Produkt mit 60 Innenseiten bestellt, uns allerdings zu viele
+    Seiten für den Innenteil zugeschickt." Die App zählt die Seiten längst;
+    was fehlte, ist die Zahl daneben. Eingetragen wird sie im Ausgabeblatt,
+    geprüft wird sie dort und in der Druckprüfung — **vor dem Hochladen
+    statt in der Antwortmail zwei Tage später**. Ohne eingetragene
+    Bestellung wird NICHTS behauptet: Eine Warnung über eine Seitenzahl, die
+    niemand bestellt hat, ist keine Auskunft.
+  - **Die Innenseiten des Umschlags, U2 und U3** (`Umschlag.innenseitenBogen`,
+    ab 1.0.72). Dritter Punkt derselben Mail: „Bitte legen Sie für die
+    Aussenseiten (U4+U1) und die Innenseiten (U2+U3) des Umschlags jeweils
+    eine Doppelseite im Format 428 mm x 303 mm an." Bis 1.0.71 gab es davon
+    nur die Außenseite — die Doppelseitenansicht schreibt an die
+    Innenseiten sogar „Kommt von der Druckerei — nicht im PDF", und für ein
+    gebundenes Hardcover mit Vorsatzpapier stimmt das auch. **Diese
+    Druckerei will sie geliefert bekommen**, und ohne sie nimmt sie den
+    Auftrag nicht an. Die Umschlagdatei bekommt deshalb auf Wunsch eine
+    ZWEITE Seite in denselben Maßen und mit denselben Boxen, NACH der
+    Außenseite: Umgeschlagen liegt außen zuerst, und eine Datei, deren
+    Reihenfolge man erklären muss, ist eine Fehlerquelle.
+  - **Geliefert wird eine FLÄCHE, kein Satz** — eine Farbe, `nil` heißt
+    Papier. Kein Rücken (der Rückentext gehört auf die Außenseite; ihn hier
+    noch einmal zu setzen hieße, ihn im fertigen Buch zweimal zu haben,
+    einmal davon unsichtbar zwischen Deckel und erster Seite) und **keine
+    Blöcke**: Etwas anzubieten, das nach Gestaltung aussieht und keine
+    trägt, wäre der schlechtere Anfang. Und bewusst nicht der Hintergrund
+    des Umschlags — der ist meist ein Foto, und dasselbe Foto auf der
+    Innenseite noch einmal ist keine Gestaltung, sondern ein Versehen, das
+    erst im gebundenen Buch auffällt.
+- **Nicht gemessen (1.0.72):** Keine Datei ist damit hochgeladen worden.
+  **GERECHNET und an der Mail der Druckerei nachgerechnet** sind beide
+  Maße — 216 × 303 für die Innenseiten, 428 × 303 für den Umschlag —, und
+  sie gehen auf den Millimeter auf. **Ungeprüft bleibt, WARUM die erste
+  Lieferung abgewiesen wurde**: Dass die Rechnung stimmt, heißt nicht, dass
+  die Einstellungen dieses Buches stimmten; die wahrscheinlichsten
+  Kandidaten sind A4 **quer** statt hoch (das war bis 1.0.26 die Vorgabe
+  dieser App und steht in `init(from:)` bis heute als Rückfall), ein anderer
+  Anschnitt und eine gerechnete Rückenstärke von rund 8 mm statt der
+  verlangten 2. **Genau deshalb schreibt die App die Zahlen jetzt hin,
+  statt sie zu behaupten** — die Zeile „Bogen im PDF" ist die, die sich
+  gegen die Bestellung halten lässt. Ebenso ungeprüft: ob diese Druckerei
+  die U2/U3-Fläche so annimmt und ob sie die beiden Umschlagbogen in EINER
+  Datei erwartet oder in zweien — die Mail sagt dazu nichts. **Nichts davon
+  als erledigt darstellen.**
 - **EIN BUCH KOMMT ÜBER iCLOUD AN, BEVOR SEINE BILDER DA SIND**
   (`Dienste/Wolkenbilder.swift`, ab 1.0.71; gemeldet 09/2026: „Auf dem iPad
   ist kein Arbeiten möglich. Vielleicht liegt es daran, dass ich das Projekt
@@ -8575,7 +8667,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.71 (Build 72). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.72 (Build 73). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -101,6 +101,20 @@ struct Reise: Identifiable, Codable {
     // DER UMSCHLAG IST EIN BOGEN (ab 1.0.50) — und hat seine eigene
     // Gestaltung. Siehe `Model/Umschlag.swift`.
     var umschlag = Umschlag()
+
+    // WIE VIELE INNENSEITEN BESTELLT SIND (ab 1.0.72).
+    //
+    // Gemeldet 09/2026 aus einem echten Auftrag: „Sie haben ein Produkt
+    // mit 60 Innenseiten bestellt, uns allerdings zu viele Seiten für den
+    // Innenteil zugeschickt."
+    //
+    // Die App weiß, wie viele Seiten der Innenteil HAT (`innenseiten`);
+    // wie viele bestellt sind, weiß nur der Mensch. Erst beide Zahlen
+    // nebeneinander machen den Fehler sichtbar — und zwar VOR dem
+    // Hochladen statt in der Antwortmail zwei Tage später. `nil` heißt
+    // „nichts bestellt", und dann wird auch nichts behauptet.
+    var bestellteSeiten: Int?
+
     var geaendert: Date = Date()
 
     init() {}
@@ -121,6 +135,7 @@ struct Reise: Identifiable, Codable {
         akzent = b.wert(.akzent, Farbwert.akzent)
         titelseite = b.wert(.titelseite, true)
         umschlag = b.wert(.umschlag, Umschlag())
+        bestellteSeiten = b.wahlweise(.bestellteSeiten)
         geaendert = b.wert(.geaendert, Date())
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
