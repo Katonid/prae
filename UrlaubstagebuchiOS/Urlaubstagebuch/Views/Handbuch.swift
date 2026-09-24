@@ -458,6 +458,14 @@ enum Handbuch {
                 ziel: nil,
                 stichworte: ["synchronisieren", "ipad", "iphone", "wolke", "konflikt"]),
             Handbucheintrag(
+                id: "vorlagen",
+                titel: "Vorlagen: Aussehen und Druckerei",
+                text: "Einstellungen, die man einmal trifft und wiederverwendet. Zwei Arten, weil sie sich unabhängig ändern: AUSSEHEN (Schrift, Farben, Ränder, wie sich Fotos abheben, Hintergrund, Wasserzeichen) und DRUCKEREI (Seitenformat, Anschnitt, Sicherheitsabstand, Bundsteg, Umschlagbogen, Rückenstärke). Eine Vorlage trägt Einstellungen und nie Inhalt \u{2014} kein Foto, keinen Text, keine Seiten. Sie liegt neben den Büchern und geht mit dem Abgleich in die Wolke; als Datei mit der Endung .reisevorlage lässt sie sich weitergeben. Ein neues Buch kann gleich mit einer anfangen.",
+                weg: "Ganzes Buch \u{2192} Vorlagen: Aussehen und Druckerei",
+                ziel: .vorlagen,
+                stichworte: ["vorlage", "einstellungen", "speichern", "sichern", "wiederverwenden",
+                             "druckerei", "konfiguration", "export", "profil", "aussehen"]),
+            Handbucheintrag(
                 id: "datei",
                 titel: "Buch als Datei",
                 text: "Eine .reisebuch-Datei trägt das ganze Buch samt aller Bilder. Vor dem Einlesen sagt die App, was darin steht und ob sie ein vorhandenes Buch ersetzen würde.",

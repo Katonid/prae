@@ -123,10 +123,24 @@ final class Regal: ObservableObject {
         offen = werk
     }
 
+    // EIN NEUES BUCH DARF MIT EINER VORLAGE ANFANGEN (ab 1.0.95).
+    //
+    // Das FORMAT wird hier schlicht gesetzt und läuft NICHT durch
+    // `Formatwechsel`: Ein frisches Buch hat keine Seite und keinen Block,
+    // den eine Umrechnung treffen könnte. Bei einem Buch mit Inhalt ist
+    // das anders — dort fragt `Reisewerk.vorlageAnwenden` nach.
     @discardableResult
-    func anlegen(titel: String) -> Reise {
+    func anlegen(titel: String,
+                 aussehen: Vorlage? = nil,
+                 druckerei: Vorlage? = nil) -> Reise
+    {
         var neu = Reise()
         neu.titel = titel.isEmpty ? "Meine Reise" : titel
+        if let aussehen { aussehen.werte.anwenden(.aussehen, auf: &neu) }
+        if let druckerei {
+            neu.format = druckerei.werte.format
+            druckerei.werte.anwenden(.druckerei, auf: &neu)
+        }
         try? Ablage.sichern(neu)
         neuLesen()
         return neu

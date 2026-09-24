@@ -7698,6 +7698,75 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **EINE VORLAGE TRÄGT EINSTELLUNGEN UND NIE INHALT** (`Model/Vorlage.swift`,
+  `Dienste/Vorlagenablage.swift`, `Views/VorlagenView.swift`, ab 1.0.95;
+  Ansage des Nutzers 09/2026: „gewisse Einstellungen, die ich für ein Fotobuch
+  getroffen habe, abzuspeichern, möglichst auch in der Cloud. Und gerne auch
+  als Konfigurationsdatei, die man exportieren kann. … Genauso möchte ich die
+  Einstellungen, die ich jetzt für eine bestimmte Druckerei getroffen habe,
+  abspeichern können.").
+  - **ZWEI ARTEN, und die Einteilung ist seine.** Er nennt zwei Dinge, und
+    sie ändern sich unabhängig: dasselbe Aussehen an zwei Druckereien,
+    dieselbe Druckerei für zwei Bücher. Eine Vorlage, die beides trägt,
+    zwänge bei jedem Wechsel dazu, das andere mitzunehmen — und dann nimmt
+    man sie nicht mehr. **Die Grenze ist nicht Maß gegen Farbe, sondern
+    MEINE Entscheidung gegen DEREN Vorgabe:** Die Ränder stehen deshalb beim
+    Aussehen (die wählt man), der Bundsteg bei der Druckerei (der hängt an
+    der Bindung).
+  - **Was eine Vorlage überschreibt, steht an EINER Stelle**
+    (`Vorlagenwerte.anwenden`) und wird Feld für Feld gesetzt, nie als
+    ganzer Typ: Eine Aussehensvorlage, die `gestaltung` in einem Zug
+    ersetzte, nähme den Anschnitt der fremden Druckerei mit — und das fiele
+    erst auf, wenn die Datei abgewiesen wird. Die Aufzählung im
+    Anwenden-Blatt ist dieselbe Liste in Worten; **wer die eine ändert,
+    ändert die andere mit.**
+  - **Getragen werden die VOLLEN Typen** (`Gestaltung`, `Typografie`,
+    `Umschlag`), weil die ihren nachsichtigen Leser schon haben und ein Feld,
+    das morgen dazukommt, damit von selbst mitreist. Angewandt wird trotzdem
+    nur, was in der Liste steht.
+  - **Bilder reisen nicht.** Ein Hintergrundfoto und die Wasserzeichenbilder
+    liegen als Dateien im Bildarchiv DIESER Reise; eine Vorlagendatei mit
+    Bilddaten wäre keine Konfigurationsdatei mehr, sondern eine halbe
+    Buchdatei. Die EINSTELLUNGEN reisen (Deckkraft, Größe, Drehspanne,
+    Schleier), die Bilder bleiben die des Zielbuchs — und das steht vor dem
+    Anwenden da (`Vorlagenwerte.bildhinweise`). Geleert wird beim SICHERN
+    (`init(aus:)`), nicht beim Anwenden: Was nicht in der Datei steht, kann
+    auch nicht weitergegeben werden.
+  - **In der Wolke ohne zweite Abgleichsmaschine: je eine DATEI im Ordner
+    `Vorlagen` neben `Reisen`.** Damit gilt automatisch, was für die Bücher
+    gilt — Abgleich an heißt iCloud, aus heißt Gerät —, und beim Umschalten
+    ziehen sie mit (`Wolke.nebenordnerKopieren`). **Eine Liste unter einem
+    Schlüssel in den Voreinstellungen wäre hier falsch** (anders als bei
+    `Formatvorlagen` seit 1.0.52, die nicht reisen): Zwei Geräte
+    überschrieben einander die ganze Liste, statt je eine Datei zu ergänzen.
+  - **Eine eingelesene Vorlage bekommt eine NEUE Kennung.** Der Dateiname ist
+    die Kennung; sonst überschriebe eine weitergegebene Vorlage auf dem
+    Zielgerät die gleichnamige. Wer dieselbe zweimal einliest, hat zwei —
+    nicht eine halb ersetzte.
+  - **Das FORMAT ist der heikle Teil einer Druckvorlage.** Es einfach zu
+    setzen ließe jeden Block auf einer anders großen Seite an seiner alten
+    Stelle stehen. Gefragt wird deshalb wie beim Formatwechsel seit 1.0.27
+    (mitrechnen / nur das Format / lassen) — und nur dann, wenn das Maß
+    wirklich ein anderes ist. **Ein NEUES Buch braucht die Frage nicht**
+    (`Regal.anlegen`): Es hat noch keinen Block, den eine Umrechnung treffen
+    könnte.
+  - **Vorbelegt, aber sichtbar.** Eine Vorlage lässt sich als Vorschlag für
+    neue Bücher markieren; beim Anlegen steht sie dann im Wähler und ist
+    wegzunehmen. Eine App, die ein neues Buch still nach einer Vorlage
+    anlegt, sieht aus wie eine App mit seltsamen Vorgaben (dieselbe
+    Überlegung wie beim Deutschland-Ticket-Filter der Abfahrtstafel). Die
+    Vorgabe steht in den VOREINSTELLUNGEN und nicht in der Wolke: „Was
+    schlägt dieses Gerät vor" ist eine Gewohnheit dieses Geräts.
+  - **Der Anlege-Alert ist ein BLATT geworden.** Ein Alert kann keine Auswahl
+    tragen, und zwei Wege nebeneinander (Alert ohne Vorlagen, Blatt mit)
+    wären zwei Fassungen derselben Sache.
+- **Nicht gemessen (1.0.95):** Keine Vorlage ist auf einem Gerät angewandt
+  worden. Am Quelltext abgezählt ist die Feldzuordnung und dass ein neues
+  Buch keinen Formatwechsel braucht. **Ungeprüft ist der Abgleich** — dass
+  ein Ordner neben den Büchern in iCloud mitzieht, folgt daraus, dass beide
+  im selben Behälter liegen, gesehen hat es niemand. Und ob die Trennung in
+  „Aussehen" und „Druckerei" an einem wirklichen zweiten Urlaub aufgeht,
+  sagt erst der nächste Befund. **Nicht als erledigt darstellen.**
 - **EINE SETZHÖHE IST KEINE PRÜFSCHWELLE** (`Model/Textpassung.swift`, ab
   1.0.94; gemeldet 09/2026 mit zwei Bildschirmfotos: „Ich weiß nicht, wo da
   bei der Bildunterschrift Platz fehlt und wie man es beheben kann.").
@@ -9913,7 +9982,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.94 (Build 95). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.95 (Build 96). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

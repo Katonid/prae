@@ -147,6 +147,7 @@ struct ReiseView: View {
         case ausgabe
         case ausgabeformat
         case druckpruefung
+        case vorlagen
         case handbuch
         case zweiDateien
         case nurUmschlag
@@ -181,6 +182,7 @@ struct ReiseView: View {
             case .ausgabe: return "ausgabe"
             case .ausgabeformat: return "ausgabeformat"
             case .druckpruefung: return "druckpruefung"
+            case .vorlagen: return "vorlagen"
             case .handbuch: return "handbuch"
             case .zweiDateien: return "zweidateien"
             case .nurUmschlag: return "nurumschlag"
@@ -1625,6 +1627,18 @@ struct ReiseView: View {
     private var gestaltenMenue: some View {
         Menu {
             Section("Gilt für das ganze Buch") {
+                // VORLAGEN STEHEN GANZ OBEN (ab 1.0.95).
+                //
+                // Sie setzen dasselbe wie die Punkte darunter, nur alles
+                // auf einmal und aus einem anderen Buch. Wer für den
+                // nächsten Urlaub „dieselben Einstellungen" sucht, sucht
+                // sie hier — und nicht in den Einstellungen der App: Dort
+                // steht, wie diese App arbeitet, hier steht, wie dieses
+                // Buch aussieht.
+                Button("Vorlagen: Aussehen und Druckerei…", systemImage: "square.on.square") {
+                    blatt = .vorlagen
+                }
+                Divider()
                 Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
                 Button("Schrift und Ausrichtung…", systemImage: "textformat") {
                     blatt = .typografie
@@ -2137,6 +2151,8 @@ struct ReiseView: View {
             }
         case .stil:
             StilView(werk: werk)
+        case .vorlagen:
+            VorlagenView(werk: werk)
         case .hintergrund:
             HintergrundView(werk: werk)
         case .wasserzeichen:

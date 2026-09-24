@@ -510,6 +510,60 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Satz mitten darin (Ansage des Nutzers, 09/2026: „Ich möchte das frei
     // entscheiden können."). Gefragt wird weiterhin, nur ist die Antwort
     // jetzt eine echte Wahl und keine Ansage.
+    // MARK: - Vorlagen
+
+    // EINE VORLAGE AUF DIESES BUCH ANWENDEN (ab 1.0.95).
+    //
+    // Gemerkt wird davor, wie bei jedem Griff, der ein ganzes Buch
+    // anfasst: Mit „Widerrufen" ist alles zurückzunehmen.
+    //
+    // **Das FORMAT ist der heikle Teil einer Druckvorlage.** Es einfach zu
+    // setzen hieße, jeden Block auf einer anders großen Seite an seiner
+    // alten Stelle stehen zu lassen. Deshalb entscheidet der Aufrufer, und
+    // zwar mit derselben Wahl, die das Formatblatt seit 1.0.27 anbietet:
+    // `true` rechnet den Inhalt mit, `false` wechselt nur das Format,
+    // `nil` lässt es, wie es ist. Die Ansicht stellt die Frage nur, wenn
+    // das Maß wirklich ein anderes ist.
+    //
+    // Neu angeordnet wird in BEIDEN Fällen: Eine Vorlage ändert Ränder,
+    // Schriften oder den Bundsteg — also alles, was die Seiten bestimmt.
+    // Sie zu wählen und sie nicht zu sehen wäre für den Menschen davor
+    // eine Vorlage, die nichts tut.
+    @discardableResult
+    func vorlageAnwenden(_ vorlage: Vorlage,
+                         auchHandarbeit: Bool = false,
+                         formatMitrechnen: Bool? = nil) -> String
+    {
+        merken()
+        if vorlage.art == .druckerei, let mitrechnen = formatMitrechnen {
+            if mitrechnen {
+                Formatwechsel.umrechnen(&reise, auf: vorlage.werte.format)
+            } else {
+                reise.format = vorlage.werte.format
+            }
+        }
+        // NACH dem Formatwechsel: Der rechnet Längen um (auch den
+        // Bundsteg), und was die Druckerei vorgibt, soll danach gelten und
+        // nicht mit dem Faktor skaliert sein.
+        vorlage.werte.anwenden(vorlage.art, auf: &reise)
+        alleNeuAnordnen(nurUnberuehrte: !auchHandarbeit)
+        return "\u{201E}" + vorlage.name + "\u{201C} angewandt. Mit \u{201E}Widerrufen\u{201C} zurückzunehmen."
+    }
+
+    /// Die Einstellungen dieses Buches als Vorlage sichern. Was dabei NICHT
+    /// mitgeht, steht in `Vorlagenwerte.init(aus:)`.
+    func vorlageSichern(name: String, art: Vorlage.Art) -> String {
+        let fassung = Bundle.main
+            .object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let vorlage = Vorlage(name: name, art: art, aus: reise, fassung: fassung)
+        do {
+            try Vorlagenablage.sichern(vorlage)
+            return "\u{201E}" + vorlage.name + "\u{201C} gesichert."
+        } catch {
+            return "Die Vorlage ließ sich nicht sichern: " + error.localizedDescription
+        }
+    }
+
     func stilAnwenden(_ stil: Buchstil, auchHandarbeit: Bool = false) {
         merken()
         reise.stilAnwenden(stil)
