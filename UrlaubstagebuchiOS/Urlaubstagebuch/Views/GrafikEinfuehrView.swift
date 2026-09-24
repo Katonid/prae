@@ -48,7 +48,9 @@ struct GrafikEinfuehrView: View {
             // nach Herkunft der Datei nichts an.
             let offen = adresse.startAccessingSecurityScopedResource()
             defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
+            Absturzspur.beginnt("Bild aus Dateien: \(adresse.lastPathComponent) lesen")
             guard let daten = try? Data(contentsOf: adresse) else {
+                Absturzspur.endet()
                 gescheitert += 1
                 continue
             }
@@ -124,8 +126,18 @@ struct BildAusFotosView: View {
         }
         var gesetzt = 0
         var gescheitert = 0
-        for eintrag in treffer {
+        for (nummer, eintrag) in treffer.enumerated() {
+            // WAS GERADE LÄUFT, STEHT AUF DER PLATTE (ab 1.0.100).
+            //
+            // Gemeldet 09/2026: „Leider stürzt die App nun immer ab, wenn
+            // ich ein Foto aus der Galerie auf den Schmutztitel
+            // positionieren will." Die Ursache war am Quelltext nicht zu
+            // finden — also sagt die App beim nächsten Start selbst, in
+            // welchem Schritt sie gestorben ist (`Absturzspur`).
+            Absturzspur.beginnt("Bild \(nummer + 1) von \(treffer.count) aus der "
+                + "Mediathek: Daten holen")
             guard let daten = await ladeDaten(eintrag) else {
+                Absturzspur.endet()
                 gescheitert += 1
                 continue
             }

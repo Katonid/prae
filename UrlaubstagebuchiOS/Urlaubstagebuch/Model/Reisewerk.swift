@@ -2199,10 +2199,22 @@ final class Reisewerk: ObservableObject, Identifiable {
     @discardableResult
     func grafikEinfuegen(_ daten: Data, endung: String, aufSeite seiteID: UUID) -> Bool {
         let flaeche = eigenflaeche(seiteID)
-        guard flaeche != nil || seitenstelle(seiteID) != nil else { return false }
+        let wo = seitenname(seiteID) ?? "unbekannte Seite"
+        Absturzspur.beginnt("Bild einsetzen auf \(wo): Maße lesen "
+            + "(\(daten.count) Bytes, .\(endung))")
+        guard flaeche != nil || seitenstelle(seiteID) != nil else {
+            Absturzspur.endet()
+            return false
+        }
         let befund = Bildleser.befund(datei: daten)
+        Absturzspur.beginnt("Bild einsetzen auf \(wo): Datei ablegen "
+            + "(\(Int(befund.breite)) x \(Int(befund.hoehe)))")
         guard let datei = try? Bildarchiv.shared.ablegen(daten, reise: reise.id, endung: endung)
-        else { return false }
+        else {
+            Absturzspur.endet()
+            return false
+        }
+        Absturzspur.beginnt("Bild einsetzen auf \(wo): Block setzen (\(datei))")
         merken()
         let foto = Foto(datei: datei,
                         breite: befund.breite > 0 ? befund.breite : 1000,
@@ -2211,7 +2223,16 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.setzeFoto(foto)
         let satz = flaeche.map { satzFuer($0) } ?? reise.gestaltung.satzspiegel(reise.format)
         let breite = min(Double(satz.width) * 0.46, 260.0)
-        let hoehe = min(breite / max(foto.seitenverhaeltnis, 0.2), Double(satz.height) * 0.7)
+        // `max(NaN, 0.2)` gibt NaN zurück — Swifts `max` vergleicht, und
+        // jeder Vergleich mit NaN ist falsch. Aus einer Höhe von NaN wird
+        // ein `.frame(height: NaN)`, und daran stirbt SwiftUI mit „Invalid
+        // frame dimension". Die Maße sind oben zwar auf `> 0` geprüft (und
+        // `NaN > 0` ist falsch, fällt also in den Vorgabewert) — verlassen
+        // wird sich darauf nicht: Ein einziger nicht endlicher Wert nimmt
+        // die ganze App mit.
+        let verhaeltnis = foto.seitenverhaeltnis.isFinite && foto.seitenverhaeltnis > 0.2
+            ? foto.seitenverhaeltnis : 4.0 / 3.0
+        let hoehe = min(breite / verhaeltnis, Double(satz.height) * 0.7)
         let neu = Block(
             inhalt: .foto(foto.id),
             rahmen: Rahmen(x: Double(satz.midX) - breite / 2,
@@ -2222,12 +2243,25 @@ final class Reisewerk: ObservableObject, Identifiable {
         if let flaeche {
             setzeEigenbloecke(flaeche, eigenbloecke(flaeche) + [neu])
             gewaehlterBlock = neu.id
+            // NICHT sofort abgeräumt: Ob es beim Einsetzen kracht oder beim
+            // ersten Neuzeichnen danach, ist die entscheidende Hälfte der
+            // Frage — das eine wäre ein Fehler im Modell, das andere einer
+            // in der Ansicht.
+            Absturzspur.beginnt("Bild eingesetzt auf \(wo) \u{2014} "
+                + "Seite wird neu gezeichnet")
+            Absturzspur.endetSpaeter()
             return true
         }
-        guard let stelle = seitenstelle(seiteID) else { return false }
+        guard let stelle = seitenstelle(seiteID) else {
+            Absturzspur.endet()
+            return false
+        }
         reise.tage[stelle.tag].seiten[stelle.seite].bloecke.append(neu)
         reise.tage[stelle.tag].seiten[stelle.seite].heben(neu.id)
         gewaehlterBlock = neu.id
+        Absturzspur.beginnt("Bild eingesetzt auf \(wo) \u{2014} "
+            + "Seite wird neu gezeichnet")
+        Absturzspur.endetSpaeter()
         return true
     }
 

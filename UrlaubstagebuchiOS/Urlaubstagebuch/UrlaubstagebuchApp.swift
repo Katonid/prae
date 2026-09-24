@@ -50,11 +50,22 @@ final class Regal: ObservableObject {
     // danach steht an EINER Stelle (im Regal): Ein zweiter Kasten mit
     // derselben Frage liefe irgendwann auseinander.
     @Published var angeboteneDatei: URL?
+    // WAS BEIM LETZTEN MAL LIEGEN GEBLIEBEN IST (ab 1.0.100).
+    //
+    // `Absturzspur` legt vor jedem Schritt eine winzige Datei an und räumt
+    // sie weg, wenn er gut ausgegangen ist. Liegt sie beim Start noch da,
+    // ist die App genau darin gestorben — und dann steht es im Regal,
+    // kopierbar. Gelesen wird EINMAL, im `init`: Ein Befund, der bei jedem
+    // Neulesen wiederkäme, sähe aus wie ein zweiter Absturz.
+    @Published var absturzbefund: String?
 
     private var beobachter: NSMetadataQuery?
     private var nachschlag: Task<Void, Never>?
 
-    init() { neuLesen() }
+    init() {
+        absturzbefund = Absturzspur.aufgelesen()
+        neuLesen()
+    }
 
     // Beim Start wird einmal nachgesehen, ob iCloud überhaupt zu haben ist.
     // Das blockiert und darf deshalb nicht im `init` stehen; bis die Antwort

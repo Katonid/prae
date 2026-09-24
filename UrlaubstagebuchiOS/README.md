@@ -480,6 +480,57 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die App sagt, woran sie gestorben ist (1.0.100)
+
+Gemeldet 09/2026: „Leider stürzt die App nun immer ab, wenn ich ein Foto
+aus der Galerie auf den Schmutztitel positionieren will."
+
+**Die Ursache ist am Quelltext NICHT zu finden.** Der ganze Weg ist
+durchgesehen — Wähler, Daten holen, Datei ablegen, Maße lesen, Block
+setzen, Seite zeichnen, Inspektor, Fußleiste, Einrasten, Wasserzeichen —,
+und er ist an jeder Stelle mit `guard let` und `indices` abgesichert; im
+ganzen Ziel steht kein einziges erzwungenes Auspacken. In diesem Papier
+stehen genug Fälle, in denen die erste Erklärung eine Vermutung war und
+die Fassung darauf falsch gebaut wurde: das Zoomen der Abfahrtstafel
+dreimal, die Griffe dieser App fünfmal. **Also wird nicht geraten,
+sondern gemessen** — dieselbe Regel wie bei Schulalarms Stufenprobe und
+beim Kartenmesser.
+
+- **`Dienste/Absturzspur.swift`** legt vor jedem Schritt eine winzige
+  Datei an und räumt sie weg, wenn er gut ausgegangen ist. Liegt sie beim
+  nächsten Start noch da, ist die App genau darin gestorben — und dann
+  steht der Schritt im Regal, kopierbar.
+- **Eine Probe, die einen ABSTURZ überleben soll, muss auf die PLATTE.**
+  `UserDefaults` sammelt und schreibt später; nach einem Absturz ist der
+  Wert oft nicht da. Der Preis ist ehrlich zu nennen: ein Dateizugriff je
+  Schritt. Er steht deshalb nur an den wenigen Schritten, um die es geht,
+  und nie in einer Schleife, die je Bildpunkt läuft.
+- **Die Spur bleibt nach dem Einsetzen noch drei Sekunden liegen.** Ob es
+  beim Einsetzen kracht oder beim ersten Neuzeichnen danach, ist die
+  entscheidende Hälfte der Frage: Das eine wäre ein Fehler im Modell, das
+  andere einer in der Ansicht.
+
+**Zwei Dinge sind beim Suchen aufgefallen und gleich mitgerichtet** —
+beide sind unabhängig richtig, und **keines davon ist als Ursache
+behauptet**:
+
+- **`max(NaN, 0.2)` gibt NaN zurück.** Swifts `max` vergleicht, und jeder
+  Vergleich mit NaN ist falsch. Aus einer Höhe von NaN wird ein
+  `.frame(height: NaN)`, und daran stirbt SwiftUI mit „Invalid frame
+  dimension". Die Maße eines eingesetzten Bildes sind zwar auf `> 0`
+  geprüft — verlassen wird sich darauf nicht mehr.
+- **`Reise.fotoIndex` baute sein Wörterbuch mit `uniqueKeysWithValues`.**
+  Das lässt die ganze App abstürzen, sobald zwei Fotos dieselbe Kennung
+  tragen, und dieses Wörterbuch baut jeder Neusatz einer Seite. Ein Doppel
+  ist unwahrscheinlich, aber nicht ausgeschlossen: `Fotoeinfuhr` hängt
+  unmittelbar an die Liste an, und eine eingelesene Buchdatei bringt mit,
+  was sie mitbringt.
+
+**Nicht gemessen (1.0.100):** Der Absturz ist damit NICHT behoben — diese
+Fassung macht ihn nur sprechend. Ob der nächste Versuch wieder abstürzt,
+ist offen; wenn ja, steht danach im Regal, in welchem Schritt. **Nicht
+als erledigt darstellen.**
+
 ## Die Auffüllseiten standen im Buch und nicht in der Datei (1.0.99)
 
 Gemeldet 09/2026, einen Tag nach 1.0.98: „Der Schmutztitel wird dann
