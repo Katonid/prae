@@ -166,8 +166,17 @@ struct HintergrundView: View {
                 }
             }
             .task(id: kraftschluessel) {
-                randanteil = gemessenerRandanteil()
-                ausschnittbild = probenbild()
+                // ABSEITS DES HAUPTFADENS (ab 1.0.104). Ein `.task` läuft
+                // auf dem Hauptfaden — hier wurden bis 1.0.103 zwei Bilder
+                // entpackt (900 und 600 Punkte Kante) und über eines davon
+                // jeder Bildpunkt gezählt. Ein Bild von 37 MB hält das
+                // ganze Blatt an.
+                async let anteil = gemessenerRandanteil()
+                async let probe = probenbild()
+                let (a, b) = await (anteil, probe)
+                guard !Task.isCancelled else { return }
+                randanteil = a
+                ausschnittbild = b
             }
         }
     }
@@ -377,12 +386,12 @@ struct HintergrundView: View {
         return text
     }
 
-    private func probenbild() -> UIImage? {
+    private func probenbild() async -> UIImage? {
         guard grund.art == .foto, let id = grund.fotoID,
               let foto = werk.reise.foto(id)
         else { return nil }
-        return Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id, kante: 900,
-                                          farbkraft: grund.farbkraftfaktor)
+        return await Bildarchiv.shared.holen(foto.datei, reise: werk.reise.id, kante: 900,
+                                             farbkraft: grund.farbkraftfaktor)
     }
 
     // MARK: - Farbkraft
@@ -447,12 +456,18 @@ struct HintergrundView: View {
         "\(grund.fotoID?.uuidString ?? "-")|\(grund.schleier)|\(grund.farbkraft)"
     }
 
-    private func gemessenerRandanteil() -> Double? {
+    // Auch das ZÄHLEN gehört abseits des Hauptfadens: `Farbkraft.randanteil`
+    // geht über jeden Bildpunkt des Probebildes.
+    private func gemessenerRandanteil() async -> Double? {
         guard grund.art == .foto, let id = grund.fotoID,
               let foto = werk.reise.foto(id),
-              let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id, kante: 600)
+              let bild = await Bildarchiv.shared.holen(foto.datei, reise: werk.reise.id,
+                                                       kante: 600)
         else { return nil }
-        return Farbkraft.randanteil(bild, faktor: grund.farbkraftfaktor)
+        let faktor = grund.farbkraftfaktor
+        return await Task.detached(priority: .userInitiated) {
+            Farbkraft.randanteil(bild, faktor: faktor)
+        }.value
     }
 
     private var probe: some View {
@@ -570,21 +585,19 @@ struct HintergrundfotoView: View {
                             gewaehlt(foto.id)
                             schliessen()
                         } label: {
-                            if let bild = Bildarchiv.shared.vorschau(foto.datei,
-                                                                     reise: werk.reise.id,
-                                                                     kante: 300)
-                            {
-                                Image(uiImage: bild)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(height: 100)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 7))
-                            } else {
+                            ZStack {
                                 RoundedRectangle(cornerRadius: 7)
                                     .fill(Color(.systemGray5))
-                                    .frame(height: 100)
+                                Ladebild(datei: foto.datei, reise: werk.reise.id,
+                                         kante: 300) { bild in
+                                    Image(uiImage: bild)
+                                        .resizable()
+                                        .scaledToFill()
+                                }
                             }
+                            .frame(height: 100)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 7))
                         }
                         .buttonStyle(.plain)
                     }

@@ -10047,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.103 (Build 104). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.104 (Build 105). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10271,6 +10271,46 @@ Befunde, und keiner davon war Geschmack:
     haben, steht in mindestens einer Zeile weiter „nicht vermerkt".
     Ungeprüft ist auch, was `UIDevice.current.model` auf Mac Catalyst sagt
     — dort greift der eigene Zweig („Mac").
+- **DIE ZAHLEN ENTLASTEN DREI STELLEN — ALSO LIEGT ES AN DER VIERTEN**
+  (`Ladebild` an elf Stellen, `Tempomesser.sammeln`, ab 1.0.104). Die Messung
+  aus 1.0.103 hat geantwortet, und zwar gegen meine eigene Vermutung: Regal
+  lesen 190 ms (2 Bücher), Buch sichern 78 ms (6117 KB JSON), Bild aus der
+  Mediathek 53 ms (37721 KB). **Keine der drei Zahlen erklärt „das Öffnen
+  dauerte."** Eine Probe, die drei Stellen entlastet, ist nicht gescheitert —
+  sie sagt, wo NICHT zu suchen ist (dieselbe Lehre wie die Zeile „Soll/Ist"
+  in Abfahrtstafel 1.0.24, die die Geometrie entlastet hat).
+  - **Was übrig bleibt, stand seit 1.0.81 als offener Punkt da**, wörtlich:
+    „Die Listen und Blätter (Regal, Tagesliste, Hintergrundwahl, Stilwahl)
+    holen ihre kleinen Bilder weiterhin synchron; sie scrollen auch, sind
+    aber nicht der gemeldete Fall." **Jetzt sind sie es** — das Regal ist das
+    erste, was beim Start zu sehen ist, die Tagesliste das erste beim
+    Aufschlagen eines Buches. **Merke: Ein offener Punkt, der zweimal als
+    „nicht gemessen" dasteht, ist beim dritten Befund der erste Verdacht.**
+  - **Es waren ELF Stellen, nicht vier** (dazu Fotoliste, Wasserzeichen
+    dreimal, Titelfotowahl, Probebild und Randanteil). Sie holen ihre Bilder
+    seit 1.0.104 über `Ladebild` — dieselbe Bauweise wie die Bühne seit
+    1.0.81; ein zweiter Weg wäre ein zweiter Weg zu derselben Sache.
+  - **Ein `.task` läuft auf dem HAUPTFADEN.** Im Hintergrundblatt lagen darin
+    zwei Entpackvorgänge (900 und 600 Punkte Kante) und ein Lauf über jeden
+    Bildpunkt (`Farbkraft.randanteil`). Es sah aus wie „abseits" und war nur
+    „später".
+  - **Der Hebel ist die Größe der Aufnahme:** Ein Kärtchen von 120 Punkten
+    Kante wird aus einer Datei von 37 MB gerechnet. Ein Vorschaubild ist nie
+    teuer, weil es klein ist, sondern weil das Original groß ist.
+  - **Was oft und kurz ist, wird GEZÄHLT und nicht überschrieben**
+    (`Tempomesser.sammeln`): Zahl UND Summe, mit Neubeginn nach zwanzig
+    Sekunden Ruhe (**gewählt, nicht gemessen**). `melde` behält nur das
+    letzte — eine Zeile „Vorschaubild: 40 ms" sähe harmlos aus, während
+    dreißig davon anfielen.
+  - **Drei neue Messstellen:** „Buch öffnen" („Regal lesen" misst nur das
+    Entziffern der Bücher, nicht das Aufschlagen eines Buches), „Bild
+    ablegen" (die 37 MB auf die Platte) und „Bild von Platte".
+  - **Nicht gemessen (1.0.104):** Auf einem Gerät hat das niemand gesehen.
+    Abgezählt ist, WO die synchronen Griffe lagen; **dass der Mac danach
+    flüssig ist, folgt daraus NICHT.** Die Kette NACH dem Ablegen eines Bildes
+    (Rückgängig-Stapel, Sichern, Neuzeichnen) ist bewusst nicht umgebaut —
+    dort steht seit 1.0.100 ein ungeklärter Absturz offen, und zwei
+    Änderungen auf einmal ließen den nächsten Befund nicht mehr zuordnen.
 - **EIN GIGABYTE GEHÖRT NICHT AUF DEN HAUPTFADEN** (`Views/Arbeitsanzeige.swift`,
   `Dienste/Tempomesser.swift`, ab 1.0.103; gemeldet 09/2026 vom Mac: „Das
   Öffnen dauerte, das Aussuchen eines Bildes aus der Fotogalerie dauerte …

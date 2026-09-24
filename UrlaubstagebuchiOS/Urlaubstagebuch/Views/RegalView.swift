@@ -436,12 +436,16 @@ private struct Vorschaubild: View {
             // 1.0.19 stand hier das erste Foto der Reise, also ein
             // beliebiges; zwei Bücher mit demselben Anreisetag sahen im
             // Regal gleich aus.
-            if let datei = titelbild,
-               let bild = Bildarchiv.shared.vorschau(datei, reise: reise.id, kante: 240)
-            {
-                Image(uiImage: bild)
-                    .resizable()
-                    .scaledToFill()
+            if let datei = titelbild {
+                // ABSEITS DES HAUPTFADENS (ab 1.0.104). Das Regal ist das
+                // erste, was beim Start zu sehen ist — und ein Titelfoto
+                // von 37 MB wird hier entpackt. Bis 1.0.103 geschah das im
+                // Körper dieser Ansicht.
+                Ladebild(datei: datei, reise: reise.id, kante: 240) { bild in
+                    Image(uiImage: bild)
+                        .resizable()
+                        .scaledToFill()
+                }
             } else {
                 Image(systemName: "photo.on.rectangle.angled")
                     .foregroundStyle(.tertiary)
