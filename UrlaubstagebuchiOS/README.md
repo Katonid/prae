@@ -480,6 +480,56 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Drei Linien, drei Farben, eine Kontur (1.0.80)
+
+Gemeldet 09/2026 mit Bildschirmfoto: „Die dünn gestrichelte rote Linie für
+den Mindestabstand kann ich nur schwer erkennen. Ich hätte hier gerne eine
+ebenso dicke Linie wie für den Beschnitt, nur in einer anderen Farbe … Ich
+frage mich, ob man diese Linien auch sieht, wenn der Seitenhintergrund
+dunkel gewählt wird. … Auf dem Beispielbild sind noch weitere Linien zu
+sehen. Welche sind das denn eigentlich?"
+
+**Drei Befunde in einer Frage, und alle drei treffen.**
+
+Der Sicherheitsabstand war dünner gestrichelt als die Schnittkante und
+orange — auf einem Buch mit warmer Akzentfarbe steht er damit neben einer
+roten Linie, die ihm ähnlich sieht. In 1.0.73 stand als Begründung: „**nicht
+blau**, das ist beim Einrasten seit jeher der NACHBAR". Der Satz stimmt, die
+Abwägung war falsch herum: Die Fanglinie des Nachbarn trägt ihren Namen am
+Strich und erscheint nur während einer Ziehbewegung; die Schutzzone steht
+dauernd da und trägt nichts. **Wer von zwei Auskünften eine benennen kann,
+gibt der anderen die klarere Farbe.**
+
+Seither: die Schnittkante ROT mit langen Strichen, der Sicherheitsabstand
+BLAU mit kurzen und gleich dick, der Satzspiegel GRAU und fein gepunktet.
+Die verschiedenen Strichbilder sind kein Zierat — für einen
+farbfehlsichtigen Menschen wären Rot und Blau sonst dieselbe Linie.
+
+**Die dritte Linie war der Satzspiegel, und niemand hatte sie je benannt.**
+Sie lief in der Akzentfarbe der App. Sie ist die schwächste der drei
+Auskünfte — eine Hilfe für den Satz, keine Angabe der Druckerei — und sieht
+jetzt auch so aus.
+
+**Auf dunklem Grund verschwanden alle drei.** `Seitenhintergrund.dunkel`
+gibt es seit 1.0.0, gefragt hatte sie nur der Textsatz. Jede Linie bekommt
+deshalb eine Kontur in der Gegenfarbe und auf dunklem Grund einen helleren
+Ton. Die Kontur ist der wichtigere Teil: Bei einem Foto als Hintergrund
+hilft keine Farbwahl, weil der Untergrund stellenweise hell und stellenweise
+dunkel ist.
+
+**Und die Frage „welche sind das eigentlich" ist ein Befund über die
+Oberfläche.** Die Legende gab es — in der Skizze unter „Ränder und
+Druckzugaben", also dort, wo man die Zahlen einstellt, und nicht dort, wo
+man die Linien sieht. Sie steht jetzt zusätzlich als Band über der Bühne,
+solange die Linien eingeschaltet sind.
+
+### Nicht gemessen (1.0.80)
+
+Keine Seite ist damit gesehen worden. Die Farben und Strichbilder sind
+**gewählt und nicht gemessen**. Ungeprüft ist auch, ob die Kontur auf einem
+Foto reicht und ob die Legende an der richtigen Stelle sitzt. **Der Befund
+zum dunklen Hintergrund ist am Quelltext hergeleitet, nicht gesehen.**
+
 ## Das Datumsfeld hing einen Bogen hinterher (1.0.79)
 
 Gemeldet 09/2026 mit Bildschirmfoto: „Das Datumsfeld hängt immer mindestens

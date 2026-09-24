@@ -357,6 +357,24 @@ struct ReiseView: View {
                 }
                 .coordinateSpace(.named(Self.buehnenraum))
                 .background(Self.leinwand)
+                // WELCHE LINIE WAS BEDEUTET, steht über der Bühne (ab
+                // 1.0.80). Gefragt 09/2026: „Auf dem Beispielbild sind noch
+                // weitere Linien zu sehen. Welche sind das denn eigentlich?"
+                //
+                // Es gab die Legende — in der Skizze unter „Ränder und
+                // Druckzugaben", also dort, wo man die Zahlen einstellt und
+                // nicht dort, wo man die Linien sieht. Sie steht jetzt
+                // beides: hier, solange die Linien an sind, und dort
+                // weiterhin bei den Zahlen.
+                //
+                // Als ÜBERLAGERUNG und nicht als Zeile im Stapel: Eine
+                // Zeile nähme der Bühne Höhe, und `buehnenhoehe` geht in
+                // die Zoomrechnung ein. `allowsHitTesting(false)`, damit
+                // sie keine Geste schluckt — die Lehre aus 1.1.18 der
+                // Abfahrtstafel.
+                .overlay(alignment: .top) {
+                    if werk.zeigeSatzspiegel { Linienlegende() }
+                }
                 // Die Lupen können den Leser nicht selbst erreichen; sie
                 // legen ihren Wunsch hier ab.
                 .onChange(of: massstabwunsch) { _, wunsch in

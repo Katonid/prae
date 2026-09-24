@@ -7305,6 +7305,68 @@ Befunde, und keiner davon war Geschmack:
     vier Gigabyte ein paar hundert Megabyte werden, sagt erst die nächste
     Ausgabe des Nutzers — und seit 1.0.70 sagt die Schätzung vorher eine
     Zahl, die sich daran messen lässt. **Nicht als erledigt darstellen.**
+- **DREI LINIEN, DREI FARBEN — UND EINE KONTUR, DAMIT MAN SIE AUF JEDEM
+  GRUND SIEHT** (`Model/Seitenlinien.swift`, ab 1.0.80; gemeldet 09/2026 mit
+  Bildschirmfoto: „Die dünn gestrichelte rote Linie für den Mindestabstand
+  kann ich nur schwer erkennen. Ich hätte hier gerne eine ebenso dicke Linie
+  wie für den Beschnitt, nur in einer anderen Farbe, zum Beispiel hier blau.
+  Ich frage mich, ob man diese Linien auch sieht, wenn der Seitenhintergrund
+  dunkel gewählt wird. … Auf dem Beispielbild sind noch weitere Linien zu
+  sehen. Welche sind das denn eigentlich?").
+  - **Drei Befunde in einer Frage, und alle drei treffen.**
+  - **Die Abwägung von 1.0.73 war falsch herum.** Dort stand, der
+    Sicherheitsabstand sei orange und „**nicht blau**: Das ist beim
+    Einrasten seit jeher der NACHBAR, und dieselbe Farbe für zwei Auskünfte
+    ist eine Auskunft weniger." Der Satz stimmt — nur trägt die Fanglinie
+    des Nachbarn ihren NAMEN am Strich und steht nur, solange ein Finger
+    zieht; die Schutzzone steht dauernd da und trägt nichts. **Wer von zwei
+    Auskünften eine benennen kann, gibt der anderen die klarere Farbe.** Der
+    Sicherheitsabstand ist seither blau und ebenso dick wie die
+    Schnittkante, der Nachbar violett.
+  - **Farbe allein trägt nicht**: Die beiden dicken Linien unterscheiden
+    sich zusätzlich im Strichbild (lang gegen kurz), sonst wären sie für
+    einen farbfehlsichtigen Menschen dieselbe Linie — dieselbe Regel wie
+    beim entfallenden Halt in der Abfahrtstafel.
+  - **Die dritte Linie war der SATZSPIEGEL, und niemand hatte sie je
+    benannt.** Sie lief in `Color.accentColor`, also in einem Ton, den die
+    App setzt; auf einem Buch mit warmer Akzentfarbe stand sie neben zwei
+    rötlichen Linien. Sie ist jetzt neutral grau und fein gepunktet: Sie ist
+    die schwächste der drei Auskünfte — eine Hilfe für den Satz und keine
+    Angabe der Druckerei.
+  - **Auf dunklem Grund verschwanden alle drei.** `Seitenhintergrund.dunkel`
+    gibt es seit 1.0.0, und gefragt hat sie nur der Textsatz. Jede Linie
+    bekommt deshalb eine KONTUR in der Gegenfarbe und auf dunklem Grund
+    einen helleren Ton. **Die Kontur ist der wichtigere Teil**: Bei einem
+    FOTO als Hintergrund hilft keine Farbwahl, weil der Untergrund
+    stellenweise hell und stellenweise dunkel ist — dieselbe Bauweise wie
+    bei den Linienzügen der Abfahrtstafel (1.1.9).
+  - **Die Farben standen DOPPELT da** — in `SeitenflaecheView` und in
+    `Fanglinie` — und waren schon auseinandergelaufen (verschiedene
+    Strichstärken für dieselbe Sache). Sie stehen jetzt in `Seitenlinie`,
+    gefragt von der Seite, der Fanglinie, der Skizze und der Legende. **Wer
+    eine vierte Stelle baut, fragt dort.**
+  - **„Welche sind das denn eigentlich?" ist ein Befund über die
+    OBERFLÄCHE.** Die Legende gab es — in der Skizze unter „Ränder und
+    Druckzugaben", also dort, wo man die Zahlen einstellt, und nicht dort,
+    wo man die Linien sieht. Sie steht seit 1.0.80 zusätzlich als Band über
+    der Bühne, solange die Linien eingeschaltet sind, und verschwindet mit
+    dem Schalter. Als ÜBERLAGERUNG und nicht als Zeile im Stapel: Eine Zeile
+    nähme der Bühne Höhe, und `buehnenhoehe` geht in die Zoomrechnung ein.
+    `allowsHitTesting(false)`, damit sie keine Geste schluckt (1.1.18).
+  - **Die orange Warnfarbe in der Beschriftungszeile BLEIBT** („⚠ 2 Blöcke
+    im Sicherheitsabstand"). Sie sagt „hier stimmt etwas nicht" und nicht
+    „das ist diese Linie"; der Bezug steht im Wort. Die MARKE um den Block
+    auf der Seite folgt dagegen der Linie und ist jetzt blau — sie hat kein
+    Wort daneben.
+- **Nicht gemessen (1.0.80):** Keine Seite ist damit gesehen worden. Die
+  Farben und Strichbilder sind **gewählt und nicht gemessen** — ob Rot und
+  Blau in diesen Tönen auf einem hellblauen Seitenhintergrund wie dem des
+  Nutzers deutlich auseinandertreten, sagt erst der nächste Befund. Ebenso
+  ungeprüft, ob die Kontur bei 0,28 Deckung auf einem Foto reicht und ob die
+  Legende über der Bühne an der richtigen Stelle sitzt. **Und der Befund zum
+  dunklen Hintergrund ist am Quelltext hergeleitet, nicht gesehen:** Dass
+  die Linien dort verschwanden, folgt aus den festen Farben — angesehen hat
+  es niemand. **Nichts davon als erledigt darstellen.**
 - **GEZÄHLT WURDE ANWESENHEIT, GEMEINT IST SICHTBARKEIT**
   (`ReiseView.reiheInDerMitte`, ab 1.0.79; gemeldet 09/2026 mit
   Bildschirmfoto: „Das Datumsfeld hängt immer mindestens einen Tag
@@ -9174,7 +9236,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.79 (Build 80). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.80 (Build 81). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

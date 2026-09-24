@@ -36,7 +36,7 @@ struct GestaltungView: View {
         text += "dort mehr, weil bei der Klebebindung ein Streifen im Falz verschwindet. "
         text += "Oben und unten gilt immer der \u{00E4}u\u{00DF}ere Wert: Dort wird "
         text += "geschnitten und nicht gebunden. Welche Seite innen liegt, wechselt von "
-        text += "Seite zu Seite \u{2014} die orange Linie auf dem Blatt wandert deshalb mit, "
+        text += "Seite zu Seite \u{2014} die blaue Linie auf dem Blatt wandert deshalb mit, "
         text += "und daran l\u{00E4}sst sich ablesen, dass die Zahl an der richtigen Kante "
         text += "ankommt.\n\n"
         text += "Bundsteg: zusätzlicher Rand zur Heftung, 0 mm ist erlaubt und die Vorgabe. "

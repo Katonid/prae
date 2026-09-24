@@ -7,9 +7,9 @@ import UIKit
 // iPad zwei gestrichelte Linien, die um eine Seite herumlaufen. Einmal die
 // Schnittlinie und einmal die Linie für den Sicherheitsabstand."
 //
-// Auf der Seite gibt es beide seit 1.0.73 — rot die Schnittkante, orange
-// den Sicherheitsabstand. Was fehlte, ist die Stelle, an der sich
-// beantworten lässt, WELCHE welche ist und warum die orange nicht überall
+// Auf der Seite gibt es beide seit 1.0.73 — rot die Schnittkante, seit
+// 1.0.80 blau den Sicherheitsabstand. Was fehlte, ist die Stelle, an der sich
+// beantworten lässt, WELCHE welche ist und warum die blaue nicht überall
 // gleich weit innen läuft. Deshalb steht sie dort, wo die Zahlen
 // eingestellt werden, und zeigt zwei gegenüberliegende Seiten: Am Bund in
 // der Mitte ist der Streifen breiter, an den Außenkanten schmaler.
@@ -43,9 +43,12 @@ struct Schutzzonenskizze: View {
             }
             .frame(maxWidth: .infinity)
 
+            // Die Legende holt Farbe und Namen aus `Seitenlinie` — dieselbe
+            // Stelle, aus der die Seite und die Fanglinie sie holen.
             HStack(spacing: 12) {
-                zeichenerklaerung(farbe: .red, text: "Schnittkante")
-                zeichenerklaerung(farbe: .orange, text: "Sicherheitsabstand")
+                ForEach([Seitenlinie.schnitt, .sicherheit]) { art in
+                    zeichenerklaerung(art)
+                }
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
@@ -58,7 +61,7 @@ struct Schutzzonenskizze: View {
         .frame(maxWidth: .infinity)
     }
 
-    // Eine Seite: das Papier, die rote Schnittkante — und die orange Linie
+    // Eine Seite: das Papier, die rote Schnittkante — und die blaue Linie
     // an der Stelle, an der sie für DIESE Seite läuft.
     //
     // **Am Bund fehlt die rote Linie** (ab 1.0.78): Dort wird gefalzt oder
@@ -75,14 +78,10 @@ struct Schutzzonenskizze: View {
             Rectangle()
                 .fill(Color(uiColor: .secondarySystemBackground))
 
-            Schnittlinien(offen: offen)
-                .stroke(Color.red.opacity(0.7),
-                        style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
+            Hilfslinie(art: .schnitt, offen: offen, dunkel: false)
 
             if gestaltung.hatSicherheitsabstand {
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    .foregroundStyle(Color.orange.opacity(0.9))
+                Hilfslinie(art: .sicherheit, dunkel: false)
                     .frame(width: zone.width * massstab,
                            height: zone.height * massstab)
                     .offset(x: zone.minX * massstab, y: zone.minY * massstab)
@@ -91,12 +90,54 @@ struct Schutzzonenskizze: View {
         .frame(width: seitenbreite, height: hoehe)
     }
 
-    private func zeichenerklaerung(farbe: Color, text: String) -> some View {
+    private func zeichenerklaerung(_ art: Seitenlinie) -> some View {
         HStack(spacing: 4) {
             Rectangle()
-                .fill(farbe)
+                .fill(art.farbe(aufDunklem: false))
                 .frame(width: 14, height: 2)
-            Text(text)
+            Text(art.name)
         }
+    }
+}
+
+// DIE LEGENDE ÜBER DER BÜHNE (ab 1.0.80).
+//
+// Gefragt 09/2026: „Auf dem Beispielbild sind noch weitere Linien zu sehen.
+// Welche sind das denn eigentlich?" Es waren drei, und zwei davon sahen
+// einander ähnlich — die Antwort darauf steht in `Seitenlinie`. Was fehlte,
+// ist die Stelle, an der sich die Frage beantworten lässt, OHNE ein Menü zu
+// öffnen: Wer die Linien sieht, sieht sie auf der Bühne.
+//
+// Sie steht nur, solange die Linien an sind, und verschwindet mit dem
+// Schalter — ein Band, das dauernd Platz nähme, wäre für den, der die
+// Linien kennt, nur im Weg.
+struct Linienlegende: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            ForEach(Seitenlinie.stehende) { art in
+                HStack(spacing: 5) {
+                    // Das STRICHBILD steht mit da und nicht nur die Farbe:
+                    // Ein farbfehlsichtiger Mensch unterscheidet Rot und
+                    // Blau nicht sicher, die langen von den kurzen Strichen
+                    // aber schon.
+                    Path { pfad in
+                        pfad.move(to: CGPoint(x: 0, y: 1))
+                        pfad.addLine(to: CGPoint(x: 22, y: 1))
+                    }
+                    .stroke(art.farbe(aufDunklem: false),
+                            style: StrokeStyle(lineWidth: art.breite + 0.6,
+                                               dash: art.strich))
+                    .frame(width: 22, height: 2)
+                    Text(art.name)
+                }
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.regularMaterial, in: Capsule())
+        .padding(.top, 8)
+        .allowsHitTesting(false)
     }
 }

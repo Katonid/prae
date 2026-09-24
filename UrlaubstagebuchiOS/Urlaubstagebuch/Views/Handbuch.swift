@@ -173,7 +173,7 @@ enum Handbuch {
             Handbucheintrag(
                 id: "linien",
                 titel: "Die Linien auf der Seite",
-                text: "Blau der Satzspiegel, ROT gestrichelt die Schnittkante — dort wird beschnitten —, ORANGE der Sicherheitsabstand: Dort soll nichts stehen, was gelesen werden muss. Was hineinragt, wird orange umrandet, und unter dem Blatt steht, wie viele Blöcke es sind.\n\nIn der Doppelseitenansicht fehlt die rote Linie AM BUND: Dort wird gefalzt oder gebunden und nicht geschnitten, und dort liegt auch kein Anschnitt — die beiden Endformate stoßen aneinander. Die orange Linie bleibt, denn im Falz verschwindet trotzdem etwas.",
+                text: "Drei Stück, und sie stehen seit 1.0.80 als Legende über der Bühne, solange sie eingeschaltet sind: ROT mit langen Strichen die Schnittkante — dort wird beschnitten —, BLAU mit kurzen der Sicherheitsabstand: Dort soll nichts stehen, was gelesen werden muss. GRAU und fein gepunktet der Satzspiegel, also der Rand, in den der Automat setzt. Was in den Sicherheitsabstand ragt, wird blau umrandet, und unter dem Blatt steht, wie viele Blöcke es sind.\n\nAuf dunklem Seitenhintergrund werden die Töne heller, und jede Linie trägt eine Kontur in der Gegenfarbe — sonst verschwände sie auf einem Foto.\n\nIn der Doppelseitenansicht fehlt die rote Linie AM BUND: Dort wird gefalzt oder gebunden und nicht geschnitten, und dort liegt auch kein Anschnitt — die beiden Endformate stoßen aneinander. Die blaue Linie bleibt, denn im Falz verschwindet trotzdem etwas.",
                 weg: "Drei-Punkte-Menü \u{2192} Linien zeigen",
                 ziel: nil,
                 stichworte: ["schnittkante", "anschnitt", "sicherheitsabstand", "satzspiegel", "gestrichelt", "hilfslinien"]),

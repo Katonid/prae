@@ -136,9 +136,17 @@ struct SeitenflaecheView: View, Equatable {
     //
     // Seit 1.0.76 hängt er an der BUNDSEITE: Eine Druckerei verlangt innen
     // oft mehr als außen, und welche Seite innen liegt, wechselt von Seite
-    // zu Seite (`Buchseite.bundlage`). Damit wandert die orange Linie
+    // zu Seite (`Buchseite.bundlage`). Damit wandert die blaue Linie
     // sichtbar mit — und das ist zugleich die Probe, dass die Zahl an der
     // richtigen Kante ankommt.
+    // OB DER GRUND DIESER SEITE DUNKEL IST (ab 1.0.80).
+    //
+    // Gefragt 09/2026: „Ich frage mich, ob man diese Linien auch sieht,
+    // wenn der Seitenhintergrund dunkel gewählt wird." Man sah sie nicht —
+    // die Farben standen fest im Quelltext, obwohl `Seitenhintergrund.dunkel`
+    // seit 1.0.0 dasteht; gefragt hat sie nur der Textsatz.
+    private var grundIstDunkel: Bool { hintergrund.dunkel }
+
     private var schutzzone: CGRect? {
         guard werk.reise.gestaltung.hatSicherheitsabstand else { return nil }
         return werk.reise.gestaltung.schutzzone(werk.reise.format,
@@ -247,9 +255,7 @@ struct SeitenflaecheView: View, Equatable {
             }
 
             if bearbeitbar, werk.zeigeSatzspiegel {
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 0.7, dash: [4, 4]))
-                    .foregroundStyle(Color.accentColor.opacity(0.35))
+                Hilfslinie(art: .satz, offen: .keine, dunkel: grundIstDunkel)
                     .frame(width: satz.width, height: satz.height)
                     .offset(x: satz.minX, y: satz.minY)
                     .allowsHitTesting(false)
@@ -312,9 +318,7 @@ struct SeitenflaecheView: View, Equatable {
             // Schnitt behauptet, den es nicht gibt, ist schlimmer als
             // keine. `Schnittlinien` lässt genau diese eine Kante weg.
             if bearbeitbar, anschnitt > 0.5, werk.zeigeSatzspiegel {
-                Schnittlinien(offen: bogenkante)
-                    .stroke(Color.red.opacity(0.55),
-                            style: StrokeStyle(lineWidth: 0.8, dash: [7, 4]))
+                Hilfslinie(art: .schnitt, offen: bogenkante, dunkel: grundIstDunkel)
                     .frame(width: format.width, height: format.height)
                     .allowsHitTesting(false)
             }
@@ -322,16 +326,21 @@ struct SeitenflaecheView: View, Equatable {
             // DER SICHERHEITSABSTAND, gleich daneben (ab 1.0.73).
             //
             // Er ist die Gegenrichtung zur Schnittkante und muss deshalb
-            // anders aussehen: ORANGE und feiner gestrichelt. Zwei rote
-            // Linien nebeneinander wären zwei Namen für dasselbe, und
-            // genau diese Verwechslung — Anschnitt gegen Sicherheitsabstand
-            // — ist der Anlass dieser Fassung. **Nicht blau**: Das ist beim
-            // Einrasten seit jeher der Nachbar, und dieselbe Farbe für zwei
-            // Auskünfte ist eine Auskunft weniger.
+            // anders aussehen. Bis 1.0.79 hieß das hier: orange und FEINER
+            // gestrichelt, ausdrücklich „nicht blau", weil Blau beim
+            // Einrasten der Nachbar ist. Beides ist seit 1.0.80 anders —
+            // der Nutzer konnte die feine Linie kaum erkennen, und die
+            // Abwägung gegen Blau war falsch herum: Die Fanglinie des
+            // Nachbarn trägt ihren Namen am Strich und erscheint nur
+            // während einer Ziehbewegung. Jetzt gleich dick wie die
+            // Schnittkante, blau, mit kürzeren Strichen — alles in
+            // `Seitenlinie`.
             if bearbeitbar, werk.zeigeSatzspiegel, let zone = schutzzone {
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 0.6, dash: [3, 3]))
-                    .foregroundStyle(Color.orange.opacity(0.55))
+                // AM BUND LÄUFT SIE HERUM, anders als die Schnittkante:
+                // Dort wird zwar nicht geschnitten, aber im Falz
+                // verschwindet ein Streifen — genau dafür gibt es seit
+                // 1.0.76 den eigenen Innenwert.
+                Hilfslinie(art: .sicherheit, offen: .keine, dunkel: grundIstDunkel)
                     .frame(width: zone.width, height: zone.height)
                     .offset(x: zone.minX, y: zone.minY)
                     .allowsHitTesting(false)
@@ -342,7 +351,11 @@ struct SeitenflaecheView: View, Equatable {
                 ForEach(zuNahAmRand) { block in
                     Rectangle()
                         .strokeBorder(style: StrokeStyle(lineWidth: 1.4, dash: [4, 3]))
-                        .foregroundStyle(Color.orange.opacity(0.9))
+                        // DIESELBE FARBE WIE DIE LINIE, an der er zu nah
+                        // steht — sonst wäre ohne ein Wort nicht klar,
+                        // worauf sich die Marke bezieht.
+                        .foregroundStyle(Seitenlinie.sicherheit
+                            .farbe(aufDunklem: grundIstDunkel).opacity(0.95))
                         .frame(width: block.rahmen.breite, height: block.rahmen.hoehe)
                         .rotationEffect(.degrees(block.drehung))
                         .offset(x: block.rahmen.x, y: block.rahmen.y)
@@ -1049,6 +1062,35 @@ struct Ueberlaufmarke: View {
         .rotationEffect(.degrees(block.drehung))
         .offset(x: rahmen.minX, y: rahmen.minY)
         .allowsHitTesting(false)
+    }
+}
+
+// EINE HILFSLINIE — Kontur zuerst, dann die Farbe (ab 1.0.80).
+//
+// Die Kontur ist keine Zierde: Auf einem Seitenhintergrund, der dunkel ist
+// oder ein Foto trägt, verschwindet jede feste Farbe stellenweise. Erst die
+// breitere Linie in der Gegenfarbe, dann die schmalere farbige darauf —
+// dieselbe Bauweise wie bei den Linienzügen der Abfahrtstafel (1.1.9).
+//
+// Was WELCHE Linie ist, steht in `Seitenlinie` und nicht hier: Bis 1.0.79
+// standen die Farben in dieser Datei UND in `Fanglinie`, und zwei Fassungen
+// derselben Auskunft laufen auseinander.
+struct Hilfslinie: View {
+    let art: Seitenlinie
+    /// An welcher Kante der Rahmen offen bleibt — nur die Schnittkante
+    /// kennt das (am Bund wird nicht geschnitten, siehe `Bogenkante`).
+    var offen: Bogenkante = .keine
+    let dunkel: Bool
+
+    var body: some View {
+        ZStack {
+            Schnittlinien(offen: offen)
+                .stroke(Seitenlinie.kontur(aufDunklem: dunkel),
+                        style: StrokeStyle(lineWidth: art.breite + 1.1, dash: art.strich))
+            Schnittlinien(offen: offen)
+                .stroke(art.farbe(aufDunklem: dunkel),
+                        style: StrokeStyle(lineWidth: art.breite, dash: art.strich))
+        }
     }
 }
 
