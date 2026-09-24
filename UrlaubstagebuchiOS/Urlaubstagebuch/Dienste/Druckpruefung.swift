@@ -136,10 +136,21 @@ enum Druckpruefung {
         for tag in reise.tage {
             for (nummer, seite) in tag.seiten.enumerated() {
                 for block in seite.bloecke {
-                    guard case let .bildunterschrift(id) = block.inhalt,
-                          let foto = reise.foto(id),
-                          foto.unterschrift.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    else { continue }
+                    let leer: Bool
+                    switch block.inhalt {
+                    case let .bildunterschrift(id):
+                        leer = reise.foto(id)?.unterschrift
+                            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? false
+                    case .kartenunterschrift:
+                        // Auch die Karte kann eine leere Zeile tragen
+                        // (ab 1.0.87) — auf demselben Weg, durch einen
+                        // Doppeltipp.
+                        leer = tag.kartentext
+                            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    default:
+                        leer = false
+                    }
+                    guard leer else { continue }
                     treffer.append("\(tag.datum.mittel), Seite \(nummer + 1)")
                 }
             }
@@ -147,8 +158,8 @@ enum Druckpruefung {
         guard !treffer.isEmpty else { return [] }
         return [Zeile(
             stufe: .hinweis,
-            titel: "\(treffer.count)\u{00D7} Bildunterschrift eingeschaltet, aber leer",
-            text: "Unter diesen Fotos bleibt eine Zeile frei, in der nichts steht. So etwas entsteht durch einen Doppeltipp auf ein Foto \u{2014} der schaltet die Unterschrift ein. Entweder etwas hineinschreiben, oder alle auf einmal abschalten: \u{201E}\u{2026}\u{201C} oben rechts \u{2192} \u{201E}Leere Bildunterschriften abschalten\u{201C}.\n"
+            titel: "\(treffer.count)\u{00D7} Unterschrift eingeschaltet, aber leer",
+            text: "Unter diesen Fotos und Karten bleibt eine Zeile frei, in der nichts steht. So etwas entsteht durch einen Doppeltipp \u{2014} der schaltet die Unterschrift ein. Entweder etwas hineinschreiben, oder alle auf einmal abschalten: \u{201E}\u{2026}\u{201C} oben rechts \u{2192} \u{201E}Leere Bildunterschriften abschalten\u{201C}.\n"
                 + treffer.prefix(12).joined(separator: "\n")
         )]
     }
@@ -817,9 +828,49 @@ enum Druckpruefung {
     // das als Fehler auszugeben, was richtig ist — und nach dem dritten
     // solchen Hinweis liest niemand mehr eine Zeile dieser Prüfung.
     static func schutzzone(_ reise: Reise) -> [Zeile] {
-        var zeilen = anschnittkante(reise)
+        var zeilen = roteMarken(reise)
+        zeilen.append(contentsOf: anschnittkante(reise))
         zeilen.append(contentsOf: sicherheitssaum(reise))
         return zeilen
+    }
+
+    // WAS AUF DER SEITE ROT UMRANDET IST (ab 1.0.87).
+    //
+    // Ansage des Nutzers, 09/2026: „Und natürlich soll dann auch die
+    // Druckprüfung anschlagen, wenn irgendwo ein roter Rahmen ist."
+    //
+    // Gezählt wird dieselbe Liste, die auch die Marke auf der Seite setzt
+    // (`Reise.amRandGefaehrdet`) — die VEREINIGUNG aus „über die
+    // Schnittkante" und „im Sicherheitsabstand", jeder Block einmal. Die
+    // beiden Zeilen darunter sagen dann, welcher Fall es ist; diese hier
+    // beantwortet die Frage, mit der man die Prüfung öffnet.
+    private static func roteMarken(_ reise: Reise) -> [Zeile] {
+        var betroffen = 0
+        var stellen: [String] = []
+        for buchseite in reise.seitenfolge {
+            let liste = reise.amRandGefaehrdet(buchseite)
+            betroffen += liste.count
+            if !liste.isEmpty, stellen.count < 6 { stellen.append(buchseite.kurzname) }
+        }
+        guard betroffen > 0 else {
+            return [Zeile(
+                stufe: .gut,
+                titel: "Kein Block ist rot umrandet",
+                text: "Nichts ragt \u{00FC}ber die Schnittkante oder in den Sicherheitsabstand. Gemessen wird der GEZEICHNETE Umriss \u{2014} der wei\u{00DF}e Fotorand und die Drehung z\u{00E4}hlen mit."
+            )]
+        }
+        var text = "So viele Bl\u{00F6}cke tragen auf der Seite den dicken roten Rahmen. "
+        text += "Was genau daran nicht stimmt, steht in den beiden Zeilen darunter: "
+        text += "\u{00FC}ber der Schnittkante hei\u{00DF}t angeschnitten, im "
+        text += "Sicherheitsabstand hei\u{00DF}t zu dicht am Rand. "
+        if !stellen.isEmpty {
+            text += "Betroffen sind: " + stellen.joined(separator: ", ") + ". "
+        }
+        text += "Beim Schieben rasten die Bl\u{00F6}cke seit 1.0.87 am letzten Punkt "
+        text += "DAVOR ein \u{2014} gefangen wird derselbe Umriss, der auch markiert wird."
+        return [Zeile(stufe: .warnung,
+                      titel: "\(betroffen) Bl\u{00F6}cke sind rot umrandet",
+                      text: text)]
     }
 
     // ÜBER DIE SCHNITTKANTE HINAUS (ab 1.0.81).

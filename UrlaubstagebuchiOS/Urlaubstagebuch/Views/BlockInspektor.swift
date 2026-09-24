@@ -689,6 +689,28 @@ struct BlockInspektor: View {
         if let (_, tag, stelle) = kartenstelle {
             let gilt = Kartenwahl.geltend(block: block, tag: tag, reise: werk.reise)
 
+            // DIE KARTE IST AUCH NUR EIN BILD (ab 1.0.87).
+            //
+            // Derselbe Abschnitt wie beim Foto und an derselben Stelle im
+            // Blatt: erst der Schalter, dann das Feld. Ein Textfeld, das
+            // immer dasteht, sieht aus wie eine Pflichtangabe.
+            Section {
+                Toggle("Kartenunterschrift zeigen", isOn: Binding(
+                    get: { tag.kartentextZeigen },
+                    set: { neu in werk.kartenunterschriftUmschalten(tag.id, an: neu) }
+                ))
+                if tag.kartentextZeigen {
+                    TextField("Kartenunterschrift", text: Binding(
+                        get: { tag.kartentext },
+                        set: { neu in werk.reise.tage[stelle].kartentext = neu }
+                    ), axis: .vertical)
+                }
+            } header: {
+                Text("Unterschrift")
+            } footer: {
+                Text("Sie steht am TAG und nicht am Block — eine Karte zeigt die Spur dieses Tages und wechselt ihn nie. Die Karte wird dafür um die Höhe der Zeile kürzer, statt zusätzlichen Platz zu verlangen.")
+            }
+
             // DIESE EINE KARTE (ab 1.0.51).
             //
             // Ansage des Nutzers, 09/2026: „Hier wollte ich gerade

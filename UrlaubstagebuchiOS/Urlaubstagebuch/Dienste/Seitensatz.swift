@@ -428,6 +428,10 @@ enum Seitensatz {
             // nächsten Neuanordnen weg, und wer ein Bild auf eine andere
             // Seite zieht, ließe seine Unterschrift zurück.
             return reise.foto(id)?.unterschrift ?? ""
+        case .kartenunterschrift:
+            // Der Text steht am TAG: Eine Karte zeigt dessen Spur, und
+            // einen Tag wechselt sie nie (ab 1.0.87).
+            return tag?.kartentext ?? ""
         default:
             return ""
         }

@@ -480,6 +480,34 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Auch die Karte trägt eine Unterschrift (1.0.87)
+
+Eine Karte ist im Endeffekt auch nur ein Bild — sie darf jetzt dieselbe
+Zeile tragen. Doppeltipp auf die Karte, Knopf in der Fußleiste oder
+Schalter im Inspektor.
+
+Ihr Text steht am **Tag**: Eine Karte zeigt dessen Spur und wechselt ihn
+nie. Und sie wird um die Höhe der Zeile **kürzer**, statt zusätzlichen
+Platz zu verlangen — so ändert sich an keiner Höhenrechnung des Satzes
+etwas.
+
+## Einrasten am letzten Punkt davor (1.0.87)
+
+Die rote Marke misst seit 1.0.83 den **gezeichneten Umriss** — der weiße
+Fotorand liegt außerhalb des Rahmens, und ein gedrehter Block steht mit
+seiner Ecke weiter draußen. Gefangen wurde bis dahin der **Rahmen**: Ein
+Bild rastete sauber an der blauen Linie ein und trug trotzdem die Marke.
+
+An Schnittkante und Sicherheitsabstand fängt jetzt der Umriss, am
+Satzspiegel und an den Nachbarn weiter der Rahmen — dort soll ein von Hand
+geschobenes Bild neben einem gesetzten bündig stehen. Die Druckprüfung
+nennt ganz oben die Zahl der rot umrandeten Blöcke.
+
+**Nicht gemessen (1.0.87):** Keine Seite ist damit gesehen worden. Die
+Ursache ist am Quelltext abgezählt; wie es sich anfühlt, sagt erst der
+nächste Befund.
+
+
 ## Die Bildunterschrift geht mit (1.0.86)
 
 Sie ist ein eigener Block, stand aber unbeweglich unter dem **Rahmen** des

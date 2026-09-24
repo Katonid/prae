@@ -39,6 +39,33 @@ enum Einrasten {
 
         var name: String { linie.name }
 
+        // OB AN DIESER KANTE DER GEZEICHNETE UMRISS GILT (ab 1.0.87).
+        //
+        // Gemeldet 09/2026: „Wenn ich die Bilder verschiebe, rasten sie
+        // erst ein, wenn der rote Rand sich schon bildet. Natürlich wäre es
+        // wünschenswert, dass sie vorher einrasten, quasi am letztmöglichen
+        // Punkt, bevor sie in den Sicherheitsbereich reisen."
+        //
+        // **Er hat recht, und es ist auszurechnen.** Seit 1.0.83 misst die
+        // rote Marke den gezeichneten UMRISS: Der weiße Fotorand liegt
+        // außerhalb des Rahmens, und ein gedrehter Block steht mit seiner
+        // Ecke weiter draußen als mit seiner Kante. Gefangen wurde aber
+        // weiter der RAHMEN — ein Bild, das sauber an der blauen Linie
+        // einrastete, ragte mit seinem weißen Rand längst darüber hinaus.
+        // Die Marke und das Einrasten maßen zwei verschiedene Dinge.
+        //
+        // An GRENZEN gilt deshalb der Umriss: Schnittkante und
+        // Sicherheitsabstand sagen, wie weit etwas SICHTBAR reichen darf.
+        // Am Satzspiegel und an den Nachbarn bleibt es beim Rahmen — so
+        // setzt der Automat, und ein von Hand geschobenes Bild soll neben
+        // einem gesetzten bündig stehen und nicht um seinen Rand versetzt.
+        var misstUmriss: Bool {
+            switch self {
+            case .sicherheit, .anschnitt: return true
+            case .satz, .nachbar: return false
+            }
+        }
+
         /// Welche der Linien auf der Seite gemeint ist. Farbe und Name
         /// stehen seit 1.0.80 dort und nicht hier: Die Fanglinie ist
         /// dieselbe Auskunft wie der stehende Rahmen, nur flüchtig.
@@ -113,29 +140,38 @@ enum Einrasten {
         return (x, y)
     }
 
+    /// `ueberstand` ist, wie weit der gezeichnete Umriss je Achse über den
+    /// Rahmen hinausragt (`Block.ueberstand(_:)`). An den Grenzkanten wird
+    /// damit gefangen, an den übrigen weiter der Rahmen — siehe
+    /// `Herkunft.misstUmriss`.
     static func gefangen(block: Block, dx: Double, dy: Double, nachbarn: [Block],
                          satz: CGRect, bogen: CGRect? = nil, schutz: CGRect? = nil,
-                         toleranz: Double) -> Fang
+                         ueberstand: CGSize = .zero, toleranz: Double) -> Fang
     {
         let neu = block.rahmen.verschoben(dx: dx, dy: dy).rect
+        let weit = neu.insetBy(dx: -ueberstand.width, dy: -ueberstand.height)
         let alle = kanten(satz: satz, bogen: bogen, schutz: schutz, nachbarn: nachbarn)
 
         let x = naechste(kanten: alle.x, eigene: [neu.minX, neu.midX, neu.maxX],
-                         toleranz: toleranz)
+                         umriss: [weit.minX, weit.midX, weit.maxX], toleranz: toleranz)
         let y = naechste(kanten: alle.y, eigene: [neu.minY, neu.midY, neu.maxY],
-                         toleranz: toleranz)
+                         umriss: [weit.minY, weit.midY, weit.maxY], toleranz: toleranz)
         return Fang(dx: dx + x.korrektur, dy: dy + y.korrektur,
                     senkrecht: x.linie, waagerecht: y.linie)
     }
 
-    private static func naechste(kanten: [Kante], eigene: [Double], toleranz: Double)
+    private static func naechste(kanten: [Kante], eigene: [Double], umriss: [Double],
+                                 toleranz: Double)
         -> (korrektur: Double, linie: Linie?)
     {
         var beste: Double = 0
         var linie: Linie?
         var abstand = toleranz
-        for meine in eigene {
-            for kante in kanten {
+        for kante in kanten {
+            // Welche der beiden Messungen gilt, entscheidet die HERKUNFT
+            // der Kante und nicht der Block: An einer Grenze zählt, was man
+            // sieht, am Satzspiegel, was der Automat gesetzt hätte.
+            for meine in kante.herkunft.misstUmriss ? umriss : eigene {
                 let differenz = kante.wert - meine
                 if abs(differenz) < abstand {
                     abstand = abs(differenz)
@@ -150,15 +186,26 @@ enum Einrasten {
     // Beim Ändern der Größe wird nur die bewegte Kante gefangen, nicht der
     // ganze Block — sonst spränge beim Ziehen an der rechten Kante auch die
     // linke.
-    static func kanteGefangen(_ wert: Double, kanten: [Kante], toleranz: Double)
+    ///
+    /// `versatz` rückt eine GRENZkante um den Überstand nach innen — mit
+    /// Vorzeichen, denn beim Ziehen an der linken Kante liegt „innen"
+    /// rechts und umgekehrt. Nur der Aufrufer weiß, welche Kante er zieht.
+    static func kanteGefangen(_ wert: Double, kanten: [Kante], toleranz: Double,
+                              versatz: Double = 0)
         -> (wert: Double, linie: Linie?)
     {
         var beste = wert
         var linie: Linie?
         var abstand = toleranz
-        for kante in kanten where abs(kante.wert - wert) < abstand {
-            abstand = abs(kante.wert - wert)
-            beste = kante.wert
+        for kante in kanten {
+            let ziel = kante.herkunft.misstUmriss ? kante.wert + versatz : kante.wert
+            guard abs(ziel - wert) < abstand else { continue }
+            abstand = abs(ziel - wert)
+            beste = ziel
+            // Gezeichnet wird die Linie da, wo die Kante WIRKLICH liegt —
+            // der Block hält seinen Abstand davon, die Linie rückt nicht
+            // mit. Eine Fanglinie, die ein Stück neben ihrer Kante läge,
+            // wäre eine falsche Auskunft.
             linie = Linie(wert: kante.wert, herkunft: kante.herkunft)
         }
         return (beste, linie)

@@ -89,6 +89,12 @@ struct Layoutautomat {
     // `nil` ist, folgt weiter dem Buch — Abweichung, keine Kopie.
     var umschlag: Umschlag = Umschlag()
 
+    // Der Text unter der Karte DIESES Tages — `nil` heißt: keine Zeile.
+    // Gesetzt von `seiten(fuer:)` und sonst nirgends: Der Automat wird je
+    // Aufruf neu gebaut und kennt keinen Tag; die fünf Stellen, die eine
+    // Karte setzen, sollen ihn trotzdem nicht einzeln durchreichen müssen.
+    var kartenzeile: String?
+
     private var satz: CGRect { gestaltung.satzspiegel(format) }
 
     // Der Satzspiegel des UMSCHLAGS. Er nimmt dessen eigenen Rand, wenn
@@ -409,6 +415,18 @@ struct Layoutautomat {
     // MARK: - Tagesseiten
 
     func seiten(fuer tag: Reisetag) -> [Seite] {
+        // Die Kartenzeile dieses Tages einhängen, bevor gesetzt wird
+        // (ab 1.0.87). Eine Kopie mit gesetztem Feld statt einer
+        // Durchreichung durch fünf Aufrufstellen — und `seiten(fuer:)` ist
+        // die einzige Stelle, die den Tag überhaupt kennt.
+        var ich = self
+        ich.kartenzeile = tag.kartentextZeigen
+            ? (tag.kartentext.isEmpty ? "Kartenunterschrift" : tag.kartentext)
+            : nil
+        return ich.seitenBauen(tag)
+    }
+
+    private func seitenBauen(_ tag: Reisetag) -> [Seite] {
         let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt }
         let karte = tag.karteZeigen && tag.hatSpur
         let muster = tag.muster ?? musterVorschlag(text: tag.text, fotos: fotos, hatSpur: karte)
@@ -486,7 +504,8 @@ struct Layoutautomat {
                 bloecke = neu
                 if karteOffen, textY + textBreite / 1.4 < satz.maxY {
                     let hoehe = textBreite / 1.4
-                    bloecke.append(karteBlock(x: textX, y: textY, breite: textBreite, hoehe: hoehe))
+                    bloecke.append(contentsOf: karteBloecke(x: textX, y: textY,
+                                                           breite: textBreite, hoehe: hoehe))
                     textY += hoehe + fuge
                     karteOffen = false
                 }
@@ -526,7 +545,8 @@ struct Layoutautomat {
         case .karteOben:
             if karteOffen {
                 let hoehe = min(satz.width / 2.9, satz.height * 0.3)
-                bloecke.append(karteBlock(x: satz.minX, y: y, breite: satz.width, hoehe: hoehe))
+                bloecke.append(contentsOf: karteBloecke(x: satz.minX, y: y,
+                                                       breite: satz.width, hoehe: hoehe))
                 y += hoehe + fuge + 4
                 karteOffen = false
             }
@@ -539,8 +559,8 @@ struct Layoutautomat {
             var karteUnten = y
             if karteOffen {
                 let hoehe = karteBreite / 1.3
-                bloecke.append(karteBlock(x: satz.maxX - karteBreite, y: y,
-                                          breite: karteBreite, hoehe: hoehe))
+                bloecke.append(contentsOf: karteBloecke(x: satz.maxX - karteBreite, y: y,
+                                                       breite: karteBreite, hoehe: hoehe))
                 karteUnten = y + hoehe + fuge
                 karteOffen = false
             }
@@ -1156,7 +1176,7 @@ struct Layoutautomat {
                 unten += unterschriftHoehe(foto, breite: breite)
             }
         case .karte:
-            bloecke.append(karteBlock(x: x, y: y, breite: breite, hoehe: hoehe))
+            bloecke.append(contentsOf: karteBloecke(x: x, y: y, breite: breite, hoehe: hoehe))
         default:
             break
         }
@@ -1577,9 +1597,15 @@ struct Layoutautomat {
                         }
                     }
                 case .karte:
-                    let block = karteBlock(x: x, y: y + versatz, breite: breite, hoehe: gestreckt)
-                    bloecke.append(block)
-                    reihenbloecke.append(block.id)
+                    // Beide Blöcke gehören zur Reihe: `restplatzVerteilen`
+                    // schiebt sie auseinander, und eine Zeile, die dabei
+                    // liegen bliebe, stünde in der Karte darüber.
+                    for block in karteBloecke(x: x, y: y + versatz,
+                                              breite: breite, hoehe: gestreckt)
+                    {
+                        bloecke.append(block)
+                        reihenbloecke.append(block.id)
+                    }
                 default:
                     break
                 }
@@ -1646,9 +1672,45 @@ struct Layoutautomat {
         )
     }
 
-    private func karteBlock(x: Double, y: Double, breite: Double, hoehe: Double) -> Block {
-        Block(inhalt: .karte, rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
-              schatten: stil.schatten == .keiner ? nil : stil.schatten)
+    // DIE KARTE MIT IHRER ZEILE (ab 1.0.87).
+    //
+    // Zurück kommen ein oder zwei Blöcke, und die Karte wird um die Höhe
+    // der Zeile KÜRZER — sie braucht also keinen zusätzlichen Platz.
+    //
+    // Das ist der Grund, warum diese Fassung an keiner der fünf
+    // Aufrufstellen etwas an den Höhen ändern muss: Beim Foto hält
+    // `unterschriftHoehe` den Streifen eigens frei und geht in jede
+    // Reihenrechnung ein; die Karte hat keine Größe, an der etwas hängt,
+    // und ein paar Punkte weniger Karte sieht niemand. Wer das umdreht,
+    // rechnet fünf Stellen nach.
+    private func karteBloecke(x: Double, y: Double, breite: Double,
+                              hoehe: Double) -> [Block]
+    {
+        let zeile = kartenzeileHoehe(breite: breite)
+        // Eine Karte unter 24 Punkten wäre keine mehr — dann bleibt die
+        // Zeile weg, statt die Karte zu einem Streifen zu machen.
+        let kartenhoehe = hoehe - zeile
+        guard zeile > 0, kartenhoehe >= 24 else {
+            return [Block(inhalt: .karte,
+                          rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
+                          schatten: stil.schatten == .keiner ? nil : stil.schatten)]
+        }
+        let karte = Block(inhalt: .karte,
+                          rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: kartenhoehe),
+                          schatten: stil.schatten == .keiner ? nil : stil.schatten)
+        let unten = Block(inhalt: .kartenunterschrift,
+                          rahmen: Rahmen(x: x, y: y + kartenhoehe + unterschriftfuge,
+                                         breite: breite, hoehe: zeile - unterschriftfuge))
+        return [karte, unten]
+    }
+
+    // Die Höhe der Kartenzeile — null, solange sie nicht eingeschaltet ist.
+    // Der Text kommt aus `kartenzeile`, das `seiten(fuer:)` für DIESEN Tag
+    // setzt; der Automat selbst kennt keinen Tag.
+    private func kartenzeileHoehe(breite: Double) -> Double {
+        guard let text = kartenzeile else { return 0 }
+        return Textmass.hoehe(text, bild: typografie.bildunterschrift, breite: breite)
+            + unterschriftfuge
     }
 
     // Nur wo sie eingeschaltet IST, kostet sie Platz. Bis 1.0.4 rechnete

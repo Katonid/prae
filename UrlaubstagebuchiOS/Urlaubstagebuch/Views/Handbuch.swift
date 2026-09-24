@@ -229,11 +229,12 @@ enum Handbuch {
                 stichworte: ["fangen", "ausrichten", "raster", "magnet"]),
             Handbucheintrag(
                 id: "unterschrift",
-                titel: "Bildunterschrift",
-                text: "Ein Doppeltipp auf das Foto schaltet sie ein — oder der Knopf in der Leiste unten. Der Text gehört dem Foto und reist mit ihm mit. Wo eine eingeschaltete Unterschrift leer bleibt, steht auf dem Bildschirm eine dünne Marke; im Druck bleibt die Zeile leer, und die Druckprüfung zählt sie.",
-                weg: "Doppeltipp auf das Foto",
+                titel: "Bildunterschrift \u{2014} auch unter der Karte",
+                text: "Ein Doppeltipp auf das Foto schaltet sie ein \u{2014} oder der Knopf in der Leiste unten. Der Text gehört dem Foto und reist mit ihm mit. Sie DREHT und SCHIEBT mit dem Bild (ab 1.0.86); beim Ziehen an einer Ecke bleibt sie liegen und wird von Hand nachgezogen.\n\nDasselbe geht seit 1.0.87 unter einer KARTE. Ihr Text steht am Tag \u{2014} eine Karte zeigt dessen Spur und wechselt ihn nie \u{2014}, und die Karte wird um die Höhe der Zeile kürzer, statt zusätzlichen Platz zu verlangen.\n\nWo eine eingeschaltete Unterschrift leer bleibt, steht auf dem Bildschirm eine dünne Marke; im Druck bleibt die Zeile leer, und die Druckprüfung zählt sie.",
+                weg: "Doppeltipp auf das Foto oder die Karte",
                 ziel: nil,
-                stichworte: ["beschriftung", "caption", "text unter dem bild"]),
+                stichworte: ["beschriftung", "caption", "text unter dem bild", "karte",
+                             "kartenunterschrift"]),
         ])
 
     private static let tage = Handbuchkapitel(
