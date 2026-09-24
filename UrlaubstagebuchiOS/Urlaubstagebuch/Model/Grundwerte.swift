@@ -396,6 +396,21 @@ struct Gestaltung: Codable, Hashable {
     var fotorandbreite: Double = 0
     var fotorandfarbe: Farbwert?
 
+    // WIE WEIT DIE BILDUNTERSCHRIFT VOM BILD ABRÜCKT, in Millimetern
+    // (ab 1.0.92).
+    //
+    // Gemeldet 09/2026 mit einem Bildschirmfoto: „Die Bildunterschrift
+    // soll nicht halb noch im weißen Rahmen des Bildes stehen, sondern
+    // Abstand zu ihm halten."
+    //
+    // Gemessen wird ab der Unterkante des SICHTBAREN Bildes, also hinter
+    // dem weißen Rand — der liegt außerhalb des Rahmens und zählt im
+    // Layout nicht mit (die Lehre steht seit 1.0.83 an `Block.umriss`).
+    // Bis 1.0.91 standen dahinter feste drei Punkte, also gut ein
+    // Millimeter; das ist der Abstand, der auf dem Papier wie ein
+    // Versehen aussieht.
+    var unterschriftabstand: Double = 2
+
     // WIE TEXTKÄSTEN AUSSEHEN — einmal für das ganze Buch.
     //
     // Dieselbe Bauweise wie bei den Fotos darüber und aus demselben Grund
@@ -487,6 +502,7 @@ struct Gestaltung: Codable, Hashable {
         fotorand = b.wert(.fotorand, 0.0)
         fotorandbreite = b.wert(.fotorandbreite, 0.0)
         fotorandfarbe = b.wahlweise(.fotorandfarbe)
+        unterschriftabstand = b.wert(.unterschriftabstand, 2.0)
         textgrund = b.wahlweise(.textgrund)
         textinnenabstand = b.wert(.textinnenabstand, 0.0)
         textrandbreite = b.wert(.textrandbreite, 0.0)
@@ -505,6 +521,22 @@ struct Gestaltung: Codable, Hashable {
     }
 
     var anschnittPt: Double { Druckmass.pt(anschnitt) }
+
+    // DER ABSTAND EINER BILDUNTERSCHRIFT VON IHREM BILD, in Punkten —
+    // an EINER Stelle (ab 1.0.92).
+    //
+    // Gefragt vom Layoutautomaten, der die Zeile SETZT, und von
+    // `Reisewerk.zeilenAnsBildLegen`, das schon gesetzte Zeilen
+    // ausrichtet. Zwei Fassungen ergäben eine Seite, die nach dem Öffnen
+    // anders aussieht als nach dem Neuanordnen.
+    //
+    // `fotorand` ist der weiße Rand DIESES Bildes in Millimetern. Er geht
+    // mit ein, weil er außerhalb des Rahmens liegt: Ohne ihn stünde die
+    // Zeile mitten im Weiß. Eine KARTE hat keinen — dort wird 0 gereicht,
+    // und dann bleibt allein der eingestellte Abstand.
+    func unterschriftfugePt(fotorand: Double) -> Double {
+        Druckmass.pt(max(0, fotorand) + max(0, unterschriftabstand))
+    }
     var fugePt: Double { Druckmass.pt(fuge) }
     var eckenradiusPt: Double { Druckmass.pt(eckenradius) }
 

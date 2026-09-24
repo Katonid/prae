@@ -1038,10 +1038,17 @@ struct BlockInspektor: View {
                 VStack(alignment: .leading) {
                     LabeledContent("Weißer Rand", value: String(format: "%.1f mm", wirkung.fotorand)
                         .replacingOccurrences(of: ".", with: ","))
+                    // Der weiße Rand liegt AUSSERHALB des Rahmens und
+                    // bestimmt damit, wie weit die Bildunterschrift
+                    // abrückt (ab 1.0.92). Nachgezogen wird beim
+                    // Loslassen, nicht bei jedem Bildpunkt: Der Lauf geht
+                    // über jede Seite des Buches.
                     Slider(value: Binding(
                         get: { wirkung.fotorand },
                         set: { neu in werk.aendere(block.id, merken: false) { $0.fotorand = neu } }
-                    ), in: 0...10, step: 0.5)
+                    ), in: 0...10, step: 0.5) { laeuft in
+                        if !laeuft { werk.zeilenAnsBildLegen() }
+                    }
                 }
                 if !block.folgtDemBuch {
                     Button("Wieder wie im Buch") {
@@ -1051,6 +1058,7 @@ struct BlockInspektor: View {
                             b.randbreite = nil
                             b.rand = nil
                         }
+                        werk.zeilenAnsBildLegen()
                     }
                 }
             }

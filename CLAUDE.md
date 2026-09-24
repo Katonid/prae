@@ -7698,6 +7698,53 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **DIE BILDUNTERSCHRIFT HÄLT ABSTAND — und schon gesetzte Zeilen werden
+  NACHGEZOGEN** (`Gestaltung.unterschriftabstand`, `.unterschriftfugePt`,
+  `Reisewerk.zeilenAnsBildLegen`, ab 1.0.92; gemeldet 09/2026 mit
+  Bildschirmfoto: „Die Bildunterschrift soll nicht halb noch im weißen
+  Rahmen des Bildes stehen, sondern Abstand zu ihm halten.").
+  - **Zwei Ursachen, beide am Quelltext abzuzählen.** Erstens war der
+    Abstand feste drei Punkte hinter dem weißen Rand, also gut ein
+    Millimeter — er ist jetzt einstellbar (Vorgabe 2 mm, **gewählt und nicht
+    gemessen**) und wird ab der Unterkante des SICHTBAREN Bildes gemessen.
+    Zweitens, und das ist die Stelle, an der es auf einer fertigen Seite
+    hängt: `zeilenAnsBildLegen` trug seit 1.0.90 ein `guard` auf die
+    Drehung und richtete AUSSCHLIESSLICH die Neigung aus. Bei einem gerade
+    stehenden Bild lief die Schleife leer durch, und eine Seite aus einem
+    Stand vor 1.0.86 behielt ihre Zeile drei Punkte unter dem RAHMEN, also
+    mitten im weißen Rand.
+  - **Zweite Auflage derselben Lehre wie 1.0.90:** Wer eine Regel an den
+    Entstehungsstellen einbaut, erreicht keinen Block, der schon dasteht.
+    Damals wurde sie für die Neigung gezogen und für den Abstand nicht —
+    im Quelltext stand sogar wörtlich „Der Abstand bleibt, wie er ist".
+    **Merke: Wer eine solche Nachrichtung baut, zählt auf, WAS sie alles
+    ausrichten muss, und nicht nur, was gerade gemeldet wurde.**
+  - **Gerechnet wird an EINER Stelle** (`Gestaltung.unterschriftfugePt`),
+    gefragt vom Layoutautomaten, der die Zeile SETZT, und von
+    `zeilenAnsBildLegen`, das sie ausrichtet. Zwei Fassungen ergäben eine
+    Seite, die nach dem Öffnen anders aussieht als nach dem Neuanordnen.
+  - **Der weiße Rand geht mit ein, weil er AUSSERHALB des Rahmens liegt**
+    (die Lehre steht seit 1.0.83 an `Block.umriss`) — und zwar der des
+    BLOCKS (`wirkung.fotorand`), nicht der des Buches: Ein einzelnes Foto
+    darf abweichen. **Eine KARTE hat keinen**; ihn dort mitzurechnen war ein
+    alter blinder Fleck, der die Karte um genau diesen Betrag kürzte.
+  - **Die Regler ziehen nach** (weißer Rand und Abstand im Fotos-Blatt, der
+    Fotorand im Block-Inspektor, „Abweichungen aufheben"). Ohne das bliebe
+    jede schon gesetzte Zeile stehen — für den Menschen davor ein Regler,
+    der nichts tut. Gerechnet wird in `onEditingChanged`, also beim
+    Loslassen: Der Lauf geht über jede Seite des Buches und schreibt in
+    `reise`, und bei jedem Bildpunkt wäre das ein Sicherungslauf je
+    Bildpunkt.
+  - **Geschrieben wird nur bei echter Änderung.** `reise` sichert über sein
+    `didSet`; ein Sicherungslauf bei jedem Öffnen wäre beim Abgleich ein
+    Buch, das sich ohne Zutun als neuer ausgibt. Verglichen wird auf einen
+    halben Punkt.
+  - **Was `vonHand` trägt, bleibt liegen** — wer eine Zeile selbst gesetzt,
+    gedreht oder mit ihrem Bild verschoben hat, behält sie.
+  - **Nicht gemessen (1.0.92):** Keine Seite ist damit gesehen worden.
+    **Welche der beiden Ursachen auf der gemeldeten Seite zutraf, ließ sich
+    von hier aus nicht entscheiden** — beide sind behoben, und welche es
+    war, sagt erst der nächste Befund. **Nicht als erledigt darstellen.**
 - **DER UMSCHLAG HAT SEIN EIGENES MASS** (`Umschlag.format`, `.anschnitt`,
   aufgelöst in `Umschlagmass.seitenformat`/`.anschnitt`, ab 1.0.91; Ansage des
   Nutzers 09/2026 mit der Cover-Seite seines Druckdienstes daneben: „Für das
@@ -9785,7 +9832,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.91 (Build 92). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.92 (Build 93). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

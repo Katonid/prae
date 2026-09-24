@@ -104,6 +104,7 @@ enum Formatwechsel {
         g.textinnenabstand = gerundet(g.textinnenabstand * f)
         g.textrandbreite = gerundet(g.textrandbreite * f)
         g.eckenradius = gerundet(g.eckenradius * f)
+        g.unterschriftabstand = gerundet(g.unterschriftabstand * f)
         reise.gestaltung = g
 
         reise.typografie.groessenSkalieren(f)

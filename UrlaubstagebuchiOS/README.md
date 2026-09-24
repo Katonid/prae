@@ -480,6 +480,49 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die Bildunterschrift hält Abstand (1.0.92)
+
+> „Die Bildunterschrift soll nicht halb noch im weißen Rahmen des Bildes
+> stehen, sondern Abstand zu ihm halten."
+
+**Zwei Ursachen, beide am Quelltext abzuzählen** — und die zweite ist die,
+an der es auf einer fertigen Seite hängt:
+
+1. **Der Abstand war ein Millimeter.** Er stand als feste drei Punkte hinter
+   dem weißen Rand. Das reicht, um nicht IM Rand zu stehen, und sieht im
+   Druck aus, als klebte die Zeile am Bild. Er ist jetzt **einstellbar**
+   (Gestalten → Fotos, Vorgabe 2 mm) und wird ab der Unterkante des
+   SICHTBAREN Bildes gemessen — der weiße Rand liegt außerhalb des Rahmens
+   und zählt im Satz sonst nicht mit.
+2. **Schon gesetzte Seiten wurden nie nachgezogen.** `zeilenAnsBildLegen`
+   richtet seit 1.0.90 jede Unterschrift an ihrem Bild aus — aber nur die
+   NEIGUNG, und davor stand ein `guard` auf die Drehung. Bei einem gerade
+   stehenden Bild lief die Schleife damit leer durch, und eine Seite aus
+   einem Stand vor 1.0.86 behielt ihre Zeile drei Punkte unter dem RAHMEN,
+   also mitten im weißen Rand. **Zweite Auflage derselben Lehre wie 1.0.90:**
+   Wer eine Regel an den Entstehungsstellen einbaut, erreicht keinen Block,
+   der schon dasteht — damals wurde sie für die Neigung gezogen und für den
+   Abstand nicht.
+
+Dazu drei Kleinigkeiten, die daraus folgen:
+
+* **Die Regler ziehen nach.** Weißer Rand und Abstand verschieben beide die
+  Soll-Lage; ohne das Nachziehen wäre es ein Regler, der nichts tut.
+  Gerechnet wird beim Loslassen, nicht bei jedem Bildpunkt.
+* **Was von Hand verschoben wurde, bleibt liegen.** `vonHand` schützt jede
+  Zeile, die jemand selbst gesetzt, gedreht oder mit ihrem Bild verschoben
+  hat.
+* **Eine Karte hat keinen weißen Rand.** Ihn mitzurechnen war ein alter
+  blinder Fleck: Die Kartenzeile bekam den Abstand eines Fotos, und die
+  Karte darüber wurde um genau diesen Betrag kürzer, ohne dass irgendwo Weiß
+  gewesen wäre.
+
+**Nicht gemessen (1.0.92):** Keine Seite ist damit gesehen worden. Gerechnet
+ist, warum die Zeile am Bild klebte; **welche der beiden Ursachen auf deiner
+Seite zutraf, ließ sich von hier aus nicht entscheiden** — beide sind
+behoben. Die Vorgabe von 2 mm ist **gewählt und nicht gemessen**; ob sie im
+Druck richtig aussieht, sagt erst der Ausdruck, und der Regler steht daneben.
+
 ## Der Umschlag hat sein eigenes Maß (1.0.91)
 
 > „Für das Cover muss es noch weitere Einstellmöglichkeiten geben. Die

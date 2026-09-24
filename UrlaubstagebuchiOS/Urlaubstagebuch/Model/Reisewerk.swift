@@ -737,7 +737,8 @@ final class Reisewerk: ObservableObject, Identifiable {
         zeilenAnsBildLegen()
     }
 
-    // JEDE UNTERSCHRIFT LIEGT AN IHREM BILD (ab 1.0.90).
+    // JEDE UNTERSCHRIFT LIEGT AN IHREM BILD (ab 1.0.90, seit 1.0.92 auch
+    // mit dem richtigen ABSTAND).
     //
     // Ansage des Nutzers, 09/2026, an einer Zeile, die waagerecht unter
     // einem schief stehenden Bild hing: „Ich hätte es gerne so, dass die
@@ -778,15 +779,46 @@ final class Reisewerk: ObservableObject, Identifiable {
                     }
                     guard let bild = bloecke.first(where: { $0.inhalt == bildart })
                     else { continue }
-                    // Der Abstand bleibt, wie er ist: Gerichtet wird die
-                    // NEIGUNG und die Lage, die aus ihr folgt — wie weit
-                    // die Zeile unter dem Bild steht, hat entweder der
-                    // Automat gerechnet oder jemand mit der Hand gesetzt.
-                    guard abs(zeile.drehung - bild.drehung) > 0.01 else { continue }
-                    let ungedreht = zeile.rahmen.gedreht(um: bild.rahmen.mitte,
-                                                         grad: -zeile.drehung)
-                    reise.tage[t].seiten[s].bloecke[stelle].rahmen =
-                        ungedreht.gedreht(um: bild.rahmen.mitte, grad: bild.drehung)
+                    // AUCH DER ABSTAND WIRD GERICHTET (ab 1.0.92).
+                    //
+                    // Bis 1.0.91 stand hier: „Der Abstand bleibt, wie er
+                    // ist" — und ein `guard` auf die Drehung davor. Bei
+                    // einem GERADE stehenden Bild lief diese Schleife
+                    // damit leer durch, und eine Seite aus einem Stand vor
+                    // 1.0.86 behielt ihre Zeile drei Punkte unter dem
+                    // RAHMEN, also mitten im weißen Rand. Genau das wurde
+                    // 09/2026 gemeldet („soll nicht halb noch im weißen
+                    // Rahmen des Bildes stehen").
+                    //
+                    // **Zweite Auflage derselben Lehre wie 1.0.90:** Wer
+                    // eine Regel an den Entstehungsstellen einbaut,
+                    // erreicht keinen Block, der schon dasteht — damals
+                    // wurde sie für die Neigung gezogen und für den
+                    // Abstand nicht.
+                    let fuge = reise.gestaltung.unterschriftfugePt(
+                        fotorand: bild.wirkung(reise.gestaltung).fotorand)
+                    // Die Soll-Lage im UNGEDREHTEN System: unter dem Bild,
+                    // so breit wie es, um die Fuge darunter. Danach um die
+                    // Mitte des Bildes in dessen Winkel gedreht — dieselbe
+                    // Rechnung wie in `Layoutautomat.angelegt`.
+                    let soll = Rahmen(x: bild.rahmen.x,
+                                      y: bild.rahmen.y + bild.rahmen.hoehe + fuge,
+                                      breite: bild.rahmen.breite,
+                                      hoehe: zeile.rahmen.hoehe)
+                    let ziel = abs(bild.drehung) > 0.01
+                        ? soll.gedreht(um: bild.rahmen.mitte, grad: bild.drehung)
+                        : soll
+                    // Geschrieben wird nur, wo sich wirklich etwas ändert:
+                    // `reise` sichert über sein `didSet`, und ein
+                    // Sicherungslauf bei jedem Öffnen wäre beim Abgleich
+                    // ein Buch, das sich ohne Zutun als neuer ausgibt.
+                    let sitzt = abs(ziel.x - zeile.rahmen.x) < 0.5
+                        && abs(ziel.y - zeile.rahmen.y) < 0.5
+                        && abs(ziel.breite - zeile.rahmen.breite) < 0.5
+                        && abs(zeile.drehung - bild.drehung) < 0.01
+                        && zeile.ebene == bild.ebene
+                    guard !sitzt else { continue }
+                    reise.tage[t].seiten[s].bloecke[stelle].rahmen = ziel
                     reise.tage[t].seiten[s].bloecke[stelle].drehung = bild.drehung
                     reise.tage[t].seiten[s].bloecke[stelle].ebene = bild.ebene
                     gerichtet += 1
@@ -1478,6 +1510,11 @@ final class Reisewerk: ObservableObject, Identifiable {
                 }
             }
         }
+        // Der weiße Rand liegt AUSSERHALB des Rahmens und bestimmt damit,
+        // wie weit die Bildunterschrift abrückt (ab 1.0.92). Wer ihn
+        // zurücksetzt, verschiebt jede Zeile mit — ohne diese Zeile bliebe
+        // sie stehen, wo sie zum alten Rand gehörte.
+        zeilenAnsBildLegen()
     }
 
     // Dasselbe für die Textkästen — danach folgt jeder wieder der

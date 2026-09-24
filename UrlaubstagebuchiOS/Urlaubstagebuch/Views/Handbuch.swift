@@ -230,12 +230,12 @@ enum Handbuch {
             Handbucheintrag(
                 id: "unterschrift",
                 titel: "Bildunterschrift \u{2014} auch unter der Karte",
-                text: "Ein Doppeltipp auf das Foto schaltet sie ein \u{2014} oder der Knopf in der Leiste unten. Der Text gehört dem Foto und reist mit ihm mit. Sie DREHT und SCHIEBT mit dem Bild (ab 1.0.86); beim Ziehen an einer Ecke bleibt sie liegen und wird von Hand nachgezogen.\n\nDasselbe geht seit 1.0.87 unter einer KARTE. Ihr Text steht am Tag \u{2014} eine Karte zeigt dessen Spur und wechselt ihn nie \u{2014}, und die Karte wird um die Höhe der Zeile kürzer, statt zusätzlichen Platz zu verlangen.\n\nDie AUSRICHTUNG lässt sich für ein einzelnes Bild durchbrechen (ab 1.0.88): links, zentriert, rechts oder Blocksatz, einzustellen im Inspektor bei Foto oder Karte. Sie steht am Foto bzw. am Tag und übersteht damit jedes Neuanordnen; leer heißt: wie im Buch.\n\nWo eine eingeschaltete Unterschrift leer bleibt, steht auf dem Bildschirm eine dünne Marke; im Druck bleibt die Zeile leer, und die Druckprüfung zählt sie.",
+                text: "Ein Doppeltipp auf das Foto schaltet sie ein \u{2014} oder der Knopf in der Leiste unten. Der Text gehört dem Foto und reist mit ihm mit. Sie DREHT und SCHIEBT mit dem Bild (ab 1.0.86); beim Ziehen an einer Ecke bleibt sie liegen und wird von Hand nachgezogen.\n\nDasselbe geht seit 1.0.87 unter einer KARTE. Ihr Text steht am Tag \u{2014} eine Karte zeigt dessen Spur und wechselt ihn nie \u{2014}, und die Karte wird um die Höhe der Zeile kürzer, statt zusätzlichen Platz zu verlangen.\n\nDie AUSRICHTUNG lässt sich für ein einzelnes Bild durchbrechen (ab 1.0.88): links, zentriert, rechts oder Blocksatz, einzustellen im Inspektor bei Foto oder Karte. Sie steht am Foto bzw. am Tag und übersteht damit jedes Neuanordnen; leer heißt: wie im Buch.\n\nWo eine eingeschaltete Unterschrift leer bleibt, steht auf dem Bildschirm eine dünne Marke; im Druck bleibt die Zeile leer, und die Druckprüfung zählt sie.\n\nWie weit sie vom Bild abrückt, steht unter Gestalten → Fotos (ab 1.0.92). Gemessen wird ab der Unterkante des SICHTBAREN Bildes, also hinter dem weißen Rand. Wer den Regler bewegt, zieht damit jede Zeile im Buch nach — außer sie wurde von Hand verschoben.",
                 weg: "Doppeltipp auf das Foto oder die Karte",
                 ziel: nil,
                 stichworte: ["beschriftung", "caption", "text unter dem bild", "karte",
                              "kartenunterschrift", "ausrichtung", "links", "rechts",
-                             "zentriert"]),
+                             "zentriert", "abstand", "weisser rand"]),
         ])
 
     private static let tage = Handbuchkapitel(
