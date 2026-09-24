@@ -7656,6 +7656,58 @@ Befunde, und keiner davon war Geschmack:
   - **Was der Rand sonst noch tut, steht dabei:** Beim Lesen liegt dort der
     Daumen, und am Bund verschwindet in der Bindung ohnehin ein Streifen —
     dafür gibt es seit 1.0.76 den eigenen Innenwert.
+- **GEMESSEN WURDE DER RAHMEN, GESEHEN WIRD DER UMRISS** (`Block.umriss`,
+  ab 1.0.83; gemeldet 09/2026: „Wenn ich jetzt ein Element in den
+  Sicherheitsbereich hineinschiebe, erscheint noch kein roter Rand. Auch
+  nicht, wenn ich ihn in den Beschnittbereich schiebe. Erst wenn er
+  definitiv über den weißen Rand hinausragt, wird es rot. … Der Rahmen soll
+  bereits rot erscheinen, wenn eine Ecke des Elementes in den
+  Sicherheitsbereich hineinragt.").
+  - **Die Prüfung stand seit 1.0.76 auf `block.rahmen.rect` — und der ist
+    kleiner als das, was auf der Seite steht.** Zwei Gründe, beide am
+    Quelltext abzuzählen und beide in die Richtung, um die es geht:
+    **Der weiße Fotorand liegt AUSSERHALB des Rahmens** (`blockAnsicht`
+    zeichnet ihn über `padding(randPt)`, dann `padding(-randPt)` — das
+    Layoutmaß geht zurück, die Zeichnung bleibt groß); im Stil „Fotoalbum"
+    sind das 2,6 mm ringsum. Und **die Drehung wurde gar nicht gerechnet**:
+    In den lebhaften Stilen (Tagebuch, Fotoalbum, Postkarte) ist jede
+    Kachel seit 1.0.36 um bis zu 2,1 Grad gedreht, und bei einem Block von
+    300 Punkt Höhe steht seine ECKE gut 5 Punkt weiter draußen als seine
+    Kante. Zusammen sind das mehrere Millimeter — genau der Betrag, um den
+    die Marke zu spät kam. **Und die Ecke ist wörtlich das, wonach gefragt
+    wurde.**
+  - **Der SCHATTEN bleibt draußen.** Er liegt ebenfalls außerhalb des
+    Rahmens, ist aber weich, hat keine Kante und ist kein Inhalt; ihn
+    mitzumessen hieße, jeden Block mit Schatten zu markieren — und nach der
+    dritten falschen Marke sieht niemand mehr hin. Dieselbe Abwägung wie
+    bei den randabfallenden Blöcken, die ohne Ausnahme ausgenommen bleiben.
+  - **Die Nachsicht von einem halben Punkt ist weg** (`Reise.randnachsicht`,
+    ein Zehntelpunkt). Sie klingt nach nichts und ist an dieser Stelle zu
+    viel: Gefangen wird beim Schieben mit `6 / massstab` Toleranz, und damit
+    parkt ein Block regelmäßig GENAU auf einer Linie. Was dahinter noch als
+    „nicht drin" galt, war ein Stück Sicherheitsabstand.
+  - **Gemessen wird an EINER Stelle** (`Reise.ragtHinaus`), gefragt von der
+    Schnittkanten- und der Sicherheitsprüfung, und damit von der Marke auf
+    der Seite, der Zeile unter dem Blatt und der Druckprüfung. **Die Marke
+    liegt seit 1.0.83 um denselben Umriss**, den sie prüft — eine Marke, die
+    den weißen Fotorand ausließe, säße innerhalb dessen, was man sieht.
+  - **Und weil sich das hier nicht nachmessen lässt, sagt es die App**
+    (`SeitenflaecheView.randbefund`, in „Bedienung prüfen"): Für den
+    gewählten Block stehen dort Rahmen, gerechneter Umriss, Drehung,
+    Fotorand, Endformat, Schutzzone und das Urteil samt Grund —
+    „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
+    Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
+    lässt, muss eine Probe entscheiden.**
+- **Nicht gemessen (1.0.83):** Keine Seite ist damit gesehen worden. **Am
+  Quelltext ABGEZÄHLT sind die beiden blinden Flecken** (Fotorand außerhalb
+  des Rahmens, Drehung ungerechnet) und die Größenordnung, um die sie die
+  Marke nach außen schieben — sie passt zu dem, was gemeldet wurde.
+  **Bewiesen ist damit nicht, dass es DIE Ursache war:** Es kann eine zweite
+  darüberliegen, und in diesem Papier stehen genug Fälle, in denen die erste
+  Erklärung eine Vermutung war. Genau deshalb nennt die Probe seit 1.0.83
+  Zahlen statt einer Zusage — beim nächsten Mal sagt der Befund, ob die App
+  den Block überhaupt für gefährdet hält oder ob es an der Zeichnung liegt.
+  **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.82):** Keine Seite ist damit gedruckt worden.
   Gerechnet ist die Geometrie (dass die Seitenzahl bei 3 mm Rand auf 1,8 mm an
   die Kante käme und dass das Klemmen sie in die Schutzzone holt). **Ob ein
@@ -9353,7 +9405,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.82 (Build 83). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.83 (Build 84). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

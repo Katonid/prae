@@ -190,7 +190,66 @@ struct SeitenflaecheView: View, Equatable {
         zeilen.append(werk.letzteBuehne ?? "noch nicht gezoomt")
         zeilen.append(Schaerfeprobe.shared.befund)
         zeilen.append(werk.messer.befund)
+        if let rand = randbefund { zeilen.append(rand) }
         return zeilen.joined(separator: "\n")
+    }
+
+    // WARUM DIESER BLOCK MARKIERT IST — ODER WARUM NICHT (ab 1.0.83).
+    //
+    // Gemeldet 09/2026: Die rote Marke erschien erst, als der Block
+    // „definitiv über den weißen Rand" hinausragte. Gerechnet ist, woran
+    // das lag (Fotorand und Drehung wurden nicht gemessen, siehe
+    // `Block.umriss`) — GESEHEN hat es hier niemand, und es kann eine
+    // zweite Ursache darüberliegen. Deshalb steht in der Probe, was die
+    // App wirklich vor sich hat: der Rahmen, der daraus gerechnete
+    // Umriss, die beiden Flächen und das Urteil. Dasselbe Muster wie die
+    // Stufenprobe bei Schulalarm — **wo sich eine Ursache nicht
+    // erschließen lässt, muss eine Probe entscheiden.**
+    private var randbefund: String? {
+        guard let block = gewaehlterBlock else { return nil }
+        let gestaltung = werk.reise.gestaltung
+        let umriss = block.umriss(gestaltung)
+        let seite = CGRect(origin: .zero, size: format)
+        let fotorand = block.wirkung(gestaltung).fotorand
+
+        var text = "Rand: Rahmen "
+        text += kurzmass(block.rahmen.rect)
+        text += " \u{00B7} Umriss "
+        text += kurzmass(umriss)
+        text += " \u{00B7} Drehung "
+        text += String(format: "%.1f", block.drehung)
+        text += " Grad \u{00B7} Fotorand "
+        text += Druckmass.mmText(Druckmass.pt(fotorand))
+        text += "\nSeite "
+        text += kurzmass(seite)
+        if let zone = schutzzone {
+            text += " \u{00B7} Schutzzone "
+            text += kurzmass(zone)
+        } else {
+            text += " \u{00B7} Schutzzone: abgeschaltet"
+        }
+        text += "\nUrteil: "
+        if block.randabfallend {
+            text += "randabfallend, wird nie markiert"
+        } else if Reise.ragtHinaus(umriss, aus: seite) {
+            text += "ragt \u{00FC}ber die Schnittkante"
+        } else if let zone = schutzzone, Reise.ragtHinaus(umriss, aus: zone) {
+            text += "im Sicherheitsabstand"
+        } else {
+            text += "liegt ganz innen"
+        }
+        return text
+    }
+
+    private func kurzmass(_ rechteck: CGRect) -> String {
+        var text = Druckmass.mmText(Double(rechteck.minX))
+        text += "/"
+        text += Druckmass.mmText(Double(rechteck.minY))
+        text += " bis "
+        text += Druckmass.mmText(Double(rechteck.maxX))
+        text += "/"
+        text += Druckmass.mmText(Double(rechteck.maxY))
+        return text
     }
 
     // Wo das Wasserzeichen liegt. Gerechnet wird es VOR dem Bild, weil
@@ -370,12 +429,22 @@ struct SeitenflaecheView: View, Equatable {
             // Wunsch des Nutzers und es geht auf: Die Marke ist dreimal so
             // dick, läuft um einen BLOCK und nicht am Blattrand, und sie
             // trägt eine Kontur. Zu verwechseln sind die beiden nicht.
+            //
+            // Seit 1.0.83 liegt die Marke um den GEZEICHNETEN Umriss und
+            // nicht um den Rahmen: Der weiße Fotorand wird außerhalb des
+            // Rahmens gezeichnet (`padding(randPt)` in `blockAnsicht`), und
+            // eine Marke, die ihn ausließe, säße innerhalb dessen, was man
+            // sieht. Gedreht wird um dieselbe Mitte — der Fotorand liegt
+            // ringsum, die Mitte bleibt also, wo sie ist.
             if bearbeitbar {
                 ForEach(werk.reise.amRandGefaehrdet(buchseite)) { block in
+                    let rand = Druckmass.pt(
+                        max(block.wirkung(werk.reise.gestaltung).fotorand, 0))
                     Randmarke(dunkel: grundIstDunkel)
-                        .frame(width: block.rahmen.breite, height: block.rahmen.hoehe)
+                        .frame(width: block.rahmen.breite + 2 * rand,
+                               height: block.rahmen.hoehe + 2 * rand)
                         .rotationEffect(.degrees(block.drehung))
-                        .offset(x: block.rahmen.x, y: block.rahmen.y)
+                        .offset(x: block.rahmen.x - rand, y: block.rahmen.y - rand)
                         .allowsHitTesting(false)
                 }
             }
