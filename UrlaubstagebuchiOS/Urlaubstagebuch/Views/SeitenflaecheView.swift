@@ -208,6 +208,30 @@ struct SeitenflaecheView: View, Equatable {
         buchseite.seite.hintergrund ?? werk.reise.gestaltung.hintergrund
     }
 
+    // Die Blöcke DIESER Seite, an denen die Druckprüfung etwas
+    // auszusetzen hatte. Gesucht wird in der Liste des Werks — gerechnet
+    // wird dort und nur dort.
+    private var befundbloecke: [Block] {
+        guard werk.zeigeBefunde, !werk.befundstellen.isEmpty else { return [] }
+        let kennungen = Set(werk.befundstellen.filter { $0.seite == buchseite.seite.id }
+            .map(\.block))
+        guard !kennungen.isEmpty else { return [] }
+        return buchseite.seite.bloecke.filter { kennungen.contains($0.id) }
+    }
+
+    // Die rote Marke liegt um den gezeichneten UMRISS, nicht um den
+    // Rahmen: Der weiße Fotorand steht außerhalb (die Lehre seit 1.0.83).
+    @ViewBuilder
+    private func marke(um block: Block) -> some View {
+        let rand = Druckmass.pt(max(block.wirkung(werk.reise.gestaltung).fotorand, 0))
+        Randmarke(dunkel: grundIstDunkel)
+            .frame(width: block.rahmen.breite + 2 * rand,
+                   height: block.rahmen.hoehe + 2 * rand)
+            .rotationEffect(.degrees(block.drehung))
+            .offset(x: block.rahmen.x - rand, y: block.rahmen.y - rand)
+            .allowsHitTesting(false)
+    }
+
     private var gewaehlterBlock: Block? {
         guard let id = werk.gewaehlterBlock else { return nil }
         return buchseite.seite.bloecke.first { $0.id == id }
@@ -474,14 +498,27 @@ struct SeitenflaecheView: View, Equatable {
             // ringsum, die Mitte bleibt also, wo sie ist.
             if bearbeitbar {
                 ForEach(werk.reise.amRandGefaehrdet(buchseite)) { block in
-                    let rand = Druckmass.pt(
-                        max(block.wirkung(werk.reise.gestaltung).fotorand, 0))
-                    Randmarke(dunkel: grundIstDunkel)
-                        .frame(width: block.rahmen.breite + 2 * rand,
-                               height: block.rahmen.hoehe + 2 * rand)
-                        .rotationEffect(.degrees(block.drehung))
-                        .offset(x: block.rahmen.x - rand, y: block.rahmen.y - rand)
-                        .allowsHitTesting(false)
+                    marke(um: block)
+                }
+                // WAS DIE DRUCKPRÜFUNG BEANSTANDET HAT, STEHT AUF DER SEITE
+                // (ab 1.0.93).
+                //
+                // Ansage des Nutzers, 09/2026: „Ich möchte, dass nach der
+                // Dokumentprüfung alle Stellen im Dokument, an denen etwas
+                // auszusetzen war, rot umrandet erscheinen. Ich habe jetzt
+                // beispielsweise recht viel Zeit dafür verwendet, an den
+                // angegebenen Tagen die Textfelder zu suchen, die angeblich
+                // zu klein sind."
+                //
+                // Dieselbe Marke wie am Rand — es ist dieselbe Aussage
+                // („hier stimmt etwas nicht"), und zwei Rottöne
+                // nebeneinander wären eine Unterscheidung, die niemand
+                // lesen kann. Gezeigt wird sie nur, solange der Schalter an
+                // ist; die LISTE steht im Werk und wird nicht hier
+                // gerechnet (ein CoreText-Satz je Textblock, und dieser
+                // Körper läuft bei jedem Bildpunkt einer Zoomgeste mit).
+                ForEach(befundbloecke) { block in
+                    marke(um: block)
                 }
             }
 

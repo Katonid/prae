@@ -121,6 +121,35 @@ final class Reisewerk: ObservableObject, Identifiable {
         didSet { UserDefaults.standard.set(zeigeSatzspiegel, forKey: "zeigeSatzspiegel") }
     }
     @Published var zeigeHilfslinien: Bool = true
+
+    // DIE BEFUNDE DER DRUCKPRÜFUNG, AUF DER SEITE (ab 1.0.93).
+    //
+    // Ansage des Nutzers, 09/2026: „Ich möchte, dass nach der
+    // Dokumentprüfung alle Stellen im Dokument, an denen etwas auszusetzen
+    // war, rot umrandet erscheinen. Ich habe jetzt beispielsweise recht
+    // viel Zeit dafür verwendet, an den angegebenen Tagen die Textfelder zu
+    // suchen, die angeblich zu klein sind."
+    //
+    // **GESPEICHERT und nicht gerechnet.** Dahinter steckt ein voller
+    // CoreText-Satz je Textblock des Buches; als berechnete Eigenschaft
+    // liefe er bei jedem Neuzeichnen der Bühne mit — dieselbe Falle wie bei
+    // `textUeberlauf` seit 1.0.8 und bei der Netzkarte der Abfahrtstafel.
+    // Gerechnet wird deshalb auf EINEN Anlass: wenn die Prüfung läuft, wenn
+    // jemand „Im Buch zeigen" tippt, und danach bei jedem Griff, der einen
+    // Block ändern kann — aber NUR, solange die Marken überhaupt gezeigt
+    // werden. Ist der Schalter aus, kostet das Ganze nichts.
+    @Published private(set) var befundstellen: [Befundstelle] = []
+    @Published var zeigeBefunde: Bool = false {
+        didSet {
+            guard zeigeBefunde != oldValue else { return }
+            if zeigeBefunde { befundeAuffrischen(erzwingen: true) } else { befundstellen = [] }
+        }
+    }
+    /// Welche Stelle gerade angesteuert wurde — für „Befund 3 von 12".
+    @Published var befundzeiger: Int = 0
+    /// Ein Sprungwunsch an die Bühne: die Seite, auf der etwas steht.
+    /// `ReiseView` löst ihn ein und setzt ihn zurück.
+    @Published var sprungZuSeite: UUID?
     // Solange dieser Wert gesetzt ist, verschiebt eine Ziehgeste auf dem
     // Block nicht den Block, sondern das Bild IN ihm. Der Modus ist
     // sichtbar — ein Band über der Seite sagt, was gerade gilt. Eine Geste,
@@ -571,6 +600,7 @@ final class Reisewerk: ObservableObject, Identifiable {
             wortlautSichern(stelle)
             seitenNeuSetzen(stelle, mit: werkzeug)
         }
+        befundeAuffrischen()
     }
 
     // EIN TAGEBUCH DARF KEINEN SATZ VERLIEREN — auch nicht beim Neusetzen
@@ -826,6 +856,60 @@ final class Reisewerk: ObservableObject, Identifiable {
             }
         }
         return gerichtet
+    }
+
+    // MARK: - Befunde auf der Seite (ab 1.0.93)
+
+    /// Neu sammeln — nur, wenn die Marken gezeigt werden. Gerufen von
+    /// jedem Griff, der einen Block ändern kann; ist der Schalter aus,
+    /// kehrt es sofort um und kostet nichts.
+    func befundeAuffrischen(erzwingen: Bool = false) {
+        guard zeigeBefunde || erzwingen else { return }
+        let neu = Befundstellen.alle(reise)
+        // Zugewiesen wird nur bei echter Änderung: Ein `@Published`, das
+        // denselben Wert noch einmal bekommt, zeichnet die Bühne trotzdem
+        // neu (die Lehre aus der Abfahrtstafel 1.1.16).
+        guard neu != befundstellen else { return }
+        befundstellen = neu
+        if befundzeiger >= neu.count { befundzeiger = 0 }
+    }
+
+    /// Die Marken einschalten und zur ersten Stelle springen. Gerufen von
+    /// der Druckprüfung („Im Buch zeigen") — sie schließt sich danach
+    /// selbst, sonst läge das Blatt über dem, was es zeigen will.
+    func befundeZeigen(_ stellen: [Befundstelle]) {
+        // Das `didSet` von `zeigeBefunde` frischt selbst auf — aber nur,
+        // wenn sich der Schalter WIRKLICH ändert. War er schon an, muss es
+        // hier geschehen; zweimal wäre ein voller Lauf über das Buch für
+        // nichts.
+        let warAn = zeigeBefunde
+        zeigeBefunde = true
+        if warAn { befundeAuffrischen(erzwingen: true) }
+        guard let erste = stellen.first else { return }
+        befundzeiger = befundstellen.firstIndex(where: { $0.block == erste.block }) ?? 0
+        springeZu(befundstellen.indices.contains(befundzeiger)
+            ? befundstellen[befundzeiger] : erste)
+    }
+
+    /// Einen weiter — und am Ende wieder von vorn. Ein Knopf, der beim
+    /// letzten Befund nichts mehr tut, sieht kaputt aus.
+    func naechsterBefund() {
+        guard !befundstellen.isEmpty else { return }
+        befundzeiger = (befundzeiger + 1) % befundstellen.count
+        springeZu(befundstellen[befundzeiger])
+    }
+
+    private func springeZu(_ stelle: Befundstelle) {
+        // Die eigenen Felder auf dem Umschlag tragen keine Seite, auf die
+        // sich springen ließe — sie werden erst in `seitenfolge` an die
+        // gerechnete Seite gehängt. Gezählt werden sie trotzdem; gesagt
+        // wird es in der Prüfung.
+        let gibtEs = reise.tage.contains { tag in
+            tag.seiten.contains { seite in seite.id == stelle.seite }
+        }
+        guard gibtEs else { return }
+        gewaehlteSeite = stelle.seite
+        sprungZuSeite = stelle.seite
     }
 
     // MARK: - Blöcke
@@ -1211,6 +1295,11 @@ final class Reisewerk: ObservableObject, Identifiable {
     // ein Wort steht, ist Handarbeit und bleibt.
     @discardableResult
     func leereUnterschriftenAbschalten() -> Int {
+        // Die roten Marken der Druckprüfung folgen dem, was hier
+        // geschieht (ab 1.0.93). `defer`, weil diese Funktion mehr als
+        // einen Rückweg hat — und die Auffrischung kehrt sofort um,
+        // solange die Marken gar nicht gezeigt werden.
+        defer { befundeAuffrischen() }
         let leere = reise.tage
             .flatMap(\.seiten)
             .flatMap(\.bloecke)
@@ -1274,6 +1363,11 @@ final class Reisewerk: ObservableObject, Identifiable {
     // wäre der bequeme Weg und der falsche — beim nächsten Neuanordnen
     // entstünde ein neuer Block, und die Änderung wäre weg.
     func textSchreiben(_ id: UUID, text: String) {
+        // Die roten Marken der Druckprüfung folgen dem, was hier
+        // geschieht (ab 1.0.93). `defer`, weil diese Funktion mehr als
+        // einen Rückweg hat — und die Auffrischung kehrt sofort um,
+        // solange die Marken gar nicht gezeigt werden.
+        defer { befundeAuffrischen() }
         // Auf dem Umschlag gibt es nur eigene Textfelder: Titel,
         // Datumszeile und Bildunterschrift gehören einem Tag bzw. einem
         // Foto, und die kommen dort nicht vor. Der Text steht deshalb im
@@ -1365,6 +1459,7 @@ final class Reisewerk: ObservableObject, Identifiable {
                 block.vonHand = true
             }
             textUeberlauf = nil
+            befundeAuffrischen()
             return true
         }
         guard let stelle = block(id) else { return false }
@@ -1375,6 +1470,9 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].rahmen.hoehe = noetig
         reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
         textUeberlauf = nil
+        // Die rote Marke gehört weg, sobald der Kasten passt — sonst steht
+        // sie über einem Befund, den es nicht mehr gibt (ab 1.0.93).
+        befundeAuffrischen()
         return true
     }
 
@@ -1412,6 +1510,11 @@ final class Reisewerk: ObservableObject, Identifiable {
     // eingestellt hat.
     @discardableResult
     func textTeilen(_ id: UUID, nachAbsatz: Int? = nil) -> Bool {
+        // Die roten Marken der Druckprüfung folgen dem, was hier
+        // geschieht (ab 1.0.93). `defer`, weil diese Funktion mehr als
+        // einen Rückweg hat — und die Auffrischung kehrt sofort um,
+        // solange die Marken gar nicht gezeigt werden.
+        defer { befundeAuffrischen() }
         guard let stelle = block(id) else { return false }
         let tag = reise.tage[stelle.tag]
         let block = tag.seiten[stelle.seite].bloecke[stelle.block]

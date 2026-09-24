@@ -409,10 +409,11 @@ enum Handbuch {
             Handbucheintrag(
                 id: "druckpruefung",
                 titel: "Druckprüfung",
-                text: "Was einem Druckdienst auffallen würde: zu grobe Bilder, fehlender Anschnitt, Text, der nicht in seinen Kasten passt, Blöcke im Sicherheitsabstand, eine ungerade Seitenzahl. Sortiert nach Dringlichkeit und kopierbar.",
+                text: "Was einem Druckdienst auffallen würde: zu grobe Bilder, fehlender Anschnitt, Text, der nicht in seinen Kasten passt, Blöcke im Sicherheitsabstand, eine ungerade Seitenzahl. Sortiert nach Dringlichkeit und kopierbar.\n\nWo ein Befund eine Stelle im Buch nennt, steht darunter \u{201E}Im Buch zeigen\u{201C} (ab 1.0.93): Die Prüfung macht sich zu, die betroffenen Kästen werden ROT UMRANDET, und die Ansicht springt zum ersten. Unten in der Leiste steht dann \u{201E}Befund 3 von 12\u{201C} \u{2014} ein Tipp darauf geht zum nächsten, am Ende wieder von vorn. Was behoben ist, verliert seine Marke von selbst; ganz abschalten lässt sich das unter \u{201E}Hilfen beim Anordnen\u{201C}.",
                 weg: "Drei-Punkte-Menü \u{2192} Druckprüfung",
                 ziel: .druckpruefung,
-                stichworte: ["prüfen", "fehler", "kontrolle", "dpi", "auflösung"]),
+                stichworte: ["prüfen", "fehler", "kontrolle", "dpi", "auflösung", "rot umrandet",
+                             "markieren", "wo", "finden"]),
             Handbucheintrag(
                 id: "ausgabeformat",
                 titel: "Ausgabeformat und Maße",

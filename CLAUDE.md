@@ -7698,6 +7698,53 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **EINE PRÜFUNG, DIE EINE STELLE NENNT, ABER NICHT ZEIGT, VERSCHIEBT DIE
+  ARBEIT NUR** (`Model/Befundstelle.swift`, `Reisewerk.befundstellen`,
+  `.zeigeBefunde`, ab 1.0.93; Ansage des Nutzers 09/2026: „Ich möchte, dass
+  nach der Dokumentprüfung alle Stellen im Dokument, an denen etwas
+  auszusetzen war, rot umrandet erscheinen. Ich habe jetzt beispielsweise
+  recht viel Zeit dafür verwendet, an den angegebenen Tagen die Textfelder zu
+  suchen, die angeblich zu klein sind.").
+  - Die Druckprüfung nannte Tag und Blockart im FLIESSTEXT („6. August 2026:
+    Tagebuchtext, es fehlen 4,2 mm") — und danach saß man vor einem Tag mit
+    vier Seiten und suchte. Unter jedem Befund mit Ortsbezug steht jetzt „Im
+    Buch zeigen": Das Blatt macht sich zu, die Kästen werden rot umrandet,
+    die Ansicht springt zum ersten, und unten steht „Befund 3 von 12" mit
+    einem Knopf zum nächsten (am Ende wieder von vorn — ein Knopf, der
+    plötzlich nichts mehr tut, sieht kaputt aus).
+  - **Gerechnet wird an EINER Stelle** (`Befundstellen.alle`). Die drei
+    Prüfungen mit Blockbezug (`abgeschnittenerText`, `doppelterText`,
+    `leereUnterschriften`) standen bis 1.0.92 als eigene Schleifen in
+    `Druckpruefung` und bauen ihre Zeilen seither aus dieser Liste — sonst
+    stünde in der Prüfung ein Kasten, um den auf der Seite keine Marke liegt.
+    `vorab` sammelt EINMAL und reicht die Liste durch: Der Lauf misst jeden
+    Textblock mit CoreText, dreimal gerufen wäre er dreimal bezahlt.
+  - **Dieselbe rote Marke wie am Rand** (seit 1.0.81) — es ist dieselbe
+    Aussage, und zwei Rottöne nebeneinander wären eine Unterscheidung, die
+    niemand lesen kann. Sie liegt um den gezeichneten UMRISS, nicht um den
+    Rahmen (die Lehre seit 1.0.83).
+  - **Die Liste ist GESPEICHERT, nicht gerechnet** — dieselbe Falle wie bei
+    `textUeberlauf` seit 1.0.8. Gesammelt wird auf einen Anlass, und nur
+    solange `zeigeBefunde` an ist; ist der Schalter aus, kostet das Ganze
+    nichts. Zugewiesen wird nur bei echter Änderung, und **`Befundstelle.id`
+    ist deshalb ABGELEITET und nicht gewürfelt**: Ein frisches `UUID()` je
+    Sammeln machte zwei gleiche Listen ungleich, und die Bühne zeichnete bei
+    jedem Lauf neu.
+  - **Was behoben ist, verliert seine Marke von selbst.**
+    `hoeheAnTextAnpassen`, `textSchreiben`, `textTeilen`,
+    `leereUnterschriftenAbschalten` und `alleNeuAnordnen` frischen auf; das
+    Ziehen an einer Ecke über `onChange(of: werk.textUeberlauf)` — die
+    Messung läuft dort seit 1.0.8 ohnehin. **Wer einen neuen Griff baut, der
+    einen Block ändern kann, ruft `befundeAuffrischen()`.**
+  - **Was am RAND steht, ist NICHT in der Liste.** Das hat seit 1.0.81 seine
+    eigene Marke aus `Reise.amRandGefaehrdet`, die die Lage selbst misst —
+    mit der Bundseite DIESER Seite. Zweimal aufgenommen wären es zwei Marken
+    übereinander und zwei Rechnungen dafür.
+  - **Nicht gemessen (1.0.93):** Keine Seite ist damit gesehen worden. Am
+    Quelltext abgezählt ist, was je Anlass gerechnet wird; ob das Blättern
+    sich schnell anfühlt, sagt erst der nächste Befund. Die eigenen Felder
+    auf Titel- und Rückseite werden gezählt, aber nicht angesprungen — sie
+    stehen in keinem Tag. **Nicht als erledigt darstellen.**
 - **DIE BILDUNTERSCHRIFT HÄLT ABSTAND — und schon gesetzte Zeilen werden
   NACHGEZOGEN** (`Gestaltung.unterschriftabstand`, `.unterschriftfugePt`,
   `Reisewerk.zeilenAnsBildLegen`, ab 1.0.92; gemeldet 09/2026 mit
@@ -9832,7 +9879,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.92 (Build 93). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.93 (Build 94). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
