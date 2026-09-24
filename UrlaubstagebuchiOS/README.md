@@ -480,6 +480,58 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die Auffüllseiten standen im Buch und nicht in der Datei (1.0.99)
+
+Gemeldet 09/2026, einen Tag nach 1.0.98: „Der Schmutztitel wird dann
+angelegt im Dokument, jedoch ist er in der Druckausgabe nicht enthalten
+und die zuletzt zugefügte Seite auch nicht."
+
+**Am Quelltext abzuzählen, und es ist eine einzige Zeile.** Die Ausgabe
+trennt Umschlag und Innenteil mit der Frage `tag == nil`: Was keinen Tag
+trägt, gehört auf den Umschlag. Das war richtig, solange die einzigen
+Seiten ohne Tag die des Umschlags waren — Schmutztitel und Schlussseite
+tragen ebenfalls keinen und gehören in den Buchblock, und so fielen sie
+aus dem Innenteil heraus.
+
+- **Getroffen hat es genau den Regelfall.** Die VOLLE Datei filtert
+  anders (`teil != .rueckseite` und nicht `tag`), dort standen beide
+  Seiten. Herausgefallen sind sie in „Umschlag und Innenteil getrennt"
+  und „Nur den Innenteil" — und das ist bei einem Umschlagbogen seit
+  1.0.52 die Vorwahl.
+- **Gefragt wird seither POSITIV** (`Buchseite.zurUmschlagdatei`): auf dem
+  Bogen liegt, was `teil != .innen` ist, dazu die Titelseite ohne Bogen,
+  erkannt an ihrer Kennung. Die beiden Zweige sind damit wirklich
+  dieselbe Frage, einmal so und einmal andersherum — vorher waren es zwei
+  Formeln, die zufällig zusammenpassten.
+- **`schmutzblatt` hat keinen Vorgabewert mehr.** Mit `= nil` wird aus
+  „vergessen" ein Buch, dem eine Seite fehlt und das ab dort um eine
+  Stelle verrutscht. Genau das war die zweite, stille Hälfte desselben
+  Fehlers: `Druckpruefung.doppelseitenhintergrund` ruft die Seitenfolge
+  selbst auf und ließ den Schmutztitel weg — bei eingeschaltetem
+  Schmutztitel legte diese Prüfung ab dort jede Seite auf die falsche
+  Buchhälfte. Ohne Vorgabewert ist das ein Übersetzungsfehler statt einer
+  Auskunft, die niemand nachprüft.
+- **Kennung, Hintergrund und „keine Seitenzahl" stehen an EINER Stelle**
+  (`Reise.leererSchmutztitel`, `Reise.leereSchlussseite`). Wer nur wissen
+  will, wo eine Seite liegt und welchen Grund sie trägt, bekommt die Hülle
+  und zahlt keine CoreText-Messung; `Layoutautomat.schmutztitel` legt nur
+  noch seine Blöcke hinein.
+
+**Und die Druckprüfung vergleicht seither zwei Zählungen.** `amPDF`
+bekommt die Seitenzahl, die das BUCH nennt (`blockseiten` — der Weg, an
+dem auch die Rückenbreite und die bestellte Seitenzahl hängen), und meldet
+es, wenn die Datei eine andere hat. Verglichen wird damit nicht die Datei
+mit sich selbst; das fände nur einen Schreibfehler. Dass hier zwei
+unabhängige Zählungen um zwei auseinanderlagen, hat bis 1.0.98 niemand
+gesagt — gemerkt hat es der Druckdienst.
+
+**Nicht gemessen (1.0.99):** Keine Datei ist damit hochgeladen worden.
+Am Quelltext ABGEZÄHLT ist die Ursache, und sie erklärt beide Hälften des
+Befundes: `tag == nil` trennt seit 1.0.98 nicht mehr Umschlag von Block.
+Ungeprüft bleibt, ob der Druckdienst die Datei mit 64 Seiten annimmt —
+und die neue Vergleichszeile ist selbst noch nie angeschlagen. Nicht als
+erledigt darstellen.
+
 ## Zwei Seiten, die den Umfang auffüllen (1.0.98)
 
 > „Der Druckdienst, bei dem ich jetzt hochladen möchte, nimmt die Datei mit

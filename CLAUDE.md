@@ -10047,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.98 (Build 99). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.99 (Build 100). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10103,6 +10103,46 @@ Befunde, und keiner davon war Geschmack:
     hochgeladen worden. **Gewählt und nicht gemessen** ist die Lage des Titels
     auf dem Schmutztitel (0,28 der freien Höhe). Ob der Druckdienst die Datei
     mit dem aufgefüllten Umfang annimmt, sagt erst der nächste Upload.
+- **`tag == nil` TRENNTE UMSCHLAG VON BLOCK — seit 1.0.98 nicht mehr**
+  (`Buchseite.zurUmschlagdatei`, ab 1.0.99; gemeldet 09/2026, einen Tag
+  nach 1.0.98: „Der Schmutztitel wird dann angelegt im Dokument, jedoch ist
+  er in der Druckausgabe nicht enthalten und die zuletzt zugefügte Seite
+  auch nicht.").
+  - **Am Quelltext abzuzählen, und es ist eine Zeile.** Die Ausgabe siebte
+    den Innenteil mit `$0.tag != nil && !$0.amUmschlag`. Schmutztitel und
+    Schlussseite tragen keinen Tag — sie gehören dem Buch und nicht einem
+    Tag — und fielen damit aus der Datei. Die VOLLE Datei filtert anders
+    (`teil != .rueckseite`), dort standen sie; herausgefallen sind sie in
+    „getrennt" und „Nur den Innenteil", und das ist bei einem Umschlagbogen
+    seit 1.0.52 die VORWAHL. **Merke: Wer eine Seite ohne Tag anlegt, sucht
+    jede Stelle, die `tag == nil` für „Umschlag" hält** — die Warnung stand
+    seit 1.0.74 im Papier und galt für die neuen Seiten nicht.
+  - **Gefragt wird seither POSITIV nach dem Bogen**: `teil != .innen`, dazu
+    die Titelseite ohne Bogen an ihrer KENNUNG. Damit sind die beiden
+    Zweige wirklich dieselbe Frage, einmal so und einmal andersherum;
+    vorher waren es zwei Formeln, die zufällig zusammenpassten.
+  - **`schmutzblatt` hat keinen Vorgabewert mehr.** Mit `= nil` wird aus
+    „vergessen" ein Buch, dem eine Seite fehlt und das ab dort um eine
+    Stelle verrutscht — still. Genau das war die zweite Hälfte desselben
+    Fehlers: `Druckpruefung.doppelseitenhintergrund` ruft `seitenfolge`
+    selbst und ließ ihn weg, legte also ab dort jede Seite auf die falsche
+    Buchhälfte. **Ein Vorgabewert an einem Parameter, dessen Fehlen die
+    Zählung ändert, ist kein Komfort, sondern ein stiller Fehler.**
+  - **Kennung, Hintergrund und „keine Seitenzahl" stehen an EINER Stelle**
+    (`Reise.leererSchmutztitel`, `.leereSchlussseite`). Wer nur die LAGE
+    einer Seite braucht, bekommt die Hülle und zahlt keine
+    CoreText-Messung; der Automat legt nur noch seine Blöcke hinein.
+  - **Und die Druckprüfung vergleicht seither zwei ZÄHLUNGEN**
+    (`amPDF(_:erwartet:)`): die Seiten in der Datei gegen `blockseiten`,
+    also gegen den Weg, an dem auch Rückenbreite und bestellte Seitenzahl
+    hängen. Die Datei mit sich selbst zu vergleichen fände nur einen
+    Schreibfehler; dass zwei unabhängige Zählungen um zwei auseinanderlagen,
+    hat bis 1.0.98 niemand gesagt — gemerkt hat es der Druckdienst.
+  - **Nicht gemessen (1.0.99):** Keine Datei ist damit hochgeladen worden.
+    Die Ursache ist abgezählt und erklärt beide Hälften des Befundes;
+    ungeprüft bleibt, ob der Dienst die Datei mit dem aufgefüllten Umfang
+    annimmt, und die neue Vergleichszeile ist selbst noch nie
+    angeschlagen.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

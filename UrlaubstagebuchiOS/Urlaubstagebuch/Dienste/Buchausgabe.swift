@@ -81,6 +81,24 @@ struct Buchseite: Identifiable, Equatable {
 
     var amUmschlag: Bool { teil != .innen }
 
+    /// Gehört diese Seite in die UMSCHLAGDATEI? (ab 1.0.99)
+    ///
+    /// Bis 1.0.98 fragte die Ausgabe an dieser Stelle `tag == nil` — und
+    /// das war richtig, solange die einzigen Seiten ohne Tag die des
+    /// Umschlags waren. Schmutztitel und Schlussseite tragen ebenfalls
+    /// keinen und gehören trotzdem in den Buchblock; mit der alten Frage
+    /// fielen sie aus dem Innenteil heraus, und zwar STILL: Die volle
+    /// Datei filtert anders, dort standen sie — nur in der getrennten
+    /// Ausgabe, also im Regelfall bei einem Umschlagbogen, fehlten sie.
+    ///
+    /// Gefragt wird deshalb POSITIV nach dem Bogen. Die eine Ausnahme ist
+    /// die Titelseite ohne Umschlagbogen: Sie liegt dann als gewöhnliche
+    /// Seite im Block und ist trotzdem allein der Umschlag — erkannt an
+    /// ihrer Kennung und nicht daran, dass ihr etwas fehlt.
+    var zurUmschlagdatei: Bool {
+        amUmschlag || seite.id == Layoutautomat.titelseitenKennung
+    }
+
     /// Ob diese Seite im aufgeschlagenen Buch RECHTS liegt. Die eine
     /// Stelle, an der das entschieden wird — gefragt von der Paarung, vom
     /// Hintergrund über die Doppelseite und von der Druckprüfung.
@@ -270,6 +288,27 @@ extension Reise {
     static let schlussseitenKennung =
         UUID(uuidString: "5EEE0000-0000-4000-A000-000000000003")!
 
+    /// Die beiden Auffüllseiten OHNE Satz.
+    ///
+    /// Sie sind die eine Stelle, an der Kennung, Hintergrund und
+    /// „keine Seitenzahl" stehen — `Layoutautomat.schmutztitel` legt nur
+    /// noch seine Blöcke hinein. Zwei Fassungen ergäben eine Seite, die
+    /// in der Prüfung anders aussieht als im Druck; und gebraucht wird
+    /// die Hülle wirklich: Wer nur wissen will, WO eine Seite liegt und
+    /// welchen Grund sie trägt, soll dafür keine CoreText-Messung
+    /// bezahlen.
+    ///
+    /// WEISS, ausdrücklich (Ansage des Nutzers, 09/2026: „Der Hintergrund
+    /// soll diesmal weiß sein."). Ein Buch mit farbigem Papier oder einem
+    /// Hintergrundbild bekommt hier trotzdem ein weißes Blatt — genau das
+    /// ist ein Schmutztitel.
+    static let leererSchmutztitel = Seite(id: Reise.schmutztitelKennung,
+                                          hintergrund: .weiss,
+                                          ohneSeitenzahl: true)
+    static let leereSchlussseite = Seite(id: Reise.schlussseitenKennung,
+                                         hintergrund: .weiss,
+                                         ohneSeitenzahl: true)
+
     // Wie viele Seiten der BUCHBLOCK hat — das, was gebunden wird, samt
     // der Ausgleichsseite und samt der Titelseite, wenn die kein eigener
     // Umschlagbogen ist. Gerechnet und nicht gezählt: `seitenfolge` setzt
@@ -397,8 +436,15 @@ extension Reise {
     // hier gerechnet: Sein Satz kostet CoreText-Messungen, und
     // `Reisewerk` merkt es sich zusammen mit den beiden Umschlagseiten —
     // der Körper einer Ansicht läuft oft (die Lehre aus 1.0.15).
+    //
+    // **Es hat KEINEN Vorgabewert, und das ist Absicht** (ab 1.0.99). Mit
+    // `= nil` wird aus „vergessen" ein Buch, dem eine Seite fehlt und das
+    // ab dort um eine Stelle verrutscht — ohne Fehler, ohne Meldung. Genau
+    // das war die Druckprüfung von 1.0.98. Wer den Satz nicht braucht,
+    // reicht `Reise.leererSchmutztitel` herein; wer ihn braucht, den
+    // gesetzten.
     func seitenfolge(titelblatt: Seite?, rueckblatt: Seite?,
-                     schmutzblatt: Seite? = nil) -> [Buchseite]
+                     schmutzblatt: Seite?) -> [Buchseite]
     {
         var folge: [Buchseite] = []
         if hatRueckseite, let rueckblatt {
@@ -594,15 +640,16 @@ enum Buchausgabe {
         // dort eine LEERE Liste heraus. Beide Zweige fragen dasselbe, nur
         // andersherum; sonst stünde die Titelseite in beiden Dateien oder
         // in keiner.
-        // SEIT 1.0.74 REICHT `tag == nil` NICHT MEHR. U2 und U3 tragen
-        // Inhalt und damit einen Tag — und gehören trotzdem auf den
-        // Umschlagbogen, nicht in den Buchblock. Ohne die zweite
-        // Bedingung stünden sie mitten im Innenteil, in einem Maß, das
-        // dort nicht gilt.
+        // SEIT 1.0.74 REICHT `tag == nil` NICHT MEHR, und seit 1.0.98 ist
+        // es falsch herum: U2 und U3 tragen einen Tag und gehören auf den
+        // Umschlag, Schmutztitel und Schlussseite tragen keinen und
+        // gehören in den Block. Gefragt wird deshalb `zurUmschlagdatei`,
+        // und die beiden Zweige sind seither wirklich dieselbe Frage —
+        // einmal so und einmal andersherum.
         if auftrag.nurUmschlag {
-            gefiltert = gefiltert.filter { $0.tag == nil || $0.amUmschlag }
+            gefiltert = gefiltert.filter(\.zurUmschlagdatei)
         } else if auftrag.ohneUmschlag {
-            gefiltert = gefiltert.filter { $0.tag != nil && !$0.amUmschlag }
+            gefiltert = gefiltert.filter { !$0.zurUmschlagdatei }
         } else {
             // Die Rückseite gehört auf den Umschlagbogen, nicht in den
             // Buchblock. Im vollständigen PDF stünde sie sonst als erste

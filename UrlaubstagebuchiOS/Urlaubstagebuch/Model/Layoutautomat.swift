@@ -366,20 +366,18 @@ struct Layoutautomat {
                 abweichung: Schriftabweichung(groesse: unter.groesse, ausrichtung: .mitte)
             ))
         }
-        // WEISS, ausdrücklich (Ansage des Nutzers: „Der Hintergrund soll
-        // diesmal weiß sein."). Ein Buch mit farbigem Papier oder einem
-        // Hintergrundbild bekommt hier trotzdem ein weißes Blatt — genau
-        // das ist ein Schmutztitel.
-        return Seite(id: Reise.schmutztitelKennung, bloecke: bloecke,
-                     hintergrund: .weiss, ohneSeitenzahl: true)
+        // Kennung, Hintergrund und „keine Seitenzahl" stehen an EINER
+        // Stelle (`Reise.leererSchmutztitel`, ab 1.0.99) — hier kommen nur
+        // die Blöcke hinein. Sonst sähe die Seite, die eine Prüfung
+        // ansieht, anders aus als die, die gedruckt wird.
+        var seite = Reise.leererSchmutztitel
+        seite.bloecke = bloecke
+        return seite
     }
 
     /// Die letzte Seite: leer und weiß. Sie trägt keinen einzigen
     /// gerechneten Block — was dort steht, hat jemand selbst hingelegt.
-    func schlussseite() -> Seite {
-        Seite(id: Reise.schlussseitenKennung, bloecke: [],
-              hintergrund: .weiss, ohneSeitenzahl: true)
-    }
+    func schlussseite() -> Seite { Reise.leereSchlussseite }
 
     // MARK: - Die Rückseite des Buches
 

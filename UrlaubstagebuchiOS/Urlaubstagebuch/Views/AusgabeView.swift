@@ -517,6 +517,17 @@ struct AusgabeView: View {
     // Aufruf mit drei Feldern wäre sechsmal die Gelegenheit, eines zu
     // vergessen — und ein vergessenes `jpegGuete` fällt erst an der
     // Dateigröße auf.
+    /// Wie viele Seiten in der VOLLEN Datei stehen müssten.
+    ///
+    /// `blockseiten` ist der Buchblock. Gilt der Umschlag als Bogen,
+    /// kommt die Titelseite dazu — sie steht in der vollen Datei vorn,
+    /// zählt aber nicht zum Block (Rückseite, U2 und U3 fehlen dort). Ohne
+    /// Bogen ist sie die gewöhnliche Seite 1 und in `blockseiten` schon
+    /// mitgezählt.
+    private var volleDatei: Int {
+        werk.reise.blockseiten + (werk.reise.hatRueckseite ? 1 : 0)
+    }
+
     private func auftrag(nurUmschlag: Bool = false, ohneUmschlag: Bool = false,
                          rueckseitenDrehen: Bool = false) -> Buchausgabe.Auftrag
     {
@@ -556,7 +567,7 @@ struct AusgabeView: View {
                     auftrag: auftrag(),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
-                befundAmPDF = Druckpruefung.amPDF(ziel) + [doppelseitenzeile]
+                befundAmPDF = Druckpruefung.amPDF(ziel, erwartet: nil) + [doppelseitenzeile]
                 teilenliste = [ziel]
             } else if umfang == .getrennt {
                 // Viele Buchdienste wollen Umschlag und Innenteil als zwei
@@ -572,7 +583,7 @@ struct AusgabeView: View {
                     auftrag: auftrag(ohneUmschlag: true),
                     fortschritt: { wert in anteil = wert })
                 fertig = innen
-                befundAmPDF = Druckpruefung.amPDF(innen)
+                befundAmPDF = Druckpruefung.amPDF(innen, erwartet: werk.reise.blockseiten)
                     + [Druckpruefung.Zeile(
                         stufe: .gut, titel: "Umschlag getrennt gesichert",
                         text: umschlag.lastPathComponent + umschlagzusatz)]
@@ -606,7 +617,8 @@ struct AusgabeView: View {
                 }
                 let einzelzeile = Druckpruefung.Zeile(stufe: .hinweis, titel: einzeltitel,
                                                       text: einzeltext)
-                befundAmPDF = Druckpruefung.amPDF(ziel) + [einzelzeile]
+                befundAmPDF = Druckpruefung.amPDF(ziel, erwartet: nur ? nil : werk.reise.blockseiten)
+                    + [einzelzeile]
                 teilenliste = [ziel]
             } else {
                 let ziel = try await Buchausgabe.pdf(
@@ -614,7 +626,7 @@ struct AusgabeView: View {
                     auftrag: auftrag(),
                     fortschritt: { wert in anteil = wert })
                 fertig = ziel
-                befundAmPDF = Druckpruefung.amPDF(ziel)
+                befundAmPDF = Druckpruefung.amPDF(ziel, erwartet: volleDatei)
                 teilenliste = [ziel]
             }
         } catch {
