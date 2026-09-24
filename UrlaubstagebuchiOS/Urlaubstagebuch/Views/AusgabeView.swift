@@ -189,6 +189,20 @@ struct AusgabeView: View {
                     // Einzelseiten, Doppelseiten und Umschlag sind drei
                     // verschiedene Maße.
                     LabeledContent("Bogen im PDF", value: bogenmass)
+                    // DER ZWEITE ZUGANG ZUM STECKBRIEF (ab 1.0.75).
+                    //
+                    // Dieselbe Ansicht wie hinter „Ausgabeformat und
+                    // Maße…" im Menü, nur mit der HIER gewählten Bildgüte
+                    // — zwei Fassungen desselben Bildschirms liefen
+                    // auseinander (die Regel aus 1.0.10). Wer vor dem
+                    // Ausgeben wissen will, was in der Datei steht, ist
+                    // genau hier und soll dafür nicht erst das Blatt
+                    // zumachen müssen.
+                    NavigationLink {
+                        AusgabeformatView(werk: werk, guete: guete)
+                    } label: {
+                        Label("Alle Maße im Überblick", systemImage: "doc.text.magnifyingglass")
+                    }
                     HStack {
                         Text("Bestellt")
                         Spacer()
