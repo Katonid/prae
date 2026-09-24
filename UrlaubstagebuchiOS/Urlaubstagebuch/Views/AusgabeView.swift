@@ -585,6 +585,7 @@ struct BefundZeile: View {
     // die Zeile, was sie war — dieselbe Ansicht, zwei Aufrufstellen.
     var werk: Reisewerk?
     var beimZeigen: (() -> Void)?
+    @State private var quittung: String?
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
@@ -610,10 +611,45 @@ struct BefundZeile: View {
                     // Zeile — in einer `Form` ist jede Zeile tippbar.
                     .buttonStyle(.borderless)
                     .padding(.top, 2)
+                    // DER WEG VON DER MELDUNG ZUR LÖSUNG (ab 1.0.96).
+                    //
+                    // „Im Buch zeigen" sagt WO; hier steht, was man dagegen
+                    // tut. Einundzwanzig Kästen einzeln anzutippen ist die
+                    // Art Fleißarbeit, für die es eine App gibt — und der
+                    // Knopf nennt die Zahl, die er anfasst.
+                    if zeile.stellen.contains(where: { $0.art == .textUeberlauf }) {
+                        Button {
+                            anpassen(werk)
+                        } label: {
+                            Label(anpasstext(zeile), systemImage: "arrow.up.and.down")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    if let satz = quittung {
+                        Text(satz)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
         .padding(.vertical, 1)
+    }
+
+    private func anpasstext(_ zeile: Druckpruefung.Zeile) -> String {
+        let zahl = zeile.stellen.filter { $0.art == .textUeberlauf }.count
+        return "Rahmen an Text anpassen (\(zahl))"
+    }
+
+    // Gemeldet wird IN der Zeile: Das Band der Bühne hängt an `ReiseView`,
+    // und die Druckprüfung liegt als Blatt darüber — die Quittung erschiene
+    // dahinter (die Lehre aus 1.0.52).
+    private func anpassen(_ werk: Reisewerk) {
+        let zahl = werk.alleRahmenAnpassen()
+        quittung = zahl == 0
+            ? "Kein Rahmen ließ sich anpassen."
+            : "\(zahl) angepasst. Diese Tage gelten damit als von Hand bearbeitet; mit \u{201E}Widerrufen\u{201C} zurückzunehmen. Prüfung neu öffnen, um den Stand zu sehen."
     }
 
     private var farbe: Color {

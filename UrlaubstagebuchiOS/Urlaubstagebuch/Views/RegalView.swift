@@ -81,15 +81,19 @@ struct RegalView: View {
             } message: {
                 Text(einlesefehler ?? "")
             }
-            .alert("Neue Reise", isPresented: $anlegenOffen) {
-                TextField("Titel", text: $neuerTitel)
-                Button("Anlegen") {
-                    let neu = regal.anlegen(titel: neuerTitel)
+            // EIN BLATT STATT EINES ALERTS (ab 1.0.95).
+            //
+            // Bis 1.0.94 stand hier ein Alert mit einem Textfeld. Seit es
+            // Vorlagen gibt, ist beim Anlegen eine zweite Frage zu
+            // beantworten — und ein Alert kann keine Auswahl tragen. Zwei
+            // Wege nebeneinander (Alert ohne Vorlagen, Blatt mit) wären
+            // zwei Fassungen derselben Sache und liefen auseinander.
+            .sheet(isPresented: $anlegenOffen) {
+                NeueReiseBlatt(titel: $neuerTitel) { aussehen, druckerei in
+                    let neu = regal.anlegen(titel: neuerTitel,
+                                            aussehen: aussehen, druckerei: druckerei)
                     regal.oeffnen(neu)
                 }
-                Button("Abbrechen", role: .cancel) {}
-            } message: {
-                Text("Wie soll das Buch heißen? Der Titel lässt sich später ändern.")
             }
             .alert("Name in der Übersicht", isPresented: .init(
                 get: { umzubenennen != nil },
@@ -367,5 +371,94 @@ private struct Vorschaubild: View {
     private var titelbild: String? {
         if let id = reise.titelfoto, let foto = reise.foto(id) { return foto.datei }
         return reise.fotos.first?.datei
+    }
+}
+
+
+// MARK: - Eine neue Reise anlegen
+
+// DIE VORLAGE GEHÖRT AN DEN ANFANG (ab 1.0.95).
+//
+// Ansage des Nutzers, 09/2026: „Wenn ich zum Beispiel jetzt ein
+// Urlaubstagebuch erstellt habe, dann möchte ich für den nächsten Urlaub
+// gerne dieselben Einstellungen haben." Genau hier entsteht der nächste
+// Urlaub — sie erst im fertigen Buch anzuwenden hieße, das Buch zweimal zu
+// setzen.
+//
+// **Vorbelegt, aber sichtbar.** Was als Vorgabe markiert ist, steht schon
+// im Wähler; es steht aber DA, und man kann es wegnehmen. Eine App, die
+// ein neues Buch still nach einer Vorlage anlegt, sieht für den Menschen
+// davor aus wie eine App mit seltsamen Vorgaben (dieselbe Überlegung wie
+// beim Deutschland-Ticket-Filter der Abfahrtstafel).
+private struct NeueReiseBlatt: View {
+    @Binding var titel: String
+    let anlegen: (Vorlage?, Vorlage?) -> Void
+    @Environment(\.dismiss) private var schliessen
+    @State private var vorlagen: [Vorlage] = []
+    @State private var aussehen: UUID?
+    @State private var druckerei: UUID?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Titel", text: $titel)
+                } header: {
+                    Text("Wie soll das Buch heißen?")
+                } footer: {
+                    Text("Der Titel steht auf der Titelseite und lässt sich jederzeit ändern.")
+                }
+
+                if !vorlagen.isEmpty {
+                    Section {
+                        wahl("Aussehen", art: .aussehen, auswahl: $aussehen)
+                        wahl("Druckerei", art: .druckerei, auswahl: $druckerei)
+                    } header: {
+                        Text("Mit Vorlage anfangen")
+                    } footer: {
+                        Text("Vorlagen sicherst du in einem offenen Buch unter "
+                             + "\u{201E}Ganzes Buch\u{201C} \u{2192} \u{201E}Vorlagen\u{201C}. "
+                             + "Hier gesetzt gelten sie von der ersten Seite an.")
+                    }
+                }
+
+                Section {
+                    Button("Anlegen") {
+                        anlegen(vorlage(.aussehen, aussehen), vorlage(.druckerei, druckerei))
+                        schliessen()
+                    }
+                }
+            }
+            .navigationTitle("Neue Reise")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { schliessen() }
+                }
+            }
+            .task {
+                vorlagen = Vorlagenablage.alle()
+                aussehen = Vorlagenablage.vorgabe(.aussehen)?.id
+                druckerei = Vorlagenablage.vorgabe(.druckerei)?.id
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func wahl(_ titel: String, art: Vorlage.Art, auswahl: Binding<UUID?>) -> some View {
+        let liste = vorlagen.filter { $0.art == art }
+        if !liste.isEmpty {
+            Picker(titel, selection: auswahl) {
+                Text("Keine").tag(UUID?.none)
+                ForEach(liste) { eintrag in
+                    Text(eintrag.name).tag(UUID?.some(eintrag.id))
+                }
+            }
+        }
+    }
+
+    private func vorlage(_ art: Vorlage.Art, _ id: UUID?) -> Vorlage? {
+        guard let id else { return nil }
+        return vorlagen.first { $0.id == id && $0.art == art }
     }
 }

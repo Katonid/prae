@@ -510,6 +510,60 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Satz mitten darin (Ansage des Nutzers, 09/2026: „Ich möchte das frei
     // entscheiden können."). Gefragt wird weiterhin, nur ist die Antwort
     // jetzt eine echte Wahl und keine Ansage.
+    // MARK: - Vorlagen
+
+    // EINE VORLAGE AUF DIESES BUCH ANWENDEN (ab 1.0.95).
+    //
+    // Gemerkt wird davor, wie bei jedem Griff, der ein ganzes Buch
+    // anfasst: Mit „Widerrufen" ist alles zurückzunehmen.
+    //
+    // **Das FORMAT ist der heikle Teil einer Druckvorlage.** Es einfach zu
+    // setzen hieße, jeden Block auf einer anders großen Seite an seiner
+    // alten Stelle stehen zu lassen. Deshalb entscheidet der Aufrufer, und
+    // zwar mit derselben Wahl, die das Formatblatt seit 1.0.27 anbietet:
+    // `true` rechnet den Inhalt mit, `false` wechselt nur das Format,
+    // `nil` lässt es, wie es ist. Die Ansicht stellt die Frage nur, wenn
+    // das Maß wirklich ein anderes ist.
+    //
+    // Neu angeordnet wird in BEIDEN Fällen: Eine Vorlage ändert Ränder,
+    // Schriften oder den Bundsteg — also alles, was die Seiten bestimmt.
+    // Sie zu wählen und sie nicht zu sehen wäre für den Menschen davor
+    // eine Vorlage, die nichts tut.
+    @discardableResult
+    func vorlageAnwenden(_ vorlage: Vorlage,
+                         auchHandarbeit: Bool = false,
+                         formatMitrechnen: Bool? = nil) -> String
+    {
+        merken()
+        if vorlage.art == .druckerei, let mitrechnen = formatMitrechnen {
+            if mitrechnen {
+                Formatwechsel.umrechnen(&reise, auf: vorlage.werte.format)
+            } else {
+                reise.format = vorlage.werte.format
+            }
+        }
+        // NACH dem Formatwechsel: Der rechnet Längen um (auch den
+        // Bundsteg), und was die Druckerei vorgibt, soll danach gelten und
+        // nicht mit dem Faktor skaliert sein.
+        vorlage.werte.anwenden(vorlage.art, auf: &reise)
+        alleNeuAnordnen(nurUnberuehrte: !auchHandarbeit)
+        return "\u{201E}" + vorlage.name + "\u{201C} angewandt. Mit \u{201E}Widerrufen\u{201C} zurückzunehmen."
+    }
+
+    /// Die Einstellungen dieses Buches als Vorlage sichern. Was dabei NICHT
+    /// mitgeht, steht in `Vorlagenwerte.init(aus:)`.
+    func vorlageSichern(name: String, art: Vorlage.Art) -> String {
+        let fassung = Bundle.main
+            .object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let vorlage = Vorlage(name: name, art: art, aus: reise, fassung: fassung)
+        do {
+            try Vorlagenablage.sichern(vorlage)
+            return "\u{201E}" + vorlage.name + "\u{201C} gesichert."
+        } catch {
+            return "Die Vorlage ließ sich nicht sichern: " + error.localizedDescription
+        }
+    }
+
     func stilAnwenden(_ stil: Buchstil, auchHandarbeit: Bool = false) {
         merken()
         reise.stilAnwenden(stil)
@@ -1442,7 +1496,9 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Ein Kasten, der beim Tippen von selbst schrumpft, nähme eine Größe
     // weg, die jemand mit der Hand eingestellt hat.
     @discardableResult
-    func hoeheAnTextAnpassen(_ id: UUID, merken merkt: Bool = true) -> Bool {
+    func hoeheAnTextAnpassen(_ id: UUID, merken merkt: Bool = true,
+                             auffrischen: Bool = true) -> Bool
+    {
         if let stelle = umschlagblock(id) {
             let block = umschlagbloecke(stelle.flaeche)[stelle.stelle]
             guard let noetig = fehlendeHoehe(block, tag: nil) else { return false }
@@ -1452,7 +1508,7 @@ final class Reisewerk: ObservableObject, Identifiable {
                 block.vonHand = true
             }
             textUeberlauf = nil
-            befundeAuffrischen()
+            if auffrischen { befundeAuffrischen() }
             return true
         }
         guard let stelle = block(id) else { return false }
@@ -1465,8 +1521,43 @@ final class Reisewerk: ObservableObject, Identifiable {
         textUeberlauf = nil
         // Die rote Marke gehört weg, sobald der Kasten passt — sonst steht
         // sie über einem Befund, den es nicht mehr gibt (ab 1.0.93).
-        befundeAuffrischen()
+        if auffrischen { befundeAuffrischen() }
         return true
+    }
+
+    // ALLE GEMELDETEN KÄSTEN AUF EINMAL (ab 1.0.96).
+    //
+    // Gemeldet 09/2026: „Ich weiß tatsächlich nicht, wie ich das … ändern
+    // kann, so dass kein Fehler gemeldet wird." Einundzwanzig Kästen
+    // einzeln zu suchen, anzutippen und anzupassen ist genau die
+    // Fleißarbeit, für die es eine App gibt — und der Weg dahin
+    // (antippen, Fußleiste, „Rahmen an Text anpassen") war bei jedem
+    // einzelnen derselbe.
+    //
+    // **Aufgefrischt wird EINMAL am Ende.** `befundeAuffrischen` geht über
+    // jeden Block des Buches; einundzwanzigmal gerufen wäre es
+    // einundzwanzig volle Durchläufe (dieselbe Falle wie bei der
+    // Druckprüfung in 1.0.0).
+    @discardableResult
+    func alleRahmenAnpassen() -> Int {
+        let stellen = befundstellen.filter { $0.art == .textUeberlauf }
+        guard !stellen.isEmpty else { return 0 }
+        merken()
+        var zahl = 0
+        for stelle in stellen {
+            if hoeheAnTextAnpassen(stelle.block, merken: false, auffrischen: false) {
+                zahl += 1
+            }
+        }
+        befundeAuffrischen(erzwingen: true)
+        return zahl
+    }
+
+    /// Wie viele der gezeigten Befunde sich so auflösen lassen. Die Zahl
+    /// steht auf dem Knopf: Ein Knopf, der nicht sagt, wie viel er anfasst,
+    /// wird nicht getippt.
+    var anpassbareBefunde: Int {
+        befundstellen.filter { $0.art == .textUeberlauf }.count
     }
 
     // MARK: - Einen Textkasten teilen

@@ -106,6 +106,7 @@ enum Wolke {
         var kopiert = 0
         var uebersprungen = 0
         var bilder = 0
+        var vorlagen = 0
         var fehler: String?
 
         var satz: String {
@@ -113,6 +114,7 @@ enum Wolke {
             var teile = ["\(kopiert) Bücher kopiert"]
             if uebersprungen > 0 { teile.append("\(uebersprungen) waren schon dort und neuer") }
             if bilder > 0 { teile.append("\(bilder) Bilder") }
+            if vorlagen > 0 { teile.append("\(vorlagen) Vorlagen") }
             return teile.joined(separator: ", ") + "."
         }
     }
@@ -136,7 +138,36 @@ enum Wolke {
         }
         let nachher = wurzel
         guard vorher != nachher else { return Umzug() }
-        return kopieren(von: vorher, nach: nachher)
+        var bericht = kopieren(von: vorher, nach: nachher)
+        // DIE VORLAGEN ZIEHEN MIT (ab 1.0.95). Sie liegen im Ordner neben
+        // den Büchern; ohne diese Zeile wären sie nach dem Einschalten des
+        // Abgleichs verschwunden — nicht gelöscht, aber unauffindbar, und
+        // das ist für den Menschen davor dasselbe.
+        bericht.vorlagen = nebenordnerKopieren(Vorlagenablage.ordnername,
+                                               von: vorher, nach: nachher)
+        return bericht
+    }
+
+    // Einen Ordner NEBEN den Büchern mitkopieren. Übersprungen wird, was
+    // drüben schon liegt: Vorlagen tragen ihre Kennung als Dateinamen, und
+    // derselbe Name ist dieselbe Vorlage.
+    private static func nebenordnerKopieren(_ name: String, von: URL, nach: URL) -> Int {
+        let dateien = FileManager.default
+        let quelle = von.deletingLastPathComponent()
+            .appendingPathComponent(name, isDirectory: true)
+        let ziel = nach.deletingLastPathComponent()
+            .appendingPathComponent(name, isDirectory: true)
+        guard let inhalt = try? dateien.contentsOfDirectory(at: quelle,
+                                                           includingPropertiesForKeys: nil)
+        else { return 0 }
+        try? dateien.createDirectory(at: ziel, withIntermediateDirectories: true)
+        var zahl = 0
+        for ort in inhalt {
+            let hin = ziel.appendingPathComponent(ort.lastPathComponent)
+            guard !dateien.fileExists(atPath: hin.path) else { continue }
+            if (try? dateien.copyItem(at: ort, to: hin)) != nil { zahl += 1 }
+        }
+        return zahl
     }
 
     private static func kopieren(von: URL, nach: URL) -> Umzug {

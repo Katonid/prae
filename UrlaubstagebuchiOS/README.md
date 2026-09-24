@@ -480,6 +480,143 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ein Modus braucht einen sichtbaren Ausgang (1.0.96)
+
+> „Es gibt die Option, die Fehler im Buch anzeigen zu lassen. Ich möchte aber
+> auch genauso die Funktion haben, die Umrandungen wieder unsichtbar zu
+> machen." — und davor: „Ich weiß tatsächlich nicht, wie ich das … ändern
+> kann, so dass kein Fehler gemeldet wird."
+
+**Zwei Befunde in einer Meldung, und beide treffen.**
+
+### Der Ausgang fehlte
+
+Eingeschaltet wurden die roten Umrandungen mit einem Knopf, der unter dem
+Befund steht („Im Buch zeigen"). Ausgeschaltet nur mit einem Schalter im
+Drei-Punkte-Menü unter „Hilfen beim Anordnen" — drei Ebenen weit weg von dem,
+was man sieht. Auf der Bühne stand dafür ein rotes Warndreieck in der
+Fußleiste, und eine Werkzeugleiste zeigt von einem `Label` nur das Symbol,
+sobald es eng wird: **ein rotes Dreieck ohne ein Wort.** Es sagte weder, wie
+viele Befunde es gibt, noch dass ein Tipp weiterspringt, noch wie man die
+Marken wieder loswird.
+
+**Die Regel dazu steht seit 1.0.9 im Papier** — „Wer einen Modus baut, baut
+den Ausgang mit, und zwar sichtbar" — und sie galt für diesen Modus nicht.
+Sie kam damals vom offenen Textfeld; dass sie für jeden Modus gilt, stand
+zwar da, aber niemand hat sie beim Bauen der Marken gezogen.
+
+Über der Seite liegt jetzt ein rotes Band mit vier Angaben in Worten:
+**„⚠ Befund 3 von 21 · Weiter · Rahmen anpassen (21) · Ausblenden"**. Der
+wortlose Knopf in der Fußleiste ist weg.
+
+### Und der Weg zur Lösung fehlte auch
+
+„Rahmen an Text anpassen" gab es — für EINEN Kasten, den man vorher antippen
+muss. Bei einundzwanzig Kästen ist das einundzwanzigmal derselbe Weg. Der
+Knopf im Band (und derselbe in der Prüfung) nimmt sie alle auf einmal und
+nennt die Zahl, die er anfasst. Gemerkt wird einmal, aufgefrischt wird einmal
+am Ende — `befundeAuffrischen` geht über jeden Block des Buches.
+
+### Dabei kam ein dritter Fehler heraus
+
+Was „Rahmen an Text anpassen" einsetzte, kam aus `Textmass.hoehe`
+(`CTFramesetterSuggestFrameSizeWithConstraints` samt Zuschlag) — **geprüft
+wird aber seit 1.0.94 mit `Textmass.passtBis`, also mit einem echten
+`CTFrame`.** Zwei Messungen für eine Frage, und genau davor warnt dieses
+Papier an jeder anderen Stelle. Wo sie auseinandergehen, blieb
+`max(gemessen, jetzt + 1)` übrig: Der Knopf machte den Kasten einen Punkt
+höher, die Prüfung meldete ihn weiter — und der Mensch davor hätte keinen Weg
+mehr gehabt. Gesucht wird die nötige Höhe seit 1.0.96 mit **derselben
+Messung, die auch prüft**: aufwärts, bis `passtBis` den ganzen Text setzt.
+
+**Nicht gemessen (1.0.96):** Keine Seite ist damit gesehen worden. Am
+Quelltext abgezählt ist, dass ein `Label` in der Werkzeugleiste seinen Text
+verlieren kann und dass die beiden Messungen auseinandergehen können. **Ob
+die einundzwanzig gemeldeten Kästen mit 1.0.94 ohnehin verschwinden, ist
+nicht nachgesehen** — die Zahl 0,3 mm ist auf den Punkt der Zuschlag von
+einem Punkt aus `Textmass.hoehe`, was dafür spricht; gezeigt haben es die
+Bildschirmfotos einer älteren Fassung, und sicher ist es erst nach dem
+nächsten Lauf.
+
+## Einstellungen, die ein Buch überleben (1.0.95)
+
+> „Mir schwebt jetzt vor, gewisse Einstellungen, die ich für ein Fotobuch
+> getroffen habe, abzuspeichern, möglichst auch in der Cloud. Und gerne auch
+> als Konfigurationsdatei, die man exportieren kann. … Also wie groß der Rand
+> um die Bilder ist, welche Schriftart ich verwendet habe und so weiter. …
+> Genauso möchte ich die Einstellungen, die ich jetzt für eine bestimmte
+> Druckerei getroffen habe, abspeichern können. Also Seitengröße, Beschnitt
+> und so weiter. Gerne auch mit Namen der Druckerei, damit ich es schneller
+> wiederfinde."
+
+**Zwei Arten, und das ist seine eigene Einteilung.** Er nennt zwei Dinge,
+und sie ändern sich unabhängig voneinander: Dasselbe Aussehen geht an zwei
+Druckereien, dieselbe Druckerei nimmt zwei ganz verschiedene Bücher an. Eine
+einzige Vorlage, die beides trüge, zwänge bei jedem Wechsel dazu, das andere
+mitzunehmen — und dann nimmt man sie nicht mehr.
+
+| | Was darin steht |
+| --- | --- |
+| **Aussehen des Buches** | Stil, Akzent- und Papierfarbe, alle vier Schriften, Ränder, Fuge, Eckenradius, wie sich Fotos abheben (Schatten, weißer Rand, Abstand der Bildunterschrift), wie Textfelder aussehen, Breite der Textspalte und der Karte, Datumsstil, Seitenzahlen, Seitenhintergrund, Wasserzeichen, Karteneinstellung, Gestaltung des Umschlags |
+| **Druckerei** | Seitenformat, Anschnitt (und ob am Bund einer liegt), Sicherheitsabstand außen und am Bund, Bundsteg, Maß und Anschnitt des Umschlagbogens, Einband, Papier- und Deckenstärke, Rückenstärke samt Tabelle, Innenseiten des Umschlags |
+
+Die Grenze verläuft damit **nicht zwischen Maß und Farbe**, sondern zwischen
+*meiner Entscheidung* und *deren Vorgabe*. Deshalb stehen die **Ränder** beim
+Aussehen (die wählt man selbst) und der **Bundsteg** bei der Druckerei (der
+hängt an der Bindung).
+
+* **Eine Vorlage trägt Einstellungen und nie Inhalt.** Kein Foto, kein Text,
+  keine Seite. Was beim Sichern ausdrücklich geleert wird, steht in
+  `Vorlagenwerte.init(aus:)`: der Rückentext, der Text der Rückseite, die
+  Felder auf dem Umschlag — und die **Bilder**. Ein Hintergrundfoto und die
+  Wasserzeichenbilder liegen als Dateien im Bildarchiv *dieser* Reise; eine
+  Vorlagendatei, die sie mitnähme, wäre keine kleine Konfigurationsdatei
+  mehr, sondern eine halbe Buchdatei. Die **Einstellungen** dazu reisen mit
+  (Deckkraft, Größe, Drehspanne, Schleier), die Bilder bleiben die des
+  Zielbuchs — und das steht vor dem Anwenden noch einmal da.
+* **In der Wolke, ohne eine zweite Abgleichsmaschine.** Die Vorlagen liegen
+  als je eine Datei im Ordner `Vorlagen` neben den Büchern. Ist der Abgleich
+  eingeschaltet, liegen sie in iCloud und stehen auf jedem Gerät; beim
+  Umschalten ziehen sie mit um. Eine Liste unter einem Schlüssel in den
+  Voreinstellungen (wie die eigenen Seitenformate seit 1.0.52) wäre die
+  schlechteste Art, das abzugleichen: Zwei Geräte überschrieben einander die
+  ganze Liste, statt je eine Datei zu ergänzen.
+* **Als Datei weiterzugeben** (`.reisevorlage`, schlichtes JSON). Sie trägt
+  den Namen der Vorlage und nicht ihre Kennung — im Teilen-Blatt steht dann
+  „Saal Digital 21x28.reisevorlage" und nicht eine Reihe Hexadezimalziffern.
+  Eingelesen bekommt sie eine neue Kennung: Wer dieselbe Vorlage zweimal
+  einliest, hat zwei, nicht eine halb ersetzte.
+* **Erst zeigen, dann übernehmen.** Vor dem Anwenden steht da, was gesetzt
+  wird, was die Vorlage nicht mitbringen kann, wie viele Tage von Hand
+  bearbeitet sind — und, wenn eine Druckvorlage ein anderes Format nennt,
+  die Wahl zwischen *mitrechnen*, *nur das Format* und *lassen*. Dieselbe
+  Wahl wie beim Formatwechsel seit 1.0.27, und aus demselben Grund: Ein
+  Format einfach zu setzen ließe jeden Block auf einer anders großen Seite an
+  seiner alten Stelle stehen.
+* **Ein neues Buch darf gleich mit einer anfangen.** Genau darum ging es ja
+  — „für den nächsten Urlaub gerne dieselben Einstellungen". Eine Vorlage
+  lässt sich als Vorschlag markieren; beim Anlegen steht sie dann schon im
+  Wähler, sichtbar und wegzunehmen. Eine App, die ein neues Buch still nach
+  einer Vorlage anlegt, sieht für den Menschen davor aus wie eine App mit
+  seltsamen Vorgaben.
+* **Was eine Vorlage überschreibt, steht an EINER Stelle**
+  (`Vorlagenwerte.anwenden`) und wird Feld für Feld gesetzt, nicht als
+  ganzer Typ: Eine Aussehensvorlage, die `gestaltung` in einem Zug ersetzte,
+  nähme den Anschnitt der fremden Druckerei mit — und das fiele erst auf,
+  wenn die Datei abgewiesen wird.
+
+Zu finden unter **Ganzes Buch → Vorlagen: Aussehen und Druckerei**.
+
+**Nicht gemessen (1.0.95):** Keine Vorlage ist damit auf einem Gerät
+angewandt worden. Am Quelltext abgezählt ist, welches Feld zu welcher Art
+gehört und dass ein neues Buch keinen Formatwechsel braucht (es hat noch
+keinen Block). **Ungeprüft bleibt der Abgleich**: Dass ein Ordner neben den
+Büchern in iCloud genauso mitzieht wie sie selbst, folgt daraus, dass beide
+im selben Behälter liegen — gesehen hat es niemand. Ebenso ungesehen, ob die
+Trennung in „Aussehen" und „Druckerei" an einem wirklichen zweiten Urlaub
+aufgeht: Welches Feld man beim nächsten Buch behalten will, sagt erst der
+nächste Befund.
+
 ## Gemeldet wird, was wirklich herausfällt (1.0.94)
 
 > „Ich weiß nicht, wo da bei der Bildunterschrift Platz fehlt und wie man es
