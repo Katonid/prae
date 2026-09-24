@@ -1144,12 +1144,15 @@ struct Layoutautomat {
             // oben liegt (`Seite.sortiert`).
             block.ebene = ebene
             bloecke.append(block)
-            // Die Bildunterschrift dreht NICHT mit: Sie ist die Zeile, die
-            // jemand unter ein eingeklebtes Bild schreibt, und die steht
-            // gerade. Mitgedreht würde sie um ihre EIGENE Mitte gedreht und
-            // rückte damit vom Bild ab.
+            // DIE BILDUNTERSCHRIFT DREHT MIT (ab 1.0.86).
+            //
+            // Bis 1.0.85 stand hier das Gegenteil, mit dieser Begründung:
+            // „Mitgedreht würde sie um ihre EIGENE Mitte gedreht und rückte
+            // damit vom Bild ab." Richtig — für eine Drehung, die nur den
+            // Winkel setzt. `angelegt(an:)` dreht auch die LAGE, um die
+            // Mitte des Bildes, und damit bleibt die Gruppe starr.
             if let zeile = unterschriftBlock(foto, x: x, y: y + hoehe, breite: breite) {
-                bloecke.append(zeile)
+                bloecke.append(angelegt(zeile, an: block))
                 unten += unterschriftHoehe(foto, breite: breite)
             }
         case .karte:
@@ -1561,6 +1564,9 @@ struct Layoutautomat {
                         if let zeile = unterschriftBlock(foto, x: x, y: y + versatz + gestreckt,
                                                          breite: breite)
                         {
+                            // Mit derselben Neigung wie das Bild darüber
+                            // (ab 1.0.86) — und um dessen Mitte gedreht.
+                            let zeile = angelegt(zeile, an: block)
                             bloecke.append(zeile)
                             // Sie gehört zur Reihe wie das Bild selbst:
                             // `restplatzVerteilen` schiebt die Reihen
@@ -1651,7 +1657,38 @@ struct Layoutautomat {
     private func unterschriftHoehe(_ foto: Foto, breite: Double) -> Double {
         guard foto.unterschriftZeigen else { return 0 }
         let text = foto.unterschrift.isEmpty ? "Bildunterschrift" : foto.unterschrift
-        return Textmass.hoehe(text, bild: typografie.bildunterschrift, breite: breite) + 3
+        return Textmass.hoehe(text, bild: typografie.bildunterschrift, breite: breite)
+            + unterschriftfuge
+    }
+
+    // DER WEISSE FOTORAND LIEGT AUSSERHALB DES RAHMENS (ab 1.0.86).
+    //
+    // Er wird beim Zeichnen über `padding` ergänzt und zählt im Layout
+    // nicht mit — die Lehre dazu steht seit 1.0.83 an `Block.umriss`. Die
+    // Unterschrift stand deshalb drei Punkte unter dem RAHMEN und damit
+    // mitten im weißen Rand: Im Stil „Fotoalbum" sind das 2,6 mm, also gut
+    // sieben Punkte, und die Zeile verschwand darunter. Gemeldet 09/2026
+    // („sie ist sogar zum großen Teil vom Bild verdeckt") — zusammen mit
+    // der Drehung, die den Rest verdeckte.
+    private var unterschriftfuge: Double { Druckmass.pt(gestaltung.fotorand) + 3 }
+
+    // EINE ZEILE, DIE ZU IHREM BILD GEHÖRT (ab 1.0.86).
+    //
+    // Sie bekommt dessen Winkel und wird um dessen MITTE gedreht — die
+    // beiden bewegen sich damit starr, und die Zeile steht weiter unter dem
+    // Bild statt schief daneben oder halb darunter. Dieselbe Rechnung wie
+    // beim Drehen von Hand (`Reisewerk.drehe`); zwei Fassungen ergäben
+    // einen Satz, der nach dem ersten Anfassen anders aussieht.
+    private func angelegt(_ zeile: Block, an bild: Block) -> Block {
+        var neu = zeile
+        // Dieselbe Ebene wie das Bild: Bei zwei gestaffelten Kacheln liegt
+        // die eine oben (`Seite.sortiert`), und eine Zeile auf Ebene 0
+        // verschwände unter ihrem eigenen Bild.
+        neu.ebene = bild.ebene
+        guard abs(bild.drehung) > 0.01 else { return neu }
+        neu.rahmen = zeile.rahmen.gedreht(um: bild.rahmen.mitte, grad: bild.drehung)
+        neu.drehung = bild.drehung
+        return neu
     }
 
     // Der Block dazu — leer heißt kein Block: Ein Kasten ohne Text wäre auf
@@ -1661,8 +1698,9 @@ struct Layoutautomat {
     {
         let hoehe = unterschriftHoehe(foto, breite: breite)
         guard hoehe > 0 else { return nil }
+        let fuge = unterschriftfuge
         return Block(inhalt: .bildunterschrift(foto.id),
-                     rahmen: Rahmen(x: x, y: y + 3, breite: breite, hoehe: hoehe - 3))
+                     rahmen: Rahmen(x: x, y: y + fuge, breite: breite, hoehe: hoehe - fuge))
     }
 
     // `hoechstens` deckelt die Höhe des Textes auf dieser Seite. Ohne

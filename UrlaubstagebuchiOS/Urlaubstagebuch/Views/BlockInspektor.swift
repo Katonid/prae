@@ -880,7 +880,10 @@ struct BlockInspektor: View {
                 LabeledContent("Drehung", value: String(format: "%.1f°", block.drehung))
                 Slider(value: Binding(
                     get: { block.drehung },
-                    set: { neu in werk.aendere(block.id, merken: false) { $0.drehung = neu } }
+                    // Über das Werk und nicht über `aendere`: Die
+                    // Bildunterschrift dreht mit (ab 1.0.86), und zwei
+                    // Wege zum Drehen liefen auseinander.
+                    set: { neu in werk.drehe(block.id, auf: neu) }
                 ), in: -15...15, step: 0.5)
             }
             Button("Auf dem Satzspiegel ausrichten") { ausrichten(block) }

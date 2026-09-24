@@ -7698,6 +7698,59 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **DIE BILDUNTERSCHRIFT GEHÖRT ZUM BILD — SIE DREHT MIT UND SIE SCHIEBT
+  MIT** (`Reisewerk.drehe`, `.schiebeMitUnterschrift`, `Rahmen.gedreht(um:grad:)`,
+  ab 1.0.86; gemeldet 09/2026: „Ich habe jetzt erstmalig eine
+  Bildunterschrift einfügen wollen und habe festgestellt, dass sie sich bei
+  Drehung des Bildes nicht mitdreht. Im vorliegenden Fall ist es so, dass sie
+  sogar zum großen Teil vom Bild verdeckt ist.").
+  - **Der Satz stand im Quelltext, mit Begründung — und die Begründung traf
+    nur die halbe Sache.** Dort hieß es seit 1.0.36: „Die Bildunterschrift
+    dreht NICHT mit … mitgedreht würde sie um ihre EIGENE Mitte gedreht und
+    rückte damit vom Bild ab." Richtig für eine Drehung, die nur den WINKEL
+    setzt; falsch, sobald auch die LAGE mitgedreht wird. **Merke: Eine
+    Begründung, die gegen einen Weg spricht, trifft oft nur seine einfachste
+    Form.** Gedreht wird deshalb um die Mitte des BILDES und um die DIFFERENZ
+    zum bisherigen Winkel — der Griff setzt ihn absolut, und die gespeicherte
+    Lage trägt die vorherige Drehung schon in sich.
+  - **Die Verdeckung hatte DREI Ursachen, und nur eine war die Drehung.**
+    (1) Der weiße Fotorand liegt AUSSERHALB des Rahmens (die Lehre steht seit
+    1.0.83 an `Block.umriss`); die Zeile stand drei Punkte unter dem Rahmen
+    und damit mitten darin — im Stil „Fotoalbum" sind das 2,6 mm, also gut
+    sieben Punkte. `Layoutautomat.unterschriftfuge` rechnet ihn jetzt mit,
+    und die Reihenhöhe wächst mit (`unterschriftHoehe`, sonst rutschte die
+    Zeile in die nächste Reihe). (2) Eine gedrehte Kachel ragt mit ihrer Ecke
+    weit über den Rahmen. (3) `Seite.sortiert` rief `sorted`, und das ist in
+    Swift NICHT als stabil zugesichert — bei gleicher Ebene hing vom Zufall
+    ab, welcher von zwei Blöcken obenauf liegt, und ein Foto und seine
+    Unterschrift liegen immer gleich hoch. **Dieselbe Falle wie beim Ordnen
+    der Reisepunkte in 1.0.21.**
+  - **Die GRÖSSENÄNDERUNG nimmt sie bewusst nicht mit.** Drehen und Schieben
+    sind starre Bewegungen — die Gruppe bleibt, wie sie ist. Beim Ziehen an
+    einer Ecke müsste die Zeile neu umbrechen und ihre Höhe neu messen; sie
+    liegt danach sichtbar neben dem Bild und ist in einem Griff nachgezogen.
+    Eine gedrehte Zeile unter dem Bild war dagegen gar nicht mehr zu greifen,
+    und das ist der Unterschied.
+  - **Gesucht wird die Zeile in DERSELBEN Seite** (`unterschriftZu`). Seit
+    `blockKopieren` (1.0.39) darf dasselbe Foto zweimal im Buch stehen; über
+    das ganze Buch gesucht bewegte ein Griff die Zeile der anderen Kopie mit.
+  - **Beim Schieben wird sie NICHT auf die Seite geklemmt.** Starr ist starr:
+    Was dabei über die Kante gerät, meldet die rote Marke — das ist die
+    ehrlichere Auskunft als eine Zeile, die sich still an ihr Bild
+    heranschiebt.
+  - **Eine Stelle für das Drehen** (`Reisewerk.drehe`), gefragt vom Drehgriff
+    UND vom Regler im Inspektor; eine für die Automatik
+    (`Layoutautomat.angelegt(_:an:)`). Zwei Fassungen ergäben einen Satz, der
+    nach dem ersten Anfassen anders aussieht als vorher.
+- **Nicht gemessen (1.0.86):** Keine Seite ist damit gesehen worden.
+  **Am Quelltext ABGEZÄHLT sind alle drei Ursachen der Verdeckung** — der
+  Fotorand außerhalb des Rahmens, die Ecke des gedrehten Bildes und die
+  unstabile Sortierung —, und die Geometrie der Drehung ist gerechnet.
+  **Bewiesen ist damit nicht, welche davon es auf seiner Seite war:** Es kann
+  eine zweite darüberliegen, und in diesem Papier stehen genug Fälle, in denen
+  die erste Erklärung eine Vermutung war. Ebenso ungesehen, ob eine
+  mitgedrehte Zeile unter einem stark gedrehten Bild gut aussieht oder ob man
+  sie dort lieber gerade hätte. **Nicht als erledigt darstellen.**
 - **AM BUND BRAUCHT NICHT JEDE DRUCKEREI EINEN ANSCHNITT**
   (`Gestaltung.anschnittAmBund`, `offeneKante(_:)`, ab 1.0.85; Ansage des
   Nutzers 09/2026 mit der Vorgabe seines Druckdienstes vor Augen: „Auch hier
@@ -9515,7 +9568,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.85 (Build 86). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.86 (Build 87). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

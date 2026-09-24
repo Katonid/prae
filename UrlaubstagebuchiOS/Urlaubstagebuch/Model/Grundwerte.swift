@@ -63,6 +63,31 @@ struct Rahmen: Codable, Hashable {
         self.init(x: rect.minX, y: rect.minY, breite: rect.width, hoehe: rect.height)
     }
 
+    // UM EINEN FREMDEN PUNKT GEDREHT (ab 1.0.86).
+    //
+    // Gebraucht, wenn zwei Blöcke sich zusammen bewegen sollen: Die
+    // Bildunterschrift dreht mit dem Bild, und zwar um DESSEN Mitte. Um die
+    // eigene gedreht bliebe sie stehen, wo sie steht — genau das war der
+    // Einwand, mit dem sie bis 1.0.85 gar nicht mitdrehte.
+    //
+    // Gerechnet wird im Seitensystem (y nach unten), also im selben
+    // Drehsinn wie `rotationEffect` und `CGContext.rotate`. Die GRÖSSE
+    // bleibt: Der Block selbst wird zusätzlich um seine eigene Mitte
+    // gedreht, und beides zusammen ist die starre Bewegung der Gruppe.
+    func gedreht(um punkt: CGPoint, grad: Double) -> Rahmen {
+        // `Double(...)` um jeden Wert aus einem `CGPoint`: Wo ein solcher
+        // mit einem `Double` zusammenkommt, rechnet Swift nicht überall von
+        // selbst um — die Regel steht seit 1.0.0 im Papier und ist seither
+        // zweimal bezahlt worden.
+        let bogen = grad * .pi / 180
+        let dx = Double(mitte.x) - Double(punkt.x)
+        let dy = Double(mitte.y) - Double(punkt.y)
+        let neuX = Double(punkt.x) + dx * cos(bogen) - dy * sin(bogen)
+        let neuY = Double(punkt.y) + dx * sin(bogen) + dy * cos(bogen)
+        return Rahmen(x: neuX - breite / 2, y: neuY - hoehe / 2,
+                      breite: breite, hoehe: hoehe)
+    }
+
     func verschoben(dx: Double, dy: Double) -> Rahmen {
         Rahmen(x: x + dx, y: y + dy, breite: breite, hoehe: hoehe)
     }

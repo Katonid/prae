@@ -480,6 +480,31 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die Bildunterschrift geht mit (1.0.86)
+
+Sie ist ein eigener Block, stand aber unbeweglich unter dem **Rahmen** des
+Fotos. Wer ein Bild drehte, hatte danach eine schiefe Zeile darunter — und
+bei stärkerer Drehung verschwand sie ganz unter dem Bild.
+
+- **Drehen und Schieben nehmen sie mit.** Gedreht wird sie um die Mitte des
+  Bildes, nicht um ihre eigene; damit bleibt das Paar starr. Wer sie
+  woanders haben will, fasst **sie** an — die neue Lage bleibt dann
+  erhalten, denn bewegt wird immer nur die Differenz.
+- **Der weiße Fotorand zählt jetzt mit.** Er liegt außerhalb des Rahmens;
+  die Zeile stand drei Punkte darunter und damit mitten darin — im Stil
+  „Fotoalbum" sind das gut sieben Punkte.
+- **Die Zeichenreihenfolge ist jetzt verlässlich.** `sorted` ist in Swift
+  nicht als stabil zugesichert, und ein Foto und seine Unterschrift liegen
+  immer auf derselben Ebene.
+- **Die Größenänderung nimmt sie nicht mit:** Dort ist es keine starre
+  Bewegung, die Zeile müsste neu umbrechen. Sie liegt danach sichtbar neben
+  dem Bild und ist in einem Griff nachgezogen.
+
+**Nicht gemessen (1.0.86):** Keine Seite ist damit gesehen worden. Die drei
+Ursachen sind am Quelltext abgezählt und die Drehung ist gerechnet; welche
+davon es auf der gemeldeten Seite war, ist damit nicht bewiesen.
+
+
 ## Kein Anschnitt am Bund (1.0.85)
 
 Manche Druckdienste legen die Innenseiten selbst zusammen und verlangen
