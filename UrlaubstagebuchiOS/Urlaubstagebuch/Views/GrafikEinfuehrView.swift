@@ -108,9 +108,11 @@ struct BildAusFotosView: View {
         // Der Wähler zeigt sich SELBST — dieselbe Regel wie überall, wo ein
         // fremder Dienst ein Fenster aufmacht.
         Fotowahl { treffer in
+            Absturzspur.beginnt("Mediathek: \(treffer.count) Bild(er) gewählt")
             Task { await einsetzen(treffer) }
         }
         .ignoresSafeArea()
+        .onAppear { Absturzspur.beginnt("Mediathek-Wähler steht \u{2014} Auswahl läuft") }
     }
 
     private func einsetzen(_ treffer: [PHPickerResult]) async {

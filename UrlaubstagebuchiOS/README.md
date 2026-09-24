@@ -480,6 +480,45 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ein fehlender Absturzbericht ist selbst ein Befund (1.0.101)
+
+Gemeldet 09/2026, nach 1.0.100: „Jedes Mal stürzt die App ab, aber es
+wird nirgendwo etwas eingetragen, auch in der Systemsteuerung nicht."
+
+Das ist keine Sackgasse, sondern eine Auskunft — **ein gewöhnlicher
+Absturz legt IMMER einen Bericht ab.** Bleibt er aus, kommen drei Dinge
+in Frage, und diese Fassung macht alle drei unterscheidbar:
+
+- **Es läuft gar nicht die Fassung, über die geredet wird.** Die App
+  zeigte ihre Fassungsnummer bis 1.0.100 **nirgends** — von außen war
+  nicht zu entscheiden, ob die Absturzspur überhaupt an Bord ist. Sie
+  steht jetzt in den Einstellungen, ganz unten, samt Build-Nummer.
+  **Wer über einen Befund redet, muss sagen können, woran er entstanden
+  ist.**
+- **Der Absturz kommt VOR dem ersten vermerkten Schritt.** Dann steht
+  nichts da, weil noch nichts geschrieben wurde. Die Spur fängt seit
+  1.0.101 deshalb beim Antippen des Menüpunkts an — vor dem Blatt, vor
+  dem fremden Fenster —, und der Wähler meldet sich noch einmal, sobald
+  er steht.
+- **Es ist gar kein Absturz, sondern ein SPEICHERTOD.** Den schreibt iOS
+  als `JetsamEvent` und nicht unter den Namen der App — deshalb steht in
+  den Analysedaten nichts unter „Urlaubstagebuch". Jede Zeile der Spur
+  nennt seither, wie viel Speicher der App noch blieb
+  (`os_proc_available_memory`). Fällt die Zahl kurz vor dem Ende gegen
+  null, ist es keiner Rechnung anzulasten, sondern der Bildgröße.
+
+**Und die Spur bleibt liegen, bis jemand sie weglegt.** Bis 1.0.100
+räumte sie das Lesen gleich mit weg — mit der Begründung, ein Befund, der
+zweimal erschiene, sähe aus wie ein zweiter Absturz. Das stimmt und war
+trotzdem falsch: Damit gab es genau EINEN Blick darauf, und wer in dem
+Augenblick nicht hinsah, hatte ihn für immer verloren. Sie steht jetzt im
+Regal UND in den Einstellungen.
+
+**Nicht gemessen (1.0.101):** Der Absturz ist weiterhin NICHT behoben und
+seine Ursache nicht bekannt. Diese Fassung macht nur die Frage
+entscheidbar, an der die letzte hängen geblieben ist. **Nicht als
+erledigt darstellen.**
+
 ## Die App sagt, woran sie gestorben ist (1.0.100)
 
 Gemeldet 09/2026: „Leider stürzt die App nun immer ab, wenn ich ein Foto

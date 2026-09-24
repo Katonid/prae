@@ -260,7 +260,10 @@ struct RegalView: View {
                     Button("Befund kopieren", systemImage: "doc.on.doc") {
                         UIPasteboard.general.string = befund
                     }
-                    Button("Weglegen") { regal.absturzbefund = nil }
+                    Button("Weglegen") {
+                        Absturzspur.weglegen()
+                        regal.absturzbefund = nil
+                    }
                 } header: {
                     Text("Absturz")
                 } footer: {

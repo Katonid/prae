@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // WAS DIE APP GERADE TAT, ALS SIE STARB (ab 1.0.100).
 //
@@ -38,10 +39,30 @@ enum Absturzspur {
     /// nächsten Start da.
     static func beginnt(_ schritt: String) {
         guard let datei else { return }
+        // Ein neuer Schritt überschreibt die Spur des VORIGEN Absturzes —
+        // und das ist richtig so: Wer es noch einmal versucht, will den
+        // Befund von jetzt. Weggelegt wird er vorher auf Tippen.
         var zeile = "\(Fassung.text) \u{00B7} "
         zeile += Datumsformat.mitSekunden.string(from: Date())
+        zeile += " \u{00B7} " + freierSpeicher
         zeile += "\n" + schritt
         try? Data(zeile.utf8).write(to: datei, options: .atomic)
+    }
+
+    /// Wie viel Speicher dieser App noch bleibt.
+    ///
+    /// **Das ist die Frage, die ein fehlender Absturzbericht aufwirft**
+    /// (ab 1.0.101). Gemeldet 09/2026: „Jedes Mal stürzt die App ab, aber
+    /// es wird nirgendwo etwas eingetragen, auch in der Systemsteuerung
+    /// nicht." Ein gewöhnlicher Absturz legt dort IMMER einen Bericht ab
+    /// — ein Speichertod nicht: Den schreibt iOS als `JetsamEvent` und
+    /// nicht unter den Namen der App. Fällt diese Zahl kurz vor dem Ende
+    /// gegen null, ist es keiner Rechnung anzulasten, sondern der
+    /// Bildgröße.
+    private static var freierSpeicher: String {
+        let frei = os_proc_available_memory()
+        guard frei > 0 else { return "Speicher unbekannt" }
+        return "noch \(frei / 1_048_576) MB frei"
     }
 
     /// Der Schritt ist gut ausgegangen.
@@ -64,18 +85,34 @@ enum Absturzspur {
         }
     }
 
-    /// Was beim letzten Mal liegen geblieben ist — und weggeräumt wird
-    /// dabei: Ein Befund, der zweimal erschiene, sähe aus wie ein zweiter
-    /// Absturz.
+    /// Was beim letzten Mal liegen geblieben ist.
+    ///
+    /// **Gelesen und NICHT gelöscht** (ab 1.0.101). Bis 1.0.100 räumte
+    /// diese Zeile die Spur gleich mit weg — mit der Begründung, ein
+    /// Befund, der zweimal erschiene, sähe aus wie ein zweiter Absturz.
+    /// Das stimmt und war trotzdem falsch: Damit gab es genau EINEN Blick
+    /// darauf, und wer in dem Augenblick nicht hinsah, hatte ihn für
+    /// immer verloren. Weggeräumt wird jetzt erst auf Tippen
+    /// (`weglegen`), und bis dahin steht er im Regal UND in den
+    /// Einstellungen.
     static func aufgelesen() -> String? {
         guard let datei, let daten = try? Data(contentsOf: datei),
               let text = String(data: daten, encoding: .utf8),
               !text.isEmpty
         else { return nil }
-        try? FileManager.default.removeItem(at: datei)
         return text
     }
 
+    /// Der Mensch hat ihn gesehen.
+    static func weglegen() { endet() }
+
+    /// Welche Fassung hier läuft.
+    ///
+    /// **Bis 1.0.100 stand das NIRGENDS in der App** — und genau daran
+    /// hing 09/2026 eine Diagnose fest: Nach einem gemeldeten Absturz war
+    /// von hier aus nicht zu entscheiden, ob auf dem Gerät überhaupt die
+    /// Fassung lief, über die gesprochen wurde. **Wer über einen Befund
+    /// redet, muss sagen können, woran er entstanden ist.**
     enum Fassung {
         static var text: String {
             let nummer = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
