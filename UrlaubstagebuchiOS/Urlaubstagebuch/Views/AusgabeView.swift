@@ -579,6 +579,12 @@ struct AusgabeView: View {
 
 struct BefundZeile: View {
     let zeile: Druckpruefung.Zeile
+    // WO ES STEHT, NICHT NUR DASS ES STEHT (ab 1.0.93). Ist ein `werk`
+    // dabei und nennt der Befund Stellen, bekommt er einen Knopf: Er
+    // umrandet sie im Buch rot und springt zur ersten. Ohne `werk` bleibt
+    // die Zeile, was sie war — dieselbe Ansicht, zwei Aufrufstellen.
+    var werk: Reisewerk?
+    var beimZeigen: (() -> Void)?
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
@@ -591,6 +597,20 @@ struct BefundZeile: View {
                 Text(zeile.text)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let werk, !zeile.stellen.isEmpty {
+                    Button {
+                        werk.befundeZeigen(zeile.stellen)
+                        beimZeigen?()
+                    } label: {
+                        Label("Im Buch zeigen (\(zeile.stellen.count))",
+                              systemImage: "scope")
+                            .font(.caption)
+                    }
+                    // `.borderless`, sonst nähme der Knopf die ganze
+                    // Zeile — in einer `Form` ist jede Zeile tippbar.
+                    .buttonStyle(.borderless)
+                    .padding(.top, 2)
+                }
             }
         }
         .padding(.vertical, 1)

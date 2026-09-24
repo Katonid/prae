@@ -480,6 +480,53 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die Befunde stehen auf der Seite (1.0.93)
+
+> „Ich möchte, dass nach der Dokumentprüfung alle Stellen im Dokument, an
+> denen etwas auszusetzen war, rot umrandet erscheinen. Ich habe jetzt
+> beispielsweise recht viel Zeit dafür verwendet, an den angegebenen Tagen
+> die Textfelder zu suchen, die angeblich zu klein sind."
+
+Die Druckprüfung nannte bis 1.0.92 Tag und Blockart im Fließtext („6. August
+2026: Tagebuchtext, es fehlen 4,2 mm") — und danach saß man vor einem Tag mit
+vier Seiten und suchte. **Eine Prüfung, die eine Stelle nennt, aber nicht
+zeigt, verschiebt die Arbeit nur.**
+
+Unter jedem Befund, der eine Stelle im Buch nennt, steht jetzt **„Im Buch
+zeigen"**: Die Prüfung macht sich zu, die betroffenen Kästen werden rot
+umrandet, und die Ansicht springt zum ersten. Unten in der Leiste steht dann
+**„Befund 3 von 12"** — ein Tipp darauf geht zum nächsten, am Ende wieder von
+vorn.
+
+* **Gerechnet wird an EINER Stelle** (`Befundstellen`). Die drei Prüfungen,
+  die einen einzelnen Block betreffen — Textkasten zu klein, derselbe
+  Wortlaut zweimal auf einer Seite, eingeschaltete Unterschrift ohne Text —
+  standen bis 1.0.92 als eigene Schleifen in der Druckprüfung. Sie bauen ihre
+  Zeilen seither aus dieser Liste; zwei Fassungen fänden irgendwann
+  Verschiedenes, und dann stünde in der Prüfung ein Kasten, um den auf der
+  Seite keine Marke liegt.
+* **Es ist dieselbe rote Marke wie am Rand** (seit 1.0.81). Es ist dieselbe
+  Aussage — „hier stimmt etwas nicht" —, und zwei Rottöne nebeneinander wären
+  eine Unterscheidung, die niemand lesen kann.
+* **Die Liste ist GESPEICHERT, nicht gerechnet.** Dahinter steckt ein voller
+  CoreText-Satz je Textblock des Buches; als berechnete Eigenschaft liefe er
+  bei jedem Neuzeichnen der Bühne mit. Neu gesammelt wird auf einen Anlass —
+  und nur, solange die Marken überhaupt gezeigt werden.
+* **Was behoben ist, verliert seine Marke von selbst.** „Rahmen an Text
+  anpassen", Text schreiben, teilen, neu anordnen und das Ziehen an einer Ecke
+  frischen die Liste auf.
+* **Was am RAND steht, ist nicht dabei** — das hat seit 1.0.81 seine eigene
+  Marke, die die Lage des Blocks selbst misst, mit der Bundseite dieser Seite.
+  Wer es hier noch einmal aufnähme, hätte zwei Marken übereinander und zwei
+  Rechnungen dafür.
+
+**Nicht gemessen (1.0.93):** Keine Seite ist damit gesehen worden. Am
+Quelltext abgezählt ist, was je Anlass gerechnet wird; ob das Blättern durch
+die Befunde sich schnell anfühlt und ob die Marke auf einem Foto deutlich
+genug steht, sagt erst der nächste Befund. Die eigenen Felder auf Titel- und
+Rückseite werden **gezählt, aber nicht angesprungen**: Sie stehen in keinem
+Tag und haben keine Seite, auf die sich springen ließe.
+
 ## Die Bildunterschrift hält Abstand (1.0.92)
 
 > „Die Bildunterschrift soll nicht halb noch im weißen Rahmen des Bildes

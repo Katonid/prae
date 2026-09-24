@@ -418,6 +418,14 @@ struct ReiseView: View {
             }
             // Ein Tipp in der Tagesliste ROLLT zu diesem Tag (ab 1.0.28).
             .onChange(of: werk.gewaehlterTag) { _, _ in springeZuGewaehltem() }
+            // Ein Sprung zu einem Befund der Druckprüfung (ab 1.0.93).
+            .onChange(of: werk.sprungZuSeite) { _, _ in springeZuBefund() }
+            // Passt ein Textkasten nach dem Ziehen wieder, gehört seine
+            // rote Marke weg. `textUeberlauf` misst genau diesen Übergang
+            // und wird ohnehin je Änderung gerechnet (seit 1.0.8) — hier
+            // kostet die Auffrischung also nur einen Lauf je Umschlag, und
+            // auch den nur, solange die Marken gezeigt werden.
+            .onChange(of: werk.textUeberlauf) { _, _ in werk.befundeAuffrischen() }
             // Und umgekehrt: Was oben im Bild steht, ist der gewählte Tag.
             .onChange(of: tagImBlick) { _, neu in
                 guard let neu, neu != werk.gewaehlterTag else { return }
@@ -677,6 +685,36 @@ struct ReiseView: View {
     // Liste kam, sondern vom Rollen selbst. Ein zweiter Schalter daneben,
     // der „das war ich" sagt, wäre die naheliegende Lösung und eine, die
     // bei jeder Änderung der Reihenfolge wieder danebenliegt.
+    // ZU EINER BESTIMMTEN SEITE (ab 1.0.93) — das Ziel eines Sprungs aus
+    // der Druckprüfung. Gesucht wird in derselben Liste, die auch gezeigt
+    // wird; eine zweite Zählung liefe auseinander.
+    private func kennung(fuerSeite seite: UUID) -> String? {
+        if doppelseiten {
+            let bogen = werk.sichtbareDoppelseiten.first { einer in
+                einer.links?.seite.id == seite || einer.rechts?.seite.id == seite
+            }
+            return bogen.map { "bogen-\($0.bogen)" }
+        }
+        return werk.sichtbareSeiten.first { $0.seite.id == seite }
+            .map { "blatt-\($0.id)" }
+    }
+
+    // „Befund 3 von 12" — die Zahl gehört auf den Knopf. Ohne sie weiß
+    // niemand, wie viel noch kommt.
+    private var befundzaehler: String {
+        let gesamt = werk.befundstellen.count
+        let jetzt = min(werk.befundzeiger + 1, gesamt)
+        return "Befund \(jetzt) von \(gesamt)"
+    }
+
+    private func springeZuBefund() {
+        guard let seite = werk.sprungZuSeite else { return }
+        werk.sprungZuSeite = nil
+        guard let kennung = kennung(fuerSeite: seite) else { return }
+        rollnummer += 1
+        rollwunsch = Rollwunsch(kennung: kennung, anker: .top, nummer: rollnummer)
+    }
+
     private func springeZuGewaehltem() {
         guard let tag = werk.gewaehlterTag, tag != tagImBlick,
               let kennung = ersteKennung(fuer: tag) else { return }
@@ -1192,6 +1230,23 @@ struct ReiseView: View {
                 blatt = .handbuch
             } label: {
                 Label("Hilfe", systemImage: "questionmark.circle")
+            }
+
+            // DURCH DIE BEFUNDE BLÄTTERN (ab 1.0.93).
+            //
+            // Die roten Marken sagen, WO etwas ist; dieser Knopf bringt
+            // einen hin. Er steht hier und nicht in einem Menü: Wer eine
+            // Prüfung abarbeitet, tippt ihn ein Dutzend Mal, und ein Menü
+            // dafür wären ein Dutzend Male zwei Tipps. Am letzten Befund
+            // geht es wieder von vorn los — ein Knopf, der plötzlich nichts
+            // mehr tut, sieht kaputt aus.
+            if werk.zeigeBefunde, !werk.befundstellen.isEmpty {
+                Button {
+                    werk.naechsterBefund()
+                } label: {
+                    Label(befundzaehler, systemImage: "exclamationmark.triangle.fill")
+                }
+                .tint(.red)
             }
 
             Spacer()
@@ -1761,6 +1816,12 @@ struct ReiseView: View {
                 // Millimetern steht daneben im Inspektor unter „Lage".
                 // `@AppStorage` gehört in eine View und nie ins `Reisewerk`.
                 Toggle("An Rand und Nachbarn einrasten", isOn: $einrastenAn)
+                // DIE BEFUNDE DER DRUCKPRÜFUNG (ab 1.0.93). Eingeschaltet
+                // wird er normalerweise dort, wo der Befund steht („Im Buch
+                // zeigen"); hier steht er, weil man ihn auch wieder
+                // ausschalten können muss, ohne die Prüfung zu öffnen.
+                Toggle("Befunde der Druckprüfung rot umranden",
+                       isOn: $werk.zeigeBefunde)
             }
             Section("Hilfe und Prüfen") {
                 // DIE HILFE STEHT AUCH HIER (ab 1.0.77). Das

@@ -25,6 +25,11 @@ import UIKit
 // Fassungen derselben Prüfung fänden irgendwann Verschiedenes.
 struct DruckpruefungView: View {
     @ObservedObject var werk: Reisewerk
+    // Wer „Im Buch zeigen" tippt, will das Buch sehen — das Blatt liegt
+    // darüber und macht sich deshalb zu. Gefüllt wird das von
+    // `Druckpruefungblatt`; die Ansicht selbst kennt kein `dismiss`, denn
+    // sie steht auch im Ausgabeblatt.
+    var beimZeigen: (() -> Void)?
     @State private var befund: [Druckpruefung.Zeile] = []
     @State private var laeuft = true
     // Gemeldet wird IN dieser Ansicht und nicht über `werk.meldung`: Das
@@ -43,7 +48,9 @@ struct DruckpruefungView: View {
             } else {
                 if !warnungen.isEmpty {
                     Section {
-                        ForEach(warnungen) { zeile in BefundZeile(zeile: zeile) }
+                        ForEach(warnungen) { zeile in
+                            BefundZeile(zeile: zeile, werk: werk, beimZeigen: beimZeigen)
+                        }
                     } header: {
                         Text("Das sollte vor dem Druck geklärt werden")
                     } footer: {
@@ -53,7 +60,9 @@ struct DruckpruefungView: View {
 
                 if !hinweise.isEmpty {
                     Section("Zum Nachlesen") {
-                        ForEach(hinweise) { zeile in BefundZeile(zeile: zeile) }
+                        ForEach(hinweise) { zeile in
+                            BefundZeile(zeile: zeile, werk: werk, beimZeigen: beimZeigen)
+                        }
                     }
                 }
 
@@ -88,6 +97,10 @@ struct DruckpruefungView: View {
         // (dieselbe Falle wie bei der Druckprüfung in 1.0.0).
         .task {
             befund = Druckpruefung.vorab(werk.reise)
+            // Stehen die Marken schon, gehören sie auf denselben Stand
+            // wie dieser Befund — sonst zeigte die Seite einen Kasten an,
+            // den die Liste hier gar nicht mehr nennt.
+            werk.befundeAuffrischen()
             laeuft = false
         }
     }
@@ -134,7 +147,7 @@ struct Druckpruefungblatt: View {
 
     var body: some View {
         NavigationStack {
-            DruckpruefungView(werk: werk)
+            DruckpruefungView(werk: werk, beimZeigen: { schliessen() })
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Fertig") { schliessen() }

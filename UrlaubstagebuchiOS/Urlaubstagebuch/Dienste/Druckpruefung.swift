@@ -31,6 +31,12 @@ enum Druckpruefung {
         var stufe: Stufe
         var titel: String
         var text: String
+        // WO IM BUCH DAS STEHT (ab 1.0.93). Leer heißt: Dieser Befund
+        // hängt an keinem einzelnen Block — an der Seitenzahl, am
+        // Farbraum, am Umschlagmaß. Wo die Liste gefüllt ist, bietet die
+        // Prüfung einen Knopf an, der die Stellen im Buch rot umrandet und
+        // zur ersten springt.
+        var stellen: [Befundstelle] = []
     }
 
     // Ein Kasten, aus dem unten Text herausfällt, ist der eine Fehler, den
@@ -38,53 +44,18 @@ enum Druckpruefung {
     // ein Kasten, der zu Ende ist, und im gedruckten Buch fehlt ein Satz.
     // Auf der Seite steht dafür die orange Marke — die sieht aber nur, wer
     // gerade auf dieser Seite ist. Das ganze Buch zählt diese Prüfung.
-    static func abgeschnittenerText(_ reise: Reise) -> [Zeile] {
-        var betroffen: [String] = []
-        for tag in reise.tage {
-            for seite in tag.seiten {
-                for block in seite.bloecke where block.inhalt.istText {
-                    let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
-                    guard !text.isEmpty, block.rahmen.breite > 1 else { continue }
-                    let bild = Seitensatz.schriftbild(block, reise: reise)
-                    // Dieselbe Rechnung wie in `Reisewerk.fehlendeHöhe` —
-                    // samt Innenabstand. Zwei Fassungen ergaben eine Seite,
-                    // auf der die Marke schweigt und die Prüfung anschlägt.
-                    let rand = block.textrand(reise.gestaltung)
-                    let noetig = Textmass.hoehe(text, bild: bild,
-                                                breite: block.textbreite(rand: rand))
-                        + 2 * rand
-                    guard noetig > block.rahmen.hoehe + 0.5 else { continue }
-                    betroffen.append("\(tag.datum.mittel): \(block.inhalt.name), es fehlen \(Druckmass.mmText(noetig - block.rahmen.hoehe))")
-                }
-            }
-        }
-        // Die eigenen Felder auf Titel- und Rückseite (ab 1.0.64). Sie
-        // stehen in keinem Tag und wären hier sonst der einzige Ort im
-        // Buch, an dem ein Satz still herausfallen darf.
-        for (name, bloecke) in [("Umschlag: Titelseite", reise.umschlag.titelbloecke),
-                                ("Umschlag: Rückseite", reise.umschlag.rueckbloecke)]
-        {
-            for block in bloecke where block.inhalt.istText {
-                let text = Seitensatz.inhaltstext(block, tag: nil, reise: reise)
-                guard !text.isEmpty, block.rahmen.breite > 1 else { continue }
-                let bild = Seitensatz.schriftbild(block, reise: reise)
-                let rand = block.textrand(reise.gestaltung)
-                let noetig = Textmass.hoehe(text, bild: bild,
-                                            breite: block.textbreite(rand: rand))
-                    + 2 * rand
-                guard noetig > block.rahmen.hoehe + 0.5 else { continue }
-                let fehlt = Druckmass.mmText(noetig - block.rahmen.hoehe)
-                betroffen.append("\(name): \(block.inhalt.name), es fehlen \(fehlt)")
-            }
-        }
-        guard !betroffen.isEmpty else {
+    static func abgeschnittenerText(_ alleStellen: [Befundstelle]) -> [Zeile] {
+        let stellen = alleStellen.filter { $0.art == .textUeberlauf }
+        guard !stellen.isEmpty else {
             return [Zeile(stufe: .gut, titel: "Kein abgeschnittener Text",
                           text: "In jeden Textkasten passt, was darin steht.")]
         }
+        let liste = stellen.map { "\($0.ort): \($0.text)" }
         return [Zeile(
             stufe: .warnung,
-            titel: "\(betroffen.count) Textkästen sind zu klein",
-            text: "Unten fällt Text heraus und steht so auch nicht im PDF. Auf der Seite ist der Kasten mit einer orangen Marke versehen; \u{201E}Rahmen an Text anpassen\u{201C} löst es auf.\n" + betroffen.prefix(12).joined(separator: "\n")
+            titel: "\(stellen.count) Textkästen sind zu klein",
+            text: "Unten fällt Text heraus und steht so auch nicht im PDF. \u{201E}Im Buch zeigen\u{201C} umrandet die Kästen rot und springt zum ersten; \u{201E}Rahmen an Text anpassen\u{201C} löst es auf.\n" + liste.prefix(12).joined(separator: "\n"),
+            stellen: stellen
         )]
     }
 
@@ -94,28 +65,15 @@ enum Druckpruefung {
     // es zwei Absätze. Gemeldet 09/2026 als „das Textfeld erscheint
     // dupliziert"; woher der zweite Kasten kam, ist damit noch nicht
     // beantwortet — aber er ist ab jetzt nicht mehr zu übersehen.
-    static func doppelterText(_ reise: Reise) -> [Zeile] {
-        var treffer: [String] = []
-        for tag in reise.tage {
-            for (nummer, seite) in tag.seiten.enumerated() {
-                var gesehen: [String: Int] = [:]
-                for block in seite.bloecke where block.inhalt.istText {
-                    let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard text.count > 20 else { continue }
-                    gesehen[text, default: 0] += 1
-                }
-                for (text, anzahl) in gesehen where anzahl > 1 {
-                    let anfang = text.prefix(40)
-                    treffer.append("\(tag.datum.mittel), Seite \(nummer + 1): \(anzahl)× \u{201E}\(anfang)…\u{201C}")
-                }
-            }
-        }
-        guard !treffer.isEmpty else { return [] }
+    static func doppelterText(_ alleStellen: [Befundstelle]) -> [Zeile] {
+        let stellen = alleStellen.filter { $0.art == .doppelterText }
+        guard !stellen.isEmpty else { return [] }
+        let liste = stellen.map { "\($0.ort): \($0.text)" }
         return [Zeile(
             stufe: .warnung,
-            titel: "\(treffer.count)× derselbe Text mehrfach auf einer Seite",
-            text: "Derselbe Wortlaut steht in mehreren Textkästen und würde doppelt gedruckt. Den überzähligen Kasten antippen und im Inspektor mit \u{201E}Block entfernen\u{201C} wegnehmen.\n" + treffer.prefix(12).joined(separator: "\n")
+            titel: "\(stellen.count) Textkästen mit doppeltem Wortlaut",
+            text: "Derselbe Wortlaut steht in mehreren Textkästen einer Seite und würde doppelt gedruckt. \u{201E}Im Buch zeigen\u{201C} umrandet sie rot; den überzähligen Kasten antippen und im Inspektor mit \u{201E}Block entfernen\u{201C} wegnehmen.\n" + liste.prefix(12).joined(separator: "\n"),
+            stellen: stellen
         )]
     }
 
@@ -132,36 +90,16 @@ enum Druckpruefung {
     // das eine leere Zeile, die niemand bestellt hat. Also wird gezählt,
     // gesagt, wo es steht, und ein Weg genannt, es loszuwerden — ein
     // Hinweis ohne Ausweg ist die Frage von vorhin noch einmal.
-    static func leereUnterschriften(_ reise: Reise) -> [Zeile] {
-        var treffer: [String] = []
-        for tag in reise.tage {
-            for (nummer, seite) in tag.seiten.enumerated() {
-                for block in seite.bloecke {
-                    let leer: Bool
-                    switch block.inhalt {
-                    case let .bildunterschrift(id):
-                        leer = reise.foto(id)?.unterschrift
-                            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? false
-                    case .kartenunterschrift:
-                        // Auch die Karte kann eine leere Zeile tragen
-                        // (ab 1.0.87) — auf demselben Weg, durch einen
-                        // Doppeltipp.
-                        leer = tag.kartentext
-                            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    default:
-                        leer = false
-                    }
-                    guard leer else { continue }
-                    treffer.append("\(tag.datum.mittel), Seite \(nummer + 1)")
-                }
-            }
-        }
-        guard !treffer.isEmpty else { return [] }
+    static func leereUnterschriften(_ alleStellen: [Befundstelle]) -> [Zeile] {
+        let stellen = alleStellen.filter { $0.art == .leereUnterschrift }
+        guard !stellen.isEmpty else { return [] }
+        let liste = stellen.map { "\($0.ort) \u{2014} \($0.text)" }
         return [Zeile(
             stufe: .hinweis,
-            titel: "\(treffer.count)\u{00D7} Unterschrift eingeschaltet, aber leer",
+            titel: "\(stellen.count)\u{00D7} Unterschrift eingeschaltet, aber leer",
             text: "Unter diesen Fotos und Karten bleibt eine Zeile frei, in der nichts steht. So etwas entsteht durch einen Doppeltipp \u{2014} der schaltet die Unterschrift ein. Entweder etwas hineinschreiben, oder alle auf einmal abschalten: \u{201E}\u{2026}\u{201C} oben rechts \u{2192} \u{201E}Leere Bildunterschriften abschalten\u{201C}.\n"
-                + treffer.prefix(12).joined(separator: "\n")
+                + liste.prefix(12).joined(separator: "\n"),
+            stellen: stellen
         )]
     }
 
@@ -1149,9 +1087,14 @@ enum Druckpruefung {
         zeilen.append(contentsOf: bestellung(reise))
         zeilen.append(contentsOf: bildaufloesung(reise))
         zeilen.append(contentsOf: schriften(reise))
-        zeilen.append(contentsOf: abgeschnittenerText(reise))
-        zeilen.append(contentsOf: doppelterText(reise))
-        zeilen.append(contentsOf: leereUnterschriften(reise))
+        // EINMAL gesammelt, dreimal gelesen (ab 1.0.93). Der Lauf geht
+        // über jeden Textblock des Buches und misst ihn mit CoreText;
+        // dreimal gerufen wäre er dreimal bezahlt — dieselbe Falle wie bei
+        // jeder berechneten Eigenschaft in diesem Haus.
+        let stellen = Befundstellen.alle(reise)
+        zeilen.append(contentsOf: abgeschnittenerText(stellen))
+        zeilen.append(contentsOf: doppelterText(stellen))
+        zeilen.append(contentsOf: leereUnterschriften(stellen))
         zeilen.append(contentsOf: bildgroessen(reise))
         zeilen.append(contentsOf: zeilenlaenge(reise))
         zeilen.append(contentsOf: trennungsbefund(reise))
