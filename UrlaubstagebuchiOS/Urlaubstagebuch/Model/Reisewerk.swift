@@ -217,6 +217,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // gibt es nicht, sie wird gerechnet — und sie hängt an denselben
     // Werten plus dem, was auf ihr steht.
     private var rueckblatt: (schluessel: Int, seite: Seite)?
+    // Und seit 1.0.98 für den SCHMUTZTITEL: Auch ihn gibt es nicht, er
+    // wird gerechnet — aus Titel, Untertitel und Zeitraum, also aus
+    // denselben Werten, die schon im Schlüssel stehen.
+    private var schmutzblatt: (schluessel: Int, seite: Seite)?
 
     // Alles, was in das Titelblatt eingeht — und nichts sonst. Fehlte hier
     // ein Feld, bliebe ein alter Titel stehen, ohne dass etwas darauf
@@ -285,8 +289,21 @@ final class Reisewerk: ObservableObject, Identifiable {
                 gesetztesTitelblatt = seite
             }
         }
+        var gesetzterSchmutztitel: Seite?
+        if reise.schmutztitel {
+            if let da = schmutzblatt, da.schluessel == schluessel {
+                gesetzterSchmutztitel = da.seite
+            } else {
+                let seite = messer.sammelt("Titelblatt") {
+                    reise.gesetzterSchmutztitel
+                }
+                schmutzblatt = (schluessel, seite)
+                gesetzterSchmutztitel = seite
+            }
+        }
         return reise.seitenfolge(titelblatt: gesetztesTitelblatt,
-                                 rueckblatt: gesetztesRueckblatt)
+                                 rueckblatt: gesetztesRueckblatt,
+                                 schmutzblatt: gesetzterSchmutztitel)
     }
 
     // Gehört diese Seite zu diesem Tag? `Self.titelseitenKennung` steht
@@ -988,25 +1005,51 @@ final class Reisewerk: ObservableObject, Identifiable {
     // einem Umschlagblock nichts anfangen, und diese Knöpfe erscheinen
     // dort von selbst nicht. Alles, was nur den Block selbst betrifft,
     // geht seit 1.0.64 durch die beiden Stellen hier.
-    enum Umschlagflaeche: Hashable {
+    //
+    // SEIT 1.0.98 GILT DASSELBE FÜR SCHMUTZTITEL UND SCHLUSSSEITE. Sie
+    // gehören zum BUCHBLOCK und nicht zum Umschlag — deshalb heißt das
+    // hier seither `Eigenflaeche` und nicht mehr `Umschlagflaeche`:
+    // gemeint ist jede gerechnete Seite, die EIGENE Felder tragen darf.
+    // Ihr Satzspiegel ist der des Buches (`satzFuer`), nicht der des
+    // Umschlags; wer das verwechselt, setzt ein neues Feld auf einer
+    // Buchseite um den halben Rücken versetzt.
+    enum Eigenflaeche: Hashable {
         case titel
         case rueckseite
+        case schmutztitel
+        case schluss
     }
 
-    /// Zu welcher Umschlagseite diese Seitenkennung gehört — `nil` heißt:
+    /// Zu welcher gerechneten Seite diese Kennung gehört — `nil` heißt:
     /// eine gewöhnliche Seite (oder gar keine).
-    func umschlagflaeche(_ seiteID: UUID) -> Umschlagflaeche? {
+    func eigenflaeche(_ seiteID: UUID) -> Eigenflaeche? {
         if seiteID == Layoutautomat.titelseitenKennung { return .titel }
         if seiteID == Layoutautomat.rueckseitenKennung { return .rueckseite }
+        if seiteID == Reise.schmutztitelKennung { return .schmutztitel }
+        if seiteID == Reise.schlussseitenKennung { return .schluss }
         return nil
     }
 
-    func umschlagblock(_ id: UUID) -> (flaeche: Umschlagflaeche, stelle: Int)? {
+    /// Ob diese Fläche auf dem UMSCHLAG liegt. Daran hängt der
+    /// Satzspiegel, und daran hängt, ob eine Karte dort etwas zu suchen
+    /// hat — auf einer Buchseite ohne Tag genauso wenig wie auf dem
+    /// Umschlag, aber der Satz dazu lautet anders.
+    func amUmschlag(_ flaeche: Eigenflaeche) -> Bool {
+        flaeche == .titel || flaeche == .rueckseite
+    }
+
+    func eigenblock(_ id: UUID) -> (flaeche: Eigenflaeche, stelle: Int)? {
         if let stelle = reise.umschlag.titelbloecke.firstIndex(where: { $0.id == id }) {
             return (.titel, stelle)
         }
         if let stelle = reise.umschlag.rueckbloecke.firstIndex(where: { $0.id == id }) {
             return (.rueckseite, stelle)
+        }
+        if let stelle = reise.schmutztitelbloecke.firstIndex(where: { $0.id == id }) {
+            return (.schmutztitel, stelle)
+        }
+        if let stelle = reise.schlussbloecke.firstIndex(where: { $0.id == id }) {
+            return (.schluss, stelle)
         }
         return nil
     }
@@ -1021,44 +1064,57 @@ final class Reisewerk: ObservableObject, Identifiable {
     /// für den Menschen davor ein kaputter Knopf; die Seitenfläche geht
     /// deshalb beim Tippen an ihm vorbei.
     func anfassbar(_ id: UUID) -> Bool {
-        umschlagblock(id) != nil || block(id) != nil
+        eigenblock(id) != nil || block(id) != nil
     }
 
     /// Ein Block, wo immer er liegt. Gebraucht von allem, was ihn nur
     /// LESEN will — der Inspektor, die Werkzeugleiste, die Überlaufmarke.
     func blockWert(_ id: UUID) -> Block? {
-        if let stelle = umschlagblock(id) { return umschlagbloecke(stelle.flaeche)[stelle.stelle] }
+        if let stelle = eigenblock(id) { return eigenbloecke(stelle.flaeche)[stelle.stelle] }
         guard let stelle = block(id) else { return nil }
         return reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block]
     }
 
-    func umschlagbloecke(_ flaeche: Umschlagflaeche) -> [Block] {
+    func eigenbloecke(_ flaeche: Eigenflaeche) -> [Block] {
         switch flaeche {
         case .titel: return reise.umschlag.titelbloecke
         case .rueckseite: return reise.umschlag.rueckbloecke
+        case .schmutztitel: return reise.schmutztitelbloecke
+        case .schluss: return reise.schlussbloecke
         }
     }
 
-    private func setzeUmschlagbloecke(_ flaeche: Umschlagflaeche, _ bloecke: [Block]) {
+    private func setzeEigenbloecke(_ flaeche: Eigenflaeche, _ bloecke: [Block]) {
         switch flaeche {
         case .titel: reise.umschlag.titelbloecke = bloecke
         case .rueckseite: reise.umschlag.rueckbloecke = bloecke
+        case .schmutztitel: reise.schmutztitelbloecke = bloecke
+        case .schluss: reise.schlussbloecke = bloecke
         }
     }
 
-    private func amUmschlagblock(_ stelle: (flaeche: Umschlagflaeche, stelle: Int),
+    /// Der Satzspiegel, in dem ein neues Feld dieser Fläche anfängt.
+    /// Eine Umschlagseite hat einen eigenen (größeres Maß, kein
+    /// Bundsteg); Schmutztitel und Schlussseite sind gewöhnliche
+    /// Buchseiten.
+    func satzFuer(_ flaeche: Eigenflaeche) -> CGRect {
+        amUmschlag(flaeche) ? umschlagsatz
+            : reise.gestaltung.satzspiegel(reise.format)
+    }
+
+    private func amEigenblock(_ stelle: (flaeche: Eigenflaeche, stelle: Int),
                                  _ arbeit: (inout Block) -> Void)
     {
-        var bloecke = umschlagbloecke(stelle.flaeche)
+        var bloecke = eigenbloecke(stelle.flaeche)
         guard bloecke.indices.contains(stelle.stelle) else { return }
         arbeit(&bloecke[stelle.stelle])
-        setzeUmschlagbloecke(stelle.flaeche, bloecke)
+        setzeEigenbloecke(stelle.flaeche, bloecke)
     }
 
     func aendere(_ id: UUID, merken merkt: Bool = true, _ arbeit: (inout Block) -> Void) {
-        if let stelle = umschlagblock(id) {
+        if let stelle = eigenblock(id) {
             if merkt { merken() }
-            amUmschlagblock(stelle) { block in
+            amEigenblock(stelle) { block in
                 arbeit(&block)
                 block.vonHand = true
             }
@@ -1097,7 +1153,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     // bisherigen Winkel: Der Griff setzt ihn absolut, und die gespeicherte
     // Lage der Unterschrift trägt die vorherige Drehung schon in sich.
     func drehe(_ id: UUID, auf grad: Double, merken merkt: Bool = false) {
-        if umschlagblock(id) != nil {
+        if eigenblock(id) != nil {
             // Auf dem Umschlag gibt es keine Bildunterschriften: Die
             // gehören einem Foto eines Tages.
             aendere(id, merken: merkt) { $0.drehung = grad }
@@ -1129,7 +1185,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Griff nachgezogen; eine gedrehte Zeile unter dem Bild war gar nicht
     // mehr zu greifen, und das ist der Unterschied.
     func schiebeMitUnterschrift(_ id: UUID, auf neu: Rahmen, merken merkt: Bool = false) {
-        if umschlagblock(id) != nil {
+        if eigenblock(id) != nil {
             aendere(id, merken: merkt) { $0.rahmen = neu }
             return
         }
@@ -1183,9 +1239,9 @@ final class Reisewerk: ObservableObject, Identifiable {
     func schiebe(_ id: UUID, dx: Double, dy: Double, merken merkt: Bool) {
         // Auch ein Umschlagblock wird auf das SEITENformat geklemmt: Jede
         // Hälfte des Umschlagbogens ist genau ein Endformat breit.
-        if let stelle = umschlagblock(id) {
+        if let stelle = eigenblock(id) {
             if merkt { merken() }
-            amUmschlagblock(stelle) { block in
+            amEigenblock(stelle) { block in
                 block.rahmen = block.rahmen.verschoben(dx: dx, dy: dy)
                     .begrenzt(auf: reise.format.groesse)
                 block.vonHand = true
@@ -1427,9 +1483,9 @@ final class Reisewerk: ObservableObject, Identifiable {
         // Foto, und die kommen dort nicht vor. Der Text steht deshalb im
         // Block, und das ist die richtige Stelle — er gehört ja niemandem
         // sonst.
-        if let stelle = umschlagblock(id) {
+        if let stelle = eigenblock(id) {
             merken()
-            amUmschlagblock(stelle) { block in
+            amEigenblock(stelle) { block in
                 guard block.inhalt.istText else { return }
                 block.inhalt = .text(text)
                 block.vonHand = true
@@ -1499,11 +1555,11 @@ final class Reisewerk: ObservableObject, Identifiable {
     func hoeheAnTextAnpassen(_ id: UUID, merken merkt: Bool = true,
                              auffrischen: Bool = true) -> Bool
     {
-        if let stelle = umschlagblock(id) {
-            let block = umschlagbloecke(stelle.flaeche)[stelle.stelle]
+        if let stelle = eigenblock(id) {
+            let block = eigenbloecke(stelle.flaeche)[stelle.stelle]
             guard let noetig = fehlendeHoehe(block, tag: nil) else { return false }
             if merkt { merken() }
-            amUmschlagblock(stelle) { block in
+            amEigenblock(stelle) { block in
                 block.rahmen.hoehe = noetig
                 block.vonHand = true
             }
@@ -1573,7 +1629,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         // davor ein kaputter Knopf — deshalb hier und nicht erst in der
         // Ansicht: Gefragt wird an zwei Stellen (Werkzeugleiste und
         // Blockmenü), und zwei Antworten liefen auseinander.
-        guard umschlagblock(block.id) == nil else { return false }
+        guard eigenblock(block.id) == nil else { return false }
         if case .text = block.inhalt { return true }
         return false
     }
@@ -1744,11 +1800,11 @@ final class Reisewerk: ObservableObject, Identifiable {
     }
 
     func blockLoeschen(_ id: UUID) {
-        if let stelle = umschlagblock(id) {
+        if let stelle = eigenblock(id) {
             merken()
-            var bloecke = umschlagbloecke(stelle.flaeche)
+            var bloecke = eigenbloecke(stelle.flaeche)
             bloecke.remove(at: stelle.stelle)
-            setzeUmschlagbloecke(stelle.flaeche, bloecke)
+            setzeEigenbloecke(stelle.flaeche, bloecke)
             if gewaehlterBlock == id { gewaehlterBlock = nil }
             return
         }
@@ -1930,9 +1986,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Spur eines Tages; auf dem Umschlag gibt es keinen.
     func einfuegenGrund(auf seiteID: UUID) -> String? {
         guard let inhalt = ablage else { return nil }
-        let amUmschlag = umschlagflaeche(seiteID) != nil
-        if inhalt.block.inhalt == .karte, amUmschlag {
-            return "Eine Karte zeichnet die Spur eines Tages \u{2014} auf dem Umschlag "
+        let flaeche = eigenflaeche(seiteID)
+        if inhalt.block.inhalt == .karte, let flaeche {
+            let wo = amUmschlag(flaeche) ? "auf dem Umschlag" : "auf dieser Seite"
+            return "Eine Karte zeichnet die Spur eines Tages \u{2014} \(wo) "
                 + "gibt es keinen."
         }
         guard inhalt.block.inhalt.istText else { return nil }
@@ -1949,7 +2006,7 @@ final class Reisewerk: ObservableObject, Identifiable {
             meldung = .init(text: grund, schwer: true)
             return false
         }
-        let flaeche = umschlagflaeche(seiteID)
+        let flaeche = eigenflaeche(seiteID)
         guard flaeche != nil || seitenstelle(seiteID) != nil else { return false }
         merken()
         var neu = inhalt.block
@@ -1959,10 +2016,10 @@ final class Reisewerk: ObservableObject, Identifiable {
         // bei `blockKopieren` und bei Tafelbild 1.4.5.
         neu.id = UUID()
         neu.vonHand = true
-        let satz = flaeche == nil ? reise.gestaltung.satzspiegel(reise.format) : umschlagsatz
+        let satz = flaeche.map { satzFuer($0) } ?? reise.gestaltung.satzspiegel(reise.format)
         neu.rahmen = inSatz(neu.rahmen, satz)
         if let flaeche {
-            setzeUmschlagbloecke(flaeche, umschlagbloecke(flaeche) + [neu])
+            setzeEigenbloecke(flaeche, eigenbloecke(flaeche) + [neu])
             gewaehlterBlock = neu.id
             return true
         }
@@ -2014,12 +2071,12 @@ final class Reisewerk: ObservableObject, Identifiable {
         // Auf dem Umschlag ist „nach vorn" das Ende der eigenen Liste: Sie
         // wird hinter den gerechneten Satz gehängt, also liegt ihr letzter
         // Block obenauf.
-        if let stelle = umschlagblock(id) {
+        if let stelle = eigenblock(id) {
             merken()
-            var bloecke = umschlagbloecke(stelle.flaeche)
+            var bloecke = eigenbloecke(stelle.flaeche)
             let geholt = bloecke.remove(at: stelle.stelle)
             bloecke.append(geholt)
-            setzeUmschlagbloecke(stelle.flaeche, bloecke)
+            setzeEigenbloecke(stelle.flaeche, bloecke)
             return
         }
         guard let stelle = block(id) else { return }
@@ -2068,7 +2125,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Durchgang, und beide Seiten nehmen etwas an.
     var einsetzbareSeite: UUID? {
         guard let id = gewaehlteSeite else { return nil }
-        if umschlagflaeche(id) != nil { return id }
+        if eigenflaeche(id) != nil { return id }
         guard seitenstelle(id) != nil else { return nil }
         return id
     }
@@ -2077,8 +2134,13 @@ final class Reisewerk: ObservableObject, Identifiable {
     // ihn stünde dort „Auf die Seite legen" und man müsste raten, welche
     // gemeint ist — genau der gemeldete Zustand.
     func seitenname(_ seiteID: UUID) -> String? {
-        if let flaeche = umschlagflaeche(seiteID) {
-            return flaeche == .titel ? "Umschlag: Titelseite" : "Umschlag: Rückseite"
+        if let flaeche = eigenflaeche(seiteID) {
+            switch flaeche {
+            case .titel: return "Umschlag: Titelseite"
+            case .rueckseite: return "Umschlag: Rückseite"
+            case .schmutztitel: return "Schmutztitel"
+            case .schluss: return "Schlussseite"
+            }
         }
         guard let stelle = seitenstelle(seiteID) else { return nil }
         let tag = reise.tage[stelle.tag]
@@ -2094,9 +2156,9 @@ final class Reisewerk: ObservableObject, Identifiable {
                                  umschlag: reise.umschlag)
     }
 
-    private func umschlagblockHinzufuegen(_ inhalt: Blockinhalt, auf flaeche: Umschlagflaeche) {
+    private func eigenblockHinzufuegen(_ inhalt: Blockinhalt, auf flaeche: Eigenflaeche) {
         merken()
-        let satz = umschlagsatz
+        let satz = satzFuer(flaeche)
         let breite = min(Double(satz.width) * 0.6, 280.0)
         let neu = Block(
             inhalt: inhalt,
@@ -2105,14 +2167,14 @@ final class Reisewerk: ObservableObject, Identifiable {
                            breite: breite, hoehe: inhalt.istFoto ? breite * 0.7 : 90),
             vonHand: true
         )
-        setzeUmschlagbloecke(flaeche, umschlagbloecke(flaeche) + [neu])
+        setzeEigenbloecke(flaeche, eigenbloecke(flaeche) + [neu])
         gewaehlterBlock = neu.id
     }
 
     // Einsetzen auf einer BESTIMMTEN Seite, nicht auf dem Seitenzeiger.
     func blockHinzufuegen(_ inhalt: Blockinhalt, aufSeite seiteID: UUID) {
-        if let flaeche = umschlagflaeche(seiteID) {
-            umschlagblockHinzufuegen(inhalt, auf: flaeche)
+        if let flaeche = eigenflaeche(seiteID) {
+            eigenblockHinzufuegen(inhalt, auf: flaeche)
             return
         }
         guard let stelle = seitenstelle(seiteID) else { return }
@@ -2136,7 +2198,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     // schnitte jedes Hochformat an, denn gefüllt wird, nicht eingepasst.
     @discardableResult
     func grafikEinfuegen(_ daten: Data, endung: String, aufSeite seiteID: UUID) -> Bool {
-        let flaeche = umschlagflaeche(seiteID)
+        let flaeche = eigenflaeche(seiteID)
         guard flaeche != nil || seitenstelle(seiteID) != nil else { return false }
         let befund = Bildleser.befund(datei: daten)
         guard let datei = try? Bildarchiv.shared.ablegen(daten, reise: reise.id, endung: endung)
@@ -2147,7 +2209,7 @@ final class Reisewerk: ObservableObject, Identifiable {
                         hoehe: befund.hoehe > 0 ? befund.hoehe : 750,
                         grafik: true)
         reise.setzeFoto(foto)
-        let satz = flaeche == nil ? reise.gestaltung.satzspiegel(reise.format) : umschlagsatz
+        let satz = flaeche.map { satzFuer($0) } ?? reise.gestaltung.satzspiegel(reise.format)
         let breite = min(Double(satz.width) * 0.46, 260.0)
         let hoehe = min(breite / max(foto.seitenverhaeltnis, 0.2), Double(satz.height) * 0.7)
         let neu = Block(
@@ -2158,7 +2220,7 @@ final class Reisewerk: ObservableObject, Identifiable {
             vonHand: true
         )
         if let flaeche {
-            setzeUmschlagbloecke(flaeche, umschlagbloecke(flaeche) + [neu])
+            setzeEigenbloecke(flaeche, eigenbloecke(flaeche) + [neu])
             gewaehlterBlock = neu.id
             return true
         }
@@ -2466,6 +2528,8 @@ final class Reisewerk: ObservableObject, Identifiable {
         // wäre dort eine leere Fläche, an die niemand mehr herankommt.
         reise.umschlag.titelbloecke.removeAll { $0.fotoID == fotoID }
         reise.umschlag.rueckbloecke.removeAll { $0.fotoID == fotoID }
+        reise.schmutztitelbloecke.removeAll { $0.fotoID == fotoID }
+        reise.schlussbloecke.removeAll { $0.fotoID == fotoID }
         for t in reise.tage.indices {
             for s in reise.tage[t].seiten.indices {
                 reise.tage[t].seiten[s].bloecke.removeAll { $0.fotoID == fotoID }

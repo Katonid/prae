@@ -746,6 +746,14 @@ struct UmschlagView: View {
         Section {
             TextField("Titel", text: $werk.reise.titel)
             TextField("Untertitel", text: $werk.reise.untertitel, axis: .vertical)
+            // DER ZEITRAUM LÄSST SICH SETZEN (ab 1.0.97). Der Platzhalter
+            // ist der gerechnete — ein leeres Feld heißt weiterhin
+            // „aus den Tagen", und wer gar keinen will, legt den Schalter
+            // darunter um.
+            if werk.reise.zeitraumZeigen {
+                TextField(zeitraumvorschlag, text: zeitraumfeld)
+            }
+            Toggle("Zeitraum auf der Titelseite", isOn: $werk.reise.zeitraumZeigen)
             Toggle("Titelseite", isOn: $werk.reise.titelseite)
             if werk.reise.titelseite {
                 Button {
@@ -769,6 +777,23 @@ struct UmschlagView: View {
         }
     }
 
+    // Dieselbe Bauweise wie beim Namen in der Übersicht: Leer heißt `nil`
+    // und damit „aus den Tagen gerechnet".
+    private var zeitraumfeld: Binding<String> {
+        Binding(
+            get: { werk.reise.zeitraumtext ?? "" },
+            set: { neu in
+                let sauber = neu.trimmingCharacters(in: .whitespacesAndNewlines)
+                werk.reise.zeitraumtext = sauber.isEmpty ? nil : neu
+            }
+        )
+    }
+
+    private var zeitraumvorschlag: String {
+        let gerechnet = werk.reise.gerechneterZeitraum
+        return gerechnet.isEmpty ? "Zeitraum" : gerechnet
+    }
+
     // Leer heißt `nil` und damit „wie der Titel" — nicht „heißt nichts".
     // Ein leerer String im Feld wäre ein eigener Name, den man nicht mehr
     // los wird; dieselbe Trennung wie bei `Block.ohneGrund`.
@@ -783,7 +808,13 @@ struct UmschlagView: View {
     }
 
     private var titelfusstext: String {
-        var text = "Titel, Untertitel und Titelbild stehen auf der gedruckten "
+        var text = "Der ZEITRAUM unter dem Titel wird sonst aus dem ersten und "
+        text += "letzten Tag des Buches gerechnet \u{2014} ausgeblendete Tage z\u{00E4}hlen "
+        text += "dabei nicht mit. Ein Foto von der Reisevorbereitung legt aber einen "
+        text += "Tag an, und dann steht dort ein Datum, an dem niemand unterwegs war. "
+        text += "Was hier steht, gilt statt der Rechnung; leer hei\u{00DF}t: wieder "
+        text += "rechnen.\n\n"
+        text += "Titel, Untertitel und Titelbild stehen auf der gedruckten "
         text += "Titelseite \u{2014} und der Titel au\u{00DF}erdem auf dem "
         text += "Buchr\u{00FC}cken, solange dort nichts anderes eingetragen ist.\n\n"
         text += "Der NAME IN DER \u{00DC}BERSICHT wird nie gedruckt. Er steht im Regal, "

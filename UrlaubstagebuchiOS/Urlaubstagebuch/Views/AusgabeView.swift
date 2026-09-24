@@ -260,6 +260,31 @@ struct AusgabeView: View {
                     Text("Der Text wird als Text gesetzt, nicht als Bild — das PDF bleibt durchsuchbar und wiegt einen Bruchteil. Endformat und Anschnitt stehen als TrimBox und BleedBox darin.")
                 }
 
+                // SEITEN AUFFÜLLEN (ab 1.0.98).
+                //
+                // Gemeldet 09/2026: „Der Druckdienst … nimmt die Datei
+                // mit 62 Innenseiten nicht an, wenn das nächste Raster
+                // bei ihm 64 Seiten ist. Das heißt, er fügt nicht selbst
+                // Seiten hinzu, sondern möchte, dass ich das mache."
+                // Bis 1.0.97 stand hier das Gegenteil als Auskunft: „Die
+                // fehlenden füllt die Druckerei meist mit leeren auf."
+                // Das gilt eben nicht überall — und wo es nicht gilt,
+                // kommt die Datei zurück.
+                //
+                // Die Schalter stehen genau hier, weil hier die Zahl
+                // steht, die den Anlass gibt.
+                Section {
+                    Toggle("Schmutztitel am Anfang", isOn: $werk.reise.schmutztitel)
+                    Toggle("Leere Schlussseite", isOn: $werk.reise.schlussseite)
+                    Text(fuellhinweis)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Seiten auffüllen")
+                } footer: {
+                    Text("Beide Seiten sind gewöhnliche Buchseiten: Sie stehen in der Bühne, zählen in der Seitenzahl mit, und es lassen sich Textfelder, Fotos oder Flächen darauf legen wie auf jeder anderen Seite \u{2014} über das \u{201E}+\u{201C}-Menü, wenn die Seite gewählt ist. Der Schmutztitel wiederholt Titel, Untertitel und Zeitraum auf weißem Grund; die Schlussseite bleibt leer und weiß.")
+                }
+
                 Section {
                     ForEach(befundVorab) { zeile in BefundZeile(zeile: zeile) }
                 } header: {
@@ -401,7 +426,30 @@ struct AusgabeView: View {
             + "\(abs(hat - wunsch)) \(zuviel ? "zu viele" : "zu wenige"). "
             + (zuviel
                 ? "Eine Druckerei nimmt das nicht an. Seiten entfernt man über \u{201E}Seiten\u{201C} im Tagesmenü, einen ganzen Tag über \u{201E}ausblenden\u{201C}."
-                : "Die fehlenden füllt die Druckerei meist mit leeren auf \u{2014} und die hat niemand gesehen.")
+                : "Manche Druckerei füllt selbst mit leeren Seiten auf, manche weist die Datei ab \u{2014} was gilt, sagt ihre Vorgabe. Auffüllen lässt sich hier: \u{201E}Seiten auffüllen\u{201C} gleich darunter.")
+    }
+
+    // Was die beiden Schalter gerade bewirken — als Zahl und nicht als
+    // Zusage. Beide Seiten zählen als Innenseiten; genau darum geht es.
+    // Was danach noch auf eine gerade Zahl fehlt, ergänzt die
+    // Ausgleichsseite wie bisher von selbst.
+    //
+    // Stückweise gebaut und nicht als eine lange Kette aus `+`, `?:` und
+    // Interpolation: Genau diese Mischung hat in 1.0.38 den Typprüfer
+    // gesprengt.
+    private var fuellhinweis: String {
+        var zahl = 0
+        if werk.reise.schmutztitel { zahl += 1 }
+        if werk.reise.schlussseite { zahl += 1 }
+        let hat = werk.reise.innenseiten
+        if zahl == 0 {
+            return "Zurzeit wird keine Seite ergänzt \u{2014} der Innenteil hat \(hat) Seiten."
+        }
+        var text = zahl == 1 ? "Eine Seite wird ergänzt; " : "Zwei Seiten werden ergänzt; "
+        text += "der Innenteil hat damit \(hat) Seiten. "
+        text += "Braucht der Druckdienst eine gerade Zahl, hängt die App wie bisher "
+        text += "eine leere Ausgleichsseite an."
+        return text
     }
 
     private var bogenmass: String {

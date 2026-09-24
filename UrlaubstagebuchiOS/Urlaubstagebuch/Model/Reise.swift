@@ -158,6 +158,61 @@ struct Reise: Identifiable, Codable {
     // „nichts bestellt", und dann wird auch nichts behauptet.
     var bestellteSeiten: Int?
 
+    // WAS UNTER DEM TITEL STEHT — gerechnet oder selbst gesetzt
+    // (ab 1.0.97).
+    //
+    // Ansage des Nutzers, 09/2026: „Dadurch, dass ich ein Bild aus der
+    // Reisevorbereitung mit eingefügt habe, steht jetzt auf dem Titel
+    // 4. Juni. Das trifft aber nicht für die Reise zu, die fand erst
+    // später statt. Ich möchte also auch hier die Möglichkeit haben, den
+    // Untertitel manuell ändern zu können."
+    //
+    // Der Zeitraum kam bis 1.0.96 ausschließlich aus dem ersten und
+    // letzten Tag — und das ist die RICHTIGE Vorgabe, denn sie stimmt von
+    // selbst und zieht mit, wenn ein Tag dazukommt. Sie ist nur keine
+    // Wahrheit: Ein Foto von der Reisevorbereitung legt einen Tag an, und
+    // von da an behauptet die Titelseite ein Datum, an dem niemand
+    // unterwegs war.
+    //
+    // **`nil` heißt „gerechnet" und ist keine Kopie** — dieselbe Regel wie
+    // bei `regalname`, `Schriftabweichung` und `Block.wirkung`: Wer nichts
+    // sagt, bekommt weiterhin den Zeitraum aus den Tagen, und ein
+    // vorhandenes Buch sieht nach dem Update unverändert aus.
+    var zeitraumtext: String?
+
+    // „Nichts gesetzt" und „hier ausdrücklich keiner" sind ZWEI Aussagen
+    // und brauchen deshalb zwei Felder (die Lehre aus `Block.ohneGrund`,
+    // 1.0.12). Ohne diesen Schalter hieße ein leeres Feld „automatisch",
+    // und wer gar keinen Zeitraum auf dem Titel will, käme nie dorthin.
+    var zeitraumZeigen: Bool = true
+
+    // ZWEI SEITEN, DIE DEN UMFANG AUFFÜLLEN (ab 1.0.98).
+    //
+    // Ansage des Nutzers, 09/2026: „Der Druckdienst … nimmt die Datei mit
+    // 62 Innenseiten nicht an, wenn das nächste Raster bei ihm 64 Seiten
+    // ist. Das heißt, er fügt nicht selbst Seiten hinzu, sondern möchte,
+    // dass ich das mache. … Eine Seite davon direkt an den Anfang … und
+    // noch einmal den Text der Titelseite widerspiegelt. Der Hintergrund
+    // soll diesmal weiß sein. Die zweite einzufügende Seite soll die
+    // letzte Seite sein und komplett weiß bleiben."
+    //
+    // Beide sind EINZELN schaltbar („Ob diese Seiten eingefügt werden
+    // oder nicht, möchte ich in der App wählen können"), und beide zählen
+    // als Innenseiten — das ist ihr ganzer Zweck.
+    var schmutztitel: Bool = false
+    var schlussseite: Bool = false
+
+    // Was jemand SELBST auf diese beiden Seiten legt.
+    //
+    // Dieselbe Bauweise wie bei Titel- und Rückseite seit 1.0.64, und aus
+    // demselben Grund: Die Seiten werden bei jedem Durchgang GERECHNET —
+    // ein Block, den jemand hineinschriebe, wäre beim nächsten Mal weg.
+    // Die eigenen Felder liegen deshalb daneben und werden in
+    // `seitenfolge` angehängt; der gerechnete Teil bleibt dabei lebendig
+    // (ein geänderter Titel zieht im Schmutztitel mit).
+    var schmutztitelbloecke: [Block] = []
+    var schlussbloecke: [Block] = []
+
     var geaendert: Date = Date()
 
     init() {}
@@ -180,6 +235,12 @@ struct Reise: Identifiable, Codable {
         titelseite = b.wert(.titelseite, true)
         umschlag = b.wert(.umschlag, Umschlag())
         bestellteSeiten = b.wahlweise(.bestellteSeiten)
+        zeitraumtext = b.wahlweise(.zeitraumtext)
+        zeitraumZeigen = b.wert(.zeitraumZeigen, true)
+        schmutztitel = b.wert(.schmutztitel, false)
+        schlussseite = b.wert(.schlussseite, false)
+        schmutztitelbloecke = b.wert(.schmutztitelbloecke, [Block]())
+        schlussbloecke = b.wert(.schlussbloecke, [Block]())
         geaendert = b.wert(.geaendert, Date())
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
@@ -286,8 +347,33 @@ struct Reise: Identifiable, Codable {
         return fotos.filter { !vergeben.contains($0.id) && !$0.grafik }
     }
 
+    // WAS WIRKLICH UNTER DEM TITEL STEHT — an EINER Stelle aufgelöst.
+    //
+    // Gefragt von der Titelseite, vom Regal und von den Angaben im PDF.
+    // Zwei Fassungen ergäben ein Buch, dessen Umschlag etwas anderes sagt
+    // als seine Dateiangaben.
     var zeitraum: String {
-        guard let erster = tage.first?.datum, let letzter = tage.last?.datum else { return "" }
+        guard zeitraumZeigen else { return "" }
+        if let eigen = zeitraumtext?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !eigen.isEmpty
+        {
+            return eigen
+        }
+        return gerechneterZeitraum
+    }
+
+    // Der Zeitraum aus den Tagen — der Vorschlag, der im Feld als
+    // Platzhalter steht.
+    //
+    // **Gezählt werden nur die SICHTBAREN Tage** (ab 1.0.97): Ein
+    // ausgeblendeter Tag kommt nicht ins Buch, und was nicht im Buch
+    // steht, darf auch nicht auf seinem Titel stehen. Bis 1.0.96 zog ein
+    // ausgeblendeter erster Tag den Zeitraum nach vorn, und zwar still —
+    // die Seite, die ihn erklärte, war ja gerade weggenommen worden.
+    var gerechneterZeitraum: String {
+        let sichtbar = tage.filter { !$0.ausgeblendet }
+        guard let erster = sichtbar.first?.datum, let letzter = sichtbar.last?.datum
+        else { return "" }
         if erster == letzter { return erster.mittel }
         return "\(erster.kurz) bis \(letzter.mittel)"
     }

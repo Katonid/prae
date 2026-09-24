@@ -7698,6 +7698,34 @@ Befunde, und keiner davon war Geschmack:
     „randabfallend, wird nie markiert" ist eines davon. Dasselbe Muster wie
     Schulalarms Stufenprobe: **Wo sich eine Ursache nicht erschließen
     lässt, muss eine Probe entscheiden.**
+- **DER ZEITRAUM UNTER DEM TITEL IST EINE RECHNUNG, KEINE WAHRHEIT**
+  (`Reise.zeitraumtext`, `.zeitraumZeigen`, ab 1.0.97; Ansage des Nutzers
+  09/2026: „Dadurch, dass ich ein Bild aus der Reisevorbereitung mit
+  eingefügt habe, steht jetzt auf dem Titel 4. Juni. Das trifft aber nicht
+  für die Reise zu.").
+  - Er kam aus dem ersten und letzten Tag — die richtige VORGABE, denn sie
+    stimmt von selbst und zieht mit. Nur ist sie keine Wahrheit: Ein Foto
+    von der Reisevorbereitung legt einen Tag an, und die Titelseite
+    behauptet ein Datum, an dem niemand unterwegs war.
+  - **`nil` heißt „gerechnet"** — Abweichung, keine Kopie, wie bei
+    `regalname` seit 1.0.84. Der gerechnete Zeitraum steht als PLATZHALTER
+    im Feld; leer holt ihn zurück.
+  - **„Nichts gesetzt" und „ausdrücklich keiner" sind ZWEI Aussagen** und
+    brauchen zwei Felder (die Lehre aus `Block.ohneGrund`): ohne den
+    Schalter käme niemand zu „gar kein Zeitraum".
+  - **Aufgelöst an EINER Stelle** (`Reise.zeitraum`), gefragt von
+    Titelseite, Regal und den Angaben im PDF.
+  - **Nebenbefund: Ausgeblendete Tage zählten mit.** Was nicht ins Buch
+    kommt, darf nicht auf seinem Titel stehen; `gerechneterZeitraum` filtert
+    sie seit 1.0.97 heraus. **Wer eine Zahl aus `tage` rechnet, prüft, ob
+    `ausgeblendet` dazugehört.**
+- **WO EINE ZAHL EINGETRAGEN WIRD, GEHÖRT IN DIE MELDUNG ÜBER SIE**
+  (`Druckpruefung.bestellung`, ab 1.0.97; gemeldet 09/2026: „Ich weiß nicht
+  mehr, an welcher Stelle ich überhaupt eine Seitenzahl eingegeben habe.").
+  Den Fall „noch nichts eingetragen" erklärte die Zeile seit 1.0.72 —
+  ausgerechnet der Fall, in dem man die Zahl ÄNDERN will, nannte den Weg
+  nicht. Sechzehnte Auflage von „es war da, man fand es nicht", diesmal an
+  einer Meldung statt an einem Menü.
 - **EIN MODUS BRAUCHT EINEN SICHTBAREN AUSGANG — auch dieser** (Befundband in
   `ReiseView.baender`, ab 1.0.96; gemeldet 09/2026: „Es gibt die Option, die
   Fehler im Buch anzeigen zu lassen. Ich möchte aber auch genauso die Funktion
@@ -10019,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.96 (Build 97). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.98 (Build 99). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10031,6 +10059,50 @@ Befunde, und keiner davon war Geschmack:
   Build-Einstellung — nicht entfernen.
 - Das App-Symbol rechnet `UrlaubstagebuchiOS/scripts/make-icon.py` (reines
   Python, ohne fremde Bibliotheken) — nicht von Hand bearbeiten.
+- **ZWEI SEITEN FÜLLEN DEN UMFANG AUF** (`Reise.schmutztitel`, `.schlussseite`,
+  `Layoutautomat.schmutztitel`, ab 1.0.98; Ansage des Nutzers 09/2026: „Der
+  Druckdienst … nimmt die Datei mit 62 Innenseiten nicht an, wenn das nächste
+  Raster bei ihm 64 Seiten ist. Das heißt, er fügt nicht selbst Seiten hinzu,
+  sondern möchte, dass ich das mache.").
+  - **Die App behauptete bis 1.0.97 das Gegenteil** — `bestellhinweis` sagte
+    bei zu wenigen Seiten „Die fehlenden füllt die Druckerei meist mit leeren
+    auf". Manche tut das, manche weist die Datei ab; **was gilt, sagt die
+    Vorgabe des Anbieters und nicht diese App.** Der Satz sagt das jetzt und
+    nennt den Weg zum Auffüllen.
+  - **Der SCHMUTZTITEL füllt nicht nur, er gehört dorthin.** Er steht seit
+    jeher vorn im Buch: der Titel noch einmal, auf weißem Papier, ohne Bild.
+    Gesetzt wird er im Satzspiegel des BUCHES und mit dessen Schriften — er
+    wird auf dasselbe Papier gedruckt wie der Text, nicht auf den Umschlag.
+    Die SCHLUSSSEITE bleibt leer und weiß.
+  - **Einzeln schaltbar, im Ausgabeblatt** („Seiten auffüllen"), also dort,
+    wo die Zahl steht, die den Anlass gibt.
+  - **Die eigenen Felder liegen NEBEN der gerechneten Seite** — dieselbe
+    Bauweise wie bei Titel- und Rückseite seit 1.0.64 und aus demselben
+    Grund: Die Seite wird bei jedem Durchgang neu gesetzt, ein Block darin
+    wäre beim nächsten Mal weg. Der gerechnete Teil bleibt damit lebendig
+    (ein geänderter Titel zieht mit).
+  - **`Umschlagflaeche` heißt deshalb seit 1.0.98 `Eigenflaeche`** und meint
+    jede gerechnete Seite mit eigenen Feldern. **Zwei Dinge hängen daran, und
+    beide wären still falsch gewesen:** Der Satzspiegel eines neuen Feldes ist
+    hier der des BUCHES (`satzFuer`) und nicht der des Umschlags — sonst säße
+    es um den halben Rücken versetzt —, und ein WASSERZEICHEN liegt auf diesen
+    beiden Seiten nie: Die Regel „kein Tag heißt Umschlag" hätte sie über
+    `aufTitelblatt` (Vorgabe `true`) mitgenommen, und weiß ist hier Absicht.
+  - **Die Kennungen sind FEST** (`Reise.schmutztitelKennung`,
+    `.schlussseitenKennung`), wie die der Ausgleichsseite seit 1.0.60: An
+    ihnen hängen `ForEach`, `scrollTo`, das Papierkorn, die Lage des
+    Wasserzeichens und die Frage, zu welcher Fläche ein Block gehört.
+  - **`blockseiten` zählt sie mit**, vor dem Ausgleich — an dieser Zahl hängt
+    die Rückenbreite. **Wer eine Seite hinzufügt, trägt sie in BEIDE Zählungen
+    ein**: `blockseiten` rechnet, `seitenfolge` setzt, und zwei Zählungen, die
+    auseinanderlaufen, ergäben einen Rücken, der nicht auf das Buch passt.
+  - Mitgezogen: `Formatwechsel` (ein Rahmen ist eine Länge), `Befundstellen`
+    (abgeschnittener Text zählt auch dort), `fotoEntfernen` (ein Block ohne
+    Bild wäre eine leere Fläche, an die niemand mehr herankommt).
+  - **Nicht gemessen (1.0.98):** Keine Seite ist damit gesehen und keine Datei
+    hochgeladen worden. **Gewählt und nicht gemessen** ist die Lage des Titels
+    auf dem Schmutztitel (0,28 der freien Höhe). Ob der Druckdienst die Datei
+    mit dem aufgefüllten Umfang annimmt, sagt erst der nächste Upload.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

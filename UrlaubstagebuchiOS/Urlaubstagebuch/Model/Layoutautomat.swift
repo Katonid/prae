@@ -310,6 +310,77 @@ struct Layoutautomat {
                      hintergrund: umschlag.hintergrund, ohneSeitenzahl: true)
     }
 
+    // MARK: - Schmutztitel und Schlussseite
+
+    // ZWEI SEITEN, DIE DEN UMFANG AUFFÜLLEN (ab 1.0.98).
+    //
+    // Ansage des Nutzers, 09/2026: „Der Druckdienst, bei dem ich jetzt
+    // hochladen möchte, nimmt die Datei mit 62 Innenseiten nicht an, wenn
+    // das nächste Raster bei ihm 64 Seiten ist. Das heißt, er fügt nicht
+    // selbst Seiten hinzu, sondern möchte, dass ich das mache."
+    //
+    // Ein Buchblock wird in BOGEN gedruckt, und ein Bogen trägt vier,
+    // acht oder sechzehn Seiten. Manche Dienste füllen selbst auf, andere
+    // weisen die Datei ab — und dann fehlen genau zwei oder vier Seiten,
+    // die niemand gestalten wollte.
+    //
+    // **Der SCHMUTZTITEL ist die traditionelle Antwort darauf.** Er steht
+    // seit jeher vorn im Buch: der Titel noch einmal, klein, auf weißem
+    // Papier, ohne Bild. Er füllt nicht nur, er gehört dorthin — anders
+    // als eine leere Seite, die man an den Anfang setzt, weil eine Zahl
+    // nicht aufgeht.
+    //
+    // Gesetzt wird er im SATZSPIEGEL DES BUCHES und mit dessen Schriften,
+    // nicht mit denen des Umschlags: Er ist eine Seite des Buchblocks und
+    // wird auf dasselbe Papier gedruckt wie der Text.
+    func schmutztitel(titel: String, untertitel: String, zeitraum: String) -> Seite {
+        var bloecke: [Block] = []
+        let breite = Double(satz.width)
+
+        var gross = typografie.titel
+        gross.ausrichtung = .mitte
+        let titelHoehe = Textmass.hoehe(titel, bild: gross, breite: breite)
+
+        var unter = typografie.flieText
+        unter.ausrichtung = .mitte
+        let untertext = [untertitel, zeitraum].filter { !$0.isEmpty }.joined(separator: "\n")
+        let unterHoehe = untertext.isEmpty ? 0
+            : Textmass.hoehe(untertext, bild: unter, breite: breite)
+
+        // Er steht im oberen Drittel und nicht in der Mitte — so steht ein
+        // Schmutztitel im Buch, und er unterscheidet sich damit auch von
+        // der Titelseite, die er wiederholt.
+        let gesamt = titelHoehe + (unterHoehe > 0 ? 18 + unterHoehe : 0)
+        var y = Double(satz.minY) + max(0, Double(satz.height) - gesamt) * 0.28
+
+        bloecke.append(Block(
+            inhalt: .titel,
+            rahmen: Rahmen(x: Double(satz.minX), y: y, breite: breite, hoehe: titelHoehe),
+            abweichung: Schriftabweichung(groesse: gross.groesse, ausrichtung: .mitte)
+        ))
+        y += titelHoehe + 18
+        if !untertext.isEmpty {
+            bloecke.append(Block(
+                inhalt: .text(untertext),
+                rahmen: Rahmen(x: Double(satz.minX), y: y, breite: breite, hoehe: unterHoehe),
+                abweichung: Schriftabweichung(groesse: unter.groesse, ausrichtung: .mitte)
+            ))
+        }
+        // WEISS, ausdrücklich (Ansage des Nutzers: „Der Hintergrund soll
+        // diesmal weiß sein."). Ein Buch mit farbigem Papier oder einem
+        // Hintergrundbild bekommt hier trotzdem ein weißes Blatt — genau
+        // das ist ein Schmutztitel.
+        return Seite(id: Reise.schmutztitelKennung, bloecke: bloecke,
+                     hintergrund: .weiss, ohneSeitenzahl: true)
+    }
+
+    /// Die letzte Seite: leer und weiß. Sie trägt keinen einzigen
+    /// gerechneten Block — was dort steht, hat jemand selbst hingelegt.
+    func schlussseite() -> Seite {
+        Seite(id: Reise.schlussseitenKennung, bloecke: [],
+              hintergrund: .weiss, ohneSeitenzahl: true)
+    }
+
     // MARK: - Die Rückseite des Buches
 
     // Sie ist die LINKE Hälfte des Umschlagbogens (ab 1.0.50).
