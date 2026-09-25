@@ -239,6 +239,10 @@ final class FamilySync: ObservableObject {
             ("CD_summary", "probe" as NSString),
             ("CD_pointCount", 0 as NSNumber),
             ("CD_summaryPointCount", 0 as NSNumber),
+            // Neu ab 1.4.28 (aufgezeichnete Zeitzone) — braucht in
+            // Production EINEN „Deploy Schema Changes“; bis dahin
+            // meldet die Probe genau dieses Feld als abgelehnt.
+            ("CD_timeZoneID", "probe" as NSString),
             ("CD_distanceMeters", 0.0 as NSNumber),
             ("CD_startDate", Date(timeIntervalSince1970: 0) as NSDate),
             ("CD_endDate", Date(timeIntervalSince1970: 0) as NSDate),

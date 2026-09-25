@@ -743,9 +743,16 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         let deviceId = DeviceInfo.deviceId
         let deviceName = DeviceInfo.deviceName
         let grouped = Dictionary(grouping: pending) { DayKey.key(for: $0.t) }
+        // Zeitzone MITSCHREIBEN, nicht nur rekonstruieren: Das iPhone
+        // stellt sich beim Reisen selbst um, also ist die aktuelle
+        // Gerätezone die gemessene Ortszeit-Quelle. Bei jedem Flush neu
+        // gesetzt — es gilt die letzte Zone des Tages.
+        let zoneID = TimeZone.current.identifier
         for (dayKey, points) in grouped {
             let day = fetchOrCreateDay(dayKey: dayKey, deviceId: deviceId, deviceName: deviceName, in: context)
             day.appendPoints(points)
+            day.timeZoneID = zoneID
+            Ortszeit.merken(TimeZone.current, fuer: dayKey)
         }
         try? context.save()
         pointsVersion += 1

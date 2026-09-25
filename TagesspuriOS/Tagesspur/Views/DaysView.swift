@@ -181,9 +181,13 @@ struct DayDetailView: View {
     @State private var exportURL: URL?
     @State private var exportMessage: String?
     @State private var hiddenTrackIds: Set<String> = []
-    /// Ortszeit des Tages: Zeitzone des Aufnahmeorts (Geocoder, je Tag
-    /// einmal ermittelt und gemerkt). nil → Gerätezeit, ohne Behauptung.
+    /// Ortszeit des Tages: Zeitzone des Aufnahmeorts. Erste Quelle ist
+    /// die BEIM AUFZEICHNEN gemessene Gerätezone (steht seit 1.4.28 am
+    /// Tages-Datensatz und synct mit); für Altbestand rekonstruiert der
+    /// Geocoder. nil → Gerätezeit, ohne Behauptung.
     @State private var zone: TimeZone?
+    /// Aufgezeichnete Zone aus den geladenen Tages-Datensätzen (reload).
+    @State private var recordedZoneID: String?
 
     /// Nur eigene UND eingeblendete Tracks — die Geräteauswahl wirkt
     /// damit auf Replay, Zeit-Cursor und GPX-Export. (Familien-Punkte
@@ -367,15 +371,23 @@ struct DayDetailView: View {
             if cursorTime == nil, let initialCursorTime {
                 cursorTime = initialCursorTime
             }
-            // Ortszeit des Tages: erst der gemerkte Wert (sofort, ohne
-            // Netz), sonst einmal über den Geocoder — am mittleren Punkt
-            // des Tages, nicht am ersten: Wer morgens abfliegt, ist am
-            // ersten Punkt noch in der falschen Zone.
-            zone = Ortszeit.gespeicherteZone(fuer: dayKey)
-            if zone == nil {
-                let pts = tracks.flatMap(\.points).sorted { $0.t < $1.t }
-                if !pts.isEmpty {
-                    zone = await Ortszeit.zone(fuer: dayKey, koordinate: pts[pts.count / 2].coordinate)
+            // Ortszeit des Tages, in dieser Reihenfolge: (1) die beim
+            // Aufzeichnen GEMESSENE Gerätezone vom Tages-Datensatz —
+            // sie synct mit und braucht kein Netz; (2) der gemerkte
+            // Wert aus den Voreinstellungen; (3) einmal der Geocoder —
+            // am mittleren Punkt des Tages, nicht am ersten: Wer
+            // morgens abfliegt, ist am ersten Punkt noch in der
+            // falschen Zone.
+            if let id = recordedZoneID, let recorded = TimeZone(identifier: id) {
+                zone = recorded
+                Ortszeit.merken(recorded, fuer: dayKey)   // für die Suche
+            } else {
+                zone = Ortszeit.gespeicherteZone(fuer: dayKey)
+                if zone == nil {
+                    let pts = tracks.flatMap(\.points).sorted { $0.t < $1.t }
+                    if !pts.isEmpty {
+                        zone = await Ortszeit.zone(fuer: dayKey, koordinate: pts[pts.count / 2].coordinate)
+                    }
                 }
             }
         }
@@ -578,6 +590,9 @@ struct DayDetailView: View {
             TrackMapView.DeviceTrack(deviceId: $0.deviceId, deviceName: $0.deviceName, points: $0.points())
         }
         ownTrackCount = built.count
+        // Beim Aufzeichnen gemessene Zone (irgendein eigenes Gerät des
+        // Tages — die stehen am selben Ort); leer bei Altbestand.
+        recordedZoneID = days.map(\.timeZoneID).first { !$0.isEmpty }
 
         let familyPredicate = #Predicate<FamilyDay> { $0.dayKey == key }
         let familyDays = (try? context.fetch(FetchDescriptor(predicate: familyPredicate))) ?? []

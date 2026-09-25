@@ -39,6 +39,9 @@ enum StoreRebuild {
         var pointCount, summaryPointCount: Int
         var distanceMeters: Double
         var startDate, endDate, updatedAt: Date
+        /// Optional, damit Sicherungen von vor 1.4.28 lesbar bleiben
+        /// (der erzeugte Leser verlangt jeden nicht-optionalen Schlüssel).
+        var timeZoneID: String?
     }
 
     struct VisitSnapshot: Codable {
@@ -83,7 +86,8 @@ enum StoreRebuild {
                         pointsData: $0.pointsData,
                         pointCount: $0.pointCount, summaryPointCount: $0.summaryPointCount,
                         distanceMeters: $0.distanceMeters,
-                        startDate: $0.startDate, endDate: $0.endDate, updatedAt: $0.updatedAt
+                        startDate: $0.startDate, endDate: $0.endDate, updatedAt: $0.updatedAt,
+                        timeZoneID: $0.timeZoneID
                     )
                 }
                 snap.visits = try context.fetch(FetchDescriptor<PlaceVisit>()).map {
@@ -148,6 +152,7 @@ enum StoreRebuild {
             day.endDate = d.endDate
             day.summary = d.summary
             day.updatedAt = d.updatedAt
+            day.timeZoneID = d.timeZoneID ?? ""
             context.insert(day)
         }
         for v in snapshot.visits {
@@ -245,7 +250,14 @@ enum DataMaintenance {
                 let sorted = group.sorted { a, b in
                     a.pointCount != b.pointCount ? a.pointCount > b.pointCount : a.updatedAt > b.updatedAt
                 }
+                let winner = sorted[0]
                 for loser in sorted.dropFirst() {
+                    // Aufgezeichnete Zone nicht mit dem Duplikat
+                    // wegwerfen: Der Server-Import kann sie noch nicht
+                    // tragen, der wieder eingesetzte Datensatz schon.
+                    if winner.timeZoneID.isEmpty, !loser.timeZoneID.isEmpty {
+                        winner.timeZoneID = loser.timeZoneID
+                    }
                     context.delete(loser)
                     changed = true
                 }

@@ -426,6 +426,29 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     Tages — nicht am ersten: Wer morgens abfliegt, ist dort noch in der
     falschen Zone) und dauerhaft in den Voreinstellungen gemerkt
     (`tagesspur.zeitzone.<dayKey>`) — die Anzeige braucht danach kein Netz.
+  - **Seit 1.4.28 wird die Zone beim Aufzeichnen MITGESCHRIEBEN**
+    (`TrackDay.timeZoneID`, iPhone und Watch): Das Gerät stellt sich
+    beim Reisen selbst um, seine aktuelle Zone ist also eine Messung —
+    gesetzt bei jedem Flush, es gilt die letzte Zone des Tages. Sie
+    synct mit dem Tages-Datensatz auf alle eigenen Geräte und ist die
+    ERSTE Quelle der Anzeige; der Geocoder bleibt Rückfall für den
+    Altbestand und für Familien-Tage (deren Spiegel-Datensätze tragen
+    das Feld bewusst nicht — jedes zusätzliche Feld in der Familien-Zone
+    wäre eine weitere Schema-Pflicht). Grenze, ehrlich benannt: Wer die
+    automatische Zeitzone am Gerät AUS hat, zeichnet die eingestellte
+    statt der örtlichen Zone auf — der Geocoder-Weg kennt diesen Fehler
+    nicht, greift aber nur, solange das Feld leer ist.
+  - **`CD_timeZoneID` ist ein NEUES CloudKit-Feld** — in Production
+    entsteht ein Feld nie durch Schreiben (dieselbe Lehre wie bei
+    Schulalarm). Reihenfolge beim Ausrollen: erst einmal per Xcode
+    (Development) starten, dann in der CloudKit-Konsole „Deploy Schema
+    Changes to Production“, DANN erst TestFlight — sonst weist der
+    Server jeden Tages-Export ab und der Sync steht wie am 30.7.
+    „Server-Zustand prüfen“ probiert das Feld seit 1.4.28 mit und nennt
+    es im Fehlerfall beim Namen. Die Momentaufnahme (StoreRebuild), die
+    JSON-Sicherung und das Duplikat-Aufräumen tragen das Feld mit;
+    in Sicherung und Momentaufnahme ist es OPTIONAL, damit Dateien von
+    vor 1.4.28 lesbar bleiben.
   - Gilt im Tagesdetail (Lücken-Diagnose, Zeit-Cursor samt DatePicker und
     Positions-Notiz, Aufenthalte, Momente, Medienzeiten, GPX-Export),
     im Replay und im Medienbetrachter; die Suche nutzt die gemerkte Zone,
@@ -469,7 +492,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.27) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.28) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
