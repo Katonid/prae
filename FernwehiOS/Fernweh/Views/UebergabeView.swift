@@ -31,7 +31,7 @@ struct UebergabeView: View {
                     Text("Fernweh schreibt eine Datei mit den Texten, Orten und dem Wetter jedes Tages. Das Reisebuch liest sie ein und legt daraus die Tage des Fotobuchs an.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                    LabeledContent("Tage mit Einträgen", value: "\(Set(reise.eintragListe.compactMap { $0.datum.map(Tag.schluessel) }).count)")
+                    LabeledContent("Tage mit Einträgen", value: "\(Set(reise.eintragListe.compactMap(\.tagSchluessel)).count)")
                     LabeledContent("Einträge", value: "\(reise.eintragListe.count)")
                     LabeledContent("Fotos in den Einträgen", value: "\(fotoAnzahl)")
                 }

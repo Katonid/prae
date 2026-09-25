@@ -27,13 +27,17 @@ Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`.
   `reise.ende`). Es ist genau der Tag, unter dem Fernweh den Eintrag zeigt.
   Nicht aus einem Zeitpunkt zurückrechnen — die Regel des Reisebuchs („der Tag
   kommt aus drei Zahlen“) gilt hier genauso.
-- **Zeitpunkte** sind ISO 8601 mit Versatz: `2026-08-12T19:33:21+02:00`.
-  **Offen:** Fernweh speichert einen Eintrag als Augenblick, ohne die Zone des
-  Ortes. Tag und Uhrzeit rechnet es in der Zone des Geräts, das die Datei
-  ERZEUGT — wird nach einer Fernreise daheim übergeben, kann ein später
-  Eintrag um Mitternacht herum auf dem Nachbartag landen. So zeigt Fernweh ihn
-  aber auch an; beide Seiten sind sich also einig. Dazu steht, wo es passt, `uhrzeit`
-  (`HH:mm`) als Wanduhr — das ist die Zahl, die im Buch stehen soll.
+- **Zeitpunkte** sind ISO 8601 mit dem Versatz der ZONE DES EINTRAGS:
+  `2026-08-12T19:33:21-04:00` heißt „19:33 in Toronto“. Seit Fernweh 1.0.6
+  (Format weiterhin Version 1, das Feld ist angehängt) steht die Zone je
+  Eintrag als `zeitzone` (IANA-Name, z. B. `America/Toronto`) dabei, und
+  `datum` des Tages sowie `uhrzeit` sind in dieser Zone gerechnet — ein
+  später Eintrag aus Übersee landet nicht mehr auf dem Folgetag, nur weil
+  daheim übergeben wird. **Fehlt `zeitzone`** (alter Eintrag ohne Ort), gilt
+  die Zone des Geräts, das die Datei erzeugt hat — dann steht der Versatz im
+  Zeitpunkt, aber nicht der Ort dahinter.
+  Dazu steht, wo es passt, `uhrzeit` (`HH:mm`) als Wanduhr — das ist die
+  Zahl, die im Buch stehen soll.
 - Punkte der Reisespur tragen **Unix-Sekunden** (echter Augenblick).
 
 ## `uebergabe.json`
@@ -62,6 +66,7 @@ Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`.
           "kennung": "UUID",
           "zeitpunkt": "2027-08-03T21:14:00+01:00",
           "uhrzeit": "21:14",
+          "zeitzone": "Europe/Lisbon",
           "titel": "Lissabon",
           "text": "Fließtext, Absätze mit \n",
           "autor": "Name aus den Einstellungen",

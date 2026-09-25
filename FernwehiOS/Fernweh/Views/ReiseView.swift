@@ -447,8 +447,8 @@ struct EintragKarte: View {
                     if let ort = eintrag.ortsname, !ort.isEmpty, ort != eintrag.anzeigeTitel {
                         Label(ort, systemImage: "mappin.and.ellipse").lineLimit(1)
                     }
-                    if let d = eintrag.datum {
-                        Text(Tag.uhrzeit.string(from: d))
+                    if eintrag.datum != nil {
+                        Text(eintrag.uhrzeitText)
                     }
                 }
                 .font(.caption)
