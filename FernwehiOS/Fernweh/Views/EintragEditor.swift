@@ -139,11 +139,20 @@ struct EintragEditor: View {
                 .padding(.vertical, 2)
             }
             if !sucheOrte && tagesorte.isEmpty && hier == nil {
-                Text(aufzeichner.eingeschaltet
-                     ? "Aus der Reisespur dieses Tages ergeben sich noch keine Orte."
-                     : "Mit eingeschalteter Reisespur schlägt Fernweh hier die Orte des Tages vor.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // Die Spur ist NICHT die Bedingung: Der eigene Standort geht
+                // auch ohne sie, und die Spur eines anderen Geräts reist über
+                // die Reise mit. Fehlt ein Ort, liegt es meist an der Erlaubnis.
+                if aufzeichner.erlaubnis == .denied || aufzeichner.erlaubnis == .restricted {
+                    Text("Fernweh darf den Standort dieses Geräts nicht sehen — deshalb gibt es hier keinen Ort und kein Wetter. Die Reisespur kann trotzdem aus bleiben.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Standort in den Einstellungen erlauben") { aufzeichner.genauAnfragen() }
+                        .font(.caption.weight(.semibold))
+                } else {
+                    Text("Der Standort ließ sich gerade nicht bestimmen, und die Reisespur hat für diesen Tag noch keine Orte — auch nicht von einem anderen Gerät.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } else if !gewaehlteOrte.isEmpty {
                 Text("\(gewaehlteOrte.count) \(gewaehlteOrte.count == 1 ? "Ort" : "Orte") im Eintrag")
                     .font(.caption)

@@ -50,6 +50,7 @@ final class Aufzeichner: NSObject, ObservableObject {
     private var letzteUebertragung = Date.distantPast
     private var zaehltag = Tag.schluessel(Date())
     private var einmalWartende: [CheckedContinuation<CLLocation?, Never>] = []
+    private var erlaubnisWartende: [CheckedContinuation<Void, Never>] = []
 
     /// Hintergrund-Updates nur, wenn der Modus wirklich in der gebauten
     /// Info.plist steht — sonst beendet iOS die App mit einer Ausnahme.
@@ -189,13 +190,36 @@ final class Aufzeichner: NSObject, ObservableObject {
 
     /// Wo bin ich gerade? Für den Titel eines neuen Eintrags. Ist ein frischer
     /// Punkt da (unter zwei Minuten alt), wird nicht neu geortet.
+    ///
+    /// **Unabhängig vom Reisespur-Schalter** (Befund des Nutzers zu 1.0.3: auf
+    /// dem iPad, wo die Spur aus ist, fand ein neuer Eintrag keinen Ort und
+    /// damit auch kein Wetter). Der Schalter gilt der DAUERNDEN Aufzeichnung;
+    /// eine einzelne Ortung für Titel und Wetter gehört nicht dazu. Die
+    /// Ursache war die Erlaubnis: Gefragt wurde sie nur beim Einschalten der
+    /// Spur — auf einem Gerät, auf dem sie nie eingeschaltet war, stand sie
+    /// auf „nicht gefragt", und diese Stelle gab stumm `nil` zurück. Jetzt
+    /// fragt sie selbst (nur „Beim Verwenden", nie „Immer") und wartet auf
+    /// die Antwort.
     func einmalOrten() async -> CLLocation? {
         if let l = letzterOrt, Date().timeIntervalSince(l.timestamp) < 120 { return l }
+        if manager.authorizationStatus == .notDetermined {
+            await withCheckedContinuation { (fortsetzung: CheckedContinuation<Void, Never>) in
+                erlaubnisWartende.append(fortsetzung)
+                if erlaubnisWartende.count == 1 { manager.requestWhenInUseAuthorization() }
+                // Wer den Dialog liegen lässt, bekommt nach einer Minute den
+                // Eintrag ohne Ort — nicht einen Knopf, der nie zurückkehrt.
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 60_000_000_000)
+                    self.erlaubnisBeantwortet()
+                }
+            }
+            erlaubnis = manager.authorizationStatus
+        }
         guard darfOrten else { return nil }
         return await withCheckedContinuation { fortsetzung in
             einmalWartende.append(fortsetzung)
             if einmalWartende.count == 1 {
-                if !eingeschaltet { manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters }
+                if !eingeschaltet { manager.desiredAccuracy = kCLLocationAccuracyHundredMeters }
                 manager.requestLocation()
             }
             // Spätestens nach zwölf Sekunden antworten — ohne Ort ist ein
@@ -205,6 +229,12 @@ final class Aufzeichner: NSObject, ObservableObject {
                 self.einmalBeantworten(self.letzterOrt)
             }
         }
+    }
+
+    private func erlaubnisBeantwortet() {
+        let wartende = erlaubnisWartende
+        erlaubnisWartende.removeAll()
+        for w in wartende { w.resume() }
     }
 
     private func einmalBeantworten(_ ort: CLLocation?) {
@@ -257,6 +287,9 @@ extension Aufzeichner: CLLocationManagerDelegate {
         Task { @MainActor in
             self.erlaubnis = status
             self.genau = genau
+            // Der Rückruf kommt auch sofort nach dem Anlegen des Managers,
+            // noch mit „nicht gefragt" — erst eine echte Antwort löst auf.
+            if status != .notDetermined { self.erlaubnisBeantwortet() }
             self.anwenden()
         }
     }

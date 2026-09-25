@@ -10500,6 +10500,17 @@ Befunde, und keiner davon war Geschmack:
   Reisespur ohnehin die richtige). **Vermutung, nicht Messung.** Der Routenplaner
   trägt denselben Schlüssel seit 1.0.5; stürzt dessen Reiter „General“ auch ab,
   ist die Vermutung bestätigt und er gehört dort ebenso heraus.
+- **Der Reisespur-Schalter gilt der DAUERNDEN Aufzeichnung, nicht jeder
+  Ortung** (ab 1.0.4, gemeldet 09/2026: iPad mit Spur aus fand beim neuen
+  Eintrag keinen Ort und damit kein Wetter). Er steht in `UserDefaults`, gilt
+  also je Gerät — iPad aus, iPhone an ist der vorgesehene Fall, und die Spur
+  des iPhones reist über die Reise zum iPad (`Tagesorte.orte`). Die Ursache
+  war die ERLAUBNIS: Gefragt wurde sie nur beim Einschalten der Spur; auf
+  einem Gerät, das sie nie eingeschaltet hatte, stand sie auf „nicht
+  gefragt", und `einmalOrten` gab stumm `nil` zurück. Jetzt fragt es selbst
+  („Beim Verwenden", nie „Immer") und wartet auf die Antwort. **Nicht
+  gesehen**: ob das auf dem iPad des Nutzers die einzige Ursache war — die
+  Zeile unter „Orte des Tages" sagt seither, woran es liegt.
 - **Diktieren** (`Model/Diktat.swift`, ab 1.0.1, Wunsch des Nutzers: „die
   Apple-Spracherkennung versteht vieles nicht richtig … vielleicht gibt es
   Alternativen"). Ab iOS 26 Apples NEUES Modell (`SpeechAnalyzer` +
