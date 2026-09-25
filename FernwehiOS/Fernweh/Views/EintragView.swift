@@ -104,19 +104,7 @@ struct EintragView: View {
                         .padding(.top, 8)
                     }
 
-                    if let k = eintrag.koordinate {
-                        Map(initialPosition: .camera(MapCamera(centerCoordinate: k, distance: 2500, heading: 0, pitch: 45)),
-                            interactionModes: []) {
-                            Marker(eintrag.anzeigeTitel, coordinate: k).tint(palette.haupt)
-                            ForEach(Array(orte.enumerated()), id: \.offset) { _, o in
-                                Marker(o.name, systemImage: "mappin", coordinate: o.koordinate).tint(palette.hell)
-                            }
-                        }
-                        .frame(height: 180)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .allowsHitTesting(false)
-                        .padding(.top, 6)
-                    }
+                    Tagesspurkarte(eintrag: eintrag, palette: palette)
 
                     if let autor = eintrag.autor, !autor.isEmpty {
                         HStack(spacing: 8) {

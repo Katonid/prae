@@ -387,40 +387,84 @@ enum Spurspeicher {
 /// Überträgt die Rohspur in die Reisen — gedünnt, als ein Datensatz je Tag
 /// und Gerät. Jede Mitreisende trägt ihre eigene Spur bei; die Karte zeigt
 /// alle.
+///
+/// Seit 1.0.13 auch ins TAGEBUCH (Ansage des Nutzers 09/2026: „Ich möchte,
+/// dass die Reisespur für jeden Tag mit einem Eintrag komplett hinterlegt
+/// wird … auch die Punkte des Nachmittags“): Hat ein Tag einen eigenen
+/// Eintrag ohne Reise, bekommt er eine `Spur` OHNE Reise im privaten
+/// Speicher. Sie wird wie die der Reisen bei jeder Übertragung neu aus der
+/// Rohspur des ganzen Tages gebaut — ein Eintrag vom Morgen trägt am Abend
+/// also auch den Nachmittag. Und weil die Rohspur auf der Platte liegen
+/// bleibt, bekommt ein früherer Tag seine Spur nachträglich, sobald dort ein
+/// Eintrag steht.
 @MainActor
 enum Spurabgleich {
     static func uebertragen() {
         let persistenz = Persistenz.shared
         let kontext = persistenz.kontext
-        guard let reisen = try? kontext.fetch(Reise.alle()) else { return }
+        let reisen = (try? kontext.fetch(Reise.alle())) ?? []
         let laufende = reisen.filter { !$0.liegtInZukunft && persistenz.darfBearbeiten($0) }
-        guard !laufende.isEmpty else { return }
+        let tagebuchTage = tageMitEigenemEintrag()
+        let privat = privateSpuren()
         let geraet = Geraet.kennung
         for tag in Spurspeicher.tage() {
+            let reiseZiele = laufende.filter { ($0.anfang...$0.schluss).contains(Tag.anfang(datum(tag))) }
+            let insTagebuch = tagebuchTage.contains(tag)
+            guard !reiseZiele.isEmpty || insTagebuch else { continue }
             let roh = Spurspeicher.punkte(tag: tag)
             let besuche = Spurspeicher.besuche(tag: tag)
             guard !roh.isEmpty || !besuche.isEmpty else { continue }
             let punkte = Spurpunkt.ausgeduennt(roh, abstand: 15)
             let paket = Spurpunkt.packen(punkte)
             let besuchPaket = Besuch.packen(besuche)
-            for reise in laufende where (reise.anfang...reise.schluss).contains(Tag.anfang(datum(tag))) {
+            for reise in reiseZiele {
                 let vorhanden = reise.spurListe.first { $0.tag == tag && $0.geraet == geraet }
-                if let vorhanden, vorhanden.punkte == paket, vorhanden.besuche == besuchPaket { continue }
-                let spur = vorhanden ?? persistenz.anlegen(Spur.self, bei: reise)
-                if vorhanden == nil {
-                    spur.kennung = UUID()
-                    spur.tag = tag
-                    spur.geraet = geraet
-                    spur.reise = reise
-                }
-                spur.reisender = Geraet.name
-                spur.punkte = paket
-                spur.besuche = besuchPaket
-                spur.distanz = Spurpunkt.distanz(punkte)
-                spur.geaendert = Date()
+                schreiben(vorhanden, reise: reise, tag: tag, geraet: geraet,
+                          punkte: punkte, paket: paket, besuchPaket: besuchPaket)
+            }
+            if insTagebuch {
+                schreiben(privat[tag + "|" + geraet], reise: nil, tag: tag, geraet: geraet,
+                          punkte: punkte, paket: paket, besuchPaket: besuchPaket)
             }
         }
         persistenz.sichern()
+    }
+
+    private static func schreiben(_ vorhanden: Spur?, reise: Reise?, tag: String, geraet: String,
+                                  punkte: [Spurpunkt], paket: Data, besuchPaket: Data?) {
+        if let vorhanden, vorhanden.punkte == paket, vorhanden.besuche == besuchPaket { return }
+        let spur = vorhanden ?? Persistenz.shared.anlegen(Spur.self, bei: reise)
+        if vorhanden == nil {
+            spur.kennung = UUID()
+            spur.tag = tag
+            spur.geraet = geraet
+            spur.reise = reise
+        }
+        spur.reisender = Geraet.name
+        spur.punkte = paket
+        spur.besuche = besuchPaket
+        spur.distanz = Spurpunkt.distanz(punkte)
+        spur.geaendert = Date()
+    }
+
+    /// Die Tage, an denen ein eigener Eintrag OHNE Reise steht — in der Zone
+    /// des Eintrags gerechnet, wie überall (`Eintrag.tagSchluessel`).
+    private static func tageMitEigenemEintrag() -> Set<String> {
+        let anfrage = NSFetchRequest<Eintrag>(entityName: "Eintrag")
+        anfrage.predicate = NSPredicate(format: "reise == nil")
+        let eintraege = (try? Persistenz.shared.kontext.fetch(anfrage)) ?? []
+        return Set(eintraege.compactMap(\.tagSchluessel))
+    }
+
+    /// Die Tagebuchspuren, die es schon gibt — Schlüssel „Tag|Gerät“.
+    private static func privateSpuren() -> [String: Spur] {
+        let anfrage = Spur.alle()
+        anfrage.predicate = NSPredicate(format: "reise == nil")
+        var ergebnis: [String: Spur] = [:]
+        for s in (try? Persistenz.shared.kontext.fetch(anfrage)) ?? [] {
+            ergebnis[(s.tag ?? "") + "|" + (s.geraet ?? "")] = s
+        }
+        return ergebnis
     }
 
     private static func datum(_ schluessel: String) -> Date {
