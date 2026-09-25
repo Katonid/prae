@@ -74,6 +74,8 @@ struct Uebergabe: Codable {
         var uhrzeit: String?
         /// IANA-Name, ab 1.0.6. Fehlt bei älteren Einträgen ohne Ort.
         var zeitzone: String?
+        /// Name des Tagebuchs (ab 1.0.7), fehlt, wenn keiner vergeben ist.
+        var tagebuch: String?
         var titel: String
         var text: String
         var autor: String
@@ -251,6 +253,7 @@ enum Uebergabebau {
                     kennung: (e.kennung ?? UUID()).uuidString, zeitpunkt: iso(e.datum, zone: e.zone),
                     uhrzeit: e.datum == nil ? nil : e.uhrzeitText,
                     zeitzone: (e.zeitzone ?? "").isEmpty ? nil : e.zeitzone,
+                    tagebuch: e.tagebuchName,
                     titel: e.titel ?? "", text: e.text ?? "", autor: e.autor ?? "", ort: ort,
                     orte: e.ortListe.map { Uebergabe.OrtTeil(name: $0.name, land: nil, breite: $0.breite,
                                                             laenge: $0.laenge, uhrzeit: uhr($0.zeit)) },

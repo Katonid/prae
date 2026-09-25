@@ -142,6 +142,9 @@ enum DayOne {
         var fotos = 0
         var fotosFehlen = 0
         var anderesUebergangen = 0
+        /// Schon vorhandene Einträge, denen der Tagebuchname fehlte (vor 1.0.7
+        /// eingelesen) — er wird beim erneuten Einlesen nachgetragen.
+        var nachgetragen = 0
     }
 
     @MainActor
@@ -149,12 +152,20 @@ enum DayOne {
                          fortschritt: (Int, Int) -> Void) async -> Bericht {
         let persistenz = Persistenz.shared
         var bericht = Bericht()
-        let vorhanden = vorhandeneKennungen()
-        let liste = befund.tagebuecher.filter { tagebuecher.contains($0.name) }.flatMap(\.eintraege)
-        for (nummer, d) in liste.enumerated() {
+        let vorhanden = vorhandeneEintraege()
+        let liste = befund.tagebuecher.filter { tagebuecher.contains($0.name) }
+            .flatMap { t in t.eintraege.map { (t.name, $0) } }
+        for (nummer, (tagebuch, d)) in liste.enumerated() {
             fortschritt(nummer, liste.count)
             let kennung = uuid(d.uuid)
-            if let kennung, vorhanden.contains(kennung) { bericht.schonDa += 1; continue }
+            if let kennung, let alt = vorhanden[kennung] {
+                bericht.schonDa += 1
+                if alt.tagebuchName == nil, persistenz.darfBearbeiten(alt) {
+                    alt.tagebuch = tagebuch
+                    bericht.nachgetragen += 1
+                }
+                continue
+            }
             guard let datum = Self.datum(d.creationDate) else { bericht.ohneDatum += 1; continue }
 
             let e = persistenz.anlegen(Eintrag.self, bei: nil)
@@ -164,6 +175,7 @@ enum DayOne {
             e.geaendert = Self.datum(d.modifiedDate) ?? datum
             e.zeitzone = (d.timeZone.flatMap(TimeZone.init(identifier:)) != nil) ? d.timeZone : ""
             e.autor = Geraet.name
+            e.tagebuch = tagebuch
             let (titel, text) = Self.text(d.text ?? "")
             e.titel = titel
             e.text = text
@@ -234,12 +246,12 @@ enum DayOne {
     // MARK: Hilfen
 
     @MainActor
-    private static func vorhandeneKennungen() -> Set<UUID> {
-        let anfrage = NSFetchRequest<NSDictionary>(entityName: "Eintrag")
-        anfrage.resultType = .dictionaryResultType
-        anfrage.propertiesToFetch = ["kennung"]
-        let zeilen = (try? Persistenz.shared.kontext.fetch(anfrage)) ?? []
-        return Set(zeilen.compactMap { $0["kennung"] as? UUID })
+    private static func vorhandeneEintraege() -> [UUID: Eintrag] {
+        let anfrage = NSFetchRequest<Eintrag>(entityName: "Eintrag")
+        let alle = (try? Persistenz.shared.kontext.fetch(anfrage)) ?? []
+        var ergebnis: [UUID: Eintrag] = [:]
+        for e in alle { if let k = e.kennung { ergebnis[k] = e } }
+        return ergebnis
     }
 
     /// „8F2A…“ (32 Zeichen) → UUID.

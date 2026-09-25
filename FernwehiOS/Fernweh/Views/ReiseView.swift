@@ -444,6 +444,11 @@ struct EintragKarte: View {
                     .font(.headline)
                     .foregroundStyle(.primary)
                 HStack(spacing: 6) {
+                    if let buch = eintrag.tagebuchName {
+                        Label(buch, systemImage: "book.closed.fill")
+                            .foregroundStyle(palette.haupt)
+                            .lineLimit(1)
+                    }
                     if let ort = eintrag.ortsname, !ort.isEmpty, ort != eintrag.anzeigeTitel {
                         Label(ort, systemImage: "mappin.and.ellipse").lineLimit(1)
                     }

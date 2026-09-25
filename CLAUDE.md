@@ -10472,7 +10472,7 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -10536,6 +10536,23 @@ Befunde, und keiner davon war Geschmack:
   Tagebuchnamen aus Day One gehen verloren (es gibt kein Feld dafür).
   **Nicht an einem echten Export gemessen** — der Aufbau ist nach Kenntnis
   des Formats gebaut; stimmt ein Feld nicht, sagt es der erste Import.
+- **Tagebücher als Feld** (Attribut `tagebuch`, ab 1.0.7 — **Schema-Deploy
+  nötig**; Ansage des Nutzers 09/2026: die Namen der Day-One-Tagebücher
+  sicher behalten). Der Import setzt ihn; schon eingelesene Einträge bekommen
+  ihn beim erneuten Einlesen desselben Archivs nachgetragen. Eine eigene Liste
+  der Tagebücher gibt es nicht — eines existiert, solange ein Eintrag seinen
+  Namen trägt; im Editor wählbar (samt „Neues Tagebuch …"), im Reiter
+  „Tagebuch" filterbar. Die Wahl „privat oder in die Reise" heißt deshalb
+  seither „Nur für mich" — zweimal „Tagebuch" für zwei Dinge wäre eines zu
+  viel. Tagebuch und Reise sind unabhängig voneinander.
+- **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
+  Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
+  schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
+  stehen dann im ZIP64-Schlussstück (über den Wegweiser 20 Bytes vor dem
+  gewöhnlichen) und im Extrafeld 0x0001 jedes Eintrags. `Ziparchiv` liest
+  beides. **Merke: Eine Fehlermeldung, die eine Ursache nennt, muss sie
+  gemessen haben** — hier stand eine Vermutung über die Größe, und die
+  Dateigröße hätte sie in einer Zeile widerlegt.
 - **Lebenstagebuch mit Reisen als Kapiteln** (`Views/TagebuchView.swift`, ab
   1.0.5, Wahl des Nutzers 09/2026). Zwei Reiter: „Tagebuch" (alle Einträge
   aus beiden Speichern, nach Tagen) und „Reisen". Ein Eintrag OHNE Reise
