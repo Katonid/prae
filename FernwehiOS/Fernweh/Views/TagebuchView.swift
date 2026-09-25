@@ -27,17 +27,26 @@ struct TagebuchView: View {
     @State private var pfad = NavigationPath()
     /// Nur ein Tagebuch zeigen (ab 1.0.7). `nil`: alle; "" : ohne Tagebuch.
     @State private var nurTagebuch: String?
+    @State private var tagebuecherZeigen = false
+    @ObservedObject private var buecherei = Buecherei.shared
+    /// Ans Ende springen, sobald die Gliederung steht (ab 1.0.8): beim ersten
+    /// Öffnen, nach einem Wechsel des Tagebuchs und wenn ein Eintrag dazukommt.
+    @State private var springen = true
 
     struct SchreibWunsch: Identifiable {
         let id = UUID()
         let tag: Date?
     }
 
-    private var tagebuchNamen: [String] { Set(eintraege.compactMap(\.tagebuchName)).sorted() }
+    private static let ende = "ende"
 
+    /// Aufsteigend: das Älteste oben, das Neueste unten — wie in einem Heft
+    /// (ab 1.0.8, Ansage des Nutzers 09/2026: „Ich möchte, dass neue Einträge
+    /// unten angefügt werden.“). Damit trotzdem das Aktuelle zuerst zu sehen
+    /// ist, springt die Ansicht beim Öffnen ans Ende.
     static func alleEintraege() -> NSFetchRequest<Eintrag> {
         let anfrage = NSFetchRequest<Eintrag>(entityName: "Eintrag")
-        anfrage.sortDescriptors = [NSSortDescriptor(key: "datum", ascending: false)]
+        anfrage.sortDescriptors = [NSSortDescriptor(key: "datum", ascending: true)]
         return anfrage
     }
 
@@ -64,19 +73,41 @@ struct TagebuchView: View {
 
     var body: some View {
         NavigationStack(path: $pfad) {
+            ScrollViewReader { leser in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     kopf
-                    heuteKarte
                     if kapitel.isEmpty {
                         leer
                     }
                     ForEach(kapitel) { k in
                         KapitelBlock(kapitel: k)
                     }
+                    // Unten, weil hier das Neueste steht und der nächste
+                    // Eintrag hinzukommt.
+                    heuteKarte
+                    Color.clear.frame(height: 1).id(Self.ende)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 110)
+            }
+            .onChange(of: eintraege.count) { alt, neu in
+                if neu > alt { springen = true }
+            }
+            .onChange(of: nurTagebuch) { _, _ in springen = true }
+            .task(id: stand + "|" + (nurTagebuch ?? "*")) {
+                let gezeigt = Array(eintraege).filter { e in
+                    guard let nur = nurTagebuch else { return true }
+                    return (e.tagebuchName ?? "") == nur
+                }
+                kapitel = Self.gliedern(gezeigt, reisen: Array(reisen))
+                guard springen else { return }
+                springen = false
+                // Einen Durchgang warten: Die neuen Kapitel müssen erst im
+                // Stapel stehen, sonst gibt es das Ziel noch nicht.
+                try? await Task.sleep(for: .milliseconds(60))
+                leser.scrollTo(Self.ende, anchor: .bottom)
+            }
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationDestination(for: NSManagedObjectID.self) { kennung in
@@ -91,17 +122,9 @@ struct TagebuchView: View {
                     Button { einstellungen = true } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("Einstellungen")
                 }
-                if !tagebuchNamen.isEmpty {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Menu {
-                            Button { nurTagebuch = nil } label: { Label("Alle Einträge", systemImage: nurTagebuch == nil ? "checkmark" : "books.vertical") }
-                            ForEach(tagebuchNamen, id: \.self) { n in
-                                Button { nurTagebuch = n } label: { Label(n, systemImage: nurTagebuch == n ? "checkmark" : "book.closed") }
-                            }
-                            Button { nurTagebuch = "" } label: { Label("Ohne Tagebuch", systemImage: nurTagebuch == "" ? "checkmark" : "minus.circle") }
-                        } label: {
-                            Label(nurTagebuch.map { $0.isEmpty ? "Ohne Tagebuch" : $0 } ?? "Alle", systemImage: "line.3.horizontal.decrease.circle")
-                        }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { tagebuecherZeigen = true } label: {
+                        Label("Tagebücher", systemImage: "books.vertical.fill")
                     }
                 }
             }
@@ -118,17 +141,12 @@ struct TagebuchView: View {
                 .padding(22)
             }
             .sheet(item: $schreiben) { w in
-                EintragEditor(vorgabe: nil, eintrag: nil, tag: w.tag)
+                EintragEditor(vorgabe: nil, eintrag: nil, tag: w.tag,
+                              tagebuchVorgabe: nurTagebuch.flatMap { $0.isEmpty ? nil : $0 })
             }
             .sheet(isPresented: $einstellungen) { EinstellungenView() }
+            .sheet(isPresented: $tagebuecherZeigen) { TagebuecherView(auswahl: $nurTagebuch) }
             .refreshable { aufzeichner.uebertragen() }
-            .task(id: stand + "|" + (nurTagebuch ?? "*")) {
-                let gezeigt = Array(eintraege).filter { e in
-                    guard let nur = nurTagebuch else { return true }
-                    return (e.tagebuchName ?? "") == nur
-                }
-                kapitel = Self.gliedern(gezeigt, reisen: Array(reisen))
-            }
         }
     }
 
@@ -147,7 +165,7 @@ struct TagebuchView: View {
             guard let s = e.tagSchluessel, let d = e.tagDatum else { continue }
             jeTag[s, default: (d, [])].1.append(e)
         }
-        let tage = jeTag.values.sorted { $0.0 > $1.0 }
+        let tage = jeTag.values.sorted { $0.0 < $1.0 }
         var ergebnis: [Kapitel] = []
         for (tag, liste) in tage {
             let chronologisch = liste.sorted { ($0.datum ?? .distantPast) < ($1.datum ?? .distantPast) }
@@ -181,11 +199,36 @@ struct TagebuchView: View {
             Text(Tag.wochentagLang.string(from: Date()))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
-            Text("Mein Tagebuch")
+            Text(kopftitel)
                 .font(Stil.titel(34))
+                .foregroundStyle(kopffarbe ?? .primary)
+            if nurTagebuch != nil {
+                // Gefiltert heißt: Nicht alles steht da. Das soll man sehen
+                // und mit einem Tipp aufheben können.
+                Button { nurTagebuch = nil } label: {
+                    Label("Nur dieses Tagebuch — alle zeigen", systemImage: "xmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background((kopffarbe ?? .secondary).opacity(0.14), in: Capsule())
+                        .foregroundStyle(kopffarbe ?? .secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
         }
         .padding(.top, 4)
     }
+
+    private var kopftitel: String {
+        switch nurTagebuch {
+        case nil: return "Mein Tagebuch"
+        case "": return "Ohne Tagebuch"
+        case let n?: return n
+        }
+    }
+
+    private var kopffarbe: Color? { buecherei.farbe(nurTagebuch) }
 
     /// Heute noch nichts geschrieben? Dann steht der Weg dahin ganz oben.
     @ViewBuilder

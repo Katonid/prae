@@ -19,7 +19,12 @@ struct EintragEditor: View {
     let vorgabe: Reise?
     let eintrag: Eintrag?
     let tag: Date?
+    /// Das Tagebuch, das beim Schreiben schon gewählt ist — wer im Reiter
+    /// „Tagebuch“ gerade nur eines ansieht, schreibt meist auch dorthin
+    /// (ab 1.0.8).
+    var tagebuchVorgabe: String? = nil
 
+    @ObservedObject private var buecherei = Buecherei.shared
     @FetchRequest(fetchRequest: Reise.alle()) private var reisen: FetchedResults<Reise>
     @FetchRequest(fetchRequest: TagebuchView.alleEintraege()) private var alleEintraege: FetchedResults<Eintrag>
     @State private var tagebuch = ""
@@ -187,16 +192,17 @@ struct EintragEditor: View {
                 }
                 Button { neuerName = ""; neuesTagebuch = true } label: { Label("Neues Tagebuch …", systemImage: "plus") }
             } label: {
+                let farbe = buecherei.farbe(tagebuch) ?? palette.haupt
                 HStack(spacing: 8) {
                     Image(systemName: "book.closed.fill")
                     Text(tagebuch.isEmpty ? "Kein Tagebuch" : tagebuch).lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down").font(.caption2)
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(palette.haupt)
+                .foregroundStyle(farbe)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(palette.hell.opacity(0.16), in: Capsule())
+                .background(farbe.opacity(0.14), in: Capsule())
             }
             .alert("Neues Tagebuch", isPresented: $neuesTagebuch) {
                 TextField("Name", text: $neuerName)
@@ -626,6 +632,7 @@ struct EintragEditor: View {
         vorbereitet = true
         zielReise = eintrag?.reise ?? vorgabe
         if let eintrag { zone = eintrag.zone; tagebuch = eintrag.tagebuchName ?? "" }
+        else if let tagebuchVorgabe { tagebuch = tagebuchVorgabe }
         if let eintrag {
             datum = eintrag.datum ?? Date()
             titel = eintrag.titel ?? ""
