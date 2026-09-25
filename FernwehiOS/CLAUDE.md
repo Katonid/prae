@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -192,6 +192,20 @@
   durchsucht noch mitgezählt** — eine Trefferzahl verriete schon etwas; die
   Liste sagt nur, dass sie ausgelassen sind. Gesucht wird 250 ms nach dem
   letzten Tastendruck, in `.task(id:)`, nicht im Körper.
+- **Im faulen Stapel ist jede ZEILE ein Kind, nie ein ganzes Kapitel**
+  (`TagebuchView.zeilen`, `KapitelZeile`, ab 1.0.12; gemeldet 09/2026:
+  „Einträge werden zuweilen nicht angezeigt. Wenn ich das Gerät zwischen
+  Hochkant und Quer wechseln lasse, sind sie aber da."). Bis 1.0.11 war ein
+  Kapitel ein Kind des `LazyVStack` — ohne Reise also alle Tage zwischen zwei
+  Reisen, nach einem Day-One-Import Hunderte Einträge in einem Block. Einen
+  so großen Block schätzt der Stapel falsch, und nach dem Sprung ans Ende
+  blieb er stellenweise ungezeichnet, bis ein neues Layout kam. Jetzt sind
+  Band, Tageskopf und Eintrag einzelne Zeilen; die Hülle eines Reisekapitels
+  wird je Zeile als STÜCK gezeichnet (`KapitelHuelle`: Ecken nur an Anfang
+  und Ende, der Rand offen, sonst läge zwischen zwei Stücken ein Strich).
+  Dazu springt die Ansicht zweimal ans Ende — das zweite Mal nach 350 ms,
+  wenn die Zeilen wirklich gemessen sind. **Am Quelltext hergeleitet, nicht
+  auf dem Gerät gesehen**; ein Wiederauftreten ist ein Befund.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
