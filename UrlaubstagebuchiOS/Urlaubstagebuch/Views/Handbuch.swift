@@ -128,6 +128,13 @@ enum Handbuch {
                 ziel: .tagesspur,
                 stichworte: ["gpx", "tagesspur", "strecke", "route"]),
             Handbucheintrag(
+                id: "fernweh",
+                titel: "Übergabe aus Fernweh",
+                text: "Die Datei aus dem Reisetagebuch Fernweh (Reise \u{2192} \u{201E}Fürs Fotobuch übergeben\u{201C}) trägt Texte, Orte, Wetter, Reisespur und auf Wunsch die Fotos. Vor dem Übernehmen steht Tag für Tag da, was ankommt. Mehrere Einträge eines Tages werden aneinandergehängt; Fotos, die schon im Buch stehen, kommen nicht doppelt. Fotos ohne Bild in der Datei holt die App aus der eigenen Mediathek, wenn sie dort liegen.",
+                weg: "Plus-Knopf \u{2192} Aus Fernweh",
+                ziel: .fernweh,
+                stichworte: ["fernweh", "übergabe", "import", "wetter", "tagebuch"]),
+            Handbucheintrag(
                 id: "ablage",
                 titel: "Fotos ohne Tag",
                 text: "Was sich keinem Tag zuordnen ließ, liegt in der Fotoablage und wird dort gezählt — es verschwindet nie stillschweigend. Von dort lässt es sich einem Tag geben.",

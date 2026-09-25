@@ -2384,20 +2384,7 @@ final class Reisewerk: ObservableObject, Identifiable {
                 angelegt += 1
             }
             guard let stelle else { continue }
-            let behalten = reise.tage[stelle].spur.filter { $0.quelle != .tagesspur }
-            var spur = neue.punkte
-            for punkt in behalten {
-                guard let zeit = punkt.zeit else {
-                    spur.append(punkt)
-                    continue
-                }
-                let wohin = spur.firstIndex { ($0.zeit ?? .distantFuture) > zeit } ?? spur.count
-                spur.insert(punkt, at: wohin)
-            }
-            reise.tage[stelle].spur = spur
-            // Woraufhin sich die Uhrzeiten dieses Tages beziehen. Sie sind
-            // bereits umgerechnet; das Feld ist die Auskunft dazu.
-            if let zone = neue.zone { reise.tage[stelle].zeitzone = zone.identifier }
+            tagesspurEinsetzen(neue, an: stelle)
             geaendert += 1
         }
         reise.tage.sort { $0.datum < $1.datum }
@@ -2420,6 +2407,31 @@ final class Reisewerk: ObservableObject, Identifiable {
         if angelegt > 0 { satz += ", \(angelegt) davon neu angelegt" }
         if uebersprungen > 0 { satz += "; \(uebersprungen) übersprungen, weil es den Tag nicht gibt" }
         return satz + "."
+    }
+
+    // EINE eingelesene Spur in EINEN Tag setzen — gebraucht von der
+    // Tagesspur-Einfuhr und seit 1.0.106 von der Übergabe aus Fernweh.
+    // Zwei Fassungen desselben Einsetzens liefen auseinander.
+    //
+    // Was bei einem früheren Einlesen hereinkam (`.tagesspur`), wird
+    // ersetzt; Punkte aus Fotos und von Hand bleiben und werden nach der
+    // Uhrzeit dazwischengesetzt.
+    func tagesspurEinsetzen(_ neue: Spureinfuhr.Tagesspur, an stelle: Int) {
+        guard reise.tage.indices.contains(stelle) else { return }
+        let behalten = reise.tage[stelle].spur.filter { $0.quelle != .tagesspur }
+        var spur = neue.punkte
+        for punkt in behalten {
+            guard let zeit = punkt.zeit else {
+                spur.append(punkt)
+                continue
+            }
+            let wohin = spur.firstIndex { ($0.zeit ?? .distantFuture) > zeit } ?? spur.count
+            spur.insert(punkt, at: wohin)
+        }
+        reise.tage[stelle].spur = spur
+        // Woraufhin sich die Uhrzeiten dieses Tages beziehen. Sie sind
+        // bereits umgerechnet; das Feld ist die Auskunft dazu.
+        if let zone = neue.zone { reise.tage[stelle].zeitzone = zone.identifier }
     }
 
     func spurAktualisieren(_ tagID: UUID) {

@@ -143,6 +143,8 @@ struct ReiseView: View {
         case grafik
         case bildAusFotos
         case tagesspur
+        // Die Übergabedatei aus Fernweh (ab 1.0.106).
+        case fernweh
         case typografie
         case fotostil
         case textstil
@@ -181,6 +183,7 @@ struct ReiseView: View {
             case .grafik: return "grafik"
             case .bildAusFotos: return "bildausfotos"
             case .tagesspur: return "tagesspur"
+            case .fernweh: return "fernweh"
             case .typografie: return "typo"
             case .fotostil: return "fotostil"
             case .textstil: return "textstil"
@@ -1630,6 +1633,7 @@ struct ReiseView: View {
             Button("Reisespur…", systemImage: "point.topleft.down.curvedto.point.bottomright.up") {
                 blatt = .tagesspur
             }
+            Button("Aus Fernweh…", systemImage: "suitcase") { blatt = .fernweh }
             Divider()
             Button {
                 blatt = .ablage
@@ -2300,6 +2304,8 @@ struct ReiseView: View {
             BildAusFotosView(werk: werk)
         case .tagesspur:
             SpurimportView(werk: werk)
+        case .fernweh:
+            FernwehimportView(werk: werk)
         case .typografie:
             TypografieView(werk: werk)
         case .fotostil:

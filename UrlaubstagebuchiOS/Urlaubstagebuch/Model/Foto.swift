@@ -12,6 +12,14 @@ enum Ortsquelle: String, Codable {
     // Aus der Tagesspur-App eingelesen. Ein solcher Punkt zählt NICHT als
     // Fotopunkt: „Aus den Fotos neu bauen" lässt ihn stehen, denn er ist
     // ausdrücklich eingelesen worden und käme aus keinem Bild zurück.
+    //
+    // Seit 1.0.106 steht hier auch, was aus der Übergabe von FERNWEH kommt.
+    // Ein eigener Fall wäre genauer und ist bewusst NICHT gebaut: Der Punkt
+    // liegt in `Reisepunkt` mit dem erzeugten Leser, und eine ältere Fassung
+    // dieser App, die über iCloud dasselbe Buch öffnet, verwürfe an einem
+    // unbekannten Rohwert die ganze Spur des Tages. Der Preis: Wer denselben
+    // Tag danach aus der Tagesspur einliest, ersetzt auch die Punkte aus
+    // Fernweh — und umgekehrt.
     case tagesspur
     case keiner
 
@@ -20,7 +28,7 @@ enum Ortsquelle: String, Codable {
         case .exif: return "aus dem Foto"
         case .mediathek: return "aus der Fotomediathek"
         case .vonHand: return "von Hand gesetzt"
-        case .tagesspur: return "aus der Tagesspur"
+        case .tagesspur: return "aus einer eingelesenen Reisespur"
         case .keiner: return "kein Ort bekannt"
         }
     }
