@@ -25,8 +25,11 @@ struct TagebuchView: View {
     @State private var schreiben: SchreibWunsch?
     @State private var einstellungen = false
     @State private var pfad = NavigationPath()
-    /// Nur ein Tagebuch zeigen (ab 1.0.7). `nil`: alle; "" : ohne Tagebuch.
-    @State private var nurTagebuch: String?
+    /// Welche Tagebücher AUSGEBLENDET sind (ab 1.0.9, vorher genau eines
+    /// gezeigt). Gemerkt wird das Ausgeblendete und nicht das Gezeigte: Ein
+    /// Tagebuch, das später dazukommt, ist sonst unsichtbar, ohne dass es
+    /// jemand so gewollt hat. "" steht für „ohne Tagebuch“. Je Gerät.
+    @AppStorage("ausgeblendeteTagebuecher") private var ausgeblendetText = ""
     @State private var tagebuecherZeigen = false
     @ObservedObject private var buecherei = Buecherei.shared
     /// Ans Ende springen, sobald die Gliederung steht (ab 1.0.8): beim ersten
@@ -78,7 +81,7 @@ struct TagebuchView: View {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     kopf
                     if kapitel.isEmpty {
-                        leer
+                        if gefiltert && !eintraege.isEmpty { nichtsGezeigt } else { leer }
                     }
                     ForEach(kapitel) { k in
                         KapitelBlock(kapitel: k)
@@ -94,12 +97,10 @@ struct TagebuchView: View {
             .onChange(of: eintraege.count) { alt, neu in
                 if neu > alt { springen = true }
             }
-            .onChange(of: nurTagebuch) { _, _ in springen = true }
-            .task(id: stand + "|" + (nurTagebuch ?? "*")) {
-                let gezeigt = Array(eintraege).filter { e in
-                    guard let nur = nurTagebuch else { return true }
-                    return (e.tagebuchName ?? "") == nur
-                }
+            .onChange(of: ausgeblendetText) { _, _ in springen = true }
+            .task(id: stand + "|" + ausgeblendetText) {
+                let weg = ausgeblendet
+                let gezeigt = Array(eintraege).filter { !weg.contains($0.tagebuchName ?? "") }
                 kapitel = Self.gliedern(gezeigt, reisen: Array(reisen))
                 guard springen else { return }
                 springen = false
@@ -142,10 +143,10 @@ struct TagebuchView: View {
             }
             .sheet(item: $schreiben) { w in
                 EintragEditor(vorgabe: nil, eintrag: nil, tag: w.tag,
-                              tagebuchVorgabe: nurTagebuch.flatMap { $0.isEmpty ? nil : $0 })
+                              tagebuchVorgabe: einzigesTagebuch)
             }
             .sheet(isPresented: $einstellungen) { EinstellungenView() }
-            .sheet(isPresented: $tagebuecherZeigen) { TagebuecherView(auswahl: $nurTagebuch) }
+            .sheet(isPresented: $tagebuecherZeigen) { TagebuecherView(ausgeblendet: ausgeblendetBindung) }
             .refreshable { aufzeichner.uebertragen() }
         }
     }
@@ -202,11 +203,11 @@ struct TagebuchView: View {
             Text(kopftitel)
                 .font(Stil.titel(34))
                 .foregroundStyle(kopffarbe ?? .primary)
-            if nurTagebuch != nil {
+            if let hinweis = filterhinweis {
                 // Gefiltert heißt: Nicht alles steht da. Das soll man sehen
                 // und mit einem Tipp aufheben können.
-                Button { nurTagebuch = nil } label: {
-                    Label("Nur dieses Tagebuch — alle zeigen", systemImage: "xmark.circle.fill")
+                Button { ausgeblendetText = "" } label: {
+                    Label(hinweis + " — alle zeigen", systemImage: "xmark.circle.fill")
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -220,15 +221,46 @@ struct TagebuchView: View {
         .padding(.top, 4)
     }
 
-    private var kopftitel: String {
-        switch nurTagebuch {
-        case nil: return "Mein Tagebuch"
-        case "": return "Ohne Tagebuch"
-        case let n?: return n
-        }
+    private var ausgeblendet: Set<String> { Tagebuchfilter.lesen(ausgeblendetText) }
+
+    private var ausgeblendetBindung: Binding<Set<String>> {
+        Binding(get: { Tagebuchfilter.lesen(ausgeblendetText) },
+                set: { ausgeblendetText = Tagebuchfilter.schreiben($0) })
     }
 
-    private var kopffarbe: Color? { buecherei.farbe(nurTagebuch) }
+    /// Alle Namen, die es gibt ("" = ohne Tagebuch), und davon die gezeigten.
+    /// Eine Aufzählung über die Einträge — gebraucht nur im Kopf und beim
+    /// Öffnen des Editors, also nicht bei jedem Bildpunkt.
+    private var vorhandene: Set<String> { Set(eintraege.map { $0.tagebuchName ?? "" }) }
+    private var gezeigte: Set<String> { vorhandene.subtracting(ausgeblendet) }
+
+    /// Steht genau EIN benanntes Tagebuch da, landet ein neuer Eintrag darin.
+    private var einzigesTagebuch: String? {
+        let g = gezeigte
+        guard g.count == 1, let n = g.first, !n.isEmpty else { return nil }
+        return n
+    }
+
+    private var gefiltert: Bool { !ausgeblendet.isDisjoint(with: vorhandene) }
+
+    private var filterhinweis: String? {
+        guard gefiltert else { return nil }
+        let g = gezeigte.count, alle = vorhandene.count
+        if g == 0 { return "Alle Tagebücher ausgeblendet" }
+        return "\(g) von \(alle) Tagebüchern"
+    }
+
+    private var kopftitel: String {
+        guard gefiltert else { return "Mein Tagebuch" }
+        let g = gezeigte
+        if g.count == 1, let n = g.first { return n.isEmpty ? "Ohne Tagebuch" : n }
+        return "Mein Tagebuch"
+    }
+
+    private var kopffarbe: Color? {
+        guard gefiltert, gezeigte.count == 1, let n = gezeigte.first, !n.isEmpty else { return nil }
+        return buecherei.farbe(n)
+    }
 
     /// Heute noch nichts geschrieben? Dann steht der Weg dahin ganz oben.
     @ViewBuilder
@@ -251,6 +283,23 @@ struct TagebuchView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    /// Es gibt Einträge, aber keiner gehört zu einem gezeigten Tagebuch. Ohne
+    /// diesen Satz sähe das aus wie ein leeres Tagebuch.
+    private var nichtsGezeigt: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "eye.slash")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+            Text("In den gezeigten Tagebüchern steht nichts")
+                .font(Stil.titel(20))
+                .multilineTextAlignment(.center)
+            Button("Alle Tagebücher zeigen") { ausgeblendetText = "" }
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
     }
 
     private var leer: some View {

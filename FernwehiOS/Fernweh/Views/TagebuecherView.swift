@@ -2,14 +2,16 @@ import SwiftUI
 import CoreData
 
 /// Die Tagebücher im Überblick (ab 1.0.8): jedes mit Farbe, Zahl der
-/// Einträge und Zeitraum. Ein Tipp zeigt nur dieses Tagebuch, der Pinsel
-/// daneben ändert Farbe und Namen.
+/// Einträge und Zeitraum. Ein Tipp schaltet es ein oder aus (ab 1.0.9 —
+/// vorher zeigte ein Tipp NUR dieses eine, und mehrere zugleich gingen nicht),
+/// der Pinsel daneben ändert Farbe und Namen.
 ///
 /// Bis 1.0.7 gab es die Tagebücher nur als Zeilen in einem Filtermenü —
 /// „weitgehend verschwunden“, wie der Nutzer schrieb. Hier stehen sie als
 /// eigene Dinge da.
 struct TagebuecherView: View {
-    @Binding var auswahl: String?
+    /// Ausgeblendete Tagebücher; "" steht für „ohne Tagebuch“.
+    @Binding var ausgeblendet: Set<String>
     @Environment(\.dismiss) private var schliessen
     @ObservedObject private var buecherei = Buecherei.shared
 
@@ -32,17 +34,23 @@ struct TagebuecherView: View {
         NavigationStack {
             List {
                 Section {
-                    zeile(titel: "Alle Einträge", unter: "\(eintraege.count) Einträge",
-                          symbol: "books.vertical.fill", farbe: Palette.meer.haupt, gewaehlt: auswahl == nil) {
-                        auswahl = nil; schliessen()
+                    zeile(titel: "Alle zeigen", unter: "\(eintraege.count) Einträge",
+                          symbol: "books.vertical.fill", farbe: Palette.meer.haupt,
+                          gewaehlt: ausgeblendet.isEmpty) {
+                        ausgeblendet = []
                     }
                 }
                 Section {
                     ForEach(infos) { i in
                         HStack(spacing: 0) {
                             zeile(titel: i.name, unter: unterzeile(i), symbol: "book.closed.fill",
-                                  farbe: buecherei.buchfarbe(i.name).farbe, gewaehlt: auswahl == i.name) {
-                                auswahl = i.name; schliessen()
+                                  farbe: buecherei.buchfarbe(i.name).farbe, gewaehlt: !ausgeblendet.contains(i.name)) {
+                                umschalten(i.name)
+                            }
+                            .contextMenu {
+                                Button { nurDieses(i.name) } label: {
+                                    Label("Nur dieses zeigen", systemImage: "eye")
+                                }
                             }
                             Button { bearbeiten = i } label: {
                                 Image(systemName: "paintbrush.pointed.fill")
@@ -57,8 +65,8 @@ struct TagebuecherView: View {
                     }
                     if ohneTagebuch > 0 {
                         zeile(titel: "Ohne Tagebuch", unter: "\(ohneTagebuch) Einträge", symbol: "minus.circle",
-                              farbe: .secondary, gewaehlt: auswahl == "") {
-                            auswahl = ""; schliessen()
+                              farbe: .secondary, gewaehlt: !ausgeblendet.contains("")) {
+                            umschalten("")
                         }
                     }
                 } header: {
@@ -66,7 +74,7 @@ struct TagebuecherView: View {
                 } footer: {
                     Text(infos.isEmpty
                          ? "Noch kein Tagebuch. Beim Schreiben eines Eintrags lässt sich oben eines anlegen — oder du übernimmst deine Tagebücher aus Day One (Einstellungen)."
-                         : "Ein Tipp zeigt nur dieses Tagebuch. Mit dem Pinsel wählst du seine Farbe — sie steht an jedem Eintrag und gilt auf all deinen Geräten.")
+                         : "Mit Häkchen steht ein Tagebuch in deiner Liste, ohne Häkchen ist es ausgeblendet — ein Tipp schaltet um. Lange drücken zeigt nur dieses eine. Mit dem Pinsel wählst du die Farbe; sie gilt auf all deinen Geräten, die Auswahl nur auf diesem.")
                 }
             }
             .navigationTitle("Tagebücher")
@@ -76,11 +84,23 @@ struct TagebuecherView: View {
             }
             .navigationDestination(item: $bearbeiten) { i in
                 BuchBearbeiten(name: i.name) { neu in
-                    if auswahl == i.name { auswahl = neu }
+                    // Ausgeblendet bleibt ausgeblendet, auch unter neuem Namen.
+                    if ausgeblendet.remove(i.name) != nil { ausgeblendet.insert(neu) }
                 }
             }
             .task(id: eintraege.map { $0.tagebuch ?? "" }.joined(separator: "\u{1F}")) { zaehlen() }
         }
+    }
+
+    private func umschalten(_ name: String) {
+        if ausgeblendet.contains(name) { ausgeblendet.remove(name) } else { ausgeblendet.insert(name) }
+    }
+
+    private func nurDieses(_ name: String) {
+        var alle = Set(infos.map(\.name))
+        if ohneTagebuch > 0 { alle.insert("") }
+        alle.remove(name)
+        ausgeblendet = alle
     }
 
     private func zaehlen() {
@@ -206,5 +226,21 @@ private struct BuchBearbeiten: View {
         } else {
             zurueck()
         }
+    }
+}
+
+/// Die Auswahl steht als JSON in den Voreinstellungen: Eine Liste mit einem
+/// Trennzeichen könnte "" (ohne Tagebuch) nicht von „nichts“ unterscheiden.
+enum Tagebuchfilter {
+    static func lesen(_ text: String) -> Set<String> {
+        guard let d = text.data(using: .utf8),
+              let liste = try? JSONDecoder().decode([String].self, from: d) else { return [] }
+        return Set(liste)
+    }
+
+    static func schreiben(_ menge: Set<String>) -> String {
+        guard !menge.isEmpty,
+              let d = try? JSONEncoder().encode(menge.sorted()) else { return "" }
+        return String(decoding: d, as: UTF8.self)
     }
 }
