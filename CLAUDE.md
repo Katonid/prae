@@ -3293,6 +3293,14 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Homescreen-Name „Reisebuch"**, Ordner/Ziel/Bundle-Id bleiben
   „Urlaubstagebuch" / `de.familie.urlaubstagebuch` — nach dem ersten
   Signieren nicht mehr ändern.
+- **Store-Name „Reisebuch - Fotobuch gestalten"** (Ansage des Nutzers,
+  09/2026; 30 Zeichen, genau die Grenze). „Reisebuch" allein ist im App
+  Store vergeben — gefunden hat die Suche von Apple ihn in DE, AT, CH und US
+  nicht, er ist also woanders oder unveröffentlicht belegt. Store-Name und
+  Homescreen-Name sind getrennte Felder; `INFOPLIST_KEY_CFBundleDisplayName`
+  bleibt „Reisebuch". Den App-Eintrag von Hand in App Store Connect anlegen,
+  nie über Xcodes „Create App Record" (Lehre aus Anstoß) — Distribute lädt
+  dann über die Bundle-Id hinein.
 - **Der Tag kommt aus DREI ZAHLEN, nie aus einer Umrechnung**
   (`Model/Tagesdatum.swift`). Ein EXIF-Aufnahmedatum hat KEINE Zeitzone:
   „2026:08:12 19:33:21" ist die Uhr am Ort der Aufnahme. Wer daraus ein
