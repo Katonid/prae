@@ -204,7 +204,8 @@ enum Uebergabebau {
                     var datei: String?
                     var fehlt: String?
                     if wunsch.fotos != .keine {
-                        if let (daten, endung) = await bilddaten(f, original: wunsch.fotos == .original) {
+                        if let treffer = await bilddaten(f, original: wunsch.fotos == .original) {
+                            let (daten, endung) = treffer
                             let pfad = "fotos/\(kennung).\(endung)"
                             try zip.hinzufuegen(pfad, daten: daten)
                             datei = pfad

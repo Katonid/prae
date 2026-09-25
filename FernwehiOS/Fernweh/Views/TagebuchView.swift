@@ -41,10 +41,16 @@ struct TagebuchView: View {
     /// gehören — oder zu keiner.
     struct Kapitel: Identifiable {
         let reise: Reise?
-        var tage: [(Date, [Eintrag])]
+        var tage: [TagGruppe]
         var id: String {
-            "\(reise?.objectID.uriRepresentation().absoluteString ?? "-")|\(tage.first.map { Tag.schluessel($0.0) } ?? "")"
+            "\(reise?.objectID.uriRepresentation().absoluteString ?? "-")|\(tage.first?.id ?? "")"
         }
+    }
+
+    struct TagGruppe: Identifiable {
+        let tag: Date
+        let eintraege: [Eintrag]
+        var id: String { Tag.schluessel(tag) }
     }
 
     /// Gebaut in `.task` bzw. auf Änderung, nicht als berechnete Eigenschaft
@@ -124,10 +130,10 @@ struct TagebuchView: View {
             let chronologisch = liste.sorted { ($0.datum ?? .distantPast) < ($1.datum ?? .distantPast) }
             let reise = kapitelReise(tag: tag, eintraege: liste, reisen: reisen)
             if var letztes = ergebnis.last, letztes.reise == reise {
-                letztes.tage.append((tag, chronologisch))
+                letztes.tage.append(TagGruppe(tag: tag, eintraege: chronologisch))
                 ergebnis[ergebnis.count - 1] = letztes
             } else {
-                ergebnis.append(Kapitel(reise: reise, tage: [(tag, chronologisch)]))
+                ergebnis.append(Kapitel(reise: reise, tage: [TagGruppe(tag: tag, eintraege: chronologisch)]))
             }
         }
         return ergebnis
@@ -210,11 +216,11 @@ private struct KapitelBlock: View {
                 }
                 .buttonStyle(.plain)
             }
-            ForEach(kapitel.tage, id: \.0) { tag, eintraege in
+            ForEach(kapitel.tage) { gruppe in
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(Tag.wochentagLang.string(from: tag) + jahrZusatz(tag))
+                    Text(Tag.wochentagLang.string(from: gruppe.tag) + jahrZusatz(gruppe.tag))
                         .font(Stil.titel(19))
-                    ForEach(eintraege) { e in
+                    ForEach(gruppe.eintraege) { e in
                         let palette = e.reise?.palette ?? .meer
                         NavigationLink {
                             EintragView(eintrag: e, palette: palette)
