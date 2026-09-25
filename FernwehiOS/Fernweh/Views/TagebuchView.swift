@@ -74,22 +74,84 @@ struct TagebuchView: View {
     /// im Körper: Der Lauf geht über alle Einträge und alle Reisen (die Lehre
     /// aus dem Reisebuch — eine berechnete Eigenschaft sieht billig aus).
     @State private var kapitel: [Kapitel] = []
+    /// Dieselbe Gliederung als flache Zeilenfolge — das, was der Stapel zeigt.
+    @State private var zeilen: [Zeile] = []
+
+    /// Eine Zeile der Zeitleiste. Die Hülle des Reisekapitels wird je Zeile
+    /// als STÜCK gezeichnet (`oben`/`unten` sagen, ob hier eine Ecke ist).
+    struct Zeile: Identifiable {
+        enum Art {
+            case band(Reise)
+            case tag(Date)
+            case eintrag(Eintrag, nurFuerDich: Bool)
+        }
+        let id: String
+        let art: Art
+        let reise: Reise?
+        /// Abstand zur vorigen Zeile, AUSSERHALB der Hülle.
+        let davor: CGFloat
+        /// Abstand zur vorigen Zeile, INNERHALB der Hülle.
+        let innen: CGFloat
+        let oben: Bool
+        var unten = false
+    }
+
+    static func zeilen(_ kapitel: [Kapitel]) -> [Zeile] {
+        var ergebnis: [Zeile] = []
+        for k in kapitel {
+            let kopf = k.id
+            let mitHuelle = k.reise != nil
+            let anfang = ergebnis.count
+            // 18 Punkte vor jedem Kapitel — auch vor dem ersten, zum Kopf hin.
+            let aussen: CGFloat = 18
+            if let reise = k.reise {
+                ergebnis.append(Zeile(id: kopf + "|band", art: .band(reise), reise: reise,
+                                      davor: aussen, innen: 12, oben: true))
+            }
+            for (t, gruppe) in k.tage.enumerated() {
+                let erste = ergebnis.count == anfang
+                ergebnis.append(Zeile(id: kopf + "|" + gruppe.id, art: .tag(gruppe.tag), reise: k.reise,
+                                      davor: erste ? aussen : 0,
+                                      innen: erste ? (mitHuelle ? 12 : 0) : (t == 0 ? 14 : 18),
+                                      oben: erste))
+                for e in gruppe.eintraege {
+                    ergebnis.append(Zeile(id: e.objectID.uriRepresentation().absoluteString,
+                                          art: .eintrag(e, nurFuerDich: e.reise == nil && k.reise != nil),
+                                          reise: k.reise, davor: 0, innen: 10, oben: false))
+                }
+            }
+            if ergebnis.count > anfang { ergebnis[ergebnis.count - 1].unten = true }
+        }
+        return ergebnis
+    }
 
     var body: some View {
         NavigationStack(path: $pfad) {
             ScrollViewReader { leser in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 18) {
+                // Jede Zeile ein eigenes Kind des faulen Stapels (ab 1.0.12,
+                // gemeldet 09/2026: „Einträge werden zuweilen nicht angezeigt;
+                // nach dem Drehen sind sie da“). Bis 1.0.11 war ein ganzes
+                // KAPITEL ein Kind — ohne Reise also alle Tage zwischen zwei
+                // Reisen, nach einem Day-One-Import Hunderte Einträge in
+                // einem Block. Einen so großen Block schätzt `LazyVStack`
+                // falsch, und nach dem Sprung ans Ende blieb er stellenweise
+                // ungezeichnet, bis ein neues Layout kam (das Drehen). Jetzt
+                // sind es Band, Tageskopf und Eintrag einzeln.
+                LazyVStack(alignment: .leading, spacing: 0) {
                     kopf
                     if kapitel.isEmpty {
-                        if gefiltert && !eintraege.isEmpty { nichtsGezeigt } else { leer }
+                        Group {
+                            if gefiltert && !eintraege.isEmpty { nichtsGezeigt } else { leer }
+                        }
+                        .padding(.top, 18)
                     }
-                    ForEach(kapitel) { k in
-                        KapitelBlock(kapitel: k)
+                    ForEach(zeilen) { z in
+                        KapitelZeile(zeile: z)
                     }
                     // Unten, weil hier das Neueste steht und der nächste
                     // Eintrag hinzukommt.
-                    heuteKarte
+                    heuteKarte.padding(.top, 18)
                     Color.clear.frame(height: 1).id(Self.ende)
                 }
                 .padding(.horizontal, 16)
@@ -103,11 +165,18 @@ struct TagebuchView: View {
                 let weg = ausgeblendet
                 let gezeigt = Array(eintraege).filter { !weg.contains($0.tagebuchName ?? "") }
                 kapitel = Self.gliedern(gezeigt, reisen: Array(reisen))
+                zeilen = Self.zeilen(kapitel)
                 guard springen else { return }
                 springen = false
                 // Einen Durchgang warten: Die neuen Kapitel müssen erst im
                 // Stapel stehen, sonst gibt es das Ziel noch nicht.
                 try? await Task.sleep(for: .milliseconds(60))
+                leser.scrollTo(Self.ende, anchor: .bottom)
+                // Und ein zweites Mal, wenn die Zeilen am Ende wirklich
+                // gemessen sind: Der erste Sprung rechnet mit GESCHÄTZTEN
+                // Höhen der Zeilen darüber und landet sonst knapp daneben.
+                try? await Task.sleep(for: .milliseconds(350))
+                guard !Task.isCancelled else { return }
                 leser.scrollTo(Self.ende, anchor: .bottom)
             }
             }
@@ -344,39 +413,39 @@ struct TagebuchView: View {
     }
 }
 
-/// Ein Kapitel: das Band der Reise (oder nichts), darunter seine Tage.
-private struct KapitelBlock: View {
-    let kapitel: TagebuchView.Kapitel
+/// Eine Zeile der Zeitleiste samt ihrem Stück der Kapitelhülle.
+private struct KapitelZeile: View {
+    let zeile: TagebuchView.Zeile
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if let reise = kapitel.reise {
-                NavigationLink(value: reise.objectID) {
-                    KapitelBand(reise: reise)
-                }
-                .buttonStyle(.plain)
-            }
-            ForEach(kapitel.tage) { gruppe in
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(Tag.wochentagLang.string(from: gruppe.tag) + jahrZusatz(gruppe.tag))
-                        .font(Stil.titel(19))
-                    ForEach(gruppe.eintraege) { e in
-                        // Ein privater Eintrag mitten in einer Reise: Er steht
-                        // im Kapitel, gehört aber nicht zur geteilten Reise.
-                        EintragVerweis(eintrag: e, palette: e.reise?.palette ?? .meer,
-                                       nurFuerDich: e.reise == nil && kapitel.reise != nil)
-                    }
+        inhalt
+            .padding(.top, zeile.innen)
+            .padding(.bottom, zeile.unten && zeile.reise != nil ? 12 : 0)
+            .padding(.horizontal, zeile.reise == nil ? 0 : 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                if let reise = zeile.reise {
+                    KapitelHuelle(oben: zeile.oben, unten: zeile.unten, palette: reise.palette)
                 }
             }
-        }
-        .padding(kapitel.reise == nil ? 0 : 12)
-        .background {
-            if let reise = kapitel.reise {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(reise.palette.hell.opacity(0.10))
-                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(reise.palette.haupt.opacity(0.25), lineWidth: 1))
+            .padding(.top, zeile.davor)
+    }
+
+    @ViewBuilder
+    private var inhalt: some View {
+        switch zeile.art {
+        case .band(let reise):
+            NavigationLink(value: reise.objectID) {
+                KapitelBand(reise: reise)
             }
+            .buttonStyle(.plain)
+        case .tag(let tag):
+            Text(Tag.wochentagLang.string(from: tag) + jahrZusatz(tag))
+                .font(Stil.titel(19))
+        case .eintrag(let e, let nurFuerDich):
+            // Ein privater Eintrag mitten in einer Reise: Er steht im
+            // Kapitel, gehört aber nicht zur geteilten Reise.
+            EintragVerweis(eintrag: e, palette: e.reise?.palette ?? .meer, nurFuerDich: nurFuerDich)
         }
     }
 
@@ -384,6 +453,60 @@ private struct KapitelBlock: View {
     private func jahrZusatz(_ d: Date) -> String {
         let jahr = Tag.kalender.component(.year, from: d)
         return jahr == Tag.kalender.component(.year, from: Date()) ? "" : " \(jahr)"
+    }
+}
+
+/// Ein Stück der Hülle um ein Reisekapitel: Fläche und Rand, Ecken nur dort,
+/// wo das Kapitel anfängt oder aufhört. Der Rand wird OFFEN gezeichnet —
+/// zwischen zwei Stücken läge sonst ein Strich quer durch das Kapitel.
+private struct KapitelHuelle: View {
+    let oben: Bool
+    let unten: Bool
+    let palette: Palette
+
+    var body: some View {
+        let r: CGFloat = 24
+        UnevenRoundedRectangle(topLeadingRadius: oben ? r : 0, bottomLeadingRadius: unten ? r : 0,
+                               bottomTrailingRadius: unten ? r : 0, topTrailingRadius: oben ? r : 0,
+                               style: .continuous)
+            .fill(palette.hell.opacity(0.10))
+            .overlay(HuellenRand(oben: oben, unten: unten, radius: r)
+                .stroke(palette.haupt.opacity(0.25), lineWidth: 1))
+    }
+}
+
+private struct HuellenRand: Shape {
+    let oben: Bool
+    let unten: Bool
+    let radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let r = rect.insetBy(dx: 0.5, dy: 0.5)
+        let ro = oben ? min(radius, r.height / 2) : 0
+        let ru = unten ? min(radius, r.height / 2) : 0
+        var p = Path()
+        // Linke Seite von unten nach oben, dann (wenn oben) die Oberkante,
+        // dann die rechte Seite hinunter und (wenn unten) die Unterkante.
+        p.move(to: CGPoint(x: r.minX + ru, y: r.maxY))
+        if unten {
+            p.addQuadCurve(to: CGPoint(x: r.minX, y: r.maxY - ru), control: CGPoint(x: r.minX, y: r.maxY))
+        } else {
+            p.move(to: CGPoint(x: r.minX, y: r.maxY))
+        }
+        p.addLine(to: CGPoint(x: r.minX, y: r.minY + ro))
+        if oben {
+            p.addQuadCurve(to: CGPoint(x: r.minX + ro, y: r.minY), control: CGPoint(x: r.minX, y: r.minY))
+            p.addLine(to: CGPoint(x: r.maxX - ro, y: r.minY))
+            p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.minY + ro), control: CGPoint(x: r.maxX, y: r.minY))
+        } else {
+            p.move(to: CGPoint(x: r.maxX, y: r.minY))
+        }
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - ru))
+        if unten {
+            p.addQuadCurve(to: CGPoint(x: r.maxX - ru, y: r.maxY), control: CGPoint(x: r.maxX, y: r.maxY))
+            p.addLine(to: CGPoint(x: r.minX + ru, y: r.maxY))
+        }
+        return p
     }
 }
 
