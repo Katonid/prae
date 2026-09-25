@@ -48,6 +48,10 @@ struct EintragEditor: View {
     @State private var wetterFehler: String?
     @State private var wetterAn = true
     @State private var zielVonHand = false
+    /// Die Zone, in der dieser Eintrag gilt (ab 1.0.6). Neu: die des Geräts
+    /// jetzt — unterwegs also die des Urlaubsorts. Bestehend: seine eigene;
+    /// dann zeigt und nimmt der Zeitwähler die Uhrzeit von DORT.
+    @State private var zone: TimeZone = .current
     @StateObject private var diktat = Diktat()
     @FocusState private var textFokus: Bool
 
@@ -182,7 +186,7 @@ struct EintragEditor: View {
     private var titelFeld: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Text(Tag.wochentagLang.string(from: datum))
+                Text(Tag.text(datum, "EEEE, d. MMMM", zone: zone))
                     .font(.caption.weight(.heavy))
                     .textCase(.uppercase)
                     .foregroundStyle(palette.haupt)
@@ -565,6 +569,7 @@ struct EintragEditor: View {
                 DatePicker("Zeitpunkt", selection: $datum, in: ...Date().addingTimeInterval(3600))
             }
         }
+            .environment(\.timeZone, zone)
             .font(.subheadline)
             .padding(12)
             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -576,6 +581,7 @@ struct EintragEditor: View {
         guard !vorbereitet else { return }
         vorbereitet = true
         zielReise = eintrag?.reise ?? vorgabe
+        if let eintrag { zone = eintrag.zone }
         if let eintrag {
             datum = eintrag.datum ?? Date()
             titel = eintrag.titel ?? ""
@@ -636,6 +642,7 @@ struct EintragEditor: View {
             ziel.erstellt = Date()
             ziel.autor = Geraet.name
             ziel.reise = zielReise
+            ziel.zeitzone = zone.identifier
         }
         ziel.datum = datum
         ziel.titel = titel.trimmingCharacters(in: .whitespacesAndNewlines)

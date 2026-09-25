@@ -114,6 +114,10 @@ enum Modell {
             attribut("geaendert", .dateAttributeType),
             // ab 1.0.1 — angehängt, nicht eingeschoben (siehe oben).
             attribut("wetter", .stringAttributeType, vorgabe: ""),
+            // ab 1.0.6 — die Zeitzone, in der der Eintrag geschrieben wurde
+            // (IANA-Name, z. B. „America/Toronto"). Leer heißt: unbekannt,
+            // dann gilt die des Geräts wie bis 1.0.5.
+            attribut("zeitzone", .stringAttributeType, vorgabe: ""),
             eintragReise,
             eintragFotos,
         ]
@@ -233,7 +237,7 @@ final class Reise: NSManagedObject {
 
     func eintraege(am tag: Date) -> [Eintrag] {
         let schluessel = Tag.schluessel(tag)
-        return eintragListe.filter { $0.datum.map(Tag.schluessel) == schluessel }
+        return eintragListe.filter { $0.tagSchluessel == schluessel }
     }
 
     func spuren(am tag: Date) -> [Spur] {
@@ -264,8 +268,30 @@ final class Eintrag: NSManagedObject {
     @NSManaged var erstellt: Date?
     @NSManaged var geaendert: Date?
     @NSManaged var wetter: String?
+    @NSManaged var zeitzone: String?
     @NSManaged var reise: Reise?
     @NSManaged var fotos: NSSet?
+
+    // MARK: Ortszeit (ab 1.0.6)
+    //
+    // Ein Eintrag ist ein AUGENBLICK; welcher Tag und welche Uhrzeit das
+    // waren, hängt an der Zeitzone. Bis 1.0.5 rechnete Fernweh jedes Mal in
+    // der Zone, in der das Gerät GERADE steht — daheim landete ein später
+    // Eintrag aus Toronto auf dem Folgetag. Jetzt zählt die Zone des Eintrags.
+    // **Wer irgendwo Tag oder Uhrzeit eines Eintrags zeigt oder vergleicht,
+    // nimmt diese drei — nie `Tag.schluessel(eintrag.datum)`.**
+
+    var zone: TimeZone {
+        guard let z = zeitzone, !z.isEmpty, let zone = TimeZone(identifier: z) else { return .current }
+        return zone
+    }
+
+    var tagSchluessel: String? { datum.map { Tag.schluessel($0, zone: zone) } }
+
+    var uhrzeitText: String { datum.map { Tag.text($0, "HH:mm", zone: zone) } ?? "" }
+
+    /// Der Tag als Datum auf DIESEM Gerät — zum Anzeigen und Einsortieren.
+    var tagDatum: Date? { tagSchluessel.flatMap(Tag.datum(schluessel:)) }
 
     var tageswetter: Tageswetter? {
         get { Tageswetter.lesen(wetter) }

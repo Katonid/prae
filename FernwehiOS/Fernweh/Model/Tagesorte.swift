@@ -9,6 +9,8 @@ struct Ortsname: Equatable {
     var stadt: String
     var land: String
     var landCode: String
+    /// Die Zeitzone am Ort (IANA-Name), leer wenn Apple keine nennt.
+    var zeitzone: String = ""
 
     /// „Alfama · Lissabon" — oder nur eines davon, wenn beides dasselbe ist.
     var titel: String {
@@ -51,7 +53,8 @@ actor Ortsnamen {
         let name = Ortsname(genau: genau,
                             stadt: marke.locality ?? marke.subAdministrativeArea ?? "",
                             land: marke.country ?? "",
-                            landCode: marke.isoCountryCode ?? "")
+                            landCode: marke.isoCountryCode ?? "",
+                            zeitzone: marke.timeZone?.identifier ?? "")
         gemerkt[schluessel] = name
         return name
     }

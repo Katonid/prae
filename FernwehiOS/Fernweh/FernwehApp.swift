@@ -109,6 +109,7 @@ struct FernwehApp: App {
             case .active:
                 aufzeichner.wurdeAktiv()
                 Task { await fotodienst.abgleichen() }
+                Task { await Zeitzonen.nachtragen() }
             case .background:
                 aufzeichner.uebertragen()
                 Persistenz.shared.sichern()

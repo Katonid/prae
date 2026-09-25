@@ -10,6 +10,7 @@ struct EinstellungenView: View {
     @State private var name = Geraet.name
     @State private var konto = "Wird geprüft …"
     @State private var schemaMeldung: String?
+    @State private var dayOne = false
 
     var body: some View {
         NavigationStack {
@@ -64,6 +65,16 @@ struct EinstellungenView: View {
                 }
 
                 Section {
+                    Button { dayOne = true } label: {
+                        Label("Aus Day One übernehmen …", systemImage: "square.and.arrow.down.on.square")
+                    }
+                } header: {
+                    Text("Übernehmen")
+                } footer: {
+                    Text("Liest den JSON-Export von Day One ein — mit Fotos, Ort, Wetter und der Zeitzone jedes Eintrags. Alles landet privat in deinem Lebenstagebuch.")
+                }
+
+                Section {
                     Zeile(titel: "iCloud", wert: konto, gut: konto == "Angemeldet")
                     if let fehler = Persistenz.shared.ladefehler {
                         Text(fehler).font(.caption.monospaced()).foregroundStyle(.red).textSelection(.enabled)
@@ -93,6 +104,7 @@ struct EinstellungenView: View {
                     Zeile(titel: "Fassung", wert: fassung, gut: true)
                 }
             }
+            .sheet(isPresented: $dayOne) { DayOneView() }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

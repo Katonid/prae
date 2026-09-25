@@ -10472,7 +10472,7 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -10511,6 +10511,31 @@ Befunde, und keiner davon war Geschmack:
   („Beim Verwenden", nie „Immer") und wartet auf die Antwort. **Nicht
   gesehen**: ob das auf dem iPad des Nutzers die einzige Ursache war — die
   Zeile unter „Orte des Tages" sagt seither, woran es liegt.
+- **Jeder Eintrag trägt seine Zeitzone** (Attribut `zeitzone`, IANA-Name, ab
+  1.0.6 — **Schema-Deploy nötig**; Ansage des Nutzers 09/2026: „Das wäre
+  doch ein leichtes"). Bis 1.0.5 rechnete Fernweh Tag und Uhrzeit jedes Mal
+  in der Zone, in der das Gerät GERADE steht; daheim rutschte ein später
+  Eintrag aus Übersee auf den Folgetag. **Tag und Uhrzeit eines Eintrags nur
+  über `Eintrag.tagSchluessel`, `.uhrzeitText`, `.tagDatum`** — nie
+  `Tag.schluessel(eintrag.datum)`. Neu: die Zone des Geräts beim Schreiben
+  (unterwegs also die des Urlaubsorts); der Zeitwähler eines bestehenden
+  Eintrags läuft in SEINER Zone. Ältere Einträge MIT Ort bekommen sie
+  nachgetragen (`Model/Zeitzonen.swift`, Apples Ortsdienst, gedrosselt, nur
+  was ich schreiben darf); ohne Ort bleibt sie leer und es gilt die des
+  Geräts — geraten wird nichts. Weicht die Zone ab, steht „Ortszeit (…)"
+  hinter der Uhrzeit.
+- **Day One einlesen** (`Model/DayOne.swift`, `Model/Ziparchiv.swift`,
+  `Views/DayOneView.swift`, Einstellungen → „Aus Day One übernehmen", ab
+  1.0.6). Gelesen wird der **JSON-Export** — der einzige, der Fotos, Ort,
+  Wetter und Zeitzone trägt. Das Format ist von Day One nicht als Vertrag
+  veröffentlicht; jedes Feld wird nachsichtig gelesen. Alles landet PRIVAT
+  im Lebenstagebuch, nie in einer geteilten Reise. Die Day-One-Kennung (32
+  Hex) wird zur `kennung` — doppelt einlesen überspringt. Fotos als
+  2048er-Kopie; Videos, Ton und PDFs werden gezählt, nicht übernommen. Das
+  Wetter ist Day Ones Momentaufnahme, als EIN Abschnitt „Beim Schreiben".
+  Tagebuchnamen aus Day One gehen verloren (es gibt kein Feld dafür).
+  **Nicht an einem echten Export gemessen** — der Aufbau ist nach Kenntnis
+  des Formats gebaut; stimmt ein Feld nicht, sagt es der erste Import.
 - **Lebenstagebuch mit Reisen als Kapiteln** (`Views/TagebuchView.swift`, ab
   1.0.5, Wahl des Nutzers 09/2026). Zwei Reiter: „Tagebuch" (alle Einträge
   aus beiden Speichern, nach Tagen) und „Reisen". Ein Eintrag OHNE Reise

@@ -72,6 +72,8 @@ struct Uebergabe: Codable {
         var kennung: String
         var zeitpunkt: String?
         var uhrzeit: String?
+        /// IANA-Name, ab 1.0.6. Fehlt bei älteren Einträgen ohne Ort.
+        var zeitzone: String?
         var titel: String
         var text: String
         var autor: String
@@ -165,6 +167,15 @@ enum Uebergabebau {
     }()
 
     private static func iso(_ d: Date?) -> String? { d.map { zeitpunkt.string(from: $0) } }
+
+    /// Zeitpunkt mit dem Versatz einer bestimmten Zone — der des Eintrags.
+    private static func iso(_ d: Date?, zone: TimeZone) -> String? {
+        guard let d else { return nil }
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        f.timeZone = zone
+        return f.string(from: d)
+    }
     private static func uhr(_ d: Date?) -> String? { d.map { Tag.uhrzeit.string(from: $0) } }
 
     private static let stunden: [String: String] = [
@@ -191,11 +202,11 @@ enum Uebergabebau {
 
         // Alle Tage mit Einträgen oder Spur — ein Tag, an dem nur gefahren
         // wurde, gehört ins Buch genauso.
-        var schluessel = Set(reise.eintragListe.compactMap { $0.datum.map(Tag.schluessel) })
+        var schluessel = Set(reise.eintragListe.compactMap(\.tagSchluessel))
         if wunsch.spur { for s in reise.spurListe { if let t = s.tag, !t.isEmpty { schluessel.insert(t) } } }
 
         for tagSchluessel in schluessel.sorted() {
-            let eintraege = reise.eintragListe.filter { $0.datum.map(Tag.schluessel) == tagSchluessel }
+            let eintraege = reise.eintragListe.filter { $0.tagSchluessel == tagSchluessel }
             var teile: [Uebergabe.EintragTeil] = []
             for e in eintraege {
                 var fotos: [Uebergabe.FotoTeil] = []
@@ -237,7 +248,9 @@ enum Uebergabebau {
                     })
                 }
                 teile.append(Uebergabe.EintragTeil(
-                    kennung: (e.kennung ?? UUID()).uuidString, zeitpunkt: iso(e.datum), uhrzeit: uhr(e.datum),
+                    kennung: (e.kennung ?? UUID()).uuidString, zeitpunkt: iso(e.datum, zone: e.zone),
+                    uhrzeit: e.datum == nil ? nil : e.uhrzeitText,
+                    zeitzone: (e.zeitzone ?? "").isEmpty ? nil : e.zeitzone,
                     titel: e.titel ?? "", text: e.text ?? "", autor: e.autor ?? "", ort: ort,
                     orte: e.ortListe.map { Uebergabe.OrtTeil(name: $0.name, land: nil, breite: $0.breite,
                                                             laenge: $0.laenge, uhrzeit: uhr($0.zeit)) },

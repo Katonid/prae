@@ -28,6 +28,46 @@ enum Tag {
         return String(format: "%04d-%02d-%02d", t.year ?? 0, t.month ?? 0, t.day ?? 0)
     }
 
+    /// Der Tag in einer bestimmten Zone — für Einträge (ab 1.0.6).
+    static func schluessel(_ datum: Date, zone: TimeZone) -> String {
+        var k = kalender
+        k.timeZone = zone
+        let t = k.dateComponents([.year, .month, .day], from: datum)
+        return String(format: "%04d-%02d-%02d", t.year ?? 0, t.month ?? 0, t.day ?? 0)
+    }
+
+    /// Der Anfang eines Tages auf DIESEM Gerät, aus seinem Schlüssel.
+    static func datum(schluessel: String) -> Date? {
+        let teile = schluessel.split(separator: "-").compactMap { Int($0) }
+        guard teile.count == 3 else { return nil }
+        return kalender.date(from: DateComponents(year: teile[0], month: teile[1], day: teile[2]))
+    }
+
+    private static var formate: [String: DateFormatter] = [:]
+    private static let formatSperre = NSLock()
+
+    /// Ein Datum nach Muster in einer bestimmten Zone. Die Formatierer werden
+    /// gemerkt — einen je Aufruf zu bauen kostet in einer Liste spürbar.
+    static func text(_ datum: Date, _ muster: String, zone: TimeZone) -> String {
+        let schluessel = muster + "|" + zone.identifier
+        formatSperre.lock()
+        let f: DateFormatter
+        if let da = formate[schluessel] {
+            f = da
+        } else {
+            f = DateFormatter()
+            f.locale = Locale(identifier: "de_DE")
+            var k = kalender
+            k.timeZone = zone
+            f.calendar = k
+            f.timeZone = zone
+            f.dateFormat = muster
+            formate[schluessel] = f
+        }
+        formatSperre.unlock()
+        return f.string(from: datum)
+    }
+
     static func tage(von: Date, bis: Date) -> [Date] {
         var ergebnis: [Date] = []
         var d = anfang(von)

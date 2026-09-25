@@ -29,7 +29,8 @@ struct EintragView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     if let d = eintrag.datum {
-                        Text("\(Tag.wochentagLang.string(from: d)) · \(Tag.uhrzeit.string(from: d))")
+                        // In der Zone des Eintrags — dort war es 21:14.
+                        Text("\(Tag.text(d, "EEEE, d. MMMM", zone: eintrag.zone)) · \(eintrag.uhrzeitText)\(zonenZusatz)")
                             .font(.caption.weight(.heavy))
                             .textCase(.uppercase)
                             .foregroundStyle(palette.haupt)
@@ -132,6 +133,15 @@ struct EintragView: View {
             Text(eintrag.reise == nil ? "Der Eintrag und seine Fotos verschwinden aus deinem Tagebuch — in deiner Fotos-App bleiben die Bilder." : "Der Eintrag und seine Fotos verschwinden aus der Reise — in deiner Fotos-App bleiben die Bilder.")
         }
         .task { darf = Persistenz.shared.darfBearbeiten(eintrag) }
+    }
+
+    /// Weicht die Zone des Eintrags von der des Geräts ab, steht sie dabei —
+    /// sonst läse man „21:14“ als Uhrzeit von hier.
+    private var zonenZusatz: String {
+        guard let d = eintrag.datum else { return "" }
+        let z = eintrag.zone
+        guard z.secondsFromGMT(for: d) != TimeZone.current.secondsFromGMT(for: d) else { return "" }
+        return " Ortszeit (" + (z.abbreviation(for: d) ?? z.identifier) + ")"
     }
 
     private struct Nummer: Identifiable {

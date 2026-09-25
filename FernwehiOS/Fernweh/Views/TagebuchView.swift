@@ -112,17 +112,17 @@ struct TagebuchView: View {
     /// Ändert sich, wenn sich an Einträgen oder Reisen etwas ändert, das die
     /// Gliederung betrifft.
     private var stand: String {
-        let e = eintraege.map { "\($0.objectID.uriRepresentation().lastPathComponent)\($0.datum?.timeIntervalSince1970 ?? 0)\($0.reise?.objectID.uriRepresentation().lastPathComponent ?? "")" }
+        let e = eintraege.map { "\($0.objectID.uriRepresentation().lastPathComponent)\($0.datum?.timeIntervalSince1970 ?? 0)\($0.zeitzone ?? "")\($0.reise?.objectID.uriRepresentation().lastPathComponent ?? "")" }
         let r = reisen.map { "\($0.beginn?.timeIntervalSince1970 ?? 0)\($0.ende?.timeIntervalSince1970 ?? 0)" }
         return e.joined() + "|" + r.joined()
     }
 
     static func gliedern(_ eintraege: [Eintrag], reisen: [Reise]) -> [Kapitel] {
         var jeTag: [String: (Date, [Eintrag])] = [:]
+        // Der Tag eines Eintrags ist der in SEINER Zeitzone (ab 1.0.6).
         for e in eintraege {
-            guard let d = e.datum else { continue }
-            let s = Tag.schluessel(d)
-            jeTag[s, default: (Tag.anfang(d), [])].1.append(e)
+            guard let s = e.tagSchluessel, let d = e.tagDatum else { continue }
+            jeTag[s, default: (d, [])].1.append(e)
         }
         let tage = jeTag.values.sorted { $0.0 > $1.0 }
         var ergebnis: [Kapitel] = []
@@ -168,7 +168,7 @@ struct TagebuchView: View {
     @ViewBuilder
     private var heuteKarte: some View {
         let heute = Tag.schluessel(Date())
-        if !eintraege.contains(where: { $0.datum.map(Tag.schluessel) == heute }) {
+        if !eintraege.contains(where: { $0.tagSchluessel == heute }) {
             Button { schreiben = SchreibWunsch(tag: nil) } label: {
                 HStack {
                     Image(systemName: "plus.circle.fill")
