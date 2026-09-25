@@ -10521,7 +10521,7 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -10615,6 +10615,15 @@ Befunde, und keiner davon war Geschmack:
   ändert Farbe und Namen. Umbenennen legt bei gleichem Namen zusammen;
   Einträge in Reisen, die ich nur lese, behalten den alten Namen, und das wird
   gesagt. Die Farbe steht als Streifen an jeder Eintragskarte.
+- **Mehrere Tagebücher zugleich zeigen** (ab 1.0.9, Ansage des Nutzers
+  09/2026: „dass ich mehrere Tagebücher aktivieren kann, aber eben auch nicht
+  aktivierte nicht in der Liste angezeigt werden"). In der Übersicht schaltet
+  ein Tipp ein Tagebuch ein oder aus, das Blatt bleibt offen; lange drücken →
+  „Nur dieses zeigen". Gemerkt wird das AUSGEBLENDETE, nicht das Gezeigte
+  (`@AppStorage("ausgeblendeteTagebuecher")`, JSON, je Gerät): Ein später
+  dazukommendes Tagebuch — etwa aus einem Day-One-Import — wäre sonst still
+  unsichtbar. "" steht für „ohne Tagebuch". Ist genau ein benanntes Tagebuch
+  gezeigt, landet ein neuer Eintrag darin; sonst wird nichts vorbelegt.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
