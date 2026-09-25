@@ -42,58 +42,90 @@ enum Zipleser {
         }
     }
 
+    // Ein Eintrag des zentralen Verzeichnisses — wo er liegt, nicht, was
+    // drinsteht. Gelesen wird erst, wenn jemand danach fragt.
+    struct Eintrag {
+        var name: String
+        var verfahren: Int
+        var gepackt: Int
+        var roh: Int
+        var lokalerKopf: Int
+    }
+
     // Holt genau EINEN Eintrag. Ein `.docx` braucht nur `word/document.xml`;
     // alles andere darin (Formatvorlagen, Bilder, Einstellungen) wird hier
     // nicht gebraucht, und was man nicht ausliest, kann auch nicht schiefgehen.
     static func eintrag(_ name: String, aus daten: Data) throws -> Data {
-        let bytes = [UInt8](daten)
-        let ende = try zentralverzeichnis(bytes)
+        guard let gefunden = try verzeichnis(daten)[name] else {
+            throw Fehler.eintragFehlt(name)
+        }
+        return try inhalt(gefunden, aus: daten)
+    }
 
+    // DAS GANZE VERZEICHNIS (ab 1.0.106, für die Übergabedatei aus Fernweh).
+    //
+    // Bis 1.0.105 wurde die Datei dafür zuerst vollständig in ein
+    // `[UInt8]` kopiert. Für eine `.docx` von ein paar hundert Kilobyte ist
+    // das gleichgültig; eine Übergabedatei mit Originalfotos wiegt
+    // Gigabyte, und eine Kopie davon im Arbeitsspeicher ist der Absturz,
+    // den iOS ohne Bericht unter dem Namen der App ablegt. Gelesen wird
+    // seither unmittelbar aus `Data` — und die kann der Aufrufer
+    // speicherabgebildet öffnen (`.mappedIfSafe`), dann liegt nur im
+    // Speicher, was gerade gelesen wird.
+    static func verzeichnis(_ daten: Data) throws -> [String: Eintrag] {
+        let ende = try zentralverzeichnis(daten)
+        var liste: [String: Eintrag] = [:]
         var stelle = ende.anfang
         for _ in 0 ..< ende.anzahl {
-            guard stelle + 46 <= bytes.count,
-                  zahl32(bytes, stelle) == 0x0201_4B50 else { throw Fehler.beschaedigt }
-            let verfahren = zahl16(bytes, stelle + 10)
-            let gepackt = zahl32(bytes, stelle + 20)
-            let roh = zahl32(bytes, stelle + 24)
-            let namenslaenge = zahl16(bytes, stelle + 28)
-            let extra = zahl16(bytes, stelle + 30)
-            let kommentar = zahl16(bytes, stelle + 32)
-            let lokal = zahl32(bytes, stelle + 42)
+            guard stelle + 46 <= daten.count,
+                  zahl32(daten, stelle) == 0x0201_4B50 else { throw Fehler.beschaedigt }
+            let namenslaenge = zahl16(daten, stelle + 28)
+            let extra = zahl16(daten, stelle + 30)
+            let kommentar = zahl16(daten, stelle + 32)
             let namensfeld = stelle + 46
-            guard namensfeld + namenslaenge <= bytes.count else { throw Fehler.beschaedigt }
-            let gefunden = String(decoding: bytes[namensfeld ..< namensfeld + namenslaenge],
-                                  as: UTF8.self)
-
-            if gefunden == name {
-                if gepackt == 0xFFFF_FFFF || roh == 0xFFFF_FFFF || lokal == 0xFFFF_FFFF {
-                    throw Fehler.zuGross
-                }
-                return try auspacken(bytes, lokalerKopf: lokal, verfahren: verfahren,
-                                     gepackt: gepackt, roh: roh)
-            }
+            guard namensfeld + namenslaenge <= daten.count else { throw Fehler.beschaedigt }
+            let anfang = daten.startIndex + namensfeld
+            let name = String(decoding: daten[anfang ..< anfang + namenslaenge], as: UTF8.self)
+            let eintrag = Eintrag(name: name,
+                                  verfahren: zahl16(daten, stelle + 10),
+                                  gepackt: zahl32(daten, stelle + 20),
+                                  roh: zahl32(daten, stelle + 24),
+                                  lokalerKopf: zahl32(daten, stelle + 42))
+            // Steht ein Name zweimal da, gilt der erste — dieselbe Wahl,
+            // die `eintrag` bis 1.0.105 getroffen hat.
+            if liste[name] == nil { liste[name] = eintrag }
             stelle = namensfeld + namenslaenge + extra + kommentar
         }
-        throw Fehler.eintragFehlt(name)
+        return liste
+    }
+
+    static func inhalt(_ eintrag: Eintrag, aus daten: Data) throws -> Data {
+        if eintrag.gepackt == 0xFFFF_FFFF || eintrag.roh == 0xFFFF_FFFF
+            || eintrag.lokalerKopf == 0xFFFF_FFFF
+        {
+            throw Fehler.zuGross
+        }
+        return try auspacken(daten, lokalerKopf: eintrag.lokalerKopf, verfahren: eintrag.verfahren,
+                             gepackt: eintrag.gepackt, roh: eintrag.roh)
     }
 
     // MARK: - Die Fundstellen
 
-    private static func zentralverzeichnis(_ bytes: [UInt8]) throws
+    private static func zentralverzeichnis(_ daten: Data) throws
         -> (anfang: Int, anzahl: Int)
     {
         // Das Schlussstück steht am Dateiende, kann aber einen Kommentar
         // hinter sich haben — deshalb wird rückwärts gesucht, und nur so
         // weit, wie ein Kommentar überhaupt reichen darf (64 KB).
-        guard bytes.count >= 22 else { throw Fehler.keinArchiv }
-        let untergrenze = max(0, bytes.count - 22 - 0xFFFF)
-        var stelle = bytes.count - 22
+        guard daten.count >= 22 else { throw Fehler.keinArchiv }
+        let untergrenze = max(0, daten.count - 22 - 0xFFFF)
+        var stelle = daten.count - 22
         while stelle >= untergrenze {
-            if zahl32(bytes, stelle) == 0x0605_4B50 {
-                let anzahl = zahl16(bytes, stelle + 10)
-                let anfang = zahl32(bytes, stelle + 16)
+            if zahl32(daten, stelle) == 0x0605_4B50 {
+                let anzahl = zahl16(daten, stelle + 10)
+                let anfang = zahl32(daten, stelle + 16)
                 guard anfang != 0xFFFF_FFFF else { throw Fehler.zuGross }
-                guard anfang < bytes.count else { throw Fehler.beschaedigt }
+                guard anfang < daten.count else { throw Fehler.beschaedigt }
                 return (anfang, anzahl)
             }
             stelle -= 1
@@ -101,32 +133,35 @@ enum Zipleser {
         throw Fehler.keinArchiv
     }
 
-    private static func auspacken(_ bytes: [UInt8], lokalerKopf: Int, verfahren: Int,
+    private static func auspacken(_ daten: Data, lokalerKopf: Int, verfahren: Int,
                                   gepackt: Int, roh: Int) throws -> Data
     {
         // Die Längen der Namens- und Extrafelder stehen im LOKALEN Kopf
         // noch einmal und weichen dort regelmäßig von denen im Verzeichnis
         // ab (Word schreibt dort andere Extrafelder). Wer die Zahlen aus
         // dem Verzeichnis nimmt, landet ein paar Bytes neben den Daten.
-        guard lokalerKopf + 30 <= bytes.count,
-              zahl32(bytes, lokalerKopf) == 0x0403_4B50 else { throw Fehler.beschaedigt }
-        let namenslaenge = zahl16(bytes, lokalerKopf + 26)
-        let extra = zahl16(bytes, lokalerKopf + 28)
+        guard lokalerKopf + 30 <= daten.count,
+              zahl32(daten, lokalerKopf) == 0x0403_4B50 else { throw Fehler.beschaedigt }
+        let namenslaenge = zahl16(daten, lokalerKopf + 26)
+        let extra = zahl16(daten, lokalerKopf + 28)
         let anfang = lokalerKopf + 30 + namenslaenge + extra
-        guard anfang + gepackt <= bytes.count else { throw Fehler.beschaedigt }
-        let feld = Array(bytes[anfang ..< anfang + gepackt])
+        guard anfang + gepackt <= daten.count else { throw Fehler.beschaedigt }
+        let von = daten.startIndex + anfang
+        // `subdata` kopiert genau diesen einen Eintrag — nicht die Datei.
+        let feld = daten.subdata(in: von ..< von + gepackt)
 
         switch verfahren {
         case 0:
-            return Data(feld)
+            return feld
         case 8:
             guard roh > 0 else { return Data() }
             var ziel = [UInt8](repeating: 0, count: roh)
             let geschrieben = ziel.withUnsafeMutableBufferPointer { aus -> Int in
-                feld.withUnsafeBufferPointer { ein -> Int in
-                    compression_decode_buffer(aus.baseAddress!, roh,
-                                              ein.baseAddress!, gepackt,
-                                              nil, COMPRESSION_ZLIB)
+                feld.withUnsafeBytes { ein -> Int in
+                    guard let quelle = ein.bindMemory(to: UInt8.self).baseAddress else { return 0 }
+                    return compression_decode_buffer(aus.baseAddress!, roh,
+                                                     quelle, gepackt,
+                                                     nil, COMPRESSION_ZLIB)
                 }
             }
             guard geschrieben == roh else { throw Fehler.beschaedigt }
@@ -138,15 +173,19 @@ enum Zipleser {
 
     // MARK: - Zahlen
 
-    // ZIP schreibt seine Zahlen mit dem niederwertigsten Byte zuerst.
-    private static func zahl16(_ bytes: [UInt8], _ stelle: Int) -> Int {
-        guard stelle + 2 <= bytes.count else { return 0 }
-        return Int(bytes[stelle]) | Int(bytes[stelle + 1]) << 8
+    // ZIP schreibt seine Zahlen mit dem niederwertigsten Byte zuerst. Die
+    // Stelle zählt ab dem ANFANG der Daten — ein `Data`-Ausschnitt fängt
+    // nicht zwingend bei Index 0 an.
+    private static func zahl16(_ daten: Data, _ stelle: Int) -> Int {
+        guard stelle >= 0, stelle + 2 <= daten.count else { return 0 }
+        let i = daten.startIndex + stelle
+        return Int(daten[i]) | Int(daten[i + 1]) << 8
     }
 
-    private static func zahl32(_ bytes: [UInt8], _ stelle: Int) -> Int {
-        guard stelle + 4 <= bytes.count else { return 0 }
-        return Int(bytes[stelle]) | Int(bytes[stelle + 1]) << 8
-            | Int(bytes[stelle + 2]) << 16 | Int(bytes[stelle + 3]) << 24
+    private static func zahl32(_ daten: Data, _ stelle: Int) -> Int {
+        guard stelle >= 0, stelle + 4 <= daten.count else { return 0 }
+        let i = daten.startIndex + stelle
+        return Int(daten[i]) | Int(daten[i + 1]) << 8
+            | Int(daten[i + 2]) << 16 | Int(daten[i + 3]) << 24
     }
 }

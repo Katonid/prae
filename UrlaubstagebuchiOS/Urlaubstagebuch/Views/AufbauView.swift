@@ -42,6 +42,20 @@ struct AufbauView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                // DER KURZE WEG (ab 1.0.106): Wer in Fernweh geschrieben
+                // hat, hat Text, Orte, Spur und Fotos schon beisammen. Eine
+                // Übergabedatei erledigt die drei Schritte darunter auf
+                // einmal; einzeln bleiben sie für alles andere.
+                Section {
+                    Button("Übergabe aus Fernweh einlesen\u{2026}", systemImage: "suitcase") {
+                        los(.fernweh)
+                    }
+                } footer: {
+                    Text("Aus dem Reisetagebuch Fernweh kommen Texte, Orte, Wetter, Reisespur "
+                         + "und Fotos in einem Zug. Die drei Schritte darunter sind der Weg für "
+                         + "alles andere.")
+                }
+
                 schritt(
                     nummer: 1,
                     titel: "Tagebuchtext",

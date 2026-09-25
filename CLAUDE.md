@@ -10047,7 +10047,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.105 (Build 106). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.106 (Build 107). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -10414,6 +10414,55 @@ Befunde, und keiner davon war Geschmack:
     Abgezählt sind die beiden Ursachen; **dass der Mac danach flüssig ist,
     folgt daraus NICHT** — Öffnen und Bildwahl sind unverändert, sie sagen
     jetzt nur, wie lange sie brauchen.
+- **DIE ÜBERGABE AUS FERNWEH** (`Dienste/Fernweheinfuhr.swift`,
+  `Views/FernwehimportView.swift`, ab 1.0.106; Ansage des Nutzers 09/2026).
+  Der Vertrag steht in `FernwehiOS/docs/UEBERGABE.md` — **wer hier ein Feld
+  anders liest, ändert das Papier mit.** Plus-Knopf → „Aus Fernweh…" und
+  ganz oben in „Buch aufbauen".
+  - **Der ZIP-Leser kopiert die Datei nicht mehr** (`Zipleser.verzeichnis`,
+    `.inhalt`). Bis 1.0.105 wurde jedes Archiv erst ganz in ein `[UInt8]`
+    kopiert — für eine `.docx` gleichgültig, für eine Übergabe mit
+    Originalen Gigabyte im Arbeitsspeicher. Geöffnet wird mit
+    `.mappedIfSafe`, und `subdata` kopiert nur den einen Eintrag.
+  - **Jede Liste ist nachsichtig** (`Nachsichtig<T>`): ein unlesbares
+    Element wird übersprungen und GEZÄHLT, statt die ganze Reise
+    mitzunehmen. Der erzeugte Leser eines Arrays scheitert am ersten
+    falschen Element. Eine NEUERE Fassungsnummer wird abgewiesen, nicht
+    erraten.
+  - **Die Kennung des Fotos aus Fernweh wird die Kennung im Buch.** Zweimal
+    dieselbe Datei eingelesen ergibt jedes Foto einmal. Der Tag eines Fotos
+    ist der des EINTRAGS (Vertrag). EXIF geht vor den Angaben der JSON; eine
+    Kopie hat keins.
+  - **Fotos ohne Bild** (Fernwehs Vorgabe ist „ohne Fotos") holt die App aus
+    der eigenen Mediathek: erst über `PHCloudIdentifier` (gilt auf jedem
+    Gerät derselben Apple-ID), dann über die lokale Kennung. Was nicht zu
+    holen ist, wird gezählt und gesagt. **Doppelt kann es trotzdem werden**,
+    wenn jemand dieselben Fotos danach noch einmal über „Fotos aus der
+    Mediathek" einliest — die Fotoeinfuhr kennt keine Kennung zum Abgleichen.
+  - **Zeiten: Augenblick → Wanduhr am Ort**, je Tag die Zone am ersten Ort
+    (`Zonensucher`), sonst die eingestellte — dieselbe Regel wie bei der
+    Tagesspur. Umgerechnet wird erst beim ÜBERNEHMEN (`amOrt`), damit ein
+    erneutes Nachschlagen nicht doppelt rechnet. Die weiteren Orte eines
+    Eintrags tragen nur „10:40"; der Versatz dazu kommt vom Zeitpunkt des
+    Eintrags (Zone des schreibenden Geräts).
+  - **Mehrere Spuren je Tag sind mehrere GERÄTE auf demselben Weg** —
+    genommen wird die längste, und die Vorschau sagt es. Benannte Orte
+    werden nie ausgedünnt.
+  - **Die Punkte tragen `Ortsquelle.tagesspur`, mit Absicht kein eigener
+    Fall.** `Reisepunkt` hat den erzeugten Leser; eine ältere Fassung, die
+    dasselbe Buch über iCloud öffnet, verwürfe an einem unbekannten Rohwert
+    die ganze Spur des Tages. Preis: Tagesspur- und Fernweh-Einfuhr ersetzen
+    einander die Punkte desselben Tages.
+  - **Das Wetter hat kein eigenes Feld**; auf Wunsch steht es als eine Zeile
+    unter dem Text des Tages, eine Vorhersage als „Wetter (Vorhersage)".
+  - **Ein Zug, ein Widerrufen:** Erst werden die Bilder abseits des
+    Hauptfadens abgelegt, dann wird das Buch mit EINEM `merken()` geändert.
+    Das Einsetzen einer Spur steht dafür seit 1.0.106 an einer Stelle
+    (`Reisewerk.tagesspurEinsetzen`), gefragt von beiden Einfuhren.
+  - **Nicht gemessen (1.0.106):** Keine echte `.fernweh`-Datei ist hier
+    gelesen worden — gebaut ist nach dem Papier. Ungeprüft sind vor allem
+    die Mediathek-Zuordnung über `PHCloudIdentifier` und wie lange eine
+    Übergabe mit Originalen braucht. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

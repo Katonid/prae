@@ -6,7 +6,8 @@ Vertrag zwischen beiden. **Wer auf einer Seite ein Feld ändert, ändert es hier
 gleichzeitig.** Neue Felder werden angehängt, nie umbenannt; ein Leser
 überliest, was er nicht kennt.
 
-Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`.
+Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`, gelesen seit
+Reisebuch 1.0.106 in `UrlaubstagebuchiOS/Urlaubstagebuch/Dienste/Fernweheinfuhr.swift`.
 
 ## Behälter
 
