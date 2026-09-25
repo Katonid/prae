@@ -1,0 +1,130 @@
+# Übergabedatei Fernweh → Reisebuch (`.fernweh`)
+
+Fernweh (FernwehiOS) schreibt sie unter Reise → „…“ → **Fürs Fotobuch übergeben**.
+Das Reisebuch (`UrlaubstagebuchiOS/`) soll sie einlesen. Dieses Papier ist der
+Vertrag zwischen beiden. **Wer auf einer Seite ein Feld ändert, ändert es hier
+gleichzeitig.** Neue Felder werden angehängt, nie umbenannt; ein Leser
+überliest, was er nicht kennt.
+
+Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`.
+
+## Behälter
+
+- Ein gewöhnliches **ZIP, ungepackt (Methode 0)**, Dateinamen in UTF-8
+  (Flag 0x0800). Ohne ZIP64 — über 4 GB bricht Fernweh ab, statt eine Datei zu
+  schreiben, die niemand öffnet.
+- Endung **`.fernweh`**. Der Inhalt ist ein ZIP; das Reisebuch liest ZIP seit
+  1.0.13 selbst (`Dienste/Zipleser.swift`, Methode 0 und 8), eine eigene
+  Bibliothek braucht es nicht.
+- Inhalt:
+  - `uebergabe.json` — die Beschreibung (immer; steht als LETZTE Datei im ZIP,
+    gefunden wird sie über das zentrale Verzeichnis)
+  - `fotos/<Kennung>.<jpg|heic|png>` — nur, wenn mit Fotos übergeben wurde
+
+## Zeiten
+
+- **Tage stehen als Text** `JJJJ-MM-TT` (`tage[].datum`, `reise.beginn`,
+  `reise.ende`). Es ist genau der Tag, unter dem Fernweh den Eintrag zeigt.
+  Nicht aus einem Zeitpunkt zurückrechnen — die Regel des Reisebuchs („der Tag
+  kommt aus drei Zahlen“) gilt hier genauso.
+- **Zeitpunkte** sind ISO 8601 mit Versatz: `2026-08-12T19:33:21+02:00`.
+  **Offen:** Fernweh speichert einen Eintrag als Augenblick, ohne die Zone des
+  Ortes. Tag und Uhrzeit rechnet es in der Zone des Geräts, das die Datei
+  ERZEUGT — wird nach einer Fernreise daheim übergeben, kann ein später
+  Eintrag um Mitternacht herum auf dem Nachbartag landen. So zeigt Fernweh ihn
+  aber auch an; beide Seiten sind sich also einig. Dazu steht, wo es passt, `uhrzeit`
+  (`HH:mm`) als Wanduhr — das ist die Zahl, die im Buch stehen soll.
+- Punkte der Reisespur tragen **Unix-Sekunden** (echter Augenblick).
+
+## `uebergabe.json`
+
+```json
+{
+  "format": "fernweh-uebergabe",
+  "version": 1,
+  "erzeugt": "2026-09-25T09:30:00+02:00",
+  "app": "Fernweh 1.0.5",
+  "fotos": "keine | kopie | original",
+  "reise": {
+    "kennung": "UUID",
+    "titel": "Portugal 2027",
+    "untertitel": "",
+    "symbol": "🏖️",
+    "farbe": "sonne",
+    "beginn": "2027-08-01",
+    "ende": "2027-08-14"            // fehlt, wenn offen
+  },
+  "tage": [
+    {
+      "datum": "2027-08-03",
+      "eintraege": [
+        {
+          "kennung": "UUID",
+          "zeitpunkt": "2027-08-03T21:14:00+01:00",
+          "uhrzeit": "21:14",
+          "titel": "Lissabon",
+          "text": "Fließtext, Absätze mit \n",
+          "autor": "Name aus den Einstellungen",
+          "ort": { "name": "Lissabon", "land": "Portugal", "breite": 38.72, "laenge": -9.14 },
+          "orte": [ { "name": "Belém", "breite": 38.69, "laenge": -9.2, "uhrzeit": "10:40" } ],
+          "wetter": {
+            "vorhersage": false,
+            "geholt": "2027-08-04T08:00:00+01:00",
+            "abschnitte": [
+              { "name": "Vormittag", "stunden": "6–11", "code": 1,
+                "beschreibung": "Überwiegend klar", "tiefst": 19.2, "hoechst": 24.8, "regen": 0.0 }
+            ]
+          },
+          "fotos": [
+            { "kennung": "UUID", "datei": "fotos/UUID.heic", "aufnahme": "2027-08-03T11:02:10+01:00",
+              "breite": 38.69, "laenge": -9.2, "pixelBreite": 4032, "pixelHoehe": 3024,
+              "reihenfolge": 0, "mediathek": "lokale PHAsset-Kennung", "icloud": "PHCloudIdentifier" }
+          ]
+        }
+      ],
+      "spuren": [
+        { "geraet": "Kennung", "reisender": "Name",
+          "punkte": [[38.7, -9.1, 1880000000.0]],
+          "besuche": [ { "breite": 38.7, "laenge": -9.1,
+                         "ankunft": "2027-08-03T10:00:00+01:00", "abfahrt": "2027-08-03T12:30:00+01:00" } ] }
+      ]
+    }
+  ]
+}
+```
+
+### Einzelheiten, die eine Leserin wissen muss
+
+- **Mehrere Einträge je Tag** sind der Normalfall (mehrere Miturlauber, oder
+  morgens und abends geschrieben). Zeitlich geordnet. Im Buch werden die Texte
+  eines Tages aneinandergehängt; wie, entscheidet das Reisebuch.
+- **`titel`** kann leer sein — dann ist `ort.name` die naheliegende
+  Überschrift (so zeigt Fernweh es auch an).
+- **`wetter`** fehlt, wenn der Eintrag keinen Ort hatte. `vorhersage: true`
+  heißt: nachgeschlagen, als der Tag noch nicht vorbei war — also keine
+  Messung. `code` ist ein WMO-Wettercode (Open-Meteo); `beschreibung` ist
+  Fernwehs deutscher Wortlaut dazu. Die Abschnitte sind Ortszeit am Ort des
+  Eintrags: Vormittag 6–11, Tagsüber 11–14, Nachmittag 14–18, Nacht 21–5.
+  Temperaturen in °C, `regen` in mm.
+- **Fotos:**
+  - `fotos: "keine"` — kein Bild im ZIP; `datei` fehlt bei jedem Foto, die
+    übrigen Angaben stehen trotzdem da.
+  - `"kopie"` — höchstens 2048 Bildpunkte an der langen Kante, JPEG ohne
+    EXIF. Datum und Ort stehen dann NUR in der JSON (`aufnahme`, `breite`,
+    `laenge`).
+  - `"original"` — die Aufnahme aus der Mediathek, samt EXIF, oft HEIC. Liegt
+    ein Foto nur bei einem Miturlauber, geht die verkleinerte Kopie mit.
+  - `fehlt` (Text) statt `datei`: Das Bild war auf dem Gerät nicht zu holen.
+    Nicht still übergehen — zählen und sagen.
+  - `aufnahme` ist der Zeitpunkt aus der Mediathek. **Für den Tag gilt der
+    Tag des EINTRAGS**, nicht der der Aufnahme: Wer ein Foto einem Eintrag
+    zugeordnet hat, hat damit entschieden, wohin es gehört.
+  - `mediathek` gilt nur auf dem Gerät, das die Datei geschrieben hat;
+    `icloud` (PHCloudIdentifier) lässt sich auf jedem Gerät derselben Apple-ID
+    zurück auf ein Foto abbilden
+    (`PHPhotoLibrary.localIdentifierMappings(for:)`).
+- **`spuren`** fehlt, wenn ohne Reisespur übergeben wurde. Eine Spur je Gerät
+  und Tag; zwei Miturlauber auf demselben Weg sind zwei Spuren. Die Punkte
+  sind schon ausgedünnt (15 m).
+- Ein Tag kann **nur eine Spur und keine Einträge** haben (gefahren, nichts
+  geschrieben).
