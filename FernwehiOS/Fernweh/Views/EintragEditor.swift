@@ -14,9 +14,14 @@ import CoreLocation
 /// * **Die Fotos des Tages** — alle Aufnahmen dieses Kalendertages aus der
 ///   Mediathek, zum Antippen.
 struct EintragEditor: View {
-    @ObservedObject var reise: Reise
+    /// Die Reise, aus der heraus geschrieben wird — `nil` heißt: aus dem
+    /// Lebenstagebuch. Wohin der Eintrag wirklich geht, steht in `zielReise`.
+    let vorgabe: Reise?
     let eintrag: Eintrag?
     let tag: Date?
+
+    @FetchRequest(fetchRequest: Reise.alle()) private var reisen: FetchedResults<Reise>
+    @State private var zielReise: Reise?
 
     @Environment(\.dismiss) private var schliessen
     @EnvironmentObject private var fotodienst: Fotodienst
@@ -42,6 +47,7 @@ struct EintragEditor: View {
     @State private var wetterLaedt = false
     @State private var wetterFehler: String?
     @State private var wetterAn = true
+    @State private var zielVonHand = false
     @StateObject private var diktat = Diktat()
     @FocusState private var textFokus: Bool
 
@@ -50,11 +56,32 @@ struct EintragEditor: View {
 
     private var istNeu: Bool { eintrag == nil }
 
+    /// Ohne Reise trägt das Tagebuch das Blau des Meeres.
+    private var palette: Palette { zielReise?.palette ?? .meer }
+
+    /// Reisen, in die ein Eintrag an diesem Tag gehen kann: Der Tag liegt in
+    /// ihrem Zeitraum, und ich darf dort schreiben (Betrachter nicht).
+    private var moeglicheReisen: [Reise] {
+        let tagAnfang = Tag.anfang(datum)
+        return reisen.filter { r in
+            r.anfang <= tagAnfang && Tag.anfang(r.schluss) >= tagAnfang && Persistenz.shared.darfBearbeiten(r)
+        }
+    }
+
+    /// Die Vorgabe beim Schreiben aus dem Lebenstagebuch: Läuft an diesem Tag
+    /// eine Reise, gehört der Eintrag dorthin — genau so, wie man es erwartet,
+    /// wenn man unterwegs abends schreibt. Laufen zwei, die zuletzt begonnene.
+    /// Umzustellen ist es immer, und die Zeile sagt, wer mitliest.
+    private var automatischeReise: Reise? {
+        moeglicheReisen.max { $0.anfang < $1.anfang }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     titelFeld
+                    zielBlock
                     orteLeiste
                     wetterBlock
                     textFeld
@@ -81,10 +108,73 @@ struct EintragEditor: View {
             .task(id: wetterSchluessel) { await wetterLaden() }
             .onDisappear { Task { await diktat.stoppen() } }
             .onChange(of: Tag.schluessel(datum)) { _, _ in
+                // Aus dem Lebenstagebuch folgt die Reise dem Tag: Gehört der
+                // neue Tag nicht mehr zu ihr, gilt wieder die Vorgabe.
+                if istNeu, vorgabe == nil, let r = zielReise, !moeglicheReisen.contains(r) {
+                    zielReise = automatischeReise
+                } else if istNeu, vorgabe == nil, zielReise == nil, !zielVonHand {
+                    zielReise = automatischeReise
+                }
                 Task { await tagLaden(neu: false) }
             }
             .interactiveDismissDisabled(speichert)
         }
+    }
+
+    // MARK: - Wohin der Eintrag gehört
+
+    /// Eine Reise ist ein KAPITEL im Lebenstagebuch (ab 1.0.5). Ein Eintrag
+    /// gehört entweder in eine Reise — dann sehen ihn alle, mit denen sie
+    /// geteilt ist — oder nur ins eigene Tagebuch. Das steht hier ausdrücklich,
+    /// denn es ist die eine Entscheidung, die sich hinterher nicht mehr ändern
+    /// lässt: Ein Eintrag wechselt nicht den Speicher.
+    @ViewBuilder
+    private var zielBlock: some View {
+        let geteilt = zielReise.map { Persistenz.shared.freigabe(fuer: $0) != nil } ?? false
+        VStack(alignment: .leading, spacing: 6) {
+            if istNeu && (vorgabe == nil || moeglicheReisen.count > 1) {
+                Menu {
+                    Button {
+                        zielReise = nil
+                        zielVonHand = true
+                    } label: { Label("Nur mein Tagebuch", systemImage: "lock.fill") }
+                    ForEach(moeglicheReisen, id: \.objectID) { r in
+                        Button {
+                            zielReise = r
+                            zielVonHand = true
+                        } label: { Label(r.anzeigeTitel, systemImage: "suitcase.fill") }
+                    }
+                } label: {
+                    zielZeile(geteilt: geteilt, pfeil: true)
+                }
+            } else {
+                zielZeile(geteilt: geteilt, pfeil: false)
+            }
+            Text(zielReise == nil
+                 ? "Nur für dich — der Eintrag steht in deinem Lebenstagebuch und wird mit niemandem geteilt."
+                 : geteilt
+                    ? "In der Reise — alle, mit denen sie geteilt ist, lesen ihn. In deinem Lebenstagebuch steht er trotzdem."
+                    : "In der Reise und damit auch in deinem Lebenstagebuch.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func zielZeile(geteilt: Bool, pfeil: Bool) -> some View {
+        HStack(spacing: 8) {
+            if let r = zielReise {
+                Reisesymbol.mitTitel(r.emoji, r.anzeigeTitel).lineLimit(1)
+                if geteilt { Image(systemName: "person.2.fill").font(.caption) }
+            } else {
+                Label("Nur mein Tagebuch", systemImage: "lock.fill")
+            }
+            if pfeil { Image(systemName: "chevron.up.chevron.down").font(.caption2) }
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(palette.haupt)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(palette.hell.opacity(0.16), in: Capsule())
     }
 
     // MARK: - Titel und Orte
@@ -95,7 +185,7 @@ struct EintragEditor: View {
                 Text(Tag.wochentagLang.string(from: datum))
                     .font(.caption.weight(.heavy))
                     .textCase(.uppercase)
-                    .foregroundStyle(reise.palette.haupt)
+                    .foregroundStyle(palette.haupt)
                 if titelIstVorschlag && !titel.isEmpty {
                     Label("Vorschlag aus deinem Standort", systemImage: "sparkles")
                         .font(.caption2.weight(.semibold))
@@ -125,13 +215,13 @@ struct EintragEditor: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     if let hier {
-                        Ortsknopf(ort: hier, symbol: "location.fill", an: ort?.id == hier.id, farbe: reise.palette.haupt) {
+                        Ortsknopf(ort: hier, symbol: "location.fill", an: ort?.id == hier.id, farbe: palette.haupt) {
                             waehlen(hier)
                         }
                     }
                     ForEach(tagesorte) { t in
                         let an = gewaehlteOrte.contains(t)
-                        Ortsknopf(ort: t, symbol: an ? "checkmark.circle.fill" : "mappin", an: an, farbe: reise.palette.haupt) {
+                        Ortsknopf(ort: t, symbol: an ? "checkmark.circle.fill" : "mappin", an: an, farbe: palette.haupt) {
                             umschalten(t)
                         }
                     }
@@ -277,7 +367,7 @@ struct EintragEditor: View {
             }
             .foregroundStyle(.white)
             .frame(width: 44, height: 44)
-            .background(diktat.laeuft ? AnyShapeStyle(Color.red.gradient) : AnyShapeStyle(reise.palette.verlauf), in: Circle())
+            .background(diktat.laeuft ? AnyShapeStyle(Color.red.gradient) : AnyShapeStyle(palette.verlauf), in: Circle())
             .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
         }
         .buttonStyle(.plain)
@@ -290,7 +380,7 @@ struct EintragEditor: View {
         var liste = tagesorte.map(\.name) + gewaehlteOrte.map(\.name)
         if let hier { liste.append(hier.name) }
         if let ort { liste.append(ort.name) }
-        liste.append(reise.anzeigeTitel)
+        if let zielReise { liste.append(zielReise.anzeigeTitel) }
         // „Alfama · Lissabon" sind zwei Hinweise.
         return liste.flatMap { $0.components(separatedBy: " · ") }
     }
@@ -316,7 +406,7 @@ struct EintragEditor: View {
                 if wetter != nil {
                     Toggle("Im Eintrag", isOn: $wetterAn)
                         .labelsHidden()
-                        .tint(reise.palette.haupt)
+                        .tint(palette.haupt)
                 }
             }
             if let wetter {
@@ -424,13 +514,13 @@ struct EintragEditor: View {
                             .aspectRatio(1, contentMode: .fit)
                             .overlay {
                                 if stelle != nil {
-                                    RoundedRectangle(cornerRadius: 6).strokeBorder(reise.palette.haupt, lineWidth: 3)
+                                    RoundedRectangle(cornerRadius: 6).strokeBorder(palette.haupt, lineWidth: 3)
                                 }
                             }
                             .overlay(alignment: .topTrailing) {
                                 ZStack {
                                     Circle()
-                                        .fill(stelle != nil ? AnyShapeStyle(reise.palette.haupt) : AnyShapeStyle(Color.black.opacity(0.25)))
+                                        .fill(stelle != nil ? AnyShapeStyle(palette.haupt) : AnyShapeStyle(Color.black.opacity(0.25)))
                                     Circle().strokeBorder(.white, lineWidth: 1.5)
                                     if let stelle { Text("\(stelle + 1)").font(.caption2.weight(.bold)).foregroundStyle(.white) }
                                 }
@@ -461,9 +551,20 @@ struct EintragEditor: View {
         }
     }
 
+    @ViewBuilder
     private var zeitWahl: some View {
-        DatePicker("Zeitpunkt", selection: $datum,
-                   in: reise.anfang...max(reise.anfang, Tag.ende(reise.schluss).addingTimeInterval(-60)))
+        Group {
+            if istNeu && vorgabe == nil {
+                // Aus dem Lebenstagebuch: jeder Tag bis heute. Die Reise folgt
+                // dem Tag, nicht umgekehrt.
+                DatePicker("Zeitpunkt", selection: $datum, in: ...Date().addingTimeInterval(3600))
+            } else if let r = zielReise {
+                DatePicker("Zeitpunkt", selection: $datum,
+                           in: r.anfang...max(r.anfang, Tag.ende(r.schluss).addingTimeInterval(-60)))
+            } else {
+                DatePicker("Zeitpunkt", selection: $datum, in: ...Date().addingTimeInterval(3600))
+            }
+        }
             .font(.subheadline)
             .padding(12)
             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -474,6 +575,7 @@ struct EintragEditor: View {
     private func vorbereiten() async {
         guard !vorbereitet else { return }
         vorbereitet = true
+        zielReise = eintrag?.reise ?? vorgabe
         if let eintrag {
             datum = eintrag.datum ?? Date()
             titel = eintrag.titel ?? ""
@@ -492,6 +594,7 @@ struct EintragEditor: View {
         } else {
             datum = Date()
         }
+        if istNeu, vorgabe == nil { zielReise = automatischeReise }
         await tagLaden(neu: istNeu)
     }
 
@@ -512,7 +615,7 @@ struct EintragEditor: View {
             hierLand = name.land
             if titel.isEmpty { waehlen(t) }
         }
-        tagesorte = await Tagesorte.orte(von: reise, am: datum)
+        tagesorte = await Tagesorte.orte(von: zielReise, am: datum)
             .filter { t in hier.map { $0.name != t.name } ?? true }
         sucheOrte = false
         if neu, titel.isEmpty, let erster = tagesorte.first { waehlen(erster) }
@@ -524,12 +627,15 @@ struct EintragEditor: View {
         await diktat.stoppen()
         speichert = true
         let persistenz = Persistenz.shared
-        let ziel = eintrag ?? persistenz.anlegen(Eintrag.self, bei: reise)
+        // Ohne Reise liegt der Eintrag im PRIVATEN Speicher (`anlegen` mit
+        // `nil`) — er erscheint nur im eigenen Lebenstagebuch und reist mit
+        // keiner Freigabe mit.
+        let ziel = eintrag ?? persistenz.anlegen(Eintrag.self, bei: zielReise)
         if eintrag == nil {
             ziel.kennung = UUID()
             ziel.erstellt = Date()
             ziel.autor = Geraet.name
-            ziel.reise = reise
+            ziel.reise = zielReise
         }
         ziel.datum = datum
         ziel.titel = titel.trimmingCharacters(in: .whitespacesAndNewlines)

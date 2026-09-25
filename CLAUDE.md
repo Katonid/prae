@@ -10511,6 +10511,25 @@ Befunde, und keiner davon war Geschmack:
   („Beim Verwenden", nie „Immer") und wartet auf die Antwort. **Nicht
   gesehen**: ob das auf dem iPad des Nutzers die einzige Ursache war — die
   Zeile unter „Orte des Tages" sagt seither, woran es liegt.
+- **Lebenstagebuch mit Reisen als Kapiteln** (`Views/TagebuchView.swift`, ab
+  1.0.5, Wahl des Nutzers 09/2026). Zwei Reiter: „Tagebuch" (alle Einträge
+  aus beiden Speichern, nach Tagen) und „Reisen". Ein Eintrag OHNE Reise
+  (`reise == nil`) liegt im PRIVATEN Speicher und reist mit keiner Freigabe
+  — `Persistenz.anlegen(_:bei: nil)`. Eine Reise ist ein Zeitraum; Tage in
+  ihrem Zeitraum stehen unter ihrem Band (bei zwei Reisen: die mit den
+  meisten Einträgen des Tages, sonst die zuletzt begonnene). **Wohin ein
+  neuer Eintrag geht, steht im Editor ausdrücklich** (`zielBlock`): Vorgabe
+  ist die laufende Reise, umzustellen auf „Nur mein Tagebuch" — und es wird
+  gesagt, wer mitliest. **Ein Eintrag wechselt den Speicher nachträglich
+  nicht** (Core Data kann kein Objekt zwischen Speichern verschieben; es
+  wäre Kopieren samt Fotos). Kein neues Attribut, also kein Schema-Deploy.
+- **Reisesymbol: Emoji ODER Apple-Symbol** (`Views/Reisesymbol.swift`, ab
+  1.0.5). Weiter im Attribut `emoji`; ein Apple-Symbol steht dort als
+  `sf:<Name>`. **Angezeigt wird es nur über `Reisesymbol`** — ein nacktes
+  `Text(reise.emoji)` druckt „sf:…". Apple gibt keine Liste seiner Symbole
+  heraus; die Auswahl ist eine mitgelieferte Liste, jeder Name wird zur
+  Laufzeit mit `UIImage(systemName:)` geprüft. Emojis kommen über die
+  Tastatur des Systems — dort gibt es alle.
 - **Übergabe ans Reisebuch** (`Model/Uebergabe.swift`,
   `Views/UebergabeView.swift`, ab 1.0.5, Ansage des Nutzers 09/2026: „die
   Apps miteinander vernetzen“). Reise → „…“ → „Fürs Fotobuch übergeben“

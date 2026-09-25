@@ -72,8 +72,15 @@ struct FernwehApp: App {
         WindowGroup {
             ZStack(alignment: .bottom) {
                 if eingefuehrt {
-                    ReisenView()
-                        .transition(.opacity.combined(with: .scale(scale: 1.04)))
+                    // Zwei Fragen, zwei Reiter (ab 1.0.5): Was habe ich
+                    // erlebt — und was war auf dieser einen Reise?
+                    TabView {
+                        TagebuchView()
+                            .tabItem { Label("Tagebuch", systemImage: "book.pages.fill") }
+                        ReisenView()
+                            .tabItem { Label("Reisen", systemImage: "suitcase.fill") }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 1.04)))
                 } else {
                     WillkommenView { withAnimation(.easeInOut(duration: 0.8)) { eingefuehrt = true } }
                         .transition(.opacity)
@@ -85,7 +92,7 @@ struct FernwehApp: App {
                         .padding(.horizontal, 18)
                         .padding(.vertical, 12)
                         .background(.ultraThinMaterial, in: Capsule())
-                        .padding(.bottom, 24)
+                        .padding(.bottom, 70)
                         .padding(.horizontal, 16)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .onTapGesture { meldungen.text = nil }

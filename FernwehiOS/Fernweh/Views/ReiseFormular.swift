@@ -20,6 +20,7 @@ struct ReiseFormular: View {
     @State private var bildWahl: PhotosPickerItem?
     @State private var aufzeichnen = true
     @State private var geladen = false
+    @State private var symbolWahl = false
 
     private let symbole = ["✈️", "🏖️", "🏔️", "🚗", "🚆", "⛺️", "🛳️", "🚲", "🌋", "🏝️", "🗺️", "🌸"]
 
@@ -45,6 +46,17 @@ struct ReiseFormular: View {
                                     .frame(width: 44, height: 44)
                                     .background(emoji == s ? palette.hell.opacity(0.35) : Color.clear, in: Circle())
                                     .onTapGesture { emoji = s }
+                            }
+                        }
+                    }
+                    // Alle Emojis und Apples Symbole — die Reihe darüber ist
+                    // nur die Abkürzung.
+                    Button { symbolWahl = true } label: {
+                        HStack {
+                            Label("Anderes Symbol oder Emoji …", systemImage: "square.grid.3x3.fill")
+                            Spacer()
+                            if !symbole.contains(emoji) {
+                                Reisesymbol.text(emoji).font(.title3).foregroundStyle(palette.haupt)
                             }
                         }
                     }
@@ -94,6 +106,7 @@ struct ReiseFormular: View {
                     }
                 }
             }
+            .sheet(isPresented: $symbolWahl) { SymbolWahl(wert: $emoji, palette: palette) }
             .navigationTitle(reise == nil ? "Neue Reise" : "Reise bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -169,13 +182,13 @@ private struct VorschauKarte: View {
                     if let bild, let ui = UIImage(data: bild) {
                         Image(uiImage: ui).resizable().scaledToFill()
                     } else {
-                        Text(emoji).font(.system(size: 80))
+                        ReisesymbolBild(wert: emoji, groesse: 80)
                     }
                 }
                 .clipped()
             LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .center, endPoint: .bottom)
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(emoji) \(titel.isEmpty ? "Neue Reise" : titel)")
+                Reisesymbol.mitTitel(emoji, titel.isEmpty ? "Neue Reise" : titel)
                     .font(Stil.titel(24))
                 Text(zeitraum).font(.caption.weight(.semibold)).opacity(0.9)
             }

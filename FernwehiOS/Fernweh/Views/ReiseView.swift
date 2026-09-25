@@ -71,7 +71,7 @@ struct ReiseView: View {
             }
         }
         .sheet(item: $editor) { wunsch in
-            EintragEditor(reise: reise, eintrag: nil, tag: wunsch.tag)
+            EintragEditor(vorgabe: reise, eintrag: nil, tag: wunsch.tag)
         }
         .sheet(isPresented: $bearbeiten) { ReiseFormular(reise: reise) }
         .sheet(isPresented: $beteiligte) { BeteiligteView(reise: reise) }
@@ -143,7 +143,7 @@ struct ReiseView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
-            Text("\(reise.emoji ?? "") \(reise.anzeigeTitel)")
+            Reisesymbol.mitTitel(reise.emoji, reise.anzeigeTitel)
                 .font(Stil.titel(32))
             if let u = reise.untertitel, !u.isEmpty {
                 Text(u).font(.title3).foregroundStyle(.secondary)

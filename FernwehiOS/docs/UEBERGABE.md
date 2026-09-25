@@ -95,6 +95,11 @@ Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`.
 
 ### Einzelheiten, die eine Leserin wissen muss
 
+- **`reise.symbol`** ist ein Emoji ODER ein Apple-Symbol in der Form
+  `sf:<Name>` (z. B. `sf:mountain.2.fill`). Ein Leser, der Symbole nicht
+  zeigen kann, lässt es weg — nie `sf:…` als Text drucken.
+- **Nur Einträge der Reise.** Private Einträge aus dem Lebenstagebuch (ohne
+  Reise, auch wenn sie in den Zeitraum fallen) gehen nicht mit.
 - **Mehrere Einträge je Tag** sind der Normalfall (mehrere Miturlauber, oder
   morgens und abends geschrieben). Zeitlich geordnet. Im Buch werden die Texte
   eines Tages aneinandergehängt; wie, entscheidet das Reisebuch.

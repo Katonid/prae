@@ -118,14 +118,16 @@ enum Tagesorte {
         return Array(zusammen.prefix(10)).sorted { $0.von < $1.von }
     }
 
-    /// Die benannten Orte eines Tages einer Reise — aus allen Spuren der Reise
-    /// an diesem Tag (auch denen der Miturlauber) und der eigenen Rohspur.
+    /// Die benannten Orte eines Tages — aus der eigenen Rohspur und, wenn der
+    /// Eintrag zu einer Reise gehört, aus allen Spuren der Reise an diesem Tag
+    /// (auch denen der Miturlauber). Ohne Reise (ein Tag im Lebenstagebuch,
+    /// ab 1.0.5) zählt nur, was DIESES Gerät aufgezeichnet hat.
     @MainActor
-    static func orte(von reise: Reise, am tag: Date) async -> [Tagesort] {
+    static func orte(von reise: Reise?, am tag: Date) async -> [Tagesort] {
         let schluessel = Tag.schluessel(tag)
         var punkte = Spurspeicher.punkte(tag: schluessel)
         var besuche = Spurspeicher.besuche(tag: schluessel)
-        for spur in reise.spuren(am: tag) where spur.geraet != Geraet.kennung {
+        for spur in reise?.spuren(am: tag) ?? [] where spur.geraet != Geraet.kennung {
             punkte += spur.punktListe
             besuche += spur.besuchListe
         }
