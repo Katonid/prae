@@ -2,13 +2,23 @@
 """Erzeugt das App-Symbol von Fernweh — reines Python, ohne fremde
 Bibliotheken (wie die Symbolskripte der anderen Apps dieses Repos).
 
-Ein Stift, der die Reisespur zeichnet (Wunsch des Nutzers zu 1.0.1: „Reise
-kann ich erkennen, aber nicht Tagebuch"). Die Stecknadel aus 1.0.0 sagte
-nur „Karte"; der Stift sagt „schreiben". Eine Farbe und eine Form bleiben
-die Regel (Lehre aus dem Reisebuch 1.0.20): weißer Weg und weißer Stift auf
-einem diagonalen Verlauf von Abendsonne über Magenta nach Nachtblau. Die dunkle Kontur unter
-dem Weiß hält die Linie auch dort, wo der Verlauf hell ist. Alles bleibt
-zwischen 140 und 884 — was näher an der Ecke liegt, schneidet iOS weg.
+Ab 1.0.4 (Wahl des Nutzers aus fünf Entwürfen, 09/2026): eine Landschaft —
+Himmel mit Sonne und zwei Bergen, ein Streifen Meer, darunter Sand — und
+eine Füllfeder, die ihre Tintenspur durch den Sand zieht. Anlass: Der Stift
+aus 1.0.1 auf einer dicken weißen Wellenlinie sah dem Routenplaner zu
+ähnlich; die Form, die dort die Arbeit macht, ist genau diese Linie. Hier
+ist die Spur deshalb dünn und dunkel (Tinte), die Feder trägt das Symbol,
+und die Farben sind die, die der Nutzer genannt hat: Orange und Blau —
+Sand und Sonne, Himmel und Meer. Die Berge stehen dabei, weil Fernweh
+nicht nur ans Meer führt.
+
+Auf 40 Bildpunkten bleiben die Feder und die Teilung Blau/Orange; Sonne und
+Berge sind dort Farbflecken — geprüft, bevor gewählt wurde (Lehre aus dem
+Reisebuch 1.0.20/1.0.105).
+
+Gezeichnet wird über Abstandsfelder mit einem halben Bildpunkt
+Kantenglättung; die Tintenspur wird gestempelt (je Stützpunkt die Pixel im
+Umkreis), sonst läge der Lauf bei jedem Pixel über alle Segmente.
 
     python3 FernwehiOS/scripts/make-icon.py
 """
@@ -23,11 +33,28 @@ ZIEL = os.path.join(
     "Fernweh", "Assets.xcassets", "AppIcon.appiconset", "AppIcon1024.png",
 )
 
-SONNE = (255, 170, 80)
-MAGENTA = (232, 70, 120)
-NACHT = (48, 36, 120)
+HIMMEL_OBEN = (120, 200, 245)
+HIMMEL_UNTEN = (55, 140, 215)
+SAND_OBEN = (255, 200, 110)
+SAND_UNTEN = (242, 140, 50)
+MEER_OBEN = (40, 120, 200)
+MEER_UNTEN = (20, 80, 160)
+SONNE = (255, 236, 170)
+BERG_DUNKEL = (60, 80, 125)
+BERG_HELL = (88, 110, 150)
+SCHNEE = (245, 248, 255)
+TINTE = (16, 36, 84)
+FEDER = (20, 70, 150)
+HALTER = (18, 40, 100)
+RING = (255, 205, 95)
 WEISS = (255, 255, 255)
-KONTUR = (40, 20, 70)
+
+HORIZONT = 470
+KUESTE = 540  # Unterkante des Meeres, darum eine Welle
+
+R = [0.0] * (GROESSE * GROESSE)
+G = [0.0] * (GROESSE * GROESSE)
+B = [0.0] * (GROESSE * GROESSE)
 
 
 def mischen(a, b, t):
@@ -35,30 +62,101 @@ def mischen(a, b, t):
     return tuple(x + (y - x) * t for x, y in zip(a, b))
 
 
-def verlauf(x, y):
-    t = (x + (GROESSE - y)) / (2 * GROESSE)  # unten links hell, oben rechts dunkel
-    t = 1 - t
-    return mischen(SONNE, MAGENTA, t / 0.55) if t < 0.55 else mischen(MAGENTA, NACHT, (t - 0.55) / 0.45)
+def setzen(i, farbe, deckung):
+    if deckung <= 0:
+        return
+    if deckung >= 1:
+        R[i], G[i], B[i] = farbe
+        return
+    R[i] += (farbe[0] - R[i]) * deckung
+    G[i] += (farbe[1] - G[i]) * deckung
+    B[i] += (farbe[2] - B[i]) * deckung
 
 
-SPITZE = (590, 470)
-WINKEL = math.radians(45)
-LAENGE = 360
-HOLZ = (255, 222, 186)
-MINE = (52, 32, 84)
-KAPPE = (255, 170, 80)
-BAND = (232, 70, 120)
+def grund():
+    for y in range(GROESSE):
+        t = y / GROESSE
+        himmel = mischen(HIMMEL_OBEN, HIMMEL_UNTEN, t)
+        sand = mischen(SAND_OBEN, SAND_UNTEN, t)
+        meer = mischen(MEER_OBEN, MEER_UNTEN, t)
+        for x in range(GROESSE):
+            welle = KUESTE + 10 * math.sin(x / 60)
+            if y < HORIZONT:
+                farbe = himmel
+            elif y < welle - 0.5:
+                farbe = meer if y < KUESTE - 20 else MEER_OBEN
+            elif y < welle + 0.5:
+                farbe = mischen(MEER_OBEN, sand, y - welle + 0.5)
+            else:
+                farbe = sand
+            i = y * GROESSE + x
+            R[i], G[i], B[i] = farbe
 
 
-def kurve():
-    stuecke = [
-        ((230, 820), (330, 610), (520, 800), (500, 610)),
-        ((500, 610), (485, 500), (540, 480), SPITZE),
-    ]
+def kreis(mitte, radius, farbe):
+    cx, cy = mitte
+    for y in range(int(cy - radius - 2), int(cy + radius + 3)):
+        for x in range(int(cx - radius - 2), int(cx + radius + 3)):
+            if 0 <= x < GROESSE and 0 <= y < GROESSE:
+                d = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
+                setzen(y * GROESSE + x, farbe, radius - d + 0.5)
+
+
+def konvex_abstand(px, py, ecken):
+    """Vorzeichenbehafteter Abstand zu einem konvexen Vieleck (innen < 0)."""
+    flaeche = 0
+    for (ax, ay), (bx, by) in zip(ecken, ecken[1:] + ecken[:1]):
+        flaeche += ax * by - bx * ay
+    richtung = 1 if flaeche > 0 else -1
+    best = -1e9
+    for (ax, ay), (bx, by) in zip(ecken, ecken[1:] + ecken[:1]):
+        nx, ny = (by - ay), -(bx - ax)
+        laenge = math.hypot(nx, ny) or 1
+        best = max(best, richtung * ((px - ax) * nx + (py - ay) * ny) / laenge)
+    return best
+
+
+def vielecke(stuecke, farbe):
+    """Vereinigung konvexer Stücke, EINMAL eingefärbt — so bleibt an den
+    gemeinsamen Kanten keine helle Naht."""
+    xs = [p[0] for s in stuecke for p in s]
+    ys = [p[1] for s in stuecke for p in s]
+    for y in range(max(0, int(min(ys)) - 2), min(GROESSE, int(max(ys)) + 3)):
+        for x in range(max(0, int(min(xs)) - 2), min(GROESSE, int(max(xs)) + 3)):
+            d = min(konvex_abstand(x + 0.5, y + 0.5, s) for s in stuecke)
+            if d > 1:
+                continue
+            if d < -1:
+                setzen(y * GROESSE + x, farbe, 1)
+                continue
+            # An der Kante 4x4 Proben: Ein Abstand würde an einer INNEREN
+            # Naht zweier Stücke auf null stehen und dort eine Linie malen.
+            treffer = sum(
+                1 for a in range(4) for b in range(4)
+                if any(konvex_abstand(x + (a + 0.5) / 4, y + (b + 0.5) / 4, s) <= 0 for s in stuecke)
+            )
+            setzen(y * GROESSE + x, farbe, treffer / 16)
+
+
+def spur(punkte, radius, farbe):
+    naechst = {}
+    for (px, py) in punkte:
+        for y in range(int(py - radius - 2), int(py + radius + 3)):
+            for x in range(int(px - radius - 2), int(px + radius + 3)):
+                if 0 <= x < GROESSE and 0 <= y < GROESSE:
+                    d = math.hypot(x + 0.5 - px, y + 0.5 - py)
+                    i = y * GROESSE + x
+                    if d < naechst.get(i, 1e9):
+                        naechst[i] = d
+    for i, d in naechst.items():
+        setzen(i, farbe, radius - d + 0.5)
+
+
+def bezier(stuecke, schritte=400):
     punkte = []
     for p0, p1, p2, p3 in stuecke:
-        for i in range(140):
-            t = i / 140
+        for n in range(schritte):
+            t = n / schritte
             u = 1 - t
             punkte.append((
                 u**3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t**3 * p3[0],
@@ -68,75 +166,59 @@ def kurve():
     return punkte
 
 
-def abstand(px, py, linie):
-    best = 1e18
-    for (ax, ay), (bx, by) in zip(linie, linie[1:]):
-        dx, dy = bx - ax, by - ay
-        l2 = dx * dx + dy * dy
-        t = 0 if l2 == 0 else max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / l2))
-        d = (px - ax - t * dx) ** 2 + (py - ay - t * dy) ** 2
-        best = min(best, d)
-    return math.sqrt(best)
+def feder(spitze):
+    """Füllfeder, Spitze unten links, Achse 45 Grad nach oben rechts."""
+    sx, sy = spitze
+    w = math.radians(45)
+    c, s = math.cos(w), math.sin(w)
 
+    def T(punkte):
+        return [(sx + x * c + y * s, sy - x * s + y * c) for x, y in punkte]
 
-def deckung(d, radius):
-    return max(0.0, min(1.0, radius - d + 0.5))
-
-
-def stift(x, y):
-    """Abstand zum Stift und die Stelle entlang seiner Achse (0 = Spitze).
-
-    Der Stift liegt schräg nach rechts oben, die Spitze sitzt am Ende des
-    Weges. Gerechnet als Radius, der sich entlang der Achse ändert: Kegel an
-    der Spitze, gerader Schaft, runde Kappe.
-    """
-    ax, ay = math.cos(WINKEL), -math.sin(WINKEL)
-    dx, dy = x - SPITZE[0], y - SPITZE[1]
-    t = dx * ax + dy * ay
-    quer = abs(-dx * ay + dy * ax)
-    radius = 46
-    if t < 0:
-        return math.hypot(dx, dy), t
-    if t < 90:
-        r = radius * t / 90
-    elif t < LAENGE - radius:
-        r = radius
-    elif t <= LAENGE:
-        r = math.sqrt(max(0.0, radius * radius - (t - (LAENGE - radius)) ** 2))
-    else:
-        return 1e9, t
-    return quer - r, t
+    L, Bt = 300, 140
+    vielecke([T([(-18, 0), (L * 0.55, -Bt * 0.5 - 15), (L + 135, -Bt * 0.62 - 15),
+                 (L + 135, Bt * 0.62 + 15), (L * 0.55, Bt * 0.5 + 15)])], WEISS)
+    vielecke([T([(0, 0), (L * 0.55, -Bt * 0.5), (L * 0.85, -Bt * 0.5), (L, -Bt * 0.35),
+                 (L, Bt * 0.35), (L * 0.85, Bt * 0.5), (L * 0.55, Bt * 0.5)])], FEDER)
+    schlitz = T([(8 + i, 0) for i in range(0, int(L * 0.62) - 8)])
+    spur(schlitz, 5, WEISS)
+    kreis(T([(L * 0.62, 0)])[0], 20, WEISS)
+    vielecke([T([(L, -Bt * 0.62), (L + 120, -Bt * 0.62), (L + 120, Bt * 0.62), (L, Bt * 0.62)])], HALTER)
+    vielecke([T([(L + 30, -Bt * 0.62), (L + 60, -Bt * 0.62), (L + 60, Bt * 0.62), (L + 30, Bt * 0.62)])], RING)
 
 
 def main():
-    linie = kurve()
+    grund()
+    kreis((215, 200), 80, SONNE)
+    # Großer Berg samt Schneekappe (Kappe als Vereinigung konvexer Stücke)
+    vielecke([[(80, 470), (260, 250), (440, 470)]], BERG_DUNKEL)
+    vielecke([[(260, 250), (236, 300), (260, 320), (284, 300)],
+              [(260, 250), (212, 309), (236, 300)],
+              [(260, 250), (284, 300), (308, 309)]], SCHNEE)
+    vielecke([[(300, 470), (430, 320), (560, 470)]], BERG_HELL)
+    vielecke([[(430, 320), (398, 357), (430, 350)],
+              [(430, 320), (430, 350), (462, 357)]], SCHNEE)
+    # Das Meer liegt vor den Bergfüßen: noch einmal übermalen.
+    for y in range(HORIZONT, KUESTE - 20):
+        farbe = mischen(MEER_OBEN, MEER_UNTEN, y / GROESSE)
+        for x in range(GROESSE):
+            i = y * GROESSE + x
+            R[i], G[i], B[i] = farbe
+
+    linie = bezier([((180, 870), (260, 740), (420, 900), (440, 760)),
+                    ((440, 760), (455, 650), (330, 640), (380, 580)),
+                    ((380, 580), (420, 530), (470, 560), (500, 500))])
+    spur(linie, 13, TINTE)
+    kreis((180, 870), 34, TINTE)
+    kreis((180, 870), 16, SAND_OBEN)
+    feder((500, 500))
+
     zeilen = []
     for y in range(GROESSE):
         zeile = bytearray([0])
         for x in range(GROESSE):
-            farbe = verlauf(x, y)
-            if 150 <= x <= 880 and 110 <= y <= 880:
-                d = abstand(x, y, linie)
-                start = math.hypot(x - 230, y - 820)
-                s_d, t = stift(x, y)
-                kontur = max(deckung(d, 44), deckung(start, 62), deckung(s_d, 12))
-                farbe = mischen(farbe, KONTUR, kontur * 0.45)
-                farbe = mischen(farbe, WEISS, max(deckung(d, 30), deckung(start, 48)))
-                farbe = mischen(farbe, SONNE, deckung(start, 26))
-                innen = deckung(s_d, 0)
-                if innen > 0:
-                    if t < 34:
-                        teil = MINE
-                    elif t < 90:
-                        teil = HOLZ
-                    elif LAENGE - 110 < t < LAENGE - 76:
-                        teil = BAND
-                    elif t > LAENGE - 60:
-                        teil = KAPPE
-                    else:
-                        teil = WEISS
-                    farbe = mischen(farbe, teil, innen)
-            zeile += bytes(int(round(c)) for c in farbe)
+            i = y * GROESSE + x
+            zeile += bytes((int(round(R[i])), int(round(G[i])), int(round(B[i]))))
         zeilen.append(bytes(zeile))
     roh = zlib.compress(b"".join(zeilen), 9)
 

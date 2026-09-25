@@ -10472,7 +10472,7 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -10519,8 +10519,15 @@ Befunde, und keiner davon war Geschmack:
   Holen noch nicht vorbei war, heißt „Vorhersage" und wird nachgeholt.
   **WeatherKit bewusst nicht**: braucht eine Fähigkeit an der App-Id (Lehre
   aus dem Reisebuch 1.0.44).
-- Das App-Symbol rechnet `FernwehiOS/scripts/make-icon.py` — seit 1.0.1 ein
-  Stift, der die Reisespur zeichnet („Reise erkenne ich, Tagebuch nicht").
+- Das App-Symbol rechnet `FernwehiOS/scripts/make-icon.py` — seit 1.0.4
+  (Wahl des Nutzers aus fünf Entwürfen) eine Landschaft: Himmel mit Sonne und
+  zwei Bergen, ein Streifen Meer, Sand, darauf eine Füllfeder mit dünner
+  Tintenspur. Orange und Blau („Sand und Sonne, Himmel und Meer"), die Berge,
+  weil nicht jede Reise ans Meer geht. **Keine dicke weiße Wellenlinie** —
+  das ist die Form des Routenplaner-Symbols, und genau daran sah der Stift
+  aus 1.0.1 ihm zu ähnlich. Zusammengesetzte Flächen (Schneekappen) werden
+  an der Kante abgetastet, nicht über den Abstand geglättet: Ein Abstand
+  steht an der inneren Naht zweier Stücke auf null und malt dort eine Linie.
 - Übersetzt wird in GitHub Actions (Eintrag `("FernwehiOS", "Fernweh")` in
   `welche-apps.py`). **Erst pushen, Bau abwarten, Fehler beheben — den
   PR-Link erst herausgeben, wenn der Bau grün ist.** Ein grüner Bau beweist
