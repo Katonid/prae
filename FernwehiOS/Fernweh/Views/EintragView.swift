@@ -40,6 +40,7 @@ struct EintragView: View {
                     TabView {
                         ForEach(Array(fotos.enumerated()), id: \.offset) { nummer, foto in
                             FotoBild(foto: foto, kante: 1400)
+                                .overlay(alignment: .topTrailing) { VollbildHinweis() }
                                 .onTapGesture { vollbild = nummer }
                         }
                     }
@@ -160,38 +161,5 @@ struct EintragView: View {
     private struct Nummer: Identifiable {
         let wert: Int
         var id: Int { wert }
-    }
-}
-
-/// Fotos im Vollbild, zum Durchwischen.
-struct Bildbetrachter: View {
-    let fotos: [Foto]
-    let start: Int
-    @Environment(\.dismiss) private var schliessen
-    @State private var seite = 0
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Color.black.ignoresSafeArea()
-            TabView(selection: $seite) {
-                ForEach(Array(fotos.enumerated()), id: \.offset) { nummer, foto in
-                    FotoBild(foto: foto, kante: 2048, fuellen: false)
-                        .background(Color.black)
-                        .tag(nummer)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .ignoresSafeArea()
-            Button { schliessen() } label: {
-                Image(systemName: "xmark")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(.ultraThinMaterial, in: Circle())
-            }
-            .padding()
-        }
-        .onAppear { seite = start }
-        .preferredColorScheme(.dark)
     }
 }

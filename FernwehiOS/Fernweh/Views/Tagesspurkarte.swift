@@ -203,7 +203,7 @@ struct Tagesspurleiste: View {
 }
 
 /// Das kleine Zeichen oben rechts: Diese Karte lässt sich vergrößern.
-private struct VollbildHinweis: View {
+struct VollbildHinweis: View {
     var body: some View {
         Image(systemName: "arrow.up.left.and.arrow.down.right")
             .font(.caption.weight(.bold))
