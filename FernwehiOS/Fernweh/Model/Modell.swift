@@ -118,6 +118,9 @@ enum Modell {
             // (IANA-Name, z. B. „America/Toronto"). Leer heißt: unbekannt,
             // dann gilt die des Geräts wie bis 1.0.5.
             attribut("zeitzone", .stringAttributeType, vorgabe: ""),
+            // ab 1.0.7 — der Name des Tagebuchs, in dem der Eintrag steht
+            // (aus Day One übernommen oder selbst vergeben). Leer: keins.
+            attribut("tagebuch", .stringAttributeType, vorgabe: ""),
             eintragReise,
             eintragFotos,
         ]
@@ -269,6 +272,7 @@ final class Eintrag: NSManagedObject {
     @NSManaged var geaendert: Date?
     @NSManaged var wetter: String?
     @NSManaged var zeitzone: String?
+    @NSManaged var tagebuch: String?
     @NSManaged var reise: Reise?
     @NSManaged var fotos: NSSet?
 
@@ -292,6 +296,12 @@ final class Eintrag: NSManagedObject {
 
     /// Der Tag als Datum auf DIESEM Gerät — zum Anzeigen und Einsortieren.
     var tagDatum: Date? { tagSchluessel.flatMap(Tag.datum(schluessel:)) }
+
+    /// Der Tagebuchname, getrimmt — `nil`, wenn keiner vergeben ist.
+    var tagebuchName: String? {
+        let t = (tagebuch ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
 
     var tageswetter: Tageswetter? {
         get { Tageswetter.lesen(wetter) }

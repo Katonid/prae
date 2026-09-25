@@ -21,6 +21,10 @@ struct EintragEditor: View {
     let tag: Date?
 
     @FetchRequest(fetchRequest: Reise.alle()) private var reisen: FetchedResults<Reise>
+    @FetchRequest(fetchRequest: TagebuchView.alleEintraege()) private var alleEintraege: FetchedResults<Eintrag>
+    @State private var tagebuch = ""
+    @State private var neuesTagebuch = false
+    @State private var neuerName = ""
     @State private var zielReise: Reise?
 
     @Environment(\.dismiss) private var schliessen
@@ -86,6 +90,7 @@ struct EintragEditor: View {
                 VStack(alignment: .leading, spacing: 22) {
                     titelFeld
                     zielBlock
+                    tagebuchBlock
                     orteLeiste
                     wetterBlock
                     textFeld
@@ -141,7 +146,7 @@ struct EintragEditor: View {
                     Button {
                         zielReise = nil
                         zielVonHand = true
-                    } label: { Label("Nur mein Tagebuch", systemImage: "lock.fill") }
+                    } label: { Label("Nur für mich", systemImage: "lock.fill") }
                     ForEach(moeglicheReisen, id: \.objectID) { r in
                         Button {
                             zielReise = r
@@ -164,13 +169,52 @@ struct EintragEditor: View {
         }
     }
 
+    // MARK: - Tagebuch (ab 1.0.7)
+
+    /// Die Namen, die es schon gibt — aus Day One übernommen oder selbst
+    /// vergeben. Eine eigene Liste gibt es nicht: Ein Tagebuch existiert,
+    /// solange ein Eintrag seinen Namen trägt.
+    private var tagebuchNamen: [String] {
+        Set(alleEintraege.compactMap(\.tagebuchName)).sorted()
+    }
+
+    @ViewBuilder
+    private var tagebuchBlock: some View {
+            Menu {
+                Button { tagebuch = "" } label: { Label("Kein Tagebuch", systemImage: "minus.circle") }
+                ForEach(tagebuchNamen, id: \.self) { n in
+                    Button { tagebuch = n } label: { Label(n, systemImage: "book.closed.fill") }
+                }
+                Button { neuerName = ""; neuesTagebuch = true } label: { Label("Neues Tagebuch …", systemImage: "plus") }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "book.closed.fill")
+                    Text(tagebuch.isEmpty ? "Kein Tagebuch" : tagebuch).lineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down").font(.caption2)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(palette.haupt)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(palette.hell.opacity(0.16), in: Capsule())
+            }
+            .alert("Neues Tagebuch", isPresented: $neuesTagebuch) {
+                TextField("Name", text: $neuerName)
+                Button("Abbrechen", role: .cancel) {}
+                Button("Übernehmen") {
+                    let n = neuerName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !n.isEmpty { tagebuch = n }
+                }
+            }
+    }
+
     private func zielZeile(geteilt: Bool, pfeil: Bool) -> some View {
         HStack(spacing: 8) {
             if let r = zielReise {
                 Reisesymbol.mitTitel(r.emoji, r.anzeigeTitel).lineLimit(1)
                 if geteilt { Image(systemName: "person.2.fill").font(.caption) }
             } else {
-                Label("Nur mein Tagebuch", systemImage: "lock.fill")
+                Label("Nur für mich", systemImage: "lock.fill")
             }
             if pfeil { Image(systemName: "chevron.up.chevron.down").font(.caption2) }
         }
@@ -581,7 +625,7 @@ struct EintragEditor: View {
         guard !vorbereitet else { return }
         vorbereitet = true
         zielReise = eintrag?.reise ?? vorgabe
-        if let eintrag { zone = eintrag.zone }
+        if let eintrag { zone = eintrag.zone; tagebuch = eintrag.tagebuchName ?? "" }
         if let eintrag {
             datum = eintrag.datum ?? Date()
             titel = eintrag.titel ?? ""
@@ -648,6 +692,7 @@ struct EintragEditor: View {
         ziel.titel = titel.trimmingCharacters(in: .whitespacesAndNewlines)
         ziel.text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         ziel.ortListe = gewaehlteOrte
+        ziel.tagebuch = tagebuch
         ziel.geaendert = Date()
         if let ort {
             ziel.breite = ort.breite

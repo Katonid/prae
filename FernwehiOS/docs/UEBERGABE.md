@@ -67,6 +67,7 @@ Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`.
           "zeitpunkt": "2027-08-03T21:14:00+01:00",
           "uhrzeit": "21:14",
           "zeitzone": "Europe/Lisbon",
+          "tagebuch": "Nadine",            // ab Fernweh 1.0.7, fehlt wenn keins
           "titel": "Lissabon",
           "text": "Fließtext, Absätze mit \n",
           "autor": "Name aus den Einstellungen",

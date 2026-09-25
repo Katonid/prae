@@ -10536,6 +10536,15 @@ Befunde, und keiner davon war Geschmack:
   Tagebuchnamen aus Day One gehen verloren (es gibt kein Feld dafür).
   **Nicht an einem echten Export gemessen** — der Aufbau ist nach Kenntnis
   des Formats gebaut; stimmt ein Feld nicht, sagt es der erste Import.
+- **Tagebücher als Feld** (Attribut `tagebuch`, ab 1.0.7 — **Schema-Deploy
+  nötig**; Ansage des Nutzers 09/2026: die Namen der Day-One-Tagebücher
+  sicher behalten). Der Import setzt ihn; schon eingelesene Einträge bekommen
+  ihn beim erneuten Einlesen desselben Archivs nachgetragen. Eine eigene Liste
+  der Tagebücher gibt es nicht — eines existiert, solange ein Eintrag seinen
+  Namen trägt; im Editor wählbar (samt „Neues Tagebuch …"), im Reiter
+  „Tagebuch" filterbar. Die Wahl „privat oder in die Reise" heißt deshalb
+  seither „Nur für mich" — zweimal „Tagebuch" für zwei Dinge wäre eines zu
+  viel. Tagebuch und Reise sind unabhängig voneinander.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

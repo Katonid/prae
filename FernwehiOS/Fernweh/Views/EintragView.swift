@@ -37,6 +37,11 @@ struct EintragView: View {
                     }
                     Text(eintrag.anzeigeTitel)
                         .font(Stil.titel(30))
+                    if let buch = eintrag.tagebuchName {
+                        Label(buch, systemImage: "book.closed.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(palette.haupt)
+                    }
                     if let ort = eintrag.ortsname, !ort.isEmpty, ort != eintrag.anzeigeTitel {
                         Label(ort, systemImage: "mappin.and.ellipse")
                             .font(.subheadline)

@@ -115,7 +115,7 @@ struct DayOneView: View {
             }
             .disabled(auswahl.isEmpty)
         } footer: {
-            Text("Schon übernommene Einträge werden erkannt und übersprungen — dasselbe Archiv zweimal einzulesen schadet nicht.")
+            Text("Jeder Eintrag behält den Namen seines Day-One-Tagebuchs. Schon übernommene Einträge werden erkannt und übersprungen — fehlt ihnen der Tagebuchname, wird er dabei nachgetragen.")
         }
     }
 
@@ -123,6 +123,7 @@ struct DayOneView: View {
         Section {
             LabeledContent("Neu im Tagebuch", value: "\(b.neu)")
             if b.schonDa > 0 { LabeledContent("Schon vorhanden, übersprungen", value: "\(b.schonDa)") }
+            if b.nachgetragen > 0 { LabeledContent("Tagebuchname nachgetragen", value: "\(b.nachgetragen)") }
             LabeledContent("Fotos", value: "\(b.fotos)")
             if b.fotosFehlen > 0 {
                 LabeledContent("Fotos ohne Datei im Archiv", value: "\(b.fotosFehlen)").foregroundStyle(.orange)

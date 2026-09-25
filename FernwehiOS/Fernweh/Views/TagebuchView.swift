@@ -25,11 +25,15 @@ struct TagebuchView: View {
     @State private var schreiben: SchreibWunsch?
     @State private var einstellungen = false
     @State private var pfad = NavigationPath()
+    /// Nur ein Tagebuch zeigen (ab 1.0.7). `nil`: alle; "" : ohne Tagebuch.
+    @State private var nurTagebuch: String?
 
     struct SchreibWunsch: Identifiable {
         let id = UUID()
         let tag: Date?
     }
+
+    private var tagebuchNamen: [String] { Set(eintraege.compactMap(\.tagebuchName)).sorted() }
 
     static func alleEintraege() -> NSFetchRequest<Eintrag> {
         let anfrage = NSFetchRequest<Eintrag>(entityName: "Eintrag")
@@ -87,6 +91,19 @@ struct TagebuchView: View {
                     Button { einstellungen = true } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("Einstellungen")
                 }
+                if !tagebuchNamen.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button { nurTagebuch = nil } label: { Label("Alle Einträge", systemImage: nurTagebuch == nil ? "checkmark" : "books.vertical") }
+                            ForEach(tagebuchNamen, id: \.self) { n in
+                                Button { nurTagebuch = n } label: { Label(n, systemImage: nurTagebuch == n ? "checkmark" : "book.closed") }
+                            }
+                            Button { nurTagebuch = "" } label: { Label("Ohne Tagebuch", systemImage: nurTagebuch == "" ? "checkmark" : "minus.circle") }
+                        } label: {
+                            Label(nurTagebuch.map { $0.isEmpty ? "Ohne Tagebuch" : $0 } ?? "Alle", systemImage: "line.3.horizontal.decrease.circle")
+                        }
+                    }
+                }
             }
             .overlay(alignment: .bottomTrailing) {
                 Button { schreiben = SchreibWunsch(tag: nil) } label: {
@@ -105,14 +122,20 @@ struct TagebuchView: View {
             }
             .sheet(isPresented: $einstellungen) { EinstellungenView() }
             .refreshable { aufzeichner.uebertragen() }
-            .task(id: stand) { kapitel = Self.gliedern(Array(eintraege), reisen: Array(reisen)) }
+            .task(id: stand + "|" + (nurTagebuch ?? "*")) {
+                let gezeigt = Array(eintraege).filter { e in
+                    guard let nur = nurTagebuch else { return true }
+                    return (e.tagebuchName ?? "") == nur
+                }
+                kapitel = Self.gliedern(gezeigt, reisen: Array(reisen))
+            }
         }
     }
 
     /// Ändert sich, wenn sich an Einträgen oder Reisen etwas ändert, das die
     /// Gliederung betrifft.
     private var stand: String {
-        let e = eintraege.map { "\($0.objectID.uriRepresentation().lastPathComponent)\($0.datum?.timeIntervalSince1970 ?? 0)\($0.zeitzone ?? "")\($0.reise?.objectID.uriRepresentation().lastPathComponent ?? "")" }
+        let e = eintraege.map { "\($0.objectID.uriRepresentation().lastPathComponent)\($0.datum?.timeIntervalSince1970 ?? 0)\($0.zeitzone ?? "")\($0.tagebuch ?? "")\($0.reise?.objectID.uriRepresentation().lastPathComponent ?? "")" }
         let r = reisen.map { "\($0.beginn?.timeIntervalSince1970 ?? 0)\($0.ende?.timeIntervalSince1970 ?? 0)" }
         return e.joined() + "|" + r.joined()
     }
