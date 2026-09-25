@@ -87,8 +87,15 @@ final class Aufzeichner: NSObject, ObservableObject {
         }
     }
 
+    /// Öffnet die Einstellungen dieser App, wo „Genauer Standort“ dauerhaft
+    /// eingeschaltet wird. Die vorübergehende Freigabe bräuchte den Schlüssel
+    /// NSLocationTemporaryUsageDescriptionDictionary in der Info.plist — und der
+    /// ist seit 1.0.3 draußen, weil Xcode 27 beim Öffnen des Projekts abstürzte.
+    /// Für eine Reisespur ist die dauerhafte Freigabe ohnehin die richtige:
+    /// Die vorübergehende gilt nur bis zum Verlassen der App.
     func genauAnfragen() {
-        manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: "Reisespur")
+        guard let adresse = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(adresse)
     }
 
     // MARK: - Steuerung

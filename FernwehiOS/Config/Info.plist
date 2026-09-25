@@ -20,11 +20,11 @@
 	<key>CKSharingSupported</key>
 	<true/>
 
-	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
-	<dict>
-		<key>Reisespur</key>
-		<string>Mit der ungefähren Ortung liegt jeder Punkt der Reisespur mehrere hundert Meter daneben. Für die Spur braucht die App den genauen Standort.</string>
-	</dict>
+	<!-- KEIN NSLocationTemporaryUsageDescriptionDictionary (ab 1.0.3): Xcode 27
+	     stürzte beim Öffnen des Reiters „General“ ab, und dieser Eintrag war der
+	     einzige Wörterbuch-Wert, den Fernweh anders als die Apps hat, die sich
+	     öffnen lassen. Der genaue Standort wird stattdessen in den Einstellungen
+	     der App dauerhaft eingeschaltet (Aufzeichner.genauAnfragen). -->
 
 	<!-- Die Texte der Berechtigungsabfragen stehen als Build-Einstellung
 	     (INFOPLIST_KEY_…) im pbxproj, nicht hier. Standen sie hier, wollte
