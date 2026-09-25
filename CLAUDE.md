@@ -10521,7 +10521,7 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -10594,6 +10594,27 @@ Befunde, und keiner davon war Geschmack:
   „Tagebuch" filterbar. Die Wahl „privat oder in die Reise" heißt deshalb
   seither „Nur für mich" — zweimal „Tagebuch" für zwei Dinge wäre eines zu
   viel. Tagebuch und Reise sind unabhängig voneinander.
+- **Das Tagebuch liest sich wie ein Heft** (ab 1.0.8, Ansage des Nutzers
+  09/2026: „Ich möchte, dass neue Einträge unten angefügt werden … soll die App
+  direkt beim Aufruf an das untere Ende der Einträge springen."). Sortiert wird
+  AUFSTEIGEND (`TagebuchView.alleEintraege`, `gliedern`), „Was hast du heute
+  erlebt?" steht unten, und die Ansicht springt ans Ende (`springen`): beim
+  ersten Öffnen, nach einem Wechsel des Tagebuchs und wenn ein Eintrag
+  dazukommt — NICHT bei jeder Rückkehr aus einem Eintrag, sonst verlöre man
+  beim Zurückblättern jedes Mal die Stelle.
+- **Tagebücher haben eine Farbe** (Entität `Buch`, `Model/Tagebuecher.swift`,
+  `Views/TagebuecherView.swift`, ab 1.0.8 — **Schema-Deploy nötig**, neuer
+  Record-Typ). Ein Tagebuch bleibt der NAME am Eintrag; `Buch` sagt nur, welche
+  Farbe dieser Name hat, liegt im PRIVATEN Speicher und wird über den Namen
+  zugeordnet (eine Beziehung ginge über zwei Speicher). Ohne eigene Wahl kommt
+  die Farbe aus den BYTES des Namens, nie aus `hashValue`. Zwei Geräte mit
+  demselben Namen: der zuletzt geänderte Datensatz gilt, `setzen` räumt Doppel
+  weg. **Farben immer über `Buecherei.shared` nachschlagen**, nie selbst
+  rechnen. Die Übersicht (Knopf oben rechts im Reiter „Tagebuch") ersetzt das
+  Filtermenü aus 1.0.7: Zahl, Zeitraum, Tipp zeigt nur dieses Tagebuch, Pinsel
+  ändert Farbe und Namen. Umbenennen legt bei gleichem Namen zusammen;
+  Einträge in Reisen, die ich nur lese, behalten den alten Namen, und das wird
+  gesagt. Die Farbe steht als Streifen an jeder Eintragskarte.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
