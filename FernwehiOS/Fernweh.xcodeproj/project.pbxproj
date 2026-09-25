@@ -250,7 +250,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/Fernweh.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -259,6 +259,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Mit „Immer“ zeichnet Fernweh die Reisespur eines Urlaubstages auch dann auf, wenn das iPhone in der Tasche liegt — und nimmt sie wieder auf, nachdem iOS die App beendet hat. Aufgezeichnet wird nur, solange eine Reise läuft und die Aufzeichnung eingeschaltet ist.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Damit sich ein Tagebuch mit Passwort auf Wunsch auch mit Face ID öffnen lässt.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Damit ein neuer Tagebucheintrag den Ort bekommt, an dem du gerade bist, und damit sich die Reisespur aufzeichnen lässt.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Damit du deinen Tagebuchtext diktieren kannst. Aus der Aufnahme wird Text; die Aufnahme selbst wird nicht gespeichert.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Damit dir zu jedem Reisetag die Fotos dieses Tages zur Auswahl angeboten werden — und damit ein Foto, das du später in der Fotos-App bearbeitest, auch im Tagebuch bearbeitet erscheint.";
@@ -273,7 +274,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.9;
+				MARKETING_VERSION = 1.0.10;
 				PRODUCT_BUNDLE_IDENTIFIER = de.familie.fernweh;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -289,7 +290,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Config/Fernweh-Release.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -298,6 +299,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Mit „Immer“ zeichnet Fernweh die Reisespur eines Urlaubstages auch dann auf, wenn das iPhone in der Tasche liegt — und nimmt sie wieder auf, nachdem iOS die App beendet hat. Aufgezeichnet wird nur, solange eine Reise läuft und die Aufzeichnung eingeschaltet ist.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Damit sich ein Tagebuch mit Passwort auf Wunsch auch mit Face ID öffnen lässt.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Damit ein neuer Tagebucheintrag den Ort bekommt, an dem du gerade bist, und damit sich die Reisespur aufzeichnen lässt.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Damit du deinen Tagebuchtext diktieren kannst. Aus der Aufnahme wird Text; die Aufnahme selbst wird nicht gespeichert.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Damit dir zu jedem Reisetag die Fotos dieses Tages zur Auswahl angeboten werden — und damit ein Foto, das du später in der Fotos-App bearbeitest, auch im Tagebuch bearbeitet erscheint.";
@@ -312,7 +314,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.9;
+				MARKETING_VERSION = 1.0.10;
 				PRODUCT_BUNDLE_IDENTIFIER = de.familie.fernweh;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

@@ -188,7 +188,12 @@ struct EintragEditor: View {
             Menu {
                 Button { tagebuch = "" } label: { Label("Kein Tagebuch", systemImage: "minus.circle") }
                 ForEach(tagebuchNamen, id: \.self) { n in
-                    Button { tagebuch = n } label: { Label(n, systemImage: "book.closed.fill") }
+                    // Ein Tagebuch mit Passwort trägt sein Schloss auch hier
+                    // (ab 1.0.10): Wer hineinschreibt, während es zu ist, sieht
+                    // den Eintrag danach nur als gesperrte Karte.
+                    Button { tagebuch = n } label: {
+                        Label(n, systemImage: buecherei.istGeschuetzt(n) ? "lock.fill" : "book.closed.fill")
+                    }
                 }
                 Button { neuerName = ""; neuesTagebuch = true } label: { Label("Neues Tagebuch …", systemImage: "plus") }
             } label: {

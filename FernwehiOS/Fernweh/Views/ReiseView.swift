@@ -392,12 +392,7 @@ private struct TagAbschnitt: View {
             }
 
             ForEach(eintraege) { eintrag in
-                NavigationLink {
-                    EintragView(eintrag: eintrag, palette: reise.palette)
-                } label: {
-                    EintragKarte(eintrag: eintrag, palette: reise.palette)
-                }
-                .buttonStyle(.plain)
+                EintragVerweis(eintrag: eintrag, palette: reise.palette)
             }
 
             if darf && eintraege.isEmpty {

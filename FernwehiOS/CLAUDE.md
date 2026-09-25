@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -154,6 +154,29 @@
   dazukommendes Tagebuch — etwa aus einem Day-One-Import — wäre sonst still
   unsichtbar. "" steht für „ohne Tagebuch". Ist genau ein benanntes Tagebuch
   gezeigt, landet ein neuer Eintrag darin; sonst wird nichts vorbelegt.
+- **Tagebücher mit Passwort** (`Model/Schloss.swift`, `Views/Schlossansichten.swift`,
+  ab 1.0.10 — **Schema-Deploy nötig**, neue Felder `schloss` und
+  `schlossBiometrie` am `Buch`; Ansage des Nutzers 09/2026: „Ich möchte
+  einzelne Tagebücher mit einem Passwort sichern können.“). Gespeichert wird
+  nie das Passwort, sondern PBKDF2-SHA256 (100 000 Runden, eigenes Salz); es
+  reist mit dem `Buch` über iCloud und gilt auf allen eigenen Geräten.
+  **Nicht wiederherstellbar**, und das steht beim Vergeben da. **Ein Schloss
+  in der App, keine Verschlüsselung** — und es gilt nur für mich: Einträge
+  des Tagebuchs in einer geteilten Reise lesen Miturlauber trotzdem. Beides
+  steht so in der Oberfläche; nie als „verschlüsselt“ darstellen.
+  Gesperrt heißt: `EintragVerweis` zeigt eine verschlossene Karte (nur
+  Tagebuch und Uhrzeit — kein Titel, Text, Foto, Ort), die Karte der Reise
+  lässt die Nadel weg, die Übergabe ans Reisebuch lässt den Eintrag aus und
+  sagt es, und `Reise.erstesFoto` nimmt aus geschützten Tagebüchern nie das
+  Titelbild (auch offen nicht, sonst wechselte es beim Öffnen). **Wer eine
+  neue Stelle baut, die Einträge zeigt, fragt `Buecherei.istGesperrt`.**
+  Offen ist ein Tagebuch nur im Speicher dieses Geräts und nur bis zum
+  Wechsel in den Hintergrund (`alleSperren` in `FernwehApp`). Face ID ist je
+  Tagebuch zuschaltbar, aus als Vorgabe, und bewusst NUR Biometrie — den
+  Gerätecode eines Familien-iPads kennen oft andere. Wer den Pinsel an einem
+  gesperrten Tagebuch tippt, muss es erst öffnen, sonst ließe sich über
+  „Passwort entfernen“ jedes Schloss abnehmen. `NSFaceIDUsageDescription`
+  steht als Build-Einstellung, nicht in der Info.plist (Lehre aus 1.0.2).
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

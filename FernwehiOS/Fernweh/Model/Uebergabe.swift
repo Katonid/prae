@@ -152,6 +152,8 @@ enum Uebergabebau {
         let eintraege: Int
         let fotos: Int
         let fehlend: Int
+        /// Einträge aus gesperrten Tagebüchern, die NICHT mitgegangen sind.
+        let gesperrt: Int
     }
 
     enum Fehler: LocalizedError {
@@ -196,9 +198,11 @@ enum Uebergabebau {
 
         let zip = try ZipSchreiber(ziel: ziel)
         var tage: [Uebergabe.TagTeil] = []
-        var eintragZahl = 0, fotoZahl = 0, fehlend = 0
+        var eintragZahl = 0, fotoZahl = 0, fehlend = 0, gesperrt = 0
 
-        let alleFotos = reise.eintragListe.flatMap(\.fotoListe)
+        let alleFotos = reise.eintragListe
+            .filter { !Buecherei.shared.istGesperrt($0.tagebuchName) }
+            .flatMap(\.fotoListe)
         let gesamt = wunsch.fotos == .keine ? 0 : alleFotos.count
         var fertig = 0
 
@@ -208,7 +212,12 @@ enum Uebergabebau {
         if wunsch.spur { for s in reise.spurListe { if let t = s.tag, !t.isEmpty { schluessel.insert(t) } } }
 
         for tagSchluessel in schluessel.sorted() {
-            let eintraege = reise.eintragListe.filter { $0.tagSchluessel == tagSchluessel }
+            // Ein gesperrtes Tagebuch geht nicht mit (ab 1.0.10): Die Datei
+            // verlässt die App, und dort hilft kein Schloss mehr. Wer es
+            // mitnehmen will, öffnet es vorher.
+            let alle = reise.eintragListe.filter { $0.tagSchluessel == tagSchluessel }
+            let eintraege = alle.filter { !Buecherei.shared.istGesperrt($0.tagebuchName) }
+            gesperrt += alle.count - eintraege.count
             var teile: [Uebergabe.EintragTeil] = []
             for e in eintraege {
                 var fotos: [Uebergabe.FotoTeil] = []
@@ -293,7 +302,7 @@ enum Uebergabebau {
         // sofort: Ein ZIP-Leser beginnt beim Verzeichnis am Ende.
         try zip.hinzufuegen("uebergabe.json", daten: try kodierer.encode(inhalt))
         try zip.abschliessen()
-        return Ergebnis(datei: ziel, eintraege: eintragZahl, fotos: fotoZahl, fehlend: fehlend)
+        return Ergebnis(datei: ziel, eintraege: eintragZahl, fotos: fotoZahl, fehlend: fehlend, gesperrt: gesperrt)
     }
 
     /// Das Bild: als Original aus der Mediathek (samt EXIF — Datum und Ort
