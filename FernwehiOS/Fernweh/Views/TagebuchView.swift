@@ -31,6 +31,7 @@ struct TagebuchView: View {
     /// jemand so gewollt hat. "" steht für „ohne Tagebuch“. Je Gerät.
     @AppStorage("ausgeblendeteTagebuecher") private var ausgeblendetText = ""
     @State private var tagebuecherZeigen = false
+    @State private var sucheZeigen = false
     @ObservedObject private var buecherei = Buecherei.shared
     /// Ans Ende springen, sobald die Gliederung steht (ab 1.0.8): beim ersten
     /// Öffnen, nach einem Wechsel des Tagebuchs und wenn ein Eintrag dazukommt.
@@ -124,6 +125,12 @@ struct TagebuchView: View {
                         .accessibilityLabel("Einstellungen")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    // Suche über alle Tagebücher und Reisen (ab 1.0.11).
+                    Button { sucheZeigen = true } label: {
+                        Label("Suchen", systemImage: "magnifyingglass")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button { tagebuecherZeigen = true } label: {
                         Label("Tagebücher", systemImage: "books.vertical.fill")
                     }
@@ -146,6 +153,7 @@ struct TagebuchView: View {
                               tagebuchVorgabe: einzigesTagebuch)
             }
             .sheet(isPresented: $einstellungen) { EinstellungenView() }
+            .sheet(isPresented: $sucheZeigen) { SuchView() }
             .sheet(isPresented: $tagebuecherZeigen) { TagebuecherView(ausgeblendet: ausgeblendetBindung) }
             .refreshable { aufzeichner.uebertragen() }
         }
