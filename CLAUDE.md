@@ -10472,7 +10472,7 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -10489,6 +10489,17 @@ Befunde, und keiner davon war Geschmack:
   `INFOPLIST_KEY_`-Entsprechung hat** (Hintergrundmodi, `CKSharingSupported`,
   das Wörterbuch für die genaue Ortung). Welcher der Texte die Assertion
   auslöste, ist nicht gemessen — umgezogen sind alle fünf.
+- **1.0.2 hat den Absturz NICHT behoben** (zweiter Bericht, 25.09.2026, Xcode
+  27.0 / macOS 27.0): wörtlich derselbe Stapel bis
+  `_setLiteralValue:…wantsCheckForDVTMacroExpansionConformance:`. Ohne
+  Meldungstext; die Assertion prüft, ob sich ein Wert als Build-Einstellung
+  schreiben lässt. Übrig bleibt der einzige WÖRTERBUCH-Wert der Info.plist,
+  den die Apps nicht haben, die sich öffnen lassen:
+  `NSLocationTemporaryUsageDescriptionDictionary`. **Ab 1.0.3 ist er draußen**,
+  „Genau“ öffnet die Einstellungen der App (dauerhafte Freigabe — für eine
+  Reisespur ohnehin die richtige). **Vermutung, nicht Messung.** Der Routenplaner
+  trägt denselben Schlüssel seit 1.0.5; stürzt dessen Reiter „General“ auch ab,
+  ist die Vermutung bestätigt und er gehört dort ebenso heraus.
 - **Diktieren** (`Model/Diktat.swift`, ab 1.0.1, Wunsch des Nutzers: „die
   Apple-Spracherkennung versteht vieles nicht richtig … vielleicht gibt es
   Alternativen"). Ab iOS 26 Apples NEUES Modell (`SpeechAnalyzer` +
