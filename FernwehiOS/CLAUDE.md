@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -223,6 +223,20 @@
   **Aufgezeichnet wird weiterhin nur, solange der Reisespur-Schalter an ist**
   — ein Tag ohne Aufzeichnung hat keine Spur, und das ist keine Lücke der
   Übertragung.
+- **Die Tagesspur steht im TAGEBUCH, nicht nur im Eintrag** (`Tagesspurleiste`,
+  `Tagesspurwahl`, ab 1.0.14; Befund des Nutzers 09/2026 zu 1.0.13: „kommt
+  offenbar immer nur bei Urlaubseinträgen zum Vorschein, nicht aber bei einem
+  normalen Tagebucheintrag"). Zwei Gründe, beide abgezählt: Die Reise zeigt
+  ihre Spur oben im Kapitel, das Tagebuch zeigte sie NIRGENDS in der Liste —
+  nur im geöffneten Eintrag. Und die Spur kam erst mit der nächsten
+  Übertragung (bis zu zehn Minuten), beim Aktivwerden gar nicht, wenn auf
+  dem Gerät nicht aufgezeichnet wurde. Jetzt: eine Kartenleiste unter jeder
+  Tagesüberschrift, sobald es für den Tag eine Spur gibt (Reise- oder
+  Tagebuchspur); `EintragEditor.sichern` und `wurdeAktiv` übertragen sofort.
+  Welche Spur zu einem Tag gehört, entscheidet `Tagesspurwahl` an EINER
+  Stelle. **Wach bleiben beim Schreiben**: Der Editor setzt
+  `isIdleTimerDisabled`, solange er offen ist — Diktieren ist für iOS
+  Untätigkeit.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

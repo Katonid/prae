@@ -120,7 +120,15 @@ struct EintragEditor: View {
             .overlay { if speichert { Speicherhinweis(fertig: fortschritt, gesamt: auswahl.count) } }
             .task { await vorbereiten() }
             .task(id: wetterSchluessel) { await wetterLaden() }
-            .onDisappear { Task { await diktat.stoppen() } }
+            // Wach bleiben, solange geschrieben oder diktiert wird (ab 1.0.14,
+            // gemeldet 09/2026: Beim Diktieren wollte das Telefon nach der
+            // eingestellten Zeit in den Ruhezustand). Diktieren ist Reden,
+            // nicht Tippen — für iOS sieht das nach Untätigkeit aus.
+            .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
+            .onDisappear {
+                UIApplication.shared.isIdleTimerDisabled = false
+                Task { await diktat.stoppen() }
+            }
             .onChange(of: Tag.schluessel(datum)) { _, _ in
                 // Aus dem Lebenstagebuch folgt die Reise dem Tag: Gehört der
                 // neue Tag nicht mehr zu ihr, gilt wieder die Vorgabe.
@@ -739,6 +747,10 @@ struct EintragEditor: View {
             ziel.land = name.land
         }
         persistenz.sichern()
+        // Die Spur des Tages sofort mitgeben (ab 1.0.14): Bis dahin kam sie
+        // erst mit der nächsten Übertragung, also bis zu zehn Minuten später
+        // — wer den Eintrag gleich öffnete, sah keine.
+        Aufzeichner.shared.uebertragen()
         speichert = false
         schliessen()
     }

@@ -130,7 +130,10 @@ final class Aufzeichner: NSObject, ObservableObject {
     func wurdeAktiv() {
         erlaubnis = manager.authorizationStatus
         genau = manager.accuracyAuthorization == .fullAccuracy
-        guard eingeschaltet else { return }
+        // Auch ohne laufende Aufzeichnung übertragen (ab 1.0.14): Die Rohspur
+        // von vorhin liegt noch auf der Platte, und ein neuer Eintrag soll sie
+        // bekommen.
+        guard eingeschaltet else { uebertragen(); return }
         if sitzung != nil, !sitzungImVordergrund {
             sitzung?.invalidate()
             sitzung = nil

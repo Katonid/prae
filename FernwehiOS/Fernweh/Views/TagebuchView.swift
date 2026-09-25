@@ -82,7 +82,7 @@ struct TagebuchView: View {
     struct Zeile: Identifiable {
         enum Art {
             case band(Reise)
-            case tag(Date)
+            case tag(Date, String)
             case eintrag(Eintrag, nurFuerDich: Bool)
         }
         let id: String
@@ -110,7 +110,7 @@ struct TagebuchView: View {
             }
             for (t, gruppe) in k.tage.enumerated() {
                 let erste = ergebnis.count == anfang
-                ergebnis.append(Zeile(id: kopf + "|" + gruppe.id, art: .tag(gruppe.tag), reise: k.reise,
+                ergebnis.append(Zeile(id: kopf + "|" + gruppe.id, art: .tag(gruppe.tag, gruppe.id), reise: k.reise,
                                       davor: erste ? aussen : 0,
                                       innen: erste ? (mitHuelle ? 12 : 0) : (t == 0 ? 14 : 18),
                                       oben: erste))
@@ -439,9 +439,14 @@ private struct KapitelZeile: View {
                 KapitelBand(reise: reise)
             }
             .buttonStyle(.plain)
-        case .tag(let tag):
-            Text(Tag.wochentagLang.string(from: tag) + jahrZusatz(tag))
-                .font(Stil.titel(19))
+        case .tag(let tag, let schluessel):
+            VStack(alignment: .leading, spacing: 10) {
+                Text(Tag.wochentagLang.string(from: tag) + jahrZusatz(tag))
+                    .font(Stil.titel(19))
+                // Die Spur des ganzen Tages (ab 1.0.14) — für Tage im
+                // Tagebuch genauso wie für Reisetage.
+                Tagesspurleiste(tag: schluessel, palette: zeile.reise?.palette ?? .meer)
+            }
         case .eintrag(let e, let nurFuerDich):
             // Ein privater Eintrag mitten in einer Reise: Er steht im
             // Kapitel, gehört aber nicht zur geteilten Reise.
