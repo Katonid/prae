@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -237,6 +237,15 @@
   Stelle. **Wach bleiben beim Schreiben**: Der Editor setzt
   `isIdleTimerDisabled`, solange er offen ist — Diktieren ist für iOS
   Untätigkeit.
+- **Die Spurkarte geht bildschirmfüllend auf** (`SpurVollbild` in
+  `Views/Tagesspurkarte.swift`, ab 1.0.15; Wunsch des Nutzers 09/2026). Die
+  kleinen Karten im Tagebuch und im Eintrag bleiben BILDER
+  (`allowsHitTesting(false)` — sie liegen in scrollenden Listen und dürfen
+  keinen Wisch schlucken); den Tipp nimmt eine durchsichtige Fläche darüber,
+  ein Zeichen oben rechts sagt, dass es geht. Im Vollbild ist die Karte
+  bedienbar (zoomen, schieben, Kompass, Maßstab), mit Start- und Endpunkt,
+  einem Knopf „ganze Spur zeigen“ und einem sichtbaren Schließen-Knopf —
+  ein Wisch gehört auf einer Karte dem Verschieben, nicht dem Schließen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

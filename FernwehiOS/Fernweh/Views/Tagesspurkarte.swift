@@ -19,6 +19,7 @@ struct Tagesspurkarte: View {
     @State private var linien: [Linie] = []
     @State private var kilometer: Double = 0
     @State private var stand = 0
+    @State private var vollbild = false
 
     var body: some View {
         let orte = eintrag.ortListe
@@ -44,6 +45,21 @@ struct Tagesspurkarte: View {
                 .frame(height: linien.isEmpty ? 180 : 240)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .allowsHitTesting(false)
+                // Ein Tipp öffnet die Karte bildschirmfüllend (ab 1.0.15).
+                .overlay(alignment: .topTrailing) { VollbildHinweis() }
+                .overlay {
+                    // Eine eigene Fläche nimmt den Tipp: Die Karte selbst
+                    // nimmt keine Berührung an (`allowsHitTesting(false)`).
+                    Color.clear.contentShape(Rectangle()).onTapGesture { vollbild = true }
+                }
+                .fullScreenCover(isPresented: $vollbild) {
+                    SpurVollbild(titel: eintrag.anzeigeTitel,
+                                 unter: eintrag.datum.map { Tag.text($0, "EEEE, d. MMMM yyyy", zone: eintrag.zone) } ?? "",
+                                 linien: linien, kilometer: kilometer,
+                                 marken: (eintrag.koordinate.map { [SpurVollbild.Marke(name: eintrag.anzeigeTitel, ort: $0, haupt: true)] } ?? [])
+                                    + orte.map { SpurVollbild.Marke(name: $0.name, ort: $0.koordinate, haupt: false) },
+                                 palette: palette)
+                }
                 if !linien.isEmpty {
                     Label(Tagesspurwahl.kilometertext(kilometer).isEmpty
                           ? "Spur des Tages"
@@ -122,6 +138,7 @@ struct Tagesspurleiste: View {
     @State private var linien: [Tagesspurkarte.Linie] = []
     @State private var kilometer: Double = 0
     @State private var stand = 0
+    @State private var vollbild = false
 
     var body: some View {
         Group {
@@ -139,6 +156,7 @@ struct Tagesspurleiste: View {
                     }
                     .mapStyle(.standard(pointsOfInterest: .excludingAll))
                     .id(stand)
+                    .allowsHitTesting(false)
                     let km = Tagesspurwahl.kilometertext(kilometer)
                     Label(km.isEmpty ? "Spur des Tages" : "Spur des Tages · \(km)",
                           systemImage: "point.topleft.down.to.point.bottomright.curvepath")
@@ -150,7 +168,18 @@ struct Tagesspurleiste: View {
                 }
                 .frame(height: 150)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .allowsHitTesting(false)
+                .overlay(alignment: .topTrailing) { VollbildHinweis() }
+                // Die kleine Karte bleibt ein Bild (sie liegt in einer
+                // scrollenden Liste); ein Tipp öffnet sie bildschirmfüllend,
+                // dort lässt sie sich zoomen und schieben (ab 1.0.15).
+                .overlay {
+                    Color.clear.contentShape(Rectangle()).onTapGesture { vollbild = true }
+                }
+                .fullScreenCover(isPresented: $vollbild) {
+                    SpurVollbild(titel: "Spur des Tages",
+                                 unter: Tag.datum(schluessel: tag).map { Tag.text($0, "EEEE, d. MMMM yyyy", zone: .current) } ?? "",
+                                 linien: linien, kilometer: kilometer, marken: [], palette: palette)
+                }
             }
         }
         .task(id: tag) { laden() }
@@ -169,6 +198,111 @@ struct Tagesspurleiste: View {
             linien = neu
             kilometer = km
             stand += 1
+        }
+    }
+}
+
+/// Das kleine Zeichen oben rechts: Diese Karte lässt sich vergrößern.
+private struct VollbildHinweis: View {
+    var body: some View {
+        Image(systemName: "arrow.up.left.and.arrow.down.right")
+            .font(.caption.weight(.bold))
+            .padding(7)
+            .background(.regularMaterial, in: Circle())
+            .padding(8)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Die Spur bildschirmfüllend (ab 1.0.15, Wunsch des Nutzers 09/2026: „mit
+/// Tipp auf die Karte bildschirmfüllend … zoomen und verschieben … und
+/// wieder schließen“). Hier ist die Karte bedienbar; geschlossen wird mit
+/// dem Knopf oben rechts oder durch Herunterziehen des Kopfes nicht — ein
+/// Wisch gehört auf einer Karte dem Verschieben.
+struct SpurVollbild: View {
+    struct Marke: Identifiable {
+        let id = UUID()
+        let name: String
+        let ort: CLLocationCoordinate2D
+        let haupt: Bool
+    }
+
+    let titel: String
+    let unter: String
+    let linien: [Tagesspurkarte.Linie]
+    let kilometer: Double
+    let marken: [Marke]
+    let palette: Palette
+
+    @Environment(\.dismiss) private var schliessen
+    @State private var position: MapCameraPosition = .automatic
+
+    var body: some View {
+        Map(position: $position) {
+            ForEach(linien) { l in
+                MapPolyline(coordinates: l.punkte)
+                    .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                MapPolyline(coordinates: l.punkte)
+                    .stroke(palette.haupt, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            }
+            ForEach(marken) { m in
+                Marker(m.name, systemImage: m.haupt ? "book.pages.fill" : "mappin", coordinate: m.ort)
+                    .tint(m.haupt ? palette.haupt : palette.hell)
+            }
+            // Anfang und Ende der Spur, damit man sieht, in welche Richtung
+            // der Tag lief.
+            if let erste = linien.first?.punkte.first {
+                Annotation("Start", coordinate: erste) {
+                    Circle().fill(.green).frame(width: 14, height: 14)
+                        .overlay(Circle().stroke(.white, lineWidth: 2))
+                }
+            }
+            if let letzte = linien.first?.punkte.last {
+                Annotation("Ende", coordinate: letzte) {
+                    Circle().fill(.red).frame(width: 14, height: 14)
+                        .overlay(Circle().stroke(.white, lineWidth: 2))
+                }
+            }
+        }
+        .mapControls {
+            MapCompass()
+            MapScaleView()
+            MapUserLocationButton()
+        }
+        .ignoresSafeArea(edges: .bottom)
+        .safeAreaInset(edge: .top) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(titel).font(.headline).lineLimit(1)
+                    let km = Tagesspurwahl.kilometertext(kilometer)
+                    Text([unter, km].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Button {
+                    position = .automatic
+                } label: {
+                    Image(systemName: "scope")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 38, height: 38)
+                        .background(.regularMaterial, in: Circle())
+                }
+                .accessibilityLabel("Ganze Spur zeigen")
+                Button { schliessen() } label: {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.bold))
+                        .frame(width: 38, height: 38)
+                        .background(.regularMaterial, in: Circle())
+                }
+                .accessibilityLabel("Schließen")
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.regularMaterial)
         }
     }
 }
