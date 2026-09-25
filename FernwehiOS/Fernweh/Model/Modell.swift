@@ -154,8 +154,21 @@ enum Modell {
             spurReise,
         ]
 
+        // ab 1.0.8 — die Farbe eines Tagebuchs, zugeordnet über den Namen
+        // (siehe `Tagebuecher.swift`). Eigener Record-Typ: „Deploy Schema
+        // Changes to Production" gehört nach dieser Fassung dazu.
+        let buch = NSEntityDescription()
+        buch.name = "Buch"
+        buch.managedObjectClassName = "Buch"
+        buch.properties = [
+            attribut("kennung", .UUIDAttributeType),
+            attribut("name", .stringAttributeType, vorgabe: ""),
+            attribut("farbe", .stringAttributeType, vorgabe: ""),
+            attribut("geaendert", .dateAttributeType),
+        ]
+
         let modell = NSManagedObjectModel()
-        modell.entities = [reise, eintrag, foto, spur]
+        modell.entities = [reise, eintrag, foto, spur, buch]
         return modell
     }
 }

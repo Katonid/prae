@@ -433,6 +433,7 @@ private struct TagAbschnitt: View {
 struct EintragKarte: View {
     @ObservedObject var eintrag: Eintrag
     let palette: Palette
+    @ObservedObject private var buecherei = Buecherei.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -446,7 +447,8 @@ struct EintragKarte: View {
                 HStack(spacing: 6) {
                     if let buch = eintrag.tagebuchName {
                         Label(buch, systemImage: "book.closed.fill")
-                            .foregroundStyle(palette.haupt)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(buecherei.buchfarbe(buch).farbe)
                             .lineLimit(1)
                     }
                     if let ort = eintrag.ortsname, !ort.isEmpty, ort != eintrag.anzeigeTitel {
@@ -479,6 +481,13 @@ struct EintragKarte: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(uiColor: .secondarySystemBackground))
+        // Die Farbe des Tagebuchs als Streifen am Rand (ab 1.0.8) — so sieht
+        // man beim Durchblättern, wohin ein Eintrag gehört, ohne zu lesen.
+        .overlay(alignment: .leading) {
+            if let farbe = buecherei.farbe(eintrag.tagebuchName) {
+                Rectangle().fill(farbe).frame(width: 5)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }

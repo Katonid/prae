@@ -11,6 +11,7 @@ struct EintragView: View {
     @State private var loeschenFragen = false
     @State private var vollbild: Int?
     @State private var darf = false
+    @ObservedObject private var buecherei = Buecherei.shared
 
     var body: some View {
         ScrollView {
@@ -40,7 +41,7 @@ struct EintragView: View {
                     if let buch = eintrag.tagebuchName {
                         Label(buch, systemImage: "book.closed.fill")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(palette.haupt)
+                            .foregroundStyle(buecherei.buchfarbe(buch).farbe)
                     }
                     if let ort = eintrag.ortsname, !ort.isEmpty, ort != eintrag.anzeigeTitel {
                         Label(ort, systemImage: "mappin.and.ellipse")
