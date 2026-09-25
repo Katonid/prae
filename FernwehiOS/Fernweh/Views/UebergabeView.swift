@@ -111,6 +111,9 @@ struct UebergabeView: View {
         if fotos != .keine { satz += ", \(e.fotos) Fotos" }
         satz += " · \(groesse)"
         if e.fehlend > 0 { satz += "\n\(e.fehlend) Fotos ließen sich auf diesem Gerät nicht holen und fehlen in der Datei." }
+        if e.gesperrt > 0 {
+            satz += "\n\(e.gesperrt) Einträge aus gesperrten Tagebüchern sind nicht dabei. Wer sie mitgeben will, öffnet das Tagebuch vorher."
+        }
         return satz
     }
 

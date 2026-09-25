@@ -24,9 +24,14 @@ struct Reisekarte: View {
         let eigene: Bool
     }
 
+    @ObservedObject private var buecherei = Buecherei.shared
+
+    /// Einträge aus einem gesperrten Tagebuch bekommen keine Nadel (ab
+    /// 1.0.10): Die Nadel trägt das erste Foto, und der Ort allein erzählt
+    /// oft schon, worum es ging.
     private var eintraege: [Eintrag] {
         let alle = tag.map { reise.eintraege(am: $0) } ?? reise.eintragListe
-        return alle.filter { $0.hatOrt }
+        return alle.filter { $0.hatOrt && !buecherei.istGesperrt($0.tagebuchName) }
     }
 
     var body: some View {

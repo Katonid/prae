@@ -111,6 +111,8 @@ struct FernwehApp: App {
                 Task { await fotodienst.abgleichen() }
                 Task { await Zeitzonen.nachtragen() }
             case .background:
+                // Geöffnete Tagebücher mit Passwort gehen wieder zu (ab 1.0.10).
+                Buecherei.shared.alleSperren()
                 aufzeichner.uebertragen()
                 Persistenz.shared.sichern()
             default:

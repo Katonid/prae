@@ -217,6 +217,23 @@ struct TagebuchView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 4)
             }
+            if !buecherei.offen.isEmpty {
+                // Geöffnete Tagebücher mit Passwort (ab 1.0.10): Sie gehen beim
+                // Verlassen der App von selbst zu — und hier sofort.
+                Button { buecherei.alleSperren() } label: {
+                    Label(buecherei.offen.count == 1
+                          ? "\(buecherei.offen.first ?? "") ist offen — sperren"
+                          : "\(buecherei.offen.count) Tagebücher offen — sperren",
+                          systemImage: "lock.open.fill")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.14), in: Capsule())
+                        .foregroundStyle(.orange)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
         }
         .padding(.top, 4)
     }
@@ -336,26 +353,10 @@ private struct KapitelBlock: View {
                     Text(Tag.wochentagLang.string(from: gruppe.tag) + jahrZusatz(gruppe.tag))
                         .font(Stil.titel(19))
                     ForEach(gruppe.eintraege) { e in
-                        let palette = e.reise?.palette ?? .meer
-                        NavigationLink {
-                            EintragView(eintrag: e, palette: palette)
-                        } label: {
-                            EintragKarte(eintrag: e, palette: palette)
-                                .overlay(alignment: .topTrailing) {
-                                    if e.reise == nil && kapitel.reise != nil {
-                                        // Ein privater Eintrag mitten in einer
-                                        // Reise: Er steht im Kapitel, gehört aber
-                                        // nicht zur geteilten Reise.
-                                        Label("Nur für dich", systemImage: "lock.fill")
-                                            .font(.caption2.weight(.bold))
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(.regularMaterial, in: Capsule())
-                                            .padding(10)
-                                    }
-                                }
-                        }
-                        .buttonStyle(.plain)
+                        // Ein privater Eintrag mitten in einer Reise: Er steht
+                        // im Kapitel, gehört aber nicht zur geteilten Reise.
+                        EintragVerweis(eintrag: e, palette: e.reise?.palette ?? .meer,
+                                       nurFuerDich: e.reise == nil && kapitel.reise != nil)
                     }
                 }
             }

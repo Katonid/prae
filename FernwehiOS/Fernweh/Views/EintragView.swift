@@ -12,8 +12,27 @@ struct EintragView: View {
     @State private var vollbild: Int?
     @State private var darf = false
     @ObservedObject private var buecherei = Buecherei.shared
+    @State private var entsperren = false
 
     var body: some View {
+        // Wer den Eintrag offen hatte und die App verlässt, kommt zu einem
+        // gesperrten Tagebuch zurück (ab 1.0.10) — dann steht hier nicht mehr
+        // der Text, sondern das Schloss.
+        if let name = eintrag.tagebuchName, buecherei.istGesperrt(name) {
+            ContentUnavailableView {
+                Label("Tagebuch gesperrt", systemImage: "lock.fill")
+            } description: {
+                Text("Dieser Eintrag steht in „\(name)“.")
+            } actions: {
+                Button("Öffnen") { entsperren = true }.buttonStyle(.borderedProminent)
+            }
+            .sheet(isPresented: $entsperren) { EntsperrBlatt(name: name) }
+        } else {
+            inhalt
+        }
+    }
+
+    private var inhalt: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 let fotos = eintrag.fotoListe

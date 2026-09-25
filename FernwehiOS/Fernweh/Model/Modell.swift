@@ -165,6 +165,11 @@ enum Modell {
             attribut("name", .stringAttributeType, vorgabe: ""),
             attribut("farbe", .stringAttributeType, vorgabe: ""),
             attribut("geaendert", .dateAttributeType),
+            // ab 1.0.10 — das Schloss (siehe `Schloss.swift`): der aus dem
+            // Passwort abgeleitete Wert, nie das Passwort selbst, und ob
+            // Face ID öffnen darf. Neue Felder: Schema-Deploy nötig.
+            attribut("schloss", .stringAttributeType, vorgabe: ""),
+            attribut("schlossBiometrie", .booleanAttributeType, vorgabe: false),
         ]
 
         let modell = NSManagedObjectModel()
@@ -262,8 +267,15 @@ final class Reise: NSManagedObject {
     }
 
     /// Das erste Foto der Reise — Titelbild, wenn keines gewählt ist.
+    ///
+    /// Einträge aus einem Tagebuch mit Passwort zählen nicht (ab 1.0.10) —
+    /// auch wenn es gerade offen ist: Sonst stünde ein Foto daraus als
+    /// Titelbild in der Reiseliste und in der Vorschau einer Einladung, und
+    /// das Titelbild wechselte beim Öffnen und Schließen.
     var erstesFoto: Foto? {
-        for e in eintragListe { if let f = e.fotoListe.first { return f } }
+        for e in eintragListe where !Buecherei.shared.istGeschuetzt(e.tagebuchName) {
+            if let f = e.fotoListe.first { return f }
+        }
         return nil
     }
 }

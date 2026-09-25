@@ -29,6 +29,11 @@ struct TagebuecherView: View {
     @State private var infos: [Info] = []
     @State private var ohneTagebuch = 0
     @State private var bearbeiten: Info?
+    /// Pinsel an einem gesperrten Tagebuch: erst das Passwort, dann die
+    /// Einstellungen. Sonst ließe sich über „Schutz entfernen“ jedes Schloss
+    /// ohne Passwort abnehmen.
+    @State private var vorBearbeiten: Info?
+    @State private var entsperren: String?
 
     var body: some View {
         NavigationStack {
@@ -44,15 +49,27 @@ struct TagebuecherView: View {
                     ForEach(infos) { i in
                         HStack(spacing: 0) {
                             zeile(titel: i.name, unter: unterzeile(i), symbol: "book.closed.fill",
-                                  farbe: buecherei.buchfarbe(i.name).farbe, gewaehlt: !ausgeblendet.contains(i.name)) {
+                                  farbe: buecherei.buchfarbe(i.name).farbe, gewaehlt: !ausgeblendet.contains(i.name),
+                                  schloss: schlossstand(i.name)) {
                                 umschalten(i.name)
                             }
                             .contextMenu {
                                 Button { nurDieses(i.name) } label: {
                                     Label("Nur dieses zeigen", systemImage: "eye")
                                 }
+                                if buecherei.istGesperrt(i.name) {
+                                    Button { entsperren = i.name } label: {
+                                        Label("Öffnen", systemImage: "lock.open")
+                                    }
+                                } else if buecherei.istGeschuetzt(i.name) {
+                                    Button { buecherei.sperren(i.name) } label: {
+                                        Label("Wieder sperren", systemImage: "lock")
+                                    }
+                                }
                             }
-                            Button { bearbeiten = i } label: {
+                            Button {
+                                if buecherei.istGesperrt(i.name) { vorBearbeiten = i } else { bearbeiten = i }
+                            } label: {
                                 Image(systemName: "paintbrush.pointed.fill")
                                     .font(.body)
                                     .foregroundStyle(buecherei.buchfarbe(i.name).farbe)
@@ -74,13 +91,34 @@ struct TagebuecherView: View {
                 } footer: {
                     Text(infos.isEmpty
                          ? "Noch kein Tagebuch. Beim Schreiben eines Eintrags lässt sich oben eines anlegen — oder du übernimmst deine Tagebücher aus Day One (Einstellungen)."
-                         : "Mit Häkchen steht ein Tagebuch in deiner Liste, ohne Häkchen ist es ausgeblendet — ein Tipp schaltet um. Lange drücken zeigt nur dieses eine. Mit dem Pinsel wählst du die Farbe; sie gilt auf all deinen Geräten, die Auswahl nur auf diesem.")
+                         : "Mit Häkchen steht ein Tagebuch in deiner Liste, ohne Häkchen ist es ausgeblendet — ein Tipp schaltet um. Lange drücken zeigt nur dieses eine. Mit dem Pinsel wählst du Farbe, Namen und ein Passwort; sie gelten auf all deinen Geräten, die Auswahl nur auf diesem. Ein Tagebuch mit Schloss steht in der Liste als gesperrte Karten, bis du es öffnest.")
                 }
             }
             .navigationTitle("Tagebücher")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Fertig") { schliessen() } }
+                if !buecherei.offen.isEmpty {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { buecherei.alleSperren() } label: {
+                            Label("Alle sperren", systemImage: "lock.fill")
+                        }
+                    }
+                }
+            }
+            .sheet(item: $vorBearbeiten) { i in
+                EntsperrBlatt(name: i.name) {
+                    // Einen Durchgang warten, bis das Blatt weg ist — sonst
+                    // verschluckt der Stapel den Schritt.
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(350))
+                        bearbeiten = i
+                    }
+                }
+            }
+            .sheet(item: Binding(get: { entsperren.map(Entsperrwunsch.init) },
+                                 set: { entsperren = $0?.name })) { w in
+                EntsperrBlatt(name: w.name)
             }
             .navigationDestination(item: $bearbeiten) { i in
                 BuchBearbeiten(name: i.name) { neu in
@@ -90,6 +128,16 @@ struct TagebuecherView: View {
             }
             .task(id: eintraege.map { $0.tagebuch ?? "" }.joined(separator: "\u{1F}")) { zaehlen() }
         }
+    }
+
+    private struct Entsperrwunsch: Identifiable {
+        let name: String
+        var id: String { name }
+    }
+
+    /// nil = kein Schloss, true = zu, false = offen.
+    private func schlossstand(_ name: String) -> Bool? {
+        buecherei.istGeschuetzt(name) ? buecherei.istGesperrt(name) : nil
     }
 
     private func umschalten(_ name: String) {
@@ -128,7 +176,7 @@ struct TagebuecherView: View {
     }
 
     private func zeile(titel: String, unter: String, symbol: String, farbe: Color,
-                       gewaehlt: Bool, aktion: @escaping () -> Void) -> some View {
+                       gewaehlt: Bool, schloss: Bool? = nil, aktion: @escaping () -> Void) -> some View {
         Button(action: aktion) {
             HStack(spacing: 12) {
                 ZStack {
@@ -137,7 +185,15 @@ struct TagebuecherView: View {
                 }
                 .frame(width: 38, height: 38)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(titel).font(.headline).foregroundStyle(.primary)
+                    HStack(spacing: 5) {
+                        Text(titel).font(.headline).foregroundStyle(.primary)
+                        if let schloss {
+                            Image(systemName: schloss ? "lock.fill" : "lock.open.fill")
+                                .font(.caption)
+                                .foregroundStyle(schloss ? Color.secondary : Color.orange)
+                                .accessibilityLabel(schloss ? "gesperrt" : "offen")
+                        }
+                    }
                     Text(unter).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
@@ -165,6 +221,8 @@ private struct BuchBearbeiten: View {
     @Environment(\.dismiss) private var zurueck
     @State private var neuerName = ""
     @State private var meldung: String?
+    @State private var schutz = false
+    @State private var entfernenFragen = false
 
     private let spalten = [GridItem(.adaptive(minimum: 64), spacing: 14)]
 
@@ -207,10 +265,47 @@ private struct BuchBearbeiten: View {
             } footer: {
                 Text("Heißt schon ein anderes Tagebuch so, werden die beiden zusammengelegt. Einträge in Reisen, die du nur liest, behalten ihren Namen.")
             }
+
+            passwortAbschnitt
+        }
+        .sheet(isPresented: $schutz) { SchutzBlatt(name: name) }
+        .confirmationDialog("Passwort entfernen?", isPresented: $entfernenFragen, titleVisibility: .visible) {
+            Button("Passwort entfernen", role: .destructive) { buecherei.schutzEntfernen(name) }
+        } message: {
+            Text("Die Einträge in „\(name)“ stehen danach offen da — auf all deinen Geräten.")
         }
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { if neuerName.isEmpty { neuerName = name } }
+    }
+
+    // MARK: - Passwort (ab 1.0.10)
+
+    @ViewBuilder
+    private var passwortAbschnitt: some View {
+        Section {
+            if buecherei.istGeschuetzt(name) {
+                Label("Mit Passwort geschützt", systemImage: "lock.fill")
+                Button("Passwort ändern …") { schutz = true }
+                if let art = Biometrie.name {
+                    Toggle("Auch mit \(art) öffnen", isOn: Binding(
+                        get: { buecherei.darfBiometrie(name) },
+                        set: { buecherei.biometrieSetzen(name, $0) }))
+                }
+                Button("Jetzt sperren") { buecherei.sperren(name); zurueck() }
+                Button("Passwort entfernen", role: .destructive) { entfernenFragen = true }
+            } else {
+                Button { schutz = true } label: {
+                    Label("Mit Passwort schützen …", systemImage: "lock")
+                }
+            }
+        } header: {
+            Text("Passwort")
+        } footer: {
+            Text(buecherei.istGeschuetzt(name)
+                 ? "Beim Verlassen der App geht das Tagebuch von selbst wieder zu. Das Passwort gilt auf all deinen Geräten."
+                 : "Gesperrt stehen die Einträge nur als verschlossene Karten da — ohne Titel, Text, Fotos und Ort —, bis du das Tagebuch mit dem Passwort öffnest.")
+        }
     }
 
     private var bereinigt: String { neuerName.trimmingCharacters(in: .whitespacesAndNewlines) }
