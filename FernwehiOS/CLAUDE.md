@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -177,6 +177,21 @@
   gesperrten Tagebuch tippt, muss es erst öffnen, sonst ließe sich über
   „Passwort entfernen“ jedes Schloss abnehmen. `NSFaceIDUsageDescription`
   steht als Build-Einstellung, nicht in der Info.plist (Lehre aus 1.0.2).
+- **Suche** (`Model/Suche.swift`, `Views/SuchView.swift`, Lupe oben im
+  Reiter „Tagebuch", ab 1.0.11; Ansage des Nutzers 09/2026: „nach Begriffen
+  suchen … und angezeigt bekommen, in welchem Tagebuch bzw. welchem
+  Tagesabschnitt sie zu finden sind"). Durchsucht Titel, Text, Ort und Land,
+  die Orte des Tages und den Namen der Schreibenden, über beide Speicher.
+  Groß/klein und Akzente zählen nicht (Volltext, keine Namensprüfung); alle
+  Wörter müssen vorkommen, Anführungszeichen halten eine Wortfolge zusammen.
+  Jeder Treffer nennt Tagebuch (in seiner Farbe), Tag, **Tagesabschnitt**
+  (Morgen 5–10, Vormittag 10–12, Mittag 12–14, Nachmittag 14–18, Abend 18–22,
+  sonst Nacht — in der Zone des EINTRAGS, `Tagesabschnitt.von`) mit Uhrzeit,
+  die Reise und einen Ausschnitt mit markierten Fundstellen; neueste Tage
+  zuerst. Wählbar: nur ein Tagebuch. **Gesperrte Tagebücher werden weder
+  durchsucht noch mitgezählt** — eine Trefferzahl verriete schon etwas; die
+  Liste sagt nur, dass sie ausgelassen sind. Gesucht wird 250 ms nach dem
+  letzten Tastendruck, in `.task(id:)`, nicht im Körper.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
