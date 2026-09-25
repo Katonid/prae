@@ -10472,7 +10472,7 @@ Befunde, und keiner davon war Geschmack:
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -10511,6 +10511,36 @@ Befunde, und keiner davon war Geschmack:
   („Beim Verwenden", nie „Immer") und wartet auf die Antwort. **Nicht
   gesehen**: ob das auf dem iPad des Nutzers die einzige Ursache war — die
   Zeile unter „Orte des Tages" sagt seither, woran es liegt.
+- **Lebenstagebuch mit Reisen als Kapiteln** (`Views/TagebuchView.swift`, ab
+  1.0.5, Wahl des Nutzers 09/2026). Zwei Reiter: „Tagebuch" (alle Einträge
+  aus beiden Speichern, nach Tagen) und „Reisen". Ein Eintrag OHNE Reise
+  (`reise == nil`) liegt im PRIVATEN Speicher und reist mit keiner Freigabe
+  — `Persistenz.anlegen(_:bei: nil)`. Eine Reise ist ein Zeitraum; Tage in
+  ihrem Zeitraum stehen unter ihrem Band (bei zwei Reisen: die mit den
+  meisten Einträgen des Tages, sonst die zuletzt begonnene). **Wohin ein
+  neuer Eintrag geht, steht im Editor ausdrücklich** (`zielBlock`): Vorgabe
+  ist die laufende Reise, umzustellen auf „Nur mein Tagebuch" — und es wird
+  gesagt, wer mitliest. **Ein Eintrag wechselt den Speicher nachträglich
+  nicht** (Core Data kann kein Objekt zwischen Speichern verschieben; es
+  wäre Kopieren samt Fotos). Kein neues Attribut, also kein Schema-Deploy.
+- **Reisesymbol: Emoji ODER Apple-Symbol** (`Views/Reisesymbol.swift`, ab
+  1.0.5). Weiter im Attribut `emoji`; ein Apple-Symbol steht dort als
+  `sf:<Name>`. **Angezeigt wird es nur über `Reisesymbol`** — ein nacktes
+  `Text(reise.emoji)` druckt „sf:…". Apple gibt keine Liste seiner Symbole
+  heraus; die Auswahl ist eine mitgelieferte Liste, jeder Name wird zur
+  Laufzeit mit `UIImage(systemName:)` geprüft. Emojis kommen über die
+  Tastatur des Systems — dort gibt es alle.
+- **Übergabe ans Reisebuch** (`Model/Uebergabe.swift`,
+  `Views/UebergabeView.swift`, ab 1.0.5, Ansage des Nutzers 09/2026: „die
+  Apps miteinander vernetzen“). Reise → „…“ → „Fürs Fotobuch übergeben“
+  schreibt eine `.fernweh`-Datei: ein ungepacktes ZIP mit
+  `uebergabe.json` (Texte, Orte, Wetter je Eintrag, wahlweise die Reisespur)
+  und wahlweise `fotos/…` (ohne / verkleinerte Kopie / Original aus der
+  Mediathek). **Der Vertrag steht in `FernwehiOS/docs/UEBERGABE.md`** und wird
+  vom Reisebuch gelesen — wer ein Feld ändert, ändert es dort mit; Felder nur
+  anhängen. Fotos sind aus als Vorgabe (Ansage des Nutzers: zuschaltbar).
+  Methode 0, weil Fotos sich nicht weiter packen lassen und das Reisebuch ZIP
+  seit 1.0.13 selbst liest; kein ZIP64, über 4 GB wird abgebrochen.
 - **Diktieren** (`Model/Diktat.swift`, ab 1.0.1, Wunsch des Nutzers: „die
   Apple-Spracherkennung versteht vieles nicht richtig … vielleicht gibt es
   Alternativen"). Ab iOS 26 Apples NEUES Modell (`SpeechAnalyzer` +

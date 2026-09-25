@@ -183,7 +183,7 @@ struct ReiseKarte: View {
                     }
                     Spacer()
                 }
-                Text("\(reise.emoji ?? "") \(reise.anzeigeTitel)")
+                Reisesymbol.mitTitel(reise.emoji, reise.anzeigeTitel)
                     .font(Stil.titel(28))
                     .lineLimit(2)
                     .foregroundStyle(.white)
@@ -222,8 +222,7 @@ struct Titelbild: View {
                     Image(uiImage: bild).resizable().scaledToFill()
                         .transition(.opacity)
                 } else {
-                    Text(reise.emoji ?? "✈️")
-                        .font(.system(size: 90))
+                    ReisesymbolBild(wert: reise.emoji)
                         .opacity(0.9)
                         .shadow(radius: 10)
                 }

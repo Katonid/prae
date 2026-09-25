@@ -116,9 +116,7 @@ struct EintragView: View {
             }
         }
         .sheet(isPresented: $bearbeiten) {
-            if let reise = eintrag.reise {
-                EintragEditor(reise: reise, eintrag: eintrag, tag: eintrag.datum)
-            }
+            EintragEditor(vorgabe: eintrag.reise, eintrag: eintrag, tag: eintrag.datum)
         }
         .fullScreenCover(item: Binding(get: { vollbild.map { Nummer(wert: $0) } }, set: { vollbild = $0?.wert })) { n in
             Bildbetrachter(fotos: eintrag.fotoListe, start: n.wert)
@@ -131,7 +129,7 @@ struct EintragView: View {
                 schliessen()
             }
         } message: {
-            Text("Der Eintrag und seine Fotos verschwinden aus der Reise — in deiner Fotos-App bleiben die Bilder.")
+            Text(eintrag.reise == nil ? "Der Eintrag und seine Fotos verschwinden aus deinem Tagebuch — in deiner Fotos-App bleiben die Bilder." : "Der Eintrag und seine Fotos verschwinden aus der Reise — in deiner Fotos-App bleiben die Bilder.")
         }
         .task { darf = Persistenz.shared.darfBearbeiten(eintrag) }
     }
