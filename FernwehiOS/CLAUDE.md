@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -206,6 +206,23 @@
   Dazu springt die Ansicht zweimal ans Ende — das zweite Mal nach 350 ms,
   wenn die Zeilen wirklich gemessen sind. **Am Quelltext hergeleitet, nicht
   auf dem Gerät gesehen**; ein Wiederauftreten ist ein Befund.
+- **Die Spur gehört auch ins Tagebuch** (`Spurabgleich`, `Views/Tagesspurkarte.swift`,
+  ab 1.0.13; Ansage des Nutzers 09/2026: „dass die Reisespur für jeden Tag mit
+  einem Eintrag komplett hinterlegt wird … auch die Punkte des Nachmittags").
+  Bis 1.0.12 wanderte die Rohspur nur in laufende REISEN. Jetzt bekommt jeder
+  Tag mit einem eigenen Eintrag OHNE Reise eine `Spur` mit `reise == nil` im
+  privaten Speicher, je Tag und Gerät. Sie wird bei jeder Übertragung (alle
+  zehn Minuten beim Aufzeichnen, beim Aktivwerden, beim Wechsel in den
+  Hintergrund) aus der Rohspur des GANZEN Tages neu gebaut — ein Eintrag vom
+  Morgen zeigt abends auch den Nachmittag. Die Rohspur bleibt auf der Platte,
+  also bekommt ein früherer Tag seine Spur nach, sobald dort ein Eintrag
+  steht. Kein neues Attribut (die Beziehung `reise` war schon optional), kein
+  Schema-Deploy. Die Karte im Eintrag zeigt die Spur des Tages samt
+  Kilometern: in einer Reise die der Reise, sonst die Tagebuchspur; fehlt die
+  eines Geräts, springt die einer eigenen Reise desselben Tages ein.
+  **Aufgezeichnet wird weiterhin nur, solange der Reisespur-Schalter an ist**
+  — ein Tag ohne Aufzeichnung hat keine Spur, und das ist keine Lücke der
+  Übertragung.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
