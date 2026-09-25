@@ -45,9 +45,9 @@ struct Tagesspurkarte: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .allowsHitTesting(false)
                 if !linien.isEmpty {
-                    Label(kilometer >= 0.1
-                          ? String(format: "Spur des Tages · %.1f km", kilometer).replacingOccurrences(of: ".", with: ",")
-                          : "Spur des Tages",
+                    Label(Tagesspurwahl.kilometertext(kilometer).isEmpty
+                          ? "Spur des Tages"
+                          : "Spur des Tages · " + Tagesspurwahl.kilometertext(kilometer),
                           systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -68,28 +68,104 @@ struct Tagesspurkarte: View {
         }
     }
 
-    /// Die Spuren dieses Tages: in einer Reise die der Reise, sonst die
-    /// Tagebuchspur — je Gerät eine; fehlt die Tagebuchspur eines Geräts,
-    /// springt die einer eigenen Reise am selben Tag ein.
     private func laden() {
         guard let tag = eintrag.tagSchluessel else { return }
+        let (neu, km) = Tagesspurwahl.linien(tag: tag, nurReise: eintrag.reise)
+        let alt = linien.map { "\($0.id):\($0.punkte.count)" }
+        if neu.map({ "\($0.id):\($0.punkte.count)" }) != alt {
+            linien = neu
+            kilometer = km
+            stand += 1
+        }
+    }
+}
+
+/// Welche Spur zu einem Tag gehört — an EINER Stelle, gefragt vom Eintrag und
+/// vom Tagebuch. In einer Reise die Spur der Reise; sonst je Gerät die
+/// Tagebuchspur, und wo die fehlt, die einer eigenen Reise desselben Tages.
+enum Tagesspurwahl {
+    static func linien(tag: String, nurReise reise: Reise?) -> ([Tagesspurkarte.Linie], Double) {
         let anfrage = Spur.alle()
         anfrage.predicate = NSPredicate(format: "tag == %@", tag)
         let alle = (try? Persistenz.shared.kontext.fetch(anfrage)) ?? []
         var jeGeraet: [String: Spur] = [:]
-        if let reise = eintrag.reise {
+        if let reise {
             for s in alle where s.reise == reise { jeGeraet[s.geraet ?? ""] = s }
-        } else {
+        }
+        if reise == nil || jeGeraet.isEmpty {
             for s in alle where s.reise == nil { jeGeraet[s.geraet ?? ""] = s }
             for s in alle where s.reise != nil && jeGeraet[s.geraet ?? ""] == nil { jeGeraet[s.geraet ?? ""] = s }
         }
-        let neu = jeGeraet.sorted { $0.key < $1.key }.compactMap { g, s -> Linie? in
+        let linien = jeGeraet.sorted { $0.key < $1.key }.compactMap { g, s -> Tagesspurkarte.Linie? in
             let p = s.punktListe.map { CLLocationCoordinate2D(latitude: $0.breite, longitude: $0.laenge) }
-            return p.count >= 2 ? Linie(id: g, punkte: p) : nil
+            return p.count >= 2 ? Tagesspurkarte.Linie(id: g, punkte: p) : nil
         }
-        let km = (jeGeraet.values.map(\.distanz).max() ?? 0) / 1000
-        let alt = linien.map { "\($0.id):\($0.punkte.count)" }
-        if neu.map({ "\($0.id):\($0.punkte.count)" }) != alt {
+        return (linien, (jeGeraet.values.map(\.distanz).max() ?? 0) / 1000)
+    }
+
+    static func kilometertext(_ km: Double) -> String {
+        km >= 0.1
+            ? String(format: "%.1f km", km).replacingOccurrences(of: ".", with: ",")
+            : ""
+    }
+}
+
+/// Die Spur eines Tages im TAGEBUCH (ab 1.0.14): unter der Tagesüberschrift,
+/// sobald es für den Tag eine gibt — egal, ob der Eintrag in einer Reise
+/// steht oder nur im Tagebuch, und egal, um welche Uhrzeit er geschrieben
+/// wurde. Ein Bild, keine bedienbare Karte: Sie liegt in einer scrollenden
+/// Liste und darf keinen Wisch schlucken.
+struct Tagesspurleiste: View {
+    let tag: String
+    let palette: Palette
+
+    @State private var linien: [Tagesspurkarte.Linie] = []
+    @State private var kilometer: Double = 0
+    @State private var stand = 0
+
+    var body: some View {
+        Group {
+            if linien.isEmpty {
+                Color.clear.frame(height: 0)
+            } else {
+                ZStack(alignment: .bottomLeading) {
+                    Map(initialPosition: .automatic, interactionModes: []) {
+                        ForEach(linien) { l in
+                            MapPolyline(coordinates: l.punkte)
+                                .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                            MapPolyline(coordinates: l.punkte)
+                                .stroke(palette.haupt, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                        }
+                    }
+                    .mapStyle(.standard(pointsOfInterest: .excludingAll))
+                    .id(stand)
+                    let km = Tagesspurwahl.kilometertext(kilometer)
+                    Label(km.isEmpty ? "Spur des Tages" : "Spur des Tages · \(km)",
+                          systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(10)
+                }
+                .frame(height: 150)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .allowsHitTesting(false)
+            }
+        }
+        .task(id: tag) { laden() }
+        .onReceive(NotificationCenter.default.publisher(
+            for: .NSManagedObjectContextObjectsDidChange, object: Persistenz.shared.kontext)) { m in
+                let k = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSRefreshedObjectsKey]
+                if k.contains(where: { ((m.userInfo?[$0] as? Set<NSManagedObject>) ?? []).contains { $0 is Spur } }) {
+                    laden()
+                }
+            }
+    }
+
+    private func laden() {
+        let (neu, km) = Tagesspurwahl.linien(tag: tag, nurReise: nil)
+        if neu.map({ "\($0.id):\($0.punkte.count)" }) != linien.map({ "\($0.id):\($0.punkte.count)" }) {
             linien = neu
             kilometer = km
             stand += 1
