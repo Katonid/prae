@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -246,6 +246,17 @@
   bedienbar (zoomen, schieben, Kompass, Maßstab), mit Start- und Endpunkt,
   einem Knopf „ganze Spur zeigen“ und einem sichtbaren Schließen-Knopf —
   ein Wisch gehört auf einer Karte dem Verschieben, nicht dem Schließen.
+- **Fotos lassen sich zoomen** (`Views/Bildbetrachter.swift`, ab 1.0.16;
+  Wunsch des Nutzers 09/2026: „Bei den Fotos möchte ich bitte auch zoomen
+  können"). Ein Tipp aufs Foto im Eintrag öffnet wie bisher das Vollbild;
+  dort jetzt Aufziehen mit zwei Fingern (bis 5-fach), Verschieben, Doppeltipp
+  an der Stelle vergrößern bzw. zurück aufs ganze Bild, „2 von 5" oben
+  links. **Gezoomt wird in einer `UIScrollView`, nie mit SwiftUI-Gesten** —
+  die Seiten liegen in einer blätternden `TabView`, und ein eigener
+  `DragGesture` nähme ihr jeden Wisch. Verschachtelte Scroll-Ansichten regelt
+  UIKit: vergrößert verschiebt ein Wisch das Bild, erst am Rand blättert er.
+  Weggeblättert springt ein Bild zurück aufs Ganze. Geladen wird mit Kante
+  2048 (aus der Mediathek doppelt so fein). **Nicht auf dem Gerät gesehen.**
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
