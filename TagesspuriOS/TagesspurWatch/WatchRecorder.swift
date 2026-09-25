@@ -120,6 +120,9 @@ final class WatchRecorder: NSObject, ObservableObject, CLLocationManagerDelegate
                 context.insert(day)
             }
             day.appendPoints(points)
+            // Zeitzone des Aufzeichnens mitschreiben (wie das iPhone) —
+            // die Anzeige dort liest sie aus dem synchronisierten Tag.
+            day.timeZoneID = TimeZone.current.identifier
         }
         try? context.save()
         WatchWidgetBridge.update(container: container, isRecording: isRecording)

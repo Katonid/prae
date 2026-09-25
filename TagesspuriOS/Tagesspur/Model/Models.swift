@@ -79,6 +79,16 @@ final class TrackDay {
     /// (statt für immer auf veralteten Daten sitzen zu bleiben).
     var summaryPointCount: Int = 0
     var updatedAt: Date = Date()
+    /// Zeitzone des Geräts BEIM AUFZEICHNEN (z. B. "America/Toronto"),
+    /// bei jedem Flush auf die aktuelle Gerätezone gesetzt — es gilt
+    /// also die letzte Zone des Tages. Leer = Altbestand (vor 1.4.28);
+    /// dann rekonstruiert `Ortszeit` die Zone über den Geocoder.
+    /// ACHTUNG CloudKit: Das ist ein NEUES Feld (CD_timeZoneID). In
+    /// Production entsteht ein Feld nie durch Schreiben — vor dem
+    /// ersten TestFlight-Build dieser Fassung in der CloudKit-Konsole
+    /// „Deploy Schema Changes to Production“ ausführen, sonst weist der
+    /// Server jeden Export ab und der Sync steht (Lehre vom 30.7.).
+    var timeZoneID: String = ""
 
     init(deviceId: String, deviceName: String, dayKey: String) {
         self.deviceId = deviceId

@@ -23,6 +23,17 @@ enum Ortszeit {
         "tagesspur.zeitzone.\(dayKey)"
     }
 
+    /// Zone eines Tages ausdrücklich merken — z. B. die beim
+    /// AUFZEICHNEN gemessene Gerätezone (LocationTracker.flush) oder
+    /// die aus einem synchronisierten Tages-Datensatz gelesene. Damit
+    /// sieht auch die Suche die richtige Zone, ohne dass der Tag je
+    /// geöffnet oder der Geocoder gefragt wurde.
+    static func merken(_ zone: TimeZone, fuer dayKey: String) {
+        guard memory[dayKey]?.identifier != zone.identifier else { return }
+        memory[dayKey] = zone
+        UserDefaults.standard.set(zone.identifier, forKey: key(dayKey))
+    }
+
     /// Ohne Netz: die gemerkte Zone dieses Tages, falls schon ermittelt.
     static func gespeicherteZone(fuer dayKey: String) -> TimeZone? {
         if let zone = memory[dayKey] { return zone }

@@ -51,6 +51,8 @@ enum Exporter {
         var deviceName: String
         var dayKey: String
         var points: [TrackPoint]
+        /// Optional, damit Sicherungen von vor 1.4.28 lesbar bleiben.
+        var timeZoneID: String?
     }
 
     struct BackupVisit: Codable {
@@ -86,7 +88,11 @@ enum Exporter {
         case .json:
             var file = BackupFile()
             file.days = days.map {
-                BackupDay(deviceId: $0.deviceId, deviceName: $0.deviceName, dayKey: $0.dayKey, points: $0.points())
+                BackupDay(
+                    deviceId: $0.deviceId, deviceName: $0.deviceName, dayKey: $0.dayKey,
+                    points: $0.points(),
+                    timeZoneID: $0.timeZoneID.isEmpty ? nil : $0.timeZoneID
+                )
             }
             file.visits = visits.map {
                 BackupVisit(
@@ -224,6 +230,11 @@ enum Exporter {
             }
             let before = day.pointCount
             day.appendPoints(backupDay.points)
+            // Aufgezeichnete Zone aus der Sicherung übernehmen — aber
+            // nie eine vorhandene überschreiben (die ist frischer).
+            if day.timeZoneID.isEmpty, let zoneID = backupDay.timeZoneID {
+                day.timeZoneID = zoneID
+            }
             result.importedPoints += day.pointCount - before
         }
 

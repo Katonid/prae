@@ -42,6 +42,9 @@ final class TrackDay {
     var summary: String = ""
     var summaryPointCount: Int = 0
     var updatedAt: Date = Date()
+    /// Zeitzone des Geräts beim Aufzeichnen — identisch zum
+    /// iPhone-Modell (strukturgleiche Entität, siehe Kopfkommentar).
+    var timeZoneID: String = ""
 
     init(deviceId: String, deviceName: String, dayKey: String) {
         self.deviceId = deviceId
