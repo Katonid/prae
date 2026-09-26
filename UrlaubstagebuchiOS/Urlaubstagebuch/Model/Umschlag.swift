@@ -205,6 +205,27 @@ struct Umschlag: Codable, Hashable {
     // nur, wenn genug Seiten da sind (siehe `Reise.umschlagTraegtInhalt`).
     var innenseitenInhalt: Bool = false
 
+    // U2 UND U3 GEHÖREN IN DEN INNENTEIL (ab 1.0.112).
+    //
+    // Ansage des Nutzers, 09/2026: „Es ist doch so, dass bei Saal Digital
+    // die erste Seite eine linke Seite ist und die Innenseite des
+    // Umschlages darstellt." Saals eigene Vorlage bestätigt es: 26 Seiten
+    // sind dort 13 volle Doppelseiten — die erste Hälfte des ersten Bogens
+    // ist die Innenseite des vorderen Deckels, wird bedruckt und verklebt,
+    // die letzte Hälfte ebenso hinten. Die Umschlagdatei trägt dort NUR die
+    // Außenseite.
+    //
+    // **Die Lage ist dieselbe wie bei `innenseitenInhalt`** — U2 links neben
+    // Seite 1, U3 rechts neben der letzten. Anders ist nur, WOHIN die beiden
+    // Seiten geschrieben werden: in die Datei des Innenteils statt auf einen
+    // zweiten Umschlagbogen, im Maß des Buchblocks und nicht in dem des
+    // Umschlags. Und sie ZÄHLEN MIT — Saals Seitenzahl und damit seine
+    // Rückentabelle schließen sie ein.
+    //
+    // Wirksam nur zusammen mit `innenseitenInhalt` (und damit mit
+    // `Reise.umschlagTraegtInhalt`).
+    var innenseitenImBlock: Bool = false
+
     // DIE TABELLE DES DRUCKDIENSTES (ab 1.0.52).
     //
     // Ansage des Nutzers, 09/2026: „Bei Saal Digital werden in einer
@@ -343,6 +364,7 @@ struct Umschlag: Codable, Hashable {
         innenseitenBogen = b.wert(.innenseitenBogen, false)
         innenseitenFarbe = b.wahlweise(.innenseitenFarbe)
         innenseitenInhalt = b.wert(.innenseitenInhalt, false)
+        innenseitenImBlock = b.wert(.innenseitenImBlock, false)
         rueckentabelle = b.wert(.rueckentabelle, [Rueckenstufe]())
         tabellenvorlage = b.wahlweise(.tabellenvorlage)
         ohneVorlage = b.wert(.ohneVorlage, false)

@@ -6767,7 +6767,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.111 (Build 112). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.112 (Build 113). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7321,6 +7321,47 @@ Befunde, und keiner davon war Geschmack:
     hochgeladen worden. Gemessen ist die Antwort der Schnittstelle am
     26.09.2026; ändert Saal sein Angebot, merkt diese App nichts davon —
     dann Skript neu laufen lassen. **Nicht als erledigt darstellen.**
+- **BEI SAAL IST SEITE 1 EINE LINKE — U2 UND U3 GEHÖREN IN DEN INNENTEIL**
+  (`Umschlag.innenseitenImBlock`, `Buchseite.imBlock`, ab 1.0.112; Ansage
+  des Nutzers 09/2026, nach einer ersten gegenteiligen Angabe berichtigt:
+  „Es ist doch so, dass bei Saal Digital die erste Seite eine linke Seite
+  ist und die Innenseite des Umschlages darstellt.").
+  - **Gemessen, nicht übernommen:** Saals Innenvorlage für 26 Seiten
+    (`GetTemplate`, 26.09.2026) sind 13 volle Doppelseiten von 420 × 270 mm
+    — keine halbe am Anfang, keine am Ende. Die erste Hälfte ist also die
+    Innenseite des vorderen Deckels (bedruckt, verklebt), die letzte die des
+    hinteren, und **beide zählen in Saals Seitenzahl** und damit in seiner
+    Rückentabelle. Die Umschlagdatei trägt nur die Außenseite.
+  - **Die LAGE gab es seit 1.0.74** (`innenseitenInhalt`: erste Inhaltsseite
+    auf U2 links, letzte auf U3 rechts). Neu ist nur, WOHIN die beiden
+    geschrieben werden. Entschieden wird das an der Seite selbst:
+    `Buchseite.imBlock`, vergeben in `seitenfolge` wie Nummer und Bogen, und
+    `amUmschlag` ist dann falsch. **Damit ziehen alle Stellen, die
+    `amUmschlag` fragen, von selbst mit** — Maß, Anschnitt und Satzspiegel
+    des Buchblocks (`Reise.flaeche`), die Innenteil-Datei
+    (`zurUmschlagdatei`), die Doppelseiten-Datei (sie fragt seither
+    `!amUmschlag` statt `teil == .innen`; der erste Bogen ist U2 | 1, keiner
+    bleibt halb), die volle Datei. `umschlagPdf` lässt die zweite Seite weg,
+    `blockseiten` zieht die zwei nicht ab.
+  - **Die Seitenzahl fragt `teil == .innen`**, nicht mehr `!amUmschlag`: U2
+    trägt die Nummer 0, und eine „0" auf einer verklebten Seite wäre falsch.
+    **Wer eine neue Stelle baut, die „Umschlag oder nicht" fragt, entscheidet,
+    ob sie den BOGEN meint (`amUmschlag`) oder den TEIL** — seit 1.0.112 ist
+    das nicht mehr dasselbe.
+  - **Ein Saal-Produkt mit Doppelseiten schaltet es ein** (`Druckprodukt.anwenden`:
+    Bogen, U2+U3 mitliefern, Inhalt darauf, im Innenteil). Das Blatt davor
+    sagt es, dazu Saals Strichcode auf der letzten Innenseite (7,8 × 5,6 mm,
+    8,9 mm von rechts, 4,1 mm von unten — Tabelle „Barcode" derselben
+    Schnittstelle).
+  - **Am Bund der Innenseiten gibt es bei Saal KEINEN Abstand zu halten.**
+    Gefragt 09/2026, weil Saal einen „Abstand" nennt: Das ist der
+    Falzbereich des UMSCHLAGS (9–17 mm um den Rücken). Die Innenvorlage hat
+    außer der Mittellinie keine Hilfslinie; die Seiten liegen flach
+    (Layflat). Der eigene Sicherheitsabstand am Bund bleibt, was er ist —
+    eine Entscheidung, keine Vorgabe.
+  - **Nicht gemessen (1.0.112):** Keine Datei ist damit bei Saal
+    hochgeladen worden. Gerechnet ist die Zählung (26 = 24 + U2 + U3) und
+    die Paarung. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

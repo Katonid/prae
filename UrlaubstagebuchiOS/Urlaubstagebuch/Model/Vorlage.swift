@@ -271,6 +271,7 @@ struct Vorlagenwerte: Codable, Hashable {
         u.ohneVorlage = umschlag.ohneVorlage
         u.innenseitenBogen = umschlag.innenseitenBogen
         u.innenseitenInhalt = umschlag.innenseitenInhalt
+        u.innenseitenImBlock = umschlag.innenseitenImBlock
         reise.umschlag = u
     }
 

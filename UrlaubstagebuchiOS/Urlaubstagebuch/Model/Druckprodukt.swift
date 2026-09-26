@@ -155,8 +155,26 @@ struct Druckprodukt: Identifiable, Hashable {
             reise.umschlag.rueckenbreiteVonHand = nil
             reise.umschlag.rueckentabelle = []
             reise.umschlag.einband = reihe == "Softcover" ? .softcover : .hardcover
+            // SEITE 1 IST BEI SAAL LINKS (ab 1.0.112). Saals Vorlage für 26
+            // Seiten sind 13 volle Doppelseiten: Die erste Hälfte ist die
+            // Innenseite des vorderen Deckels, wird bedruckt und verklebt,
+            // die letzte ebenso hinten — und beide zählen mit. Die
+            // Umschlagdatei trägt nur die Außenseite.
+            if doppelseiten {
+                reise.umschlag.alsBogen = true
+                reise.umschlag.innenseitenBogen = true
+                reise.umschlag.innenseitenInhalt = true
+                reise.umschlag.innenseitenImBlock = true
+            }
         }
     }
+
+    /// Wo Saal auf der LETZTEN Innenseite seinen Strichcode druckt — aus
+    /// der Tabelle „Barcode" derselben Schnittstelle, gemessen 26.09.2026.
+    /// Gilt für alle Produkte mit Umschlagbogen gleich.
+    static let strichcodeText = "Auf die letzte Seite (U3, hinten verklebt) druckt Saal "
+        + "unten rechts einen Strichcode: 7,8 \u{00D7} 5,6 mm, 8,9 mm vom rechten und "
+        + "4,1 mm vom unteren Rand. Dort nichts Wichtiges hinlegen."
 
     /// Was `anwenden` ändert, in Worten — für das Blatt davor.
     func aenderungen(_ reise: Reise) -> [String] {
@@ -177,6 +195,13 @@ struct Druckprodukt: Identifiable, Hashable {
             let halb = Seitenformat(breite: u.haelfteBreite, hoehe: u.haelfteHoehe)
             zeilen.append("Umschlag: je Hälfte \(halb.masstext), Beschnitt \(Druckvorgabe.zahl(u.anschnitt)) mm")
             zeilen.append("Rückenbreite nach Seitenzahl aus Saals Tabelle")
+            if doppelseiten {
+                var satz = "Seite 1 liegt LINKS: Die erste und die letzte Tagebuchseite werden "
+                satz += "die Innenseiten des Umschlags (U2, U3), stehen in der Innenteil-Datei "
+                satz += "und zählen bei Saal mit. Die Umschlagdatei trägt nur die Außenseite."
+                zeilen.append(satz)
+                zeilen.append(Druckprodukt.strichcodeText)
+            }
             if reise.umschlag.rueckenbreiteVonHand != nil || !reise.umschlag.rueckentabelle.isEmpty {
                 zeilen.append("Die bisher eingetragene Rückenstärke bzw. eigene Tabelle wird entfernt")
             }

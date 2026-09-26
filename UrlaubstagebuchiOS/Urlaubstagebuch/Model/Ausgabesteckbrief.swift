@@ -185,8 +185,10 @@ enum Ausgabesteckbrief {
         let hat = reise.innenseiten
         var wert = "\(hat) Buchseiten"
         if reise.hatRueckseite {
-            wert += reise.umschlag.innenseitenBogen ? " + 4 Umschlagseiten"
-                : " + 2 Umschlagseiten"
+            // Stehen U2 und U3 im Innenteil (ab 1.0.112), sind sie in `hat`
+            // schon gezählt; auf dem Umschlag bleiben zwei.
+            let vier = reise.umschlag.innenseitenBogen && !reise.umschlag.innenseitenImBlock
+            wert += vier ? " + 4 Umschlagseiten" : " + 2 Umschlagseiten"
         }
         var satz = "Der Umschlag zählt nicht zum Innenteil \u{2014} er ist ein "
         satz += "eigenes Stück Papier."
@@ -365,13 +367,22 @@ enum Ausgabesteckbrief {
 
         if reise.hatRueckseite {
             zeilen.append(rueckenzeile(reise))
+            var innenwert = "nicht im PDF"
+            var innensatz = "Sie kommen von der Druckerei \u{2014} beim Hardcover ist das "
+            innensatz += "das Vorsatzpapier."
+            if u.innenseitenBogen {
+                innenwert = "werden mitgeliefert"
+                innensatz = "Als zweite Seite derselben Umschlagdatei, in denselben Maßen."
+            }
+            if u.innenseitenBogen, reise.umschlagTraegtInhalt, u.innenseitenImBlock {
+                innenwert = "im Innenteil"
+                innensatz = "Als erste und letzte Seite der Innenteil-Datei, im Maß des "
+                innensatz += "Buchblocks (ab 1.0.112, so verlangt es Saal Digital)."
+            }
             zeilen.append(Zeile(
                 name: "Innenseiten U2+U3",
-                wert: u.innenseitenBogen ? "werden mitgeliefert" : "nicht im PDF",
-                erklaerung: u.innenseitenBogen
-                    ? "Als zweite Seite derselben Umschlagdatei, in denselben Maßen."
-                    : "Sie kommen von der Druckerei \u{2014} beim Hardcover ist das "
-                        + "das Vorsatzpapier.",
+                wert: innenwert,
+                erklaerung: innensatz,
                 eingestellt: true,
                 wo: "Ganzes Buch \u{2192} Titel, Umschlag und Rücken\u{2026}"))
             if u.innenseitenBogen {
@@ -407,6 +418,13 @@ enum Ausgabesteckbrief {
             satz += "Dadurch liegt jede folgende Seite auf der anderen Buchhälfte: "
             satz += "Was rechts lag, liegt links. Der Innenteil wird um zwei Seiten "
             satz += "kürzer, und der Rücken entsprechend dünner."
+            if reise.umschlag.innenseitenImBlock {
+                satz = "Die erste und die letzte Tagebuchseite sind U2 und U3 und stehen "
+                satz += "im INNENTEIL, wie Saal Digital es verlangt: Seite 1 der Datei ist "
+                satz += "links und wird mit dem vorderen Deckel verklebt, die letzte rechts "
+                satz += "mit dem hinteren. Beide zählen in der Seitenzahl mit; die "
+                satz += "Umschlagdatei trägt nur die Außenseite."
+            }
         }
         return Zeile(name: "Inhalt auf U2+U3",
                      wert: traegt ? "ja" : "nein",
