@@ -367,6 +367,14 @@ enum Handbuch {
                 stichworte: ["saal", "digital", "fotobuch", "hardcover", "softcover", "21x28", "rücken", "druckerei", "produkt",
                              "u2", "u3", "linke seite", "strichcode", "barcode"]),
             Handbucheintrag(
+                id: "whitewall",
+                titel: "Druckprodukte von WhiteWall",
+                text: "Die Fotob\u{00FC}cher von WhiteWall \u{2014} Exhibition A4 hoch und quer, Story und Gallery im Quadrat, Portfolio A3 hoch und quer, je Papier (Fuji Crystal Archive Lustre, Glossy, Velvet und die drei Inkjet-Papiere). Die Zahlen sind aus WhiteWalls eigenen InDesign-Vorlagen gelesen, der R\u{00FC}cken f\u{00FC}r jede Seitenzahl einzeln. Ein Tipp setzt Seitenformat, Beschnitt (oben, unten, au\u{00DF}en 3 mm, am Bund keiner), den Sicherheitsabstand (5 mm, am Bund keiner) und damit die blaue Linie samt roter Markierung, das Ma\u{00DF} des Umschlags und die R\u{00FC}ckenbreite.\n\nBEI WHITEWALL IST SEITE 1 EINE RECHTE: Innen am Deckel klebt Vorsatzpapier, U2 und U3 werden nicht bedruckt. Die Seitenzahl w\u{00E4}chst in Viererschritten.\n\nWhiteWalls Exportvorgabe will ein PDF ohne Transparenz. Das stellt die App nicht selbst um: \u{201E}Ohne Transparenz\u{201C} beim Ausgeben nimmt die Wasserzeichen ganz heraus \u{2014} das entscheidest du dort.",
+                weg: "Buchsymbol \u{2192} Seitenformat \u{2192} Druckprodukte \u{00B7} WhiteWall",
+                ziel: .seitenformat,
+                stichworte: ["whitewall", "white wall", "exhibition", "portfolio", "gallery", "story", "fuji", "lustre",
+                             "sicherheitsabstand", "vorsatz", "druckerei", "produkt"]),
+            Handbucheintrag(
                 id: "zugaben",
                 titel: "Anschnitt, Sicherheitsabstand, Bundsteg",
                 text: "Der ANSCHNITT liegt außerhalb des Endformats und wird weggeschnitten; dorthin muss alles laufen, was randabfallend sein soll. Der SICHERHEITSABSTAND liegt innerhalb; dort soll nichts stehen, was gelesen werden muss — am Bund darf ein eigener Wert gelten. Der BUNDSTEG ist zusätzlicher Rand zur Heftung und von Haus aus null.\n\nAM BUND lässt sich der Anschnitt abschalten. Manche Druckdienste verlangen genau das \u{2014} \u{201E}Beschnittzugabe oben | unten | außen | innen = 3 | 3 | 3 | 0 mm\u{201C}. Dann ist die PDF-Seite waagerecht nur um EINE Zugabe breiter als das Endformat, und aus einem geforderten Bogen von 208 mm werden 205 mm Endformat und nicht 202. Auf dem Blatt hört die rote Schnittkante am Bund auf; welche Seite innen liegt, wechselt von Seite zu Seite.",

@@ -335,23 +335,42 @@ struct FormatView: View {
 
     // DRUCKPRODUKTE (ab 1.0.111). Eine Reihe je Aufklapper: 51 Produkte
     // untereinander wären eine Liste, in der niemand sein Format findet.
+    //
+    // Ein Abschnitt je ANBIETER (ab 1.0.113, WhiteWall dazu): Die Reihen
+    // zweier Druckereien in einer Liste wären nicht auseinanderzuhalten.
     private var produktabschnitt: some View {
-        Section {
-            if let gewaehlt = Druckprodukt.produkt(jetzt.vorlage) {
-                LabeledContent("Gewählt", value: gewaehlt.titel)
-            }
-            ForEach(Druckprodukt.reihen, id: \.self) { reihe in
-                DisclosureGroup(reihe) {
-                    ForEach(Druckprodukt.alle.filter { $0.reihe == reihe }) { produkt in
-                        Button { produktwahl = produkt } label: { produktzeile(produkt) }
+        ForEach(Druckprodukt.anbieterliste, id: \.self) { anbieter in
+            Section {
+                if let gewaehlt = Druckprodukt.produkt(jetzt.vorlage), gewaehlt.anbieter == anbieter {
+                    LabeledContent("Gewählt", value: gewaehlt.titel)
+                }
+                ForEach(Druckprodukt.reihen(von: anbieter), id: \.self) { reihe in
+                    DisclosureGroup(reihe) {
+                        ForEach(Druckprodukt.alle.filter { $0.anbieter == anbieter && $0.reihe == reihe }) { produkt in
+                            Button { produktwahl = produkt } label: { produktzeile(produkt) }
+                        }
                     }
                 }
+            } header: {
+                Text("Druckprodukte \u{00B7} \(anbieter)")
+            } footer: {
+                Text(produktfuss(anbieter))
             }
-        } header: {
-            Text("Druckprodukte \u{00B7} Saal Digital")
-        } footer: {
-            Text("Ein Produkt setzt alles, was die Druckerei vorgibt, auf einmal: Seitenformat, Beschnitt, das Maß des Umschlags und die Rückenbreite nach Seitenzahl. Ränder, Schrift und Stil bleiben, wie sie sind. Die Zahlen stammen von Saals Seite \u{201E}Profibereich\u{201C}, Stand \(Saalprodukte.stand) \u{2014} verbindlich ist, was Saal bei der Bestellung nennt.")
         }
+    }
+
+    private func produktfuss(_ anbieter: String) -> String {
+        var text = "Ein Produkt setzt alles, was die Druckerei vorgibt, auf einmal: Seitenformat, Beschnitt, "
+        if anbieter == "Saal Digital" {
+            text += "das Maß des Umschlags und die Rückenbreite nach Seitenzahl. Ränder, Schrift und Stil bleiben, wie sie sind. "
+            text += "Die Zahlen stammen von Saals Seite \u{201E}Profibereich\u{201C}, Stand \(Saalprodukte.stand) \u{2014} "
+            text += "verbindlich ist, was Saal bei der Bestellung nennt."
+        } else {
+            text += "Sicherheitsabstand, das Maß des Umschlags und die Rückenbreite nach Seitenzahl. Ränder, Schrift und Stil bleiben, wie sie sind. "
+            text += "Die Zahlen sind aus WhiteWalls InDesign-Vorlagen gelesen (Stand \(Whitewallprodukte.stand)), "
+            text += "der Rücken für jede Seitenzahl einzeln \u{2014} verbindlich ist, was WhiteWall bei der Bestellung nennt."
+        }
+        return text
     }
 
     private func produktzeile(_ produkt: Druckprodukt) -> some View {
@@ -551,17 +570,26 @@ private struct Produktblatt: View {
 
     private func umschlagabschnitt(_ u: Druckprodukt.Umschlagvorgabe) -> some View {
         let seiten = werk.reise.blockseiten
-        var fuss = "Saals Spalte \u{201E}Buchr\u{00FC}cken\u{201C} ist auf ganze Millimeter gerundet und geht mit der Bogenbreite nicht immer auf. Getroffen wird deshalb die BOGENBREITE, die Saal an der Datei prüft; der Rücken liegt dafür bis zu gut 1,5 mm je Seite neben Saals Angabe — das deckt der Falzbereich ab, in den ohnehin nichts Wichtiges gehört."
+        var fuss: String
+        if produkt.istSaal {
+            fuss = "Saals Spalte \u{201E}Buchr\u{00FC}cken\u{201C} ist auf ganze Millimeter gerundet und geht mit der Bogenbreite nicht immer auf. Getroffen wird deshalb die BOGENBREITE, die Saal an der Datei prüft; der Rücken liegt dafür bis zu gut 1,5 mm je Seite neben Saals Angabe — das deckt der Falzbereich ab, in den ohnehin nichts Wichtiges gehört."
+        } else {
+            fuss = "Der Rücken steht in jeder Vorlage als Hilfslinie; er wächst in Stufen, und zwei Seitenzahlen mit demselben Rücken sind keine Rundung. Am Rücken hält WhiteWall 2 mm Abstand für den Falz, außen 5 mm."
+        }
         if u.seitlichMehr > 0.05 {
-            fuss += " Außen schneidet Saal \(Druckvorgabe.zahl(u.anschnittSeitlich)) mm ab, oben und unten \(Druckvorgabe.zahl(u.anschnitt)); diese App kennt einen Beschnitt je Bogen. Die übrigen \(Druckvorgabe.zahl(u.seitlichMehr)) mm stecken in der Hälfte — Wichtiges also nicht bis an die äußere Kante des Umschlags legen."
+            fuss += " Außen schneidet \(produkt.anbieter) \(Druckvorgabe.zahl(u.anschnittSeitlich)) mm ab, oben und unten \(Druckvorgabe.zahl(u.anschnitt)); diese App kennt einen Beschnitt je Bogen. Die übrigen \(Druckvorgabe.zahl(u.seitlichMehr)) mm stecken in der Hälfte — Wichtiges also nicht bis an die äußere Kante des Umschlags legen."
         }
         return Section {
             if seiten <= produkt.seitenBis, let s = u.stufe(innenseiten: seiten) {
                 LabeledContent("Bei \(seiten) Seiten", value: "Bogen \(Druckvorgabe.zahl(s.bogenbreite)) × \(Druckvorgabe.zahl(u.bogenhoehe)) mm")
-                LabeledContent("Rücken", value: "\(Druckvorgabe.zahl(s.ruecken)) mm (Saal: \(Druckvorgabe.zahl(s.rueckenSaal)))")
-                LabeledContent("Falzbereich", value: "\(Druckvorgabe.zahl(s.falz)) mm")
+                if produkt.istSaal {
+                    LabeledContent("Rücken", value: "\(Druckvorgabe.zahl(s.ruecken)) mm (Saal: \(Druckvorgabe.zahl(s.rueckenSaal)))")
+                    LabeledContent("Falzbereich", value: "\(Druckvorgabe.zahl(s.falz)) mm")
+                } else {
+                    LabeledContent("Rücken", value: "\(Druckvorgabe.zahl(s.ruecken)) mm")
+                }
             } else {
-                Text("Für \(seiten) Seiten nennt Saal bei diesem Produkt keinen Umschlag — erlaubt sind \(produkt.seitenVon) bis \(produkt.seitenBis).")
+                Text("Für \(seiten) Seiten nennt \(produkt.anbieter) bei diesem Produkt keinen Umschlag — erlaubt sind \(produkt.seitenVon) bis \(produkt.seitenBis).")
                     .foregroundStyle(.orange)
             }
         } header: {
