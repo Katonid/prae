@@ -57,10 +57,6 @@ struct EintragView: View {
                     .tabViewStyle(.page(indexDisplayMode: fotos.count > 1 ? .always : .never))
                     .frame(height: 420)
                     bildtextZeile(fotos)
-                } else if eintrag.eintragsart == .wanderung {
-                    Wanderkarte(eintrag: eintrag, palette: palette, hoehe: 300, antippbar: true)
-                        .padding(.horizontal, 18)
-                        .padding(.top, 8)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -131,12 +127,14 @@ struct EintragView: View {
                         .padding(.top, 8)
                     }
 
+                    // EINE Karte (ab 1.0.30, Ansage des Nutzers: „keine
+                    // doppelten Karten mehr"): Auch eine Wanderung zeigt die
+                    // Karte des Tages — ihre Strecke, die Spur, die
+                    // Autofahrten; im Vollbild mit Uhrzeit per Tipp und den
+                    // Schaltern. Bis 1.0.29 hatte sie eine eigene, zweite.
                     switch eintrag.eintragsart {
-                    case .eintrag:
+                    case .eintrag, .wanderung:
                         Tagesspurkarte(eintrag: eintrag, palette: palette)
-                    case .wanderung:
-                        // Mit Fotos stehen sie oben; dann die Strecke hier.
-                        if !fotos.isEmpty { Wanderkarte(eintrag: eintrag, palette: palette) }
                     case .seite:
                         EmptyView()
                     }

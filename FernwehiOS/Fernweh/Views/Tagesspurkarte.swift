@@ -316,6 +316,23 @@ struct SpurVollbild: View {
         linienfarbe ?? farben.farbe(art, palette: palette)
     }
 
+    /// Uhrzeiten an Start, Ziel und jeder vollen Stunde JEDER Wanderung des
+    /// Tages (ab 1.0.30). Bis 1.0.29 gab es sie nur im Vollbild der eigenen
+    /// Wanderkarte — die ist mit „nur noch EINE Karte" entfallen, ihre
+    /// Uhrzeiten sollen es nicht.
+    private var alleZeitmarken: [Zeitmarke] {
+        guard zeitmarken.isEmpty else { return zeitmarken }
+        guard sichtbar(.wanderung) else { return [] }
+        var marken: [Zeitmarke] = []
+        for (nummer, l) in linien.enumerated() where l.art == .wanderung && l.zeiten.count == l.punkte.count {
+            let punkte = zip(l.punkte, l.zeiten).map { Spurpunkt(breite: $0.latitude, laenge: $0.longitude, zeit: $1) }
+            marken += Zeitmarke.fuer(punkte, zone: l.zone ?? zone).map {
+                Zeitmarke(id: (nummer + 1) * 1000 + $0.id, text: $0.text, ort: $0.ort, art: $0.art)
+            }
+        }
+        return marken
+    }
+
     var body: some View {
         MapReader { proxy in
             karte.onTapGesture { ort in
@@ -344,7 +361,7 @@ struct SpurVollbild: View {
                 MapPolyline(coordinates: l.punkte)
                     .stroke(linienfarbe ?? farben.farbe(l.art, palette: palette), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             }
-            ForEach(zeitmarken) { z in
+            ForEach(alleZeitmarken) { z in
                 Annotation(z.text, coordinate: z.ort) { Zeitmarkenbild(marke: z) }
                     .annotationTitles(.hidden)
             }

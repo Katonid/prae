@@ -673,10 +673,13 @@ struct EintragKarte: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Keine eigene Karte mehr für eine Wanderung (ab 1.0.30, Ansage
+            // des Nutzers 09/2026: „Ich möchte keine doppelten Karten mehr.
+            // Alle Funktionen müssen in einer (!) Karte gebündelt werden.")
+            // Die Strecke steht auf der Karte des TAGES — in der Reise wie
+            // im Tagebuch (`Tagesspurwahl` nimmt Wanderungen seit 1.0.26 mit).
             if !eintrag.fotoListe.isEmpty {
                 Collage(fotos: eintrag.fotoListe)
-            } else if eintrag.eintragsart == .wanderung {
-                Wanderkarte(eintrag: eintrag, palette: palette, hoehe: 150, antippbar: false)
             }
             VStack(alignment: .leading, spacing: 6) {
                 if eintrag.eintragsart == .seite {
