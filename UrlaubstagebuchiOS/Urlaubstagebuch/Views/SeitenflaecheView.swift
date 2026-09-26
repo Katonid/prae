@@ -1717,7 +1717,10 @@ struct KartenKachel: View {
 
     private func kennung(_ groesse: CGSize) -> String {
         let punkte = tag?.spur.map(\.koordinate) ?? []
-        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(geltend.merkmal)|\(werk.reise.akzent.rot)"
+        // Die Linienfarben (ab 1.0.114) gehören dazu wie die Akzentfarbe:
+        // Wer die Farbe der Autofahrten ändert, will die Karte neu sehen.
+        let farben = werk.reise.punktfarben(tag?.spur ?? []).hashValue
+        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(geltend.merkmal)|\(werk.reise.spurfarbe.rot),\(werk.reise.spurfarbe.gruen),\(werk.reise.spurfarbe.blau)|\(farben)"
     }
 
     private func laden(_ groesse: CGSize) async {
@@ -1727,7 +1730,8 @@ struct KartenKachel: View {
             punkte: tag.spur.map(\.koordinate),
             groesse: CGSize(width: groesse.width * 2, height: groesse.height * 2),
             kartenbild: gilt.bild,
-            linienfarbe: werk.reise.akzent,
+            linienfarbe: werk.reise.spurfarbe,
+            punktfarben: werk.reise.punktfarben(tag.spur),
             ausschnitt: gilt.ausschnitt
         )
         await MainActor.run {

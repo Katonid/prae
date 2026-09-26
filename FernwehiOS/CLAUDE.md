@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -361,6 +361,38 @@
   - Ans Reisebuch geht die neue Beschreibung; wer schon übergeben hat,
     übergibt nach dem Neuholen noch einmal.
   - **Nicht gemessen**: kein Gerät; nur die Antwort des Dienstes per `curl`.
+- **Autofahrten aus GPX-Dateien und einstellbare Kartenfarben**
+  (`Model/Fahrten.swift`, `Model/Kartenfarben.swift`,
+  `Views/FahrtenImportView.swift`, `Views/KartenfarbenView.swift`, ab 1.0.21;
+  Ansage des Nutzers 09/2026: „GPX-Dateien für jede einzelne Fahrt … en bloc
+  importieren … den einzelnen Tagen zuweist. Auf der Landkarte der Reise
+  sollen Autofahrten mit einer anderen Farbe dargestellt werden. Insgesamt
+  möchte ich die Farben auf der Karte einstellen können und auch dies soll
+  abschließend an Fotobuch übergeben werden.")
+  - **Sammelimport**: Reise → „…" → „Autofahrten (GPX) …" bzw. die Karte
+    „Reise nachtragen"; beliebig viele Dateien. Der Tag einer Fahrt ist der
+    Tag ihres STARTS in Ortszeit (Zone je halbem Grad über Apples
+    Ortsdienst); über Mitternacht wird nicht geteilt. Dateien OHNE Uhrzeiten
+    werden genannt, nicht geraten. Fahrten außerhalb der Reise werden gezählt,
+    samt „Reise auf … erweitern" (nur länger, nie über heute).
+  - **Gespeichert als `Spur` der Reise** mit `geraet` =
+    „fahrt:<Start in s>|<Zone>|<Name>" — kein neues Attribut, **kein
+    Schema-Deploy**. Derselbe Start zweimal: übersprungen. Auf 20 m gedünnt,
+    Kilometer aus der ungedünnten Datei. **Wer Spuren je Gerät auswertet,
+    prüft `Spur.istFahrt`** — eine Fahrt ist kein Gerät. Kilometer des Tages
+    nur über `Reise.meter(am:)`: das Größere aus längster Gerätespur und der
+    Summe aus Fahrten und Wanderungen.
+  - **Unter jedem Tag** steht jede Fahrt als Zeile (Name, Uhrzeit, km); lange
+    drücken → „Fahrt entfernen".
+  - **Kartenfarben** je GERÄT (`UserDefaults`, nicht an der Reise — ein
+    Attribut hätte einen Schema-Deploy gekostet): Reisespur (Vorgabe: Farbe
+    der Reise, Miturlauber heller), Wanderungen (Vorgabe Grün), Autofahrten
+    (Vorgabe Schiefergrau `#5A6475`). Einstellbar in den Einstellungen →
+    „Kartenfarben …" und in der Vollbildkarte → „Farben". **Linienfarben nur
+    über `Kartenfarben.shared`**, nie `Stil.wanderfarbe` direkt.
+  - **Übergabe**: `spuren[].art`/`name` und `karte.farben` angehängt
+    (Fassung 1, `docs/UEBERGABE.md`). `reisespur` geht nur mit, wenn gewählt.
+  - **Nicht gemessen**: kein Gerät, keine echte GPX-Datei einer Autofahrt.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

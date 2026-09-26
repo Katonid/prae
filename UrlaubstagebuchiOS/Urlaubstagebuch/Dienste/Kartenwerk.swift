@@ -26,25 +26,32 @@ actor Kartenwerk {
     private var laufend: [String: Task<UIImage?, Never>] = [:]
 
     private func schluessel(_ punkte: [Koordinate], groesse: CGSize, bild: Kartenbild,
-                            linie: Farbwert, ausschnitt: Kartenausschnitt?) -> String
+                            linie: Farbwert, punktfarben: [Farbwert], ausschnitt: Kartenausschnitt?) -> String
     {
         let orte = punkte.map { String(format: "%.5f,%.5f", $0.breite, $0.laenge) }.joined(separator: ";")
         let rahmen = ausschnitt.map { String(format: "%.5f,%.5f,%.5f", $0.mitte.breite, $0.mitte.laenge, $0.spanne) } ?? "auto"
-        return "\(orte)|\(Int(groesse.width))x\(Int(groesse.height))|\(bild.merkmal)|\(linie.rot),\(linie.gruen),\(linie.blau)|\(rahmen)"
+        // Die Farben je Punkt gehören in den Schlüssel — sonst bliebe nach
+        // dem Umfärben der Autofahrten das alte Bild stehen.
+        let farben = punktfarben.map { "\($0.rot),\($0.gruen),\($0.blau)" }.joined(separator: ";")
+        return "\(orte)|\(Int(groesse.width))x\(Int(groesse.height))|\(bild.merkmal)|\(linie.rot),\(linie.gruen),\(linie.blau)|\(farben)|\(rahmen)"
     }
 
+    // `punktfarben` (ab 1.0.114): je Punkt die Farbe der Linie, die zu ihm
+    // führt — Reisespur, Wanderung, Autofahrt. Leer heißt: alles in
+    // `linienfarbe`, wie bisher.
     func bild(punkte: [Koordinate], groesse: CGSize, kartenbild: Kartenbild,
-              linienfarbe: Farbwert, ausschnitt: Kartenausschnitt?) async -> UIImage?
+              linienfarbe: Farbwert, punktfarben: [Farbwert] = [],
+              ausschnitt: Kartenausschnitt?) async -> UIImage?
     {
         guard groesse.width > 8, groesse.height > 8 else { return nil }
         let merker = schluessel(punkte, groesse: groesse, bild: kartenbild, linie: linienfarbe,
-                                ausschnitt: ausschnitt)
+                                punktfarben: punktfarben, ausschnitt: ausschnitt)
         if let da = vorrat[merker] { return da }
         if let laeuft = laufend[merker] { return await laeuft.value }
 
         let auftrag = Task<UIImage?, Never> { [kartenbild, linienfarbe] in
             await Self.zeichnen(punkte: punkte, groesse: groesse, kartenbild: kartenbild,
-                                linienfarbe: linienfarbe, ausschnitt: ausschnitt)
+                                linienfarbe: linienfarbe, punktfarben: punktfarben, ausschnitt: ausschnitt)
         }
         laufend[merker] = auftrag
         let ergebnis = await auftrag.value
@@ -104,7 +111,8 @@ actor Kartenwerk {
     private static let massstab: CGFloat = 2
 
     private static func zeichnen(punkte: [Koordinate], groesse: CGSize, kartenbild: Kartenbild,
-                                 linienfarbe: Farbwert, ausschnitt: Kartenausschnitt?) async -> UIImage?
+                                 linienfarbe: Farbwert, punktfarben: [Farbwert],
+                                 ausschnitt: Kartenausschnitt?) async -> UIImage?
     {
         let feld = region(punkte, ausschnitt: ausschnitt)
         // Entschieden wird an der QUELLE und nicht daran, ob eine Adresse
@@ -133,6 +141,8 @@ actor Kartenwerk {
             untergrund.bild.draw(in: CGRect(origin: .zero, size: groesse))
             let feder = zusammenhang.cgContext
             let stellen = punkte.map(untergrund.stelle)
+            let farben = punktfarben.count == stellen.count
+                ? punktfarben : Array(repeating: linienfarbe, count: stellen.count)
 
             if stellen.count >= 2 {
                 // Erst eine helle Kontur, dann die Linie. Ohne sie
@@ -147,9 +157,26 @@ actor Kartenwerk {
                 feder.setStrokeColor(UIColor.white.withAlphaComponent(0.85).cgColor)
                 weg.lineWidth = max(groesse.width / 90, 4.2)
                 weg.stroke()
-                feder.setStrokeColor(linienfarbe.uiFarbe.cgColor)
-                weg.lineWidth = max(groesse.width / 150, 2.4)
-                weg.stroke()
+                // Die Linie in STÜCKEN gleicher Farbe (ab 1.0.114): Ein
+                // Stück beginnt am letzten Punkt davor, damit keine Lücke
+                // bleibt; die Farbe ist die des Punktes, zu dem es führt.
+                // Die Kontur liegt als EIN Weg darunter — sonst stünde an
+                // jedem Farbwechsel ein weißer Knoten.
+                var anfang = 1
+                while anfang < stellen.count {
+                    let farbe = farben[anfang]
+                    var ende = anfang
+                    while ende + 1 < stellen.count, farben[ende + 1] == farbe { ende += 1 }
+                    let stueck = UIBezierPath()
+                    stueck.move(to: stellen[anfang - 1])
+                    for i in anfang...ende { stueck.addLine(to: stellen[i]) }
+                    stueck.lineCapStyle = .round
+                    stueck.lineJoinStyle = .round
+                    stueck.lineWidth = max(groesse.width / 150, 2.4)
+                    feder.setStrokeColor(farbe.uiFarbe.cgColor)
+                    stueck.stroke()
+                    anfang = ende + 1
+                }
             }
 
             // DIE PUNKTE — und ob es sie überhaupt gibt (ab 1.0.37).
@@ -178,7 +205,7 @@ actor Kartenwerk {
                         // Radius statt zweier Fünftel.
                         feder.setFillColor(UIColor.white.cgColor)
                         kreis.fill()
-                        feder.setFillColor(linienfarbe.uiFarbe.cgColor)
+                        feder.setFillColor(farben[stelle].uiFarbe.cgColor)
                         let kern = r * 0.80
                         UIBezierPath(ovalIn: CGRect(x: punkt.x - kern, y: punkt.y - kern,
                                                     width: kern * 2, height: kern * 2)).fill()
@@ -189,7 +216,7 @@ actor Kartenwerk {
                         // Punkt über dunklem Wald verschwindet sonst. Nur
                         // ist eine Kontur kein Ring — sie liegt AUF der
                         // Kante und nimmt dem Punkt nichts weg.
-                        feder.setFillColor(linienfarbe.uiFarbe.cgColor)
+                        feder.setFillColor(farben[stelle].uiFarbe.cgColor)
                         kreis.fill()
                         feder.setStrokeColor(UIColor.white.withAlphaComponent(0.8).cgColor)
                         kreis.lineWidth = max(groesse.width / 900, 0.6)

@@ -716,3 +716,87 @@ struct Gestaltung: Codable, Hashable {
                       height: groesse.height + 2 * anschnittPt)
     }
 }
+
+// DIE FARBEN DER LINIEN AUF DER KARTE (ab 1.0.114, Ansage des Nutzers
+// 09/2026 in Fernweh: „Auf der Landkarte der Reise sollen Autofahrten mit
+// einer anderen Farbe dargestellt werden. Insgesamt möchte ich die Farben
+// auf der Karte einstellen können und auch dies soll abschließend an
+// Fotobuch übergeben werden.")
+//
+// **Die Akzentfarbe bleibt die EINE Farbe der Reisespur** — die Lehre aus
+// 1.0.0, als ein zweites Feld „Linienfarbe" unweigerlich auseinanderlief.
+// Deshalb heißt `reisespur == nil` „wie die Akzentfarbe" und ist die
+// Vorgabe; eine eigene Farbe gibt es nur, wenn jemand sie ausdrücklich
+// wählt (oder Fernweh eine gewählte mitbringt), und das Blatt zeigt dann
+// „wie Akzentfarbe" als Weg zurück. Wanderungen und Autofahrten sind
+// ANDERE Linien und brauchten schon deshalb eine eigene Farbe — ohne sie
+// wären sie auf der Karte nicht zu unterscheiden, und genau das war der
+// Wunsch.
+struct Linienfarben: Codable, Hashable {
+    var reisespur: Farbwert?
+    var wanderung: Farbwert?
+    var fahrt: Farbwert?
+
+    // Dieselben Vorgaben wie in Fernweh (`Kartenfarben`).
+    static let wanderVorgabe = Farbwert(rot: 0x2E / 255.0, gruen: 0x9E / 255.0, blau: 0x5B / 255.0)
+    static let fahrtVorgabe = Farbwert(rot: 0x5A / 255.0, gruen: 0x64 / 255.0, blau: 0x75 / 255.0)
+
+    // „#RRGGBB" aus der Übergabe — `nil`, wenn es keiner ist.
+    static func farbwert(hex: String?) -> Farbwert? {
+        guard let hex else { return nil }
+        let rein = hex.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
+        guard rein.count == 6, let zahl = UInt32(rein, radix: 16) else { return nil }
+        return Farbwert(rot: Double((zahl >> 16) & 0xFF) / 255.0,
+                        gruen: Double((zahl >> 8) & 0xFF) / 255.0,
+                        blau: Double(zahl & 0xFF) / 255.0)
+    }
+}
+
+extension Reise {
+    // DIE eine Stelle, die sagt, in welcher Farbe eine Linie läuft.
+    func linienfarbe(fuer art: String?) -> Farbwert {
+        switch art {
+        case "fahrt": return linienfarben?.fahrt ?? Linienfarben.fahrtVorgabe
+        case "wanderung": return linienfarben?.wanderung ?? Linienfarben.wanderVorgabe
+        default: return linienfarben?.reisespur ?? akzent
+        }
+    }
+
+    // Je Punkt der Spur seine Farbe — für `Kartenwerk`. Leer, wenn die
+    // ganze Spur eine gewöhnliche ist: Dann zeichnet das Kartenwerk wie
+    // bisher in einer Farbe, und der Schlüssel seines Vorrats bleibt kurz.
+    func punktfarben(_ spur: [Reisepunkt]) -> [Farbwert] {
+        guard spur.contains(where: { $0.art != nil }) else { return [] }
+        return spur.map { linienfarbe(fuer: $0.art) }
+    }
+
+    // Die Farbe der gewöhnlichen Spur — die Akzentfarbe, außer es ist
+    // ausdrücklich eine andere gewählt.
+    var spurfarbe: Farbwert { linienfarbe(fuer: nil) }
+
+    // Die Spur in Stücken gleicher Farbe — für die lebenden Karten der
+    // App (`MapPolyline`). Dieselbe Teilung wie im `Kartenwerk`: Ein Stück
+    // beginnt am letzten Punkt davor und trägt die Farbe der Punkte, zu
+    // denen es führt.
+    func linienstuecke(_ spur: [Reisepunkt]) -> [Linienstueck] {
+        guard spur.count >= 2 else { return [] }
+        var stuecke: [Linienstueck] = []
+        var anfang = 1
+        while anfang < spur.count {
+            let art = spur[anfang].art
+            var ende = anfang
+            while ende + 1 < spur.count, spur[ende + 1].art == art { ende += 1 }
+            stuecke.append(Linienstueck(id: anfang,
+                                        punkte: spur[(anfang - 1)...ende].map(\.koordinate.clLocation),
+                                        farbe: linienfarbe(fuer: art).farbe))
+            anfang = ende + 1
+        }
+        return stuecke
+    }
+}
+
+struct Linienstueck: Identifiable {
+    let id: Int
+    let punkte: [CLLocationCoordinate2D]
+    let farbe: Color
+}

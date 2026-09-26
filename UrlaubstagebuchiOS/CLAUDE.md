@@ -245,6 +245,11 @@
   trägt sie deshalb nur als Vorschlag. Und es gibt sie **nur einmal** — ein
   zweites Feld „Linienfarbe" für die Karte gab es in 1.0.0 und lief
   unweigerlich auseinander.
+  **Ausnahme seit 1.0.114 (`Linienfarben`)**: Wanderungen und Autofahrten
+  aus Fernweh haben eigene Farben, und die Reisespur darf ausdrücklich eine
+  eigene bekommen — `nil` heißt dort „wie die Akzentfarbe" und ist die
+  Vorgabe. Die Farbe einer Linie nur über `Reise.linienfarbe(fuer:)` bzw.
+  `spurfarbe`, nie `akzent` direkt.
 - **Der Drehwinkel im Album-Muster kommt aus der KENNUNG des Fotos**, nicht
   aus dem Zufall. Ein Satz, der sich bei jedem Neuanordnen anders neigt,
   ist kein Satz, sondern ein Würfel. Die Grenze von gut vier Grad ist der
@@ -6767,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.113 (Build 114). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.114 (Build 115). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7411,6 +7416,35 @@ Befunde, und keiner davon war Geschmack:
     hochgeladen worden. Gelesen sind die Vorlagen vom 26.09.2026; ändert
     WhiteWall sie, Skript neu laufen lassen. **Nicht als erledigt
     darstellen.**
+- **AUTOFAHRTEN UND LINIENFARBEN AUS FERNWEH** (`Fernweheinfuhr`,
+  `Linienfarben` in `Model/Grundwerte.swift`, `Kartenwerk`, `KartenstilView`,
+  ab 1.0.114; Ansage des Nutzers 09/2026 in Fernweh 1.0.21: „Auf der Landkarte
+  der Reise sollen Autofahrten mit einer anderen Farbe dargestellt werden.
+  Insgesamt möchte ich die Farben auf der Karte einstellen können und auch
+  dies soll abschließend an Fotobuch übergeben werden."). Im Vertrag
+  ANGEHÄNGT (`spuren[].art`/`name`, `karte.farben`; Fassung bleibt 1).
+  - **Eine Autofahrt ist kein GERÄT** (wie eine Wanderung): erkannt an
+    `art` „fahrt" oder dem Präfix `fahrt:`. Genommen werden die beste
+    Gerätespur PLUS alle Wanderungen PLUS alle Fahrten, nach der Zeit
+    eingeordnet. **Punkte der Gerätespur INNERHALB einer Fahrt fallen
+    weg** — zwei Linien auf derselben Straße, nach der Zeit verschränkt,
+    ergäben einen Zickzack mit Farbwechsel an jedem Punkt.
+  - **Jeder Punkt trägt seine Art** (`Reisepunkt.art`, TEXT, `nil` =
+    gewöhnliche Spur). Mit Absicht kein Fall von `Ortsquelle` (siehe dort);
+    ein wahlweises Feld überliest jede ältere Fassung — sie zeichnet die
+    Linie dann eben einfarbig.
+  - **Gefärbt wird an EINER Stelle**: `Reise.linienfarbe(fuer:)`,
+    `punktfarben` (für `Kartenwerk`, leer = einfarbig wie bisher) und
+    `linienstuecke` (für die lebenden Karten). Das `Kartenwerk` zeichnet die
+    weiße Kontur als EINEN Weg und darüber Stücke gleicher Farbe; die Farben
+    je Punkt stehen im Schlüssel seines Vorrats und in der `kennung` der
+    Seitenkarte — sonst bliebe nach dem Umfärben das alte Bild stehen.
+  - **Die Farben aus Fernweh** kommen nur mit der Spur aus Fernweh
+    (`Ortswahl.fernweh`) und nur, wenn im Buch noch keine eigenen gewählt
+    sind — außer mit „ersetzen". Einstellbar unter Karten → „Linienfarben";
+    „Vorgaben wiederherstellen" setzt das Feld auf `nil`.
+  - **Nicht gemessen (1.0.114):** an keiner echten Datei. **Nicht als
+    erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

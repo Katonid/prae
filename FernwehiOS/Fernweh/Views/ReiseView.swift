@@ -20,6 +20,7 @@ struct ReiseView: View {
     @State private var verlassenFragen = false
     @State private var fotoimport = false
     @State private var wanderimport = false
+    @State private var fahrtenimport = false
 
     /// Ein Wunsch trägt sein Ziel — kein Schalter daneben (Lehre aus
     /// Tafelbild und der Abfahrtstafel: `.sheet(item:)`, sonst baut SwiftUI
@@ -81,6 +82,7 @@ struct ReiseView: View {
         }
         .sheet(isPresented: $fotoimport) { FotoimportView(reise: reise) }
         .sheet(isPresented: $wanderimport) { WanderungImportView(reise: reise) }
+        .sheet(isPresented: $fahrtenimport) { FahrtenImportView(reise: reise) }
         .sheet(isPresented: $bearbeiten) { ReiseFormular(reise: reise) }
         .sheet(isPresented: $beteiligte) { BeteiligteView(reise: reise) }
         .sheet(isPresented: $uebergabe) { UebergabeView(reise: reise) }
@@ -242,6 +244,11 @@ struct ReiseView: View {
             }
             .buttonStyle(.bordered)
             .tint(reise.palette.haupt)
+            Button { fahrtenimport = true } label: {
+                Label("Autofahrten aus GPX-Dateien", systemImage: "car.fill").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(reise.palette.haupt)
         }
         .padding(16)
         .background(reise.palette.hell.opacity(0.14), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -283,6 +290,9 @@ struct ReiseView: View {
                         }
                         Button { wanderimport = true } label: {
                             Label("Wanderung aus Komoot …", systemImage: "figure.hiking")
+                        }
+                        Button { fahrtenimport = true } label: {
+                            Label("Autofahrten (GPX) …", systemImage: "car.fill")
                         }
                     }
                 }
@@ -431,7 +441,9 @@ private struct TagAbschnitt: View {
 
     var body: some View {
         let eintraege = reise.eintraege(am: tag)
-        let km = reise.spuren(am: tag).map(\.distanz).max() ?? 0
+        // Spur, Autofahrten und Wanderungen (ab 1.0.21) — wie die Summe oben.
+        let km = reise.meter(am: Tag.schluessel(tag))
+        let fahrten = reise.fahrten(am: Tag.schluessel(tag))
         let heute = Tag.schluessel(tag) == Tag.schluessel(Date())
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
@@ -469,6 +481,15 @@ private struct TagAbschnitt: View {
                 }
             }
 
+            // Die Autofahrten des Tages (ab 1.0.21), je eine Zeile.
+            if !fahrten.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(fahrten) { f in
+                        Fahrtzeile(spur: f, darf: darf)
+                    }
+                }
+            }
+
             ForEach(eintraege) { eintrag in
                 EintragVerweis(eintrag: eintrag, palette: reise.palette)
             }
@@ -502,6 +523,34 @@ private struct TagAbschnitt: View {
         .task(id: wetterStand) {
             wetter = await Wetternachtrag.tag(Tag.schluessel(tag), in: reise)
         }
+    }
+}
+
+/// Eine Autofahrt unter ihrem Tag: Name, Uhrzeit, Kilometer. Lange drücken
+/// → löschen.
+private struct Fahrtzeile: View {
+    @ObservedObject var spur: Spur
+    let darf: Bool
+    @ObservedObject private var farben = Kartenfarben.shared
+
+    var body: some View {
+        let punkte = spur.punktListe
+        let zone = Fahrtenimport.zone(spur)
+        let zeit = punkte.first.map { a in
+            Tag.text(a.datum, "HH:mm", zone: zone) + (punkte.last.map { "–" + Tag.text($0.datum, "HH:mm", zone: zone) } ?? "")
+        } ?? ""
+        let teile = [Fahrtenimport.name(spur), zeit, Tagesspurwahl.kilometertext(spur.distanz / 1000)]
+        Label(teile.filter { !$0.isEmpty }.joined(separator: " · "), systemImage: "car.fill")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(farben.fahrt)
+            .lineLimit(1)
+            .contextMenu {
+                if darf {
+                    Button(role: .destructive) { Fahrtenimport.loeschen(spur) } label: {
+                        Label("Fahrt entfernen", systemImage: "trash")
+                    }
+                }
+            }
     }
 }
 

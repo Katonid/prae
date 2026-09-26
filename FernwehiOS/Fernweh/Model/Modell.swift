@@ -258,18 +258,15 @@ final class Reise: NSManagedObject {
     /// Wanderungen (ab 1.0.17) zählen je Tag mit, wenn sie länger sind als
     /// die aufgezeichnete Spur — bei einer nachgetragenen Reise gibt es oft
     /// keine, und wer mitschrieb, hat die Wanderung ohnehin in der Spur.
+    ///
+    /// Autofahrten (ab 1.0.21) zählen zusammen mit den Wanderungen gegen die
+    /// längste Gerätespur (`meter(am:)`).
     var kilometer: Double {
-        var jeTag: [String: Double] = [:]
-        for s in spurListe {
-            let t = s.tag ?? ""
-            jeTag[t] = max(jeTag[t] ?? 0, s.distanz)
-        }
-        var wanderungen: [String: Double] = [:]
+        var tage = Set(spurListe.compactMap(\.tag))
         for e in eintragListe where e.eintragsart == .wanderung {
-            if let t = e.tagSchluessel { wanderungen[t, default: 0] += e.streckeMeter }
+            if let t = e.tagSchluessel { tage.insert(t) }
         }
-        for (t, m) in wanderungen { jeTag[t] = max(jeTag[t] ?? 0, m) }
-        return jeTag.values.reduce(0, +) / 1000
+        return tage.reduce(0) { $0 + meter(am: $1) } / 1000
     }
 
     var laender: Set<String> {
