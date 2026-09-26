@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -326,6 +326,17 @@
     1); die Abschnitte gehen unter ihrem neuen Namen hinaus.
   - **Nicht gemessen**: kein Gerät; Open-Meteo ist seit 1.0.1 gemessen, der
     Nachtrag nicht.
+- **Fotos aus einem ALBUM übernehmen** (`Fotodienst.alben`, `.fotos(in:)`,
+  `Nachtrag.Fund`, ab 1.0.19; gefragt 09/2026: „Die Fotos liegen in einem
+  dafür angelegten Album der Galerie."). Oben im Blatt „Fotos übernehmen"
+  steht jetzt die Quelle: der Zeitraum der Reise (wie bisher) oder ein Album
+  (eigene, auch in Ordnern und geteilte, dazu „Favoriten"). Aus einem Album
+  zählen nur Fotos, deren Tag (in Ortszeit) in der Reise liegt; die übrigen
+  werden GEZÄHLT und gesagt, samt Knopf „Reise auf … erweitern" — der
+  Zeitraum wird nur verlängert, nie verkürzt, und nie über heute hinaus.
+  Der Befund des Nutzers zeigte eine vergangene, leere Reise OHNE die Karte
+  „Reise nachtragen" — also noch eine Fassung vor 1.0.17 auf dem Gerät.
+  **Nicht gemessen**: kein Gerät, keine echte Mediathek.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
