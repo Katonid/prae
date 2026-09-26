@@ -28,6 +28,7 @@ struct FernwehimportView: View {
     @State private var wetter = true
     @State private var titel = false
     @State private var ausMediathek = true
+    @State private var orte: Reisewerk.Ortswahl = .fernweh
 
     var body: some View {
         NavigationStack {
@@ -117,7 +118,8 @@ struct FernwehimportView: View {
                 .font(.footnote)
             Text("Fotos, die schon im Buch stehen, kommen nicht doppelt. Orte und Spur "
                  + "aus einem früheren Einlesen werden ersetzt \u{2014} zweimal dieselbe "
-                 + "Datei ergibt nicht die doppelte Spur.")
+                 + "Datei ergibt nicht die doppelte Spur. Ob die Orte aus Fernweh kommen "
+                 + "oder die App sie aus den Fotos bildet, wählst du nach dem Öffnen.")
                 .font(.footnote)
         }
     }
@@ -154,6 +156,19 @@ struct FernwehimportView: View {
                 Text("Übernehmen")
             } footer: {
                 Text(schaltersatz(befund))
+            }
+
+            Section {
+                Picker("Orte und Spur", selection: $orte) {
+                    Text("Aus Fernweh übernehmen").tag(Reisewerk.Ortswahl.fernweh)
+                    Text("Aus den Fotos bilden").tag(Reisewerk.Ortswahl.fotos)
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } header: {
+                Text("Orte")
+            } footer: {
+                Text(ortesatz(befund))
             }
 
             Section {
@@ -314,6 +329,32 @@ struct FernwehimportView: View {
         return saetze.joined(separator: " ")
     }
 
+    // Beide Wege sagen, was sie kosten — keiner ist der richtige für jede Reise.
+    private func ortesatz(_ befund: Fernweheinfuhr.Befund) -> String {
+        switch orte {
+        case .fernweh:
+            return "In der Datei stehen \(befund.orte) benannte Orte und \(befund.spurpunkte) "
+                + "Spurpunkte (Wege, Wanderungen). Sie kommen als Reisepunkte ins Buch, dazu "
+                + "die Orte der Fotos \u{2014} auch die, die nur Fernweh kannte."
+        case .fotos:
+            var satz = "Spur und benannte Orte aus Fernweh bleiben draußen. Die Reisepunkte "
+                + "baut die App aus den Fotos: aus ihren Metadaten und, wo die fehlen, aus dem "
+                + "Aufnahmeort in deiner Mediathek. Die Karte zeigt dann die Verbindung der "
+                + "Fotoorte, nicht den gegangenen Weg."
+            if ersetzen {
+                satz += " Mit \u{201E}ersetzen\u{201C} verschwindet auch die Spur eines früheren "
+                    + "Einlesens (auch aus Tagesspur)."
+            } else {
+                satz += " Eine schon vorhandene Spur bleibt stehen; mit \u{201E}ersetzen\u{201C} geht sie weg."
+            }
+            switch Reisewerk.mediathekStand {
+            case .authorized, .limited: break
+            default: satz += " Für die Mediathek wird beim Übernehmen um Zugriff gefragt."
+            }
+            return satz
+        }
+    }
+
     private func imBuch(_ datum: Tagesdatum) -> Bool {
         werk.reise.tage.contains { $0.datum == datum }
     }
@@ -387,13 +428,15 @@ struct FernwehimportView: View {
         guard let befund, let daten else { return }
         let wunsch = Reisewerk.Fernwehwunsch(tage: gewaehlt, ersetzen: ersetzen,
                                              autorenNennen: autorenNennen, wetter: wetter,
-                                             titel: titel, ausMediathek: ausMediathek)
+                                             titel: titel, ausMediathek: ausMediathek,
+                                             orte: orte)
         arbeit = "Wird vorbereitet\u{2026}"
         Task { @MainActor in
             // Die Mediathek nur fragen, wenn sie gebraucht wird — und erst
             // auf den Tipp hin, nie beim Öffnen des Blattes.
-            if wunsch.ausMediathek, befund.fotos > befund.fotosMitDatei,
-               Reisewerk.mediathekStand == .notDetermined
+            let brauchtMediathek = (wunsch.ausMediathek && befund.fotos > befund.fotosMitDatei)
+                || (wunsch.orte == .fotos && befund.fotos > 0)
+            if brauchtMediathek, Reisewerk.mediathekStand == .notDetermined
             {
                 _ = await Reisewerk.mediathekFragen()
             }

@@ -596,6 +596,18 @@ extension Reisewerk {
         var wetter = true
         var titel = false
         var ausMediathek = true
+        var orte: Ortswahl = .fernweh
+    }
+
+    // WOHER die Orte kommen — eine Entscheidung des Menschen, nicht der
+    // App (Ansage des Nutzers, 09/2026). `.fernweh` nimmt Spur, benannte
+    // Orte und die Fotoorte aus der Datei; `.fotos` lässt alles davon
+    // liegen und baut die Reisepunkte allein aus den BILDERN — dem EXIF
+    // der Datei und, wo das fehlt, dem Aufnahmeort in der eigenen
+    // Mediathek. Das ist derselbe Weg wie bei jeder anderen Fotoeinfuhr.
+    enum Ortswahl: Hashable {
+        case fernweh
+        case fotos
     }
 
     // Ein Foto, das schon auf der Platte liegt, aber noch in keinem Buch.
@@ -674,6 +686,7 @@ extension Reisewerk {
         var neueTage = 0
         var ergaenzt = 0
         var mitSpur = 0
+        var spurGeleert = 0
 
         for tag in auswahl {
             if !bekannt.contains(tag.id) { neueTage += 1 }
@@ -707,6 +720,18 @@ extension Reisewerk {
             }
 
             let zone = tag.zone ?? befund.zone
+            guard wunsch.orte == .fernweh else {
+                // Aus den Fotos: Fernwehs Spur und Orte bleiben draußen. Soll
+                // ersetzt werden, geht auch, was ein früheres Einlesen an
+                // Spurpunkten hinterlassen hat — sonst stünde neben den
+                // Fotopunkten weiter die alte Fernweh-Spur. Ohne „ersetzen“
+                // bleibt die Spur des Tages, wie sie ist.
+                if wunsch.ersetzen, reise.tage[stelle].spur.contains(where: { $0.quelle == .tagesspur }) {
+                    reise.tage[stelle].spur.removeAll { $0.quelle == .tagesspur }
+                    spurGeleert += 1
+                }
+                continue
+            }
             let strecke = Spurbau.ausgeduennt(Fernweheinfuhr.amOrt(tag.spur, zone: zone),
                                               mindestabstand: reise.gestaltung.mindestabstandSpur)
             var punkte = strecke
@@ -731,6 +756,9 @@ extension Reisewerk {
         }
 
         var mitOrt = 0
+        var ortNachgesehen = 0
+        var ortNurInDatei = 0
+        let darfOrtNachsehen = Self.mediathekStand == .authorized || Self.mediathekStand == .limited
         for stueck in abgelegt {
             guard let tagDaten = auswahl.first(where: { $0.id == stueck.tag }),
                   let stelle = reise.tage.firstIndex(where: { $0.schluessel == stueck.tag })
@@ -741,10 +769,33 @@ extension Reisewerk {
             // der Mediathek mitgeschickt hat.
             let aufnahme = stueck.befund.aufnahme
                 ?? stueck.angabe.aufnahme.map { Ortszeit.wanduhr($0, in: zone) }
-            let ort = stueck.befund.koordinate ?? stueck.angabe.koordinate
-            let quelle: Ortsquelle = stueck.befund.koordinate != nil
-                ? stueck.befund.quelle
-                : (ort == nil ? .keiner : .mediathek)
+            var ort = stueck.befund.koordinate
+            var quelle: Ortsquelle = ort != nil ? stueck.befund.quelle : .keiner
+            if ort == nil {
+                switch wunsch.orte {
+                case .fernweh:
+                    // Was Fernweh aus seiner Mediathek mitgeschickt hat.
+                    if let mitgeschickt = stueck.angabe.koordinate {
+                        ort = mitgeschickt
+                        quelle = .mediathek
+                    }
+                case .fotos:
+                    // Die App sieht SELBST nach — im Aufnahmeort des Bildes in
+                    // der eigenen Mediathek. Die Angabe aus der Datei wird
+                    // dabei bewusst nicht genommen, auch wenn sie da ist.
+                    if darfOrtNachsehen, let eintrag = Self.fernwehAsset(stueck.angabe),
+                       let gefunden = eintrag.location
+                    {
+                        let koordinate = Koordinate(gefunden.coordinate)
+                        if koordinate.gueltig {
+                            ort = koordinate
+                            quelle = .mediathek
+                            ortNachgesehen += 1
+                        }
+                    }
+                    if ort == nil, stueck.angabe.koordinate != nil { ortNurInDatei += 1 }
+                }
+            }
             let foto = Foto(
                 id: stueck.angabe.kennung ?? UUID(),
                 datei: stueck.datei,
@@ -779,6 +830,18 @@ extension Reisewerk {
         if neueTage > 0 { zeilen.append("\(neueTage) davon neu angelegt.") }
         if ergaenzt > 0 { zeilen.append("Bei \(ergaenzt) Tagen wurde der vorhandene Text ergänzt.") }
         if mitSpur > 0 { zeilen.append("\(mitSpur) Tage haben Orte oder eine Spur.") }
+        if wunsch.orte == .fotos {
+            zeilen.append("Orte und Spur aus Fernweh wurden nicht übernommen; die Reisepunkte kommen aus den Fotos.")
+            if spurGeleert > 0 {
+                zeilen.append("Bei \(spurGeleert) Tagen wurde die Spur eines früheren Einlesens entfernt.")
+            }
+            if ortNachgesehen > 0 {
+                zeilen.append("\(ortNachgesehen) Fotoorte wurden in der eigenen Mediathek nachgesehen.")
+            }
+            if ortNurInDatei > 0 {
+                zeilen.append("\(ortNurInDatei) Fotos bleiben ohne Ort \u{2014} ihren Ort kannte nur Fernweh.")
+            }
+        }
         if !abgelegt.isEmpty {
             zeilen.append("\(abgelegt.count) Fotos eingelesen, \(mitOrt) mit Ort.")
         }

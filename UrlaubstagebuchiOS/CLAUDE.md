@@ -6767,7 +6767,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.106 (Build 107). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.107 (Build 108). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7183,6 +7183,22 @@ Befunde, und keiner davon war Geschmack:
     gelesen worden — gebaut ist nach dem Papier. Ungeprüft sind vor allem
     die Mediathek-Zuordnung über `PHCloudIdentifier` und wie lange eine
     Übergabe mit Originalen braucht. **Nicht als erledigt darstellen.**
+  - **Woher die Orte kommen, entscheidet der Mensch** (`Fernwehwunsch.orte`,
+    Abschnitt „Orte" im Blatt, ab 1.0.107; Ansage des Nutzers 09/2026: „ob
+    die Ortsangaben (Fotos, Wanderungen) mit übernommen werden sollen, oder
+    ob die App sie selbst anhand der Fotos erstellt"). **Aus Fernweh**
+    (Vorgabe, der Stand von 1.0.106): Spur, benannte Orte und die Fotoorte
+    aus der JSON. **Aus den Fotos**: Spur und Orte der Datei bleiben
+    draußen, ein Foto bekommt seinen Ort aus dem EXIF und sonst aus dem
+    Aufnahmeort des Bildes in der EIGENEN Mediathek — die Koordinate aus
+    der Datei wird dann bewusst NICHT genommen, auch wenn sie da ist; was
+    dadurch ohne Ort bleibt, wird gezählt und gesagt. Die Reisepunkte baut
+    danach derselbe Weg wie bei jeder Fotoeinfuhr (`spurAktualisieren`).
+    **Eine schon vorhandene Spur bleibt stehen**, außer mit „ersetzen" —
+    dann gehen alle `.tagesspur`-Punkte des Tages, also auch die aus der
+    Tagesspur-App (sie tragen dieselbe Quelle, siehe oben); das Blatt sagt
+    es. **Nicht gemessen:** an keiner echten Datei und keiner echten
+    Mediathek gesehen.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
