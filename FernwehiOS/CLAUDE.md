@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -519,6 +519,29 @@
     Würzburg → Schönau"; unter dem Tag stand beides doppelt.
   - **Nicht gemessen**: kein Gerät; ob fünfzehn Tageskarten in einer Rolle
     flüssig bleiben, ist nicht gesehen.
+- **Texte einer Reise zum Überarbeiten hinaus und wieder herein**
+  (`Model/Textglaettung.swift`, `Views/TexteView.swift`, Reise → „…" →
+  „Texte überarbeiten (KI) …", ab 1.0.27; Ansage des Nutzers 09/2026: „alle
+  Tagebuchtexte einer Reise en bloc exportieren … von einer KI sprachlich
+  glätten … wieder in die App einlesen …, sodass diese sich automatisch auf
+  die einzelnen Tage verteilt und die jeweiligen Tageseinträge ersetzt.").
+  - **Schlichter Text, keine JSON** — er geht durch einen KI-Chat. Kopf mit
+    Hinweis an die KI, dann je Eintrag eine Kennzeile „=== Eintrag
+    <8 Hex der UUID> · Tag n · Wochentag · Uhrzeit ===", „Titel: …",
+    Leerzeile, Text. Als Datei teilen oder alles in die Zwischenablage.
+  - **Zugeordnet NUR über die Kennung**, nie über Reihenfolge oder Datum.
+    Der Leser ist nachsichtig mit dem, was eine KI aus der Kopfzeile macht
+    (fett, `###`, `==`); „Titel:" zählt nur als erste Zeile nach dem Kopf.
+    Unbekannte Kennungen, fehlende Einträge, gesperrte und nicht
+    bearbeitbare werden gezählt und gesagt. **Ein leerer Block löscht nie
+    einen Text** (fast immer ein Kopierfehler).
+  - **Vorschau vor dem Ersetzen**: jeder geänderte Eintrag mit Vorher/Nachher,
+    einzeln abwählbar. Ersetzt werden Titel und Text.
+  - **Zurücknehmen**: Vor dem Ersetzen liegt der alte Stand in
+    `Application Support/Textstaende/<Reise>.json` (nur der letzte, je
+    Gerät); „Letzte Übernahme zurücknehmen" stellt ihn her.
+  - Nicht mit: gesperrte Tagebücher; Bildtexte (noch nicht).
+  - **Nicht gemessen**: kein Gerät, keine echte KI-Antwort.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
