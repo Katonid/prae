@@ -37,6 +37,8 @@ enum Wetternachtrag {
     static func fehlt(_ e: Eintrag) -> Bool {
         guard e.eintragsart != .seite, let tag = e.tagDatum else { return false }
         guard let w = e.tageswetter else { return (e.wetter ?? "").isEmpty }
+        // Nach der alten Rechnung geholt (bis 1.0.19): einmal neu (1.0.20).
+        if w.veraltet { return true }
         // Eine Vorhersage wird ersetzt, wenn der Tag gut vorbei ist.
         return w.vorhersage && Tag.ende(tag).addingTimeInterval(6 * 3600) < Date()
     }
