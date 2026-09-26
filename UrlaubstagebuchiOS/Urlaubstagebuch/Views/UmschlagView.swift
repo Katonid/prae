@@ -435,7 +435,7 @@ struct UmschlagView: View {
                 } else {
                     text += "Es greift erst ab vier Inhaltsseiten."
                 }
-                if Druckprodukt.produkt(umschlag.tabellenvorlage) != nil {
+                if Druckprodukt.produkt(umschlag.tabellenvorlage)?.istSaal == true {
                     text += " " + Druckprodukt.strichcodeText
                 }
                 return text

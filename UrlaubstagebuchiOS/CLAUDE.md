@@ -6767,7 +6767,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.112 (Build 113). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.113 (Build 114). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7362,6 +7362,55 @@ Befunde, und keiner davon war Geschmack:
   - **Nicht gemessen (1.0.112):** Keine Datei ist damit bei Saal
     hochgeladen worden. Gerechnet ist die Zählung (26 = 24 + U2 + U3) und
     die Paarung. **Nicht als erledigt darstellen.**
+- **WHITEWALL: DIE ZAHLEN STEHEN IN DEN INDESIGN-VORLAGEN**
+  (`Model/Whitewallprodukte.swift`, `scripts/whitewall-produkte.py`, ab
+  1.0.113; Ansage des Nutzers 09/2026: „Ich möchte, dass du die Formate von
+  ‚Whitewall' und die entsprechenden Seitengrößen auch importierst … Ich
+  hoffe, dass die Schnitt- und Sicherheitsabstand-Markierungen automatisch
+  gesetzt werden.").
+  - **Die Schnittstelle der Seite verlangt ein CSRF-Zeichen** und war von
+    hier aus nicht zu fragen. Die VORLAGEN liegen dagegen offen unter
+    `downloads.whitewall.com/indesign/{cover|block}_<Format>_paper-<Papier>_<Seiten>.idml`
+    (den Weg hat der Nutzer geschickt). Eine IDML ist ein ZIP:
+    `Resources/Preferences.xml` trägt Seitenmaß und Beschnitt, die Spreads
+    die Hilfslinien. Das Skript holt alle 1146 (sechs Formate × sechs
+    Papiere × 28 bis 200 Seiten in Viererschritten) und schreibt die Datei
+    — **nicht von Hand bearbeiten**. Die Namen der Formate und Papiere
+    stehen in keiner abrufbaren Liste; sie sind durch Nachfragen gefunden
+    (eine falsche Adresse antwortet mit 403).
+  - **Der Rücken wächst in STUFEN** — A4 hoch auf Fuji-Papier: 28 und 32
+    Seiten beide 11 mm, dann +1,5 mm je acht Seiten. Aus zwei Fotos
+    dazwischen zu rechnen, wie der Nutzer anbot, hätte an genau diesen
+    Stufen danebengelegen; gelesen ist deshalb jede Seitenzahl einzeln.
+  - **Die frühere Druckerei des Nutzers WAR WhiteWall.** Die Werte aus
+    1.0.85 (208 × 276, Beschnitt 3 | 3 | 3 | 0) und 1.0.91 (Bogen 457 × 295,
+    10 mm Beschnitt, 17 mm Rücken, Hälfte 210 × 275) stehen Zahl für Zahl
+    in den Vorlagen von Exhibition A4 hoch. Die Einstellungen von damals
+    waren also schon richtig; neu ist, dass ein Tipp sie setzt.
+  - **Der Sicherheitsabstand kommt jetzt mit** (`Druckprodukt.sicherheitsabstand`,
+    `.sicherheitsabstandInnen`): 5 mm oben, unten, außen, am Bund 0 — so
+    stehen die Ränder in der Vorlage, die Seiten liegen flach. Damit setzt
+    das Produkt die blaue Linie, und die rote Marke aus 1.0.81 greift von
+    selbst. Bei Saal bleibt `nil`: Saal nennt für die Innenseiten keinen.
+  - **Seite 1 ist bei WhiteWall RECHTS** (`seiteEinsLinks = false`):
+    Vorsatzpapier, U2 und U3 werden nicht bedruckt, die Umschlagvorlage ist
+    EIN Bogen. `anwenden` schaltet die vier U2/U3-Schalter deshalb
+    ausdrücklich AUS — ein Buch, das vorher ein Saal-Produkt trug, hätte
+    sonst die erste Tagebuchseite auf dem Deckel stehen.
+  - **„Ohne Transparenz" wird NICHT von selbst eingeschaltet**, obwohl
+    WhiteWalls Exportvorgabe (`.joboptions`) es verlangt. Der Schalter
+    lebt im Ausgabeblatt und nimmt die Wasserzeichen ganz heraus; das ist
+    eine Entscheidung über das Buch und keine Maßangabe. Das Blatt davor
+    sagt es. (Im Gespräch war zuerst das Einschalten angekündigt — die
+    Abweichung ist dem Nutzer gesagt.)
+  - **Die Seitenzahl wächst in Viererschritten** (`seitenSchritt`); das
+    steht als Auskunft da und wird nicht erzwungen.
+  - **Ein Abschnitt je Anbieter** im Formatblatt, die Saal-eigenen Sätze
+    (Rückenspalte, Falzbereich, Strichcode) nur bei Saal (`istSaal`).
+  - **Nicht gemessen (1.0.113):** Keine Datei ist bei WhiteWall
+    hochgeladen worden. Gelesen sind die Vorlagen vom 26.09.2026; ändert
+    WhiteWall sie, Skript neu laufen lassen. **Nicht als erledigt
+    darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
