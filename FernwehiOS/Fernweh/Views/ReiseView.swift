@@ -22,6 +22,7 @@ struct ReiseView: View {
     @State private var wanderimport = false
     @State private var fahrtenimport = false
     @State private var sicherung = false
+    @State private var texte = false
 
     /// Ein Wunsch trägt sein Ziel — kein Schalter daneben (Lehre aus
     /// Tafelbild und der Abfahrtstafel: `.sheet(item:)`, sonst baut SwiftUI
@@ -88,6 +89,7 @@ struct ReiseView: View {
         .sheet(isPresented: $beteiligte) { BeteiligteView(reise: reise) }
         .sheet(isPresented: $uebergabe) { UebergabeView(reise: reise) }
         .sheet(isPresented: $sicherung) { SicherungView(vorgabe: .reise(reise.objectID)) }
+        .sheet(isPresented: $texte) { TexteView(reise: reise) }
         .fullScreenCover(isPresented: $vollkarte) { Vollkarte(reise: reise) }
         .confirmationDialog("Reise löschen?", isPresented: $loeschenFragen, titleVisibility: .visible) {
             Button("Löschen — auf allen Geräten", role: .destructive) { loeschen() }
@@ -314,6 +316,7 @@ struct ReiseView: View {
                 Section("Weitergeben") {
                     Button { uebergabe = true } label: { Label("Fürs Fotobuch übergeben", systemImage: "book.closed") }
                     Button { sicherung = true } label: { Label("Reise sichern …", systemImage: "externaldrive.badge.plus") }
+                    Button { texte = true } label: { Label("Texte überarbeiten (KI) …", systemImage: "text.badge.checkmark") }
                 }
                 Section {
                     if besitzer {
