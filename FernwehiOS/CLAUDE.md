@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -393,6 +393,53 @@
   - **Übergabe**: `spuren[].art`/`name` und `karte.farben` angehängt
     (Fassung 1, `docs/UEBERGABE.md`). `reisespur` geht nur mit, wenn gewählt.
   - **Nicht gemessen**: kein Gerät, keine echte GPX-Datei einer Autofahrt.
+- **Mehrere Fahrten in EINER GPX-Datei** (`GPXLeser.fahrten`, ab 1.0.22;
+  Ansage des Nutzers 09/2026: „Ich habe zum Teil GPX-Dateien, in denen
+  mehrere Fahrten aufgelistet sind."). 1.0.21 machte aus jeder Datei EINE
+  Linie. Jetzt: getrennt an jeder Spur (`trk`) und innerhalb einer Spur an
+  jeder Pause ohne Punkt ab 15 Minuten (im Blatt wählbar: 5/15/30/60 min
+  oder „nie", `@AppStorage("fernweh.fahrtenpause")`). Die Dateien werden
+  beim Wählen EINMAL gelesen (`Fahrtenimport.Datei`), damit ein Wechsel der
+  Pause sie nicht neu öffnen muss. Stücke unter 200 m fallen weg und werden
+  gezählt. Mehrere Stücke gleichen Namens: „Name · 2". **Schon da** ist eine
+  Fahrt mit demselben Start ODER zeitlich innerhalb einer eingelesenen — so
+  wird eine unter 1.0.21 zusammengeklebte Datei nicht doppelt übernommen;
+  wer sie getrennt will, entfernt die alte Fahrt und liest neu ein.
+  **Nicht gemessen**: an keiner echten Datei mit mehreren Fahrten.
+- **Sicherung der Datenbank** (`Model/Sicherung.swift`,
+  `Views/SicherungView.swift`, ab 1.0.22; Ansage des Nutzers 09/2026:
+  „eine Sicherung der Datenbank der App … Global bzw. auch einzelne
+  Tagebücher oder Reisen separat."). Einstellungen → „Sicherung", Reise →
+  „…" → „Reise sichern …", Tagebücher → lange drücken → „Sichern …".
+  - ZIP mit `sicherung.json` und je Binärfeld einer Datei unter `daten/`;
+    **ZIP64**, wenn nötig (`ZipSchreiber(zip64: true)`) — die Übergabe bleibt
+    ohne, denn die liest das Reisebuch.
+  - **Entlang des Modells** (`NSEntityDescription`), nicht Feld für Feld:
+    Ein später angehängtes Attribut geht von selbst mit; Unbekanntes aus
+    einer neueren Sicherung wird überlesen. Wer ein Attribut mit neuem TYP
+    anlegt (Transformable o. ä.), ergänzt den Fall in `erstellen` und
+    `wiederherstellen`.
+  - **Wiederherstellen führt zusammen**: gleiche Kennung = schon da, bleibt
+    unverändert; ein Tagebuch (`Buch`) gleichen Namens ebenso. Neues kommt in
+    den Speicher des Ziels seiner Beziehung (wenn ich dort schreiben darf),
+    sonst privat. Fotos ohne ihren Eintrag werden übersprungen und gezählt.
+    Angelegt über `insertNewObject(forEntityName:)` — `NSManagedObject(entity:
+    insertInto:)` ergäbe keine Modellklasse.
+  - **Gesperrte Tagebücher gehen nicht mit** (wie bei der Übergabe); das
+    Blatt zählt sie. Gesichert werden die Kopien in Fernweh, nicht die
+    Originale der Mediathek. Kartenfarben (je Gerät) gehen nicht mit.
+  - **Nicht gemessen**: kein Gerät, keine echte Wiederherstellung.
+- **Was der iCloud-Abgleich tut, steht in den Einstellungen**
+  (`Model/Abgleichstatus.swift`, ab 1.0.22; gemeldet 09/2026: „eine auf dem
+  iPad angelegte Reise [wurde] nicht aufs iPhone übertragen"). Mitgeschrieben
+  wird `NSPersistentCloudKitContainer.eventChangedNotification` ab dem Start
+  (`AppDelegate`): je Speicher Einrichten/Senden/Empfangen mit Uhrzeit, bei
+  Fehler Apples Meldung ROH samt Teilfehlern, dazu ein Rat, wo er sich
+  erkennen lässt (Schema, Speicher voll, Konto). Dazu die **Umgebung** des
+  Baus: aus Xcode = Entwicklung, TestFlight/App Store = Produktion — zwei
+  getrennte Datenbanken, die häufigste Ursache für „das andere Gerät sieht
+  nichts". **Die Ursache des gemeldeten Falls ist NICHT gefunden**; die
+  Anzeige soll sie zeigen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

@@ -7,8 +7,12 @@ import CoreLocation
 // für jede einzelne Fahrt. Ich möchte sie en bloc importieren können, sodass
 // die App sie dann den einzelnen Tagen zuweist.")
 //
-// - **Viele Dateien auf einmal**, eine Fahrt je Datei (mehrere Spuren in
-//   einer Datei werden zu einer Linie — so schreibt sie der `GPXLeser`).
+// - **Viele Dateien auf einmal — und mehrere Fahrten in einer Datei** (ab
+//   1.0.22, Ansage des Nutzers 09/2026: „Ich habe zum Teil GPX-Dateien, in
+//   denen mehrere Fahrten aufgelistet sind."). Getrennt wird an jeder Spur
+//   (`trk`) und innerhalb einer Spur an jeder Pause ab 15 Minuten
+//   (einstellbar im Blatt, `GPXLeser.fahrten`). 1.0.21 machte aus jeder
+//   Datei EINE Linie und verband damit die Fahrten quer über die Karte.
 // - **Der Tag einer Fahrt ist der Tag ihres STARTS am Ort** (Zone aus Apples
 //   Ortsdienst, eine Anfrage je halbem Grad — wie bei den Fotos). Eine Fahrt
 //   über Mitternacht bleibt ganz beim Tag, an dem sie begann; geteilt wird
@@ -53,27 +57,53 @@ enum Fahrtenimport {
         var ohneZeit: [String] = []
         /// Dateien, die sich nicht lesen ließen.
         var unlesbar: [String] = []
+        /// Stücke unter 200 m, die weggefallen sind.
+        var zuKurz = 0
+        /// Aus wie vielen Dateien die Fahrten stammen.
+        var dateien = 0
     }
 
-    /// Liest die Dateien. Muss vor dem Ende des Zugriffs auf die URLs
-    /// aufgerufen werden — die Daten werden sofort gelesen.
-    static func lesen(_ urls: [URL]) async -> Fund {
-        var fund = Fund()
-        var gelesen: [(String, Wanderung)] = []
+    /// Eine gewählte Datei, schon gelesen — damit sich die Pause im Blatt
+    /// ändern lässt, ohne die Dateien erneut öffnen zu müssen (der Zugriff
+    /// auf sie gilt nur kurz).
+    struct Datei {
+        let name: String
+        let daten: Data
+    }
+
+    /// Liest die gewählten Dateien sofort ein.
+    static func dateien(_ urls: [URL]) -> (dateien: [Datei], unlesbar: [String]) {
+        var gelesen: [Datei] = []
+        var unlesbar: [String] = []
         for url in urls {
             let zugriff = url.startAccessingSecurityScopedResource()
             defer { if zugriff { url.stopAccessingSecurityScopedResource() } }
-            let dateiname = url.lastPathComponent
-            guard let daten = try? Data(contentsOf: url),
-                  let w = try? GPXLeser.lesen(daten, dateiname: dateiname) else {
-                fund.unlesbar.append(dateiname)
+            if let daten = try? Data(contentsOf: url) {
+                gelesen.append(Datei(name: url.lastPathComponent, daten: daten))
+            } else {
+                unlesbar.append(url.lastPathComponent)
+            }
+        }
+        return (gelesen, unlesbar)
+    }
+
+    /// Zerlegt die Dateien in Fahrten. `pause`: ab so vielen Sekunden ohne
+    /// Punkt beginnt eine neue Fahrt; `nil` trennt nur an den Spuren.
+    static func auswerten(_ dateien: [Datei], pause: TimeInterval?) async -> Fund {
+        var fund = Fund()
+        var gelesen: [Wanderung] = []
+        for datei in dateien {
+            guard let ergebnis = try? GPXLeser.fahrten(datei.daten, dateiname: datei.name, pause: pause) else {
+                fund.unlesbar.append(datei.name)
                 continue
             }
-            if w.geplant { fund.ohneZeit.append(dateiname); continue }
-            gelesen.append((dateiname, w))
+            if ergebnis.ohneZeit { fund.ohneZeit.append(datei.name); continue }
+            fund.zuKurz += ergebnis.zuKurz
+            if !ergebnis.fahrten.isEmpty { fund.dateien += 1 }
+            gelesen += ergebnis.fahrten
         }
         var jeZelle: [String: TimeZone] = [:]
-        for (_, w) in gelesen {
+        for w in gelesen {
             guard let start = w.punkte.first else { continue }
             let k = start.koordinate
             let zelle = "\(Int((k.latitude * 2).rounded(.down)))|\(Int((k.longitude * 2).rounded(.down)))"
@@ -83,13 +113,38 @@ enum Fahrtenimport {
             }
             let zone = jeZelle[zelle] ?? .current
             let kennung = praefix + "\(Int(start.zeit))"
-            // Zwei Dateien derselben Fahrt: nur die erste.
+            // Dieselbe Fahrt in zwei Dateien: nur die erste.
             guard !fund.fahrten.contains(where: { $0.kennung == kennung }) else { continue }
             fund.fahrten.append(Fahrt(kennung: kennung, name: w.name, punkte: w.punkte, meter: w.meter,
                                       zone: zone, tag: Tag.schluessel(start.datum, zone: zone)))
         }
         fund.fahrten.sort { $0.beginn < $1.beginn }
         return fund
+    }
+
+    /// Was an Fahrten schon in der Reise liegt: Kennungen und Zeiträume.
+    struct Belegt {
+        let kennungen: Set<String>
+        let zeiten: [ClosedRange<Double>]
+    }
+
+    static func belegt(in reise: Reise) -> Belegt {
+        let fahrten = reise.spurListe.filter(\.istFahrt)
+        return Belegt(kennungen: Set(fahrten.map { kennung($0) }),
+                      zeiten: fahrten.compactMap { s in
+                          let p = s.punktListe
+                          guard let a = p.first?.zeit, let b = p.last?.zeit, a <= b else { return nil }
+                          return a...b
+                      })
+    }
+
+    /// Liegt diese Fahrt schon in der Reise — mit demselben Start ODER
+    /// zeitlich innerhalb einer eingelesenen (etwa aus 1.0.21, als eine
+    /// Datei mit mehreren Fahrten noch eine einzige Linie wurde)?
+    static func schonDa(_ f: Fahrt, _ belegt: Belegt) -> Bool {
+        if belegt.kennungen.contains(f.kennung) { return true }
+        let von = f.beginn.timeIntervalSince1970, bis = f.ende.timeIntervalSince1970
+        return belegt.zeiten.contains { $0.contains(von) && $0.contains(bis) }
     }
 
     /// Die Kennungen der Fahrten, die schon in der Reise stehen.
@@ -119,9 +174,9 @@ enum Fahrtenimport {
     @discardableResult
     static func uebernehmen(_ fahrten: [Fahrt], in reise: Reise) -> Int {
         let persistenz = Persistenz.shared
-        let schon = vorhanden(in: reise)
+        let schon = belegt(in: reise)
         var neu = 0
-        for f in fahrten where !schon.contains(f.kennung) {
+        for f in fahrten where !schonDa(f, schon) {
             let s = persistenz.anlegen(Spur.self, bei: reise)
             s.kennung = UUID()
             s.tag = f.tag

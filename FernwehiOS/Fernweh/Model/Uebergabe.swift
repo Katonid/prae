@@ -455,24 +455,33 @@ enum Uebergabebau {
 
 /// Ein ZIP mit Methode 0. Geschrieben wird stückweise auf die Platte —
 /// hundert Originalfotos wiegen ein halbes Gigabyte und gehören nicht am
-/// Stück in den Arbeitsspeicher. Kein ZIP64: über 4 GB wird abgebrochen,
-/// statt eine Datei zu schreiben, die kein Leser öffnet.
+/// Stück in den Arbeitsspeicher. Für die Übergabe kein ZIP64: über 4 GB wird
+/// abgebrochen, statt eine Datei zu schreiben, die das Reisebuch nicht
+/// öffnet. Die SICHERUNG (ab 1.0.22) liest nur Fernweh selbst, und dessen
+/// `Ziparchiv` kennt ZIP64 — dort darf sie größer werden (`zip64: true`):
+/// Ein Versatz über 4 GB steht dann im Extrafeld 0x0001, Anzahl und Anfang
+/// des Verzeichnisses im ZIP64-Schlussstück.
 final class ZipSchreiber {
     private let griff: FileHandle
     private var versatz: UInt64 = 0
     private var verzeichnis = Data()
-    private var anzahl: UInt16 = 0
+    private var anzahl = 0
+    private let zip64: Bool
 
-    init(ziel: URL) throws {
+    init(ziel: URL, zip64: Bool = false) throws {
         FileManager.default.createFile(atPath: ziel.path, contents: nil)
         griff = try FileHandle(forWritingTo: ziel)
+        self.zip64 = zip64
     }
 
     func hinzufuegen(_ name: String, daten: Data) throws {
-        guard versatz + UInt64(daten.count) + 1024 < UInt64(UInt32.max) else {
+        let grenze = UInt64(UInt32.max)
+        guard UInt64(daten.count) + 1024 < grenze,
+              zip64 || versatz + UInt64(daten.count) + 1024 < grenze else {
             try? griff.close()
             throw Uebergabebau.Fehler.zuGross
         }
+        let weit = versatz >= grenze
         let namenBytes = Data(name.utf8)
         let pruef = Crc32.summe(daten)
         let groesse = UInt32(daten.count)
@@ -493,10 +502,14 @@ final class ZipSchreiber {
         eintrag.le16(20); eintrag.le16(20); eintrag.le16(0x0800); eintrag.le16(0)
         eintrag.le16(zeit); eintrag.le16(datum)
         eintrag.le32(pruef); eintrag.le32(groesse); eintrag.le32(groesse)
-        eintrag.le16(UInt16(namenBytes.count)); eintrag.le16(0); eintrag.le16(0)
+        eintrag.le16(UInt16(namenBytes.count)); eintrag.le16(weit ? 12 : 0); eintrag.le16(0)
         eintrag.le16(0); eintrag.le16(0); eintrag.le32(0)
-        eintrag.le32(UInt32(versatz))
+        eintrag.le32(weit ? 0xFFFF_FFFF : UInt32(versatz))
         eintrag.append(namenBytes)
+        if weit {
+            eintrag.le16(0x0001); eintrag.le16(8)
+            eintrag.le64(versatz)
+        }
         verzeichnis.append(eintrag)
         anzahl += 1
 
@@ -506,12 +519,29 @@ final class ZipSchreiber {
     }
 
     func abschliessen() throws {
+        let anfang = versatz
+        let weit = anfang >= UInt64(UInt32.max) || anzahl >= 0xFFFF
         var ende = Data()
+        if weit {
+            // ZIP64-Schlussstück, dann der Wegweiser darauf.
+            let z64 = anfang + UInt64(verzeichnis.count)
+            ende.le32(0x0606_4b50)
+            ende.le64(44)
+            ende.le16(45); ende.le16(45)
+            ende.le32(0); ende.le32(0)
+            ende.le64(UInt64(anzahl)); ende.le64(UInt64(anzahl))
+            ende.le64(UInt64(verzeichnis.count))
+            ende.le64(anfang)
+            ende.le32(0x0706_4b50)
+            ende.le32(0)
+            ende.le64(z64)
+            ende.le32(1)
+        }
         ende.le32(0x0605_4b50)
         ende.le16(0); ende.le16(0)
-        ende.le16(anzahl); ende.le16(anzahl)
-        ende.le32(UInt32(verzeichnis.count))
-        ende.le32(UInt32(versatz))
+        ende.le16(weit ? 0xFFFF : UInt16(anzahl)); ende.le16(weit ? 0xFFFF : UInt16(anzahl))
+        ende.le32(UInt32(min(UInt64(verzeichnis.count), UInt64(UInt32.max))))
+        ende.le32(weit ? 0xFFFF_FFFF : UInt32(anfang))
         ende.le16(0)
         try griff.write(contentsOf: verzeichnis)
         try griff.write(contentsOf: ende)
@@ -545,4 +575,5 @@ enum Crc32 {
 private extension Data {
     mutating func le16(_ v: UInt16) { Swift.withUnsafeBytes(of: v.littleEndian) { append(contentsOf: $0) } }
     mutating func le32(_ v: UInt32) { Swift.withUnsafeBytes(of: v.littleEndian) { append(contentsOf: $0) } }
+    mutating func le64(_ v: UInt64) { Swift.withUnsafeBytes(of: v.littleEndian) { append(contentsOf: $0) } }
 }

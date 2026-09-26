@@ -7,6 +7,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Die Ereignisse des iCloud-Abgleichs mitschreiben (ab 1.0.22) —
+        // VOR dem ersten Zugriff auf den Speicher, sonst fehlt das Einrichten.
+        Abgleichstatus.shared.beobachten()
         // Stille Pushes: So erfährt die App von den Einträgen der Miturlauber.
         application.registerForRemoteNotifications()
         // Der Aufzeichner MUSS beim Start stehen — auch wenn iOS die App
