@@ -303,7 +303,11 @@ struct Seitenformat: Codable, Hashable, Identifiable {
         case "foto21x28": return "21 \u{00D7} 28 cm hoch"
         case "foto28x21": return "28 \u{00D7} 21 cm quer"
         case "foto28x19": return "28 \u{00D7} 19 cm quer"
-        default: return "Eigenes Ma\u{00DF}"
+        default:
+            // Ein Druckprodukt (ab 1.0.111) trägt seine Kennung als Vorlage;
+            // der Name kommt von dort und nicht aus einer zweiten Liste.
+            if let produkt = Druckprodukt.produkt(vorlage) { return produkt.vollerName }
+            return "Eigenes Ma\u{00DF}"
         }
     }
 

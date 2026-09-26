@@ -6767,7 +6767,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.110 (Build 111). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.111 (Build 112). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7267,6 +7267,60 @@ Befunde, und keiner davon war Geschmack:
   Die Abschnittsnamen („Morgens, Mittags, Nachmittags, Nachts", in älteren
   Dateien „Vormittag …") werden gedruckt, wie sie kommen. **Nicht gemessen
   (1.0.110):** an keiner echten Datei. **Nicht als erledigt darstellen.**
+- **EIN DRUCKPRODUKT SETZT ALLES, WAS DIE DRUCKEREI VORGIBT, AUF EINMAL**
+  (`Model/Druckprodukt.swift`, `Model/Saalprodukte.swift`,
+  `scripts/saal-produkte.py`, Abschnitt „Druckprodukte · Saal Digital" im
+  Formatblatt, ab 1.0.111; Ansage des Nutzers 09/2026 mit Saals Seite
+  „Profibereich" vor Augen: „Verwende sie, so dass nach Auswahl des Formates
+  ‚Saal Digital 21x28 hochkant' diese automatisch angewendet werden. …
+  Übernimm alle Formate und alle Maße.").
+  - **Die Zahlen sind GEHOLT, nicht abgeschrieben.** Die Seite trägt die
+    Tabelle nicht als Text; ihr Skript lädt sie von
+    `services.saal-digital.net/designservice/api/Configurator/GetFormats`
+    (Händler- und Artikelgruppenkennung stehen im Quelltext der Seite).
+    Gefragt wird mit Einheit „mm" und je Papiersorte, denn die Rückenbreite
+    hängt am Papier. Das Skript schreibt `Saalprodukte.swift` — **nicht von
+    Hand bearbeiten**, sondern neu holen. Gemessen am 26.09.2026: 51 Produkte
+    in sechs Reihen (Hardcover, Hardcover XT, Softcover, Professional Line,
+    Professional Line XT, Portfolio Album). **Eine Antwort (42 × 28) kam in
+    Zentimetern, obwohl mm verlangt war** — das Skript erkennt es an der
+    Größenordnung und rechnet um; wer es neu schreibt, prüft das mit.
+  - **Innenseiten sind bei Saal DOPPELSEITEN, Beschnitt nur außen**
+    (`anschnittAmBund = false`). Aus Saals Vorlage folgt das Endformat einer
+    Seite — beim „21 × 28" sind das 210 × 270 und nicht 210 × 280, dieselbe
+    Abweichung, die 1.0.54 schon an den Bildschirmfotos gemessen hatte. Das
+    Portfolio Album liefert Einzelseiten mit Beschnitt ringsum.
+  - **Saals Rückenspalte und seine Bogenbreite gehen nicht zusammen auf.**
+    Mit einer festen Hälfte lässt sich nur eines von beiden treffen (bis zu
+    3,4 mm auseinander). Getroffen wird die BOGENBREITE, denn die prüft der
+    Dienst an der Datei; der gesetzte Rücken ist `Bogen − 2·Beschnitt −
+    2·Hälfte` und liegt bis zu gut 1,5 mm je Seite neben Saals Angabe — im
+    Falzbereich (9–17 mm), in den ohnehin nichts Wichtiges gehört. Beide
+    Zahlen stehen im Blatt nebeneinander.
+  - **Seitlich schneidet Saal oft mehr ab als oben und unten** (21 × 28:
+    9,3 gegen 7 mm). Diese App kennt EINEN Beschnitt je Bogen; gesetzt wird
+    der von oben/unten, der Rest steckt in der Hälfte. Das Blatt sagt es
+    dazu: Wichtiges nicht bis an die äußere Umschlagkante legen.
+  - **Professional Line und Portfolio Album haben keinen Umschlag mit
+    Rücken**, sondern ein eigenes Deckelteil. Gesetzt werden dort nur die
+    Innenseiten; die Umschlag-Einstellungen bleiben, und das Maß des Teils
+    steht als Auskunft da.
+  - **Die Tabelle des Produkts geht über `tabellenvorlage`**, nicht über
+    `Rueckentabellen.alle`: `passend(zu:)` liefe sonst über 51 Tabellen mit
+    gleichen Formaten und nähme still die erste Papiersorte.
+    `Rueckentabellen.vorlage(_:)` schlägt beide Listen nach, und der Name
+    eines Produktformats kommt aus `Druckprodukt` (`Seitenformat.name`).
+  - **Das Format zuerst, der Rest danach.** `Formatwechsel` rechnet ein
+    eigenes Umschlagformat mit — setzte das Produkt seine Hälfte vorher,
+    stünde sie hinterher um den Faktor daneben. Das Wechselblatt bekommt das
+    Produkt deshalb mit und wendet es NACH dem Umrechnen an, im selben
+    `merken()`. Eine eingetragene Rückenstärke und eine eigene Tabelle
+    werden dabei entfernt (sie gingen sonst vor und stammen fast immer von
+    einer anderen Druckerei); das Blatt sagt es vorher.
+  - **Nicht gemessen (1.0.111):** Keine Datei ist damit bei Saal
+    hochgeladen worden. Gemessen ist die Antwort der Schnittstelle am
+    26.09.2026; ändert Saal sein Angebot, merkt diese App nichts davon —
+    dann Skript neu laufen lassen. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
