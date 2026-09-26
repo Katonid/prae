@@ -21,6 +21,11 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // wie Überschrift und Datumszeile: Der Block ist ein Vorschlag über dem
     // Inhalt und wird beim Neuanordnen neu gerechnet.
     var unterueberschrift: String = ""
+    // Das WETTER des Tages als eine Zeile (ab 1.0.108) — eingelesen aus
+    // Fernweh oder von Hand geschrieben. Leer heißt: Auf der Seite steht
+    // keine Wetterzeile. Es ist bewusst TEXT und keine Messreihe: Was im
+    // Buch steht, soll sich ändern lassen wie jede andere Zeile.
+    var wetter: String = ""
     var text: String = ""
     var fotos: [UUID] = []
     var spur: [Reisepunkt] = []
@@ -72,6 +77,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         datum = try b.decode(Tagesdatum.self, forKey: .datum)
         ueberschrift = b.wert(.ueberschrift, "")
         unterueberschrift = b.wert(.unterueberschrift, "")
+        wetter = b.wert(.wetter, "")
         text = b.wert(.text, "")
         fotos = b.wert(.fotos, [])
         spur = b.wert(.spur, [])

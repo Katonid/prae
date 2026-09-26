@@ -6767,7 +6767,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.107 (Build 108). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.108 (Build 109). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7199,6 +7199,32 @@ Befunde, und keiner davon war Geschmack:
     Tagesspur-App (sie tragen dieselbe Quelle, siehe oben); das Blatt sagt
     es. **Nicht gemessen:** an keiner echten Datei und keiner echten
     Mediathek gesehen.
+  - **Einzelne Filter, und das Wetter hat ein eigenes Feld** (ab 1.0.108;
+    Ansage des Nutzers 09/2026: „Tagebuch erstellt eine Gesamtdatei,
+    Fotobuch hat einzelne Importfilter (Wetter, Fotos, Orte…)"). Im Blatt
+    „Was übernommen wird": Texte und Überschriften, Wetter (eigene Zeile /
+    unter den Text / nicht), Fotos; dazu die Orte. `Reisetag.wetter` ist
+    TEXT (änderbar wie jede Zeile), `Blockinhalt.wetter` die Zeile auf der
+    Seite, gesetzt in der Rolle `.datum` — keine eigene Schriftrolle, sonst
+    wäre `Typografie` samt Leser, Stilen und Schrift-Blatt mitgewachsen.
+    Nur auf dem Aufmacher, unter der zweiten Überschrift; auf der
+    ganzseitigen Aufmacherseite in derselben hellen Farbe wie das Datum,
+    und seine Höhe geht VOR `y` in die Rechnung ein.
+    **Ein Tag mit Handarbeit wird nicht neu gesetzt** — dort erscheint die
+    Zeile erst nach „Seiten neu anordnen", und der Bericht zählt diese Tage.
+  - **Ein neuer `Blockinhalt`-Fall ist eine Einbahnstraße.** Eine ÄLTERE
+    Fassung liest eine Seite mit Wetterzeile über `b.wert(.bloecke, [])`
+    und bekommt eine LEERE Seite; sichert sie danach (über iCloud),
+    ist der Satz dieser Seite weg. Dieselbe Lage gab es bei
+    `.unterueberschrift` (1.0.48) und `.kartenunterschrift` (1.0.87). Seit
+    1.0.108 liest `Seite` ihre Blöcke einzeln (`Nachsichtig<Block>`): Ein
+    unbekannter Block fällt allein weg — das schützt erst die FOLGENDEN
+    Fassungen. **Vor einem Import mit Wetterzeile alle Geräte auf 1.0.108
+    bringen.**
+  - Beim Umbau gefunden: Das Muster „halbseitig" räumte vor dem Neulegen
+    des Kopfes Datum, Titel und Linie weg, die zweite Überschrift aber
+    nicht — sie stand dort doppelt. Weggeräumt wird seither alles, was
+    `kopfzeile` legt.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

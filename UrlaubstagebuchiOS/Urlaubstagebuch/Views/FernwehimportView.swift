@@ -25,7 +25,9 @@ struct FernwehimportView: View {
 
     @State private var ersetzen = false
     @State private var autorenNennen = false
-    @State private var wetter = true
+    @State private var wetter: Reisewerk.Wetterziel = .zeile
+    @State private var texte = true
+    @State private var fotos = true
     @State private var titel = false
     @State private var ausMediathek = true
     @State private var orte: Reisewerk.Ortswahl = .fernweh
@@ -142,18 +144,35 @@ struct FernwehimportView: View {
                 Text(auskunft(befund))
             }
 
+            // Die Datei bringt alles mit — was davon ins Buch kommt,
+            // entscheidet jeder Filter für sich (ab 1.0.108).
             Section {
-                Toggle("Vorhandenen Text ersetzen", isOn: $ersetzen)
-                Toggle("Wetter unter den Text schreiben", isOn: $wetter)
-                Toggle("Namen der Schreibenden nennen", isOn: $autorenNennen)
+                Toggle("Texte und Überschriften", isOn: $texte)
+                Picker("Wetter", selection: $wetter) {
+                    Text("Eigene Zeile").tag(Reisewerk.Wetterziel.zeile)
+                    Text("Unter den Text").tag(Reisewerk.Wetterziel.unterText)
+                    Text("Nicht übernehmen").tag(Reisewerk.Wetterziel.keins)
+                }
+                Toggle("Fotos (\(befund.fotos))", isOn: $fotos)
+            } header: {
+                Text("Was übernommen wird")
+            } footer: {
+                Text(filtersatz(befund))
+            }
+
+            Section {
+                Toggle("Vorhandenes ersetzen", isOn: $ersetzen)
+                if texte {
+                    Toggle("Namen der Schreibenden nennen", isOn: $autorenNennen)
+                }
                 if !befund.titel.isEmpty {
                     Toggle("Titel übernehmen: \u{201E}\(befund.titel)\u{201C}", isOn: $titel)
                 }
-                if befund.fotos > befund.fotosMitDatei {
+                if fotos, befund.fotos > befund.fotosMitDatei {
                     Toggle("Fehlende Bilder aus der Mediathek holen", isOn: $ausMediathek)
                 }
             } header: {
-                Text("Übernehmen")
+                Text("Wie")
             } footer: {
                 Text(schaltersatz(befund))
             }
@@ -313,10 +332,31 @@ struct FernwehimportView: View {
         return saetze.joined(separator: " ")
     }
 
+    private func filtersatz(_ befund: Fernweheinfuhr.Befund) -> String {
+        let mitWetter = befund.tage.filter { $0.wetter != nil }.count
+        var satz = "Wetter steht in der Datei an \(mitWetter) von \(befund.tage.count) Tagen. "
+        switch wetter {
+        case .zeile:
+            satz += "Als eigene Zeile steht es unter den Überschriften, in der Schrift der "
+                + "Datumszeile, und lässt sich getrennt vom Tagebuchtext ändern oder "
+                + "verschieben."
+        case .unterText:
+            satz += "Es wird als letzter Absatz an den Tagebuchtext gehängt."
+        case .keins:
+            satz += "Es bleibt draußen."
+        }
+        if !fotos {
+            satz += " Ohne Fotos kommen keine Bilder ins Buch; die Orte können dann nur aus "
+                + "Fernweh kommen."
+        }
+        return satz
+    }
+
     private func schaltersatz(_ befund: Fernweheinfuhr.Befund) -> String {
         var saetze = ["Ohne \u{201E}ersetzen\u{201C} wird ein vorhandener Text ergänzt; steht "
-                      + "derselbe Text schon da, bleibt er einmal stehen."]
-        if befund.fotos > befund.fotosMitDatei {
+                      + "derselbe Text schon da, bleibt er einmal stehen. Überschriften und "
+                      + "Wetter werden nur dort gesetzt, wo noch keine stehen."]
+        if fotos, befund.fotos > befund.fotosMitDatei {
             let ohne = befund.fotos - befund.fotosMitDatei
             var satz = "\(ohne) Fotos stehen ohne Bild in der Datei. Liegen sie in deiner "
                 + "Mediathek (dieselbe Apple-ID wie in Fernweh), holt die App sie dort."
@@ -427,15 +467,17 @@ struct FernwehimportView: View {
     private func uebernehmen() {
         guard let befund, let daten else { return }
         let wunsch = Reisewerk.Fernwehwunsch(tage: gewaehlt, ersetzen: ersetzen,
-                                             autorenNennen: autorenNennen, wetter: wetter,
+                                             autorenNennen: autorenNennen,
                                              titel: titel, ausMediathek: ausMediathek,
-                                             orte: orte)
+                                             texte: texte, fotos: fotos,
+                                             wetter: wetter, orte: orte)
         arbeit = "Wird vorbereitet\u{2026}"
         Task { @MainActor in
             // Die Mediathek nur fragen, wenn sie gebraucht wird — und erst
             // auf den Tipp hin, nie beim Öffnen des Blattes.
-            let brauchtMediathek = (wunsch.ausMediathek && befund.fotos > befund.fotosMitDatei)
-                || (wunsch.orte == .fotos && befund.fotos > 0)
+            let brauchtMediathek = wunsch.fotos
+                && ((wunsch.ausMediathek && befund.fotos > befund.fotosMitDatei)
+                    || (wunsch.orte == .fotos && befund.fotos > 0))
             if brauchtMediathek, Reisewerk.mediathekStand == .notDetermined
             {
                 _ = await Reisewerk.mediathekFragen()

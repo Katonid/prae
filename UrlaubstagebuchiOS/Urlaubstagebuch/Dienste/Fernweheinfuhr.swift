@@ -30,9 +30,10 @@ import Photos
 //    deshalb nur einmal. Der Tag ist der des EINTRAGS (der Vertrag sagt es
 //    ausdrücklich: Wer ein Foto einem Eintrag zugeordnet hat, hat damit
 //    entschieden, wohin es gehört).
-//  - **Wetter.** Das Reisebuch hat dafür kein eigenes Feld. Auf Wunsch
-//    steht es als eine Zeile unter dem Text des Tages; eine Vorhersage sagt,
-//    dass sie eine ist.
+//  - **Wetter.** Seit 1.0.108 hat das Reisebuch dafür ein eigenes Feld am
+//    Tag (`Reisetag.wetter`), das als eigene Zeile auf die Seite kommt.
+//    Wahlweise steht es wie bis 1.0.107 unter dem Text. Eine Vorhersage
+//    sagt, dass sie eine ist.
 //
 // **Zeiten.** In der Datei stehen Augenblicke (mit Versatz, bzw. als
 // Unix-Sekunden bei der Spur). Im Buch steht die WANDUHR AM ORT — dieselbe
@@ -555,6 +556,8 @@ struct Nachsichtig<T: Decodable>: Decodable {
     var werte: [T] = []
     var verworfen = 0
 
+    init() {}
+
     init(from decoder: Decoder) throws {
         var liste = try decoder.unkeyedContainer()
         while !liste.isAtEnd {
@@ -593,10 +596,25 @@ extension Reisewerk {
         var tage: Set<String>
         var ersetzen = false
         var autorenNennen = false
-        var wetter = true
         var titel = false
         var ausMediathek = true
+        // Die EINZELNEN FILTER (ab 1.0.108, Ansage des Nutzers 09/2026:
+        // „Tagebuch erstellt eine Gesamtdatei, Fotobuch hat einzelne
+        // Importfilter (Wetter, Fotos, Orte…)"). Die Datei bringt alles
+        // mit; was davon ins Buch kommt, entscheidet jeder Schalter für
+        // sich.
+        var texte = true
+        var fotos = true
+        var wetter: Wetterziel = .zeile
         var orte: Ortswahl = .fernweh
+    }
+
+    enum Wetterziel: Hashable {
+        // Ein eigenes Feld am Tag, auf der Seite eine eigene Zeile.
+        case zeile
+        // Wie bis 1.0.107: als letzter Absatz im Tagebuchtext.
+        case unterText
+        case keins
     }
 
     // WOHER die Orte kommen — eine Entscheidung des Menschen, nicht der
@@ -635,7 +653,7 @@ extension Reisewerk {
         // 1. Die Bilder.
         var offen: [(tag: String, angabe: Fernweheinfuhr.Fotoangabe)] = []
         var schonImBuch = 0
-        for tag in auswahl {
+        for tag in auswahl where wunsch.fotos {
             for angabe in tag.fotos {
                 if let kennung = angabe.kennung, vorhanden.contains(kennung) {
                     schonImBuch += 1
@@ -687,12 +705,38 @@ extension Reisewerk {
         var ergaenzt = 0
         var mitSpur = 0
         var spurGeleert = 0
+        var mitWetter = 0
+        var wetterNachAnordnen = 0
 
         for tag in auswahl {
             if !bekannt.contains(tag.id) { neueTage += 1 }
             let stelle = reise.tagIndex(fuer: tag.datum)
-            let neu = Fernweheinfuhr.tagestext(tag, autorenNennen: wunsch.autorenNennen,
-                                               wetterAnhaengen: wunsch.wetter)
+            // Ohne den Filter „Texte" bleibt nur, was ausdrücklich in den Text
+            // soll: das Wetter, wenn es dort stehen soll.
+            let neu = wunsch.texte
+                ? Fernweheinfuhr.tagestext(tag, autorenNennen: wunsch.autorenNennen,
+                                           wetterAnhaengen: wunsch.wetter == .unterText)
+                : Fernweheinfuhr.Tagestext(
+                    ueberschrift: "", unterueberschrift: "",
+                    text: wunsch.wetter == .unterText ? (tag.wetter ?? "") : "")
+            // Das Wetter als eigenes Feld. Es gilt dieselbe Regel wie bei
+            // den Überschriften: Ein leerer Fund überschreibt nichts.
+            if wunsch.wetter == .zeile, let wetter = tag.wetter, !wetter.isEmpty,
+               reise.tage[stelle].wetter.isEmpty || wunsch.ersetzen
+            {
+                reise.tage[stelle].wetter = wetter
+                mitWetter += 1
+                // Ein Tag mit Handarbeit wird unten nicht neu gesetzt —
+                // steht dort noch keine Wetterzeile, kommt sie erst mit
+                // „Seiten neu anordnen". Das wird gezählt und gesagt.
+                let hatZeile = reise.tage[stelle].seiten.contains {
+                    $0.bloecke.contains { $0.inhalt == .wetter }
+                }
+                if !hatZeile, reise.tage[stelle].seiten.contains(where: \.vonHand) {
+                    wetterNachAnordnen += 1
+                }
+            }
+
             // Dieselbe Regel wie beim Textimport: Überschriften werden nur
             // gesetzt, wo keine steht — oder wenn ersetzt werden soll. Ein
             // LEERER Fund überschreibt nie etwas.
@@ -830,6 +874,12 @@ extension Reisewerk {
         if neueTage > 0 { zeilen.append("\(neueTage) davon neu angelegt.") }
         if ergaenzt > 0 { zeilen.append("Bei \(ergaenzt) Tagen wurde der vorhandene Text ergänzt.") }
         if mitSpur > 0 { zeilen.append("\(mitSpur) Tage haben Orte oder eine Spur.") }
+        if mitWetter > 0 { zeilen.append("Bei \(mitWetter) Tagen steht das Wetter als eigene Zeile.") }
+        if wetterNachAnordnen > 0 {
+            zeilen.append("\(wetterNachAnordnen) davon tragen Handarbeit \u{2014} dort erscheint die Wetterzeile erst nach \u{201E}Seiten neu anordnen\u{201C}.")
+        }
+        if !wunsch.texte { zeilen.append("Texte und Überschriften wurden nicht übernommen.") }
+        if !wunsch.fotos { zeilen.append("Fotos wurden nicht übernommen.") }
         if wunsch.orte == .fotos {
             zeilen.append("Orte und Spur aus Fernweh wurden nicht übernommen; die Reisepunkte kommen aus den Fotos.")
             if spurGeleert > 0 {

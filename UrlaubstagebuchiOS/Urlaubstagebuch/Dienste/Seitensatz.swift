@@ -421,6 +421,8 @@ enum Seitensatz {
         case .datum:
             guard let tag else { return reise.zeitraum }
             return datumstext(tag, reise: reise)
+        case .wetter:
+            return tag?.wetter ?? ""
         case let .text(wert):
             return wert
         case let .bildunterschrift(id):
