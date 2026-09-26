@@ -48,6 +48,19 @@ struct Reisekarte: View {
     /// Die Farben der Linien (ab 1.0.21) — einstellbar, siehe
     /// `Kartenfarben`.
     @ObservedObject private var farben = Kartenfarben.shared
+    /// Welche Ebenen gezeigt werden (ab 1.0.26, siehe `Kartenebenen.swift`).
+    @AppStorage(Kartenebene.reisespur.schluessel) private var zeigeSpur = true
+    @AppStorage(Kartenebene.fahrt.schluessel) private var zeigeFahrten = true
+    @AppStorage(Kartenebene.wanderung.schluessel) private var zeigeWanderungen = true
+    @AppStorage(Kartenebene.fotos.schluessel) private var zeigeFotos = true
+
+    private func sichtbar(_ art: Spurart) -> Bool {
+        switch art {
+        case .reisespur: return zeigeSpur
+        case .fahrt: return zeigeFahrten
+        case .wanderung: return zeigeWanderungen
+        }
+    }
 
     /// Alle Einträge (auch ohne Ort), die man sehen darf — für die Fotos.
     private var sichtbare: [Eintrag] {
@@ -88,7 +101,7 @@ struct Reisekarte: View {
         guard let ziel = proxy.convert(ort, from: .local),
               let toleranz = Zeitsuche.toleranz(proxy, bei: ort) else { return }
         withAnimation(.snappy(duration: 0.2)) {
-            gewaehlt = Zeitsuche.naechster(zu: ziel, in: zeitpunkte, toleranz: toleranz)
+            gewaehlt = Zeitsuche.naechster(zu: ziel, in: zeitpunkte.filter { sichtbar($0.art) }, toleranz: toleranz)
         }
     }
 
@@ -98,7 +111,7 @@ struct Reisekarte: View {
 
     private var karte: some View {
         Map(position: $position, interactionModes: interaktiv ? .all : []) {
-            ForEach(linien.filter { $0.art == .reisespur }) { linie in
+            ForEach(linien.filter { $0.art == .reisespur && zeigeSpur }) { linie in
                 MapPolyline(coordinates: linie.punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: linie.punkte)
@@ -107,7 +120,7 @@ struct Reisekarte: View {
             }
             // Autofahrten (ab 1.0.21) in ihrer eigenen Farbe, über der
             // Reisespur — sie liegen oft auf derselben Straße.
-            ForEach(linien.filter { $0.art == .fahrt }) { linie in
+            ForEach(linien.filter { $0.art == .fahrt && zeigeFahrten }) { linie in
                 MapPolyline(coordinates: linie.punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: linie.punkte)
@@ -115,13 +128,13 @@ struct Reisekarte: View {
             }
             // Wanderungen grün (ab 1.0.17) — über der Reisespur, denn sie
             // sind das, was man sucht.
-            ForEach(wanderlinien) { linie in
+            ForEach(zeigeWanderungen ? wanderlinien : []) { linie in
                 MapPolyline(coordinates: linie.punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: linie.punkte)
                     .stroke(farben.wanderung, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             }
-            if fotosZeigen {
+            if fotosZeigen && zeigeFotos {
                 ForEach(fotopunkte) { p in
                     Annotation("", coordinate: p.ort) {
                         FotoBild(foto: p.foto, kante: 120)
@@ -134,7 +147,7 @@ struct Reisekarte: View {
                     .annotationTitles(.hidden)
                 }
             }
-            ForEach(messpunkte) { p in
+            ForEach(messpunkte.filter { sichtbar($0.art) }) { p in
                 Annotation("", coordinate: p.koordinate) { Messpunkt(farbe: linienfarbe(p.art)) }
                     .annotationTitles(.hidden)
             }
@@ -146,7 +159,7 @@ struct Reisekarte: View {
                     .annotationTitles(interaktiv ? .automatic : .hidden)
                 }
             }
-            if let gewaehlt {
+            if let gewaehlt, sichtbar(gewaehlt.art) {
                 Annotation("", coordinate: gewaehlt.koordinate, anchor: .bottom) {
                     Zeitblase(punkt: gewaehlt, farbe: linienfarbe(gewaehlt.art), mitTag: tag == nil)
                 }
@@ -171,7 +184,7 @@ struct Reisekarte: View {
         // Tages (`Reise.zone(am:)`).
         let pakete = spuren.map { s in
             (id: "\(s.tag ?? "")|\(s.geraet ?? "")", daten: s.punkte, eigene: s.geraet == ich, art: s.spurart,
-             name: s.istFahrt ? Fahrtenimport.name(s) : (s.reisender ?? ""),
+             name: s.istFahrt ? Fahrtenimport.anzeigename(s) : (s.reisender ?? ""),
              zone: s.istFahrt ? Fahrtenimport.zone(s) : reise.zone(am: s.tag ?? ""))
         }
         let (fertig, spurzeiten): ([Linie], [Zeitpunkt]) = await Task.detached(priority: .userInitiated) {
@@ -263,22 +276,37 @@ struct Vollkarte: View {
     @ObservedObject var reise: Reise
     @Environment(\.dismiss) private var schliessen
     @State private var tag: Date?
-    @State private var fotos = true
     @State private var farbenZeigen = false
+
+    /// `startTag` (ab 1.0.26): aus der Karte eines Tages geöffnet, steht
+    /// die Vollkarte gleich auf diesem Tag.
+    init(reise: Reise, startTag: Date? = nil) {
+        _reise = ObservedObject(wrappedValue: reise)
+        _tag = State(initialValue: startTag)
+    }
     /// Messpunkte zeigen (ab 1.0.24) — gemerkt je Gerät.
     @AppStorage("fernweh.kartenpunkte") private var punkte = false
 
     var body: some View {
         NavigationStack {
-            Reisekarte(reise: reise, interaktiv: true, tag: tag, fotosZeigen: fotos, punkteZeigen: punkte)
+            Reisekarte(reise: reise, interaktiv: true, tag: tag, fotosZeigen: true, punkteZeigen: punkte)
                 .id(tag.map(Tag.schluessel) ?? "alle")
                 .ignoresSafeArea(edges: .bottom)
                 .safeAreaInset(edge: .bottom) {
+                    VStack(spacing: 0) {
+                    // Die Ebenen (ab 1.0.26): Spur, Autofahrten,
+                    // Wanderungen, Fotos — einzeln schaltbar.
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            Knopf(text: "Fotos", an: fotos) { fotos.toggle() }
-                            Knopf(text: "Punkte", an: punkte) { punkte.toggle() }
+                            Ebenenwahl(palette: reise.palette)
                             Divider().frame(height: 22)
+                            Knopf(text: "Punkte", an: punkte) { punkte.toggle() }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
                             Knopf(text: "Ganze Reise", an: tag == nil) { tag = nil }
                             ForEach(Array(reise.bisherigeTage.enumerated()), id: \.offset) { nummer, t in
                                 Knopf(text: "Tag \(nummer + 1)", an: tag.map(Tag.schluessel) == Tag.schluessel(t)) { tag = t }
@@ -286,6 +314,7 @@ struct Vollkarte: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
+                    }
                     }
                     .background(.ultraThinMaterial)
                 }

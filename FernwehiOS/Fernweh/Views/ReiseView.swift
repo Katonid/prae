@@ -435,6 +435,7 @@ private struct TagAbschnitt: View {
     let darf: Bool
     var schreiben: () -> Void
     @State private var wetter: Wetternachtrag.Tageswahl?
+    @State private var karteOffen = false
 
     /// Ändert sich, sobald ein Eintrag des Tages Wetter bekommt.
     private var wetterStand: String {
@@ -482,6 +483,31 @@ private struct TagAbschnitt: View {
                         Text("Vorhersage").font(.caption2).foregroundStyle(.orange)
                     }
                 }
+            }
+
+            // Die Karte des Tages (ab 1.0.26, Ansage des Nutzers 09/2026:
+            // „Wenn ich mir einen einzelnen Urlaubstag … auswähle, sehe ich
+            // dort aber nur die Komoot-Karten"). Spur, Autofahrten,
+            // Wanderungen und Fotos dieses Tages, dieselben Schalter wie in
+            // der Gesamtkarte. Ein BILD in der Rolle (kein Wisch geschluckt);
+            // ein Tipp öffnet die Vollkarte auf diesem Tag.
+            if !reise.spuren(am: tag).isEmpty
+                || eintraege.contains(where: { $0.hatOrt || $0.eintragsart == .wanderung
+                    || $0.fotoListe.contains { $0.koordinate != nil } }) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Reisekarte(reise: reise, tag: tag, fotosZeigen: true)
+                        .frame(height: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .allowsHitTesting(false)
+                        .overlay(alignment: .topTrailing) { VollbildHinweis() }
+                        .overlay {
+                            Color.clear.contentShape(Rectangle()).onTapGesture { karteOffen = true }
+                        }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        Ebenenwahl(palette: reise.palette)
+                    }
+                }
+                .fullScreenCover(isPresented: $karteOffen) { Vollkarte(reise: reise, startTag: tag) }
             }
 
             // Die Autofahrten des Tages (ab 1.0.21), je eine Zeile.
@@ -542,7 +568,7 @@ private struct Fahrtzeile: View {
         let zeit = punkte.first.map { a in
             Tag.text(a.datum, "HH:mm", zone: zone) + (punkte.last.map { "–" + Tag.text($0.datum, "HH:mm", zone: zone) } ?? "")
         } ?? ""
-        let teile = [Fahrtenimport.name(spur), zeit, Tagesspurwahl.kilometertext(spur.distanz / 1000)]
+        let teile = [Fahrtenimport.anzeigename(spur), zeit, Tagesspurwahl.kilometertext(spur.distanz / 1000)]
         Label(teile.filter { !$0.isEmpty }.joined(separator: " · "), systemImage: "car.fill")
             .font(.caption.weight(.semibold))
             .foregroundStyle(farben.fahrt)

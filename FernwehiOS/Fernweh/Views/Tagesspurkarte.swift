@@ -127,16 +127,34 @@ enum Tagesspurwahl {
             let p = liste.map { CLLocationCoordinate2D(latitude: $0.breite, longitude: $0.laenge) }
             return p.count >= 2
                 ? Tagesspurkarte.Linie(id: g, punkte: p, art: s.spurart, zeiten: liste.map(\.zeit),
-                                       name: s.istFahrt ? Fahrtenimport.name(s) : (s.reisender ?? ""),
+                                       name: s.istFahrt ? Fahrtenimport.anzeigename(s) : (s.reisender ?? ""),
                                        zone: s.istFahrt ? Fahrtenimport.zone(s) : nil)
                 : nil
+        }
+        // Die Wanderungen des Tages dazu (ab 1.0.26, Ansage des Nutzers
+        // 09/2026: auf JEDER Karte alles — Spur, Autofahrten, Wanderungen).
+        // Sie liegen am Eintrag, nicht als Spur. Nicht aus gesperrten
+        // Tagebüchern.
+        let wanderanfrage = NSFetchRequest<Eintrag>(entityName: "Eintrag")
+        wanderanfrage.predicate = NSPredicate(format: "art == %@", Eintragsart.wanderung.rawValue)
+        let touren = ((try? Persistenz.shared.kontext.fetch(wanderanfrage)) ?? []).filter {
+            $0.tagSchluessel == tag && (reise == nil || $0.reise == reise)
+                && !Buecherei.shared.istGesperrt($0.tagebuchName)
+        }
+        let wanderlinien = touren.compactMap { e -> Tagesspurkarte.Linie? in
+            let punkte = Spurpunkt.ausgeduennt(e.streckenpunkte, abstand: 20)
+            guard punkte.count >= 2 else { return nil }
+            return Tagesspurkarte.Linie(id: "wanderung:" + e.objectID.uriRepresentation().absoluteString,
+                                        punkte: punkte.map(\.koordinate), art: .wanderung,
+                                        zeiten: punkte.map(\.zeit), name: e.anzeigeTitel, zone: e.zone)
         }
         // Wie `Reise.meter(am:)`: die längste Gerätespur ODER die Summe der
         // Autofahrten (ab 1.0.21), das Größere.
         let spuren = Array(jeGeraet.values)
         let geraete = spuren.filter { !$0.istFahrt }.map(\.distanz).max() ?? 0
         let fahrten = spuren.filter(\.istFahrt).reduce(0) { $0 + $1.distanz }
-        return (linien, max(geraete, fahrten) / 1000)
+        let wandermeter = touren.reduce(0) { $0 + $1.streckeMeter }
+        return (linien + wanderlinien, max(geraete, fahrten + wandermeter) / 1000)
     }
 
     static func kilometertext(_ km: Double) -> String {
@@ -272,6 +290,27 @@ struct SpurVollbild: View {
     @State private var zeitpunkte: [Zeitpunkt] = []
     @State private var gewaehlt: Zeitpunkt?
     @AppStorage("fernweh.kartenpunkte") private var punkteZeigen = false
+    /// Dieselben Ebenen wie auf der Karte der Reise (ab 1.0.26). Eine
+    /// Karte mit EINER vorgegebenen Farbe (die einer Wanderung) zeigt immer
+    /// alles — dort gibt es nichts auszublenden.
+    @AppStorage(Kartenebene.reisespur.schluessel) private var zeigeSpur = true
+    @AppStorage(Kartenebene.fahrt.schluessel) private var zeigeFahrten = true
+    @AppStorage(Kartenebene.wanderung.schluessel) private var zeigeWanderungen = true
+
+    private func sichtbar(_ art: Spurart) -> Bool {
+        guard linienfarbe == nil else { return true }
+        switch art {
+        case .reisespur: return zeigeSpur
+        case .fahrt: return zeigeFahrten
+        case .wanderung: return zeigeWanderungen
+        }
+    }
+
+    /// Welche Arten es auf dieser Karte überhaupt gibt — nur deren
+    /// Schalter stehen oben.
+    private var arten: [Spurart] {
+        Spurart.allCases.filter { a in linien.contains { $0.art == a } }
+    }
 
     private func farbe(_ art: Spurart) -> Color {
         linienfarbe ?? farben.farbe(art, palette: palette)
@@ -283,7 +322,7 @@ struct SpurVollbild: View {
                 guard let ziel = proxy.convert(ort, from: .local),
                       let toleranz = Zeitsuche.toleranz(proxy, bei: ort) else { return }
                 withAnimation(.snappy(duration: 0.2)) {
-                    gewaehlt = Zeitsuche.naechster(zu: ziel, in: zeitpunkte, toleranz: toleranz)
+                    gewaehlt = Zeitsuche.naechster(zu: ziel, in: zeitpunkte.filter { sichtbar($0.art) }, toleranz: toleranz)
                 }
             }
         }
@@ -299,7 +338,7 @@ struct SpurVollbild: View {
 
     private var karte: some View {
         Map(position: $position) {
-            ForEach(linien) { l in
+            ForEach(linien.filter { sichtbar($0.art) }) { l in
                 MapPolyline(coordinates: l.punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: l.punkte)
@@ -314,12 +353,12 @@ struct SpurVollbild: View {
                     .tint(m.haupt ? palette.haupt : palette.hell)
             }
             if punkteZeigen {
-                ForEach(Zeitsuche.auswahl(zeitpunkte, hoechstens: 400)) { p in
+                ForEach(Zeitsuche.auswahl(zeitpunkte.filter { sichtbar($0.art) }, hoechstens: 400)) { p in
                     Annotation("", coordinate: p.koordinate) { Messpunkt(farbe: farbe(p.art)) }
                         .annotationTitles(.hidden)
                 }
             }
-            if let gewaehlt {
+            if let gewaehlt, sichtbar(gewaehlt.art) {
                 Annotation("", coordinate: gewaehlt.koordinate, anchor: .bottom) {
                     Zeitblase(punkt: gewaehlt, farbe: farbe(gewaehlt.art))
                 }
@@ -346,6 +385,18 @@ struct SpurVollbild: View {
             MapUserLocationButton()
         }
         .ignoresSafeArea(edges: .bottom)
+        // Die Ebenen dieser Karte (ab 1.0.26) — nur, wenn es mehr als eine
+        // Art Linie gibt.
+        .safeAreaInset(edge: .bottom) {
+            if linienfarbe == nil && arten.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Ebenenwahl(palette: palette, ebenen: arten.map(Kartenebene.an))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                }
+                .background(.ultraThinMaterial)
+            }
+        }
         .safeAreaInset(edge: .top) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
