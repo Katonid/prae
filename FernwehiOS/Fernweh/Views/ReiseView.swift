@@ -34,6 +34,7 @@ struct ReiseView: View {
     }
 
     var body: some View {
+        ScrollViewReader { springer in
         ScrollView {
             VStack(spacing: 0) {
                 kopf
@@ -47,7 +48,7 @@ struct ReiseView: View {
                     if darf && !reise.laeuft && !reise.liegtInZukunft && reise.eintragListe.isEmpty {
                         nachtragKarte
                     }
-                    tage
+                    tage(springer)
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 20)
@@ -59,6 +60,7 @@ struct ReiseView: View {
                 )
                 .offset(y: -30)
             }
+        }
         }
         .ignoresSafeArea(edges: .top)
         .background(Color(uiColor: .systemBackground))
@@ -261,7 +263,7 @@ struct ReiseView: View {
     // MARK: - Tage
 
     @ViewBuilder
-    private var tage: some View {
+    private func tage(_ springer: ScrollViewProxy) -> some View {
         let alle = reise.bisherigeTage
         if alle.isEmpty && !reise.liegtInZukunft {
             Text("Noch keine Tage.").foregroundStyle(.secondary)
@@ -270,10 +272,43 @@ struct ReiseView: View {
         // wie ein Buch, vom ersten Tag an.
         let nummeriert = Array(alle.enumerated())
         let reihe = reise.laeuft ? Array(nummeriert.reversed()) : nummeriert
+        // Übersicht über den Tagen (ab 1.0.28, Ansage des Nutzers 09/2026:
+        // „komplett unübersichtlich und man kann kaum erkennen, an welcher
+        // Stelle der nächste Tag anfängt"): eine Sprungleiste zu jedem Tag
+        // und die Kartenschalter EINMAL — bis 1.0.27 standen sie unter
+        // jeder Tageskarte und sahen aus wie ein Teil des Tages.
+        if alle.count > 1 {
+            VStack(alignment: .leading, spacing: 10) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(alle.enumerated()), id: \.offset) { nummer, _ in
+                            Button {
+                                withAnimation { springer.scrollTo("tag-\(nummer + 1)", anchor: .top) }
+                            } label: {
+                                Text("Tag \(nummer + 1)")
+                                    .font(.caption.weight(.bold))
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 7)
+                                    .background(reise.palette.hell.opacity(0.22), in: Capsule())
+                                    .foregroundStyle(reise.palette.haupt)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                HStack(spacing: 8) {
+                    Text("Karten:").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        Ebenenwahl(palette: reise.palette)
+                    }
+                }
+            }
+        }
         ForEach(reihe, id: \.offset) { nummer, tag in
             TagAbschnitt(reise: reise, tag: tag, nummer: nummer + 1, darf: darf) {
                 editor = EditorWunsch(tag: tag)
             }
+            .id("tag-\(nummer + 1)")
         }
     }
 
@@ -439,6 +474,8 @@ private struct TagAbschnitt: View {
     var schreiben: () -> Void
     @State private var wetter: Wetternachtrag.Tageswahl?
     @State private var karteOffen = false
+    @State private var fahrtenOffen = false
+    @ObservedObject private var farben = Kartenfarben.shared
 
     /// Ändert sich, sobald ein Eintrag des Tages Wetter bekommt.
     private var wetterStand: String {
@@ -452,25 +489,38 @@ private struct TagAbschnitt: View {
         let km = reise.meter(am: Tag.schluessel(tag))
         let fahrten = reise.fahrten(am: Tag.schluessel(tag))
         let heute = Tag.schluessel(tag) == Tag.schluessel(Date())
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
+        // JEDER TAG EINE KARTE (ab 1.0.28, Ansage des Nutzers 09/2026: „man
+        // kann kaum erkennen, an welcher Stelle der nächste Tag anfängt").
+        // Oben ein farbiges Band mit Tag, Datum und Kilometern, darunter der
+        // Inhalt auf einem getönten Grund mit Rand — bis 1.0.27 lief alles
+        // ohne Grenze untereinander weg, und eine Tageskarte sah aus wie die
+        // Karte eines Eintrags.
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(heute ? "Heute · Tag \(nummer)" : "Tag \(nummer)")
                         .font(.caption.weight(.heavy))
-                        .foregroundStyle(reise.palette.haupt)
                         .textCase(.uppercase)
+                        .opacity(0.9)
                     Text(Tag.wochentagLang.string(from: tag))
                         .font(Stil.titel(21))
                 }
                 Spacer()
                 if km >= 100 {
-                    Label(km >= 10_000 ? "\(Int(km / 1000)) km" : String(format: "%.1f km", km / 1000),
-                          systemImage: "figure.walk")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    Text(km >= 10_000 ? "\(Int(km / 1000)) km" : String(format: "%.1f km", km / 1000))
+                        .font(.subheadline.weight(.bold))
+                        .monospacedDigit()
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.white.opacity(0.22), in: Capsule())
                 }
             }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(reise.palette.verlauf)
 
+            VStack(alignment: .leading, spacing: 12) {
             // Das Wetter des Tages am Ort (ab 1.0.18) — auch an einem Tag,
             // an dem nur eine Spur entstand.
             if let wetter {
@@ -497,29 +547,40 @@ private struct TagAbschnitt: View {
             if !reise.spuren(am: tag).isEmpty
                 || eintraege.contains(where: { $0.hatOrt || $0.eintragsart == .wanderung
                     || $0.fotoListe.contains { $0.koordinate != nil } }) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Reisekarte(reise: reise, tag: tag, fotosZeigen: true)
-                        .frame(height: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .allowsHitTesting(false)
-                        .overlay(alignment: .topTrailing) { VollbildHinweis() }
-                        .overlay {
-                            Color.clear.contentShape(Rectangle()).onTapGesture { karteOffen = true }
-                        }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        Ebenenwahl(palette: reise.palette)
+                // Die Schalter stehen EINMAL über den Tagen (ab 1.0.28).
+                Reisekarte(reise: reise, tag: tag, fotosZeigen: true)
+                    .frame(height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .allowsHitTesting(false)
+                    .overlay(alignment: .topTrailing) { VollbildHinweis() }
+                    .overlay {
+                        Color.clear.contentShape(Rectangle()).onTapGesture { karteOffen = true }
                     }
-                }
-                .fullScreenCover(isPresented: $karteOffen) { Vollkarte(reise: reise, startTag: tag) }
+                    .fullScreenCover(isPresented: $karteOffen) { Vollkarte(reise: reise, startTag: tag) }
             }
 
-            // Die Autofahrten des Tages (ab 1.0.21), je eine Zeile.
+            // Die Autofahrten des Tages (ab 1.0.21) — seit 1.0.28 in einer
+            // aufklappbaren Liste: Sieben Zeilen roter Text drückten die
+            // Einträge aus dem Blick.
             if !fahrten.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(fahrten) { f in
-                        Fahrtzeile(spur: f, darf: darf)
+                DisclosureGroup(isExpanded: $fahrtenOffen) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(fahrten) { f in
+                            Fahrtzeile(spur: f, darf: darf)
+                        }
                     }
+                    .padding(.top, 8)
+                } label: {
+                    let summe = fahrten.reduce(0) { $0 + $1.distanz } / 1000
+                    Label((fahrten.count == 1 ? "1 Autofahrt" : "\(fahrten.count) Autofahrten")
+                          + " · " + Tagesspurwahl.kilometertext(summe),
+                          systemImage: "car.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(farben.fahrt)
                 }
+                .tint(farben.fahrt)
+                .padding(12)
+                .background(farben.fahrt.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
 
             ForEach(eintraege) { eintrag in
@@ -550,8 +611,14 @@ private struct TagAbschnitt: View {
                 }
                 .buttonStyle(.plain)
             }
+            }
+            .padding(14)
         }
-        .padding(.top, 6)
+        .background(reise.palette.hell.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .strokeBorder(reise.palette.haupt.opacity(0.35), lineWidth: 1))
+        .padding(.top, 10)
         .task(id: wetterStand) {
             wetter = await Wetternachtrag.tag(Tag.schluessel(tag), in: reise)
         }
