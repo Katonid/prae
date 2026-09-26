@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -302,6 +302,30 @@
   - **Nicht gemessen**: Nichts davon lief auf einem Gerät; Komoot nur mit
     einer öffentlichen Tour per `curl` (Aufbau der Antwort), nie mit einem
     Teilen-Link.
+- **Das Wetter jedes Tages am Ort** (`Model/Wetternachtrag.swift`, ab 1.0.18;
+  Ansage des Nutzers 09/2026: „das Wetter an den einzelnen Tagen am
+  jeweiligen Ort … Morgens, mittags, nachmittags, nachts … an das Fotobuch mit
+  übergeben"). Geholt wurde es seit 1.0.1 — aber NUR im Editor. Jetzt:
+  - **Nachtragen** beim Öffnen einer Reise, des Tagebuchs und vor jeder
+    Übergabe: Einträge ohne Wetter und Vorhersagen vergangener Tage, am Ort
+    des Eintrags, sonst an dem seines ersten Fotos, seiner Strecke oder am
+    Anfang der Spur des Tages. 30 je Lauf, vergebliche Fragen werden für die
+    Sitzung gemerkt, geschrieben wird nur, was ich bearbeiten darf. Freie
+    Seiten nie.
+  - **Unter jedem Tag der Reise** steht das Wetter samt Ort — auch an einem
+    Tag nur mit Spur. Dafür gibt es keinen Datensatz; es wird geholt und für
+    die Sitzung gemerkt (`Wettervorrat`), NICHT gespeichert. Kein neues
+    Attribut, kein Schema-Deploy.
+  - **Die Abschnitte heißen „Morgens, Mittags, Nachmittags, Nachts"**
+    (Stunden unverändert 6–11, 11–14, 14–18, 21–5). Gespeicherte Einträge
+    tragen die alten Namen; übersetzt wird beim Zeigen
+    (`Wetterabschnitt.anzeigename`), nie im Speicher. **Wer einen Abschnitt
+    vergleicht, vergleicht `anzeigename`** (das Nachtsymbol tat es mit dem
+    Namen).
+  - **Übergabe**: `tage[].wetter` und `tage[].wetterOrt` angehängt (Fassung
+    1); die Abschnitte gehen unter ihrem neuen Namen hinaus.
+  - **Nicht gemessen**: kein Gerät; Open-Meteo ist seit 1.0.1 gemessen, der
+    Nachtrag nicht.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

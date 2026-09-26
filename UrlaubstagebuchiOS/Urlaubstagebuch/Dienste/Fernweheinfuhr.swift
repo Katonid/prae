@@ -73,6 +73,10 @@ enum Fernweheinfuhr {
         var datum: String?
         var eintraege: Nachsichtig<EintragTeil>?
         var spuren: Nachsichtig<SpurTeil>?
+        // Ab Fernweh 1.0.18: das Wetter des Tages am Ort — auch an einem Tag
+        // ohne Eintrag, an dem nur eine Spur entstand.
+        var wetter: WetterTeil?
+        var wetterOrt: OrtTeil?
     }
 
     struct EintragTeil: Decodable {
@@ -349,7 +353,7 @@ enum Fernweheinfuhr {
                 }
 
                 if tag.wetter == nil, let wetter = eintrag.wetter {
-                    tag.wetter = wetterzeile(wetter)
+                    tag.wetter = wetterzeile(wetter, ort: ortName)
                 }
 
                 let fotos = (eintrag.fotos?.werte ?? []).sorted {
@@ -381,6 +385,13 @@ enum Fernweheinfuhr {
                         text: foto.text.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     ))
                 }
+            }
+
+            // Das Wetter des TAGES (ab 1.0.110) nur, wo kein Eintrag eines
+            // trägt — das eines Eintrags steht an dessen Ort.
+            if tag.wetter == nil, let wetter = teil.wetter {
+                tag.wetter = wetterzeile(wetter, ort: (teil.wetterOrt?.name ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines))
             }
 
             // Mehrere Spuren desselben Tages sind mehrere GERÄTE auf
@@ -513,7 +524,11 @@ enum Fernweheinfuhr {
     // „Wetter: Vormittag überwiegend klar, 19–25 °C · Nacht leichter Regen,
     // 14–16 °C, 2,1 mm." Eine Vorhersage sagt, dass sie eine ist — sie ist
     // keine Messung (derselbe Unterschied wie „Plan" gegen „pünktlich").
-    static func wetterzeile(_ wetter: WetterTeil) -> String? {
+    //
+    // Mit Ort (ab 1.0.110): „Wetter in Lissabon: Morgens …" — das Wetter
+    // gilt dort, wo es geholt wurde, und an einem Reisetag sind das oft
+    // andere Orte als der, an dem man abends schreibt.
+    static func wetterzeile(_ wetter: WetterTeil, ort: String = "") -> String? {
         let zahl = NumberFormatter()
         zahl.locale = Locale(identifier: "de_DE")
         zahl.maximumFractionDigits = 1
@@ -535,7 +550,8 @@ enum Fernweheinfuhr {
             if !satz.isEmpty { teile.append(satz) }
         }
         guard !teile.isEmpty else { return nil }
-        let kopf = wetter.vorhersage == true ? "Wetter (Vorhersage): " : "Wetter: "
+        let wo = ort.isEmpty ? "" : " in " + ort
+        let kopf = wetter.vorhersage == true ? "Wetter\(wo) (Vorhersage): " : "Wetter\(wo): "
         return kopf + teile.joined(separator: " \u{00B7} ")
     }
 

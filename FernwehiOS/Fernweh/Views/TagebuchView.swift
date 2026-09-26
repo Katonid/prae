@@ -236,6 +236,8 @@ struct TagebuchView: View {
             .sheet(isPresented: $sucheZeigen) { SuchView() }
             .sheet(isPresented: $tagebuecherZeigen) { TagebuecherView(ausgeblendet: ausgeblendetBindung) }
             .refreshable { aufzeichner.uebertragen() }
+            // Fehlendes Wetter nachholen (ab 1.0.18), 30 Einträge je Lauf.
+            .task { await Wetternachtrag.nachtragen(Array(eintraege)) }
         }
     }
 

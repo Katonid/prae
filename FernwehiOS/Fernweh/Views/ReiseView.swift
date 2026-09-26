@@ -100,7 +100,12 @@ struct ReiseView: View {
         } message: {
             Text("Die Reise verschwindet von deinen Geräten. Bei den anderen bleibt sie, wie sie ist.")
         }
-        .task { rechtePruefen() }
+        .task {
+            rechtePruefen()
+            // Fehlendes Wetter nachholen (ab 1.0.18): alte Einträge,
+            // Vorhersagen vergangener Tage, Einträge ohne Netz.
+            if darf { await Wetternachtrag.nachtragen(reise.eintragListe) }
+        }
         .onAppear { aufzeichner.uebertragen() }
     }
 
@@ -416,6 +421,13 @@ private struct TagAbschnitt: View {
     let nummer: Int
     let darf: Bool
     var schreiben: () -> Void
+    @State private var wetter: Wetternachtrag.Tageswahl?
+
+    /// Ändert sich, sobald ein Eintrag des Tages Wetter bekommt.
+    private var wetterStand: String {
+        Tag.schluessel(tag) + reise.eintraege(am: tag).map { $0.wetter ?? "" }.joined()
+            + "\(reise.spuren(am: tag).count)"
+    }
 
     var body: some View {
         let eintraege = reise.eintraege(am: tag)
@@ -437,6 +449,23 @@ private struct TagAbschnitt: View {
                           systemImage: "figure.walk")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            // Das Wetter des Tages am Ort (ab 1.0.18) — auch an einem Tag,
+            // an dem nur eine Spur entstand.
+            if let wetter {
+                HStack(spacing: 8) {
+                    WetterLeiste(wetter: wetter.wetter, kompakt: true)
+                    if !wetter.ortName.isEmpty {
+                        Text("in \(wetter.ortName)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if wetter.wetter.vorhersage {
+                        Text("Vorhersage").font(.caption2).foregroundStyle(.orange)
+                    }
                 }
             }
 
@@ -470,6 +499,9 @@ private struct TagAbschnitt: View {
             }
         }
         .padding(.top, 6)
+        .task(id: wetterStand) {
+            wetter = await Wetternachtrag.tag(Tag.schluessel(tag), in: reise)
+        }
     }
 }
 
