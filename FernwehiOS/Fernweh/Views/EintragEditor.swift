@@ -1,5 +1,6 @@
 import SwiftUI
 import Photos
+import PhotosUI
 import CoreLocation
 
 /// Einen Tagebucheintrag schreiben.
@@ -23,6 +24,9 @@ struct EintragEditor: View {
     /// „Tagebuch“ gerade nur eines ansieht, schreibt meist auch dorthin
     /// (ab 1.0.8).
     var tagebuchVorgabe: String? = nil
+    /// Was ein NEUER Eintrag wird (ab 1.0.17): gewöhnlich oder eine freie
+    /// Seite. Ein bestehender behält seine Art.
+    var art: Eintragsart = .eintrag
 
     @ObservedObject private var buecherei = Buecherei.shared
     @FetchRequest(fetchRequest: Reise.alle()) private var reisen: FetchedResults<Reise>
@@ -57,6 +61,12 @@ struct EintragEditor: View {
     @State private var wetterFehler: String?
     @State private var wetterAn = true
     @State private var zielVonHand = false
+    @State private var eintragsart: Eintragsart = .eintrag
+    /// Fotos, die über „Andere Fotos“ dazukamen — sie bleiben, auch wenn der
+    /// Tag wechselt (ab 1.0.17: eine freie Seite braucht oft Bilder aus der
+    /// ganzen Reise).
+    @State private var zusatz: [PHAsset] = []
+    @State private var pickerAuswahl: [PhotosPickerItem] = []
     /// Die Zone, in der dieser Eintrag gilt (ab 1.0.6). Neu: die des Geräts
     /// jetzt — unterwegs also die des Urlaubsorts. Bestehend: seine eigene;
     /// dann zeigt und nimmt der Zeitwähler die Uhrzeit von DORT.
@@ -68,6 +78,14 @@ struct EintragEditor: View {
     struct NSManagedObjectIDKey: Hashable { let uri: String }
 
     private var istNeu: Bool { eintrag == nil }
+
+    private var fenstertitel: String {
+        switch eintragsart {
+        case .seite: return istNeu ? "Neue Seite" : "Seite bearbeiten"
+        case .wanderung: return "Tour bearbeiten"
+        case .eintrag: return istNeu ? "Neuer Eintrag" : "Eintrag bearbeiten"
+        }
+    }
 
     /// Ohne Reise trägt das Tagebuch das Blau des Meeres.
     private var palette: Palette { zielReise?.palette ?? .meer }
@@ -96,8 +114,8 @@ struct EintragEditor: View {
                     titelFeld
                     zielBlock
                     tagebuchBlock
-                    orteLeiste
-                    wetterBlock
+                    if eintragsart == .eintrag { orteLeiste }
+                    if eintragsart != .seite { wetterBlock }
                     textFeld
                     if let eintrag, !eintrag.fotoListe.isEmpty { vorhandeneFotos(eintrag) }
                     fotoAuswahl
@@ -107,7 +125,7 @@ struct EintragEditor: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle(istNeu ? "Neuer Eintrag" : "Eintrag bearbeiten")
+            .navigationTitle(fenstertitel)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { schliessen() }.disabled(speichert) }
@@ -259,7 +277,8 @@ struct EintragEditor: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            TextField("Wo warst du?", text: $titel, axis: .vertical)
+            TextField(eintragsart == .seite ? "Überschrift" : (eintragsart == .wanderung ? "Name der Tour" : "Wo warst du?"),
+                      text: $titel, axis: .vertical)
                 .font(Stil.titel(28))
                 .onChange(of: titel) { alt, neu in
                     // Wer selbst tippt, hat keinen Vorschlag mehr vor sich.
@@ -375,7 +394,9 @@ struct EintragEditor: View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topLeading) {
             if text.isEmpty {
-                Text("Was ist heute passiert? Was hast du gegessen, wen getroffen, worüber gelacht?")
+                Text(eintragsart == .seite
+                     ? "Was auf diese Seite gehört — eine Einleitung, ein Rückblick, Gedanken, die an keinem Tag hängen."
+                     : "Was ist heute passiert? Was hast du gegessen, wen getroffen, worüber gelacht?")
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 8)
@@ -490,7 +511,7 @@ struct EintragEditor: View {
     }
 
     private func wetterLaden() async {
-        guard let k = wetterOrt else { return }
+        guard eintragsart != .seite, let k = wetterOrt else { return }
         // Ein schon gespeichertes Wetter desselben Tages nicht neu holen —
         // es sei denn, es war eine Vorhersage und der Tag ist vorbei.
         if let alt = eintrag?.tageswetter, Tag.schluessel(eintrag?.datum ?? .distantPast) == Tag.schluessel(datum),
@@ -547,6 +568,13 @@ struct EintragEditor: View {
             HStack {
                 Text("Fotos vom \(Tag.kurz.string(from: datum))").font(.headline)
                 Spacer()
+                if fotodienst.darfLesen {
+                    PhotosPicker(selection: $pickerAuswahl, matching: .images, photoLibrary: .shared()) {
+                        Label("Andere", systemImage: "plus.circle")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .onChange(of: pickerAuswahl) { _, neu in andereFotos(neu) }
+                }
                 if !assets.isEmpty {
                     Button(auswahl.count == assets.count ? "Keine" : "Alle") {
                         withAnimation {
@@ -570,7 +598,7 @@ struct EintragEditor: View {
                     .buttonStyle(.borderedProminent)
                 }
             } else if assets.isEmpty {
-                Text("An diesem Tag gibt es keine Fotos in deiner Mediathek.")
+                Text("An diesem Tag gibt es keine Fotos in deiner Mediathek. Über „Andere“ wählst du Fotos von jedem Tag.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
@@ -606,6 +634,23 @@ struct EintragEditor: View {
                 }
             }
         }
+    }
+
+    /// Fotos von einem anderen Tag — aus Apples Auswahl (ab 1.0.17).
+    private func andereFotos(_ items: [PhotosPickerItem]) {
+        let kennungen = items.compactMap(\.itemIdentifier)
+        guard !kennungen.isEmpty else { return }
+        var neu: [PHAsset] = []
+        PHAsset.fetchAssets(withLocalIdentifiers: kennungen, options: nil).enumerateObjects { a, _, _ in neu.append(a) }
+        let vorhanden = Set(eintrag?.fotoListe.compactMap(\.assetID) ?? [])
+        withAnimation {
+            for a in neu where !vorhanden.contains(a.localIdentifier) {
+                if !zusatz.contains(where: { $0.localIdentifier == a.localIdentifier }) { zusatz.append(a) }
+                if !assets.contains(where: { $0.localIdentifier == a.localIdentifier }) { assets.append(a) }
+                if !auswahl.contains(a.localIdentifier) { auswahl.append(a.localIdentifier) }
+            }
+        }
+        pickerAuswahl = []
     }
 
     private func fotoUmschalten(_ asset: PHAsset) {
@@ -665,16 +710,27 @@ struct EintragEditor: View {
             datum = Date()
         }
         if istNeu, vorgabe == nil { zielReise = automatischeReise }
+        eintragsart = eintrag?.eintragsart ?? art
+        // Eine vergangene Reise (ab 1.0.17 nachträglich angelegt): „jetzt“
+        // liegt nicht in ihr — dann ihr erster Tag, eine freie Seite früh
+        // am Morgen (als Einleitung vor allem anderen), sonst am Abend.
+        if istNeu, let r = zielReise, datum < r.anfang || datum >= Tag.ende(r.schluss) {
+            datum = Tag.kalender.date(bySettingHour: eintragsart == .seite ? 6 : 19, minute: 0, second: 0, of: r.anfang) ?? r.anfang
+        }
         await tagLaden(neu: istNeu)
     }
 
     private func tagLaden(neu: Bool) async {
         aufzeichner.uebertragen()
-        assets = fotodienst.fotos(am: datum)
+        let tagesfotos = fotodienst.fotos(am: datum)
+        assets = tagesfotos + zusatz.filter { z in !tagesfotos.contains { $0.localIdentifier == z.localIdentifier } }
         let vorhanden = Set(eintrag?.fotoListe.compactMap(\.assetID) ?? [])
         assets.removeAll { vorhanden.contains($0.localIdentifier) }
         auswahl.removeAll { id in !assets.contains { $0.localIdentifier == id } }
 
+        // Eine Seite und eine Tour brauchen keine Orte des Tages: Die Seite hat
+        // keinen, die Tour hat ihre Strecke.
+        guard eintragsart == .eintrag else { return }
         let heute = Tag.schluessel(datum) == Tag.schluessel(Date())
         sucheOrte = true
         if heute, neu, let standort = await aufzeichner.einmalOrten(),
@@ -707,6 +763,14 @@ struct EintragEditor: View {
             ziel.autor = Geraet.name
             ziel.reise = zielReise
             ziel.zeitzone = zone.identifier
+            ziel.eintragsart = eintragsart
+        }
+        // Eine Tour, deren Start verschoben wird, nimmt ihre Strecke mit.
+        if eintragsart == .wanderung, let alt = ziel.datum, alt != datum {
+            let versatz = datum.timeIntervalSince(alt)
+            ziel.strecke = Spurpunkt.packen(ziel.streckenpunkte.map {
+                Spurpunkt(breite: $0.breite, laenge: $0.laenge, zeit: $0.zeit + versatz)
+            })
         }
         ziel.datum = datum
         ziel.titel = titel.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -721,7 +785,7 @@ struct EintragEditor: View {
             ziel.ortsname = ort.name
         }
         if !hierLand.isEmpty, ort?.id == hier?.id { ziel.land = hierLand }
-        ziel.tageswetter = wetterAn ? (wetter ?? ziel.tageswetter) : nil
+        ziel.tageswetter = eintragsart == .seite ? nil : (wetterAn ? (wetter ?? ziel.tageswetter) : nil)
 
         for foto in ziel.fotoListe
         where entfernt.contains(NSManagedObjectIDKey(uri: foto.objectID.uriRepresentation().absoluteString)) {
@@ -732,8 +796,10 @@ struct EintragEditor: View {
         let gewaehlt = auswahl.compactMap { id in assets.first { $0.localIdentifier == id } }
         await fotodienst.uebernehmen(gewaehlt, in: ziel) { fertig in fortschritt = fertig }
 
-        // Ohne eigenen Ort nimmt der Eintrag den seines ersten Fotos.
-        if !ziel.hatOrt, let k = ziel.fotoListe.compactMap(\.koordinate).first {
+        // Ohne eigenen Ort nimmt der Eintrag den seines ersten Fotos — eine
+        // freie Seite nicht: Sie steht an keinem Ort.
+        if eintragsart == .seite {
+        } else if !ziel.hatOrt, let k = ziel.fotoListe.compactMap(\.koordinate).first {
             ziel.breite = k.latitude
             ziel.laenge = k.longitude
             ziel.hatOrt = true

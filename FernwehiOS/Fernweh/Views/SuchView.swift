@@ -82,7 +82,7 @@ struct SuchView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Wonach suchst du?", systemImage: "magnifyingglass")
                 .font(.headline)
-            Text("Gesucht wird in Titeln, Texten, Orten und in den Namen der Schreibenden — in allen Tagebüchern und Reisen. Groß- und Kleinschreibung zählt nicht. Mehrere Wörter müssen alle vorkommen; in Anführungszeichen („alter Hafen“) wird genau diese Folge gesucht.")
+            Text("Gesucht wird in Titeln, Texten, Orten, den Texten zu den Fotos und in den Namen der Schreibenden — in allen Tagebüchern und Reisen. Groß- und Kleinschreibung zählt nicht. Mehrere Wörter müssen alle vorkommen; in Anführungszeichen („alter Hafen“) wird genau diese Folge gesucht.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }

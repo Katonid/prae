@@ -50,6 +50,20 @@ struct Bildbetrachter: View {
             }
             .padding()
         }
+        // Der Text zum Foto (ab 1.0.17) unten auf dem Bild.
+        .overlay(alignment: .bottom) {
+            if fotos.indices.contains(seite), let t = fotos[seite].bildtextName {
+                Text(t)
+                    .font(.callout)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(.black.opacity(0.55))
+                    .allowsHitTesting(false)
+            }
+        }
         .onAppear { seite = start }
         .preferredColorScheme(.dark)
     }

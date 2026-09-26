@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -257,6 +257,51 @@
   UIKit: vergrößert verschiebt ein Wisch das Bild, erst am Rand blättert er.
   Weggeblättert springt ein Bild zurück aufs Ganze. Geladen wird mit Kante
   2048 (aus der Mediathek doppelt so fein). **Nicht auf dem Gerät gesehen.**
+- **Reisen im Nachhinein** (ab 1.0.17 — **Schema-Deploy nötig**, neue Felder
+  `art`, `quelle`, `strecke`, `streckeMeter`, `hoehenmeter`, `dauer`,
+  `sportart` am `Eintrag` und `bildtext` am `Foto`; Ansage des Nutzers
+  09/2026: „Reisen auch im Nachhinein anlegen können: Fotos importieren …
+  Texte zu den Fotos … freie Seiten … Wanderungen, für die ich einen
+  Komoot-Link habe … auf einer Karte zeigen … ins Fotobuch exportieren").
+  - **Fotos übernehmen** (`Model/Nachtrag.swift`, `Views/FotoimportView.swift`,
+    Reise → „…“ → „Hinzufügen“ bzw. die Karte „Reise nachtragen“ an einer
+    vergangenen, leeren Reise): alle Fotos im Zeitraum, ohne Bildschirmfotos
+    und ohne die schon übernommenen, **je Tag EIN Eintrag** — Zeitpunkt des
+    ersten Fotos, Ort = meistfotografierte Stelle (300 m), bis zu fünf
+    weitere als „Orte des Tages“ mit Uhrzeit, Wetter jenes Tages. **Der Tag
+    eines Fotos ist der Tag AM ORT**: Zone je halbem Grad über Apples
+    Ortsdienst, Fotos ohne Ort nehmen die des zeitlich nächsten.
+  - **`Eintragsart`** (`Modell.swift`): "" gewöhnlich, `seite`, `wanderung`.
+    Der leere Wert ist der alte Eintrag — eine ältere Fassung zeigt Seite
+    und Tour als gewöhnlichen Eintrag. **Freie Seite**: ohne Uhrzeit,
+    Wetter, Orte; die Uhrzeit ordnet nur (neu auf einer vergangenen Reise:
+    erster Tag 6 Uhr, als Einleitung). Der Editor kann jetzt auch „Andere“
+    Fotos von jedem Tag (`PhotosPicker`, `itemIdentifier` → `PHAsset`).
+  - **Wanderungen** (`Model/Wanderung.swift`, `Views/WanderungImportView.swift`,
+    `Views/Wanderansichten.swift`): Komoot hat KEINE veröffentlichte
+    Schnittstelle; gelesen wird, was seine Web-Seite liest —
+    `api.komoot.de/v007/tours/<Nr>` und `…/coordinates` (`t` = ms seit
+    Start). Gemessen 26.09.2026: öffentliche Tour ohne Anmeldung lesbar,
+    sonst 403 „Access denied without authentication.“ — der Teilen-Link
+    trägt `share_token`, der an beide Anfragen geht. **Kein Vertrag**: Die
+    GPX-Datei steht als zweiter Weg immer daneben. Geplante Touren haben
+    keine echten Uhrzeiten → 4 km/h geschätzt, und das wird gesagt. Die
+    Strecke liegt am EINTRAG (gepackte `Spurpunkt`e mit Uhrzeit), nicht als
+    `Spur` — sie gehört zu keinem Gerät. Karte: grün (`Stil.wanderfarbe`),
+    im Vollbild Uhrzeiten an Start, Ziel und jeder vollen Stunde
+    (`Zeitmarke`). Kilometer der Reise: je Tag das Größere aus Spur und
+    Wanderungen.
+  - **Texte zu den Fotos** (`Views/BildtexteView.swift`): unter dem Foto im
+    Eintrag, im Menü des Eintrags, im Vollbild unten; durchsuchbar.
+  - **Karte der Reise**: Wanderungen grün, im Vollbild (Schalter „Fotos“)
+    jedes Foto mit Ort als kleines Bild, eines je 25 m, höchstens 300.
+  - **Übergabe**: `art`, `wanderung`, `fotos[].text` angehängt (Fassung
+    bleibt 1, `docs/UEBERGABE.md`); die Strecke steht ZUSÄTZLICH als Spur des
+    Tages (`geraet` = `wanderung:<Kennung>`), damit ein älterer Leser sie
+    zeigt.
+  - **Nicht gemessen**: Nichts davon lief auf einem Gerät; Komoot nur mit
+    einer öffentlichen Tour per `curl` (Aufbau der Antwort), nie mit einem
+    Teilen-Link.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

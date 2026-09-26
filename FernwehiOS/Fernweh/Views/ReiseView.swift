@@ -18,6 +18,8 @@ struct ReiseView: View {
     @State private var uebergabe = false
     @State private var loeschenFragen = false
     @State private var verlassenFragen = false
+    @State private var fotoimport = false
+    @State private var wanderimport = false
 
     /// Ein Wunsch trägt sein Ziel — kein Schalter daneben (Lehre aus
     /// Tafelbild und der Abfahrtstafel: `.sheet(item:)`, sonst baut SwiftUI
@@ -25,6 +27,7 @@ struct ReiseView: View {
     struct EditorWunsch: Identifiable {
         let id = UUID()
         let tag: Date?
+        var art: Eintragsart = .eintrag
     }
 
     var body: some View {
@@ -38,6 +41,9 @@ struct ReiseView: View {
                     if freigabe != nil { beteiligtenZeile }
                     if !darf { betrachterHinweis }
                     if reise.liegtInZukunft { Vorfreude(reise: reise) }
+                    if darf && !reise.laeuft && !reise.liegtInZukunft && reise.eintragListe.isEmpty {
+                        nachtragKarte
+                    }
                     tage
                 }
                 .padding(.horizontal, 18)
@@ -71,8 +77,10 @@ struct ReiseView: View {
             }
         }
         .sheet(item: $editor) { wunsch in
-            EintragEditor(vorgabe: reise, eintrag: nil, tag: wunsch.tag)
+            EintragEditor(vorgabe: reise, eintrag: nil, tag: wunsch.tag, art: wunsch.art)
         }
+        .sheet(isPresented: $fotoimport) { FotoimportView(reise: reise) }
+        .sheet(isPresented: $wanderimport) { WanderungImportView(reise: reise) }
         .sheet(isPresented: $bearbeiten) { ReiseFormular(reise: reise) }
         .sheet(isPresented: $beteiligte) { BeteiligteView(reise: reise) }
         .sheet(isPresented: $uebergabe) { UebergabeView(reise: reise) }
@@ -204,6 +212,36 @@ struct ReiseView: View {
             .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
+    // MARK: - Nachtragen (ab 1.0.17)
+
+    /// Eine vergangene Reise ohne Einträge: die drei Wege, sie nachträglich
+    /// zu füllen, gleich sichtbar — nicht versteckt im Menü.
+    private var nachtragKarte: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Reise nachtragen").font(.headline)
+            Text("Die Fotos aus dem Zeitraum der Reise werden je Tag zu einem Eintrag mit Uhrzeit, Ort und Wetter. Texte schreibst du danach — zum Tag und zu jedem Foto.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button { fotoimport = true } label: {
+                Label("Fotos übernehmen", systemImage: "photo.stack").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(reise.palette.haupt)
+            HStack {
+                Button { editor = EditorWunsch(tag: nil, art: .seite) } label: {
+                    Label("Freie Seite", systemImage: "doc.richtext").frame(maxWidth: .infinity)
+                }
+                Button { wanderimport = true } label: {
+                    Label("Wanderung", systemImage: "figure.hiking").frame(maxWidth: .infinity)
+                }
+            }
+            .buttonStyle(.bordered)
+            .tint(reise.palette.haupt)
+        }
+        .padding(16)
+        .background(reise.palette.hell.opacity(0.14), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
     // MARK: - Tage
 
     @ViewBuilder
@@ -231,6 +269,17 @@ struct ReiseView: View {
             Menu {
                 if darf {
                     Button { bearbeiten = true } label: { Label("Reise bearbeiten", systemImage: "pencil") }
+                }
+                if darf && !reise.liegtInZukunft {
+                    Section("Hinzufügen") {
+                        Button { fotoimport = true } label: { Label("Fotos übernehmen …", systemImage: "photo.stack") }
+                        Button { editor = EditorWunsch(tag: nil, art: .seite) } label: {
+                            Label("Freie Seite", systemImage: "doc.richtext")
+                        }
+                        Button { wanderimport = true } label: {
+                            Label("Wanderung aus Komoot …", systemImage: "figure.hiking")
+                        }
+                    }
                 }
                 if besitzer {
                     Section("Einladen") {
@@ -434,11 +483,22 @@ struct EintragKarte: View {
         VStack(alignment: .leading, spacing: 0) {
             if !eintrag.fotoListe.isEmpty {
                 Collage(fotos: eintrag.fotoListe)
+            } else if eintrag.eintragsart == .wanderung {
+                Wanderkarte(eintrag: eintrag, palette: palette, hoehe: 150, antippbar: false)
             }
             VStack(alignment: .leading, spacing: 6) {
+                if eintrag.eintragsart == .seite {
+                    Label("Seite", systemImage: "doc.richtext")
+                        .font(.caption2.weight(.heavy))
+                        .textCase(.uppercase)
+                        .foregroundStyle(palette.haupt)
+                }
                 Text(eintrag.anzeigeTitel)
                     .font(.headline)
                     .foregroundStyle(.primary)
+                if eintrag.eintragsart == .wanderung {
+                    WanderZeile(eintrag: eintrag)
+                }
                 HStack(spacing: 6) {
                     if let buch = eintrag.tagebuchName {
                         Label(buch, systemImage: "book.closed.fill")
@@ -449,7 +509,7 @@ struct EintragKarte: View {
                     if let ort = eintrag.ortsname, !ort.isEmpty, ort != eintrag.anzeigeTitel {
                         Label(ort, systemImage: "mappin.and.ellipse").lineLimit(1)
                     }
-                    if eintrag.datum != nil {
+                    if eintrag.datum != nil && eintrag.eintragsart == .eintrag {
                         Text(eintrag.uhrzeitText)
                     }
                 }

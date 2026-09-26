@@ -82,6 +82,7 @@ enum Suche {
         case ort = "Ort"
         case orte = "Orte des Tages"
         case autor = "Geschrieben von"
+        case bildtexte = "Texte zu den Fotos"
     }
 
     struct Treffer: Identifiable {
@@ -103,6 +104,7 @@ enum Suche {
                 (.ort, [e.ortsname ?? "", e.land ?? ""].joined(separator: ", ")),
                 (.orte, e.ortListe.map(\.name).joined(separator: ", ")),
                 (.autor, e.autor ?? ""),
+                (.bildtexte, e.fotoListe.compactMap(\.bildtextName).joined(separator: " · ")),
             ]
             let alles = felder.map(\.1).joined(separator: "\n")
             guard woerter.allSatisfy({ alles.range(of: $0, options: optionen) != nil }) else { continue }

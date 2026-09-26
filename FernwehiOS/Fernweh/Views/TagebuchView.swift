@@ -32,6 +32,7 @@ struct TagebuchView: View {
     @AppStorage("ausgeblendeteTagebuecher") private var ausgeblendetText = ""
     @State private var tagebuecherZeigen = false
     @State private var sucheZeigen = false
+    @State private var wanderimport = false
     @ObservedObject private var buecherei = Buecherei.shared
     /// Ans Ende springen, sobald die Gliederung steht (ab 1.0.8): beim ersten
     /// Öffnen, nach einem Wechsel des Tagebuchs und wenn ein Eintrag dazukommt.
@@ -40,6 +41,7 @@ struct TagebuchView: View {
     struct SchreibWunsch: Identifiable {
         let id = UUID()
         let tag: Date?
+        var art: Eintragsart = .eintrag
     }
 
     private static let ende = "ende"
@@ -206,7 +208,13 @@ struct TagebuchView: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) {
-                Button { schreiben = SchreibWunsch(tag: nil) } label: {
+                // Tippen schreibt einen Eintrag; lange drücken bietet eine
+                // freie Seite und eine Wanderung an (ab 1.0.17).
+                Menu {
+                    Button { schreiben = SchreibWunsch(tag: nil) } label: { Label("Eintrag", systemImage: "square.and.pencil") }
+                    Button { schreiben = SchreibWunsch(tag: nil, art: .seite) } label: { Label("Freie Seite", systemImage: "doc.richtext") }
+                    Button { wanderimport = true } label: { Label("Wanderung aus Komoot …", systemImage: "figure.hiking") }
+                } label: {
                     Label("Eintrag", systemImage: "square.and.pencil")
                         .font(.headline)
                         .foregroundStyle(.white)
@@ -214,13 +222,16 @@ struct TagebuchView: View {
                         .padding(.vertical, 15)
                         .background(Palette.meer.verlauf, in: Capsule())
                         .shadow(color: Palette.meer.haupt.opacity(0.45), radius: 14, y: 8)
+                } primaryAction: {
+                    schreiben = SchreibWunsch(tag: nil)
                 }
                 .padding(22)
             }
             .sheet(item: $schreiben) { w in
                 EintragEditor(vorgabe: nil, eintrag: nil, tag: w.tag,
-                              tagebuchVorgabe: einzigesTagebuch)
+                              tagebuchVorgabe: einzigesTagebuch, art: w.art)
             }
+            .sheet(isPresented: $wanderimport) { WanderungImportView(reise: nil) }
             .sheet(isPresented: $einstellungen) { EinstellungenView() }
             .sheet(isPresented: $sucheZeigen) { SuchView() }
             .sheet(isPresented: $tagebuecherZeigen) { TagebuecherView(ausgeblendet: ausgeblendetBindung) }
