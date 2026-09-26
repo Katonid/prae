@@ -89,27 +89,81 @@ final class Abgleichstatus: ObservableObject {
 
     /// Apples Meldung samt den Teilfehlern einzelner Datensätze — dort steht
     /// bei einem fehlenden Schema der Feldname.
+    ///
+    /// Ab 1.0.23 TIEFER (gemeldet 09/2026 mit zwei Bildschirmfotos: auf
+    /// iPad UND iPhone „Senden (privat) gescheitert … CKErrorDomain-Fehler 2"
+    /// — mehr nicht). Code 2 ist `partialFailure`, ein Sammelfehler; die
+    /// Ursache steckt in den Teilfehlern, und deren `localizedDescription` ist
+    /// ebenso nichtssagend. Die Begründung des SERVERS steht im
+    /// `NSDebugDescription` bzw. „ServerErrorDescription" der `userInfo`.
+    /// Gesammelt wird deshalb rekursiv: Code, Serverbegründung, Teilfehler
+    /// (je Datensatztyp/-name), darunterliegende Fehler.
     nonisolated static func beschreibung(_ fehler: Error) -> String {
-        var teile = [fehler.localizedDescription]
-        if let ck = fehler as? CKError {
-            teile.append("CKError \(ck.code.rawValue)")
-            if let einzeln = ck.partialErrorsByItemID?.values.prefix(3) {
-                for e in einzeln { teile.append(e.localizedDescription) }
-            }
-        }
-        let ns = fehler as NSError
-        if let unter = ns.userInfo[NSUnderlyingErrorKey] as? Error {
-            teile.append(unter.localizedDescription)
-        }
+        var teile: [String] = []
+        sammeln(fehler, in: &teile, tiefe: 0)
         var gesehen: [String] = []
-        for t in teile where !gesehen.contains(t) { gesehen.append(t) }
-        return gesehen.joined(separator: " — ")
+        for t in teile where !t.isEmpty && !gesehen.contains(t) { gesehen.append(t) }
+        return gesehen.prefix(12).joined(separator: "\n")
+    }
+
+    nonisolated private static func sammeln(_ fehler: Error, in teile: inout [String], tiefe: Int) {
+        guard tiefe < 4 else { return }
+        let ns = fehler as NSError
+        var zeile = ns.domain == CKError.errorDomain
+            ? "CKError \(ns.code) (\(codename(ns.code)))"
+            : "\(ns.domain) \(ns.code)"
+        for schluessel in [NSDebugDescriptionErrorKey, "ServerErrorDescription", "CKErrorDescription",
+                           NSLocalizedFailureReasonErrorKey] {
+            if let text = ns.userInfo[schluessel] as? String, !text.isEmpty { zeile += ": " + text; break }
+        }
+        teile.append(zeile)
+        if let einzeln = ns.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error] {
+            // Gleiche Ursachen zusammenfassen: dieselbe Meldung für hundert
+            // Datensätze ist EINE Zeile.
+            var nachArt: [String: Int] = [:]
+            var ersteZeilen: [String] = []
+            for (schluessel, e) in einzeln {
+                var unter: [String] = []
+                sammeln(e, in: &unter, tiefe: tiefe + 1)
+                let wo = (schluessel as? CKRecord.ID)?.recordName ?? "\(schluessel)"
+                let text = unter.joined(separator: " / ")
+                if nachArt[text] == nil { ersteZeilen.append("• \(text) — z. B. \(wo)") }
+                nachArt[text, default: 0] += 1
+            }
+            for z in ersteZeilen.prefix(4) { teile.append(z) }
+            teile.append("(\(einzeln.count) Datensätze betroffen, \(nachArt.count) verschiedene Ursachen)")
+        }
+        if let unter = ns.userInfo[NSUnderlyingErrorKey] as? Error {
+            sammeln(unter, in: &teile, tiefe: tiefe + 1)
+        }
+        if let mehrere = ns.userInfo[NSDetailedErrorsKey] as? [Error] {
+            for e in mehrere.prefix(3) { sammeln(e, in: &teile, tiefe: tiefe + 1) }
+        }
+    }
+
+    nonisolated private static func codename(_ code: Int) -> String {
+        switch CKError.Code(rawValue: code) {
+        case .partialFailure: return "Teilfehler"
+        case .invalidArguments: return "ungültige Angaben — oft: Feld fehlt im Produktionsschema"
+        case .serverRejectedRequest: return "vom Server abgewiesen"
+        case .batchRequestFailed: return "Stapel abgebrochen wegen eines anderen Datensatzes"
+        case .quotaExceeded: return "iCloud-Speicher voll"
+        case .limitExceeded: return "zu groß"
+        case .assetFileNotFound: return "Bilddatei fehlt"
+        case .zoneNotFound, .userDeletedZone: return "Zone fehlt"
+        case .notAuthenticated: return "nicht angemeldet"
+        case .permissionFailure: return "keine Berechtigung"
+        case .serverRecordChanged: return "Datensatz geändert"
+        case .unknownItem: return "unbekannter Datensatz"
+        default: return "Code \(code)"
+        }
     }
 
     /// Ein Hinweis, WAS zu tun ist — nur, wo die Meldung es erkennen lässt.
     static func rat(_ fehler: String) -> String? {
         let f = fehler.lowercased()
-        if f.contains("cd_") || f.contains("schema") || f.contains("record type") || f.contains("field") {
+        if f.contains("cd_") || f.contains("schema") || f.contains("record type") || f.contains("field")
+            || f.contains("ungültige angaben") {
             return "Das sieht nach einem Schema aus, das in der Produktion fehlt: Mit Xcode einen Debug-Bau starten → Einstellungen → „CloudKit-Schema anlegen“, dann in der CloudKit-Konsole „Deploy Schema Changes to Production“."
         }
         if f.contains("quota") {
