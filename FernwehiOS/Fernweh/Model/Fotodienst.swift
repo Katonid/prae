@@ -125,6 +125,22 @@ final class Fotodienst: NSObject, ObservableObject {
         return liste
     }
 
+    /// Alle Fotos zwischen zwei Augenblicken — für eine nachgetragene Reise
+    /// (ab 1.0.17). Bildschirmfotos bleiben draußen: Sie gehören fast nie in
+    /// ein Reisetagebuch.
+    func fotos(von: Date, bis: Date) -> [PHAsset] {
+        guard darfLesen else { return [] }
+        let optionen = PHFetchOptions()
+        optionen.predicate = NSPredicate(format: "creationDate >= %@ AND creationDate < %@ AND mediaType == %d",
+                                         von as NSDate, bis as NSDate, PHAssetMediaType.image.rawValue)
+        optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        var liste: [PHAsset] = []
+        PHAsset.fetchAssets(with: optionen).enumerateObjects { asset, _, _ in
+            if !asset.mediaSubtypes.contains(.photoScreenshot) { liste.append(asset) }
+        }
+        return liste
+    }
+
     func bild(_ asset: PHAsset, kante: CGFloat, schnell: Bool = false) async -> UIImage? {
         let optionen = PHImageRequestOptions()
         optionen.isNetworkAccessAllowed = true

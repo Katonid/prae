@@ -3,6 +3,9 @@ import SwiftUI
 enum Stil {
     static let akzent = Color(hex: 0xFF6B4A)
     static let nacht = Color(hex: 0x0E1A2B)
+    /// Die Farbe einer Wanderung auf jeder Karte (ab 1.0.17) — ein sattes
+    /// Grün, damit sie sich von der Reisespur in den Farben der Reise abhebt.
+    static let wanderfarbe = Color(hex: 0x2E9E5B)
 
     static func titel(_ groesse: CGFloat) -> Font { .system(size: groesse, weight: .bold, design: .rounded) }
 }

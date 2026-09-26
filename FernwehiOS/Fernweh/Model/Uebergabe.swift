@@ -83,6 +83,31 @@ struct Uebergabe: Codable {
         var orte: [OrtTeil]
         var wetter: WetterTeil?
         var fotos: [FotoTeil]
+        /// Ab 1.0.17: „seite" (freie Seite, ohne Uhrzeit gemeint) oder
+        /// „wanderung". Fehlt beim gewöhnlichen Eintrag.
+        var art: String?
+        /// Ab 1.0.17, nur bei `art == "wanderung"`.
+        var wanderung: WanderTeil?
+    }
+
+    struct WanderTeil: Codable {
+        /// Komoots Sportart („hike", „mtb" …), leer bei einer GPX-Datei.
+        var sportart: String
+        /// Deutscher Name dazu („Wanderung", „Radtour" …).
+        var sportname: String
+        /// Der Komoot-Link, fehlt bei einer Datei.
+        var quelle: String?
+        var beginn: String
+        var ende: String
+        /// Wanduhr in der Zone des Eintrags, „09:12".
+        var uhrzeitVon: String
+        var uhrzeitBis: String
+        var meter: Double
+        var hoehenmeter: Double
+        /// Sekunden.
+        var dauer: Double
+        /// [Breite, Länge, Unix-Sekunden], auf 15 m ausgedünnt.
+        var punkte: [[Double]]
     }
 
     struct OrtTeil: Codable {
@@ -125,6 +150,8 @@ struct Uebergabe: Codable {
         /// Original selbst holen, wenn sie auf demselben Gerät läuft.
         var mediathek: String?
         var icloud: String?
+        /// Ab 1.0.17: der Text zum Foto (Bildunterschrift). Fehlt, wenn keiner.
+        var text: String?
     }
 
     struct SpurTeil: Codable {
@@ -243,7 +270,8 @@ enum Uebergabebau {
                         kennung: kennung, datei: datei, fehlt: fehlt, aufnahme: iso(f.aufnahme),
                         breite: f.hatOrt ? f.breite : nil, laenge: f.hatOrt ? f.laenge : nil,
                         pixelBreite: Int(f.pixelBreite), pixelHoehe: Int(f.pixelHoehe),
-                        reihenfolge: Int(f.reihenfolge), mediathek: f.assetID, icloud: f.cloudID))
+                        reihenfolge: Int(f.reihenfolge), mediathek: f.assetID, icloud: f.cloudID,
+                        text: f.bildtextName))
                 }
                 let land = (e.land ?? "").trimmingCharacters(in: .whitespaces)
                 let ort: Uebergabe.OrtTeil? = e.hatOrt
@@ -266,14 +294,26 @@ enum Uebergabebau {
                     titel: e.titel ?? "", text: e.text ?? "", autor: e.autor ?? "", ort: ort,
                     orte: e.ortListe.map { Uebergabe.OrtTeil(name: $0.name, land: nil, breite: $0.breite,
                                                             laenge: $0.laenge, uhrzeit: uhr($0.zeit)) },
-                    wetter: wetter, fotos: fotos))
+                    wetter: wetter, fotos: fotos,
+                    art: e.eintragsart == .eintrag ? nil : e.eintragsart.rawValue,
+                    wanderung: e.eintragsart == .wanderung ? wanderteil(e) : nil))
                 eintragZahl += 1
                 // Zwischen zwei Einträgen dem Bildschirm Luft lassen.
                 await Task.yield()
             }
             var spuren: [Uebergabe.SpurTeil]?
             if wunsch.spur {
-                spuren = reise.spurListe.filter { $0.tag == tagSchluessel }.map { s in
+                // Eine Wanderung steht ZUSÄTZLICH als Spur des Tages da (ab
+                // 1.0.17): Ein Leser, der `wanderung` noch nicht kennt, zeigt
+                // so wenigstens die Strecke — bei einer nachgetragenen Reise
+                // ohne Aufzeichnung ist sie die einzige Spur des Tages.
+                let wanderspuren = eintraege.filter { $0.eintragsart == .wanderung }.map { e in
+                    Uebergabe.SpurTeil(
+                        geraet: "wanderung:" + (e.kennung ?? UUID()).uuidString, reisender: e.anzeigeTitel,
+                        punkte: Spurpunkt.ausgeduennt(e.streckenpunkte, abstand: 15).map { [$0.breite, $0.laenge, $0.zeit] },
+                        besuche: [])
+                }
+                spuren = wanderspuren + reise.spurListe.filter { $0.tag == tagSchluessel }.map { s in
                     Uebergabe.SpurTeil(
                         geraet: s.geraet ?? "", reisender: s.reisender ?? "",
                         punkte: s.punktListe.map { [$0.breite, $0.laenge, $0.zeit] },
@@ -303,6 +343,21 @@ enum Uebergabebau {
         try zip.hinzufuegen("uebergabe.json", daten: try kodierer.encode(inhalt))
         try zip.abschliessen()
         return Ergebnis(datei: ziel, eintraege: eintragZahl, fotos: fotoZahl, fehlend: fehlend, gesperrt: gesperrt)
+    }
+
+    private static func wanderteil(_ e: Eintrag) -> Uebergabe.WanderTeil {
+        let punkte = e.streckenpunkte
+        let von = punkte.first?.datum ?? e.datum
+        let bis = punkte.last?.datum ?? e.datum
+        let quelle = (e.quelle ?? "").trimmingCharacters(in: .whitespaces)
+        return Uebergabe.WanderTeil(
+            sportart: e.sportart ?? "", sportname: Wanderung.sportname(e.sportart ?? ""),
+            quelle: quelle.isEmpty ? nil : quelle,
+            beginn: iso(von, zone: e.zone) ?? "", ende: iso(bis, zone: e.zone) ?? "",
+            uhrzeitVon: von.map { Tag.text($0, "HH:mm", zone: e.zone) } ?? "",
+            uhrzeitBis: bis.map { Tag.text($0, "HH:mm", zone: e.zone) } ?? "",
+            meter: e.streckeMeter, hoehenmeter: e.hoehenmeter, dauer: e.dauer,
+            punkte: Spurpunkt.ausgeduennt(punkte, abstand: 15).map { [$0.breite, $0.laenge, $0.zeit] })
     }
 
     /// Das Bild: als Original aus der Mediathek (samt EXIF — Datum und Ort

@@ -121,6 +121,18 @@ enum Modell {
             // ab 1.0.7 — der Name des Tagebuchs, in dem der Eintrag steht
             // (aus Day One übernommen oder selbst vergeben). Leer: keins.
             attribut("tagebuch", .stringAttributeType, vorgabe: ""),
+            // ab 1.0.17 — Reisen im Nachhinein (siehe `Eintragsart`): was für
+            // ein Eintrag das ist („" gewöhnlich, „seite", „wanderung"), und
+            // für eine Wanderung ihre Quelle (Komoot-Link), die Strecke als
+            // gepackte Spurpunkte MIT Uhrzeit, Länge, Höhenmeter, Dauer und
+            // Sportart. Neue Felder: Schema-Deploy nötig.
+            attribut("art", .stringAttributeType, vorgabe: ""),
+            attribut("quelle", .stringAttributeType, vorgabe: ""),
+            attribut("strecke", .binaryDataAttributeType, extern: true),
+            attribut("streckeMeter", .doubleAttributeType, vorgabe: 0.0),
+            attribut("hoehenmeter", .doubleAttributeType, vorgabe: 0.0),
+            attribut("dauer", .doubleAttributeType, vorgabe: 0.0),
+            attribut("sportart", .stringAttributeType, vorgabe: ""),
             eintragReise,
             eintragFotos,
         ]
@@ -139,6 +151,8 @@ enum Modell {
             attribut("breite", .doubleAttributeType, vorgabe: 0.0),
             attribut("laenge", .doubleAttributeType, vorgabe: 0.0),
             attribut("hatOrt", .booleanAttributeType, vorgabe: false),
+            // ab 1.0.17 — ein Text zum Foto (Bildunterschrift im Fotobuch).
+            attribut("bildtext", .stringAttributeType, vorgabe: ""),
             fotoEintrag,
         ]
 
@@ -240,12 +254,21 @@ final class Reise: NSManagedObject {
 
     /// Kilometer: je Tag die längste Spur — reisen zwei Leute zusammen,
     /// zählt die Strecke einmal und nicht doppelt.
+    ///
+    /// Wanderungen (ab 1.0.17) zählen je Tag mit, wenn sie länger sind als
+    /// die aufgezeichnete Spur — bei einer nachgetragenen Reise gibt es oft
+    /// keine, und wer mitschrieb, hat die Wanderung ohnehin in der Spur.
     var kilometer: Double {
         var jeTag: [String: Double] = [:]
         for s in spurListe {
             let t = s.tag ?? ""
             jeTag[t] = max(jeTag[t] ?? 0, s.distanz)
         }
+        var wanderungen: [String: Double] = [:]
+        for e in eintragListe where e.eintragsart == .wanderung {
+            if let t = e.tagSchluessel { wanderungen[t, default: 0] += e.streckeMeter }
+        }
+        for (t, m) in wanderungen { jeTag[t] = max(jeTag[t] ?? 0, m) }
         return jeTag.values.reduce(0, +) / 1000
     }
 
@@ -298,8 +321,30 @@ final class Eintrag: NSManagedObject {
     @NSManaged var wetter: String?
     @NSManaged var zeitzone: String?
     @NSManaged var tagebuch: String?
+    @NSManaged var art: String?
+    @NSManaged var quelle: String?
+    @NSManaged var strecke: Data?
+    @NSManaged var streckeMeter: Double
+    @NSManaged var hoehenmeter: Double
+    @NSManaged var dauer: Double
+    @NSManaged var sportart: String?
     @NSManaged var reise: Reise?
     @NSManaged var fotos: NSSet?
+
+    var eintragsart: Eintragsart {
+        get { Eintragsart(rawValue: art ?? "") ?? .eintrag }
+        set { art = newValue.rawValue }
+    }
+
+    /// Die Strecke einer Wanderung, Punkte mit echter Uhrzeit.
+    var streckenpunkte: [Spurpunkt] { Spurpunkt.entpacken(strecke) }
+
+    /// „09:12–15:40" in der Zone des Eintrags — `nil` ohne Strecke.
+    var streckenzeit: String? {
+        let p = streckenpunkte
+        guard let a = p.first, let b = p.last, b.zeit > a.zeit else { return nil }
+        return Tag.text(a.datum, "HH:mm", zone: zone) + "–" + Tag.text(b.datum, "HH:mm", zone: zone)
+    }
 
     // MARK: Ortszeit (ab 1.0.6)
     //
@@ -375,7 +420,14 @@ final class Foto: NSManagedObject {
     @NSManaged var breite: Double
     @NSManaged var laenge: Double
     @NSManaged var hatOrt: Bool
+    @NSManaged var bildtext: String?
     @NSManaged var eintrag: Eintrag?
+
+    /// Der Bildtext, getrimmt — `nil`, wenn keiner geschrieben ist.
+    var bildtextName: String? {
+        let t = (bildtext ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
 
     static func alle() -> NSFetchRequest<Foto> {
         NSFetchRequest<Foto>(entityName: "Foto")
@@ -409,6 +461,26 @@ final class Spur: NSManagedObject {
 
     var punktListe: [Spurpunkt] { Spurpunkt.entpacken(punkte) }
     var besuchListe: [Besuch] { Besuch.entpacken(besuche) }
+}
+
+/// Was für ein Eintrag das ist (ab 1.0.17, Ansage des Nutzers 09/2026:
+/// „Reisen auch im Nachhinein anlegen … Texte zu den Fotos erstellen, aber
+/// auch freie Seiten erstellen … Wanderungen, für die ich einen Komoot-Link
+/// habe, importieren").
+///
+/// - `eintrag`: wie bisher — Tag, Uhrzeit, Ort, Wetter.
+/// - `seite`: eine FREIE Seite — Überschrift, Text, Fotos; ohne Uhrzeit,
+///   Wetter und Orte des Tages. Sie steht an ihrem Tag (Einleitung am ersten,
+///   Rückblick am letzten), die Uhrzeit dient nur der Reihenfolge.
+/// - `wanderung`: eine Tour mit Strecke und Uhrzeiten (Komoot oder GPX).
+///
+/// Der leere Text ist der gewöhnliche Eintrag — alle Einträge vor 1.0.17
+/// haben ihn, und eine ältere Fassung, die einen neuen liest, zeigt eine
+/// Seite oder Wanderung einfach als Eintrag.
+enum Eintragsart: String {
+    case eintrag = ""
+    case seite
+    case wanderung
 }
 
 // SwiftUI braucht `Identifiable` für `ForEach` — die Kennung des Objekts in

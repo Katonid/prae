@@ -234,6 +234,12 @@ struct SpurVollbild: View {
     let kilometer: Double
     let marken: [Marke]
     let palette: Palette
+    /// Eine Wanderung zeichnet sich grün (ab 1.0.17), sonst in der Farbe
+    /// der Reise.
+    var linienfarbe: Color? = nil
+    /// Uhrzeiten auf der Strecke (ab 1.0.17, Wanderungen): ersetzen die
+    /// schlichten Punkte an Start und Ende.
+    var zeitmarken: [Zeitmarke] = []
 
     @Environment(\.dismiss) private var schliessen
     @State private var position: MapCameraPosition = .automatic
@@ -244,7 +250,11 @@ struct SpurVollbild: View {
                 MapPolyline(coordinates: l.punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: l.punkte)
-                    .stroke(palette.haupt, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                    .stroke(linienfarbe ?? palette.haupt, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            }
+            ForEach(zeitmarken) { z in
+                Annotation(z.text, coordinate: z.ort) { Zeitmarkenbild(marke: z) }
+                    .annotationTitles(.hidden)
             }
             ForEach(marken) { m in
                 Marker(m.name, systemImage: m.haupt ? "book.pages.fill" : "mappin", coordinate: m.ort)
@@ -252,13 +262,13 @@ struct SpurVollbild: View {
             }
             // Anfang und Ende der Spur, damit man sieht, in welche Richtung
             // der Tag lief.
-            if let erste = linien.first?.punkte.first {
+            if zeitmarken.isEmpty, let erste = linien.first?.punkte.first {
                 Annotation("Start", coordinate: erste) {
                     Circle().fill(.green).frame(width: 14, height: 14)
                         .overlay(Circle().stroke(.white, lineWidth: 2))
                 }
             }
-            if let letzte = linien.first?.punkte.last {
+            if zeitmarken.isEmpty, let letzte = linien.first?.punkte.last {
                 Annotation("Ende", coordinate: letzte) {
                     Circle().fill(.red).frame(width: 14, height: 14)
                         .overlay(Circle().stroke(.white, lineWidth: 2))

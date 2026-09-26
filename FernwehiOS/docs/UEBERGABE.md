@@ -85,8 +85,18 @@ Reisebuch 1.0.106 in `UrlaubstagebuchiOS/Urlaubstagebuch/Dienste/Fernweheinfuhr.
           "fotos": [
             { "kennung": "UUID", "datei": "fotos/UUID.heic", "aufnahme": "2027-08-03T11:02:10+01:00",
               "breite": 38.69, "laenge": -9.2, "pixelBreite": 4032, "pixelHoehe": 3024,
-              "reihenfolge": 0, "mediathek": "lokale PHAsset-Kennung", "icloud": "PHCloudIdentifier" }
-          ]
+              "reihenfolge": 0, "mediathek": "lokale PHAsset-Kennung", "icloud": "PHCloudIdentifier",
+              "text": "Blick vom Castelo" }        // ab Fernweh 1.0.17, fehlt wenn keiner
+          ],
+          "art": "wanderung",                     // ab Fernweh 1.0.17: "seite" | "wanderung", fehlt beim gewöhnlichen Eintrag
+          "wanderung": {                          // ab Fernweh 1.0.17, nur bei art "wanderung"
+            "sportart": "hike", "sportname": "Wanderung",
+            "quelle": "https://www.komoot.com/tour/1234567890",   // fehlt bei einer GPX-Datei
+            "beginn": "2027-08-03T09:12:00+01:00", "ende": "2027-08-03T15:40:00+01:00",
+            "uhrzeitVon": "09:12", "uhrzeitBis": "15:40",
+            "meter": 14210.0, "hoehenmeter": 620.0, "dauer": 23280.0,
+            "punkte": [[38.7, -9.1, 1880000000.0]]
+          }
         }
       ],
       "spuren": [
@@ -140,3 +150,28 @@ Reisebuch 1.0.106 in `UrlaubstagebuchiOS/Urlaubstagebuch/Dienste/Fernweheinfuhr.
   sind schon ausgedünnt (15 m).
 - Ein Tag kann **nur eine Spur und keine Einträge** haben (gefahren, nichts
   geschrieben).
+
+### Seiten, Wanderungen, Bildtexte (ab Fernweh 1.0.17)
+
+Alle drei sind ANGEHÄNGT; die Fassungsnummer bleibt 1. Ein Leser, der sie
+nicht kennt, bekommt weiterhin Gültiges: eine Seite und eine Wanderung als
+gewöhnlichen Eintrag mit Titel und Text, die Strecke als Spur (siehe unten).
+
+- **`art: "seite"`** — eine FREIE Seite: Überschrift (`titel`), Text, Fotos.
+  Sie hat keine Uhrzeit im Sinn — `zeitpunkt`/`uhrzeit` stehen trotzdem da,
+  aber nur für die Reihenfolge am Tag (eine Einleitung steht morgens vor
+  allem anderen). Nicht als Uhrzeit ins Buch drucken. Kein Wetter, meist kein
+  Ort.
+- **`art: "wanderung"`** — eine Tour aus Komoot oder einer GPX-Datei.
+  `titel` ist ihr Name, `zeitpunkt` ihr Start, `ort` ihr Startpunkt.
+  `wanderung` trägt die Zahlen und die Strecke MIT Uhrzeit je Punkt
+  (Unix-Sekunden, echte Augenblicke; bei einer geplanten Tour geschätzt mit
+  4 km/h). `uhrzeitVon`/`uhrzeitBis` sind Wanduhr in der Zone des Eintrags —
+  das ist, was ins Buch gehört („09:12–15:40“). `hoehenmeter` ist der Anstieg,
+  `dauer` Sekunden von Start bis Ziel.
+- **Die Strecke steht ZUSÄTZLICH in `spuren` des Tages**, mit `geraet`
+  `"wanderung:<Kennung des Eintrags>"` und `reisender` = Name der Tour (nur,
+  wenn mit Reisespur übergeben wurde). So zeigt auch ein Leser, der
+  `wanderung` nicht kennt, die Strecke. Wer beide kennt, erkennt die Doppelung
+  am Präfix `wanderung:`.
+- **`fotos[].text`** — der Text zum Foto, gedacht als Bildunterschrift.
