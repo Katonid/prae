@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -466,6 +466,15 @@
     werden auch als `NSDictionary` gelesen. Der Bildschirm zeigt nur die
     Kurzfassung. **Merke: erst roh ausgeben, dann deuten** — zweimal wurde
     an der falschen Stelle gesucht.
+  - **Gelöst (26.09.2026, Nutzer: „Das Problem scheint jetzt gelöst zu
+    sein.")**: Die Xcode-Fassung zeigte „CloudKit-Schema anlegen" mit
+    „Failed to initialize CloudKit schema because the requests timed out (a
+    30s wait failed)" — gleichzeitig lud sie den ganzen Bestand erstmals in
+    die ENTWICKLUNGSumgebung hoch. Das vorige Deploy trug deshalb nicht alle
+    Felder; nach erneutem Anlegen und Deploy sendet die Produktion. **Merke:
+    Nach „Schema anlegen" steht „Schema angelegt …" da — sonst ist das
+    Deploy danach unvollständig.** Die Entwicklung legt Felder beim Senden
+    selbst an; dass es aus Xcode klappt, beweist über die Produktion nichts.
 - **Wann war ich hier? — Uhrzeit per Tipp auf die Linie** (`Views/Zeitauswahl.swift`,
   ab 1.0.24; Ansage des Nutzers 09/2026: „die einzelnen Punkte der Reise
   anzeigen … durch Auswählen auf der Karte anzeigen …, um welche Uhrzeit ich
@@ -486,6 +495,30 @@
     (40 m gedünnt), flach gerechnet.
   - **Nicht gemessen**: kein Gerät; ob der Tipp neben den Pan-/Zoom-Gesten
     der Karte sauber ankommt, ist nicht gesehen.
+- **Vier Ebenen auf jeder Karte der Reise, einzeln schaltbar**
+  (`Views/Kartenebenen.swift`, ab 1.0.26; Ansage des Nutzers 09/2026: „Wenn
+  ich mir einen einzelnen Urlaubstag … auswähle, sehe ich dort aber nur die
+  Komoot-Karten … in beiden Darstellungen alle vier Dinge … einzeln
+  ausfilterbar: Komoot, Autofahrt, GPX-Koordinaten der Fotos und … der
+  Import aus der Tagesspur.").
+  - **Jeder Tag der Reise hat eine Karte** (`TagAbschnitt`): Spur,
+    Autofahrten, Wanderungen, Fotos (als Bildchen an ihrem Ort) dieses Tages
+    — sobald es davon etwas gibt. Ein BILD in der Rolle; ein Tipp öffnet die
+    Vollkarte gleich auf diesem Tag (`Vollkarte(reise:startTag:)`).
+  - **Die Schalter** (`Ebenenwahl`, `@AppStorage("fernweh.ebene.…")`) gelten
+    für ALLE Karten der Reise zugleich — Kopf, Tageskarten, Vollkarte —,
+    stehen unter jeder Tageskarte und in der Vollkarte. Ausgeblendetes wird
+    auch beim Tipp nach der Uhrzeit nicht gefunden. Die „Reisespur" umfasst
+    Aufzeichnung UND Übernahmen aus der Tagesspur (beides sind Gerätespuren).
+  - Das Vollbild eines Tages im Tagebuch (`SpurVollbild`) zeigt jetzt auch
+    die Wanderungen des Tages (`Tagesspurwahl`) und dieselben Schalter für
+    die Arten, die es dort gibt; die Kilometer zählen die Wanderungen mit
+    (wie `Reise.meter(am:)`).
+  - **Fahrtnamen ohne Datum vorneweg** (`Fahrtenimport.anzeigename`): Die
+    Fahrtenbücher des Nutzers nennen eine Fahrt „29.03.2026 07:28–12:28 ·
+    Würzburg → Schönau"; unter dem Tag stand beides doppelt.
+  - **Nicht gemessen**: kein Gerät; ob fünfzehn Tageskarten in einer Rolle
+    flüssig bleiben, ist nicht gesehen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

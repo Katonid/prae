@@ -164,6 +164,19 @@ enum Fahrtenimport {
         return n.isEmpty ? "Autofahrt" : n
     }
 
+    /// Der Name OHNE vorangestelltes Datum und Uhrzeit (ab 1.0.26): Viele
+    /// Fahrtenbücher nennen eine Fahrt „29.03.2026 07:28–12:28 · Würzburg →
+    /// Schönau"; unter dem Tag stehen Tag und Uhrzeit ohnehin schon, und
+    /// doppelt gelesen sah es aus wie ein Fehler (Bildschirmfoto des
+    /// Nutzers, 26.09.2026).
+    nonisolated static func anzeigename(_ spur: Spur) -> String {
+        let n = name(spur)
+        let muster = #"^\s*\d{1,2}\.\d{1,2}\.\d{2,4}(\s+\d{1,2}:\d{2}(\s*[–-]\s*\d{1,2}:\d{2})?)?\s*[·|,:-]?\s*"#
+        guard let bereich = n.range(of: muster, options: .regularExpression) else { return n }
+        let rest = String(n[bereich.upperBound...]).trimmingCharacters(in: .whitespaces)
+        return rest.isEmpty ? n : rest
+    }
+
     /// Die Ortszeit am Start der Fahrt — für die Uhrzeiten.
     nonisolated static func zone(_ spur: Spur) -> TimeZone {
         let teile = (spur.geraet ?? "").split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false)
