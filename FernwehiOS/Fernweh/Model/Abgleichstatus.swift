@@ -103,7 +103,18 @@ final class Abgleichstatus: ObservableObject {
         sammeln(fehler, in: &teile, tiefe: 0)
         var gesehen: [String] = []
         for t in teile where !t.isEmpty && !gesehen.contains(t) { gesehen.append(t) }
-        return gesehen.prefix(12).joined(separator: "\n")
+        var text = gesehen.prefix(12).joined(separator: "\n")
+        // ROH dazu (ab 1.0.25, gemeldet 26.09.2026: 1.0.24 zeigte nur
+        // „CKError 2 (Teilfehler)" — die Teilfehler standen NICHT unter
+        // `CKPartialErrorsByItemIDKey`, wo sie erwartet waren). Die
+        // Beschreibung eines CKError listet selbst alle Schlüssel seiner
+        // `userInfo` samt Teilfehlern; sie wird deshalb ungedeutet
+        // angehängt, dazu die Namen der Schlüssel. Deuten kommt danach.
+        let ns = fehler as NSError
+        let schluessel = ns.userInfo.keys.map { "\($0)" }.sorted().joined(separator: ", ")
+        text += "\n— Schlüssel: " + (schluessel.isEmpty ? "keine" : schluessel)
+        text += "\n— Roh: " + String(String(describing: fehler).prefix(3000))
+        return text
     }
 
     nonisolated private static func sammeln(_ fehler: Error, in teile: inout [String], tiefe: Int) {
@@ -117,7 +128,13 @@ final class Abgleichstatus: ObservableObject {
             if let text = ns.userInfo[schluessel] as? String, !text.isEmpty { zeile += ": " + text; break }
         }
         teile.append(zeile)
-        if let einzeln = ns.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error] {
+        var einzeln: [AnyHashable: Error] = [:]
+        if let roh = ns.userInfo[CKPartialErrorsByItemIDKey] as? NSDictionary {
+            for (k, v) in roh {
+                if let schluessel = k as? AnyHashable, let e = v as? Error { einzeln[schluessel] = e }
+            }
+        }
+        if !einzeln.isEmpty {
             // Gleiche Ursachen zusammenfassen: dieselbe Meldung für hundert
             // Datensätze ist EINE Zeile.
             var nachArt: [String: Int] = [:]

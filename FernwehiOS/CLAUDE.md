@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -455,6 +455,17 @@
     Fehler. Dazu „Meldung kopieren". Eine Zusammenfassung „CKErrorDomain-
     Fehler 2" allein ist keine Auskunft — **wer Fehler zeigt, zeigt die
     Teilfehler mit.**
+  - **Zweiter Befund (26.09.2026, 1.0.24, iPad):** wieder nur „CKError 2
+    (Teilfehler)" — KEINE Teilfehler unter `CKPartialErrorsByItemIDKey`,
+    keine Serverbegründung. Der Nutzer hatte vorher aus Xcode installiert
+    und das Schema nach Produktion übertragen (es gab Änderungen) — das
+    Senden scheitert trotzdem. **Die Schema-Vermutung ist damit
+    geschwächt, nicht widerlegt.** Ab 1.0.25 hängt „Vollständige Meldung
+    kopieren" die ROHE Beschreibung des Fehlers (`String(describing:)`,
+    3000 Zeichen) und die Namen aller `userInfo`-Schlüssel an; Teilfehler
+    werden auch als `NSDictionary` gelesen. Der Bildschirm zeigt nur die
+    Kurzfassung. **Merke: erst roh ausgeben, dann deuten** — zweimal wurde
+    an der falschen Stelle gesucht.
 - **Wann war ich hier? — Uhrzeit per Tipp auf die Linie** (`Views/Zeitauswahl.swift`,
   ab 1.0.24; Ansage des Nutzers 09/2026: „die einzelnen Punkte der Reise
   anzeigen … durch Auswählen auf der Karte anzeigen …, um welche Uhrzeit ich

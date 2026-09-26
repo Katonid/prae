@@ -114,12 +114,15 @@ struct EinstellungenView: View {
                                       : (lauf.ende.map { Tag.uhrzeit.string(from: $0) } ?? "läuft …"),
                                   gut: lauf.fehler == nil)
                             if let fehler = lauf.fehler {
-                                Text(fehler).font(.caption.monospaced()).foregroundStyle(.red).textSelection(.enabled)
+                                // Kurzfassung hier; die ROHE Meldung (lang) nur
+                                // über „Meldung kopieren" (ab 1.0.25).
+                                Text(fehler.components(separatedBy: "\n— ").first ?? fehler)
+                                    .font(.caption.monospaced()).foregroundStyle(.red).textSelection(.enabled)
                                 Button {
                                     UIPasteboard.general.string = "Fernweh \(fassung) · \(Abgleichstatus.umgebung)\n\(lauf.art) (\(lauf.speicher)):\n\(fehler)"
                                     Meldungen.shared.zeige("Fehlermeldung kopiert.")
                                 } label: {
-                                    Label("Meldung kopieren", systemImage: "doc.on.doc")
+                                    Label("Vollständige Meldung kopieren", systemImage: "doc.on.doc")
                                 }
                                 .font(.caption)
                                 .buttonStyle(.borderless)
