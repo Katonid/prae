@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -337,6 +337,30 @@
   Der Befund des Nutzers zeigte eine vergangene, leere Reise OHNE die Karte
   „Reise nachtragen" — also noch eine Fassung vor 1.0.17 auf dem Gerät.
   **Nicht gemessen**: kein Gerät, keine echte Mediathek.
+- **Sonne statt Wolkencode** (`Wettercode.abschnittscode`, ab 1.0.20;
+  gemeldet 09/2026: „Im Osterurlaub in Berchtesgaden steht fast
+  ausschließlich ‚bedeckt', obwohl es an einzelnen Tagen doch sonnig war.").
+  **Nachgemessen** an Open-Meteo für Berchtesgaden, 30.03.–12.04.2026: am
+  6. April mittags dreimal Code 3 bei 100 % Sonnenschein, am 9. nachmittags
+  viermal. Zwei Fehler übereinander: Die Codes 0–3 folgen der GESAMTbewölkung
+  (auch dünnen hohen Schleiern), und „der schwerste Code je Abschnitt“ ließ
+  eine trübe Stunde über den ganzen Abschnitt entscheiden.
+  - Regen, Schnee, Gewitter (Code ≥ 51): weiter der schwerste Code.
+  - Sonst am Tag die **Sonnenscheindauer** (`sunshine_duration`) über die
+    hellen Stunden (`is_day` oder Sonne > 0): ab 75 % Sonnig, ab 50 %
+    Überwiegend sonnig, ab 20 % Teils bewölkt, darunter der mittlere Code.
+    Nachts und ohne Sonnendaten: der mittlere Code. **Schwellen gewählt,
+    nicht gemessen.** Tagsüber heißt Code 0/1 jetzt „Sonnig“, nachts „Klar“.
+  - Nachgerechnet an denselben Tagen: 5., 6., 9., 11. April nicht mehr
+    „Bedeckt“, Regen-/Schneeabschnitte unverändert.
+  - **Schon gespeichertes Wetter wird einmal neu geholt**
+    (`Tageswetter.rechnung`, `veraltet`): Einträge ohne Rechnungsnummer mit
+    Open-Meteo-Abschnitten gelten als fehlend — beim Öffnen von Reise oder
+    Tagebuch (30 je Lauf) und im Editor. Day Ones „Beim Schreiben“ bleibt.
+    Neues Feld nur im JSON des Attributs `wetter`, **kein Schema-Deploy**.
+  - Ans Reisebuch geht die neue Beschreibung; wer schon übergeben hat,
+    übergibt nach dem Neuholen noch einmal.
+  - **Nicht gemessen**: kein Gerät; nur die Antwort des Dienstes per `curl`.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
@@ -389,7 +413,8 @@
   11–14, Nachmittag 14–18, Nacht 21–5 (bis in den Folgetag). Gemessen
   24.09.2026: `api.open-meteo.com` nimmt nur gut 90 Tage zurück bis 16 voraus
   an, ältere Tage gehen an `historical-forecast-api.open-meteo.com`. Je
-  Abschnitt gilt der schwerste WMO-Code. Gespeichert am Eintrag (Attribut
+  Abschnitt gilt seit 1.0.20 NICHT mehr der schwerste WMO-Code (siehe
+  „Sonne statt Wolkencode“). Gespeichert am Eintrag (Attribut
   `wetter`, JSON) — neues Attribut, also Schema-Deploy. Ein Tag, der beim
   Holen noch nicht vorbei war, heißt „Vorhersage" und wird nachgeholt.
   **WeatherKit bewusst nicht**: braucht eine Fähigkeit an der App-Id (Lehre

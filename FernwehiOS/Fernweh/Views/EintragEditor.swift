@@ -515,7 +515,7 @@ struct EintragEditor: View {
         // Ein schon gespeichertes Wetter desselben Tages nicht neu holen —
         // es sei denn, es war eine Vorhersage und der Tag ist vorbei.
         if let alt = eintrag?.tageswetter, Tag.schluessel(eintrag?.datum ?? .distantPast) == Tag.schluessel(datum),
-           !(alt.vorhersage && Tag.ende(datum).addingTimeInterval(5 * 3600) < Date()) {
+           !(alt.vorhersage && Tag.ende(datum).addingTimeInterval(5 * 3600) < Date()), !alt.veraltet {
             if wetter == nil { wetter = alt }
             return
         }

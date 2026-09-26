@@ -20,6 +20,19 @@ struct Tageswetter: Codable, Equatable {
     /// Wann nachgeschlagen — ein vorhergesagter Tag ist keine Messung.
     var geholt: Date
     var vorhersage: Bool
+    /// Nach welcher Rechnung die Abschnitte entstanden (ab 1.0.20). `nil`
+    /// ist die alte: je Abschnitt der „schwerste" Code, also bei Wolken
+    /// fast immer „Bedeckt". Solches Wetter wird einmal neu geholt.
+    var rechnung: Int? = nil
+
+    static let aktuelleRechnung = 2
+
+    /// Stammt es von Open-Meteo und nach der alten Rechnung? Day Ones
+    /// Momentaufnahme („Beim Schreiben") kommt nicht von dort und bleibt.
+    var veraltet: Bool {
+        guard (rechnung ?? 1) < Self.aktuelleRechnung else { return false }
+        return abschnitte.contains { Wetterabschnitt.stunden($0.name) != "" }
+    }
 
     static func lesen(_ text: String?) -> Tageswetter? {
         guard let text, let daten = text.data(using: .utf8), !text.isEmpty else { return nil }
@@ -38,6 +51,9 @@ struct Wetterabschnitt: Codable, Equatable, Identifiable {
     var tiefst: Double
     var hoechst: Double
     var regen: Double
+    /// Anteil der hellen Zeit mit Sonnenschein (0…1), ab 1.0.20; `nil` bei
+    /// alten Einträgen und nachts.
+    var sonne: Double? = nil
 
     var id: String { name }
 
@@ -76,15 +92,15 @@ struct Wetterabschnitt: Codable, Equatable, Identifiable {
     }
 
     var symbol: String { Wettercode.symbol(code, nacht: anzeigename == "Nachts") }
-    var beschreibung: String { Wettercode.text(code) }
+    var beschreibung: String { Wettercode.text(code, nacht: anzeigename == "Nachts") }
 }
 
 /// Die WMO-Wettercodes, wie Open-Meteo sie liefert.
 enum Wettercode {
-    static func text(_ code: Int) -> String {
+    static func text(_ code: Int, nacht: Bool = true) -> String {
         switch code {
-        case 0: return "Klar"
-        case 1: return "Überwiegend klar"
+        case 0: return nacht ? "Klar" : "Sonnig"
+        case 1: return nacht ? "Überwiegend klar" : "Überwiegend sonnig"
         case 2: return "Teils bewölkt"
         case 3: return "Bedeckt"
         case 45, 48: return "Nebel"
@@ -128,6 +144,42 @@ enum Wettercode {
     /// die Auskunft über den Nachmittag, nicht die drei trockenen Stunden
     /// davor. Nebel (45/48) zählt dabei nicht schwerer als Wolken.
     static func gewicht(_ code: Int) -> Int { code == 45 || code == 48 ? 3 : code }
+
+    // WAS EINEN ABSCHNITT BESCHREIBT (ab 1.0.20; gemeldet 09/2026: „Im
+    // Osterurlaub in Berchtesgaden steht fast ausschließlich ‚bedeckt',
+    // obwohl es an einzelnen Tagen doch sonnig war.").
+    //
+    // Nachgemessen an Open-Meteo für Berchtesgaden, 30.03.–12.04.2026: Am
+    // 6. April mittags drei Stunden Code 3 („Bedeckt") bei 100 % Sonnenschein,
+    // am 9. April nachmittags viermal Code 3 bei 100 % Sonne, am 5. April
+    // nachmittags zwei Stunden Code 0 und EINE Stunde Code 3 — und der
+    // „schwerste" Code machte daraus „Bedeckt". Zwei Fehler übereinander:
+    // Die Wolkencodes 0–3 folgen der GESAMTbewölkung, also auch dünnen
+    // hohen Schleiern, durch die die Sonne scheint; und der schwerste Code
+    // lässt eine einzige trübe Stunde über den ganzen Abschnitt entscheiden.
+    //
+    // Deshalb: Hat es geregnet, geschneit oder gewittert (Code ab 51), bleibt
+    // der schwerste Code — das ist die Auskunft über den Abschnitt. Sonst
+    // entscheidet am Tag die SONNENSCHEINDAUER, gemessen an den hellen
+    // Stunden; nachts (und wenn sie fehlt) der mittlere Code, nicht der
+    // schwerste. Die Schwellen sind gewählt, nicht gemessen.
+    static func abschnittscode(codes: [Int], sonne: Double?) -> Int? {
+        guard let schwerster = codes.max(by: { gewicht($0) < gewicht($1) }) else { return nil }
+        if schwerster >= 51 { return schwerster }
+        if let sonne {
+            switch sonne {
+            case 0.75...: return 0
+            case 0.5..<0.75: return 1
+            case 0.2..<0.5: return 2
+            default: break
+            }
+        }
+        let geordnet = codes.sorted { gewicht($0) < gewicht($1) }
+        let mitte = geordnet[geordnet.count / 2]
+        // Wenig Sonne heißt mindestens „teils bewölkt"; Nebel bleibt Nebel.
+        if sonne != nil, gewicht(mitte) < 2 { return 2 }
+        return mitte
+    }
 }
 
 enum Wetterdienst {
@@ -148,6 +200,8 @@ enum Wetterdienst {
             let temperature_2m: [Double?]
             let weather_code: [Int?]
             let precipitation: [Double?]
+            let sunshine_duration: [Double?]?
+            let is_day: [Int?]?
         }
         let hourly: Stunden?
         let error: Bool?
@@ -176,7 +230,7 @@ enum Wetterdienst {
         teile.queryItems = [
             URLQueryItem(name: "latitude", value: String(format: "%.4f", koordinate.latitude)),
             URLQueryItem(name: "longitude", value: String(format: "%.4f", koordinate.longitude)),
-            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation"),
+            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation,sunshine_duration,is_day"),
             URLQueryItem(name: "timezone", value: "auto"),
             URLQueryItem(name: "start_date", value: von),
             URLQueryItem(name: "end_date", value: bis),
@@ -190,9 +244,12 @@ enum Wetterdienst {
 
         // Stunden nach (Tag, Stunde) einsortieren — die Zeit steht als
         // Ortszeit ohne Zone da („2026-08-10T14:00"), also nur Ziffern lesen.
-        var werte: [String: (t: Double?, c: Int?, r: Double?)] = [:]
+        var werte: [String: (t: Double?, c: Int?, r: Double?, s: Double?, hell: Bool)] = [:]
         for (i, zeit) in h.time.enumerated() {
-            werte[zeit] = (h.temperature_2m[safe: i] ?? nil, h.weather_code[safe: i] ?? nil, h.precipitation[safe: i] ?? nil)
+            let sonne = h.sunshine_duration?[safe: i] ?? nil
+            let hell = (h.is_day?[safe: i] ?? nil) == 1
+            werte[zeit] = (h.temperature_2m[safe: i] ?? nil, h.weather_code[safe: i] ?? nil,
+                           h.precipitation[safe: i] ?? nil, sonne, hell)
         }
         let tage = [von, bis]
         var ergebnis: [Wetterabschnitt] = []
@@ -200,22 +257,34 @@ enum Wetterdienst {
             var temperaturen: [Double] = []
             var codes: [Int] = []
             var regen = 0.0
+            var sonnensekunden = 0.0
+            var helleStunden = 0
+            var sonneBekannt = false
             for s in stunden {
                 let schluessel = "\(tage[s.tag])T\(String(format: "%02d", s.stunde)):00"
                 guard let w = werte[schluessel] else { continue }
                 if let t = w.t { temperaturen.append(t) }
                 if let c = w.c { codes.append(c) }
                 regen += w.r ?? 0
+                // Eine Stunde zählt als hell, wenn sie es laut Dienst ist
+                // oder Sonne hatte (die Stunde des Aufgangs heißt oft noch
+                // „Nacht" und trägt doch Minuten Sonne).
+                if let sek = w.s { sonneBekannt = true; sonnensekunden += sek }
+                if w.hell || (w.s ?? 0) > 0 { helleStunden += 1 }
             }
+            let sonne: Double? = (sonneBekannt && helleStunden > 0)
+                ? min(1, sonnensekunden / Double(helleStunden * 3600)) : nil
             guard let tief = temperaturen.min(), let hoch = temperaturen.max(),
-                  let code = codes.max(by: { Wettercode.gewicht($0) < Wettercode.gewicht($1) }) else { continue }
-            ergebnis.append(Wetterabschnitt(name: name, code: code, tiefst: tief, hoechst: hoch, regen: regen))
+                  let code = Wettercode.abschnittscode(codes: codes, sonne: sonne) else { continue }
+            ergebnis.append(Wetterabschnitt(name: name, code: code, tiefst: tief, hoechst: hoch,
+                                            regen: regen, sonne: sonne))
         }
         guard !ergebnis.isEmpty else { throw Fehler.leer }
         // Liegt auch nur eine Stunde des Tages in der Zukunft, ist es eine
         // Vorhersage und keine Messung — und so steht es dann auch da.
         let vorhersage = Tag.ende(tag).addingTimeInterval(5 * 3600) > Date()
-        return Tageswetter(abschnitte: ergebnis, geholt: Date(), vorhersage: vorhersage)
+        return Tageswetter(abschnitte: ergebnis, geholt: Date(), vorhersage: vorhersage,
+                           rechnung: Tageswetter.aktuelleRechnung)
     }
 }
 
