@@ -518,14 +518,26 @@ private struct TagAbschnitt: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(reise.palette.verlauf)
+            // Abgedunkelt (ab 1.0.29, Befund des Nutzers: „Weiße Schrift auf
+            // hellblauem Grund ist nicht so cool") — die hellen Paletten
+            // (Meer, Gletscher) trugen weiße Schrift sonst nicht.
+            .background {
+                ZStack {
+                    reise.palette.verlauf
+                    Color.black.opacity(0.28)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 12) {
             // Das Wetter des Tages am Ort (ab 1.0.18) — auch an einem Tag,
             // an dem nur eine Spur entstand.
             if let wetter {
                 HStack(spacing: 8) {
+                    // Die Temperaturen brechen nie um (auf dem iPhone stand
+                    // „1 / 2 / °" untereinander); kürzer wird der Ort.
                     WetterLeiste(wetter: wetter.wetter, kompakt: true)
+                        .fixedSize()
+                        .layoutPriority(1)
                     if !wetter.ortName.isEmpty {
                         Text("in \(wetter.ortName)")
                             .font(.caption)
