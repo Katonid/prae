@@ -43,7 +43,7 @@ enum Textglaettung {
             .sorted { ($0.datum ?? .distantPast) < ($1.datum ?? .distantPast) }
     }
 
-    static func kurzkennung(_ e: Eintrag) -> String {
+    nonisolated static func kurzkennung(_ e: Eintrag) -> String {
         String((e.kennung ?? UUID()).uuidString.prefix(8))
     }
 
