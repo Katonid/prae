@@ -118,10 +118,13 @@ struct Wanderkarte: View {
             SpurVollbild(titel: eintrag.anzeigeTitel,
                          unter: [eintrag.datum.map { Tag.text($0, "EEEE, d. MMMM yyyy", zone: eintrag.zone) } ?? "",
                                  eintrag.streckenzeit ?? ""].filter { !$0.isEmpty }.joined(separator: " · "),
-                         linien: [Tagesspurkarte.Linie(id: "wanderung", punkte: punkte.map(\.koordinate))],
+                         linien: [Tagesspurkarte.Linie(id: "wanderung", punkte: punkte.map(\.koordinate),
+                                                       art: .wanderung, zeiten: punkte.map(\.zeit),
+                                                       name: eintrag.anzeigeTitel, zone: eintrag.zone)],
                          kilometer: eintrag.streckeMeter / 1000, marken: [], palette: palette,
                          linienfarbe: farben.wanderung,
-                         zeitmarken: Zeitmarke.fuer(punkte, zone: eintrag.zone))
+                         zeitmarken: Zeitmarke.fuer(punkte, zone: eintrag.zone),
+                         zone: eintrag.zone)
         }
         .task(id: eintrag.strecke?.count ?? 0) {
             let daten = eintrag.strecke

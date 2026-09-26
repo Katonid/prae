@@ -16,6 +16,13 @@ struct Tagesspurkarte: View {
         let punkte: [CLLocationCoordinate2D]
         /// Welche Art Linie (ab 1.0.21) — bestimmt die Farbe.
         var art: Spurart = .reisespur
+        /// Die Uhrzeit je Punkt (ab 1.0.24, Unix-Sekunden) — für den Tipp
+        /// im Vollbild. Leer, wo es keine gibt.
+        var zeiten: [TimeInterval] = []
+        var name: String = ""
+        /// Eigene Ortszeit der Linie (eine Fahrt trägt ihre), sonst die des
+        /// Vollbilds.
+        var zone: TimeZone? = nil
     }
 
     @State private var linien: [Linie] = []
@@ -61,7 +68,7 @@ struct Tagesspurkarte: View {
                                  linien: linien, kilometer: kilometer,
                                  marken: (eintrag.koordinate.map { [SpurVollbild.Marke(name: eintrag.anzeigeTitel, ort: $0, haupt: true)] } ?? [])
                                     + orte.map { SpurVollbild.Marke(name: $0.name, ort: $0.koordinate, haupt: false) },
-                                 palette: palette)
+                                 palette: palette, zone: eintrag.zone)
                 }
                 if !linien.isEmpty {
                     Label(Tagesspurwahl.kilometertext(kilometer).isEmpty
@@ -116,8 +123,13 @@ enum Tagesspurwahl {
             for s in alle where s.reise != nil && jeGeraet[s.geraet ?? ""] == nil { jeGeraet[s.geraet ?? ""] = s }
         }
         let linien = jeGeraet.sorted { $0.key < $1.key }.compactMap { g, s -> Tagesspurkarte.Linie? in
-            let p = s.punktListe.map { CLLocationCoordinate2D(latitude: $0.breite, longitude: $0.laenge) }
-            return p.count >= 2 ? Tagesspurkarte.Linie(id: g, punkte: p, art: s.spurart) : nil
+            let liste = s.punktListe
+            let p = liste.map { CLLocationCoordinate2D(latitude: $0.breite, longitude: $0.laenge) }
+            return p.count >= 2
+                ? Tagesspurkarte.Linie(id: g, punkte: p, art: s.spurart, zeiten: liste.map(\.zeit),
+                                       name: s.istFahrt ? Fahrtenimport.name(s) : (s.reisender ?? ""),
+                                       zone: s.istFahrt ? Fahrtenimport.zone(s) : nil)
+                : nil
         }
         // Wie `Reise.meter(am:)`: die längste Gerätespur ODER die Summe der
         // Autofahrten (ab 1.0.21), das Größere.
@@ -249,12 +261,43 @@ struct SpurVollbild: View {
     /// Uhrzeiten auf der Strecke (ab 1.0.17, Wanderungen): ersetzen die
     /// schlichten Punkte an Start und Ende.
     var zeitmarken: [Zeitmarke] = []
+    /// Die Ortszeit für die Uhrzeit im Tipp (ab 1.0.24), wo eine Linie
+    /// keine eigene trägt.
+    var zone: TimeZone = .current
 
     @Environment(\.dismiss) private var schliessen
     @State private var position: MapCameraPosition = .automatic
     @ObservedObject private var farben = Kartenfarben.shared
+    /// Wann war ich hier? (ab 1.0.24, siehe `Zeitauswahl.swift`)
+    @State private var zeitpunkte: [Zeitpunkt] = []
+    @State private var gewaehlt: Zeitpunkt?
+    @AppStorage("fernweh.kartenpunkte") private var punkteZeigen = false
+
+    private func farbe(_ art: Spurart) -> Color {
+        linienfarbe ?? farben.farbe(art, palette: palette)
+    }
 
     var body: some View {
+        MapReader { proxy in
+            karte.onTapGesture { ort in
+                guard let ziel = proxy.convert(ort, from: .local),
+                      let toleranz = Zeitsuche.toleranz(proxy, bei: ort) else { return }
+                withAnimation(.snappy(duration: 0.2)) {
+                    gewaehlt = Zeitsuche.naechster(zu: ziel, in: zeitpunkte, toleranz: toleranz)
+                }
+            }
+        }
+        .task {
+            zeitpunkte = linien.flatMap { l in
+                zip(l.punkte, l.zeiten).map { k, t in
+                    Zeitpunkt(breite: k.latitude, laenge: k.longitude, zeit: t, art: l.art,
+                              name: l.name, zone: l.zone ?? zone)
+                }
+            }
+        }
+    }
+
+    private var karte: some View {
         Map(position: $position) {
             ForEach(linien) { l in
                 MapPolyline(coordinates: l.punkte)
@@ -269,6 +312,18 @@ struct SpurVollbild: View {
             ForEach(marken) { m in
                 Marker(m.name, systemImage: m.haupt ? "book.pages.fill" : "mappin", coordinate: m.ort)
                     .tint(m.haupt ? palette.haupt : palette.hell)
+            }
+            if punkteZeigen {
+                ForEach(Zeitsuche.auswahl(zeitpunkte, hoechstens: 400)) { p in
+                    Annotation("", coordinate: p.koordinate) { Messpunkt(farbe: farbe(p.art)) }
+                        .annotationTitles(.hidden)
+                }
+            }
+            if let gewaehlt {
+                Annotation("", coordinate: gewaehlt.koordinate, anchor: .bottom) {
+                    Zeitblase(punkt: gewaehlt, farbe: farbe(gewaehlt.art))
+                }
+                .annotationTitles(.hidden)
             }
             // Anfang und Ende der Spur, damit man sieht, in welche Richtung
             // der Tag lief.
@@ -302,6 +357,17 @@ struct SpurVollbild: View {
                         .lineLimit(1)
                 }
                 Spacer()
+                if !zeitpunkte.isEmpty {
+                    Button {
+                        punkteZeigen.toggle()
+                    } label: {
+                        Image(systemName: punkteZeigen ? "circle.grid.3x3.fill" : "circle.grid.3x3")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 38, height: 38)
+                            .background(.regularMaterial, in: Circle())
+                    }
+                    .accessibilityLabel(punkteZeigen ? "Punkte ausblenden" : "Punkte zeigen")
+                }
                 Button {
                     position = .automatic
                 } label: {
