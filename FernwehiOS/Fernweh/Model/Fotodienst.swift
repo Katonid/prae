@@ -141,6 +141,48 @@ final class Fotodienst: NSObject, ObservableObject {
         return liste
     }
 
+    /// Ein Album der Mediathek (ab 1.0.19).
+    struct Album: Identifiable {
+        let sammlung: PHAssetCollection
+        let name: String
+        let anzahl: Int
+        var id: String { sammlung.localIdentifier }
+    }
+
+    /// Die eigenen Alben (auch in Ordnern und geteilte), dazu „Favoriten" —
+    /// nur solche mit Fotos, alphabetisch.
+    func alben() -> [Album] {
+        guard darfLesen else { return [] }
+        var liste: [Album] = []
+        let nurBilder = PHFetchOptions()
+        nurBilder.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+        func aufnehmen(_ sammlung: PHAssetCollection) {
+            let n = PHAsset.fetchAssets(in: sammlung, options: nurBilder).count
+            guard n > 0 else { return }
+            liste.append(Album(sammlung: sammlung, name: sammlung.localizedTitle ?? "Album", anzahl: n))
+        }
+        // Alben stecken auch in Ordnern — die Liste der obersten Ebene
+        // allein fände sie nicht.
+        PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: nil)
+            .enumerateObjects { sammlung, _, _ in aufnehmen(sammlung) }
+        PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumFavorites, options: nil)
+            .enumerateObjects { sammlung, _, _ in aufnehmen(sammlung) }
+        return liste.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// Alle Fotos eines Albums, nach Aufnahmezeit (ohne Bildschirmfotos).
+    func fotos(in album: PHAssetCollection) -> [PHAsset] {
+        guard darfLesen else { return [] }
+        let optionen = PHFetchOptions()
+        optionen.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+        optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        var liste: [PHAsset] = []
+        PHAsset.fetchAssets(in: album, options: optionen).enumerateObjects { asset, _, _ in
+            if !asset.mediaSubtypes.contains(.photoScreenshot) { liste.append(asset) }
+        }
+        return liste
+    }
+
     func bild(_ asset: PHAsset, kante: CGFloat, schnell: Bool = false) async -> UIImage? {
         let optionen = PHImageRequestOptions()
         optionen.isNetworkAccessAllowed = true

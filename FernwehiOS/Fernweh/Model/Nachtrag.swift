@@ -27,25 +27,55 @@ enum Nachtrag {
         var datum: Date? { Tag.datum(schluessel: schluessel) }
     }
 
-    /// Die Fotos der Reise, nach Tag in Ortszeit — ohne die, die schon in
-    /// ihr stehen.
-    static func fotos(fuer reise: Reise) async -> [Tagesgruppe] {
-        // Einen Tag Rand auf jeder Seite: Die Zone am Ort kann bis zu 14
-        // Stunden von der des Geräts abweichen.
-        let von = reise.anfang.addingTimeInterval(-86_400)
-        let bis = Tag.ende(reise.schluss).addingTimeInterval(86_400)
-        let vorhanden = Set(reise.eintragListe.flatMap(\.fotoListe).compactMap(\.assetID))
-        let alle = Fotodienst.shared.fotos(von: von, bis: bis).filter { !vorhanden.contains($0.localIdentifier) }
-        let zonen = await zonen(fuer: alle)
-        let gueltig = Set(reise.bisherigeTage.map(Tag.schluessel))
+    /// Was die Suche gefunden hat — und was NICHT passte. Ein Album kann
+    /// Fotos von vor oder nach der Reise enthalten; die werden gezählt und
+    /// nicht still verschluckt (ab 1.0.19).
+    struct Fund {
+        var gruppen: [Tagesgruppe] = []
+        /// Fotos, deren Tag außerhalb der Reise liegt.
+        var ausserhalb = 0
+        /// Frühester und spätester Tag aller Fotos (Ortszeit, als Schlüssel).
+        var ersterTag: String?
+        var letzterTag: String?
+        /// Fotos ohne Aufnahmedatum — ihnen lässt sich kein Tag zuordnen.
+        var ohneDatum = 0
+    }
 
+    /// Die Fotos der Reise, nach Tag in Ortszeit — ohne die, die schon in
+    /// ihr stehen. Mit `album` (ab 1.0.19, Ansage des Nutzers 09/2026: „Die
+    /// Fotos liegen in einem dafür angelegten Album der Galerie") nur die
+    /// Fotos dieses Albums, sonst alle Fotos im Zeitraum der Reise.
+    static func fotos(fuer reise: Reise, album: PHAssetCollection? = nil) async -> Fund {
+        let vorhanden = Set(reise.eintragListe.flatMap(\.fotoListe).compactMap(\.assetID))
+        let quelle: [PHAsset]
+        if let album {
+            quelle = Fotodienst.shared.fotos(in: album)
+        } else {
+            // Einen Tag Rand auf jeder Seite: Die Zone am Ort kann bis zu 14
+            // Stunden von der des Geräts abweichen.
+            let von = reise.anfang.addingTimeInterval(-86_400)
+            let bis = Tag.ende(reise.schluss).addingTimeInterval(86_400)
+            quelle = Fotodienst.shared.fotos(von: von, bis: bis)
+        }
+        let alle = quelle.filter { !vorhanden.contains($0.localIdentifier) }
+        let zonen = await zonen(fuer: alle)
+        // Die Tage der Reise — bei einer laufenden bis heute.
+        let gueltig = Set(reise.bisherigeTage.map { Tag.schluessel($0) })
+
+        var fund = Fund()
         var jeTag: [String: [(PHAsset, TimeZone)]] = [:]
         for (asset, zone) in zip(alle, zonen) {
-            guard let d = asset.creationDate else { continue }
+            guard let d = asset.creationDate else { fund.ohneDatum += 1; continue }
             let t = Tag.schluessel(d, zone: zone)
-            if gueltig.contains(t) { jeTag[t, default: []].append((asset, zone)) }
+            if fund.ersterTag.map({ t < $0 }) ?? true { fund.ersterTag = t }
+            if fund.letzterTag.map({ t > $0 }) ?? true { fund.letzterTag = t }
+            if gueltig.contains(t) {
+                jeTag[t, default: []].append((asset, zone))
+            } else if album != nil {
+                fund.ausserhalb += 1
+            }
         }
-        return jeTag.keys.sorted().map { t in
+        fund.gruppen = jeTag.keys.sorted().map { t in
             let liste = jeTag[t] ?? []
             // Die Zone des Tages: die häufigste seiner Fotos.
             var zaehler: [String: Int] = [:]
@@ -53,6 +83,7 @@ enum Nachtrag {
             let zone = zaehler.max { $0.value < $1.value }.flatMap { TimeZone(identifier: $0.key) } ?? .current
             return Tagesgruppe(schluessel: t, zone: zone, assets: liste.map(\.0))
         }
+        return fund
     }
 
     private static func zonen(fuer assets: [PHAsset]) async -> [TimeZone] {
