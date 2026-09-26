@@ -86,6 +86,23 @@ enum Fernweheinfuhr {
         var orte: Nachsichtig<OrtTeil>?
         var wetter: WetterTeil?
         var fotos: Nachsichtig<FotoTeil>?
+        // Ab Fernweh 1.0.17: „seite" (freie Seite) oder „wanderung"; fehlt
+        // beim gewöhnlichen Eintrag.
+        var art: String?
+        var wanderung: WanderTeil?
+    }
+
+    // Die Zahlen einer Wanderung (ab Fernweh 1.0.17). Die STRECKE selbst
+    // steht zusätzlich als Spur des Tages in `spuren` (Präfix
+    // „wanderung:" am Gerät) und wird dort gelesen.
+    struct WanderTeil: Decodable {
+        var sportname: String?
+        var quelle: String?
+        var uhrzeitVon: String?
+        var uhrzeitBis: String?
+        var meter: Double?
+        var hoehenmeter: Double?
+        var dauer: Double?
     }
 
     struct OrtTeil: Decodable {
@@ -121,6 +138,8 @@ enum Fernweheinfuhr {
         var reihenfolge: Int?
         var mediathek: String?
         var icloud: String?
+        // Ab Fernweh 1.0.17: der Text zum Foto — hier die Bildunterschrift.
+        var text: String?
     }
 
     struct SpurTeil: Decodable {
@@ -143,6 +162,10 @@ enum Fernweheinfuhr {
         var text: String
         var autor: String
         var ortName: String
+        // "" gewöhnlich, "seite", "wanderung" (ab Fernweh 1.0.17).
+        var art: String = ""
+        // „Wanderung 09:12–15:40 · 14,2 km · 5:48 h · 620 m bergauf"
+        var wanderzeile: String?
     }
 
     struct Fotoangabe {
@@ -156,6 +179,7 @@ enum Fernweheinfuhr {
         var hoehe: Double
         var mediathek: String?
         var icloud: String?
+        var text: String?
     }
 
     struct Tag: Identifiable {
@@ -167,6 +191,8 @@ enum Fernweheinfuhr {
         var spur: [Reisepunkt] = []
         var orte: [Reisepunkt] = []
         var spurenInDatei: Int = 0
+        // Wanderungen dieses Tages, deren Strecke in `spur` eingeflossen ist.
+        var wanderungen: Int = 0
         var wetter: String?
         var zone: TimeZone?
         var zoneNachgeschlagen = false
@@ -295,11 +321,14 @@ enum Fernweheinfuhr {
                 befund.verworfen += (eintrag.fotos?.verworfen ?? 0) + (eintrag.orte?.verworfen ?? 0)
                 let versatz = eintrag.zeitpunkt.flatMap { versatzSekunden($0) }
                 let ortName = (eintrag.ort?.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let art = (eintrag.art ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 tag.eintraege.append(Eintrag(
                     titel: (eintrag.titel ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
                     text: (eintrag.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
                     autor: (eintrag.autor ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
-                    ortName: ortName
+                    ortName: ortName,
+                    art: art,
+                    wanderzeile: art == "wanderung" ? eintrag.wanderung.flatMap(wanderzeile) : nil
                 ))
 
                 // Der Ort des Eintrags — mit seinem Zeitpunkt.
@@ -348,7 +377,8 @@ enum Fernweheinfuhr {
                         breite: foto.pixelBreite ?? 0,
                         hoehe: foto.pixelHoehe ?? 0,
                         mediathek: foto.mediathek,
-                        icloud: foto.icloud
+                        icloud: foto.icloud,
+                        text: foto.text.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     ))
                 }
             }
@@ -357,23 +387,38 @@ enum Fernweheinfuhr {
             // demselben Weg. Zwei Linien übereinander wären keine Auskunft,
             // sondern ein Strich doppelter Breite; genommen wird die mit
             // den meisten Punkten.
-            let spuren = teil.spuren?.werte ?? []
+            //
+            // Eine WANDERUNG ist kein Gerät (ab Fernweh 1.0.17, `geraet`
+            // beginnt mit „wanderung:"): Sie ist ein Stück des Tages, oft
+            // das einzige, das aufgezeichnet wurde. Ihre Punkte kommen
+            // ZUSÄTZLICH zur gewählten Gerätespur hinein, nach der Zeit
+            // eingeordnet — beide tragen echte Augenblicke. Liefe das Gerät
+            // mit, liegen die Punkte auf demselben Weg, und das Ausdünnen
+            // beim Übernehmen legt sie zusammen.
+            let alle = teil.spuren?.werte ?? []
+            let wanderspuren = alle.filter { ($0.geraet ?? "").hasPrefix("wanderung:") }
+            let spuren = alle.filter { !($0.geraet ?? "").hasPrefix("wanderung:") }
             tag.spurenInDatei = spuren.count
+            tag.wanderungen = wanderspuren.count
+            var genommen = wanderspuren
             if let beste = spuren.max(by: { ($0.punkte?.werte.count ?? 0) < ($1.punkte?.werte.count ?? 0) }) {
-                var punkte: [Reisepunkt] = []
-                for roh in beste.punkte?.werte ?? [] {
+                genommen.append(beste)
+            }
+            var punkte: [Reisepunkt] = []
+            for spur in genommen {
+                for roh in spur.punkte?.werte ?? [] {
                     guard roh.count >= 2, let stelle = koordinate(roh[0], roh[1]) else { continue }
                     let zeit = roh.count >= 3 ? Date(timeIntervalSince1970: roh[2]) : nil
                     punkte.append(Reisepunkt(koordinate: stelle, zeit: zeit, quelle: .tagesspur))
                 }
-                for besuch in beste.besuche?.werte ?? [] {
+                for besuch in spur.besuche?.werte ?? [] {
                     guard let stelle = koordinate(besuch.breite, besuch.laenge) else { continue }
                     punkte.append(Reisepunkt(koordinate: stelle,
                                              zeit: besuch.ankunft.flatMap { augenblick($0) },
                                              quelle: .tagesspur))
                 }
-                tag.spur = punkte.sorted { ($0.zeit ?? .distantFuture) < ($1.zeit ?? .distantFuture) }
             }
+            tag.spur = punkte.sorted { ($0.zeit ?? .distantFuture) < ($1.zeit ?? .distantFuture) }
 
             // Derselbe Tag zweimal in der Datei: zusammenlegen statt den
             // zweiten stillschweigend zu verlieren.
@@ -383,6 +428,7 @@ enum Fernweheinfuhr {
                 befund.tage[schon].orte += tag.orte
                 if tag.spur.count > befund.tage[schon].spur.count { befund.tage[schon].spur = tag.spur }
                 befund.tage[schon].spurenInDatei += tag.spurenInDatei
+                befund.tage[schon].wanderungen += tag.wanderungen
                 if befund.tage[schon].wetter == nil { befund.tage[schon].wetter = tag.wetter }
             } else {
                 befund.tage.append(tag)
@@ -436,7 +482,11 @@ enum Fernweheinfuhr {
     }
 
     static func tagestext(_ tag: Tag, autorenNennen: Bool, wetterAnhaengen: Bool) -> Tagestext {
-        let ersterTitel = tag.eintraege.first { !$0.titel.isEmpty }?.titel ?? ""
+        // Die Überschrift kommt aus einem GEWÖHNLICHEN Eintrag, wenn es einen
+        // mit Titel gibt: Eine Einleitungsseite („Vorwort") oder eine Tour
+        // am Morgen ist nicht das, worüber der Tag steht (ab 1.0.109).
+        let ersterTitel = (tag.eintraege.first { $0.art.isEmpty && !$0.titel.isEmpty }
+            ?? tag.eintraege.first { !$0.titel.isEmpty })?.titel ?? ""
         let ersterOrt = tag.eintraege.first { !$0.ortName.isEmpty }?.ortName ?? ""
         let ueberschrift = ersterTitel.isEmpty ? ersterOrt : ersterTitel
         let unter = (!ersterTitel.isEmpty && ersterOrt != ersterTitel) ? ersterOrt : ""
@@ -449,6 +499,7 @@ enum Fernweheinfuhr {
             if !eintrag.titel.isEmpty, eintrag.titel != ueberschrift {
                 absaetze.append(eintrag.titel)
             }
+            if let zeile = eintrag.wanderzeile { absaetze.append(zeile) }
             if !eintrag.text.isEmpty { absaetze.append(eintrag.text) }
             if autorenNennen, !eintrag.autor.isEmpty, !eintrag.text.isEmpty {
                 absaetze.append("\u{2014} " + eintrag.autor)
@@ -486,6 +537,31 @@ enum Fernweheinfuhr {
         guard !teile.isEmpty else { return nil }
         let kopf = wetter.vorhersage == true ? "Wetter (Vorhersage): " : "Wetter: "
         return kopf + teile.joined(separator: " \u{00B7} ")
+    }
+
+    // „Wanderung 09:12–15:40 · 14,2 km · 5:48 h · 620 m bergauf" — die
+    // Uhrzeiten hat Fernweh schon als Wanduhr am Ort geschrieben, sie
+    // werden nicht umgerechnet.
+    static func wanderzeile(_ w: WanderTeil) -> String? {
+        let zahl = NumberFormatter()
+        zahl.locale = Locale(identifier: "de_DE")
+        zahl.minimumFractionDigits = 1
+        zahl.maximumFractionDigits = 1
+        var teile: [String] = []
+        if let von = w.uhrzeitVon, let bis = w.uhrzeitBis, !von.isEmpty, !bis.isEmpty, von != bis {
+            teile.append(von + "\u{2013}" + bis)
+        }
+        if let meter = w.meter, meter >= 100, let km = zahl.string(from: NSNumber(value: meter / 1000)) {
+            teile.append(km + " km")
+        }
+        if let dauer = w.dauer, dauer >= 60 {
+            let minuten = Int(dauer / 60)
+            teile.append(String(format: "%d:%02d h", minuten / 60, minuten % 60))
+        }
+        if let hoch = w.hoehenmeter, hoch >= 1 { teile.append("\(Int(hoch.rounded())) m bergauf") }
+        let name = (w.sportname ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !teile.isEmpty else { return name.isEmpty ? nil : name }
+        return (name.isEmpty ? "Tour" : name) + " " + teile.joined(separator: " \u{00B7} ")
     }
 
     // MARK: - Kleinteile
@@ -653,10 +729,15 @@ extension Reisewerk {
         // 1. Die Bilder.
         var offen: [(tag: String, angabe: Fernweheinfuhr.Fotoangabe)] = []
         var schonImBuch = 0
+        // Texte zu Fotos, die schon im Buch stehen (ab 1.0.109): nur dort
+        // eintragen, wo noch keine Bildunterschrift steht — wer sie im Buch
+        // geschrieben hat, behält sie.
+        var nachzutragen: [UUID: String] = [:]
         for tag in auswahl where wunsch.fotos {
             for angabe in tag.fotos {
                 if let kennung = angabe.kennung, vorhanden.contains(kennung) {
                     schonImBuch += 1
+                    if let text = angabe.text, !text.isEmpty { nachzutragen[kennung] = text }
                 } else {
                     offen.append((tag.id, angabe))
                 }
@@ -700,6 +781,14 @@ extension Reisewerk {
         // 2. Das Buch — in einem Zug.
         fortschritt("Tage werden übernommen\u{2026}")
         merken()
+        var unterschriftenErgaenzt = 0
+        for stelle in reise.fotos.indices {
+            guard let text = nachzutragen[reise.fotos[stelle].id],
+                  reise.fotos[stelle].unterschrift.isEmpty else { continue }
+            reise.fotos[stelle].unterschrift = text
+            reise.fotos[stelle].unterschriftZeigen = true
+            unterschriftenErgaenzt += 1
+        }
         let bekannt = Set(reise.tage.map(\.schluessel))
         var neueTage = 0
         var ergaenzt = 0
@@ -803,6 +892,7 @@ extension Reisewerk {
         var ortNachgesehen = 0
         var ortNurInDatei = 0
         let darfOrtNachsehen = Self.mediathekStand == .authorized || Self.mediathekStand == .limited
+        var mitUnterschrift = 0
         for stueck in abgelegt {
             guard let tagDaten = auswahl.first(where: { $0.id == stueck.tag }),
                   let stelle = reise.tage.firstIndex(where: { $0.schluessel == stueck.tag })
@@ -849,8 +939,14 @@ extension Reisewerk {
                 // Der Tag des EINTRAGS, nicht der der Aufnahme (Vertrag).
                 tagesschluessel: stueck.tag,
                 koordinate: ort,
-                ortsquelle: quelle
+                ortsquelle: quelle,
+                // Der Text zum Foto aus Fernweh (ab 1.0.109) wird die
+                // Bildunterschrift — eingeschaltet, denn jemand hat ihn
+                // eigens geschrieben.
+                unterschrift: stueck.angabe.text ?? "",
+                unterschriftZeigen: !(stueck.angabe.text ?? "").isEmpty
             )
+            if !(stueck.angabe.text ?? "").isEmpty { mitUnterschrift += 1 }
             reise.fotos.append(foto)
             reise.tage[stelle].fotos.append(foto.id)
             if foto.hatOrt { mitOrt += 1 }
@@ -894,6 +990,9 @@ extension Reisewerk {
         }
         if !abgelegt.isEmpty {
             zeilen.append("\(abgelegt.count) Fotos eingelesen, \(mitOrt) mit Ort.")
+        }
+        if mitUnterschrift + unterschriftenErgaenzt > 0 {
+            zeilen.append("\(mitUnterschrift + unterschriftenErgaenzt) Fotos haben ihren Text aus Fernweh als Bildunterschrift.")
         }
         if ausMediathek > 0 {
             zeilen.append("\(ausMediathek) davon aus der eigenen Mediathek geholt.")

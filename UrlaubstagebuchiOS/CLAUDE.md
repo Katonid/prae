@@ -6767,7 +6767,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.108 (Build 109). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.109 (Build 110). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7225,6 +7225,38 @@ Befunde, und keiner davon war Geschmack:
     des Kopfes Datum, Titel und Linie weg, die zweite Überschrift aber
     nicht — sie stand dort doppelt. Weggeräumt wird seither alles, was
     `kopfzeile` legt.
+- **SEITEN, WANDERUNGEN UND BILDTEXTE AUS FERNWEH** (`Fernweheinfuhr`, ab
+  1.0.109; Ansage des Nutzers 09/2026 in Fernweh 1.0.17: Reisen im
+  Nachhinein mit Texten zu den Fotos, freien Seiten und Komoot-Wanderungen —
+  „All dies möchte ich ins Fotobuch exportieren können"). Alles im Vertrag
+  ANGEHÄNGT (Fassung bleibt 1, `FernwehiOS/docs/UEBERGABE.md`).
+  - **Der Text zum Foto wird die BILDUNTERSCHRIFT**, eingeschaltet — jemand
+    hat ihn eigens geschrieben. Steht das Foto schon im Buch, wird er nur
+    eingetragen, wo noch keine Unterschrift steht: Was im Buch geschrieben
+    wurde, bleibt.
+  - **Eine Wanderung ist kein GERÄT.** Ihre Strecke steht als Spur mit
+    `geraet` = `wanderung:<Kennung>` in der Datei. Bis 1.0.106 wurde von
+    mehreren Spuren eines Tages die mit den meisten Punkten genommen — eine
+    Wanderung neben der Tagesspur wäre damit entweder verloren gegangen oder
+    hätte den Rest des Tages verdrängt. Jetzt: die beste GERÄTEspur PLUS
+    jede Wanderung, nach der Zeit eingeordnet (beide tragen echte
+    Augenblicke); liegen sie auf demselben Weg, legt das Ausdünnen sie
+    zusammen. Die Vorschau sagt „mit 1 Wanderung".
+  - **Die Zahlen der Tour stehen als eine Zeile im Text** („Wanderung
+    09:12–15:40 · 14,2 km · 5:48 h · 620 m bergauf"), unter ihrem Titel.
+    Die Uhrzeiten schreibt Fernweh schon als Wanduhr am Ort — sie werden
+    NICHT umgerechnet.
+  - **Die Überschrift des Tages kommt aus einem GEWÖHNLICHEN Eintrag**, wenn
+    es einen mit Titel gibt. Eine Einleitungsseite oder eine Tour am Morgen
+    ist nicht das, worüber der Tag steht; ihr Titel steht dann als Zeile im
+    Text, wie der jedes späteren Eintrags.
+  - **Eine freie Seite bekommt keine eigene Buchseite**, sondern steht als
+    Absatz mit Titel im Text ihres Tages. Eine eigene Seite hieße, eine Seite
+    zu setzen, die in keinem Tag liegt — und genau das hat diese App bei
+    Schmutztitel und Schlussseite (1.0.98/1.0.99) zwei Fassungen gekostet.
+  - **Nicht gemessen (1.0.109):** Keine echte `.fernweh`-Datei mit diesen
+    Feldern ist hier gelesen worden — gebaut nach dem Papier. **Nicht als
+    erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

@@ -299,6 +299,9 @@ struct FernwehimportView: View {
         if !tag.spur.isEmpty {
             var spur = "Spur \(tag.spur.count) Punkte"
             if tag.spurenInDatei > 1 { spur += " (längste von \(tag.spurenInDatei))" }
+            if tag.wanderungen > 0 {
+                spur += tag.wanderungen == 1 ? " mit 1 Wanderung" : " mit \(tag.wanderungen) Wanderungen"
+            }
             teile.append(spur)
         }
         return teile.joined(separator: " \u{00B7} ")

@@ -7,7 +7,8 @@ gleichzeitig.** Neue Felder werden angehängt, nie umbenannt; ein Leser
 überliest, was er nicht kennt.
 
 Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`, gelesen seit
-Reisebuch 1.0.106 in `UrlaubstagebuchiOS/Urlaubstagebuch/Dienste/Fernweheinfuhr.swift`.
+Reisebuch 1.0.106 in `UrlaubstagebuchiOS/Urlaubstagebuch/Dienste/Fernweheinfuhr.swift`
+(Seiten, Wanderungen und Bildtexte seit Reisebuch 1.0.109).
 
 ## Behälter
 
