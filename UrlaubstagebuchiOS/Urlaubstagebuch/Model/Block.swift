@@ -17,6 +17,11 @@ enum Blockinhalt: Codable, Hashable {
     // Datum trägt der Block den Text NICHT — der steht am Tag.
     case unterueberschrift
     case datum
+    // Das WETTER des Tages (ab 1.0.108) — eine eigene Zeile unter Datum und
+    // Überschrift, gesetzt in der Schrift der Datumszeile. Den Text trägt
+    // der TAG (`Reisetag.wetter`), aus demselben Grund wie bei Überschrift
+    // und Datumszeile.
+    case wetter
     case text(String)
     case foto(UUID)
     // Die Bildunterschrift eines Fotos. Sie trägt die KENNUNG des Fotos und
@@ -43,7 +48,7 @@ enum Blockinhalt: Codable, Hashable {
     var istFoto: Bool { if case .foto = self { return true }; return false }
     var istText: Bool {
         switch self {
-        case .titel, .unterueberschrift, .datum, .text, .bildunterschrift,
+        case .titel, .unterueberschrift, .datum, .wetter, .text, .bildunterschrift,
              .kartenunterschrift: return true
         default: return false
         }
@@ -53,7 +58,7 @@ enum Blockinhalt: Codable, Hashable {
         switch self {
         case .titel: return .titel
         case .unterueberschrift: return .unterueberschrift
-        case .datum: return .datum
+        case .datum, .wetter: return .datum
         case .bildunterschrift, .kartenunterschrift: return .bildunterschrift
         default: return .flieText
         }
@@ -64,6 +69,7 @@ enum Blockinhalt: Codable, Hashable {
         case .titel: return "Überschrift"
         case .unterueberschrift: return "Zweite Überschrift"
         case .datum: return "Datum"
+        case .wetter: return "Wetter"
         case .text: return "Text"
         case .foto: return "Foto"
         case .bildunterschrift: return "Bildunterschrift"
@@ -544,7 +550,11 @@ struct Seite: Identifiable, Codable, Hashable {
     init(from decoder: Decoder) throws {
         let b = try decoder.container(keyedBy: CodingKeys.self)
         id = b.wert(.id, UUID())
-        bloecke = b.wert(.bloecke, [])
+        // Block für Block (ab 1.0.108): Ein Block einer Art, die diese
+        // Fassung nicht kennt, fällt einzeln weg, statt die ganze Seite
+        // leer zu machen. Das hilft künftigen Fassungen — eine ÄLTERE, die
+        // eine Wetterzeile vorfindet, räumt die Seite trotzdem leer.
+        bloecke = b.wert(.bloecke, Nachsichtig<Block>()).werte
         papier = b.wahlweise(.papier)
         hintergrund = b.wahlweise(.hintergrund)
         ohneSeitenzahl = b.wert(.ohneSeitenzahl, false)

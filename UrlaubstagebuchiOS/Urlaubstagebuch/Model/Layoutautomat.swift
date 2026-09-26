@@ -573,7 +573,12 @@ struct Layoutautomat {
                 let textBreite = satz.maxX - textX
                 var textY = satz.minY
                 // Auf dieser Seite steht der Kopf rechts neben dem Bild.
-                bloecke.removeAll { $0.inhalt == .datum || $0.inhalt == .titel || $0.inhalt == .linie }
+                // Alles, was `kopfzeile` legt — auch die zweite Überschrift
+                // und das Wetter; sonst stünden sie doppelt da.
+                bloecke.removeAll {
+                    $0.inhalt == .datum || $0.inhalt == .titel || $0.inhalt == .linie
+                        || $0.inhalt == .unterueberschrift || $0.inhalt == .wetter
+                }
                 bloecke.append(contentsOf: kopfzeile(tag: tag, y: &textY, knapp: false,
                                                      x: textX, breite: textBreite))
                 var neu = bloecke
@@ -1307,7 +1312,14 @@ struct Layoutautomat {
         let zweitHoehe = zweite.isEmpty ? 0
             : Textmass.hoehe(zweite, bild: zweitbild, breite: satz.width * 0.8)
         let zweitLuft = zweite.isEmpty ? 0 : zweitHoehe + 4
-        var y = satz.maxY - titelHoehe - datumHoehe - zweitLuft - 6
+        // Das Wetter steht auch hier (ab 1.0.108), in derselben hellen
+        // Farbe wie das Datum — und geht wie die zweite Überschrift VOR dem
+        // Setzen von `y` in die Rechnung ein.
+        let wetter = tag.wetter.trimmingCharacters(in: .whitespacesAndNewlines)
+        let wetterHoehe = wetter.isEmpty ? 0
+            : Textmass.hoehe(wetter, bild: typografie.datum, breite: satz.width * 0.8)
+        let wetterLuft = wetter.isEmpty ? 0 : wetterHoehe + 4
+        var y = satz.maxY - titelHoehe - datumHoehe - zweitLuft - wetterLuft - 6
 
         var datumhell = hell
         datumhell.farbe = Farbwert(rot: 1, gruen: 0.93, blau: 0.86)
@@ -1333,6 +1345,14 @@ struct Layoutautomat {
                 inhalt: .unterueberschrift,
                 rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width * 0.8, hoehe: zweitHoehe),
                 abweichung: hell
+            ))
+            y += zweitHoehe + 4
+        }
+        if !wetter.isEmpty {
+            bloecke.append(Block(
+                inhalt: .wetter,
+                rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width * 0.8, hoehe: wetterHoehe),
+                abweichung: datumhell
             ))
         }
         return Seite(bloecke: bloecke, ohneSeitenzahl: true)
@@ -1375,6 +1395,18 @@ struct Layoutautomat {
             let hoehe = Textmass.hoehe(zweite, bild: bild, breite: spaltenbreite)
             bloecke.append(Block(
                 inhalt: .unterueberschrift,
+                rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: hoehe)
+            ))
+            y += hoehe + 5
+        }
+        // Das WETTER (ab 1.0.108) — unter den Überschriften, in der Schrift
+        // der Datumszeile. Auch nur auf dem Aufmacher: Es gilt für den Tag
+        // und nicht für die Seite.
+        let wetter = tag.wetter.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !wetter.isEmpty, !knapp {
+            let hoehe = Textmass.hoehe(wetter, bild: typografie.datum, breite: spaltenbreite)
+            bloecke.append(Block(
+                inhalt: .wetter,
                 rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: hoehe)
             ))
             y += hoehe + 5

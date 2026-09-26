@@ -27,11 +27,13 @@ struct TagInhaltView: View {
                             get: { werk.reise.tage[stelle].datumstext ?? "" },
                             set: { werk.reise.tage[stelle].datumstext = $0.isEmpty ? nil : $0 }
                         ))
+                        TextField("Wetter, z. B. Vormittag sonnig, 19\u{2013}25 °C",
+                                  text: binden(stelle, \.wetter), axis: .vertical)
                         Toggle("Diesen Tag ausblenden", isOn: binden(stelle, \.ausgeblendet))
                     } header: {
                         Text("Überschriften und Datumszeile")
                     } footer: {
-                        Text("Die zweite Überschrift ist für den Ort oder ein Schlagwort gedacht. Sie steht unter der ersten, kleiner und kursiv — beim Einlesen eines Tagebuchtextes findet die App sie in der Zeile nach dem Datum. Bleibt die Datumszeile leer, gilt das Format des Buches. Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht ins Buch.")
+                        Text("Die zweite Überschrift ist für den Ort oder ein Schlagwort gedacht. Sie steht unter der ersten, kleiner und kursiv — beim Einlesen eines Tagebuchtextes findet die App sie in der Zeile nach dem Datum. Bleibt die Datumszeile leer, gilt das Format des Buches. Das Wetter steht als eigene Zeile unter den Überschriften, in der Schrift der Datumszeile; leer heißt keine Wetterzeile. Auf die Seite kommt es beim nächsten Anordnen des Tages. Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht ins Buch.")
                     }
                     Section {
                         TextEditor(text: binden(stelle, \.text))

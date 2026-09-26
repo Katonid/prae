@@ -140,7 +140,7 @@ private struct Zeile: View {
         var texte = 0, fotos = 0, karten = 0, sonstige = 0
         for block in seite.bloecke {
             switch block.inhalt {
-            case .titel, .unterueberschrift, .datum, .text, .bildunterschrift,
+            case .titel, .unterueberschrift, .datum, .wetter, .text, .bildunterschrift,
                  .kartenunterschrift: texte += 1
             case .foto: fotos += 1
             case .karte: karten += 1
