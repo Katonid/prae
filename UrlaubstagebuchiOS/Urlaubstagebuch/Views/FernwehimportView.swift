@@ -31,6 +31,8 @@ struct FernwehimportView: View {
     @State private var titel = false
     @State private var ausMediathek = true
     @State private var orte: Reisewerk.Ortswahl = .fernweh
+    // Tagebücher, deren Einträge draußen bleiben (ab 1.0.115).
+    @State private var ohneTagebuecher: Set<String> = []
 
     var body: some View {
         NavigationStack {
@@ -144,6 +146,10 @@ struct FernwehimportView: View {
                 Text(auskunft(befund))
             }
 
+            if befund.tagebuecher.count > 1 {
+                tagebuchabschnitt(befund)
+            }
+
             // Die Datei bringt alles mit — was davon ins Buch kommt,
             // entscheidet jeder Filter für sich (ab 1.0.108).
             Section {
@@ -198,7 +204,7 @@ struct FernwehimportView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                LabeledContent("Nachgeschlagen",
+                LabeledContent("Bekannt",
                                value: "\(befund.tage.filter(\.zoneNachgeschlagen).count) von \(befund.tage.count) Tagen")
                 Picker("Sonst gilt", selection: $zone) {
                     ForEach(zonen, id: \.identifier) { eine in
@@ -209,9 +215,10 @@ struct FernwehimportView: View {
             } header: {
                 Text("Uhrzeiten")
             } footer: {
-                Text("Im Buch steht die Uhrzeit AM ORT. Welche Zone gilt, wird je Tag am "
-                     + "ersten Ort nachgeschlagen; das braucht Netz. Der Tag selbst steht in "
-                     + "der Datei und wird nicht umgerechnet.")
+                Text("Im Buch steht die Uhrzeit AM ORT. Welche Zone gilt, sagt meist schon "
+                     + "Fernweh (je Eintrag, seit Fernweh 1.0.6); sonst wird sie am ersten Ort "
+                     + "nachgeschlagen, das braucht Netz. Der Tag selbst steht in der Datei "
+                     + "und wird nicht umgerechnet.")
             }
 
             Section {
@@ -234,6 +241,41 @@ struct FernwehimportView: View {
             Section {
                 Button("Andere Datei wählen", systemImage: "folder") { waehler = true }
             }
+        }
+    }
+
+    // WELCHE TAGEBÜCHER (ab 1.0.115). Fernweh führt seit 1.0.8 mehrere
+    // Tagebücher je Reise — etwa eines je Miturlauber — und schreibt ihren
+    // Namen je Eintrag in die Datei. Ein abgewähltes Tagebuch nimmt seine
+    // Fotos, Orte und Wanderstrecken mit hinaus; die Spur der Geräte bleibt.
+    private func tagebuchabschnitt(_ befund: Fernweheinfuhr.Befund) -> some View {
+        Section {
+            ForEach(befund.tagebuecher, id: \.name) { buch in
+                let an = !ohneTagebuecher.contains(buch.name)
+                // Das letzte gewählte lässt sich nicht abwählen — ohne
+                // Tagebuch stünde kein Tag mehr da und mit ihm kein Schalter.
+                let letztes = an && befund.tagebuecher.filter { !ohneTagebuecher.contains($0.name) }.count == 1
+                Toggle(isOn: Binding(
+                    get: { an },
+                    set: { neu in
+                        if neu { ohneTagebuecher.remove(buch.name) } else { ohneTagebuecher.insert(buch.name) }
+                        nochEinmalLesen()
+                    })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(buch.name.isEmpty ? "Ohne Tagebuchnamen" : buch.name)
+                        Text(buch.eintraege == 1 ? "1 Eintrag" : "\(buch.eintraege) Einträge")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(letztes || liest)
+            }
+        } header: {
+            Text("Tagebücher")
+        } footer: {
+            Text(befund.ausgelassen > 0
+                 ? "\(befund.ausgelassen) Einträge bleiben draußen, mit ihren Fotos, Orten und Wanderungen. Die Reisespur der Geräte gehört keinem Tagebuch und bleibt."
+                 : "Die Datei trägt mehrere Tagebücher. Ein abgewähltes bleibt mit seinen Fotos, Orten und Wanderungen draußen; die Reisespur der Geräte bleibt.")
         }
     }
 
@@ -288,6 +330,7 @@ struct FernwehimportView: View {
     private func zonenzeile(_ tag: Fernweheinfuhr.Tag) -> String? {
         guard let zone = tag.zone else { return nil }
         let name = Ortszeit.beschreibung(zone, am: tag.datum.mittag)
+        if tag.zoneAusFernweh { return name + " \u{2014} aus Fernweh" }
         return tag.zoneNachgeschlagen ? name : name + " \u{2014} angenommen"
     }
 
@@ -304,7 +347,9 @@ struct FernwehimportView: View {
                 mit.append(tag.wanderungen == 1 ? "1 Wanderung" : "\(tag.wanderungen) Wanderungen")
             }
             if tag.fahrten > 0 {
-                mit.append(tag.fahrten == 1 ? "1 Autofahrt" : "\(tag.fahrten) Autofahrten")
+                var fahrt = tag.fahrten == 1 ? "1 Autofahrt" : "\(tag.fahrten) Autofahrten"
+                if !tag.fahrtnamen.isEmpty { fahrt += " (" + tag.fahrtnamen.joined(separator: ", ") + ")" }
+                mit.append(fahrt)
             }
             if !mit.isEmpty { spur += " mit " + mit.joined(separator: " und ") }
             teile.append(spur)
@@ -425,6 +470,10 @@ struct FernwehimportView: View {
     private func einlesen(_ ort: URL) {
         fehler = nil
         dateiname = ort.lastPathComponent
+        // Eine neue Datei fängt von vorn an — ihre Tage und Tagebücher sind andere.
+        befund = nil
+        gewaehlt = []
+        ohneTagebuecher = []
         do {
             daten = try Fernweheinfuhr.oeffnen(ort)
         } catch {
@@ -440,19 +489,28 @@ struct FernwehimportView: View {
     private func nochEinmalLesen() {
         guard let daten else { return }
         let zone = zone
+        let ohne = ohneTagebuecher
+        let alteTage = Set(befund?.tage.map(\.id) ?? [])
         liest = true
         Task { @MainActor in
             let ergebnis: Result<Fernweheinfuhr.Befund, Error> = await Task.detached(priority: .userInitiated) {
-                Result { try Fernweheinfuhr.lesen(daten, zone: zone) }
+                Result { try Fernweheinfuhr.lesen(daten, zone: zone, ohne: ohne) }
             }.value
             liest = false
             switch ergebnis {
             case let .success(neu):
                 befund = neu
                 let bisher = gewaehlt
-                gewaehlt = bisher.isEmpty ? Set(neu.tage.map(\.id)) : bisher
-                autorenNennen = neu.autoren.count > 1
-                titel = werk.reise.titel == "Meine Reise" && werk.reise.untertitel.isEmpty
+                let jetzt = Set(neu.tage.map(\.id))
+                // Tage, die durch ein wieder gewähltes Tagebuch dazukommen,
+                // sind gleich mit gewählt.
+                gewaehlt = bisher.isEmpty ? jetzt : bisher.intersection(jetzt).union(jetzt.subtracting(alteTage))
+                // Nur beim ersten Lesen vorbelegen — ein Griff an Zone oder
+                // Tagebuch soll keine Wahl von eben zurücksetzen.
+                if alteTage.isEmpty {
+                    autorenNennen = neu.autoren.count > 1
+                    titel = werk.reise.titel == "Meine Reise" && werk.reise.untertitel.isEmpty
+                }
                 fehler = nil
                 zonenNachschlagen(neu)
             case let .failure(fehlschlag):
