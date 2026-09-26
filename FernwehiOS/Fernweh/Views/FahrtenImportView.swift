@@ -14,6 +14,13 @@ struct FahrtenImportView: View {
     @State private var fund: Fahrtenimport.Fund?
     @State private var abgewaehlt: Set<String> = []
     @State private var vorhanden: Set<String> = []
+    /// Die gewählten Dateien, schon gelesen (ab 1.0.22) — die Pause lässt
+    /// sich ändern, ohne sie neu zu wählen.
+    @State private var dateien: [Fahrtenimport.Datei] = []
+    @State private var nichtGelesen: [String] = []
+    /// Minuten ohne Punkt, ab denen eine neue Fahrt beginnt; 0 = nur an den
+    /// Spuren der Datei trennen.
+    @AppStorage("fernweh.fahrtenpause") private var pauseMinuten = 15
 
     private var gueltigeTage: Set<String> { Set(reise.bisherigeTage.map { Tag.schluessel($0) }) }
 
@@ -56,7 +63,10 @@ struct FahrtenImportView: View {
                           allowedContentTypes: [UTType(filenameExtension: "gpx") ?? .xml, .xml],
                           allowsMultipleSelection: true) { ergebnis in
                 if case .success(let urls) = ergebnis, !urls.isEmpty {
-                    Task { await lesen(urls) }
+                    let gelesen = Fahrtenimport.dateien(urls)
+                    dateien = gelesen.dateien
+                    nichtGelesen = gelesen.unlesbar
+                    Task { await auswerten() }
                 }
             }
             .overlay {
@@ -82,23 +92,45 @@ struct FahrtenImportView: View {
             }
             .disabled(laedt)
         } footer: {
-            Text("Wähle alle Fahrten auf einmal — in der Dateien-App mit „Auswählen“ oder durch Ziehen über mehrere Dateien. Jede Fahrt kommt an den Tag, an dem sie begann (Ortszeit am Start), und erscheint auf der Karte in der Farbe der Autofahrten.")
+            Text("Wähle alle Dateien auf einmal — in der Dateien-App mit „Auswählen“. Eine Datei darf mehrere Fahrten enthalten: Getrennt wird an jeder Spur der Datei und an jeder längeren Pause. Jede Fahrt kommt an den Tag, an dem sie begann (Ortszeit am Start), und erscheint auf der Karte in der Farbe der Autofahrten.")
         }
     }
 
-    private func lesen(_ urls: [URL]) async {
+    private func auswerten() async {
         laedt = true
-        let neu = await Fahrtenimport.lesen(urls)
-        vorhanden = Fahrtenimport.vorhanden(in: reise)
+        var neu = await Fahrtenimport.auswerten(dateien, pause: pauseMinuten > 0 ? Double(pauseMinuten) * 60 : nil)
+        neu.unlesbar = nichtGelesen + neu.unlesbar
+        let belegt = Fahrtenimport.belegt(in: reise)
+        vorhanden = Set(neu.fahrten.filter { Fahrtenimport.schonDa($0, belegt) }.map(\.kennung))
         abgewaehlt = []
         withAnimation { fund = neu }
         laedt = false
+    }
+
+    /// Wie getrennt wird — für Dateien mit mehreren Fahrten.
+    private var trennung: some View {
+        Section {
+            Picker("Neue Fahrt nach einer Pause von", selection: $pauseMinuten) {
+                Text("5 Minuten").tag(5)
+                Text("15 Minuten").tag(15)
+                Text("30 Minuten").tag(30)
+                Text("1 Stunde").tag(60)
+                Text("nie").tag(0)
+            }
+            .onChange(of: pauseMinuten) { _, _ in Task { await auswerten() } }
+        } footer: {
+            Text((fund?.fahrten.count ?? 0) == 1
+                 ? "1 Fahrt aus \(fund?.dateien ?? 0) Datei."
+                 : "\(fund?.fahrten.count ?? 0) Fahrten aus \(fund?.dateien ?? 0) \((fund?.dateien ?? 0) == 1 ? "Datei" : "Dateien"). Getrennt wird immer an jeder Spur der Datei; eine Pause trennt zusätzlich — „nie“ lässt eine Spur ganz."
+                 + ((fund?.zuKurz ?? 0) > 0 ? " \(fund?.zuKurz ?? 0) Stücke unter 200 m sind weggelassen." : ""))
+        }
     }
 
     // MARK: - Prüfen
 
     @ViewBuilder
     private func ergebnis(_ fund: Fahrtenimport.Fund) -> some View {
+        trennung
         if !fund.ohneZeit.isEmpty || !fund.unlesbar.isEmpty {
             Section {
                 if !fund.ohneZeit.isEmpty {

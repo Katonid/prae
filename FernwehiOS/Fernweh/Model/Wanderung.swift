@@ -252,6 +252,75 @@ final class GPXLeser: NSObject, XMLParserDelegate {
     private var text = ""
     private var name = ""
     private var tiefe: [String] = []
+    /// Die Spuren (`trk`) der Datei EINZELN, je mit Namen (ab 1.0.22) —
+    /// für Dateien, in denen mehrere Fahrten stehen.
+    private var spuren: [(name: String, punkte: [Roh])] = []
+
+    /// Liest eine Datei, in der MEHRERE Fahrten stehen können (ab 1.0.22,
+    /// Ansage des Nutzers 09/2026: „Ich habe zum Teil GPX-Dateien, in denen
+    /// mehrere Fahrten aufgelistet sind."). Getrennt wird
+    /// - an jeder Spur (`trk`) der Datei — so schreiben Fahrtenbücher,
+    ///   Navis und Logger je Fahrt einen Abschnitt;
+    /// - und INNERHALB einer Spur an jeder Pause ab `pause` Sekunden ohne
+    ///   Punkt (Stand geparkt, Gerät aus). `pause == nil`: nur an den Spuren.
+    ///
+    /// Nur Punkte MIT Uhrzeit zählen — ohne sie gibt es keinen Tag und keine
+    /// Pause. Stücke unter 200 m fallen weg (Rangieren, Messrauschen beim
+    /// Parken) und werden gezählt. `ohneZeit`: Die Datei trägt Punkte, aber
+    /// fast keine Uhrzeiten (eine geplante Route).
+    static func fahrten(_ daten: Data, dateiname: String, pause: TimeInterval?) throws
+        -> (fahrten: [Wanderung], ohneZeit: Bool, zuKurz: Int)
+    {
+        let leser = GPXLeser()
+        let parser = XMLParser(data: daten)
+        parser.delegate = leser
+        guard parser.parse() else { throw Fehler.unlesbar }
+        var quellen = leser.spuren.filter { !$0.punkte.isEmpty }
+        if quellen.isEmpty, !leser.route.isEmpty { quellen = [(leser.name, leser.route)] }
+        let alle = quellen.flatMap(\.punkte)
+        guard alle.count > 1 else { throw Fehler.leer }
+        let mitZeit = alle.filter { $0.zeit != nil }.count
+        guard mitZeit > alle.count / 2 else { return ([], true, 0) }
+
+        let grund = (dateiname as NSString).deletingPathExtension
+        var stuecke: [(name: String, punkte: [Spurpunkt])] = []
+        var zuKurz = 0
+        for quelle in quellen {
+            let punkte = quelle.punkte.compactMap { r in
+                r.zeit.map { Spurpunkt(breite: r.breite, laenge: r.laenge, zeit: $0.timeIntervalSince1970) }
+            }.sorted { $0.zeit < $1.zeit }
+            var teile: [[Spurpunkt]] = []
+            for p in punkte {
+                if let letzter = teile.last?.last, let pause, p.zeit - letzter.zeit >= pause {
+                    teile.append([p])
+                } else if teile.isEmpty {
+                    teile.append([p])
+                } else {
+                    teile[teile.count - 1].append(p)
+                }
+            }
+            let name = quelle.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            for t in teile {
+                guard t.count > 1, Spurpunkt.distanz(t) >= 200 else { zuKurz += 1; continue }
+                stuecke.append((name, t))
+            }
+        }
+        // Namen: der der Spur, sonst der Dateiname; mehrere Stücke unter
+        // demselben Namen bekommen eine Nummer.
+        var zaehler: [String: Int] = [:]
+        for s in stuecke { zaehler[s.name.isEmpty ? grund : s.name, default: 0] += 1 }
+        var laufend: [String: Int] = [:]
+        let fahrten = stuecke.map { s -> Wanderung in
+            let n = s.name.isEmpty ? grund : s.name
+            laufend[n, default: 0] += 1
+            let titel = (zaehler[n] ?? 0) > 1 ? "\(n) · \(laufend[n] ?? 1)" : n
+            return Wanderung(name: titel, quelle: "", sportart: "", punkte: s.punkte,
+                             meter: Spurpunkt.distanz(s.punkte), hoehenmeter: 0,
+                             dauer: (s.punkte.last?.zeit ?? 0) - (s.punkte.first?.zeit ?? 0),
+                             geplant: false)
+        }
+        return (fahrten, false, zuKurz)
+    }
 
     static func lesen(_ daten: Data, dateiname: String) throws -> Wanderung {
         let leser = GPXLeser()
@@ -296,6 +365,7 @@ final class GPXLeser: NSObject, XMLParserDelegate {
         let e = element.lowercased()
         tiefe.append(e)
         text = ""
+        if e == "trk" { spuren.append(("", [])) }
         if e == "trkpt" || e == "rtept" {
             inRoute = e == "rtept"
             if let b = attributes["lat"].flatMap(Double.init), let l = attributes["lon"].flatMap(Double.init) {
@@ -317,8 +387,23 @@ final class GPXLeser: NSObject, XMLParserDelegate {
         case "name":
             // Der erste Name außerhalb eines Punktes: der der Spur oder Datei.
             if aktuell == nil, name.isEmpty { name = wert }
+            // Der Name einer Spur steht direkt unter `trk`.
+            if aktuell == nil, tiefe.dropLast().last == "trk", !spuren.isEmpty,
+               spuren[spuren.count - 1].name.isEmpty {
+                spuren[spuren.count - 1].name = wert
+            }
         case "trkpt", "rtept":
-            if let p = aktuell { if inRoute { route.append(p) } else { spur.append(p) } }
+            if let p = aktuell {
+                if inRoute {
+                    route.append(p)
+                } else {
+                    spur.append(p)
+                    // Ein Punkt ohne umgebendes `trk` (unsaubere Datei):
+                    // eine Spur dafür anlegen.
+                    if spuren.isEmpty { spuren.append(("", [])) }
+                    spuren[spuren.count - 1].punkte.append(p)
+                }
+            }
             aktuell = nil
         default: break
         }

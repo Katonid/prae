@@ -34,6 +34,8 @@ struct TagebuecherView: View {
     /// ohne Passwort abnehmen.
     @State private var vorBearbeiten: Info?
     @State private var entsperren: String?
+    /// Ein Tagebuch sichern (ab 1.0.22) — lange drücken → „Sichern …".
+    @State private var sichern: String?
 
     var body: some View {
         NavigationStack {
@@ -56,6 +58,9 @@ struct TagebuecherView: View {
                             .contextMenu {
                                 Button { nurDieses(i.name) } label: {
                                     Label("Nur dieses zeigen", systemImage: "eye")
+                                }
+                                Button { sichern = i.name } label: {
+                                    Label("Sichern …", systemImage: "externaldrive.badge.plus")
                                 }
                                 if buecherei.istGesperrt(i.name) {
                                     Button { entsperren = i.name } label: {
@@ -119,6 +124,10 @@ struct TagebuecherView: View {
             .sheet(item: Binding(get: { entsperren.map(Entsperrwunsch.init) },
                                  set: { entsperren = $0?.name })) { w in
                 EntsperrBlatt(name: w.name)
+            }
+            .sheet(item: Binding(get: { sichern.map(Entsperrwunsch.init) },
+                                 set: { sichern = $0?.name })) { w in
+                SicherungView(vorgabe: .tagebuch(w.name))
             }
             .navigationDestination(item: $bearbeiten) { i in
                 BuchBearbeiten(name: i.name) { neu in

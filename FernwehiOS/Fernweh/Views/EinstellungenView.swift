@@ -12,6 +12,9 @@ struct EinstellungenView: View {
     @State private var schemaMeldung: String?
     @State private var dayOne = false
     @State private var kartenfarben = false
+    @State private var sicherung = false
+    @State private var wiederherstellen = false
+    @ObservedObject private var abgleich = Abgleichstatus.shared
 
     var body: some View {
         NavigationStack {
@@ -76,6 +79,19 @@ struct EinstellungenView: View {
                 }
 
                 Section {
+                    Button { sicherung = true } label: {
+                        Label("Sicherung erstellen …", systemImage: "externaldrive.badge.plus")
+                    }
+                    Button { wiederherstellen = true } label: {
+                        Label("Aus Sicherung wiederherstellen …", systemImage: "arrow.counterclockwise.circle")
+                    }
+                } header: {
+                    Text("Sicherung")
+                } footer: {
+                    Text("Eine Datei mit allem — oder mit einer Reise oder einem Tagebuch —, samt Fotos und Spuren. Sie lässt sich in der Dateien-App ablegen und hier wieder einlesen; was schon da ist, wird dabei nicht doppelt angelegt.")
+                }
+
+                Section {
                     Button { dayOne = true } label: {
                         Label("Aus Day One übernehmen …", systemImage: "square.and.arrow.down.on.square")
                     }
@@ -87,6 +103,28 @@ struct EinstellungenView: View {
 
                 Section {
                     Zeile(titel: "iCloud", wert: konto, gut: konto == "Angemeldet")
+                    // Was der Abgleich tut (ab 1.0.22) — siehe
+                    // `Abgleichstatus`. Zwei Geräte, die einander nicht
+                    // sehen, stehen hier oft in zwei Umgebungen.
+                    Zeile(titel: "Umgebung", wert: Abgleichstatus.umgebung, gut: true)
+                    ForEach(abgleich.liste) { lauf in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Zeile(titel: "\(lauf.art) (\(lauf.speicher))",
+                                  wert: lauf.fehler != nil ? "gescheitert"
+                                      : (lauf.ende.map { Tag.uhrzeit.string(from: $0) } ?? "läuft …"),
+                                  gut: lauf.fehler == nil)
+                            if let fehler = lauf.fehler {
+                                Text(fehler).font(.caption.monospaced()).foregroundStyle(.red).textSelection(.enabled)
+                                if let rat = Abgleichstatus.rat(fehler) {
+                                    Text(rat).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    if abgleich.liste.isEmpty {
+                        Text("Seit dem Start dieser Sitzung hat der Abgleich noch nichts gemeldet.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if let fehler = Persistenz.shared.ladefehler {
                         Text(fehler).font(.caption.monospaced()).foregroundStyle(.red).textSelection(.enabled)
                     }
@@ -104,7 +142,7 @@ struct EinstellungenView: View {
                 } header: {
                     Text("Abgleich")
                 } footer: {
-                    Text("Reisen liegen in deiner privaten iCloud. Eine geteilte Reise liegt in der iCloud derjenigen, die sie angelegt hat, und ist nur für die Eingeladenen sichtbar.")
+                    Text("Reisen liegen in deiner privaten iCloud. Eine geteilte Reise liegt in der iCloud derjenigen, die sie angelegt hat, und ist nur für die Eingeladenen sichtbar. Zwei Geräte sehen einander nur, wenn beide mit derselben Apple-ID angemeldet sind UND in derselben Umgebung laufen — ein Bau aus Xcode („Entwicklung“) und einer aus TestFlight („Produktion“) haben getrennte Daten.")
                 }
 
                 Section {
@@ -117,6 +155,8 @@ struct EinstellungenView: View {
             }
             .sheet(isPresented: $dayOne) { DayOneView() }
             .sheet(isPresented: $kartenfarben) { KartenfarbenView() }
+            .sheet(isPresented: $sicherung) { SicherungView() }
+            .sheet(isPresented: $wiederherstellen) { WiederherstellenView() }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
