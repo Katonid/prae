@@ -219,3 +219,20 @@ Beides ANGEHÄNGT; die Fassungsnummer bleibt 1. Gelesen seit Reisebuch 1.0.114.
   `reisespur` fehlt, solange in Fernweh keine eigene Farbe gewählt ist — dann
   bleibt es bei der Akzentfarbe des Buchs. `wanderung` und `fahrt` stehen
   immer da (die Vorgabe, wenn nichts gewählt ist).
+
+### Zeitzone, Tagebuch, mehrere Fahrten (gelesen seit Reisebuch 1.0.115)
+
+Keine neuen Felder — das Reisebuch liest seit 1.0.115 drei, die schon da waren:
+
+- **`eintraege[].zeitzone`** (seit Fernweh 1.0.6) ist die Zone des Tages im
+  Buch; die des ersten Eintrags gilt, sonst die Zone aus `geraet` einer Fahrt
+  (`fahrt:<Start>|<Zone>|<Name>`). Nachgeschlagen wird nur noch, wo beides
+  fehlt.
+- **`eintraege[].tagebuch`** (seit Fernweh 1.0.7): Im Reisebuch lässt sich
+  je Tagebuch wählen, ob seine Einträge mitkommen. Ein abgewähltes nimmt seine
+  Fotos, Orte und die Wanderstrecke (`geraet` `wanderung:<Kennung>`) mit
+  hinaus; die Spuren der Geräte bleiben.
+- **Mehrere Fahrten je Tag** (seit Fernweh 1.0.22 auch aus einer Datei): Die
+  Gerätespur fällt nur WÄHREND einer Fahrt weg; die Zeit einer Fahrt wird dafür
+  an jeder Lücke ab 15 Minuten geteilt — eine alte, zusammengelegte Fahrt aus
+  Fernweh 1.0.21 verschluckt so nicht mehr den ganzen Tag.

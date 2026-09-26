@@ -95,6 +95,10 @@ enum Fernweheinfuhr {
         var kennung: String?
         var zeitpunkt: String?
         var uhrzeit: String?
+        // Ab Fernweh 1.0.6: die Zone des Eintrags (IANA), ab 1.0.7 der Name
+        // des Tagebuchs (ab 1.0.115 gelesen).
+        var zeitzone: String?
+        var tagebuch: String?
         var titel: String?
         var text: String?
         var autor: String?
@@ -176,6 +180,23 @@ enum Fernweheinfuhr {
             if art == "wanderung" || geraet.hasPrefix("wanderung:") { return "wanderung" }
             return nil
         }
+
+        // Eine Fahrt trägt ihre Zone im Gerät:
+        // „fahrt:<Start>|<Zone>|<Name>" (Fernweh 1.0.21).
+        var fahrtzone: TimeZone? {
+            let geraet = self.geraet ?? ""
+            guard geraet.hasPrefix("fahrt:") else { return nil }
+            let teile = geraet.dropFirst(6).split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false)
+            guard teile.count >= 2 else { return nil }
+            return TimeZone(identifier: String(teile[1]))
+        }
+
+        var fahrtname: String {
+            let eigen = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !eigen.isEmpty { return eigen }
+            let teile = (geraet ?? "").split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false)
+            return teile.count == 3 ? String(teile[2]).trimmingCharacters(in: .whitespaces) : ""
+        }
     }
 
     struct BesuchTeil: Decodable {
@@ -224,11 +245,24 @@ enum Fernweheinfuhr {
         var wanderungen: Int = 0
         // Autofahrten dieses Tages (ab 1.0.114), ebenso.
         var fahrten: Int = 0
+        // Ihre Namen, für die Vorschau (ab 1.0.115).
+        var fahrtnamen: [String] = []
         var wetter: String?
         var zone: TimeZone?
         var zoneNachgeschlagen = false
+        // Die Zone, die FERNWEH für diesen Tag kennt (ab 1.0.115): die des
+        // ersten Eintrags mit `zeitzone`, sonst die einer Fahrt. Sie geht
+        // dem Nachschlagen vor — Fernweh hat sie am Ort bestimmt, und nach
+        // ihr hat es den Tag gezählt.
+        var zoneAusDatei: TimeZone?
+        var zoneAusFernweh = false
 
         var id: String { datum.schluessel }
+    }
+
+    struct Tagebuchzahl: Hashable {
+        var name: String
+        var eintraege: Int
     }
 
     struct Befund {
@@ -246,6 +280,13 @@ enum Fernweheinfuhr {
         // Die Farben der Linien aus Fernweh (ab 1.0.114) — `nil`, wenn die
         // Datei keine trägt.
         var linienfarben: Linienfarben?
+        // Die Tagebücher der Datei mit der Zahl ihrer Einträge (ab 1.0.115)
+        // — "" heißt: ohne Tagebuchnamen. Gezählt wird VOR dem Filter,
+        // sonst verschwände ein abgewähltes Tagebuch aus der Liste, und
+        // niemand käme wieder an seinen Schalter.
+        var tagebuecher: [Tagebuchzahl] = []
+        // Einträge, die der Tagebuchfilter weggelassen hat.
+        var ausgelassen = 0
 
         var eintraege: Int { tage.reduce(0) { $0 + $1.eintraege.count } }
         var fotos: Int { tage.reduce(0) { $0 + $1.fotos.count } }
@@ -306,7 +347,10 @@ enum Fernweheinfuhr {
         }
     }
 
-    static func lesen(_ daten: Data, zone: TimeZone) throws -> Befund {
+    // `ohne`: Tagebücher, deren Einträge draußen bleiben (ab 1.0.115). Ihre
+    // Fotos, Orte und Wanderstrecken bleiben mit draußen — die Spuren der
+    // Geräte nicht, die gehören der Reise und keinem Tagebuch.
+    static func lesen(_ daten: Data, zone: TimeZone, ohne: Set<String> = []) throws -> Befund {
         let verzeichnis: [String: Zipleser.Eintrag]
         do {
             verzeichnis = try Zipleser.verzeichnis(daten)
@@ -357,7 +401,25 @@ enum Fernweheinfuhr {
             var tag = Tag(datum: datum)
             befund.verworfen += (teil.eintraege?.verworfen ?? 0) + (teil.spuren?.verworfen ?? 0)
 
+            // Die Zone aus Fernweh — aus ALLEN Einträgen, auch denen eines
+            // abgewählten Tagebuchs: Sie ist eine Auskunft über den Ort.
+            tag.zoneAusDatei = (teil.eintraege?.werte ?? []).lazy
+                .compactMap { $0.zeitzone.flatMap { TimeZone(identifier: $0) } }.first
+                ?? (teil.spuren?.werte ?? []).lazy.compactMap(\.fahrtzone).first
+
+            var ausgelasseneWanderungen = Set<String>()
             for eintrag in teil.eintraege?.werte ?? [] {
+                let tagebuch = (eintrag.tagebuch ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if let stelle = befund.tagebuecher.firstIndex(where: { $0.name == tagebuch }) {
+                    befund.tagebuecher[stelle].eintraege += 1
+                } else {
+                    befund.tagebuecher.append(Tagebuchzahl(name: tagebuch, eintraege: 1))
+                }
+                if ohne.contains(tagebuch) {
+                    befund.ausgelassen += 1
+                    if let kennung = eintrag.kennung { ausgelasseneWanderungen.insert("wanderung:" + kennung) }
+                    continue
+                }
                 befund.verworfen += (eintrag.fotos?.verworfen ?? 0) + (eintrag.orte?.verworfen ?? 0)
                 let versatz = eintrag.zeitpunkt.flatMap { versatzSekunden($0) }
                 let ortName = (eintrag.ort?.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -453,21 +515,29 @@ enum Fernweheinfuhr {
             //
             // Jeder Punkt trägt seine ART (`Reisepunkt.art`); danach färbt
             // die Karte.
-            let alle = teil.spuren?.werte ?? []
+            let alle = (teil.spuren?.werte ?? []).filter {
+                !ausgelasseneWanderungen.contains($0.geraet ?? "")
+            }
             let wanderspuren = alle.filter { $0.linienart == "wanderung" }
             let fahrtspuren = alle.filter { $0.linienart == "fahrt" }
             let spuren = alle.filter { $0.linienart == nil }
             tag.spurenInDatei = spuren.count
             tag.wanderungen = wanderspuren.count
             tag.fahrten = fahrtspuren.count
+            tag.fahrtnamen = fahrtspuren.map(\.fahrtname).filter { !$0.isEmpty }
             var genommen = wanderspuren + fahrtspuren
             if let beste = spuren.max(by: { ($0.punkte?.werte.count ?? 0) < ($1.punkte?.werte.count ?? 0) }) {
                 genommen.append(beste)
             }
-            let fahrzeiten: [ClosedRange<Double>] = fahrtspuren.compactMap { spur in
-                let zeiten = (spur.punkte?.werte ?? []).compactMap { $0.count >= 3 ? $0[2] : nil }
-                guard let von = zeiten.min(), let bis = zeiten.max(), von < bis else { return nil }
-                return von...bis
+            // Die Zeiten der Fahrten, GETEILT an jeder Pause ab 15 Minuten
+            // (ab 1.0.115). Fernweh 1.0.21 machte aus einer GPX-Datei mit
+            // mehreren Fahrten EINE Linie, und 1.0.22 liest sie nicht neu
+            // ein, wenn sie zeitlich darin liegt — eine solche Fahrt reicht
+            // vom Morgen bis zum Abend. Von Anfang bis Ende gemessen,
+            // fielen damit auch die Gerätepunkte zwischen zwei Fahrten weg:
+            // der Stadtbummel, während der Wagen stand.
+            let fahrzeiten: [ClosedRange<Double>] = fahrtspuren.flatMap { spur in
+                Self.fahrtabschnitte((spur.punkte?.werte ?? []).compactMap { $0.count >= 3 ? $0[2] : nil })
             }
             func imAuto(_ zeit: Date?) -> Bool {
                 guard let zeit else { return false }
@@ -503,8 +573,12 @@ enum Fernweheinfuhr {
                 befund.tage[schon].spurenInDatei += tag.spurenInDatei
                 befund.tage[schon].wanderungen += tag.wanderungen
                 befund.tage[schon].fahrten += tag.fahrten
+                befund.tage[schon].fahrtnamen += tag.fahrtnamen
+                if befund.tage[schon].zoneAusDatei == nil { befund.tage[schon].zoneAusDatei = tag.zoneAusDatei }
                 if befund.tage[schon].wetter == nil { befund.tage[schon].wetter = tag.wetter }
-            } else {
+            } else if !tag.eintraege.isEmpty || !tag.spur.isEmpty || !tag.fotos.isEmpty {
+                // Ein Tag, an dem nur ein abgewähltes Tagebuch schrieb und
+                // keine Spur entstand, bleibt draußen.
                 befund.tage.append(tag)
             }
         }
@@ -522,6 +596,12 @@ enum Fernweheinfuhr {
         var neu = befund
         for stelle in neu.tage.indices {
             let tag = neu.tage[stelle]
+            if let ausDatei = tag.zoneAusDatei {
+                neu.tage[stelle].zone = ausDatei
+                neu.tage[stelle].zoneNachgeschlagen = true
+                neu.tage[stelle].zoneAusFernweh = true
+                continue
+            }
             let ersterOrt = tag.orte.first?.koordinate ?? tag.spur.first?.koordinate
                 ?? tag.fotos.compactMap(\.koordinate).first
             var zone = befund.zone
@@ -644,6 +724,24 @@ enum Fernweheinfuhr {
     }
 
     // MARK: - Kleinteile
+
+    // Die Zeiten einer Fahrt als Abschnitte, getrennt an jeder Lücke ab
+    // 15 Minuten — dieselbe Pause, an der Fernweh 1.0.22 Fahrten trennt.
+    static func fahrtabschnitte(_ zeiten: [Double], pause: Double = 900) -> [ClosedRange<Double>] {
+        let sortiert = zeiten.sorted()
+        guard var von = sortiert.first else { return [] }
+        var bis = von
+        var abschnitte: [ClosedRange<Double>] = []
+        for t in sortiert.dropFirst() {
+            if t - bis >= pause {
+                if von < bis { abschnitte.append(von...bis) }
+                von = t
+            }
+            bis = t
+        }
+        if von < bis { abschnitte.append(von...bis) }
+        return abschnitte
+    }
 
     private static func koordinate(_ breite: Double?, _ laenge: Double?) -> Koordinate? {
         guard let breite, let laenge else { return nil }

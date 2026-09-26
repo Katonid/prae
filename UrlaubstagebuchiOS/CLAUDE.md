@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.114 (Build 115). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.115 (Build 116). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7445,6 +7445,35 @@ Befunde, und keiner davon war Geschmack:
     „Vorgaben wiederherstellen" setzt das Feld auf `nil`.
   - **Nicht gemessen (1.0.114):** an keiner echten Datei. **Nicht als
     erledigt darstellen.**
+- **DER FERNWEH-FILTER LIEST, WAS SCHON IN DER DATEI STAND** (ab 1.0.115;
+  Ansage des Nutzers 09/2026: „Im Reisetagebuch haben sich einige Änderungen
+  eingestellt, die hoffentlich auch in die Exportdatei übernommen werden. Ich
+  möchte, dass du deinen Importfilter dahingehend überarbeitest.").
+  - **Abgeglichen Feld für Feld** gegen `FernwehiOS/Fernweh/Model/Uebergabe.swift`
+    (Stand Fernweh 1.0.22). Seit 1.0.114 kam kein neues Feld dazu — die
+    Sicherung aus 1.0.22 ist ein EIGENES Format und nicht die Übergabe. Drei
+    Felder standen aber längst da und wurden überlesen.
+  - **`zeitzone` je Eintrag geht dem Nachschlagen vor** (`Tag.zoneAusDatei`).
+    Fernweh hat sie am Ort bestimmt und den Tag nach ihr gezählt; der
+    Geocoder braucht Netz und rät bei Grenzorten. Fehlt sie, gilt die Zone aus
+    dem `geraet` einer Fahrt, erst dann wird nachgeschlagen. Die Vorschau sagt
+    „aus Fernweh".
+  - **Tagebücher lassen sich abwählen** (`lesen(…, ohne:)`). Fernweh führt seit
+    1.0.8 mehrere je Reise. Gefiltert wird beim LESEN, damit alles dahinter
+    unverändert bleibt; gezählt wird VOR dem Filter, sonst verschwände ein
+    abgewähltes Tagebuch samt Schalter. Das letzte gewählte lässt sich nicht
+    abwählen — sonst stünde kein Tag mehr da (`Fehler.leer`) und kein Weg
+    zurück. Ein abgewähltes nimmt Fotos, Orte und die Wanderstrecke mit; die
+    Gerätespur gehört keinem Tagebuch und bleibt.
+  - **Eine Fahrt schneidet die Gerätespur nur, solange sie FÄHRT**
+    (`fahrtabschnitte`, Lücken ab 15 Minuten). Fernweh 1.0.21 machte aus einer
+    GPX-Datei mit mehreren Fahrten eine Linie, und 1.0.22 liest sie nicht neu
+    ein, wenn sie zeitlich darin liegt. Von Anfang bis Ende gemessen fiel damit
+    der ganze Tag der Gerätespur weg. Die Namen der Fahrten stehen jetzt in der
+    Vorschau.
+  - **Nicht gemessen (1.0.115):** an keiner echten `.fernweh`-Datei. Dass
+    Fernweh die Zone je Eintrag schreibt, steht im Quelltext dort; gesehen
+    hat es hier niemand. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
