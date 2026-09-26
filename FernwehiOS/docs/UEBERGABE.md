@@ -8,7 +8,8 @@ gleichzeitig.** Neue Felder werden angehängt, nie umbenannt; ein Leser
 
 Erzeugt wird sie in `FernwehiOS/Fernweh/Model/Uebergabe.swift`, gelesen seit
 Reisebuch 1.0.106 in `UrlaubstagebuchiOS/Urlaubstagebuch/Dienste/Fernweheinfuhr.swift`
-(Seiten, Wanderungen und Bildtexte seit Reisebuch 1.0.109).
+(Seiten, Wanderungen und Bildtexte seit Reisebuch 1.0.109, das Wetter des
+Tages seit 1.0.110).
 
 ## Behälter
 
@@ -176,3 +177,17 @@ gewöhnlichen Eintrag mit Titel und Text, die Strecke als Spur (siehe unten).
   `wanderung` nicht kennt, die Strecke. Wer beide kennt, erkennt die Doppelung
   am Präfix `wanderung:`.
 - **`fotos[].text`** — der Text zum Foto, gedacht als Bildunterschrift.
+
+### Wetter des Tages (ab Fernweh 1.0.18)
+
+- **`tage[].wetter`** (Aufbau wie `eintraege[].wetter`) und **`tage[].wetterOrt`**
+  (`name`, `breite`, `laenge`): das Wetter DES TAGES am Ort. Genommen wird
+  das des ersten Eintrags mit Wetter; an einem Tag nur mit Spur holt Fernweh
+  es beim Übergeben am Anfang der Spur. Fehlt, wenn es sich nicht holen ließ.
+  Ein Leser, der beides kennt, nimmt das des Eintrags und `tage[].wetter` nur,
+  wo kein Eintrag eines trägt.
+- **Die Abschnitte heißen seit Fernweh 1.0.18 „Morgens" (6–11), „Mittags"
+  (11–14), „Nachmittags" (14–18), „Nachts" (21–5)** — dieselben Stunden wie
+  vorher unter „Vormittag, Tagsüber, Nachmittag, Nacht". Ältere Dateien tragen
+  die alten Namen; `stunden` steht in beiden Fällen dabei. `name` ist zum
+  Drucken gedacht, nicht zum Vergleichen.

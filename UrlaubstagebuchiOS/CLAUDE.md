@@ -6767,7 +6767,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.109 (Build 110). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.110 (Build 111). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7257,6 +7257,16 @@ Befunde, und keiner davon war Geschmack:
   - **Nicht gemessen (1.0.109):** Keine echte `.fernweh`-Datei mit diesen
     Feldern ist hier gelesen worden — gebaut nach dem Papier. **Nicht als
     erledigt darstellen.**
+- **DAS WETTER DES TAGES STEHT MIT SEINEM ORT DA** (`Fernweheinfuhr.wetterzeile`,
+  ab 1.0.110; Ansage des Nutzers 09/2026 in Fernweh 1.0.18). Fernweh
+  übergibt seither je Tag ein Wetter samt Ort (`tage[].wetter`,
+  `.wetterOrt`), auch für Tage nur mit Spur. Gelesen wird es NUR, wo kein
+  Eintrag des Tages eines trägt — das des Eintrags gilt an dessen Ort. Die
+  Zeile nennt den Ort jetzt („Wetter in Lissabon: Morgens …"), denn an einem
+  Reisetag ist das oft ein anderer als der, an dem abends geschrieben wurde.
+  Die Abschnittsnamen („Morgens, Mittags, Nachmittags, Nachts", in älteren
+  Dateien „Vormittag …") werden gedruckt, wie sie kommen. **Nicht gemessen
+  (1.0.110):** an keiner echten Datei. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

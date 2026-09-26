@@ -66,6 +66,10 @@ struct Uebergabe: Codable {
         var datum: String
         var eintraege: [EintragTeil]
         var spuren: [SpurTeil]?
+        /// Ab 1.0.18: das Wetter DES TAGES am Ort — das des ersten Eintrags
+        /// mit Wetter, an einem Tag nur mit Spur am Anfang der Spur geholt.
+        var wetter: WetterTeil?
+        var wetterOrt: OrtTeil?
     }
 
     struct EintragTeil: Codable {
@@ -209,9 +213,6 @@ enum Uebergabebau {
     }
     private static func uhr(_ d: Date?) -> String? { d.map { Tag.uhrzeit.string(from: $0) } }
 
-    private static let stunden: [String: String] = [
-        "Vormittag": "6–11", "Tagsüber": "11–14", "Nachmittag": "14–18", "Nacht": "21–5",
-    ]
 
     /// Baut die Datei im Zwischenordner und gibt sie zurück. `fortschritt`
     /// meldet (fertig, gesamt) je Foto.
@@ -222,6 +223,11 @@ enum Uebergabebau {
         try FileManager.default.createDirectory(at: ordner, withIntermediateDirectories: true)
         let name = dateiname(reise.anzeigeTitel)
         let ziel = ordner.appendingPathComponent("\(name).fernweh")
+
+        // Fehlendes Wetter vorher nachholen (ab 1.0.18) — sonst ginge ein
+        // Eintrag ohne Wetter ins Buch, nur weil ihn niemand im Editor
+        // geöffnet hat.
+        await Wetternachtrag.nachtragen(reise.eintragListe)
 
         let zip = try ZipSchreiber(ziel: ziel)
         var tage: [Uebergabe.TagTeil] = []
@@ -278,14 +284,7 @@ enum Uebergabebau {
                     ? Uebergabe.OrtTeil(name: e.ortsname ?? "", land: land.isEmpty ? nil : land,
                                         breite: e.breite, laenge: e.laenge, uhrzeit: nil)
                     : nil
-                let wetter = e.tageswetter.map { w in
-                    Uebergabe.WetterTeil(vorhersage: w.vorhersage, geholt: iso(w.geholt) ?? "",
-                                         abschnitte: w.abschnitte.map {
-                        Uebergabe.AbschnittTeil(name: $0.name, stunden: stunden[$0.name] ?? "", code: $0.code,
-                                                beschreibung: $0.beschreibung, tiefst: $0.tiefst,
-                                                hoechst: $0.hoechst, regen: $0.regen)
-                    })
-                }
+                let wetter = e.tageswetter.map(wetterteil)
                 teile.append(Uebergabe.EintragTeil(
                     kennung: (e.kennung ?? UUID()).uuidString, zeitpunkt: iso(e.datum, zone: e.zone),
                     uhrzeit: e.datum == nil ? nil : e.uhrzeitText,
@@ -324,7 +323,17 @@ enum Uebergabebau {
                         })
                 }
             }
-            tage.append(Uebergabe.TagTeil(datum: tagSchluessel, eintraege: teile, spuren: spuren))
+            // Das Wetter des Tages (ab 1.0.18). An einem Tag nur mit Spur
+            // wird es hier geholt — ohne Netz fehlt es eben, die Übergabe
+            // geht trotzdem.
+            let tageswetter = await Wetternachtrag.tag(tagSchluessel, in: reise)
+            tage.append(Uebergabe.TagTeil(
+                datum: tagSchluessel, eintraege: teile, spuren: spuren,
+                wetter: tageswetter.map { wetterteil($0.wetter) },
+                wetterOrt: tageswetter.map {
+                    Uebergabe.OrtTeil(name: $0.ortName, land: nil, breite: $0.ort.latitude,
+                                      laenge: $0.ort.longitude, uhrzeit: nil)
+                }))
         }
 
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -343,6 +352,17 @@ enum Uebergabebau {
         try zip.hinzufuegen("uebergabe.json", daten: try kodierer.encode(inhalt))
         try zip.abschliessen()
         return Ergebnis(datei: ziel, eintraege: eintragZahl, fotos: fotoZahl, fehlend: fehlend, gesperrt: gesperrt)
+    }
+
+    /// Die Abschnitte heißen seit 1.0.18 „Morgens, Mittags, Nachmittags,
+    /// Nachts" — übergeben wird der NAME, wie er in Fernweh dasteht.
+    private static func wetterteil(_ w: Tageswetter) -> Uebergabe.WetterTeil {
+        Uebergabe.WetterTeil(vorhersage: w.vorhersage, geholt: iso(w.geholt) ?? "",
+                             abschnitte: w.abschnitte.map {
+            Uebergabe.AbschnittTeil(name: $0.anzeigename, stunden: Wetterabschnitt.stunden($0.name),
+                                    code: $0.code, beschreibung: $0.beschreibung, tiefst: $0.tiefst,
+                                    hoechst: $0.hoechst, regen: $0.regen)
+        })
     }
 
     private static func wanderteil(_ e: Eintrag) -> Uebergabe.WanderTeil {

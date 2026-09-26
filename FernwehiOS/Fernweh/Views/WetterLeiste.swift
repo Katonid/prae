@@ -13,7 +13,7 @@ struct WetterLeiste: View {
                         Image(systemName: a.symbol).symbolRenderingMode(.multicolor)
                         Text("\(Int(a.hoechst.rounded()))°")
                     }
-                    .accessibilityLabel("\(a.name): \(a.beschreibung), \(a.temperatur)")
+                    .accessibilityLabel("\(a.anzeigename): \(a.beschreibung), \(a.temperatur)")
                 }
             }
             .font(.caption.weight(.semibold))
@@ -23,7 +23,7 @@ struct WetterLeiste: View {
                 HStack(spacing: 0) {
                     ForEach(wetter.abschnitte) { a in
                         VStack(spacing: 5) {
-                            Text(a.name)
+                            Text(a.anzeigename)
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                             Image(systemName: a.symbol)

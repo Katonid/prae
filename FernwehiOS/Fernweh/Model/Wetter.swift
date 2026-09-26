@@ -46,7 +46,36 @@ struct Wetterabschnitt: Codable, Equatable, Identifiable {
         return a == b ? "\(a)°" : "\(a)–\(b)°"
     }
 
-    var symbol: String { Wettercode.symbol(code, nacht: name == "Nacht") }
+    /// Der Name, wie er dasteht: „Morgens, Mittags, Nachmittags, Nachts"
+    /// (ab 1.0.18, Ansage des Nutzers 09/2026 — so sagt man es). Bis 1.0.17
+    /// hießen die Abschnitte „Vormittag, Tagsüber, Nachmittag, Nacht", und
+    /// so stehen sie in jedem schon gespeicherten Eintrag; übersetzt wird
+    /// beim ZEIGEN, gespeichert bleibt, was dasteht. Die Stunden sind
+    /// dieselben geblieben.
+    var anzeigename: String { Self.anzeigename(name) }
+
+    static func anzeigename(_ name: String) -> String {
+        switch name {
+        case "Vormittag": return "Morgens"
+        case "Tagsüber": return "Mittags"
+        case "Nachmittag": return "Nachmittags"
+        case "Nacht": return "Nachts"
+        default: return name
+        }
+    }
+
+    /// Die Stunden eines Abschnitts in Ortszeit, für die Übergabe.
+    static func stunden(_ name: String) -> String {
+        switch anzeigename(name) {
+        case "Morgens": return "6–11"
+        case "Mittags": return "11–14"
+        case "Nachmittags": return "14–18"
+        case "Nachts": return "21–5"
+        default: return ""
+        }
+    }
+
+    var symbol: String { Wettercode.symbol(code, nacht: anzeigename == "Nachts") }
     var beschreibung: String { Wettercode.text(code) }
 }
 
@@ -128,10 +157,10 @@ enum Wetterdienst {
     /// Die vier Abschnitte: Stunden der Ortszeit. Die Nacht reicht bis in
     /// den frühen Morgen des Folgetages.
     private static let abschnitte: [(String, [(tag: Int, stunde: Int)])] = [
-        ("Vormittag", (6...10).map { (0, $0) }),
-        ("Tagsüber", (11...13).map { (0, $0) }),
-        ("Nachmittag", (14...17).map { (0, $0) }),
-        ("Nacht", (21...23).map { (0, $0) } + (0...4).map { (1, $0) }),
+        ("Morgens", (6...10).map { (0, $0) }),
+        ("Mittags", (11...13).map { (0, $0) }),
+        ("Nachmittags", (14...17).map { (0, $0) }),
+        ("Nachts", (21...23).map { (0, $0) } + (0...4).map { (1, $0) }),
     ]
 
     static func wetter(am tag: Date, bei koordinate: CLLocationCoordinate2D) async throws -> Tageswetter {
