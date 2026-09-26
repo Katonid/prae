@@ -203,6 +203,19 @@ enum Fahrtenimport {
 }
 
 extension Reise {
+    /// Die Ortszeit eines Tages (ab 1.0.24, für die Uhrzeiten auf der
+    /// Karte): die eines Eintrags mit gespeicherter Zone, sonst die einer
+    /// Fahrt dieses Tages, sonst die des Geräts.
+    func zone(am schluessel: String) -> TimeZone {
+        for e in eintragListe where e.tagSchluessel == schluessel {
+            if let z = e.zeitzone, !z.isEmpty, let zone = TimeZone(identifier: z) { return zone }
+        }
+        if let f = spurListe.first(where: { $0.tag == schluessel && $0.istFahrt }) {
+            return Fahrtenimport.zone(f)
+        }
+        return .current
+    }
+
     /// Die Fahrten eines Tages, nach Start.
     func fahrten(am schluessel: String) -> [Spur] {
         spurListe.filter { $0.tag == schluessel && $0.istFahrt }

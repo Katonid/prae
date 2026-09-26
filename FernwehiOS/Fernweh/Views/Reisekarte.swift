@@ -17,10 +17,17 @@ struct Reisekarte: View {
     /// Jedes Foto mit Ort als kleines Bild (ab 1.0.17) — nur in der
     /// Vollbildkarte, im Kopf der Reise wären es zu viele auf zu wenig Platz.
     var fotosZeigen = false
+    /// Die Messpunkte als kleine Kreise (ab 1.0.24) — nur im Vollbild.
+    var punkteZeigen = false
 
     @State private var linien: [Linie] = []
     @State private var wanderlinien: [Linie] = []
     @State private var fotopunkte: [Fotopunkt] = []
+    /// Alle Punkte der Linien mit Uhrzeit (ab 1.0.24) — für den Tipp.
+    @State private var zeitpunkte: [Zeitpunkt] = []
+    /// Die gezeigten Messpunkte, höchstens 400.
+    @State private var messpunkte: [Zeitpunkt] = []
+    @State private var gewaehlt: Zeitpunkt?
     @State private var position: MapCameraPosition = .automatic
 
     struct Linie: Identifiable {
@@ -57,6 +64,39 @@ struct Reisekarte: View {
     }
 
     var body: some View {
+        // Den Tipp nimmt die Karte NUR im Vollbild: Im Kopf der Reise
+        // öffnet ein Tipp die Vollkarte (Geste des Umgebenden), und eine
+        // eigene Geste hier schluckte ihn.
+        Group {
+            if interaktiv {
+                MapReader { proxy in
+                    karte.onTapGesture { ort in antippen(ort, proxy: proxy) }
+                }
+            } else {
+                karte
+            }
+        }
+        .task(id: schluessel) { await linienLaden() }
+        .onChange(of: punkteZeigen) { _, an in
+            messpunkte = an ? Zeitsuche.auswahl(zeitpunkte, hoechstens: 400) : []
+        }
+    }
+
+    /// Ein Tipp auf die Karte: der nächste Punkt einer Linie samt Uhrzeit —
+    /// oder, daneben, die Blase schließen.
+    private func antippen(_ ort: CGPoint, proxy: MapProxy) {
+        guard let ziel = proxy.convert(ort, from: .local),
+              let toleranz = Zeitsuche.toleranz(proxy, bei: ort) else { return }
+        withAnimation(.snappy(duration: 0.2)) {
+            gewaehlt = Zeitsuche.naechster(zu: ziel, in: zeitpunkte, toleranz: toleranz)
+        }
+    }
+
+    private func linienfarbe(_ art: Spurart) -> Color {
+        farben.farbe(art, palette: reise.palette)
+    }
+
+    private var karte: some View {
         Map(position: $position, interactionModes: interaktiv ? .all : []) {
             ForEach(linien.filter { $0.art == .reisespur }) { linie in
                 MapPolyline(coordinates: linie.punkte)
@@ -94,6 +134,10 @@ struct Reisekarte: View {
                     .annotationTitles(.hidden)
                 }
             }
+            ForEach(messpunkte) { p in
+                Annotation("", coordinate: p.koordinate) { Messpunkt(farbe: linienfarbe(p.art)) }
+                    .annotationTitles(.hidden)
+            }
             ForEach(eintraege) { eintrag in
                 if let ort = eintrag.koordinate {
                     Annotation(eintrag.anzeigeTitel, coordinate: ort, anchor: .bottom) {
@@ -102,9 +146,14 @@ struct Reisekarte: View {
                     .annotationTitles(interaktiv ? .automatic : .hidden)
                 }
             }
+            if let gewaehlt {
+                Annotation("", coordinate: gewaehlt.koordinate, anchor: .bottom) {
+                    Zeitblase(punkt: gewaehlt, farbe: linienfarbe(gewaehlt.art), mitTag: tag == nil)
+                }
+                .annotationTitles(.hidden)
+            }
         }
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
-        .task(id: schluessel) { await linienLaden() }
     }
 
     private var schluessel: String {
@@ -117,27 +166,46 @@ struct Reisekarte: View {
         let schluessel = tag.map(Tag.schluessel)
         let spuren = reise.spurListe.filter { schluessel == nil || $0.tag == schluessel }
         let ich = Geraet.kennung
-        let pakete = spuren.map { (id: "\($0.tag ?? "")|\($0.geraet ?? "")", daten: $0.punkte, eigene: $0.geraet == ich,
-                                   art: $0.spurart) }
-        let fertig: [Linie] = await Task.detached(priority: .userInitiated) {
-            pakete.compactMap { paket in
+        // Name und Ortszeit je Linie (ab 1.0.24) — für die Uhrzeit im
+        // Tipp: eine Fahrt trägt ihre Zone, eine Gerätespur nimmt die des
+        // Tages (`Reise.zone(am:)`).
+        let pakete = spuren.map { s in
+            (id: "\(s.tag ?? "")|\(s.geraet ?? "")", daten: s.punkte, eigene: s.geraet == ich, art: s.spurart,
+             name: s.istFahrt ? Fahrtenimport.name(s) : (s.reisender ?? ""),
+             zone: s.istFahrt ? Fahrtenimport.zone(s) : reise.zone(am: s.tag ?? ""))
+        }
+        let (fertig, spurzeiten): ([Linie], [Zeitpunkt]) = await Task.detached(priority: .userInitiated) {
+            var linien: [Linie] = []
+            var zeiten: [Zeitpunkt] = []
+            for paket in pakete {
                 // Für die Übersicht genügt ein Punkt je 40 m.
                 let punkte = Spurpunkt.ausgeduennt(Spurpunkt.entpacken(paket.daten), abstand: 40)
-                guard punkte.count > 1 else { return nil }
-                return Linie(id: paket.id, punkte: punkte.map(\.koordinate), eigene: paket.eigene, art: paket.art)
+                guard punkte.count > 1 else { continue }
+                linien.append(Linie(id: paket.id, punkte: punkte.map(\.koordinate), eigene: paket.eigene, art: paket.art))
+                zeiten += Zeitsuche.punkte(punkte, art: paket.art, name: paket.name, zone: paket.zone)
             }
+            return (linien, zeiten)
         }.value
         linien = fertig
 
         let wander = eintraege.filter { $0.eintragsart == .wanderung }
-            .map { (id: $0.objectID.uriRepresentation().absoluteString, daten: $0.strecke) }
-        wanderlinien = await Task.detached(priority: .userInitiated) {
-            wander.compactMap { w in
+            .map { (id: $0.objectID.uriRepresentation().absoluteString, daten: $0.strecke,
+                    name: $0.anzeigeTitel, zone: $0.zone) }
+        let (wanderfertig, wanderzeiten): ([Linie], [Zeitpunkt]) = await Task.detached(priority: .userInitiated) {
+            var linien: [Linie] = []
+            var zeiten: [Zeitpunkt] = []
+            for w in wander {
                 let punkte = Spurpunkt.ausgeduennt(Spurpunkt.entpacken(w.daten), abstand: 30)
-                guard punkte.count > 1 else { return nil }
-                return Linie(id: w.id, punkte: punkte.map(\.koordinate), eigene: true)
+                guard punkte.count > 1 else { continue }
+                linien.append(Linie(id: w.id, punkte: punkte.map(\.koordinate), eigene: true))
+                zeiten += Zeitsuche.punkte(punkte, art: .wanderung, name: w.name, zone: w.zone)
             }
+            return (linien, zeiten)
         }.value
+        wanderlinien = wanderfertig
+        zeitpunkte = (spurzeiten + wanderzeiten).sorted { $0.zeit < $1.zeit }
+        messpunkte = punkteZeigen ? Zeitsuche.auswahl(zeitpunkte, hoechstens: 400) : []
+        gewaehlt = nil
 
         // Fotos: eines je 25 m, höchstens 300 — sonst liegen an einem
         // Aussichtspunkt vierzig Bilder aufeinander.
@@ -197,16 +265,19 @@ struct Vollkarte: View {
     @State private var tag: Date?
     @State private var fotos = true
     @State private var farbenZeigen = false
+    /// Messpunkte zeigen (ab 1.0.24) — gemerkt je Gerät.
+    @AppStorage("fernweh.kartenpunkte") private var punkte = false
 
     var body: some View {
         NavigationStack {
-            Reisekarte(reise: reise, interaktiv: true, tag: tag, fotosZeigen: fotos)
+            Reisekarte(reise: reise, interaktiv: true, tag: tag, fotosZeigen: fotos, punkteZeigen: punkte)
                 .id(tag.map(Tag.schluessel) ?? "alle")
                 .ignoresSafeArea(edges: .bottom)
                 .safeAreaInset(edge: .bottom) {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             Knopf(text: "Fotos", an: fotos) { fotos.toggle() }
+                            Knopf(text: "Punkte", an: punkte) { punkte.toggle() }
                             Divider().frame(height: 22)
                             Knopf(text: "Ganze Reise", an: tag == nil) { tag = nil }
                             ForEach(Array(reise.bisherigeTage.enumerated()), id: \.offset) { nummer, t in
@@ -217,6 +288,16 @@ struct Vollkarte: View {
                         .padding(.vertical, 10)
                     }
                     .background(.ultraThinMaterial)
+                }
+                // Ein Hinweis, dass die Linie antwortet (ab 1.0.24).
+                .safeAreaInset(edge: .top) {
+                    Label("Tippe auf eine Linie: Wann warst du dort?", systemImage: "hand.tap")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.top, 6)
+                        .allowsHitTesting(false)
                 }
                 .navigationTitle(reise.anzeigeTitel)
                 .navigationBarTitleDisplayMode(.inline)

@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -455,6 +455,26 @@
     Fehler. Dazu „Meldung kopieren". Eine Zusammenfassung „CKErrorDomain-
     Fehler 2" allein ist keine Auskunft — **wer Fehler zeigt, zeigt die
     Teilfehler mit.**
+- **Wann war ich hier? — Uhrzeit per Tipp auf die Linie** (`Views/Zeitauswahl.swift`,
+  ab 1.0.24; Ansage des Nutzers 09/2026: „die einzelnen Punkte der Reise
+  anzeigen … durch Auswählen auf der Karte anzeigen …, um welche Uhrzeit ich
+  an diesem Ort war"). In der Vollkarte der Reise und im Vollbild eines Tages
+  bzw. einer Wanderung sucht ein Tipp den nächsten Punkt einer Linie (Spur,
+  Fahrt, Wanderung) innerhalb von 32 Bildpunkten — in Meter umgerechnet über
+  `MapProxy` — und zeigt eine Blase: Uhrzeit in ORTSZEIT (Fahrt: ihre Zone;
+  Gerätespur: `Reise.zone(am:)` = Zone eines Eintrags des Tages, sonst einer
+  Fahrt, sonst des Geräts; Wanderung: die des Eintrags), auf der ganzen Reise
+  mit Tag, dazu Art und Name. Ein Tipp daneben schließt sie.
+  - **Nur die bedienbaren Karten nehmen den Tipp.** Im Kopf der Reise öffnet
+    ein Tipp weiter die Vollkarte — eine eigene Geste der Karte schluckte ihn
+    (deshalb `if interaktiv { MapReader … }`).
+  - **„Punkte"** (Knopf in der Vollkarte bzw. Rasterzeichen im Vollbild,
+    `@AppStorage("fernweh.kartenpunkte")`) blendet die Messpunkte als kleine
+    Kreise ein, gleichmäßig verteilt, höchstens 400 — über eine Reise sind
+    es sonst Zehntausende Annotationen. Gesucht wird trotzdem in ALLEN
+    (40 m gedünnt), flach gerechnet.
+  - **Nicht gemessen**: kein Gerät; ob der Tipp neben den Pan-/Zoom-Gesten
+    der Karte sauber ankommt, ist nicht gesehen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
