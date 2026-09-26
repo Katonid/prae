@@ -39,7 +39,9 @@ enum Seitenbeiwerk {
         // und nicht nur an `ohneSeitenzahl` — er trägt seit 1.0.52 gar
         // keine Seitenzahl mehr, weil er im Buchblock nicht mitzählt, und
         // eine 0 unter der Rückseite wäre schlicht falsch.
-        guard !buchseite.amUmschlag, !buchseite.seite.ohneSeitenzahl else { return [] }
+        // U2 und U3 tragen auch dann keine, wenn sie im Innenteil stehen
+        // (ab 1.0.112): Ihre Nummer ist 0, und dort wird verklebt.
+        guard buchseite.teil == .innen, !buchseite.seite.ohneSeitenzahl else { return [] }
 
         let endformat = reise.format.groesse
         let satz = reise.gestaltung.satzspiegel(reise.format)

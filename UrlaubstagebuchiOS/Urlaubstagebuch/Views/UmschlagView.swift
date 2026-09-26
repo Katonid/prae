@@ -73,6 +73,10 @@ struct UmschlagView: View {
                         if umschlag.innenseitenBogen {
                             Toggle("Erste und letzte Seite dorthin setzen",
                                    isOn: $werk.reise.umschlag.innenseitenInhalt)
+                            if umschlag.innenseitenInhalt {
+                                Toggle("U2 und U3 im Innenteil ausgeben",
+                                       isOn: $werk.reise.umschlag.innenseitenImBlock)
+                            }
                             if umschlag.innenseitenInhalt, !werk.reise.umschlagTraegtInhalt {
                                 Label("Dafür sind zu wenige Seiten da.",
                                       systemImage: "exclamationmark.triangle")
@@ -398,7 +402,7 @@ struct UmschlagView: View {
             text += "Nennt die Druckerei nur die Bogenbreite, folgt daraus wie bisher "
             text += "allein die Rückenstärke. "
         }
-        if umschlag.format != nil, werk.reise.umschlagTraegtInhalt {
+        if umschlag.format != nil, werk.reise.umschlagTraegtInhalt, !umschlag.innenseitenImBlock {
             text += "Achtung: Die erste und die letzte Tagebuchseite stehen auf U2 und U3, "
             text += "also auf dem Umschlagbogen \u{2014} gesetzt wurden sie aber für das "
             text += "Format des Buchblocks. Auf der größeren Umschlaghälfte bleibt deshalb "
@@ -418,6 +422,24 @@ struct UmschlagView: View {
             text += "Ma\u{00DF}stab); l\u{00E4}uft ein Hintergrundbild \u{00FC}ber die "
             text += "Doppelseite, verteilt es sich ebenfalls neu. Der Satz selbst bleibt "
             text += "unangetastet \u{2014} umlegen und zur\u{00FC}cknehmen kostet nichts. "
+            if umschlag.innenseitenImBlock {
+                text += "**U2 und U3 stehen im Innenteil** \u{2014} so will es Saal Digital: "
+                text += "Die erste Seite der Innenteil-Datei ist LINKS, die Innenseite des "
+                text += "vorderen Deckels; sie wird bedruckt und verklebt. Die letzte ist "
+                text += "RECHTS und wird hinten verklebt. Beide zählen in der Seitenzahl mit, "
+                text += "und die Umschlagdatei trägt nur noch die Außenseite. Sie bekommen "
+                text += "das Maß des Buchblocks und keine Seitenzahl. "
+                if geht {
+                    text += "Der Innenteil hat damit \(werk.reise.innenseiten) Seiten, und "
+                    text += "die R\u{00FC}ckenbreite rechnet mit dieser Zahl."
+                } else {
+                    text += "Es greift erst ab vier Inhaltsseiten."
+                }
+                if Druckprodukt.produkt(umschlag.tabellenvorlage) != nil {
+                    text += " " + Druckprodukt.strichcodeText
+                }
+                return text
+            }
             if geht {
                 let seiten = werk.reise.innenseiten
                 text += "Der Buchblock hat damit \(seiten) Seiten, und die R\u{00FC}ckenbreite "

@@ -746,7 +746,9 @@ enum Druckpruefung {
         // nicht dazu — sie füllen die größere Hälfte nicht aus. Das wird
         // gesagt und nicht stillschweigend hingenommen; verschieben lässt
         // es sich nur von Hand.
-        if reise.umschlag.format != nil, reise.umschlagTraegtInhalt {
+        if reise.umschlag.format != nil, reise.umschlagTraegtInhalt,
+           !reise.umschlag.innenseitenImBlock
+        {
             var wort = "Die erste und die letzte Tagebuchseite stehen auf den Innenseiten "
             wort += "des Umschlags. Gesetzt wurden sie für das Format des Buchblocks "
             wort += "(\(Druckvorgabe.zahl(reise.format.breite)) x "

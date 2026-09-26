@@ -79,7 +79,18 @@ struct Buchseite: Identifiable, Equatable {
     /// `seitenfolge`, der einen Stelle für beides.
     var bogen: Int = 0
 
-    var amUmschlag: Bool { teil != .innen }
+    /// Stehen U2 und U3 im INNENTEIL statt auf dem Umschlag? (ab 1.0.112)
+    ///
+    /// Vergeben in `seitenfolge`, wie Nummer und Bogen — die Buchseite
+    /// kennt die Reise nicht, und jede Frage, die daran hängt (Maß,
+    /// Satzspiegel, Datei), soll an der Seite selbst ablesbar sein.
+    var imBlock: Bool = false
+
+    /// Liegt diese Seite auf dem UMSCHLAGBOGEN? U2 und U3 tun das, außer
+    /// sie gehören zum Innenteil (Saal Digital, `Umschlag.innenseitenImBlock`)
+    /// — dann gelten für sie Maß, Anschnitt und Satzspiegel des Buchblocks,
+    /// und sie stehen in dessen Datei.
+    var amUmschlag: Bool { teil != .innen && !imBlock }
 
     /// Gehört diese Seite in die UMSCHLAGDATEI? (ab 1.0.99)
     ///
@@ -326,7 +337,12 @@ extension Reise {
         // dem Buchblock heraus. Das ist nicht bloß Kosmetik: An dieser
         // Zahl hängt die RÜCKENBREITE, und ein Rücken, der zwei Seiten zu
         // dick gerechnet ist, passt nicht auf das gebundene Buch.
-        if umschlagTraegtInhalt { anzahl = max(0, anzahl - 2) }
+        //
+        // **Außer sie gehören zum Innenteil** (ab 1.0.112): Bei Saal Digital
+        // stehen U2 und U3 in der Datei des Innenteils und zählen in seiner
+        // Seitenzahl mit — und an genau dieser Zahl hängt seine
+        // Rückentabelle.
+        if umschlagTraegtInhalt, !umschlag.innenseitenImBlock { anzahl = max(0, anzahl - 2) }
         // SCHMUTZTITEL UND SCHLUSSSEITE ZÄHLEN MIT (ab 1.0.98) — genau
         // dafür gibt es sie. Sie stehen VOR dem Ausgleich in der
         // Rechnung: Der bringt den Block auf eine gerade Zahl und muss
@@ -487,8 +503,10 @@ extension Reise {
         let aufUmschlag = umschlagTraegtInhalt
         let block = aufUmschlag ? Array(alle.dropFirst().dropLast()) : alle
         if aufUmschlag, let erste = alle.first {
-            folge.append(Buchseite(seite: erste.seite, tag: erste.tag,
-                                   teil: .innenVorn, nummer: 0))
+            var u2 = Buchseite(seite: erste.seite, tag: erste.tag,
+                               teil: .innenVorn, nummer: 0)
+            u2.imBlock = umschlag.innenseitenImBlock
+            folge.append(u2)
         }
         // DER SCHMUTZTITEL STEHT VOR ALLEM ANDEREN (ab 1.0.98) — also
         // hinter der Titelseite und vor dem ersten Tag. Er zählt als
@@ -535,8 +553,10 @@ extension Reise {
         // U3 kommt ganz zuletzt — im aufgeschlagenen Buch rechts neben der
         // letzten Seite des Blocks.
         if aufUmschlag, let letzte = alle.last {
-            folge.append(Buchseite(seite: letzte.seite, tag: letzte.tag,
-                                   teil: .innenHinten, nummer: 0))
+            var u3 = Buchseite(seite: letzte.seite, tag: letzte.tag,
+                               teil: .innenHinten, nummer: 0)
+            u3.imBlock = umschlag.innenseitenImBlock
+            folge.append(u3)
         }
         // DER BOGEN WIRD HIER VERGEBEN, wo auch die Nummer vergeben wird.
         // Für den Buchblock folgt er aus der Nummer; die beiden
@@ -656,9 +676,9 @@ enum Buchausgabe {
             // Seite vor dem Titel — eine Reihenfolge, die es im gebundenen
             // Buch nirgends gibt. Die Titelseite bleibt dagegen drin: Wer
             // eine Datei für alles ausgibt, will sie vorn haben.
-            gefiltert = gefiltert.filter {
-                $0.teil != .rueckseite && $0.teil != .innenVorn && $0.teil != .innenHinten
-            }
+            // U2 und U3 bleiben drin, wenn sie zum Innenteil gehören
+            // (ab 1.0.112) — dann sind sie dessen erste und letzte Seite.
+            gefiltert = gefiltert.filter { $0.teil == .titel || !$0.amUmschlag }
         }
         guard !gefiltert.isEmpty else { throw Fehler.keineSeiten }
         // Ab hier unveränderlich: Eine `var`, die aus einem nebenläufigen
@@ -1067,7 +1087,13 @@ enum Buchausgabe {
         // Blöcke. Der Rückentext gehört auf die Außenseite; ihn hier noch
         // einmal zu setzen hieße, ihn im fertigen Buch zweimal zu haben,
         // einmal davon unsichtbar zwischen Deckel und erster Seite.
-        if reise.umschlag.innenseitenBogen || reise.umschlagTraegtInhalt {
+        //
+        // **Nicht, wenn U2 und U3 zum Innenteil gehören** (ab 1.0.112): Dann
+        // stehen sie dort, und Saal Digital erwartet eine Umschlagdatei mit
+        // genau EINER Seite.
+        if reise.umschlag.innenseitenBogen || reise.umschlagTraegtInhalt,
+           !reise.umschlag.innenseitenImBlock
+        {
             zusammenhang.beginPDFPage(seiteninfo as CFDictionary)
             zusammenhang.saveGState()
             zusammenhang.translateBy(x: 0, y: bogen.height)
@@ -1255,7 +1281,9 @@ enum Buchausgabe {
     // ausgegeben, sonst fehlten Seite 1 und die letzte — ihre leere Hälfte
     // bleibt weiß, und die Befundzeile sagt es.
     //
-    // **Nur der Buchblock** (`teil == .innen`). Der Umschlag ist ein eigenes
+    // **Nur der Buchblock** (`!amUmschlag` — seit 1.0.112 samt U2 und U3,
+    // wenn sie zum Innenteil gehören; dann gibt es keinen halben Bogen
+    // mehr). Der Umschlag ist ein eigenes
     // Stück Papier mit eigener Breite und eigenem Rücken; er hat in dieser
     // Datei nichts zu suchen und wird mit „Nur der Umschlagbogen“ einzeln
     // ausgegeben. Gibt es keinen Umschlagbogen, ist die Titelseite die
@@ -1264,7 +1292,11 @@ enum Buchausgabe {
                                 fortschritt: @escaping @MainActor (Double) -> Void)
         async throws -> URL
     {
-        let seiten = reise.seitenfolge.filter { $0.teil == .innen }
+        // Alles, was nicht auf dem Umschlagbogen liegt — also auch U2 und U3,
+        // wenn sie zum Innenteil gehören (ab 1.0.112). Dann ist der erste
+        // Bogen U2 | Seite 1 und der letzte die letzte Seite | U3, und kein
+        // Bogen bleibt halb.
+        let seiten = reise.seitenfolge.filter { !$0.amUmschlag }
         guard !seiten.isEmpty else { throw Fehler.keineSeiten }
 
         var bogenfolge: [(links: Buchseite?, rechts: Buchseite?)] = []
@@ -1363,7 +1395,9 @@ enum Buchausgabe {
     // aus, wenn niemand sagt, dass sie das Buch sind. Gezählt wird hier
     // und nicht geraten: dieselbe Paarung, die auch die Datei schreibt.
     static func doppelseitenbefund(_ reise: Reise) -> (bogen: Int, halbe: Int) {
-        let seiten = reise.seitenfolge.filter { $0.teil == .innen }
+        // Dieselbe Auswahl wie `doppelseitenPdf` — seit 1.0.112 also samt
+        // U2 und U3, wenn sie zum Innenteil gehören.
+        let seiten = reise.seitenfolge.filter { !$0.amUmschlag }
         let nachBogen = Dictionary(grouping: seiten, by: \.bogennummer)
         var halbe = 0
         for gruppe in nachBogen.values where gruppe.count < 2 { halbe += 1 }
