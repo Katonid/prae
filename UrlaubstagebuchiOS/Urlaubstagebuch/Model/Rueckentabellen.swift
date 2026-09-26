@@ -147,7 +147,15 @@ enum Rueckentabellen {
 
     static let alle: [Vorlage] = [saal21x28, saal28x28, saal28x19]
 
-    static func vorlage(_ id: String) -> Vorlage? { alle.first { $0.id == id } }
+    // Die Druckprodukte (ab 1.0.111) bringen ihre Tabelle mit, und die wird
+    // hier nachgeschlagen, wenn ein Produkt sie als `tabellenvorlage`
+    // eingetragen hat. In `alle` stehen sie NICHT: `passend(zu:)` ginge sonst
+    // über 51 Tabellen, von denen viele dasselbe Format tragen, und nähme
+    // still die erste — welche Papiersorte gemeint ist, weiß nur, wer das
+    // Produkt gewählt hat.
+    static func vorlage(_ id: String) -> Vorlage? {
+        alle.first { $0.id == id } ?? Druckprodukt.produkt(id)?.rueckentabelle
+    }
 
     // MARK: - Welche Tabelle zu einem Format gehört
 

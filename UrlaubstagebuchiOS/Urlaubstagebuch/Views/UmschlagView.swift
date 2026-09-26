@@ -536,6 +536,14 @@ struct UmschlagView: View {
                 ForEach(Rueckentabellen.alle) { vorlage in
                     Text(vorlage.produkt).tag(Tabellenwahl.vorlage(vorlage.id))
                 }
+                // Die Tabelle eines gewählten Druckprodukts (ab 1.0.111) steht
+                // nicht in `alle` — ohne diese Zeile stünde der Picker leer da,
+                // als gälte gar keine.
+                if let id = werk.reise.umschlag.tabellenvorlage,
+                   let produkt = Druckprodukt.produkt(id)
+                {
+                    Text(produkt.vollerName).tag(Tabellenwahl.vorlage(id))
+                }
                 Text("Keine").tag(Tabellenwahl.keine)
             }
             if let vorlage = geltendeVorlage {

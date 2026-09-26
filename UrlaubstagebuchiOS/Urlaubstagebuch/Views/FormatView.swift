@@ -24,6 +24,11 @@ struct FormatView: View {
     @State private var bogenBreite: String = ""
     @State private var bogenHoehe: String = ""
     @State private var wechsel: Formatwechsel.Vorschau?
+    // Ein Druckprodukt (ab 1.0.111): erst das Blatt mit dem, was sich
+    // ändert, dann — nach dem Formatwechsel — die Maße der Druckerei.
+    @State private var produktwahl: Druckprodukt?
+    @State private var produktFolge: Druckprodukt?
+    @State private var nachWechsel: Druckprodukt?
     // EIGENE VORLAGEN (ab 1.0.52). Sie liegen in den Voreinstellungen und
     // nicht im Buch — welche Formate ein Druckdienst anbietet, ist keine
     // Eigenschaft dieser einen Reise. Gemerkt werden sie hier als
@@ -94,6 +99,8 @@ struct FormatView: View {
                         .foregroundStyle(ausBogen == nil && !bogenBreite.isEmpty
                             ? Color.red : Color.secondary)
                 }
+
+                produktabschnitt
 
                 Section {
                     ForEach(Seitenformat.vorlagen) { vorlage in
@@ -245,8 +252,11 @@ struct FormatView: View {
             // ERST ZEIGEN, DANN ÜBERNEHMEN — dieselbe Regel wie bei jeder
             // Einfuhr dieser App. Ein Formatwechsel fasst jeden Block des
             // Buches an; wer ihn auslöst, soll vorher lesen, was passiert.
-            .sheet(item: $wechsel) { vorschau in
-                Wechselblatt(werk: werk, vorschau: vorschau) { schliessen() }
+            .sheet(item: $wechsel, onDismiss: { nachWechsel = nil }) { vorschau in
+                Wechselblatt(werk: werk, vorschau: vorschau, danach: nachWechsel) { schliessen() }
+            }
+            .sheet(item: $produktwahl, onDismiss: produktUebernehmen) { produkt in
+                Produktblatt(werk: werk, produkt: produkt) { produktFolge = produkt }
             }
         }
     }
@@ -323,6 +333,64 @@ struct FormatView: View {
         return String(format: "%.1f", gerundet).replacingOccurrences(of: ".", with: ",")
     }
 
+    // DRUCKPRODUKTE (ab 1.0.111). Eine Reihe je Aufklapper: 51 Produkte
+    // untereinander wären eine Liste, in der niemand sein Format findet.
+    private var produktabschnitt: some View {
+        Section {
+            if let gewaehlt = Druckprodukt.produkt(jetzt.vorlage) {
+                LabeledContent("Gewählt", value: gewaehlt.titel)
+            }
+            ForEach(Druckprodukt.reihen, id: \.self) { reihe in
+                DisclosureGroup(reihe) {
+                    ForEach(Druckprodukt.alle.filter { $0.reihe == reihe }) { produkt in
+                        Button { produktwahl = produkt } label: { produktzeile(produkt) }
+                    }
+                }
+            }
+        } header: {
+            Text("Druckprodukte \u{00B7} Saal Digital")
+        } footer: {
+            Text("Ein Produkt setzt alles, was die Druckerei vorgibt, auf einmal: Seitenformat, Beschnitt, das Maß des Umschlags und die Rückenbreite nach Seitenzahl. Ränder, Schrift und Stil bleiben, wie sie sind. Die Zahlen stammen von Saals Seite \u{201E}Profibereich\u{201C}, Stand \(Saalprodukte.stand) \u{2014} verbindlich ist, was Saal bei der Bestellung nennt.")
+        }
+    }
+
+    private func produktzeile(_ produkt: Druckprodukt) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(produkt.name).foregroundStyle(.primary)
+                Text(produkt.seitenformat.masstext + " \u{00B7} " + produkt.papiere)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Seitenriss(format: produkt.seitenformat)
+            if produkt.id == jetzt.vorlage {
+                Image(systemName: "checkmark").foregroundStyle(.tint)
+            }
+        }
+    }
+
+    // Erst NACH dem Blatt: Zwei Blätter übereinander gehen nicht, und der
+    // Formatwechsel hat sein eigenes.
+    private func produktUebernehmen() {
+        guard let produkt = produktFolge else { return }
+        produktFolge = nil
+        let neu = produkt.seitenformat
+        if neu.millimeter == jetzt.millimeter {
+            werk.merken()
+            werk.reise.format = neu
+            produkt.anwenden(auf: &werk.reise)
+            werk.meldung = .init(text: "\(produkt.vollerName) übernommen.")
+            schliessen()
+            return
+        }
+        // Die Maße des Umschlags kommen NACH dem Umrechnen: `Formatwechsel`
+        // rechnet ein eigenes Umschlagformat mit, und dann stünde die
+        // Hälfte des Produkts um den Faktor daneben.
+        nachWechsel = produkt
+        wechsel = Formatwechsel.vorschau(reise: werk.reise, auf: neu)
+    }
+
     private func formatWuenschen(_ neu: Seitenformat) {
         guard neu.millimeter != jetzt.millimeter else {
             // Dasselbe Maß unter einem anderen Namen — nur die Vorlage
@@ -355,6 +423,8 @@ private struct Seitenriss: View {
 private struct Wechselblatt: View {
     @ObservedObject var werk: Reisewerk
     let vorschau: Formatwechsel.Vorschau
+    /// Ein Druckprodukt, dessen übrige Maße NACH dem Wechsel gelten.
+    var danach: Druckprodukt? = nil
     let fertig: () -> Void
     @Environment(\.dismiss) private var schliessen
 
@@ -393,6 +463,7 @@ private struct Wechselblatt: View {
                     Button("Format wechseln und Inhalt mitrechnen") {
                         werk.merken()
                         Formatwechsel.umrechnen(&werk.reise, auf: vorschau.neu)
+                        danach?.anwenden(auf: &werk.reise)
 
                         schliessen()
                         fertig()
@@ -400,6 +471,7 @@ private struct Wechselblatt: View {
                     Button("Nur das Format wechseln, Inhalt lassen") {
                         werk.merken()
                         werk.reise.format = vorschau.neu
+                        danach?.anwenden(auf: &werk.reise)
 
                         schliessen()
                         fertig()
@@ -425,4 +497,77 @@ private struct Wechselblatt: View {
 
 extension Formatwechsel.Vorschau: Identifiable {
     var id: String { alt.id + "-" + neu.id }
+}
+
+// WAS EIN DRUCKPRODUKT ÄNDERT, STEHT VORHER DA (ab 1.0.111) — dieselbe Regel
+// wie bei jeder Einfuhr dieser App: erst zeigen, dann übernehmen.
+private struct Produktblatt: View {
+    @ObservedObject var werk: Reisewerk
+    let produkt: Druckprodukt
+    let uebernehmen: () -> Void
+    @Environment(\.dismiss) private var schliessen
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Reihe", value: produkt.reihe)
+                    LabeledContent("Format", value: produkt.name)
+                    LabeledContent("Papier", value: produkt.papiere)
+                } header: {
+                    Text(produkt.anbieter)
+                }
+
+                Section {
+                    ForEach(produkt.aenderungen(werk.reise), id: \.self) { zeile in
+                        Text(zeile)
+                    }
+                } header: {
+                    Text("Was gesetzt wird")
+                } footer: {
+                    Text("Weicht das Seitenformat vom jetzigen ab, fragt danach der Formatwechsel, ob der Inhalt mitgerechnet wird. Alles lässt sich mit \u{201E}Widerrufen\u{201C} zurücknehmen.")
+                }
+
+                if let u = produkt.umschlag {
+                    umschlagabschnitt(u)
+                }
+
+                Section {
+                    Button("Übernehmen") {
+                        uebernehmen()
+                        schliessen()
+                    }
+                }
+            }
+            .navigationTitle(produkt.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { schliessen() }
+                }
+            }
+        }
+    }
+
+    private func umschlagabschnitt(_ u: Druckprodukt.Umschlagvorgabe) -> some View {
+        let seiten = werk.reise.blockseiten
+        var fuss = "Saals Spalte \u{201E}Buchr\u{00FC}cken\u{201C} ist auf ganze Millimeter gerundet und geht mit der Bogenbreite nicht immer auf. Getroffen wird deshalb die BOGENBREITE, die Saal an der Datei prüft; der Rücken liegt dafür bis zu gut 1,5 mm je Seite neben Saals Angabe — das deckt der Falzbereich ab, in den ohnehin nichts Wichtiges gehört."
+        if u.seitlichMehr > 0.05 {
+            fuss += " Außen schneidet Saal \(Druckvorgabe.zahl(u.anschnittSeitlich)) mm ab, oben und unten \(Druckvorgabe.zahl(u.anschnitt)); diese App kennt einen Beschnitt je Bogen. Die übrigen \(Druckvorgabe.zahl(u.seitlichMehr)) mm stecken in der Hälfte — Wichtiges also nicht bis an die äußere Kante des Umschlags legen."
+        }
+        return Section {
+            if seiten <= produkt.seitenBis, let s = u.stufe(innenseiten: seiten) {
+                LabeledContent("Bei \(seiten) Seiten", value: "Bogen \(Druckvorgabe.zahl(s.bogenbreite)) × \(Druckvorgabe.zahl(u.bogenhoehe)) mm")
+                LabeledContent("Rücken", value: "\(Druckvorgabe.zahl(s.ruecken)) mm (Saal: \(Druckvorgabe.zahl(s.rueckenSaal)))")
+                LabeledContent("Falzbereich", value: "\(Druckvorgabe.zahl(s.falz)) mm")
+            } else {
+                Text("Für \(seiten) Seiten nennt Saal bei diesem Produkt keinen Umschlag — erlaubt sind \(produkt.seitenVon) bis \(produkt.seitenBis).")
+                    .foregroundStyle(.orange)
+            }
+        } header: {
+            Text("Umschlag")
+        } footer: {
+            Text(fuss)
+        }
+    }
 }

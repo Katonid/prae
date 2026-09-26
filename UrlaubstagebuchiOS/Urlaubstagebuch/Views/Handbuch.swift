@@ -359,6 +359,13 @@ enum Handbuch {
                 ziel: .seitenformat,
                 stichworte: ["a4", "a5", "quadratisch", "größe", "maß", "umrechnen"]),
             Handbucheintrag(
+                id: "druckprodukte",
+                titel: "Druckprodukte von Saal Digital",
+                text: "Alle Fotobuchformate aus Saals \u{201E}Profibereich\u{201C} \u{2014} Hardcover, Softcover, Professional Line, Portfolio Album, je Format und Papier. Ein Tipp zeigt, was gesetzt wird, und setzt danach alles auf einmal: Seitenformat, Beschnitt der Innenseiten (bei Doppelseiten am Bund keiner), das Maß des Umschlags und die Rückenbreite nach Seitenzahl aus Saals Tabelle. Ränder, Schrift und Stil bleiben.\n\nDer Rücken ist so gesetzt, dass die BOGENBREITE genau stimmt; Saals eigene Rückenspalte ist gerundet und liegt bis zu gut 1,5 mm daneben \u{2014} im Falzbereich. Wo Saal außen mehr abschneidet als oben und unten, steckt der Rest in der Umschlaghälfte. Professional Line und Portfolio Album haben keinen Umschlag mit Rücken; dort werden nur die Innenseiten gesetzt.",
+                weg: "Buchsymbol \u{2192} Seitenformat \u{2192} Druckprodukte",
+                ziel: .seitenformat,
+                stichworte: ["saal", "digital", "fotobuch", "hardcover", "softcover", "21x28", "rücken", "druckerei", "produkt"]),
+            Handbucheintrag(
                 id: "zugaben",
                 titel: "Anschnitt, Sicherheitsabstand, Bundsteg",
                 text: "Der ANSCHNITT liegt außerhalb des Endformats und wird weggeschnitten; dorthin muss alles laufen, was randabfallend sein soll. Der SICHERHEITSABSTAND liegt innerhalb; dort soll nichts stehen, was gelesen werden muss — am Bund darf ein eigener Wert gelten. Der BUNDSTEG ist zusätzlicher Rand zur Heftung und von Haus aus null.\n\nAM BUND lässt sich der Anschnitt abschalten. Manche Druckdienste verlangen genau das \u{2014} \u{201E}Beschnittzugabe oben | unten | außen | innen = 3 | 3 | 3 | 0 mm\u{201C}. Dann ist die PDF-Seite waagerecht nur um EINE Zugabe breiter als das Endformat, und aus einem geforderten Bogen von 208 mm werden 205 mm Endformat und nicht 202. Auf dem Blatt hört die rote Schnittkante am Bund auf; welche Seite innen liegt, wechselt von Seite zu Seite.",
