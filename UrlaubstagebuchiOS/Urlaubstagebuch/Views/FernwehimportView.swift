@@ -299,9 +299,14 @@ struct FernwehimportView: View {
         if !tag.spur.isEmpty {
             var spur = "Spur \(tag.spur.count) Punkte"
             if tag.spurenInDatei > 1 { spur += " (längste von \(tag.spurenInDatei))" }
+            var mit: [String] = []
             if tag.wanderungen > 0 {
-                spur += tag.wanderungen == 1 ? " mit 1 Wanderung" : " mit \(tag.wanderungen) Wanderungen"
+                mit.append(tag.wanderungen == 1 ? "1 Wanderung" : "\(tag.wanderungen) Wanderungen")
             }
+            if tag.fahrten > 0 {
+                mit.append(tag.fahrten == 1 ? "1 Autofahrt" : "\(tag.fahrten) Autofahrten")
+            }
+            if !mit.isEmpty { spur += " mit " + mit.joined(separator: " und ") }
             teile.append(spur)
         }
         return teile.joined(separator: " \u{00B7} ")
@@ -376,9 +381,14 @@ struct FernwehimportView: View {
     private func ortesatz(_ befund: Fernweheinfuhr.Befund) -> String {
         switch orte {
         case .fernweh:
-            return "In der Datei stehen \(befund.orte) benannte Orte und \(befund.spurpunkte) "
-                + "Spurpunkte (Wege, Wanderungen). Sie kommen als Reisepunkte ins Buch, dazu "
+            var satz = "In der Datei stehen \(befund.orte) benannte Orte und \(befund.spurpunkte) "
+                + "Spurpunkte (Wege, Wanderungen, Autofahrten). Sie kommen als Reisepunkte ins Buch, dazu "
                 + "die Orte der Fotos \u{2014} auch die, die nur Fernweh kannte."
+            if befund.linienfarben != nil {
+                satz += " Die Farben der Linien kommen mit"
+                    + (ersetzen ? "." : ", wenn im Buch noch keine eigenen gewählt sind.")
+            }
+            return satz
         case .fotos:
             var satz = "Spur und benannte Orte aus Fernweh bleiben draußen. Die Reisepunkte "
                 + "baut die App aus den Fotos: aus ihren Metadaten und, wo die fehlen, aus dem "

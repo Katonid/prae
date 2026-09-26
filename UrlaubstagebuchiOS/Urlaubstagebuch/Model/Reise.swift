@@ -146,6 +146,10 @@ struct Reise: Identifiable, Codable {
     var titelfoto: UUID?
     var akzent: Farbwert = .akzent
     var kartenbild = Kartenbild()
+    // Die Farben der Linien auf der Karte (ab 1.0.114) — `nil` heißt
+    // „wie immer": Reisespur in der Akzentfarbe, Wanderungen grün,
+    // Autofahrten schiefergrau. Siehe `Linienfarben`.
+    var linienfarben: Linienfarben?
     var titelseite: Bool = true
     // DER UMSCHLAG IST EIN BOGEN (ab 1.0.50) — und hat seine eigene
     // Gestaltung. Siehe `Model/Umschlag.swift`.
@@ -263,6 +267,7 @@ struct Reise: Identifiable, Codable {
         schlussbloecke = b.wert(.schlussbloecke, [Block]())
         geaendert = b.wert(.geaendert, Date())
         geaendertAuf = b.wahlweise(.geaendertAuf)
+        linienfarben = b.wahlweise(.linienfarben)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
         } else {

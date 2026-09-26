@@ -52,7 +52,40 @@ struct KartenstilView: View {
                     // sie trägt — und sie gibt es nur EINMAL: Ein zweites
                     // Feld „Linienfarbe" gab es in 1.0.0 und lief
                     // unweigerlich auseinander.
-                    Text("Die Akzentfarbe zeichnet die Spur auf der Karte; sie gilt im ganzen Buch und nicht nur hier.")
+                    Text("Die Akzentfarbe zeichnet die Spur auf der Karte, solange unter „Linienfarben“ nichts anderes gewählt ist; sie gilt im ganzen Buch und nicht nur hier.")
+                }
+
+                // DIE FARBEN DER LINIEN (ab 1.0.114, Ansage des Nutzers
+                // 09/2026 in Fernweh: „Insgesamt möchte ich die Farben auf
+                // der Karte einstellen können und auch dies soll …an
+                // Fotobuch übergeben werden."). Die Reisespur folgt weiter
+                // der Akzentfarbe — die Regel von oben —, bis jemand
+                // ausdrücklich eine eigene wählt; „wie Akzentfarbe" führt
+                // zurück. Wanderungen und Autofahrten sind andere Linien.
+                Section {
+                    Toggle("Reisespur wie Akzentfarbe", isOn: Binding(
+                        get: { werk.reise.linienfarben?.reisespur == nil },
+                        set: { gleich in
+                            var neu = werk.reise.linienfarben ?? Linienfarben()
+                            neu.reisespur = gleich ? nil : werk.reise.akzent
+                            werk.reise.linienfarben = neu
+                        }
+                    ))
+                    if werk.reise.linienfarben?.reisespur != nil {
+                        ColorPicker("Reisespur", selection: farbe(\.reisespur, vorgabe: werk.reise.akzent),
+                                    supportsOpacity: false)
+                    }
+                    ColorPicker("Wanderungen", selection: farbe(\.wanderung, vorgabe: Linienfarben.wanderVorgabe),
+                                supportsOpacity: false)
+                    ColorPicker("Autofahrten", selection: farbe(\.fahrt, vorgabe: Linienfarben.fahrtVorgabe),
+                                supportsOpacity: false)
+                    if werk.reise.linienfarben != nil {
+                        Button("Vorgaben wiederherstellen") { werk.reise.linienfarben = nil }
+                    }
+                } header: {
+                    Text("Linienfarben")
+                } footer: {
+                    Text("Wanderungen und Autofahrten kommen aus Fernweh und stehen auf der Karte in ihrer eigenen Farbe. Die Farben aus Fernweh werden beim Einlesen übernommen, solange hier keine eigenen gewählt sind.")
                 }
 
                 Section {
@@ -71,5 +104,16 @@ struct KartenstilView: View {
                 }
             }
         }
+    }
+
+    private func farbe(_ weg: WritableKeyPath<Linienfarben, Farbwert?>, vorgabe: Farbwert) -> Binding<Color> {
+        Binding(
+            get: { (werk.reise.linienfarben?[keyPath: weg] ?? vorgabe).farbe },
+            set: { neu in
+                var farben = werk.reise.linienfarben ?? Linienfarben()
+                farben[keyPath: weg] = Farbwert(neu)
+                werk.reise.linienfarben = farben
+            }
+        )
     }
 }

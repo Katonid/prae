@@ -191,3 +191,31 @@ gewöhnlichen Eintrag mit Titel und Text, die Strecke als Spur (siehe unten).
   vorher unter „Vormittag, Tagsüber, Nachmittag, Nacht". Ältere Dateien tragen
   die alten Namen; `stunden` steht in beiden Fällen dabei. `name` ist zum
   Drucken gedacht, nicht zum Vergleichen.
+
+### Autofahrten und Kartenfarben (ab Fernweh 1.0.21)
+
+Beides ANGEHÄNGT; die Fassungsnummer bleibt 1. Gelesen seit Reisebuch 1.0.114.
+
+- **Autofahrten** stehen als Spur des Tages in `spuren` (nur, wenn mit
+  Reisespur übergeben wurde), mit
+  - `geraet` = `"fahrt:<Start in Unix-Sekunden>|<Zeitzone>|<Name>"` — der
+    Präfix `fahrt:` erkennt sie auch ohne `art`;
+  - `art: "fahrt"` und `name` = Name der Fahrt (Titel der GPX-Datei, sonst
+    ihr Dateiname);
+  - `reisender` = wer sie eingelesen hat; `besuche` leer; Punkte auf 20 m
+    gedünnt, mit Uhrzeit.
+
+  Der Tag ist der Tag des STARTS in Ortszeit. Eine Fahrt ist keine
+  Aufzeichnung eines Geräts: Neben der längsten Gerätespur des Tages gehören
+  ALLE Fahrten und Wanderungen des Tages auf die Karte. Ein älterer Leser,
+  der nur die längste Spur je Tag nimmt, zeigt sie als gewöhnliche Spur.
+- Wanderspuren (`geraet` `wanderung:…`) tragen seit 1.0.21 ebenfalls
+  `art: "wanderung"` und `name`.
+- **`karte.farben`** — die Farben der Linien, wie sie in Fernweh eingestellt
+  sind, als `"#RRGGBB"`:
+  ```json
+  "karte": { "farben": { "reisespur": "#D9480F", "wanderung": "#2E9E5B", "fahrt": "#5A6475" } }
+  ```
+  `reisespur` fehlt, solange in Fernweh keine eigene Farbe gewählt ist — dann
+  bleibt es bei der Akzentfarbe des Buchs. `wanderung` und `fahrt` stehen
+  immer da (die Vorgabe, wenn nichts gewählt ist).

@@ -51,6 +51,20 @@ struct Uebergabe: Codable {
     var fotos: String
     var reise: ReiseTeil
     var tage: [TagTeil]
+    /// Ab 1.0.21: wie die Karte aussehen soll — die Farben der Linien.
+    var karte: KarteTeil? = nil
+
+    struct KarteTeil: Codable {
+        var farben: FarbenTeil
+    }
+
+    /// „#RRGGBB". `reisespur` fehlt, solange in Fernweh keine eigene Farbe
+    /// gewählt ist — dann nimmt das Buch seine Akzentfarbe.
+    struct FarbenTeil: Codable {
+        var reisespur: String?
+        var wanderung: String?
+        var fahrt: String?
+    }
 
     struct ReiseTeil: Codable {
         var kennung: String
@@ -164,6 +178,11 @@ struct Uebergabe: Codable {
         /// [Breite, Länge, Unix-Sekunden]
         var punkte: [[Double]]
         var besuche: [BesuchTeil]
+        /// Ab 1.0.21: „fahrt" (Autofahrt aus einer GPX-Datei) oder
+        /// „wanderung". Fehlt bei der Aufzeichnung eines Geräts.
+        var art: String? = nil
+        /// Ab 1.0.21: Name der Fahrt oder Wanderung.
+        var name: String? = nil
     }
 
     struct BesuchTeil: Codable {
@@ -310,7 +329,7 @@ enum Uebergabebau {
                     Uebergabe.SpurTeil(
                         geraet: "wanderung:" + (e.kennung ?? UUID()).uuidString, reisender: e.anzeigeTitel,
                         punkte: Spurpunkt.ausgeduennt(e.streckenpunkte, abstand: 15).map { [$0.breite, $0.laenge, $0.zeit] },
-                        besuche: [])
+                        besuche: [], art: "wanderung", name: e.anzeigeTitel)
                 }
                 spuren = wanderspuren + reise.spurListe.filter { $0.tag == tagSchluessel }.map { s in
                     Uebergabe.SpurTeil(
@@ -320,7 +339,11 @@ enum Uebergabebau {
                             Uebergabe.BesuchTeil(breite: $0.breite, laenge: $0.laenge,
                                                  ankunft: iso(Date(timeIntervalSince1970: $0.ankunft)) ?? "",
                                                  abfahrt: iso(Date(timeIntervalSince1970: $0.abfahrt)) ?? "")
-                        })
+                        },
+                        // Eine Autofahrt (ab 1.0.21) sagt, was sie ist; ihr
+                        // `geraet` beginnt zusätzlich mit „fahrt:".
+                        art: s.istFahrt ? "fahrt" : nil,
+                        name: s.istFahrt ? Fahrtenimport.name(s) : nil)
                 }
             }
             // Das Wetter des Tages (ab 1.0.18). An einem Tag nur mit Spur
@@ -343,7 +366,11 @@ enum Uebergabebau {
                 kennung: (reise.kennung ?? UUID()).uuidString, titel: reise.anzeigeTitel,
                 untertitel: reise.untertitel ?? "", symbol: reise.emoji ?? "", farbe: reise.farbe ?? "",
                 beginn: Tag.schluessel(reise.anfang), ende: reise.ende.map(Tag.schluessel)),
-            tage: tage)
+            tage: tage,
+            karte: Uebergabe.KarteTeil(farben: Uebergabe.FarbenTeil(
+                reisespur: Kartenfarben.shared.hexFuerUebergabe(.reisespur, palette: reise.palette),
+                wanderung: Kartenfarben.shared.hexFuerUebergabe(.wanderung, palette: reise.palette),
+                fahrt: Kartenfarben.shared.hexFuerUebergabe(.fahrt, palette: reise.palette))))
         let kodierer = JSONEncoder()
         kodierer.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         // Die Beschreibung ist die LETZTE Datei im ZIP — sie entsteht erst,

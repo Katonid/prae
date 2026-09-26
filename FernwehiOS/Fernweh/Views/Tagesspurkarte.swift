@@ -14,12 +14,15 @@ struct Tagesspurkarte: View {
     struct Linie: Identifiable {
         let id: String
         let punkte: [CLLocationCoordinate2D]
+        /// Welche Art Linie (ab 1.0.21) — bestimmt die Farbe.
+        var art: Spurart = .reisespur
     }
 
     @State private var linien: [Linie] = []
     @State private var kilometer: Double = 0
     @State private var stand = 0
     @State private var vollbild = false
+    @ObservedObject private var farben = Kartenfarben.shared
 
     var body: some View {
         let orte = eintrag.ortListe
@@ -30,7 +33,7 @@ struct Tagesspurkarte: View {
                         MapPolyline(coordinates: l.punkte)
                             .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
                         MapPolyline(coordinates: l.punkte)
-                            .stroke(palette.haupt, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                            .stroke(farben.farbe(l.art, palette: palette), style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
                     }
                     if let k = eintrag.koordinate {
                         Marker(eintrag.anzeigeTitel, coordinate: k).tint(palette.haupt)
@@ -114,9 +117,14 @@ enum Tagesspurwahl {
         }
         let linien = jeGeraet.sorted { $0.key < $1.key }.compactMap { g, s -> Tagesspurkarte.Linie? in
             let p = s.punktListe.map { CLLocationCoordinate2D(latitude: $0.breite, longitude: $0.laenge) }
-            return p.count >= 2 ? Tagesspurkarte.Linie(id: g, punkte: p) : nil
+            return p.count >= 2 ? Tagesspurkarte.Linie(id: g, punkte: p, art: s.spurart) : nil
         }
-        return (linien, (jeGeraet.values.map(\.distanz).max() ?? 0) / 1000)
+        // Wie `Reise.meter(am:)`: die längste Gerätespur ODER die Summe der
+        // Autofahrten (ab 1.0.21), das Größere.
+        let spuren = Array(jeGeraet.values)
+        let geraete = spuren.filter { !$0.istFahrt }.map(\.distanz).max() ?? 0
+        let fahrten = spuren.filter(\.istFahrt).reduce(0) { $0 + $1.distanz }
+        return (linien, max(geraete, fahrten) / 1000)
     }
 
     static func kilometertext(_ km: Double) -> String {
@@ -139,6 +147,7 @@ struct Tagesspurleiste: View {
     @State private var kilometer: Double = 0
     @State private var stand = 0
     @State private var vollbild = false
+    @ObservedObject private var farben = Kartenfarben.shared
 
     var body: some View {
         Group {
@@ -151,7 +160,7 @@ struct Tagesspurleiste: View {
                             MapPolyline(coordinates: l.punkte)
                                 .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
                             MapPolyline(coordinates: l.punkte)
-                                .stroke(palette.haupt, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                                .stroke(farben.farbe(l.art, palette: palette), style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
                         }
                     }
                     .mapStyle(.standard(pointsOfInterest: .excludingAll))
@@ -243,6 +252,7 @@ struct SpurVollbild: View {
 
     @Environment(\.dismiss) private var schliessen
     @State private var position: MapCameraPosition = .automatic
+    @ObservedObject private var farben = Kartenfarben.shared
 
     var body: some View {
         Map(position: $position) {
@@ -250,7 +260,7 @@ struct SpurVollbild: View {
                 MapPolyline(coordinates: l.punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: l.punkte)
-                    .stroke(linienfarbe ?? palette.haupt, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                    .stroke(linienfarbe ?? farben.farbe(l.art, palette: palette), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             }
             ForEach(zeitmarken) { z in
                 Annotation(z.text, coordinate: z.ort) { Zeitmarkenbild(marke: z) }

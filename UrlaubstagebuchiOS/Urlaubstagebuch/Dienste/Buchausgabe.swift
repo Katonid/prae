@@ -917,7 +917,8 @@ enum Buchausgabe {
                     punkte: tag.spur.map(\.koordinate),
                     groesse: groesse,
                     kartenbild: gilt.bild,
-                    linienfarbe: reise.akzent,
+                    linienfarbe: reise.spurfarbe,
+                    punktfarben: reise.punktfarben(tag.spur),
                     ausschnitt: gilt.ausschnitt
                 )
                 if let bild { karten[block.id] = bild }

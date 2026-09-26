@@ -246,9 +246,9 @@ struct PunktwahlView: View {
 
     private var kartenbild: some View {
         Map(position: $kamera) {
-            if let tag, tag.spur.count >= 2 {
-                MapPolyline(coordinates: tag.spur.map(\.koordinate.clLocation))
-                    .stroke(werk.reise.akzent.farbe, lineWidth: 3)
+            ForEach(werk.reise.linienstuecke(tag?.spur ?? [])) { stueck in
+                MapPolyline(coordinates: stueck.punkte)
+                    .stroke(stueck.farbe, lineWidth: 3)
             }
             ForEach(tag?.spur ?? []) { eintrag in
                 Annotation(eintrag.name, coordinate: eintrag.koordinate.clLocation) {

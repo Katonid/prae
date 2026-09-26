@@ -27,6 +27,8 @@ struct Reisekarte: View {
         let id: String
         let punkte: [CLLocationCoordinate2D]
         let eigene: Bool
+        /// Reisespur oder Autofahrt (ab 1.0.21).
+        var art: Spurart = .reisespur
     }
 
     struct Fotopunkt: Identifiable {
@@ -36,6 +38,9 @@ struct Reisekarte: View {
     }
 
     @ObservedObject private var buecherei = Buecherei.shared
+    /// Die Farben der Linien (ab 1.0.21) — einstellbar, siehe
+    /// `Kartenfarben`.
+    @ObservedObject private var farben = Kartenfarben.shared
 
     /// Alle Einträge (auch ohne Ort), die man sehen darf — für die Fotos.
     private var sichtbare: [Eintrag] {
@@ -53,12 +58,20 @@ struct Reisekarte: View {
 
     var body: some View {
         Map(position: $position, interactionModes: interaktiv ? .all : []) {
-            ForEach(linien) { linie in
+            ForEach(linien.filter { $0.art == .reisespur }) { linie in
                 MapPolyline(coordinates: linie.punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: linie.punkte)
-                    .stroke(linie.eigene ? reise.palette.haupt : reise.palette.hell,
+                    .stroke(linie.eigene ? farben.farbe(.reisespur, palette: reise.palette) : farben.fremdeSpur(palette: reise.palette),
                             style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            }
+            // Autofahrten (ab 1.0.21) in ihrer eigenen Farbe, über der
+            // Reisespur — sie liegen oft auf derselben Straße.
+            ForEach(linien.filter { $0.art == .fahrt }) { linie in
+                MapPolyline(coordinates: linie.punkte)
+                    .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                MapPolyline(coordinates: linie.punkte)
+                    .stroke(farben.fahrt, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             }
             // Wanderungen grün (ab 1.0.17) — über der Reisespur, denn sie
             // sind das, was man sucht.
@@ -66,7 +79,7 @@ struct Reisekarte: View {
                 MapPolyline(coordinates: linie.punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: linie.punkte)
-                    .stroke(Stil.wanderfarbe, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                    .stroke(farben.wanderung, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             }
             if fotosZeigen {
                 ForEach(fotopunkte) { p in
@@ -104,13 +117,14 @@ struct Reisekarte: View {
         let schluessel = tag.map(Tag.schluessel)
         let spuren = reise.spurListe.filter { schluessel == nil || $0.tag == schluessel }
         let ich = Geraet.kennung
-        let pakete = spuren.map { (id: "\($0.tag ?? "")|\($0.geraet ?? "")", daten: $0.punkte, eigene: $0.geraet == ich) }
+        let pakete = spuren.map { (id: "\($0.tag ?? "")|\($0.geraet ?? "")", daten: $0.punkte, eigene: $0.geraet == ich,
+                                   art: $0.spurart) }
         let fertig: [Linie] = await Task.detached(priority: .userInitiated) {
             pakete.compactMap { paket in
                 // Für die Übersicht genügt ein Punkt je 40 m.
                 let punkte = Spurpunkt.ausgeduennt(Spurpunkt.entpacken(paket.daten), abstand: 40)
                 guard punkte.count > 1 else { return nil }
-                return Linie(id: paket.id, punkte: punkte.map(\.koordinate), eigene: paket.eigene)
+                return Linie(id: paket.id, punkte: punkte.map(\.koordinate), eigene: paket.eigene, art: paket.art)
             }
         }.value
         linien = fertig
@@ -182,6 +196,7 @@ struct Vollkarte: View {
     @Environment(\.dismiss) private var schliessen
     @State private var tag: Date?
     @State private var fotos = true
+    @State private var farbenZeigen = false
 
     var body: some View {
         NavigationStack {
@@ -206,7 +221,14 @@ struct Vollkarte: View {
                 .navigationTitle(reise.anzeigeTitel)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { farbenZeigen = true } label: { Label("Farben", systemImage: "paintpalette") }
+                    }
                     ToolbarItem(placement: .confirmationAction) { Button("Fertig") { schliessen() } }
+                }
+                .sheet(isPresented: $farbenZeigen) {
+                    KartenfarbenView(palette: reise.palette)
+                        .presentationDetents([.medium, .large])
                 }
         }
     }

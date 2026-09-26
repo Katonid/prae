@@ -76,7 +76,7 @@ struct KartenausschnittView: View {
         Map(position: $kamera) {
             if punkte.count >= 2 {
                 MapPolyline(coordinates: punkte.map(\.clLocation))
-                    .stroke(werk.reise.akzent.farbe, lineWidth: 3)
+                    .stroke(werk.reise.spurfarbe.farbe, lineWidth: 3)
             }
             ForEach(tag?.spur ?? []) { punkt in
                 Marker(punkt.name.isEmpty ? "Punkt" : punkt.name,

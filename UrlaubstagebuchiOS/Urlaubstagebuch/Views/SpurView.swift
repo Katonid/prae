@@ -316,9 +316,11 @@ struct SpurView: View {
 
     private func vorschau(_ tag: Reisetag) -> some View {
         Map(initialPosition: .automatic, interactionModes: []) {
-            if tag.spur.count >= 2 {
-                MapPolyline(coordinates: tag.spur.map(\.koordinate.clLocation))
-                    .stroke(werk.reise.akzent.farbe, lineWidth: 3)
+            // In Stücken je Art (ab 1.0.114): Autofahrten und Wanderungen
+            // in ihrer eigenen Farbe, wie im Buch.
+            ForEach(werk.reise.linienstuecke(tag.spur)) { stueck in
+                MapPolyline(coordinates: stueck.punkte)
+                    .stroke(stueck.farbe, lineWidth: 3)
             }
             ForEach(tag.spur) { punkt in
                 Marker(punkt.name.isEmpty ? "Punkt" : punkt.name,

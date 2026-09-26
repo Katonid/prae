@@ -20,7 +20,7 @@ struct WanderZeile: View {
         ].filter { !$0.isEmpty }
         Label(teile.joined(separator: " · "), systemImage: "figure.hiking")
             .font(.caption.weight(.semibold))
-            .foregroundStyle(Stil.wanderfarbe)
+            .foregroundStyle(Kartenfarben.shared.wanderung)
             .lineLimit(2)
     }
 }
@@ -62,7 +62,7 @@ struct Zeitmarkenbild: View {
     let marke: Zeitmarke
 
     var body: some View {
-        let farbe: Color = marke.art == .start ? .green : (marke.art == .ziel ? .red : Stil.wanderfarbe)
+        let farbe: Color = marke.art == .start ? .green : (marke.art == .ziel ? .red : Kartenfarben.shared.wanderung)
         HStack(spacing: 4) {
             if marke.art != .stunde { Circle().fill(.white).frame(width: 6, height: 6) }
             Text(marke.text).font(.caption2.weight(.bold)).monospacedDigit()
@@ -87,13 +87,14 @@ struct Wanderkarte: View {
 
     @State private var linie: [CLLocationCoordinate2D] = []
     @State private var vollbild = false
+    @ObservedObject private var farben = Kartenfarben.shared
 
     var body: some View {
         Map(initialPosition: .automatic, interactionModes: []) {
             MapPolyline(coordinates: linie)
                 .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
             MapPolyline(coordinates: linie)
-                .stroke(Stil.wanderfarbe, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                .stroke(farben.wanderung, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
             if let a = linie.first {
                 Annotation("", coordinate: a) { Circle().fill(.green).frame(width: 11, height: 11).overlay(Circle().stroke(.white, lineWidth: 2)) }
             }
@@ -119,7 +120,7 @@ struct Wanderkarte: View {
                                  eintrag.streckenzeit ?? ""].filter { !$0.isEmpty }.joined(separator: " · "),
                          linien: [Tagesspurkarte.Linie(id: "wanderung", punkte: punkte.map(\.koordinate))],
                          kilometer: eintrag.streckeMeter / 1000, marken: [], palette: palette,
-                         linienfarbe: Stil.wanderfarbe,
+                         linienfarbe: farben.wanderung,
                          zeitmarken: Zeitmarke.fuer(punkte, zone: eintrag.zone))
         }
         .task(id: eintrag.strecke?.count ?? 0) {

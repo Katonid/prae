@@ -161,6 +161,13 @@ struct Reisepunkt: Identifiable, Codable, Hashable {
     // liegen, ist keine Spur, sondern ein Fleck — deshalb dünnt
     // `Spurbau` aus und zählt dabei mit, statt stillschweigend wegzulassen.
     var zusammengefasst: Int = 1
+    // WAS FÜR EINE LINIE hier läuft (ab 1.0.114): `nil` die gewöhnliche
+    // Spur, „fahrt" eine Autofahrt, „wanderung" eine Tour — beide aus
+    // Fernweh. Bewusst ein TEXT und kein Fall von `Ortsquelle`: Der
+    // erzeugte Leser verwürfe an einem unbekannten Rohwert die ganze Spur
+    // des Tages (siehe dort); ein fehlendes wahlweises Feld überliest jede
+    // ältere Fassung. Gefärbt wird danach über `Reise.linienfarbe(fuer:)`.
+    var art: String?
 
     var istAusFoto: Bool { quelle == .exif || quelle == .mediathek }
 }

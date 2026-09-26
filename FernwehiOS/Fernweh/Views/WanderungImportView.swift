@@ -164,7 +164,7 @@ struct WanderungImportView: View {
                 MapPolyline(coordinates: punkte)
                     .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
                 MapPolyline(coordinates: punkte)
-                    .stroke(Stil.wanderfarbe, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                    .stroke(Kartenfarben.shared.wanderung, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
                 if let a = punkte.first {
                     Annotation("Start", coordinate: a) { Circle().fill(.green).frame(width: 12, height: 12).overlay(Circle().stroke(.white, lineWidth: 2)) }
                 }

@@ -58,6 +58,18 @@ enum Fernweheinfuhr {
         var fotos: String?
         var reise: ReiseTeil?
         var tage: Nachsichtig<TagTeil>?
+        // Ab Fernweh 1.0.21: die Farben der Linien, „#RRGGBB".
+        var karte: KarteTeil?
+    }
+
+    struct KarteTeil: Decodable {
+        var farben: FarbenTeil?
+    }
+
+    struct FarbenTeil: Decodable {
+        var reisespur: String?
+        var wanderung: String?
+        var fahrt: String?
     }
 
     struct ReiseTeil: Decodable {
@@ -151,6 +163,19 @@ enum Fernweheinfuhr {
         var reisender: String?
         var punkte: Nachsichtig<[Double]>?
         var besuche: Nachsichtig<BesuchTeil>?
+        // Ab Fernweh 1.0.21: „fahrt" oder „wanderung", dazu der Name.
+        var art: String?
+        var name: String?
+
+        // Was für eine Linie — aus `art`, sonst aus dem Präfix am Gerät
+        // (Wanderungen tragen ihn seit Fernweh 1.0.17, `art` erst seit
+        // 1.0.21). `nil`: die Aufzeichnung eines Geräts.
+        var linienart: String? {
+            let geraet = self.geraet ?? ""
+            if art == "fahrt" || geraet.hasPrefix("fahrt:") { return "fahrt" }
+            if art == "wanderung" || geraet.hasPrefix("wanderung:") { return "wanderung" }
+            return nil
+        }
     }
 
     struct BesuchTeil: Decodable {
@@ -197,6 +222,8 @@ enum Fernweheinfuhr {
         var spurenInDatei: Int = 0
         // Wanderungen dieses Tages, deren Strecke in `spur` eingeflossen ist.
         var wanderungen: Int = 0
+        // Autofahrten dieses Tages (ab 1.0.114), ebenso.
+        var fahrten: Int = 0
         var wetter: String?
         var zone: TimeZone?
         var zoneNachgeschlagen = false
@@ -216,6 +243,9 @@ enum Fernweheinfuhr {
         // Regel gilt für alles andere).
         var verworfen = 0
         var tageOhneDatum = 0
+        // Die Farben der Linien aus Fernweh (ab 1.0.114) — `nil`, wenn die
+        // Datei keine trägt.
+        var linienfarben: Linienfarben?
 
         var eintraege: Int { tage.reduce(0) { $0 + $1.eintraege.count } }
         var fotos: Int { tage.reduce(0) { $0 + $1.fotos.count } }
@@ -310,6 +340,12 @@ enum Fernweheinfuhr {
         befund.titel = datei.reise?.titel ?? ""
         befund.untertitel = datei.reise?.untertitel ?? ""
         befund.verworfen += datei.tage?.verworfen ?? 0
+        if let farben = datei.karte?.farben {
+            let gelesen = Linienfarben(reisespur: Linienfarben.farbwert(hex: farben.reisespur),
+                                       wanderung: Linienfarben.farbwert(hex: farben.wanderung),
+                                       fahrt: Linienfarben.farbwert(hex: farben.fahrt))
+            if gelesen != Linienfarben() { befund.linienfarben = gelesen }
+        }
 
         for teil in datei.tage?.werte ?? [] {
             guard let schluessel = teil.datum, let datum = Tagesdatum(schluessel: schluessel),
@@ -406,27 +442,53 @@ enum Fernweheinfuhr {
             // eingeordnet — beide tragen echte Augenblicke. Liefe das Gerät
             // mit, liegen die Punkte auf demselben Weg, und das Ausdünnen
             // beim Übernehmen legt sie zusammen.
+            //
+            // Eine AUTOFAHRT ist ebenso wenig ein Gerät (ab 1.0.114, Fernweh
+            // 1.0.21: `art` „fahrt", `geraet` beginnt mit „fahrt:"). Jede
+            // kommt hinein. Lief ein Gerät während der Fahrt mit, fallen
+            // SEINE Punkte in dieser Zeit weg: Zwei Linien auf derselben
+            // Straße, nach der Zeit verschränkt, ergäben einen Zickzack, der
+            // bei jedem Punkt die Farbe wechselt. Die Fahrt ist das
+            // Genauere — sie ist eigens dafür aufgezeichnet.
+            //
+            // Jeder Punkt trägt seine ART (`Reisepunkt.art`); danach färbt
+            // die Karte.
             let alle = teil.spuren?.werte ?? []
-            let wanderspuren = alle.filter { ($0.geraet ?? "").hasPrefix("wanderung:") }
-            let spuren = alle.filter { !($0.geraet ?? "").hasPrefix("wanderung:") }
+            let wanderspuren = alle.filter { $0.linienart == "wanderung" }
+            let fahrtspuren = alle.filter { $0.linienart == "fahrt" }
+            let spuren = alle.filter { $0.linienart == nil }
             tag.spurenInDatei = spuren.count
             tag.wanderungen = wanderspuren.count
-            var genommen = wanderspuren
+            tag.fahrten = fahrtspuren.count
+            var genommen = wanderspuren + fahrtspuren
             if let beste = spuren.max(by: { ($0.punkte?.werte.count ?? 0) < ($1.punkte?.werte.count ?? 0) }) {
                 genommen.append(beste)
             }
+            let fahrzeiten: [ClosedRange<Double>] = fahrtspuren.compactMap { spur in
+                let zeiten = (spur.punkte?.werte ?? []).compactMap { $0.count >= 3 ? $0[2] : nil }
+                guard let von = zeiten.min(), let bis = zeiten.max(), von < bis else { return nil }
+                return von...bis
+            }
+            func imAuto(_ zeit: Date?) -> Bool {
+                guard let zeit else { return false }
+                let t = zeit.timeIntervalSince1970
+                return fahrzeiten.contains { $0.contains(t) }
+            }
             var punkte: [Reisepunkt] = []
             for spur in genommen {
+                let art = spur.linienart
                 for roh in spur.punkte?.werte ?? [] {
                     guard roh.count >= 2, let stelle = koordinate(roh[0], roh[1]) else { continue }
                     let zeit = roh.count >= 3 ? Date(timeIntervalSince1970: roh[2]) : nil
-                    punkte.append(Reisepunkt(koordinate: stelle, zeit: zeit, quelle: .tagesspur))
+                    if art == nil, imAuto(zeit) { continue }
+                    punkte.append(Reisepunkt(koordinate: stelle, zeit: zeit, quelle: .tagesspur, art: art))
                 }
                 for besuch in spur.besuche?.werte ?? [] {
                     guard let stelle = koordinate(besuch.breite, besuch.laenge) else { continue }
-                    punkte.append(Reisepunkt(koordinate: stelle,
-                                             zeit: besuch.ankunft.flatMap { augenblick($0) },
-                                             quelle: .tagesspur))
+                    let zeit = besuch.ankunft.flatMap { augenblick($0) }
+                    if art == nil, imAuto(zeit) { continue }
+                    punkte.append(Reisepunkt(koordinate: stelle, zeit: zeit,
+                                             quelle: .tagesspur, art: art))
                 }
             }
             tag.spur = punkte.sorted { ($0.zeit ?? .distantFuture) < ($1.zeit ?? .distantFuture) }
@@ -440,6 +502,7 @@ enum Fernweheinfuhr {
                 if tag.spur.count > befund.tage[schon].spur.count { befund.tage[schon].spur = tag.spur }
                 befund.tage[schon].spurenInDatei += tag.spurenInDatei
                 befund.tage[schon].wanderungen += tag.wanderungen
+                befund.tage[schon].fahrten += tag.fahrten
                 if befund.tage[schon].wetter == nil { befund.tage[schon].wetter = tag.wetter }
             } else {
                 befund.tage.append(tag)
@@ -979,6 +1042,17 @@ extension Reisewerk {
             if !befund.untertitel.isEmpty { reise.untertitel = befund.untertitel }
         }
 
+        // Die Farben der Linien (ab 1.0.114) gehören zu den Linien: nur mit
+        // der Spur aus Fernweh, und eigene Farben im Buch bleiben, außer mit
+        // „ersetzen".
+        var farbenUebernommen = false
+        if wunsch.orte == .fernweh, let farben = befund.linienfarben,
+           reise.linienfarben == nil || wunsch.ersetzen
+        {
+            reise.linienfarben = farben
+            farbenUebernommen = true
+        }
+
         alleNeuAnordnen(nurUnberuehrte: true)
         sofortSichern()
 
@@ -986,6 +1060,7 @@ extension Reisewerk {
         if neueTage > 0 { zeilen.append("\(neueTage) davon neu angelegt.") }
         if ergaenzt > 0 { zeilen.append("Bei \(ergaenzt) Tagen wurde der vorhandene Text ergänzt.") }
         if mitSpur > 0 { zeilen.append("\(mitSpur) Tage haben Orte oder eine Spur.") }
+        if farbenUebernommen { zeilen.append("Die Farben der Linien kommen aus Fernweh.") }
         if mitWetter > 0 { zeilen.append("Bei \(mitWetter) Tagen steht das Wetter als eigene Zeile.") }
         if wetterNachAnordnen > 0 {
             zeilen.append("\(wetterNachAnordnen) davon tragen Handarbeit \u{2014} dort erscheint die Wetterzeile erst nach \u{201E}Seiten neu anordnen\u{201C}.")

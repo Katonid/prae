@@ -11,6 +11,7 @@ struct EinstellungenView: View {
     @State private var konto = "Wird geprüft …"
     @State private var schemaMeldung: String?
     @State private var dayOne = false
+    @State private var kartenfarben = false
 
     var body: some View {
         NavigationStack {
@@ -65,6 +66,16 @@ struct EinstellungenView: View {
                 }
 
                 Section {
+                    Button { kartenfarben = true } label: {
+                        Label("Kartenfarben …", systemImage: "paintpalette")
+                    }
+                } header: {
+                    Text("Karte")
+                } footer: {
+                    Text("Die Farben von Reisespur, Wanderungen und Autofahrten auf allen Karten — und im Fotobuch.")
+                }
+
+                Section {
                     Button { dayOne = true } label: {
                         Label("Aus Day One übernehmen …", systemImage: "square.and.arrow.down.on.square")
                     }
@@ -105,6 +116,7 @@ struct EinstellungenView: View {
                 }
             }
             .sheet(isPresented: $dayOne) { DayOneView() }
+            .sheet(isPresented: $kartenfarben) { KartenfarbenView() }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
