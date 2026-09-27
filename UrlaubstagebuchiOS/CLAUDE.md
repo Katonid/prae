@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.120 (Build 121). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.121 (Build 122). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7633,6 +7633,22 @@ Befunde, und keiner davon war Geschmack:
 - **Nicht gemessen (1.0.120):** Die Rückwandlung ist an der Form des
   Quelltextes gebaut und an keiner echten Zeile geprüft; auf keinem Gerät
   gesehen. **Nicht als erledigt darstellen.**
+- **DIE MASSTABELLEN DER DRUCKEREIEN, ABGEGLICHEN MIT DEM BUCH**
+  (`Views/MasstabellenView.swift`, „…" → Vor dem Druck → „Maße der Druckerei
+  prüfen…", ab 1.0.121; Ansage des Nutzers 09/2026: „Bitte bau diese
+  Tabellen auch noch an geeigneter Stelle in der App ein. Ich möchte, bevor
+  ich den Druckauftrag erteile, noch einmal sehen, ob alles richtig ist.").
+  Die Tabellen gingen vorher als Excel-Datei heraus; in der App sind sie
+  mehr wert, weil daneben das BUCH steht. Der Abgleich zeigt je Zeile, was
+  die Druckerei für das Produkt verlangt und was dieses Buch ausgibt —
+  gerechnet mit denselben Funktionen wie die Ausgabe (`Umschlagmass.bogen`,
+  `Gestaltung`), nichts neu. Vorgewählt ist `umschlag.tabellenvorlage`, also
+  das zuletzt angewandte Produkt. Die Rückenbreite steht als Auskunft (ohne
+  Haken): Bei Saal setzt die App sie bewusst neben Saals Angabe, damit die
+  Bogenbreite stimmt — geprüft wird die Bogenbreite. **Nicht gemessen
+  (1.0.121):** auf keinem Gerät gesehen; ob `blockseiten` in jedem Fall die
+  Zahl ist, die die Druckerei zählt, ist an Saals 26-Seiten-Vorlage
+  nachgerechnet, nicht an einer Bestellung.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

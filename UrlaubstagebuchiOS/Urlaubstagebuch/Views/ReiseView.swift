@@ -162,6 +162,8 @@ struct ReiseView: View {
         case ausgabe
         case ausgabeformat
         case druckpruefung
+        // Die Maßtabellen der Druckereien samt Abgleich (ab 1.0.121).
+        case masstabellen
         case vorlagen
         case handbuch
         case zweiDateien
@@ -200,6 +202,7 @@ struct ReiseView: View {
             case .ausgabe: return "ausgabe"
             case .ausgabeformat: return "ausgabeformat"
             case .druckpruefung: return "druckpruefung"
+            case .masstabellen: return "masstabellen"
             case .vorlagen: return "vorlagen"
             case .handbuch: return "handbuch"
             case .zweiDateien: return "zweidateien"
@@ -1761,6 +1764,13 @@ struct ReiseView: View {
                 Button("Ausgabeformat und Maße…", systemImage: "doc.text.magnifyingglass") {
                     blatt = .ausgabeformat
                 }
+                // Die Tabellen von Saal und WhiteWall, abgeglichen mit dem
+                // Buch (ab 1.0.121, Ansage des Nutzers: „bevor ich den
+                // Druckauftrag erteile, noch einmal sehen, ob alles richtig
+                // ist").
+                Button("Maße der Druckerei prüfen…", systemImage: "tablecells") {
+                    blatt = .masstabellen
+                }
             }
             Section("Ausgeben") {
                 Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
@@ -2339,6 +2349,8 @@ struct ReiseView: View {
             Ausgabeformatblatt(werk: werk)
         case .druckpruefung:
             Druckpruefungblatt(werk: werk)
+        case .masstabellen:
+            MasstabellenView(werk: werk)
         case .handbuch:
             Handbuchblatt { ziel in alsNaechstes = Blattwunsch(ziel: ziel) }
         case .zweiDateien:

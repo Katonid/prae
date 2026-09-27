@@ -439,6 +439,14 @@ enum Handbuch {
                              "markieren", "wo", "finden", "ausblenden", "unsichtbar",
                              "umrandung", "rahmen anpassen"]),
             Handbucheintrag(
+                id: "masstabellen",
+                titel: "Maße der Druckerei prüfen",
+                text: "Die Maßtabellen von Saal Digital und WhiteWall \u{2014} Innenseiten und Umschlag je Seitenzahl \u{2014} und daneben ein Abgleich mit deinem Buch: Endformat, Beschnitt, Sicherheitsabstand, Seitenzahl, Lage von Seite 1, Umschlagbogen. Je Zeile ein Haken oder ein rotes Warnzeichen. Vorgewählt ist das Produkt, das unter Seitenformat eingestellt ist; in der Umschlagtabelle ist die Zeile für deine Seitenzahl hervorgehoben. Die Zahlen sind am 26.09.2026 bei den Druckereien gelesen \u{2014} verbindlich ist, was bei der Bestellung steht.",
+                weg: "Drei-Punkte-Menü \u{2192} Maße der Druckerei prüfen",
+                ziel: .masstabellen,
+                stichworte: ["saal", "whitewall", "tabelle", "maße", "rücken", "bogen",
+                             "cover", "umschlag", "bestellen", "druckauftrag"]),
+            Handbucheintrag(
                 id: "bestellteseiten",
                 titel: "Bestellte Seitenzahl",
                 text: "Wie viele Innenseiten bestellt sind, weiß nur der Mensch \u{2014} die App zählt nur, wie viele das Buch HAT. Eingetragen wird die Zahl im Ausgabeblatt, im Abschnitt \u{201E}Was ausgegeben wird\u{201C} als Zeile \u{201E}Bestellt \u{2026} Innenseiten\u{201C}; sie gilt für das ganze Buch und nicht für diese eine Ausgabe. Danach sagt die Druckprüfung VOR dem Hochladen, ob es passt.\n\nEin leeres Feld heißt: nichts bestellt, dann wird nichts verglichen. Gezählt wird der Buchblock samt Ausgleichsseite; der Umschlag zählt nicht mit, er ist ein eigenes Stück Papier.",
