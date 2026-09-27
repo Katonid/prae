@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -601,6 +601,30 @@
     Tag gewählt ist.
   - **Nicht gemessen**: kein Gerät; ob 30 Neuzeichnungen je Sekunde mit
     vielen Stücken flüssig bleiben, ist nicht gesehen.
+- **Punkte und Fahrten per Tipp entfernen** (`Model/Spurbearbeitung.swift`,
+  ab 1.0.32; Ansage des Nutzers 09/2026: „einzelne Punkte oder eine ganze
+  Fahrt durch Tippen auf den Punkt auf der Karte entfernen"). Die Blase des
+  Uhrzeit-Tipps (Vollkarte, Tagesvollbild) trägt, wo ich schreiben darf,
+  „Punkt entfernen" (ohne Rückfrage — Ausreißer nacheinander wegtippen) und
+  „Ganze Fahrt entfernen" bzw. „Ganze Spur des Tages entfernen" (mit
+  Rückfrage). Wanderungen: nur Punkte; der Eintrag selbst geht über sein
+  Menü. `Zeitpunkt.quelle` / `Tagesspurkarte.Linie.quelle` sagen, woher ein
+  Punkt stammt.
+  - **Die eigene Aufzeichnung kommt aus der Rohspur auf der Platte** und
+    wird bei jeder Übertragung neu gebaut (`Spurabgleich`). Ein Punkt der
+    EIGENEN Gerätespur wird deshalb auch dort entfernt
+    (`Spurspeicher.entfernen`), samt der Rohpunkte, die beim Ausdünnen in ihn
+    eingeflossen sind (bis vor den nächsten behaltenen); „ganze Spur" löscht
+    die Rohdatei des Tages und jede daraus gebaute Spur dieses Geräts
+    (Tagebuch, weitere Reisen). **Wer Spuren bearbeitet, bearbeitet die
+    Rohspur mit** — sonst ist die Änderung beim nächsten Abgleich weg. Die
+    Spur eines ANDEREN Geräts kann dieses wieder schreiben; die Blase sagt es.
+  - Länge nach einem entfernten Punkt: um den Umweg gekürzt, nicht neu
+    gerechnet (eine Fahrt trägt die Länge der ungedünnten Datei).
+  - Die Tageskarten laden jetzt auch bei gelöschten Spuren und geänderten
+    Einträgen neu (`NSDeletedObjectsKey`, `Eintrag`).
+  - **Nicht gemessen**: kein Gerät; ob der Knopf in der Blase den Tipp vor
+    der Karte bekommt, ist nicht gesehen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

@@ -28,6 +28,11 @@ struct Reisekarte: View {
     /// Die gezeigten Messpunkte, höchstens 400.
     @State private var messpunkte: [Zeitpunkt] = []
     @State private var gewaehlt: Zeitpunkt?
+    /// Die ganze Linie entfernen — erst nach Rückfrage (ab 1.0.32).
+    @State private var linieLoeschen: Zeitpunkt?
+    /// Zählt Änderungen an Wanderstrecken — sie stehen nicht im Schlüssel
+    /// der Spuren.
+    @State private var stand = 0
     @State private var position: MapCameraPosition = .automatic
 
     struct Linie: Identifiable {
@@ -161,18 +166,47 @@ struct Reisekarte: View {
             }
             if let gewaehlt, sichtbar(gewaehlt.art) {
                 Annotation("", coordinate: gewaehlt.koordinate, anchor: .bottom) {
-                    Zeitblase(punkt: gewaehlt, farbe: linienfarbe(gewaehlt.art), mitTag: tag == nil)
+                    // Knöpfe nur, wo ich schreiben darf (ab 1.0.32).
+                    let darf = interaktiv && Spurbearbeitung.darf(gewaehlt)
+                    Zeitblase(punkt: gewaehlt, farbe: linienfarbe(gewaehlt.art), mitTag: tag == nil,
+                              punktEntfernen: darf ? { entfernen(gewaehlt) } : nil,
+                              linieEntfernen: darf ? Punktbearbeitung.linientext(gewaehlt).map { t in
+                                  (text: t, aktion: { linieLoeschen = gewaehlt })
+                              } : nil,
+                              hinweis: darf ? Punktbearbeitung.hinweis(gewaehlt) : nil)
                 }
                 .annotationTitles(.hidden)
             }
         }
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
+        .confirmationDialog(linieLoeschen.flatMap(Punktbearbeitung.linientext).map { $0 + "?" } ?? "",
+                            isPresented: Binding(get: { linieLoeschen != nil }, set: { if !$0 { linieLoeschen = nil } }),
+                            titleVisibility: .visible) {
+            Button("Entfernen", role: .destructive) {
+                if let z = linieLoeschen { Spurbearbeitung.linieEntfernen(z) }
+                linieLoeschen = nil
+                gewaehlt = nil
+                stand += 1
+            }
+        } message: {
+            Text(linieLoeschen?.art == .fahrt
+                 ? "Die Fahrt verschwindet aus der Reise. Einlesen lässt sie sich wieder aus der GPX-Datei."
+                 : "Die Spur dieses Geräts an diesem Tag verschwindet — stammt sie von diesem Gerät, auch die Aufzeichnung darunter.")
+        }
+    }
+
+    /// Einen Punkt entfernen (ab 1.0.32) — ohne Rückfrage, damit sich ein
+    /// Ausreißer nach dem anderen wegtippen lässt.
+    private func entfernen(_ z: Zeitpunkt) {
+        Spurbearbeitung.punktEntfernen(z)
+        gewaehlt = nil
+        stand += 1
     }
 
     private var schluessel: String {
         let spuren = reise.spurListe.map { "\($0.tag ?? "")\($0.geaendert?.timeIntervalSince1970 ?? 0)" }.sorted().joined()
         let fotos = sichtbare.reduce(0) { $0 + $1.fotoListe.count }
-        return "\(tag.map(Tag.schluessel) ?? "alle")|\(spuren.hashValue)|\(eintraege.count)|\(fotos)|\(fotosZeigen)"
+        return "\(tag.map(Tag.schluessel) ?? "alle")|\(spuren.hashValue)|\(eintraege.count)|\(fotos)|\(fotosZeigen)|\(stand)"
     }
 
     private func linienLaden() async {
@@ -185,7 +219,8 @@ struct Reisekarte: View {
         let pakete = spuren.map { s in
             (id: "\(s.tag ?? "")|\(s.geraet ?? "")", daten: s.punkte, eigene: s.geraet == ich, art: s.spurart,
              name: s.istFahrt ? Fahrtenimport.anzeigename(s) : (s.reisender ?? ""),
-             zone: s.istFahrt ? Fahrtenimport.zone(s) : reise.zone(am: s.tag ?? ""))
+             zone: s.istFahrt ? Fahrtenimport.zone(s) : reise.zone(am: s.tag ?? ""),
+             quelle: s.objectID)
         }
         let (fertig, spurzeiten): ([Linie], [Zeitpunkt]) = await Task.detached(priority: .userInitiated) {
             var linien: [Linie] = []
@@ -195,7 +230,8 @@ struct Reisekarte: View {
                 let punkte = Spurpunkt.ausgeduennt(Spurpunkt.entpacken(paket.daten), abstand: 40)
                 guard punkte.count > 1 else { continue }
                 linien.append(Linie(id: paket.id, punkte: punkte.map(\.koordinate), eigene: paket.eigene, art: paket.art))
-                zeiten += Zeitsuche.punkte(punkte, art: paket.art, name: paket.name, zone: paket.zone)
+                zeiten += Zeitsuche.punkte(punkte, art: paket.art, name: paket.name, zone: paket.zone,
+                                           quelle: paket.quelle)
             }
             return (linien, zeiten)
         }.value
@@ -203,7 +239,7 @@ struct Reisekarte: View {
 
         let wander = eintraege.filter { $0.eintragsart == .wanderung }
             .map { (id: $0.objectID.uriRepresentation().absoluteString, daten: $0.strecke,
-                    name: $0.anzeigeTitel, zone: $0.zone) }
+                    name: $0.anzeigeTitel, zone: $0.zone, quelle: $0.objectID) }
         let (wanderfertig, wanderzeiten): ([Linie], [Zeitpunkt]) = await Task.detached(priority: .userInitiated) {
             var linien: [Linie] = []
             var zeiten: [Zeitpunkt] = []
@@ -211,7 +247,7 @@ struct Reisekarte: View {
                 let punkte = Spurpunkt.ausgeduennt(Spurpunkt.entpacken(w.daten), abstand: 30)
                 guard punkte.count > 1 else { continue }
                 linien.append(Linie(id: w.id, punkte: punkte.map(\.koordinate), eigene: true))
-                zeiten += Zeitsuche.punkte(punkte, art: .wanderung, name: w.name, zone: w.zone)
+                zeiten += Zeitsuche.punkte(punkte, art: .wanderung, name: w.name, zone: w.zone, quelle: w.quelle)
             }
             return (linien, zeiten)
         }.value
