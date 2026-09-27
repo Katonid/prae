@@ -130,7 +130,7 @@ enum Handbuch {
             Handbucheintrag(
                 id: "fernweh",
                 titel: "Übergabe aus Fernweh",
-                text: "Die Datei aus dem Reisetagebuch Fernweh (Reise \u{2192} \u{201E}Fürs Fotobuch übergeben\u{201C}) trägt Texte, Orte, Wetter, Reisespur und auf Wunsch die Fotos. Vor dem Übernehmen steht Tag für Tag da, was ankommt. Mehrere Einträge eines Tages werden aneinandergehängt; Fotos, die schon im Buch stehen, kommen nicht doppelt. Fotos ohne Bild in der Datei holt die App aus der eigenen Mediathek, wenn sie dort liegen. Unter \u{201E}Was übernommen wird\u{201C} lässt sich jeder Teil einzeln abwählen: Texte, Wetter, Fotos. Das Wetter kommt als Tabelle mit Symbolen oben auf die erste Seite des Tages \u{2014} je Tageszeit eine Spalte, wie in Fernweh; ihre Größe stellt Ganzes Buch \u{2192} Ränder und Druckzugaben \u{2192} Aussehen ein, eine einzelne Tabelle lässt sich an den Griffen ihres Blocks ziehen \u{2014}, wahlweise als eigene Zeile unter den Überschriften oder unter den Text (ändern oder die Tabelle entfernen: Tagesmenü \u{2192} Text und Fotos). Wer schon einmal eingelesen hat, liest dieselbe Datei noch einmal: Wo noch die Wetterzeile von damals steht, kommt die Tabelle an ihre Stelle. Unter \u{201E}Orte\u{201C} wählst du, ob Spur, Wanderungen und Orte aus Fernweh übernommen werden oder ob die App die Reisepunkte selbst aus den Fotos bildet.",
+                text: "Die Datei aus dem Reisetagebuch Fernweh (Reise \u{2192} \u{201E}Fürs Fotobuch übergeben\u{201C}) trägt Texte, Orte, Wetter, Reisespur und auf Wunsch die Fotos. Vor dem Übernehmen steht Tag für Tag da, was ankommt. Mehrere Einträge eines Tages werden aneinandergehängt; Fotos, die schon im Buch stehen, kommen nicht doppelt. Fotos ohne Bild in der Datei holt die App aus der eigenen Mediathek, wenn sie dort liegen. Unter \u{201E}Was übernommen wird\u{201C} lässt sich jeder Teil einzeln abwählen: Texte, Wetter, Fotos. Das Wetter kommt als Tabelle mit Symbolen oben auf die erste Seite des Tages \u{2014} je Tageszeit eine Spalte, wie in Fernweh; ihre Größe stellt Ganzes Buch \u{2192} Wetter ein, eine einzelne Tabelle lässt sich an den Griffen ihres Blocks ziehen \u{2014}, wahlweise als eigene Zeile unter den Überschriften oder unter den Text (ändern oder die Tabelle entfernen: Tagesmenü \u{2192} Text und Fotos). Wetterzeilen aus einer früheren Übernahme wandelt die App beim ersten Öffnen selbst in Tabellen um; später geht das unter Ganzes Buch \u{2192} Wetter. Unter \u{201E}Orte\u{201C} wählst du, ob Spur, Wanderungen und Orte aus Fernweh übernommen werden oder ob die App die Reisepunkte selbst aus den Fotos bildet.",
                 weg: "Plus-Knopf \u{2192} Aus Fernweh",
                 ziel: .fernweh,
                 stichworte: ["fernweh", "übergabe", "import", "wetter", "tagebuch", "orte", "spur"]),
@@ -261,9 +261,9 @@ enum Handbuch {
             Handbucheintrag(
                 id: "ueberschriften",
                 titel: "Überschrift, zweite Überschrift, Datumszeile",
-                text: "Sie stehen am Tag und nicht im Block — deshalb überleben sie jedes Neuanordnen. Eintippen lassen sie sich im Tagesmenü oder mit einem Doppeltipp auf der Seite. Wie die Datumszeile aussieht, entscheidet das Buch; ein einzelner Tag darf abweichen. Die zweite Überschrift lässt sich für das ganze Buch ausschalten \u{2014} Ganzes Buch \u{2192} Schrift (Rolle \u{201E}Zweite Überschrift\u{201C}) oder Ganzes Buch \u{2192} Ränder und Druckzugaben.",
-                weg: "Tagesmenü \u{2192} Text und Fotos",
-                ziel: nil,
+                text: "Sie stehen am Tag und nicht im Block — deshalb überleben sie jedes Neuanordnen. Eintippen lassen sie sich im Tagesmenü oder mit einem Doppeltipp auf der Seite. Wie die Datumszeile aussieht, entscheidet das Buch; ein einzelner Tag darf abweichen. Datumszeile und zweite Überschrift stellst du für das ganze Buch unter Ganzes Buch \u{2192} Überschriften ein; dort lässt sich die zweite Überschrift auch ganz ausschalten.",
+                weg: "Tagesmenü \u{2192} Text und Fotos; Ganzes Buch \u{2192} Überschriften",
+                ziel: .ueberschriften,
                 stichworte: ["titel", "kopfzeile", "datumszeile", "unterüberschrift", "ausblenden", "hauptüberschrift"]),
             Handbucheintrag(
                 id: "muster",

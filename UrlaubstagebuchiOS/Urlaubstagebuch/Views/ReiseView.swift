@@ -152,6 +152,9 @@ struct ReiseView: View {
         // steht an `KartenstilView`: Bis 1.0.78 lagen sie in der Gestaltung,
         // und deren Menüpunkt heißt seit 1.0.77 nach den Druckzugaben.
         case kartenstil
+        // Wetter und Überschriften (ab 1.0.120, Ansage des Nutzers).
+        case wetterstil
+        case ueberschriften
         case gestaltung
         case umschlag
         case seitenformat
@@ -188,6 +191,8 @@ struct ReiseView: View {
             case .fotostil: return "fotostil"
             case .textstil: return "textstil"
             case .kartenstil: return "kartenstil"
+            case .wetterstil: return "wetterstil"
+            case .ueberschriften: return "ueberschriften"
             case .gestaltung: return "gestaltung"
             case .umschlag: return "umschlag"
             case .seitenformat: return "format"
@@ -1675,9 +1680,11 @@ struct ReiseView: View {
                 Button("Schrift und Ausrichtung…", systemImage: "textformat") {
                     blatt = .typografie
                 }
+                Button("Überschriften…", systemImage: "textformat.size.larger") { blatt = .ueberschriften }
                 Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
                 Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
                 Button("Karten…", systemImage: "map") { blatt = .kartenstil }
+                Button("Wetter…", systemImage: "cloud.sun") { blatt = .wetterstil }
                 Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
                     blatt = .hintergrund
                 }
@@ -2314,6 +2321,10 @@ struct ReiseView: View {
             TextstilView(werk: werk)
         case .kartenstil:
             KartenstilView(werk: werk)
+        case .wetterstil:
+            WetterstilView(werk: werk)
+        case .ueberschriften:
+            UeberschriftenView(werk: werk)
         case .gestaltung:
             GestaltungView(werk: werk)
         case .umschlag:
