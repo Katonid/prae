@@ -594,7 +594,8 @@ private struct TagAbschnitt: View {
                         Tagesfahrt(titel: "Tag \(nummer) · " + Tag.wochentagLang.string(from: tag),
                                    linien: Tagesspurwahl.linien(tag: schluessel, nurReise: reise).0
                                        .filter { sichtbar($0.art) },
-                                   zone: reise.zone(am: schluessel), palette: reise.palette)
+                                   zone: reise.zone(am: schluessel), palette: reise.palette,
+                                   fotos: Tagesfahrt.tagesfotos(tag: schluessel, reise: reise))
                     }
             }
 

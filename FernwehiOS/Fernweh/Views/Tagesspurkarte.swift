@@ -73,6 +73,9 @@ struct Tagesspurkarte: View {
                                  palette: palette, zone: eintrag.zone,
                                  nachladen: { [eintrag] in
                                      eintrag.tagSchluessel.map { Tagesspurwahl.linien(tag: $0, nurReise: eintrag.reise).0 } ?? []
+                                 },
+                                 fotos: { [eintrag] in
+                                     eintrag.tagSchluessel.map { Tagesfahrt.tagesfotos(tag: $0, reise: eintrag.reise) } ?? []
                                  })
                 }
                 if !linien.isEmpty {
@@ -224,7 +227,8 @@ struct Tagesspurleiste: View {
                     SpurVollbild(titel: "Spur des Tages",
                                  unter: Tag.datum(schluessel: tag).map { Tag.text($0, "EEEE, d. MMMM yyyy", zone: .current) } ?? "",
                                  linien: linien, kilometer: kilometer, marken: [], palette: palette,
-                                 nachladen: { [tag] in Tagesspurwahl.linien(tag: tag, nurReise: nil).0 })
+                                 nachladen: { [tag] in Tagesspurwahl.linien(tag: tag, nurReise: nil).0 },
+                                 fotos: { [tag] in Tagesfahrt.tagesfotos(tag: tag, reise: nil) })
                 }
             }
         }
@@ -292,6 +296,9 @@ struct SpurVollbild: View {
     /// Holt die Linien des Tages frisch (ab 1.0.33) — für die Punkteliste,
     /// die nach jedem Löschen neu lädt. `nil`: keine Liste (Wanderung).
     var nachladen: (() -> [Tagesspurkarte.Linie])? = nil
+    /// Die Fotos des Tages fürs Abfahren (ab 1.0.35) — erst beim Öffnen
+    /// geholt.
+    var fotos: @MainActor () -> [Tagesfahrt.Fotoort] = { [] }
 
     @Environment(\.dismiss) private var schliessen
     @State private var position: MapCameraPosition = .automatic
@@ -393,7 +400,8 @@ struct SpurVollbild: View {
                  : "Die Spur dieses Geräts an diesem Tag verschwindet — stammt sie von diesem Gerät, auch die Aufzeichnung darunter.")
         }
         .fullScreenCover(isPresented: $abfahren) {
-            Tagesfahrt(titel: titel, linien: linien.filter { sichtbar($0.art) }, zone: zone, palette: palette)
+            Tagesfahrt(titel: titel, linien: linien.filter { sichtbar($0.art) }, zone: zone, palette: palette,
+                       fotos: fotos())
         }
         // Neu, sobald sich eine Linie ändert — etwa nach dem Entfernen eines
         // Punktes (ab 1.0.32).

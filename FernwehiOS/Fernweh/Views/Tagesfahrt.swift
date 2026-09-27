@@ -1,6 +1,7 @@
 import SwiftUI
 import MapKit
 import Combine
+import CoreData
 
 // DEN TAG ABFAHREN (ab 1.0.31, Ansage des Nutzers 09/2026: „die einzelnen
 // Punkte des Tages auf der Karte abfahren können, so wie es in der
@@ -26,6 +27,15 @@ import Combine
 //   Bildschirmgröße, gleich welche Zoomstufe) und steht noch einmal klein
 //   in der Leiste unten.
 //
+// **Alle Punkte und die Fotos des Tages** (ab 1.0.35, Ansage des Nutzers
+// 09/2026: „alle Punkte des Tages zu sehen … Auch die Punkte der geschossenen
+// Fotos, so wie es in der Übersichtskarte auch der Fall ist"). Die Messpunkte
+// ALLER Linien (auch die der Gerätespur unter einer Fahrt, die der Pfad
+// auslässt), höchstens 300 — die Karte zeichnet 30-mal je Sekunde neu. Die
+// Fotos als kleine Bilder, eines je 25 m, höchstens 150; noch nicht
+// erreichte (Aufnahme nach der Uhrzeit des Punktes) blass. Beides oben
+// schaltbar, gemerkt je Gerät.
+//
 // Die Position läuft über die STRECKE, nicht über die Uhr (wie in der
 // Tagesspur): Sonst stünde der Punkt eine Nacht lang still und raste über
 // die Autobahn. Die Uhrzeit dazu kommt aus den beiden Nachbarpunkten.
@@ -39,7 +49,20 @@ struct Tagesfahrt: View {
     @State private var laeuft = false
     @State private var tempo: Double = 1
     @State private var position: MapCameraPosition = .automatic
+    @AppStorage("fernweh.fahrt.punkte") private var punkteZeigen = true
+    @AppStorage(Kartenebene.fotos.schluessel) private var fotosZeigen = true
 
+    /// Ein Foto mit Ort (ab 1.0.35).
+    struct Fotoort: Identifiable {
+        let id: NSManagedObjectID
+        let foto: Foto
+        let ort: CLLocationCoordinate2D
+        let zeit: TimeInterval?
+    }
+
+    private let fotos: [Fotoort]
+    /// Alle Messpunkte des Tages, ausgedünnt (ab 1.0.35).
+    private let messpunkte: [Zeitpunkt]
     private let pfad: [Zeitpunkt]
     private let summe: [Double]
     private let laenge: Double
@@ -48,9 +71,10 @@ struct Tagesfahrt: View {
     private static let grunddauer: TimeInterval = 120
     private let takt = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
-    init(titel: String, linien: [Tagesspurkarte.Linie], zone: TimeZone, palette: Palette) {
+    init(titel: String, linien: [Tagesspurkarte.Linie], zone: TimeZone, palette: Palette, fotos: [Fotoort] = []) {
         self.titel = titel
         self.palette = palette
+        self.fotos = fotos
         var alle: [Zeitpunkt] = []
         var fenster: [ClosedRange<Double>] = []
         for l in linien where l.zeiten.count == l.punkte.count && l.punkte.count > 1 {
@@ -63,6 +87,7 @@ struct Tagesfahrt: View {
         let gefiltert = alle
             .filter { p in p.art != .reisespur || !fenster.contains { $0.contains(p.zeit) } }
             .sorted { $0.zeit < $1.zeit }
+        self.messpunkte = Zeitsuche.auswahl(alle.sorted { $0.zeit < $1.zeit }, hoechstens: 300)
         let pfad = Self.ausgeduenntFolge(gefiltert, hoechstens: 1500)
         self.pfad = pfad
 
@@ -100,6 +125,28 @@ struct Tagesfahrt: View {
                     MapPolyline(coordinates: s.punkte)
                         .stroke(farbe(s.art), style: StrokeStyle(lineWidth: 4.5, lineCap: .round, lineJoin: .round))
                 }
+                if punkteZeigen {
+                    ForEach(messpunkte) { p in
+                        Annotation("", coordinate: p.koordinate) { Messpunkt(farbe: farbe(p.art)) }
+                            .annotationTitles(.hidden)
+                    }
+                }
+                if fotosZeigen {
+                    let jetzt = zustand?.zeit.timeIntervalSince1970
+                    ForEach(fotos) { f in
+                        let erreicht = Self.erreicht(f, jetzt: jetzt, fertig: fortschritt >= 1)
+                        Annotation("", coordinate: f.ort) {
+                            FotoBild(foto: f.foto, kante: 120)
+                                .frame(width: erreicht ? 32 : 24, height: erreicht ? 32 : 24)
+                                .clipShape(Circle())
+                                .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                                .opacity(erreicht ? 1 : 0.5)
+                                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                                .allowsHitTesting(false)
+                        }
+                        .annotationTitles(.hidden)
+                    }
+                }
                 if let jetzt = zustand {
                     Annotation("", coordinate: jetzt.ort, anchor: .center) {
                         Fahrpunkt(farbe: farbe(jetzt.art), uhrzeit: Tag.text(jetzt.zeit, "HH:mm", zone: jetzt.zone))
@@ -129,6 +176,13 @@ struct Tagesfahrt: View {
 
     private func farbe(_ art: Spurart) -> Color { farben.farbe(art, palette: palette) }
 
+    /// Hat der Punkt die Aufnahme schon erreicht? Sonst zeigt sich das Foto
+    /// blass. Ohne Aufnahmezeit gilt es als erreicht.
+    private static func erreicht(_ f: Fotoort, jetzt: TimeInterval?, fertig: Bool) -> Bool {
+        guard !fertig, let zeit = f.zeit, let jetzt else { return true }
+        return zeit <= jetzt
+    }
+
     private func koordinaten(_ von: Int, _ bis: Int) -> [CLLocationCoordinate2D] {
         guard von <= bis, bis < pfad.count else { return [] }
         return pfad[von...bis].map(\.koordinate)
@@ -152,6 +206,22 @@ struct Tagesfahrt: View {
                 .padding(.vertical, 8)
                 .background(.regularMaterial, in: Capsule())
             Spacer()
+            Button { punkteZeigen.toggle() } label: {
+                Image(systemName: punkteZeigen ? "circle.grid.3x3.fill" : "circle.grid.3x3")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 38, height: 38)
+                    .background(.regularMaterial, in: Circle())
+            }
+            .accessibilityLabel(punkteZeigen ? "Punkte ausblenden" : "Punkte zeigen")
+            if !fotos.isEmpty {
+                Button { fotosZeigen.toggle() } label: {
+                    Image(systemName: fotosZeigen ? "photo.fill" : "photo")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 38, height: 38)
+                        .background(.regularMaterial, in: Circle())
+                }
+                .accessibilityLabel(fotosZeigen ? "Fotos ausblenden" : "Fotos zeigen")
+            }
             Button {
                 withAnimation { position = .automatic }
             } label: {
@@ -316,6 +386,40 @@ struct Tagesfahrt: View {
         guard punkte.count > hoechstens, hoechstens > 2 else { return punkte }
         let schritt = Double(punkte.count - 1) / Double(hoechstens - 1)
         return (0 ..< hoechstens).map { punkte[Int(Double($0) * schritt)] }
+    }
+}
+
+extension Tagesfahrt {
+    /// Die Fotos der Einträge eines Tages mit Ort (ab 1.0.35) — `reise`
+    /// gesetzt: nur die dieser Reise. Gesperrte Tagebücher bleiben außen
+    /// vor, wie auf der Karte der Reise.
+    @MainActor
+    static func tagesfotos(tag: String, reise: Reise?) -> [Fotoort] {
+        let eintraege: [Eintrag]
+        if let reise {
+            eintraege = reise.eintragListe.filter { $0.tagSchluessel == tag }
+        } else {
+            guard let mitte = Tag.datum(schluessel: tag) else { return [] }
+            // Der Schlüssel hängt an der Ortszeit des Eintrags — großzügig
+            // holen, genau filtern.
+            let anfrage = NSFetchRequest<Eintrag>(entityName: "Eintrag")
+            anfrage.predicate = NSPredicate(format: "datum >= %@ AND datum <= %@",
+                                            mitte.addingTimeInterval(-36 * 3600) as NSDate,
+                                            mitte.addingTimeInterval(60 * 3600) as NSDate)
+            eintraege = ((try? Persistenz.shared.kontext.fetch(anfrage)) ?? []).filter { $0.tagSchluessel == tag }
+        }
+        var ergebnis: [Fotoort] = []
+        var behalten: [CLLocation] = []
+        for e in eintraege where !Buecherei.shared.istGesperrt(e.tagebuchName) {
+            for f in e.fotoListe {
+                guard let k = f.koordinate, ergebnis.count < 150 else { continue }
+                let ort = CLLocation(latitude: k.latitude, longitude: k.longitude)
+                if behalten.contains(where: { $0.distance(from: ort) < 25 }) { continue }
+                behalten.append(ort)
+                ergebnis.append(Fotoort(id: f.objectID, foto: f, ort: k, zeit: f.aufnahme?.timeIntervalSince1970))
+            }
+        }
+        return ergebnis
     }
 }
 

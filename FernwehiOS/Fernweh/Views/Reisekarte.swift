@@ -421,7 +421,8 @@ struct Vollkarte: View {
                         Tagesfahrt(titel: Tag.wochentagLang.string(from: tag),
                                    linien: Tagesspurwahl.linien(tag: schluessel, nurReise: reise).0
                                        .filter { l in UserDefaults.standard.object(forKey: Kartenebene.an(l.art).schluessel) as? Bool ?? true },
-                                   zone: reise.zone(am: schluessel), palette: reise.palette)
+                                   zone: reise.zone(am: schluessel), palette: reise.palette,
+                                   fotos: Tagesfahrt.tagesfotos(tag: schluessel, reise: reise))
                     }
                 }
                 .sheet(isPresented: $listeZeigen) {
