@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -674,6 +674,18 @@
   - **Nicht gemessen**: kein Gerät; ob beim Tippen am Ende eines langen
     Textes der Cursor über der Tastatur bleibt (die äußere Rolle muss
     nachziehen), ist nicht gesehen.
+- **Abfahren mit allen Punkten und Fotos** (`Views/Tagesfahrt.swift`, ab
+  1.0.35; Ansage des Nutzers 09/2026: „auch in der Karte, in der die
+  Reisespur … abgefahren wird, sollen alle Punkte des Tages zu sehen sein.
+  Auch die Punkte der geschossenen Fotos"). Messpunkte ALLER Linien (auch
+  die Gerätespur unter einer Fahrt), höchstens 300 — die Karte zeichnet
+  30-mal je Sekunde neu, mehr Annotationen sind nicht gemessen. Fotos der
+  Einträge des Tages (`Tagesfahrt.tagesfotos(tag:reise:)`, gesperrte
+  Tagebücher ausgenommen, eines je 25 m, höchstens 150); noch nicht
+  erreichte blass und kleiner. Schalter oben: Punkte (`fernweh.fahrt.punkte`,
+  Standard an) und Fotos (dieselbe Ebene wie auf der Reisekarte).
+  - **Nicht gemessen**: kein Gerät; ob 300 Punkte plus Fotos beim Abspielen
+    flüssig bleiben, ist nicht gesehen — wenn nicht, zuerst die Zahl senken.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

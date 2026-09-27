@@ -124,7 +124,10 @@ struct Wanderkarte: View {
                          kilometer: eintrag.streckeMeter / 1000, marken: [], palette: palette,
                          linienfarbe: farben.wanderung,
                          zeitmarken: Zeitmarke.fuer(punkte, zone: eintrag.zone),
-                         zone: eintrag.zone)
+                         zone: eintrag.zone,
+                         fotos: { [eintrag] in
+                             eintrag.tagSchluessel.map { Tagesfahrt.tagesfotos(tag: $0, reise: eintrag.reise) } ?? []
+                         })
         }
         .task(id: eintrag.strecke?.count ?? 0) {
             let daten = eintrag.strecke
