@@ -380,6 +380,23 @@ enum Spurspeicher {
         }
     }
 
+    /// Rohpunkte eines Tages entfernen (ab 1.0.32): Die Spur der Reise wird
+    /// bei jeder Übertragung aus dieser Datei neu gebaut — ein nur in der
+    /// Reise gelöschter Punkt käme sonst zurück.
+    static func entfernen(tag: String, wo weg: (Spurpunkt) -> Bool) {
+        let alle = punkte(tag: tag)
+        let bleiben = alle.filter { !weg($0) }
+        guard bleiben.count != alle.count else { return }
+        let text = bleiben.map { "\($0.breite),\($0.laenge),\($0.zeit)" }.joined(separator: "\n")
+        try? Data((text.isEmpty ? "" : text + "\n").utf8).write(to: datei(tag, art: "spur"), options: .atomic)
+    }
+
+    /// Die ganze Rohspur eines Tages löschen (Punkte und Besuche).
+    static func tagLoeschen(_ tag: String) {
+        try? FileManager.default.removeItem(at: datei(tag, art: "spur"))
+        try? FileManager.default.removeItem(at: datei(tag, art: "besuche"))
+    }
+
     /// Alle Tage, zu denen es eine Rohspur gibt.
     static func tage() -> [String] {
         let namen = (try? FileManager.default.contentsOfDirectory(atPath: ordner.path)) ?? []

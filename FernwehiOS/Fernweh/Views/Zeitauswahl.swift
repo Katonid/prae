@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreData
 import MapKit
 
 // WANN WAR ICH HIER? (ab 1.0.24, Ansage des Nutzers 09/2026: „Ich suche
@@ -26,6 +27,9 @@ struct Zeitpunkt: Identifiable {
     let art: Spurart
     let name: String
     let zone: TimeZone
+    /// Woher der Punkt stammt (ab 1.0.32, zum Entfernen): die `Spur` oder,
+    /// bei einer Wanderung, der `Eintrag`. `nil` heißt: nicht bearbeitbar.
+    var quelle: NSManagedObjectID? = nil
     var koordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: breite, longitude: laenge) }
     var id: String { "\(art.rawValue)|\(name)|\(zeit)|\(breite)|\(laenge)" }
 }
@@ -66,8 +70,10 @@ enum Zeitsuche {
     }
 
     /// Punkte einer Linie mit Uhrzeiten.
-    static func punkte(_ spur: [Spurpunkt], art: Spurart, name: String, zone: TimeZone) -> [Zeitpunkt] {
-        spur.map { Zeitpunkt(breite: $0.breite, laenge: $0.laenge, zeit: $0.zeit, art: art, name: name, zone: zone) }
+    static func punkte(_ spur: [Spurpunkt], art: Spurart, name: String, zone: TimeZone,
+                       quelle: NSManagedObjectID? = nil) -> [Zeitpunkt] {
+        spur.map { Zeitpunkt(breite: $0.breite, laenge: $0.laenge, zeit: $0.zeit, art: art, name: name, zone: zone,
+                             quelle: quelle) }
     }
 }
 
@@ -77,6 +83,13 @@ struct Zeitblase: View {
     let farbe: Color
     /// Auf der ganzen Reise gehört der Tag dazu.
     var mitTag = false
+    /// Entfernen (ab 1.0.32): `nil` = kein Knopf. Die Blase nimmt dann
+    /// Berührungen an — sonst bleibt sie ein Bild.
+    var punktEntfernen: (() -> Void)? = nil
+    /// Die ganze Linie entfernen, mit Beschriftung („Fahrt entfernen").
+    var linieEntfernen: (text: String, aktion: () -> Void)? = nil
+    /// Hinweis unter den Knöpfen (etwa: Spur eines anderen Geräts).
+    var hinweis: String? = nil
 
     var body: some View {
         let datum = Date(timeIntervalSince1970: punkt.zeit)
@@ -100,7 +113,26 @@ struct Zeitblase: View {
                         .font(.caption2)
                         .opacity(0.85)
                 }
+                if punktEntfernen != nil || linieEntfernen != nil {
+                    Divider().overlay(.white.opacity(0.6)).padding(.vertical, 3)
+                    if let punktEntfernen {
+                        Button(action: punktEntfernen) {
+                            Label("Punkt entfernen", systemImage: "trash")
+                        }
+                    }
+                    if let linieEntfernen {
+                        Button(action: linieEntfernen.aktion) {
+                            Label(linieEntfernen.text, systemImage: "trash.fill")
+                        }
+                    }
+                    if let hinweis {
+                        Text(hinweis).font(.caption2).opacity(0.85).frame(maxWidth: 200, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
+            .buttonStyle(.plain)
+            .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
@@ -118,7 +150,29 @@ struct Zeitblase: View {
         }
         .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
         .fixedSize()
-        .allowsHitTesting(false)
+        .allowsHitTesting(punktEntfernen != nil || linieEntfernen != nil)
+    }
+}
+
+/// Die Knöpfe der Blase für einen Punkt — an EINER Stelle entschieden,
+/// gefragt von der Karte der Reise und vom Vollbild eines Tages (ab 1.0.32).
+enum Punktbearbeitung {
+    /// Beschriftung für „ganze Linie entfernen" — `nil`, wo es das nicht
+    /// gibt (Wanderung: die ist ein Eintrag und geht über sein Menü).
+    @MainActor
+    static func linientext(_ z: Zeitpunkt) -> String? {
+        switch z.art {
+        case .fahrt: return "Ganze Fahrt entfernen"
+        case .reisespur: return "Ganze Spur des Tages entfernen"
+        case .wanderung: return nil
+        }
+    }
+
+    @MainActor
+    static func hinweis(_ z: Zeitpunkt) -> String? {
+        Spurbearbeitung.fremd(z)
+            ? "Von einem anderen Gerät aufgezeichnet — dort kann die Spur beim nächsten Abgleich zurückkommen."
+            : nil
     }
 }
 

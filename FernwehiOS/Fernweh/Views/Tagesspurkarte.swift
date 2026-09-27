@@ -23,6 +23,8 @@ struct Tagesspurkarte: View {
         /// Eigene Ortszeit der Linie (eine Fahrt trägt ihre), sonst die des
         /// Vollbilds.
         var zone: TimeZone? = nil
+        /// Woher die Linie stammt (ab 1.0.32, zum Entfernen von Punkten).
+        var quelle: NSManagedObjectID? = nil
     }
 
     @State private var linien: [Linie] = []
@@ -83,8 +85,8 @@ struct Tagesspurkarte: View {
             .task(id: eintrag.tagSchluessel ?? "") { laden() }
             .onReceive(NotificationCenter.default.publisher(
                 for: .NSManagedObjectContextObjectsDidChange, object: Persistenz.shared.kontext)) { m in
-                    let k = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSRefreshedObjectsKey]
-                    if k.contains(where: { ((m.userInfo?[$0] as? Set<NSManagedObject>) ?? []).contains { $0 is Spur } }) {
+                    let k = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSRefreshedObjectsKey, NSDeletedObjectsKey]
+                    if k.contains(where: { ((m.userInfo?[$0] as? Set<NSManagedObject>) ?? []).contains { $0 is Spur || $0 is Eintrag } }) {
                         laden()
                     }
                 }
@@ -128,7 +130,7 @@ enum Tagesspurwahl {
             return p.count >= 2
                 ? Tagesspurkarte.Linie(id: g, punkte: p, art: s.spurart, zeiten: liste.map(\.zeit),
                                        name: s.istFahrt ? Fahrtenimport.anzeigename(s) : (s.reisender ?? ""),
-                                       zone: s.istFahrt ? Fahrtenimport.zone(s) : nil)
+                                       zone: s.istFahrt ? Fahrtenimport.zone(s) : nil, quelle: s.objectID)
                 : nil
         }
         // Die Wanderungen des Tages dazu (ab 1.0.26, Ansage des Nutzers
@@ -146,7 +148,8 @@ enum Tagesspurwahl {
             guard punkte.count >= 2 else { return nil }
             return Tagesspurkarte.Linie(id: "wanderung:" + e.objectID.uriRepresentation().absoluteString,
                                         punkte: punkte.map(\.koordinate), art: .wanderung,
-                                        zeiten: punkte.map(\.zeit), name: e.anzeigeTitel, zone: e.zone)
+                                        zeiten: punkte.map(\.zeit), name: e.anzeigeTitel, zone: e.zone,
+                                        quelle: e.objectID)
         }
         // Wie `Reise.meter(am:)`: die längste Gerätespur ODER die Summe der
         // Autofahrten (ab 1.0.21), das Größere.
@@ -224,8 +227,8 @@ struct Tagesspurleiste: View {
         .task(id: tag) { laden() }
         .onReceive(NotificationCenter.default.publisher(
             for: .NSManagedObjectContextObjectsDidChange, object: Persistenz.shared.kontext)) { m in
-                let k = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSRefreshedObjectsKey]
-                if k.contains(where: { ((m.userInfo?[$0] as? Set<NSManagedObject>) ?? []).contains { $0 is Spur } }) {
+                let k = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSRefreshedObjectsKey, NSDeletedObjectsKey]
+                if k.contains(where: { ((m.userInfo?[$0] as? Set<NSManagedObject>) ?? []).contains { $0 is Spur || $0 is Eintrag } }) {
                     laden()
                 }
             }
@@ -291,6 +294,8 @@ struct SpurVollbild: View {
     @State private var gewaehlt: Zeitpunkt?
     /// Den Tag abfahren (ab 1.0.31, siehe `Tagesfahrt.swift`).
     @State private var abfahren = false
+    /// Die ganze Linie entfernen — erst nach Rückfrage (ab 1.0.32).
+    @State private var linieLoeschen: Zeitpunkt?
     @AppStorage("fernweh.kartenpunkte") private var punkteZeigen = false
     /// Dieselben Ebenen wie auf der Karte der Reise (ab 1.0.26). Eine
     /// Karte mit EINER vorgegebenen Farbe (die einer Wanderung) zeigt immer
@@ -345,14 +350,30 @@ struct SpurVollbild: View {
                 }
             }
         }
+        .confirmationDialog(linieLoeschen.flatMap(Punktbearbeitung.linientext).map { $0 + "?" } ?? "",
+                            isPresented: Binding(get: { linieLoeschen != nil }, set: { if !$0 { linieLoeschen = nil } }),
+                            titleVisibility: .visible) {
+            Button("Entfernen", role: .destructive) {
+                if let z = linieLoeschen { Spurbearbeitung.linieEntfernen(z) }
+                linieLoeschen = nil
+                gewaehlt = nil
+            }
+        } message: {
+            Text(linieLoeschen?.art == .fahrt
+                 ? "Die Fahrt verschwindet aus der Reise. Einlesen lässt sie sich wieder aus der GPX-Datei."
+                 : "Die Spur dieses Geräts an diesem Tag verschwindet — stammt sie von diesem Gerät, auch die Aufzeichnung darunter.")
+        }
         .fullScreenCover(isPresented: $abfahren) {
             Tagesfahrt(titel: titel, linien: linien.filter { sichtbar($0.art) }, zone: zone, palette: palette)
         }
-        .task {
+        // Neu, sobald sich eine Linie ändert — etwa nach dem Entfernen eines
+        // Punktes (ab 1.0.32).
+        .task(id: linien.map { "\($0.id):\($0.punkte.count)" }.joined(separator: ";")) {
+            gewaehlt = nil
             zeitpunkte = linien.flatMap { l in
                 zip(l.punkte, l.zeiten).map { k, t in
                     Zeitpunkt(breite: k.latitude, laenge: k.longitude, zeit: t, art: l.art,
-                              name: l.name, zone: l.zone ?? zone)
+                              name: l.name, zone: l.zone ?? zone, quelle: l.quelle)
                 }
             }
         }
@@ -382,7 +403,16 @@ struct SpurVollbild: View {
             }
             if let gewaehlt, sichtbar(gewaehlt.art) {
                 Annotation("", coordinate: gewaehlt.koordinate, anchor: .bottom) {
-                    Zeitblase(punkt: gewaehlt, farbe: farbe(gewaehlt.art))
+                    let darf = Spurbearbeitung.darf(gewaehlt)
+                    Zeitblase(punkt: gewaehlt, farbe: farbe(gewaehlt.art),
+                              punktEntfernen: darf ? {
+                                  Spurbearbeitung.punktEntfernen(gewaehlt)
+                                  self.gewaehlt = nil
+                              } : nil,
+                              linieEntfernen: darf ? Punktbearbeitung.linientext(gewaehlt).map { t in
+                                  (text: t, aktion: { linieLoeschen = gewaehlt })
+                              } : nil,
+                              hinweis: darf ? Punktbearbeitung.hinweis(gewaehlt) : nil)
                 }
                 .annotationTitles(.hidden)
             }
