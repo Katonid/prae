@@ -69,25 +69,52 @@ enum Spurbearbeitung {
             if i > 0 { umweg += punkte[i - 1].ort.distance(from: p.ort) }
             if i + 1 < punkte.count { umweg += p.ort.distance(from: punkte[i + 1].ort) }
             if i > 0, i + 1 < punkte.count { umweg -= punkte[i - 1].ort.distance(from: punkte[i + 1].ort) }
+            // Für „Rückgängig" (ab 1.0.33): der alte Stand, über die Kennung.
+            let bild = Schnappschuss(s)
+            let altePunkte = s.punkte
+            let alteDistanz = s.distanz
+            let kennung = s.kennung
             punkte.remove(at: i)
             s.punkte = Spurpunkt.packen(punkte)
             s.distanz = max(0, s.distanz - umweg)
             s.geaendert = Date()
+            var roh: (tag: String, punkte: [Spurpunkt])?
             if !s.istFahrt, s.geraet == Geraet.kennung, let tag = s.tag {
-                Spurspeicher.entfernen(tag: tag) { $0.zeit >= von - 0.5 && $0.zeit < bis }
+                roh = (tag, Spurspeicher.entfernen(tag: tag) { $0.zeit >= von - 0.5 && $0.zeit < bis })
             }
             if punkte.count < 2 { persistenz.kontext.delete(s) }
             persistenz.sichern()
+            let uhr = Tag.text(p.datum, "HH:mm", zone: z.zone)
+            Rueckgaengig.shared.merken("Punkt \(uhr) entfernt") {
+                if let roh { Spurspeicher.hinzufuegen(tag: roh.tag, roh.punkte) }
+                if let da = Rueckgaengig.objekt("Spur", kennung) as? Spur {
+                    da.punkte = altePunkte
+                    da.distanz = alteDistanz
+                    da.geaendert = Date()
+                } else {
+                    bild.wiederherstellen()
+                }
+            }
             return true
         }
         if let e = eintrag(z) {
             var punkte = e.streckenpunkte
             guard let i = punkte.firstIndex(where: { gleich($0, z) }) else { return false }
+            let alteStrecke = e.strecke
+            let alteMeter = e.streckeMeter
+            let kennung = e.kennung
+            let uhr = Tag.text(punkte[i].datum, "HH:mm", zone: z.zone)
             punkte.remove(at: i)
             e.strecke = Spurpunkt.packen(punkte)
             e.streckeMeter = Spurpunkt.distanz(punkte)
             e.geaendert = Date()
             persistenz.sichern()
+            Rueckgaengig.shared.merken("Punkt \(uhr) der Wanderung entfernt") {
+                guard let da = Rueckgaengig.objekt("Eintrag", kennung) as? Eintrag else { return }
+                da.strecke = alteStrecke
+                da.streckeMeter = alteMeter
+                da.geaendert = Date()
+            }
             return true
         }
         return false
@@ -102,17 +129,22 @@ enum Spurbearbeitung {
             return
         }
         let persistenz = Persistenz.shared
+        var weg: [Spur] = [s]
+        var rohtag: String?
         if s.geraet == Geraet.kennung, let tag = s.tag {
             // Die eigene Rohspur des Tages, und mit ihr jede Spur, die aus
             // ihr gebaut ist (Tagebuch, weitere Reisen desselben Tages).
-            Spurspeicher.tagLoeschen(tag)
+            rohtag = tag
             let anfrage = Spur.alle()
             anfrage.predicate = NSPredicate(format: "tag == %@ AND geraet == %@", tag, Geraet.kennung)
-            for andere in (try? persistenz.kontext.fetch(anfrage)) ?? [] where persistenz.darfLoeschen(andere) {
-                persistenz.kontext.delete(andere)
+            for andere in (try? persistenz.kontext.fetch(anfrage)) ?? [] where andere != s && persistenz.darfLoeschen(andere) {
+                weg.append(andere)
             }
         }
-        if !s.isDeleted { persistenz.kontext.delete(s) }
+        // Für „Rückgängig" (ab 1.0.33): vorher gemerkt, samt Rohspur.
+        Rueckgaengig.spurenGeloescht(weg, rohtag: rohtag, titel: "Spur des Tages entfernt")
+        if let rohtag { Spurspeicher.tagLoeschen(rohtag) }
+        for spur in weg { persistenz.kontext.delete(spur) }
         persistenz.sichern()
     }
 }

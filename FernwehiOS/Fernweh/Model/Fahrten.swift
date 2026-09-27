@@ -210,6 +210,8 @@ enum Fahrtenimport {
 
     static func loeschen(_ spur: Spur) {
         let persistenz = Persistenz.shared
+        // Für „Rückgängig" (ab 1.0.33) — vor dem Löschen gemerkt.
+        Rueckgaengig.spurenGeloescht([spur], rohtag: nil, titel: "Fahrt „\(anzeigename(spur))“ entfernt")
         persistenz.kontext.delete(spur)
         persistenz.sichern()
     }

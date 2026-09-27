@@ -234,6 +234,15 @@ enum Textglaettung {
             a.eintrag.geaendert = Date()
         }
         Persistenz.shared.sichern()
+        // Auch im Rückgängig der Sitzung (ab 1.0.33).
+        Rueckgaengig.shared.merken(alt.count == 1 ? "1 Text ersetzt" : "\(alt.count) Texte ersetzt") {
+            for a in alt {
+                guard let e = Rueckgaengig.objekt("Eintrag", a.kennung) as? Eintrag else { continue }
+                e.titel = a.titel
+                e.text = a.text
+                e.geaendert = Date()
+            }
+        }
     }
 
     /// Wann zuletzt übernommen wurde — `nil`, wenn nichts zurückzunehmen ist.

@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -625,6 +625,45 @@
     Einträgen neu (`NSDeletedObjectsKey`, `Eintrag`).
   - **Nicht gemessen**: kein Gerät; ob der Knopf in der Blase den Tipp vor
     der Karte bekommt, ist nicht gesehen.
+- **Ausschnitt bleibt, Punkteliste, Rückgängig** (ab 1.0.33; Ansage des
+  Nutzers 09/2026: „dass die Karte genau denselben Ausschnitt beibehält …
+  alle Punkte auf einer Liste … durch Wischen Punkte löschen … eine
+  Rückgängigfunktion für die App, die für die laufende Sitzung Bestand hat").
+  - **Kamera einfrieren:** `.automatic` rahmt bei JEDER Änderung des Inhalts
+    neu — nach einem entfernten Punkt sprang die Karte auf die ganze Spur.
+    Nach dem ersten Rahmen tauscht `onMapCameraChange(.onEnd)` die Stellung
+    gegen `.camera(...)` (`eingefroren`); nur „scope" im Tagesvollbild
+    rahmt wieder. `Reisekarte.linienLaden` setzte bis 1.0.32 bei jedem Laden
+    `.automatic` — jetzt nur beim ersten (`gerahmt`), außer in der starren
+    Karte im Kopf der Reise. Tageswechsel in der Vollkarte baut ohnehin neu
+    (`.id`).
+  - **Punkteliste** (`Views/Punkteliste.swift`): je Linie ein Abschnitt,
+    Uhrzeit und Abstand zum vorigen Punkt (über 2 km orange — Ausreißer).
+    Wischen löscht, „Auswählen" löscht mehrere; ein Tipp schwenkt die Karte
+    dorthin (Blatt halb hoch, Karte darüber bedienbar). Die Liste lädt nach
+    jedem Löschen FRISCH (`laden`-Closure über `Tagesspurwahl.linien`) —
+    die `linien` des Vollbilds sind eine Kopie. Erreichbar im Tagesvollbild
+    (`nachladen` gesetzt; nicht bei der Wanderung) und in der Vollkarte,
+    wenn ein Tag gewählt ist.
+  - **Rückgängig** (`Model/Rueckgaengig.swift`): eigener Stapel im
+    Arbeitsspeicher (60 Schritte), **nicht** `NSManagedObjectContext.undoManager`
+    — der nähme auch hereingemischte iCloud-Änderungen anderer Geräte zurück
+    und kennt die Rohspur nicht. Objekte werden über ihre **Kennung**
+    wiedergefunden, nie über die `objectID` (die ist nach dem Zurückholen
+    neu). Gelöschte Objekte als `Schnappschuss` (Werte, Ziele per Kennung,
+    „mit löschen"-Kinder wie Fotos), zurück in denselben Speicher.
+    Zurücknehmbar: Punkt entfernt (samt Rohpunkten), Fahrt/Spur des Tages
+    entfernt (samt Rohdatei des Tages), Eintrag gelöscht, KI-Texte ersetzt.
+    Nicht: eine gelöschte Reise. **Wer einen neuen löschenden Schritt
+    einbaut, merkt ihn VOR dem Löschen** (`Rueckgaengig.shared.merken`).
+    Knöpfe: rund im Tagesvollbild, in der Werkzeugleiste der Vollkarte und
+    der Reise, dazu fünf Sekunden ein Hinweis unten („… · Rückgängig").
+    Die Reisekarte lädt bei jedem Schritt neu (`schritte.count` im
+    Schlüssel).
+  - **Nicht gemessen**: kein Gerät; ob `onMapCameraChange` vor dem ersten
+    Rahmen der geladenen Linien feuert (dann stünde die Karte leer
+    eingefroren — deshalb in der Reisekarte erst nach `gerahmt`), ist nicht
+    gesehen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
