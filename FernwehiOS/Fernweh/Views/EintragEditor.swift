@@ -159,6 +159,9 @@ struct EintragEditor: View {
             }
             .interactiveDismissDisabled(speichert)
         }
+        // Auf dem iPad das große Blatt (ab 1.0.34) — im kleinen Formblatt
+        // blieben vom Text eines Tages sieben Zeilen sichtbar.
+        .grossesBlatt()
     }
 
     // MARK: - Wohin der Eintrag gehört
@@ -402,9 +405,14 @@ struct EintragEditor: View {
                     .padding(.vertical, 8)
                     .allowsHitTesting(false)
             }
+            // Das Feld wächst mit dem Text (ab 1.0.34, Wunsch des Nutzers
+            // 09/2026): Geblättert wird im Fenster, nicht in einem kleinen
+            // Kasten darin — der ganze Tagestext steht untereinander.
             TextEditor(text: $text)
                 .focused($textFokus)
-                .frame(minHeight: 160)
+                .frame(minHeight: 240)
+                .fixedSize(horizontal: false, vertical: true)
+                .scrollDisabled(true)
                 .scrollContentBackground(.hidden)
             }
             .font(.body)
@@ -837,6 +845,19 @@ private struct Speicherhinweis: View {
             }
             .padding(24)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+}
+
+extension View {
+    /// Das große Blatt auf dem iPad (ab 1.0.34): `.page` statt des kleinen
+    /// Formblatts. Erst ab iOS 18 — darunter bleibt es, wie es war.
+    @ViewBuilder
+    func grossesBlatt() -> some View {
+        if #available(iOS 18.0, *) {
+            presentationSizing(.page)
+        } else {
+            self
         }
     }
 }
