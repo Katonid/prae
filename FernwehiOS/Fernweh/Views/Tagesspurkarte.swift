@@ -289,6 +289,8 @@ struct SpurVollbild: View {
     /// Wann war ich hier? (ab 1.0.24, siehe `Zeitauswahl.swift`)
     @State private var zeitpunkte: [Zeitpunkt] = []
     @State private var gewaehlt: Zeitpunkt?
+    /// Den Tag abfahren (ab 1.0.31, siehe `Tagesfahrt.swift`).
+    @State private var abfahren = false
     @AppStorage("fernweh.kartenpunkte") private var punkteZeigen = false
     /// Dieselben Ebenen wie auf der Karte der Reise (ab 1.0.26). Eine
     /// Karte mit EINER vorgegebenen Farbe (die einer Wanderung) zeigt immer
@@ -342,6 +344,9 @@ struct SpurVollbild: View {
                     gewaehlt = Zeitsuche.naechster(zu: ziel, in: zeitpunkte.filter { sichtbar($0.art) }, toleranz: toleranz)
                 }
             }
+        }
+        .fullScreenCover(isPresented: $abfahren) {
+            Tagesfahrt(titel: titel, linien: linien.filter { sichtbar($0.art) }, zone: zone, palette: palette)
         }
         .task {
             zeitpunkte = linien.flatMap { l in
@@ -426,6 +431,13 @@ struct SpurVollbild: View {
                 }
                 Spacer()
                 if !zeitpunkte.isEmpty {
+                    Button { abfahren = true } label: {
+                        Image(systemName: "play.fill")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 38, height: 38)
+                            .background(.regularMaterial, in: Circle())
+                    }
+                    .accessibilityLabel("Tag abfahren")
                     Button {
                         punkteZeigen.toggle()
                     } label: {
