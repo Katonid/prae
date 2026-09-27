@@ -601,6 +601,57 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.tage.filter { tag in tag.seiten.contains(where: \.vonHand) }.count
     }
 
+    // DIE ZWEITE ÜBERSCHRIFT FÜR DAS GANZE BUCH EIN- ODER AUSSCHALTEN
+    // (ab 1.0.116; Ansage des Nutzers 09/2026: „Ich möchte auswählen
+    // können, dass ich nur die Hauptüberschrift sichtbar haben möchte.").
+    //
+    // Unberührte Tage werden neu gesetzt — dort schließt sich die Lücke von
+    // selbst. Auf Tagen mit Handarbeit wird beim AUSSCHALTEN nur der Block
+    // der zweiten Überschrift weggenommen: Das ist genau das Erbetene, und
+    // alles andere dort bleibt, wie es gelegt wurde. Beim EINSCHALTEN kommt
+    // sie dort erst mit „Seiten neu anordnen" zurück; gezählt und gesagt.
+    //
+    // EIN `merken()` vor der Änderung, nicht zwei: `alleNeuAnordnen` merkt
+    // selbst, und dann stünde auf dem Stapel ein Stand mit neuer
+    // Einstellung und alten Seiten.
+    @discardableResult
+    func unterueberschriftZeigen(_ an: Bool) -> String {
+        guard reise.gestaltung.unterueberschriftZeigen != an else { return "" }
+        merken()
+        reise.gestaltung.unterueberschriftZeigen = an
+        let werkzeug = automat
+        var weggenommen = 0
+        var ohne = 0
+        for stelle in reise.tage.indices {
+            let hand = reise.tage[stelle].seiten.contains(where: { $0.vonHand })
+            guard hand else {
+                wortlautSichern(stelle)
+                seitenNeuSetzen(stelle, mit: werkzeug)
+                continue
+            }
+            let traegt = reise.tage[stelle].seiten.contains {
+                $0.bloecke.contains { $0.inhalt == .unterueberschrift }
+            }
+            if an {
+                if !traegt, !reise.tage[stelle].unterueberschrift.isEmpty { ohne += 1 }
+            } else if traegt {
+                for s in reise.tage[stelle].seiten.indices {
+                    reise.tage[stelle].seiten[s].bloecke.removeAll { $0.inhalt == .unterueberschrift }
+                }
+                weggenommen += 1
+            }
+        }
+        befundeAuffrischen()
+        if weggenommen > 0 {
+            return "An \(weggenommen) Tagen mit Handarbeit ist die zweite Überschrift weggenommen; "
+                + "der Platz darüber bleibt, bis du dort \u{201E}Seiten neu anordnen\u{201C} wählst."
+        }
+        if ohne > 0 {
+            return "An \(ohne) Tagen mit Handarbeit erscheint sie erst nach \u{201E}Seiten neu anordnen\u{201C}."
+        }
+        return ""
+    }
+
     // Gibt zurück, ob an diesem Tag von Hand gearbeitet wurde. Die Ansicht
     // fragt damit nach, BEVOR sie eine Stunde Arbeit überschreibt.
     func hatHandarbeit(_ id: UUID) -> Bool {

@@ -472,6 +472,11 @@ struct Gestaltung: Codable, Hashable {
     var seitenzahlen: Bool = true
     var kopfzeile: Bool = false
     var datumsstil: Datumsstil = .langMitWochentag
+    // Die ZWEITE Überschrift der Tage zeigen? (ab 1.0.116, Ansage des
+    // Nutzers 09/2026: „Ich möchte auswählen können, dass ich nur die
+    // Hauptüberschrift sichtbar haben möchte.") Der Text bleibt am Tag
+    // stehen — aus heißt nur: Der Satz setzt ihn nicht.
+    var unterueberschriftZeigen: Bool = true
 
     // EIN WASSERZEICHEN AUF JEDER SEITE (ab 1.0.46).
     //
@@ -521,6 +526,7 @@ struct Gestaltung: Codable, Hashable {
         seitenzahlen = b.wert(.seitenzahlen, true)
         kopfzeile = b.wert(.kopfzeile, false)
         datumsstil = b.wert(.datumsstil, Datumsstil.langMitWochentag)
+        unterueberschriftZeigen = b.wert(.unterueberschriftZeigen, true)
         wasserzeichen = b.wahlweise(.wasserzeichen)
     }
 

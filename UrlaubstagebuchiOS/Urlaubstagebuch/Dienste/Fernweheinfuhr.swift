@@ -140,6 +140,9 @@ enum Fernweheinfuhr {
 
     struct AbschnittTeil: Decodable {
         var name: String?
+        // Der WMO-Code — daraus wird das Symbol (ab 1.0.116; stand seit
+        // Fernweh 1.0.x in der Datei und wurde überlesen).
+        var code: Int?
         var beschreibung: String?
         var tiefst: Double?
         var hoechst: Double?
@@ -248,6 +251,8 @@ enum Fernweheinfuhr {
         // Ihre Namen, für die Vorschau (ab 1.0.115).
         var fahrtnamen: [String] = []
         var wetter: String?
+        // Dasselbe Wetter als Tabelle mit Symbolen (ab 1.0.116).
+        var wettertabelle: Wettertabelle?
         var zone: TimeZone?
         var zoneNachgeschlagen = false
         // Die Zone, die FERNWEH für diesen Tag kennt (ab 1.0.115): die des
@@ -452,6 +457,7 @@ enum Fernweheinfuhr {
 
                 if tag.wetter == nil, let wetter = eintrag.wetter {
                     tag.wetter = wetterzeile(wetter, ort: ortName)
+                    tag.wettertabelle = wettertabelle(wetter, ort: ortName)
                 }
 
                 let fotos = (eintrag.fotos?.werte ?? []).sorted {
@@ -488,8 +494,9 @@ enum Fernweheinfuhr {
             // Das Wetter des TAGES (ab 1.0.110) nur, wo kein Eintrag eines
             // trägt — das eines Eintrags steht an dessen Ort.
             if tag.wetter == nil, let wetter = teil.wetter {
-                tag.wetter = wetterzeile(wetter, ort: (teil.wetterOrt?.name ?? "")
-                    .trimmingCharacters(in: .whitespacesAndNewlines))
+                let ort = (teil.wetterOrt?.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                tag.wetter = wetterzeile(wetter, ort: ort)
+                tag.wettertabelle = wettertabelle(wetter, ort: ort)
             }
 
             // Mehrere Spuren desselben Tages sind mehrere GERÄTE auf
@@ -575,7 +582,10 @@ enum Fernweheinfuhr {
                 befund.tage[schon].fahrten += tag.fahrten
                 befund.tage[schon].fahrtnamen += tag.fahrtnamen
                 if befund.tage[schon].zoneAusDatei == nil { befund.tage[schon].zoneAusDatei = tag.zoneAusDatei }
-                if befund.tage[schon].wetter == nil { befund.tage[schon].wetter = tag.wetter }
+                if befund.tage[schon].wetter == nil {
+                    befund.tage[schon].wetter = tag.wetter
+                    befund.tage[schon].wettertabelle = tag.wettertabelle
+                }
             } else if !tag.eintraege.isEmpty || !tag.spur.isEmpty || !tag.fotos.isEmpty {
                 // Ein Tag, an dem nur ein abgewähltes Tagebuch schrieb und
                 // keine Spur entstand, bleibt draußen.
@@ -671,6 +681,23 @@ enum Fernweheinfuhr {
     // Mit Ort (ab 1.0.110): „Wetter in Lissabon: Morgens …" — das Wetter
     // gilt dort, wo es geholt wurde, und an einem Reisetag sind das oft
     // andere Orte als der, an dem man abends schreibt.
+    // Dasselbe Wetter als Tabelle (ab 1.0.116) — die vier Spalten, die
+    // Fernwehs `WetterLeiste` zeigt. Ein Abschnitt ohne Code bekommt das
+    // Fragezeichen und wird nicht weggelassen: Eine Spalte zu wenig sähe
+    // aus wie ein Tag ohne Nacht.
+    static func wettertabelle(_ wetter: WetterTeil, ort: String = "") -> Wettertabelle? {
+        let spalten = (wetter.abschnitte?.werte ?? []).compactMap { a -> Wettertabelle.Spalte? in
+            guard let tief = a.tiefst, let hoch = a.hoechst else { return nil }
+            return Wettertabelle.Spalte(
+                name: (a.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                code: a.code ?? -1,
+                beschreibung: (a.beschreibung ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                tiefst: tief, hoechst: hoch, regen: a.regen ?? 0)
+        }
+        guard !spalten.isEmpty else { return nil }
+        return Wettertabelle(ort: ort, vorhersage: wetter.vorhersage == true, spalten: spalten)
+    }
+
     static func wetterzeile(_ wetter: WetterTeil, ort: String = "") -> String? {
         let zahl = NumberFormatter()
         zahl.locale = Locale(identifier: "de_DE")
@@ -858,11 +885,16 @@ extension Reisewerk {
         // sich.
         var texte = true
         var fotos = true
-        var wetter: Wetterziel = .zeile
+        var wetter: Wetterziel = .tabelle
         var orte: Ortswahl = .fernweh
     }
 
     enum Wetterziel: Hashable {
+        // Die Tabelle mit Symbolen oben auf dem Aufmacher (ab 1.0.116,
+        // Vorgabe). Die Zeile wird daneben mitgeschrieben — sie ist der
+        // Rückfall für eine ältere Fassung und für den Fall, dass die
+        // Tabelle wieder entfernt wird.
+        case tabelle
         // Ein eigenes Feld am Tag, auf der Seite eine eigene Zeile.
         case zeile
         // Wie bis 1.0.107: als letzter Absatz im Tagebuchtext.
@@ -987,18 +1019,32 @@ extension Reisewerk {
                     text: wunsch.wetter == .unterText ? (tag.wetter ?? "") : "")
             // Das Wetter als eigenes Feld. Es gilt dieselbe Regel wie bei
             // den Überschriften: Ein leerer Fund überschreibt nichts.
-            if wunsch.wetter == .zeile, let wetter = tag.wetter, !wetter.isEmpty,
-               reise.tage[stelle].wetter.isEmpty || wunsch.ersetzen
+            let alsTabelle = wunsch.wetter == .tabelle && tag.wettertabelle != nil
+            if wunsch.wetter == .zeile || wunsch.wetter == .tabelle,
+               let wetter = tag.wetter, !wetter.isEmpty,
+               reise.tage[stelle].hatWetter == false || wunsch.ersetzen
+                   // Ein zweites Einlesen DERSELBEN Datei soll die Tabelle
+                   // nachtragen (die erste Übernahme hatte nur die Zeile):
+                   // Steht dort noch wörtlich die Zeile von damals, ist sie
+                   // nicht von Hand geändert, und die Tabelle ersetzt nichts.
+                   || (alsTabelle && reise.tage[stelle].geltendeWettertabelle == nil
+                       && reise.tage[stelle].wetter == wetter)
             {
                 reise.tage[stelle].wetter = wetter
+                // Als Zeile gewählt, fällt eine alte Tabelle weg — sonst
+                // stünde weiter die Tabelle da, und der Schalter täte nichts.
+                reise.tage[stelle].wettertabelle = alsTabelle ? tag.wettertabelle : nil
                 mitWetter += 1
                 // Ein Tag mit Handarbeit wird unten nicht neu gesetzt —
                 // steht dort noch keine Wetterzeile, kommt sie erst mit
-                // „Seiten neu anordnen". Das wird gezählt und gesagt.
+                // „Seiten neu anordnen". Das wird gezählt und gesagt. Eine
+                // TABELLE zählt dort immer: Sie wird in den Block gezeichnet,
+                // der schon dasteht, und der ist für eine Zeile bemessen —
+                // die Tabelle stünde darin winzig.
                 let hatZeile = reise.tage[stelle].seiten.contains {
                     $0.bloecke.contains { $0.inhalt == .wetter }
                 }
-                if !hatZeile, reise.tage[stelle].seiten.contains(where: \.vonHand) {
+                if !hatZeile || alsTabelle, reise.tage[stelle].seiten.contains(where: \.vonHand) {
                     wetterNachAnordnen += 1
                 }
             }
@@ -1161,7 +1207,7 @@ extension Reisewerk {
         if farbenUebernommen { zeilen.append("Die Farben der Linien kommen aus Fernweh.") }
         if mitWetter > 0 { zeilen.append("Bei \(mitWetter) Tagen steht das Wetter als eigene Zeile.") }
         if wetterNachAnordnen > 0 {
-            zeilen.append("\(wetterNachAnordnen) davon tragen Handarbeit \u{2014} dort erscheint die Wetterzeile erst nach \u{201E}Seiten neu anordnen\u{201C}.")
+            zeilen.append("\(wetterNachAnordnen) davon tragen Handarbeit \u{2014} dort erscheint das Wetter erst nach \u{201E}Seiten neu anordnen\u{201C} in voller Gr\u{00F6}\u{00DF}e.")
         }
         if !wunsch.texte { zeilen.append("Texte und Überschriften wurden nicht übernommen.") }
         if !wunsch.fotos { zeilen.append("Fotos wurden nicht übernommen.") }

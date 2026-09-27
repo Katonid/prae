@@ -26,6 +26,10 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // keine Wetterzeile. Es ist bewusst TEXT und keine Messreihe: Was im
     // Buch steht, soll sich ändern lassen wie jede andere Zeile.
     var wetter: String = ""
+    // Dasselbe Wetter als TABELLE mit Symbolen (ab 1.0.116, aus Fernweh).
+    // Steht sie da, zeichnet der Wetterblock sie statt der Zeile; `nil`
+    // heißt: die Zeile gilt.
+    var wettertabelle: Wettertabelle?
     var text: String = ""
     var fotos: [UUID] = []
     var spur: [Reisepunkt] = []
@@ -78,6 +82,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         ueberschrift = b.wert(.ueberschrift, "")
         unterueberschrift = b.wert(.unterueberschrift, "")
         wetter = b.wert(.wetter, "")
+        wettertabelle = b.wahlweise(.wettertabelle)
         text = b.wert(.text, "")
         fotos = b.wert(.fotos, [])
         spur = b.wert(.spur, [])
@@ -101,6 +106,16 @@ struct Reisetag: Identifiable, Codable, Hashable {
     }
 
     init(datum: Tagesdatum) { self.datum = datum }
+
+    // Die Tabelle, wenn sie etwas zeigt.
+    var geltendeWettertabelle: Wettertabelle? {
+        guard let t = wettertabelle, !t.leer else { return nil }
+        return t
+    }
+
+    var hatWetter: Bool {
+        geltendeWettertabelle != nil || !wetter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var hatSpur: Bool { spur.count >= 1 }
     var hatStrecke: Bool { spur.count >= 2 }

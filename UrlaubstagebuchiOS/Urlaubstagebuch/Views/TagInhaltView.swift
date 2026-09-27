@@ -29,11 +29,24 @@ struct TagInhaltView: View {
                         ))
                         TextField("Wetter, z. B. Vormittag sonnig, 19\u{2013}25 °C",
                                   text: binden(stelle, \.wetter), axis: .vertical)
+                        // Die Tabelle aus Fernweh (ab 1.0.116) geht der Zeile
+                        // vor. Ohne diesen Knopf wäre die Zeile darüber ein
+                        // Feld, dessen Änderung auf der Seite nichts bewirkt.
+                        if let tabelle = werk.reise.tage[stelle].geltendeWettertabelle {
+                            LabeledContent("Wettertabelle",
+                                           value: "\(tabelle.spalten.count) Spalten")
+                            Button(role: .destructive) {
+                                werk.merken()
+                                werk.reise.tage[stelle].wettertabelle = nil
+                            } label: {
+                                Label("Tabelle entfernen, Zeile zeigen", systemImage: "tablecells.badge.ellipsis")
+                            }
+                        }
                         Toggle("Diesen Tag ausblenden", isOn: binden(stelle, \.ausgeblendet))
                     } header: {
                         Text("Überschriften und Datumszeile")
                     } footer: {
-                        Text("Die zweite Überschrift ist für den Ort oder ein Schlagwort gedacht. Sie steht unter der ersten, kleiner und kursiv — beim Einlesen eines Tagebuchtextes findet die App sie in der Zeile nach dem Datum. Bleibt die Datumszeile leer, gilt das Format des Buches. Das Wetter steht als eigene Zeile unter den Überschriften, in der Schrift der Datumszeile; leer heißt keine Wetterzeile. Auf die Seite kommt es beim nächsten Anordnen des Tages. Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht ins Buch.")
+                        Text("Die zweite Überschrift ist für den Ort oder ein Schlagwort gedacht. Sie steht unter der ersten, kleiner und kursiv — beim Einlesen eines Tagebuchtextes findet die App sie in der Zeile nach dem Datum. Bleibt die Datumszeile leer, gilt das Format des Buches. Das Wetter steht als eigene Zeile unter den Überschriften, in der Schrift der Datumszeile; leer heißt keine Wetterzeile. Steht eine Wettertabelle aus Fernweh da, wird sie statt der Zeile gezeigt. Auf die Seite kommt es beim nächsten Anordnen des Tages. Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht ins Buch.")
                     }
                     Section {
                         TextEditor(text: binden(stelle, \.text))

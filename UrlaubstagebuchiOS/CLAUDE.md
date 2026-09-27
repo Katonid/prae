@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.115 (Build 116). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.116 (Build 117). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7474,6 +7474,64 @@ Befunde, und keiner davon war Geschmack:
   - **Nicht gemessen (1.0.115):** an keiner echten `.fernweh`-Datei. Dass
     Fernweh die Zone je Eintrag schreibt, steht im Quelltext dort; gesehen
     hat es hier niemand. **Nicht als erledigt darstellen.**
+- **DAS WETTER AUS FERNWEH IST EINE TABELLE MIT SYMBOLEN — UND DIE ZWEITE
+  ÜBERSCHRIFT LÄSST SICH ABSCHALTEN** (`Model/Wettertabelle.swift`,
+  `Views/Wetterkasten.swift`, `Gestaltung.unterueberschriftZeigen`,
+  `Views/ZweiteUeberschriftSchalter.swift`, ab 1.0.116; Befund des Nutzers
+  09/2026 nach der ersten echten Übernahme: „Ich möchte auswählen können,
+  dass ich nur die Hauptüberschrift sichtbar haben möchte. Was leider gar
+  nicht geklappt hat, ist die Übernahme der Wetterdaten. Hier hatte ich
+  gehofft, die vierspaltige Wettertabelle mit den Symbolen aus der
+  Fernweh-App übernehmen zu können und auf der Seite oben platziert zu
+  bekommen.").
+  - **Das Wetter „hat nicht geklappt", weil es verflacht wurde.** Bis
+    1.0.115 wurde es zu EINER Zeile in der Rolle `.datum` — also in
+    Versalien, vier Abschnitte hintereinander, die Symbole weg. Auf dem
+    Bildschirmfoto stand eine Zeile über die ganze Satzbreite, die niemand
+    liest. **Der WMO-Code stand die ganze Zeit in der Datei**
+    (`AbschnittTeil.code`) und wurde überlesen.
+  - **`Reisetag.wettertabelle` steht NEBEN `wetter`, nicht statt.** Die
+    Zeile ist der Rückfall für eine ältere Fassung, die dasselbe Buch über
+    iCloud öffnet (sie kennt das Feld nicht, `wahlweise` verliert nichts),
+    und der Weg zurück: „Tabelle entfernen, Zeile zeigen" im Tagesmenü.
+    Welches von beiden gilt, sagt `geltendeWettertabelle`, gefragt vom
+    Layoutautomaten, vom Bildschirm, vom PDF, von der Textprüfung und vom
+    Doppeltipp — **wer eine sechste Stelle baut, fragt dort**.
+  - **Kein neuer `Blockinhalt`-Fall.** Die Tabelle wird in den `.wetter`-
+    Block gezeichnet, den es seit 1.0.108 gibt; ein neuer Fall wäre die
+    Einbahnstraße, die dort beschrieben ist.
+  - **EIN Zeichner** (`Seitensatz.zeichneWettertabelle`), gefragt von
+    `Wetterkasten` (Bildschirm, mit `contentMode = .redraw` und
+    `contentsScale` wie `Textkasten`) und `Buchausgabe`. Text über
+    `zeichneText`, Symbole über UIKit IN `mitUIKit` (die Lehre aus 1.0.68).
+  - **Die Tabelle wird in JEDES Rechteck skaliert** (eine Einheit =
+    Blockhöhe ÷ 8). Gesetzt wird sie in `8 × Datumsgröße`; ein von Hand
+    kleiner gezogener Block zeigt sie kleiner und nie abgeschnitten. Die
+    Textprüfung überspringt sie deshalb — sie mäße sonst die Zeile, die gar
+    nicht gezeichnet wird.
+  - **Ein zweites Einlesen derselben Datei trägt die Tabelle nach.** Die
+    erste Übernahme hat an jedem Tag nur die Zeile hinterlassen, und „ein
+    leerer Fund überschreibt nichts" hätte die Tabelle an jedem dieser Tage
+    abgewiesen. Steht dort noch WÖRTLICH die Zeile, die dieselbe Datei
+    ergibt, ist sie nicht von Hand geändert, und die Tabelle darf daneben.
+    Auf Tagen mit Handarbeit steht der alte, für eine Zeile bemessene Block
+    — die Tabelle stünde darin winzig; diese Tage werden gezählt und gesagt.
+  - **Die zweite Überschrift gilt für das BUCH** (Vorgabe an, jedes Buch
+    sieht nach dem Update aus wie vorher; mit Leser über `b.wert`, und die
+    Vorlage trägt sie beim Aussehen). Der Layoutautomat fragt an EINER
+    Stelle (`zweiteUeberschrift`). Unberührte Tage werden beim Umlegen neu
+    gesetzt; auf Tagen mit Handarbeit wird beim Ausschalten NUR der Block
+    der zweiten Überschrift weggenommen — genau das Erbetene —, beim
+    Einschalten kommt er dort erst mit „Seiten neu anordnen". Der Schalter
+    steht zweimal (Schrift → Rolle „Zweite Überschrift" und Ränder und
+    Druckzugaben → Aussehen), als EINE Ansicht; die Quittung steht im Blatt,
+    weil das Band der Bühne darunter liegt.
+  - **Nicht gemessen (1.0.116):** Keine Seite ist damit gesehen worden.
+    **Ob `withTintColor` auf einem mehrfarbigen SF-Symbol die eigenen Farben
+    stehen lässt und nur den Rest färbt, ist die Lesart der Dokumentation**
+    — im PDF kann eine Sonne auch ganz in Schriftfarbe erscheinen. Gewählt
+    und nicht gemessen sind die Maße der Tabelle (acht Einheiten, Spalte
+    höchstens elf Einheiten breit). **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

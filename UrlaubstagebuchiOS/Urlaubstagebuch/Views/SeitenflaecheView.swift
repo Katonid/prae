@@ -883,6 +883,9 @@ struct SeitenflaecheView: View, Equatable {
         guard bearbeitbar, let treffer = blockUnter(punkt) else { return }
         werk.letzterGriff = "Doppeltipp auf \(treffer.inhalt.name)"
         werk.gewaehlterBlock = treffer.id
+        // Eine Wettertabelle (ab 1.0.116) ist kein Text zum Tippen — das
+        // Feld zeigte die Zeile, die gar nicht gezeichnet wird.
+        if treffer.inhalt == .wetter, buchseite.tag?.geltendeWettertabelle != nil { return }
         if treffer.inhalt.istText {
             werk.textBearbeitung = treffer.id
             return
@@ -1529,6 +1532,15 @@ struct BlockInhaltView: View {
     @ViewBuilder
     private var inhalt: some View {
         switch block.inhalt {
+        case .wetter where tag?.geltendeWettertabelle != nil:
+            if let tabelle = tag?.geltendeWettertabelle {
+                Wetterkasten(
+                    tabelle: tabelle,
+                    bild: Seitensatz.schriftbild(block, reise: werk.reise, tag: tag),
+                    rand: wirkung.textrand,
+                    massstab: massstab
+                )
+            }
         case .titel, .unterueberschrift, .datum, .wetter, .text:
             Textkasten(
                 text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
