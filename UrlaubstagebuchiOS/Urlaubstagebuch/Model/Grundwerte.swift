@@ -477,6 +477,12 @@ struct Gestaltung: Codable, Hashable {
     // Hauptüberschrift sichtbar haben möchte.") Der Text bleibt am Tag
     // stehen — aus heißt nur: Der Satz setzt ihn nicht.
     var unterueberschriftZeigen: Bool = true
+    // Wie groß die Wettertabelle gesetzt wird, als Anteil ihrer
+    // Grundhöhe (ab 1.0.117; Befund des Nutzers 09/2026: „Die Tabelle
+    // möchte ich viel kleiner haben und sie gerne auch skalieren
+    // können."). Ein ANTEIL und keine Millimeterzahl — so übersteht er
+    // den Formatwechsel, und die Grundhöhe folgt der Datumsschrift.
+    var wettergroesse: Double = 0.7
 
     // EIN WASSERZEICHEN AUF JEDER SEITE (ab 1.0.46).
     //
@@ -527,6 +533,7 @@ struct Gestaltung: Codable, Hashable {
         kopfzeile = b.wert(.kopfzeile, false)
         datumsstil = b.wert(.datumsstil, Datumsstil.langMitWochentag)
         unterueberschriftZeigen = b.wert(.unterueberschriftZeigen, true)
+        wettergroesse = b.wert(.wettergroesse, 0.7)
         wasserzeichen = b.wahlweise(.wasserzeichen)
     }
 

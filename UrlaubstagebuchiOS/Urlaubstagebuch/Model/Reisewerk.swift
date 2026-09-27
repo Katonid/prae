@@ -652,6 +652,47 @@ final class Reisewerk: ObservableObject, Identifiable {
         return ""
     }
 
+    // DIE GRÖSSE DER WETTERTABELLE FÜR DAS GANZE BUCH (ab 1.0.117).
+    //
+    // Unberührte Tage werden neu gesetzt. Auf Tagen mit Handarbeit wird
+    // nur der Wetterblock auf die neue Höhe gebracht — oben bleibt er, wo
+    // er liegt, und die Breite bleibt auch; die Tabelle passt sich in
+    // beide Richtungen ein. Wird sie größer, kann sie dort über das Nächste
+    // reichen; das steht in der Quittung. Ein `merken()` vor der Änderung,
+    // aus demselben Grund wie bei `unterueberschriftZeigen`.
+    @discardableResult
+    func wettergroesseSetzen(_ anteil: Double) -> String {
+        let neu = min(max(anteil, 0.3), 2)
+        guard abs(reise.gestaltung.wettergroesse - neu) > 0.001 else { return "" }
+        let groesser = neu > reise.gestaltung.wettergroesse
+        merken()
+        reise.gestaltung.wettergroesse = neu
+        let werkzeug = automat
+        let hoehe = Wettertabelle.hoehe(bild: reise.typografie.datum, anteil: neu)
+        var angepasst = 0
+        for stelle in reise.tage.indices {
+            guard reise.tage[stelle].geltendeWettertabelle != nil else { continue }
+            if !reise.tage[stelle].seiten.contains(where: { $0.vonHand }) {
+                wortlautSichern(stelle)
+                seitenNeuSetzen(stelle, mit: werkzeug)
+                continue
+            }
+            for s in reise.tage[stelle].seiten.indices {
+                for b in reise.tage[stelle].seiten[s].bloecke.indices
+                    where reise.tage[stelle].seiten[s].bloecke[b].inhalt == .wetter
+                {
+                    reise.tage[stelle].seiten[s].bloecke[b].rahmen.hoehe = hoehe
+                    angepasst += 1
+                }
+            }
+        }
+        befundeAuffrischen()
+        guard angepasst > 0 else { return "" }
+        return "Auf Tagen mit Handarbeit ist die Tabelle an \(angepasst) Stellen angepasst; "
+            + (groesser ? "sie kann dort jetzt über das reichen, was darunter liegt."
+                        : "der frei gewordene Platz darunter bleibt, bis du dort \u{201E}Seiten neu anordnen\u{201C} wählst.")
+    }
+
     // Gibt zurück, ob an diesem Tag von Hand gearbeitet wurde. Die Ansicht
     // fragt damit nach, BEVOR sie eine Stunde Arbeit überschreibt.
     func hatHandarbeit(_ id: UUID) -> Bool {

@@ -35,6 +35,7 @@ struct TagInhaltView: View {
                         if let tabelle = werk.reise.tage[stelle].geltendeWettertabelle {
                             LabeledContent("Wettertabelle",
                                            value: "\(tabelle.spalten.count) Spalten")
+                            WettergroesseRegler(werk: werk)
                             Button(role: .destructive) {
                                 werk.merken()
                                 werk.reise.tage[stelle].wettertabelle = nil

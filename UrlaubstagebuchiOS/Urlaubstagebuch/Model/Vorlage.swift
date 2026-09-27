@@ -226,6 +226,7 @@ struct Vorlagenwerte: Codable, Hashable {
         g.kopfzeile = gestaltung.kopfzeile
         g.datumsstil = gestaltung.datumsstil
         g.unterueberschriftZeigen = gestaltung.unterueberschriftZeigen
+        g.wettergroesse = gestaltung.wettergroesse
         g.mindestabstandSpur = gestaltung.mindestabstandSpur
         // Der Hintergrund kommt mit — das Bild des ZIELBUCHS bleibt aber
         // stehen, wenn die Vorlage keines hat (und sie hat nie eines).
