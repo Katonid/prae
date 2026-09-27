@@ -177,6 +177,8 @@ struct EintragView: View {
         .confirmationDialog("Eintrag löschen?", isPresented: $loeschenFragen, titleVisibility: .visible) {
             Button("Löschen", role: .destructive) {
                 let persistenz = Persistenz.shared
+                // Für „Rückgängig" (ab 1.0.33), samt Fotos.
+                Rueckgaengig.eintragGeloescht(eintrag)
                 persistenz.kontext.delete(eintrag)
                 persistenz.sichern()
                 schliessen()

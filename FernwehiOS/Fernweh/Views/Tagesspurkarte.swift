@@ -70,7 +70,10 @@ struct Tagesspurkarte: View {
                                  linien: linien, kilometer: kilometer,
                                  marken: (eintrag.koordinate.map { [SpurVollbild.Marke(name: eintrag.anzeigeTitel, ort: $0, haupt: true)] } ?? [])
                                     + orte.map { SpurVollbild.Marke(name: $0.name, ort: $0.koordinate, haupt: false) },
-                                 palette: palette, zone: eintrag.zone)
+                                 palette: palette, zone: eintrag.zone,
+                                 nachladen: { [eintrag] in
+                                     eintrag.tagSchluessel.map { Tagesspurwahl.linien(tag: $0, nurReise: eintrag.reise).0 } ?? []
+                                 })
                 }
                 if !linien.isEmpty {
                     Label(Tagesspurwahl.kilometertext(kilometer).isEmpty
@@ -220,7 +223,8 @@ struct Tagesspurleiste: View {
                 .fullScreenCover(isPresented: $vollbild) {
                     SpurVollbild(titel: "Spur des Tages",
                                  unter: Tag.datum(schluessel: tag).map { Tag.text($0, "EEEE, d. MMMM yyyy", zone: .current) } ?? "",
-                                 linien: linien, kilometer: kilometer, marken: [], palette: palette)
+                                 linien: linien, kilometer: kilometer, marken: [], palette: palette,
+                                 nachladen: { [tag] in Tagesspurwahl.linien(tag: tag, nurReise: nil).0 })
                 }
             }
         }
@@ -285,9 +289,19 @@ struct SpurVollbild: View {
     /// Die Ortszeit für die Uhrzeit im Tipp (ab 1.0.24), wo eine Linie
     /// keine eigene trägt.
     var zone: TimeZone = .current
+    /// Holt die Linien des Tages frisch (ab 1.0.33) — für die Punkteliste,
+    /// die nach jedem Löschen neu lädt. `nil`: keine Liste (Wanderung).
+    var nachladen: (() -> [Tagesspurkarte.Linie])? = nil
 
     @Environment(\.dismiss) private var schliessen
     @State private var position: MapCameraPosition = .automatic
+    /// Der Ausschnitt steht (ab 1.0.33, Ansage des Nutzers 09/2026: „dass
+    /// die Karte genau denselben Ausschnitt beibehält"). Nach dem ersten
+    /// Rahmen wird `.automatic` gegen die Kamera getauscht — sonst rahmt
+    /// die Karte bei jeder Änderung einer Linie (Punkt entfernt,
+    /// Rückgängig) neu auf die ganze Spur. Nur „scope" rahmt wieder.
+    @State private var eingefroren = false
+    @State private var listeZeigen = false
     @ObservedObject private var farben = Kartenfarben.shared
     /// Wann war ich hier? (ab 1.0.24, siehe `Zeitauswahl.swift`)
     @State private var zeitpunkte: [Zeitpunkt] = []
@@ -348,6 +362,21 @@ struct SpurVollbild: View {
                 withAnimation(.snappy(duration: 0.2)) {
                     gewaehlt = Zeitsuche.naechster(zu: ziel, in: zeitpunkte.filter { sichtbar($0.art) }, toleranz: toleranz)
                 }
+            }
+        }
+        .onMapCameraChange(frequency: .onEnd) { ctx in
+            guard !eingefroren else { return }
+            eingefroren = true
+            position = .camera(ctx.camera)
+        }
+        .sheet(isPresented: $listeZeigen) {
+            if let nachladen {
+                Punkteliste(titel: "Punkte des Tages", palette: palette, laden: nachladen, zone: zone) { p in
+                    gewaehlt = p
+                    withAnimation { position = .camera(MapCamera(centerCoordinate: p.koordinate, distance: 1500)) }
+                }
+                .presentationDetents([.medium, .large])
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
         }
         .confirmationDialog(linieLoeschen.flatMap(Punktbearbeitung.linientext).map { $0 + "?" } ?? "",
@@ -478,8 +507,19 @@ struct SpurVollbild: View {
                     }
                     .accessibilityLabel(punkteZeigen ? "Punkte ausblenden" : "Punkte zeigen")
                 }
+                if nachladen != nil && !zeitpunkte.isEmpty {
+                    Button { listeZeigen = true } label: {
+                        Image(systemName: "list.bullet")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 38, height: 38)
+                            .background(.regularMaterial, in: Circle())
+                    }
+                    .accessibilityLabel("Alle Punkte als Liste")
+                }
+                RueckgaengigKnopf { gewaehlt = nil }
                 Button {
                     position = .automatic
+                    eingefroren = false
                 } label: {
                     Image(systemName: "scope")
                         .font(.body.weight(.semibold))

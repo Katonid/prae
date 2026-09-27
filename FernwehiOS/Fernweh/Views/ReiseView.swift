@@ -316,6 +316,8 @@ struct ReiseView: View {
 
     @ToolbarContentBuilder
     private var werkzeuge: some ToolbarContent {
+        // Rückgängig für die laufende Sitzung (ab 1.0.33).
+        ToolbarItem(placement: .topBarTrailing) { RueckgaengigLeiste() }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 if darf {

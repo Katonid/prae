@@ -383,12 +383,36 @@ enum Spurspeicher {
     /// Rohpunkte eines Tages entfernen (ab 1.0.32): Die Spur der Reise wird
     /// bei jeder Übertragung aus dieser Datei neu gebaut — ein nur in der
     /// Reise gelöschter Punkt käme sonst zurück.
-    static func entfernen(tag: String, wo weg: (Spurpunkt) -> Bool) {
+    /// Gibt die entfernten Punkte zurück — für „Rückgängig" (ab 1.0.33).
+    @discardableResult
+    static func entfernen(tag: String, wo weg: (Spurpunkt) -> Bool) -> [Spurpunkt] {
         let alle = punkte(tag: tag)
         let bleiben = alle.filter { !weg($0) }
-        guard bleiben.count != alle.count else { return }
-        let text = bleiben.map { "\($0.breite),\($0.laenge),\($0.zeit)" }.joined(separator: "\n")
+        guard bleiben.count != alle.count else { return [] }
+        schreiben(bleiben, tag: tag)
+        return alle.filter(weg)
+    }
+
+    /// Punkte zurücklegen (Rückgängig, ab 1.0.33) — nach der Zeit
+    /// einsortiert, denn das Ausdünnen liest die Datei der Reihe nach.
+    static func hinzufuegen(tag: String, _ neue: [Spurpunkt]) {
+        guard !neue.isEmpty else { return }
+        schreiben((punkte(tag: tag) + neue).sorted { $0.zeit < $1.zeit }, tag: tag)
+    }
+
+    private static func schreiben(_ liste: [Spurpunkt], tag: String) {
+        let text = liste.map { "\($0.breite),\($0.laenge),\($0.zeit)" }.joined(separator: "\n")
         try? Data((text.isEmpty ? "" : text + "\n").utf8).write(to: datei(tag, art: "spur"), options: .atomic)
+    }
+
+    /// Die Rohdateien eines Tages, wie sie sind — und zurück (Rückgängig).
+    static func rohdaten(tag: String) -> (Data?, Data?) {
+        (try? Data(contentsOf: datei(tag, art: "spur")), try? Data(contentsOf: datei(tag, art: "besuche")))
+    }
+
+    static func rohdatenSetzen(tag: String, _ daten: (Data?, Data?)) {
+        if let d = daten.0 { try? d.write(to: datei(tag, art: "spur"), options: .atomic) }
+        if let d = daten.1 { try? d.write(to: datei(tag, art: "besuche"), options: .atomic) }
     }
 
     /// Die ganze Rohspur eines Tages löschen (Punkte und Besuche).

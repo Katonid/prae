@@ -19,6 +19,9 @@ struct Reisekarte: View {
     var fotosZeigen = false
     /// Die Messpunkte als kleine Kreise (ab 1.0.24) — nur im Vollbild.
     var punkteZeigen = false
+    /// Ein Punkt aus der Punkteliste (ab 1.0.33): dorthin schwenken und
+    /// seine Blase zeigen.
+    var fokus: Zeitpunkt? = nil
 
     @State private var linien: [Linie] = []
     @State private var wanderlinien: [Linie] = []
@@ -34,6 +37,12 @@ struct Reisekarte: View {
     /// der Spuren.
     @State private var stand = 0
     @State private var position: MapCameraPosition = .automatic
+    /// Gerahmt wird nur beim ersten Laden (ab 1.0.33) — bis 1.0.32 sprang
+    /// die Karte nach jedem entfernten Punkt auf die ganze Reise zurück.
+    /// Danach steht der Ausschnitt (`eingefroren`, wie im Vollbild eines
+    /// Tages); der Wechsel des Tages baut die Karte ohnehin neu (`.id`).
+    @State private var gerahmt = false
+    @State private var eingefroren = false
 
     struct Linie: Identifiable {
         let id: String
@@ -50,6 +59,9 @@ struct Reisekarte: View {
     }
 
     @ObservedObject private var buecherei = Buecherei.shared
+    /// Jeder Schritt (entfernt, zurückgenommen) lädt die Linien neu — auch
+    /// die Wanderstrecken, die nicht im Schlüssel der Spuren stehen.
+    @ObservedObject private var rueckgaengig = Rueckgaengig.shared
     /// Die Farben der Linien (ab 1.0.21) — einstellbar, siehe
     /// `Kartenfarben`.
     @ObservedObject private var farben = Kartenfarben.shared
@@ -90,6 +102,11 @@ struct Reisekarte: View {
                 MapReader { proxy in
                     karte.onTapGesture { ort in antippen(ort, proxy: proxy) }
                 }
+                .onMapCameraChange(frequency: .onEnd) { ctx in
+                    guard gerahmt, !eingefroren else { return }
+                    eingefroren = true
+                    position = .camera(ctx.camera)
+                }
             } else {
                 karte
             }
@@ -97,6 +114,14 @@ struct Reisekarte: View {
         .task(id: schluessel) { await linienLaden() }
         .onChange(of: punkteZeigen) { _, an in
             messpunkte = an ? Zeitsuche.auswahl(zeitpunkte, hoechstens: 400) : []
+        }
+        .onChange(of: fokus?.id) { _, _ in
+            guard let fokus else { return }
+            eingefroren = true
+            withAnimation {
+                gewaehlt = fokus
+                position = .camera(MapCamera(centerCoordinate: fokus.koordinate, distance: 1500))
+            }
         }
     }
 
@@ -206,7 +231,7 @@ struct Reisekarte: View {
     private var schluessel: String {
         let spuren = reise.spurListe.map { "\($0.tag ?? "")\($0.geaendert?.timeIntervalSince1970 ?? 0)" }.sorted().joined()
         let fotos = sichtbare.reduce(0) { $0 + $1.fotoListe.count }
-        return "\(tag.map(Tag.schluessel) ?? "alle")|\(spuren.hashValue)|\(eintraege.count)|\(fotos)|\(fotosZeigen)|\(stand)"
+        return "\(tag.map(Tag.schluessel) ?? "alle")|\(spuren.hashValue)|\(eintraege.count)|\(fotos)|\(fotosZeigen)|\(stand)|\(rueckgaengig.schritte.count)"
     }
 
     private func linienLaden() async {
@@ -270,7 +295,10 @@ struct Reisekarte: View {
             }
         }
         fotopunkte = punkte
-        position = .automatic
+        if !gerahmt || !interaktiv {
+            gerahmt = true
+            position = .automatic
+        }
     }
 }
 
@@ -314,6 +342,9 @@ struct Vollkarte: View {
     @State private var tag: Date?
     @State private var farbenZeigen = false
     @State private var abfahren = false
+    /// Alle Punkte des Tages als Liste (ab 1.0.33).
+    @State private var listeZeigen = false
+    @State private var fokus: Zeitpunkt?
 
     /// `startTag` (ab 1.0.26): aus der Karte eines Tages geöffnet, steht
     /// die Vollkarte gleich auf diesem Tag.
@@ -326,7 +357,7 @@ struct Vollkarte: View {
 
     var body: some View {
         NavigationStack {
-            Reisekarte(reise: reise, interaktiv: true, tag: tag, fotosZeigen: true, punkteZeigen: punkte)
+            Reisekarte(reise: reise, interaktiv: true, tag: tag, fotosZeigen: true, punkteZeigen: punkte, fokus: fokus)
                 .id(tag.map(Tag.schluessel) ?? "alle")
                 .ignoresSafeArea(edges: .bottom)
                 .safeAreaInset(edge: .bottom) {
@@ -371,12 +402,17 @@ struct Vollkarte: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { farbenZeigen = true } label: { Label("Farben", systemImage: "paintpalette") }
                     }
-                    // Einen gewählten Tag abfahren (ab 1.0.31).
+                    // Einen gewählten Tag abfahren (ab 1.0.31), seine Punkte
+                    // als Liste (ab 1.0.33).
                     if tag != nil {
                         ToolbarItem(placement: .primaryAction) {
                             Button { abfahren = true } label: { Label("Abfahren", systemImage: "play.fill") }
                         }
+                        ToolbarItem(placement: .primaryAction) {
+                            Button { listeZeigen = true } label: { Label("Punkte als Liste", systemImage: "list.bullet") }
+                        }
                     }
+                    ToolbarItem(placement: .primaryAction) { RueckgaengigKnopf() }
                     ToolbarItem(placement: .confirmationAction) { Button("Fertig") { schliessen() } }
                 }
                 .fullScreenCover(isPresented: $abfahren) {
@@ -388,6 +424,17 @@ struct Vollkarte: View {
                                    zone: reise.zone(am: schluessel), palette: reise.palette)
                     }
                 }
+                .sheet(isPresented: $listeZeigen) {
+                    if let tag {
+                        let schluessel = Tag.schluessel(tag)
+                        Punkteliste(titel: Tag.wochentagLang.string(from: tag), palette: reise.palette,
+                                    laden: { [reise] in Tagesspurwahl.linien(tag: schluessel, nurReise: reise).0 },
+                                    zone: reise.zone(am: schluessel)) { p in fokus = p }
+                            .presentationDetents([.medium, .large])
+                            .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                    }
+                }
+                .onChange(of: tag) { _, _ in fokus = nil }
                 .sheet(isPresented: $farbenZeigen) {
                     KartenfarbenView(palette: reise.palette)
                         .presentationDetents([.medium, .large])

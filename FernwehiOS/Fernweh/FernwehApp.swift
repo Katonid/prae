@@ -99,6 +99,12 @@ struct FernwehApp: App {
                         .padding(.horizontal, 16)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .onTapGesture { meldungen.text = nil }
+                } else {
+                    // Nach jedem Schritt, der sich zurücknehmen lässt (ab
+                    // 1.0.33): fünf Sekunden „… · Rückgängig".
+                    RueckgaengigHinweis()
+                        .padding(.bottom, 70)
+                        .padding(.horizontal, 16)
                 }
             }
             .animation(.spring(duration: 0.4), value: meldungen.text)
