@@ -73,20 +73,20 @@ struct Wettertabelle: Codable, Hashable {
         }
 
         // Dieselbe Zuordnung wie Fernwehs `Wettercode.symbol` — wer dort
-        // etwas ändert, zieht es hier nach.
-        var symbol: String {
+        // etwas ändert, zieht es hier nach. Gezeichnet wird das Symbol
+        // seit 1.0.117 selbst (`Wettersymbol`), nicht mehr als SF Symbol.
+        var symbol: Wettersymbol {
             switch code {
-            case 0: return nacht ? "moon.stars.fill" : "sun.max.fill"
-            case 1: return nacht ? "moon.fill" : "sun.min.fill"
-            case 2: return nacht ? "cloud.moon.fill" : "cloud.sun.fill"
-            case 3: return "cloud.fill"
-            case 45, 48: return "cloud.fog.fill"
-            case 51, 53, 55, 56, 57: return "cloud.drizzle.fill"
-            case 61, 63, 66, 67, 80, 81: return "cloud.rain.fill"
-            case 65, 82: return "cloud.heavyrain.fill"
-            case 71, 73, 75, 77, 85, 86: return "cloud.snow.fill"
-            case 95, 96, 99: return "cloud.bolt.rain.fill"
-            default: return "questionmark.circle"
+            case 0, 1: return nacht ? .mond : .sonne
+            case 2: return nacht ? .mondWolke : .sonneWolke
+            case 3: return .wolke
+            case 45, 48: return .nebel
+            case 51, 53, 55, 56, 57: return .niesel
+            case 61, 63, 66, 67, 80, 81: return .regen
+            case 65, 82: return .starkregen
+            case 71, 73, 75, 77, 85, 86: return .schnee
+            case 95, 96, 99: return .gewitter
+            default: return .wolke
             }
         }
     }
@@ -112,15 +112,21 @@ struct Wettertabelle: Codable, Hashable {
         return text
     }
 
-    // DIE HÖHE, in der die Tabelle gesetzt wird — ein Vielfaches der
-    // Schriftgröße der Datumszeile: Kopf, Name, Symbol, Temperatur,
-    // Fußzeile. Gezeichnet wird in JEDES Rechteck, indem alles mit
-    // `Rechteck ÷ hoehe` skaliert wird; ein von Hand kleiner gezogener
-    // Block zeigt die Tabelle also kleiner und nie abgeschnitten.
-    static let einheiten: Double = 8
+    // DIE MASSE DER TABELLE in Einheiten — eine Einheit ist die Größe, in
+    // der die Spaltennamen stehen. Bis 1.0.116 waren es acht Einheiten
+    // Höhe und ein Symbol von 2,1 Einheiten; gemeldet 09/2026: „Die
+    // Wettersymbole sind mir jetzt viel zu groß." Das Symbol ist jetzt
+    // kaum höher als die Temperatur, und die Beschreibung darf zwei
+    // Zeilen haben statt abgeschnitten zu werden.
+    static let einheiten: Double = 7.4
+    // Eine Spalte ist höchstens so breit — über die volle Satzbreite
+    // gezogen, stünden vier Werte wie verloren da.
+    static let spalteneinheiten: Double = 7.5
 
-    static func hoehe(bild: Schriftbild) -> Double {
-        max(bild.groesse, 5) * einheiten
+    // Die Höhe, in der der Layoutautomat den Block anlegt: Datumsgröße mal
+    // Einheiten mal dem Anteil aus der Gestaltung.
+    static func hoehe(bild: Schriftbild, anteil: Double = 1) -> Double {
+        max(bild.groesse, 5) * einheiten * min(max(anteil, 0.3), 2)
     }
 }
 
@@ -131,15 +137,21 @@ extension Seitensatz {
     // Bildschirm und von `Buchausgabe` im PDF. Zwei Fassungen ergäben eine
     // Vorschau, die anders aussieht als der Druck.
     //
-    // Der Text geht über `zeichneText` (CoreText), die Symbole über UIKit
-    // (`mitUIKit`, sonst zeichnet `UIImage.draw` in nichts — die Lehre aus
-    // 1.0.68).
+    // DIE EINHEIT FOLGT HÖHE UND BREITE (ab 1.0.117). Bis 1.0.116 kam sie
+    // allein aus der Höhe; wer den Block von Hand schmaler zog, bekam
+    // gequetschte Spalten mit abgeschnittenem Text. Jetzt passt die
+    // Tabelle in beide Richtungen hinein, ohne ihr Verhältnis zu ändern —
+    // der Block lässt sich an seinen Griffen frei skalieren.
     static func zeichneWettertabelle(_ tabelle: Wettertabelle, bild: Schriftbild, rechteck: CGRect,
                                      in zusammenhang: CGContext, seitenhoehe: CGFloat)
     {
         guard !tabelle.leer, rechteck.width > 4, rechteck.height > 4 else { return }
-        let einheit = rechteck.height / CGFloat(Wettertabelle.einheiten)
+        let anzahl = CGFloat(tabelle.spalten.count)
+        let einheit = min(rechteck.height / CGFloat(Wettertabelle.einheiten),
+                          rechteck.width / (anzahl * CGFloat(Wettertabelle.spalteneinheiten)))
+        guard einheit > 0.5 else { return }
         let groesse = Double(einheit)
+        let spalte = einheit * CGFloat(Wettertabelle.spalteneinheiten)
 
         var kopfbild = bild
         kopfbild.groesse = groesse
@@ -148,13 +160,9 @@ extension Seitensatz {
         kopfbild.trennung = false
         zeichneText(tabelle.kopf, bild: kopfbild,
                     rechteck: CGRect(x: rechteck.minX, y: rechteck.minY,
-                                     width: rechteck.width, height: einheit * 1.4),
+                                     width: max(rechteck.width, spalte * anzahl), height: einheit * 1.3),
                     in: zusammenhang, seitenhoehe: seitenhoehe)
 
-        // Eine Spalte ist höchstens zehn Schriftgrößen breit — über die
-        // volle Satzbreite gezogen, stünden vier Werte wie verloren da.
-        let anzahl = CGFloat(tabelle.spalten.count)
-        let spalte = min(rechteck.width / anzahl, einheit * 11)
         var namenbild = kopfbild
         namenbild.ausrichtung = .mitte
         namenbild.groesse = groesse * 0.9
@@ -162,44 +170,196 @@ extension Seitensatz {
         tempbild.versalien = false
         tempbild.fett = true
         tempbild.sperrung = 0
-        tempbild.groesse = groesse * 1.15
+        tempbild.groesse = groesse * 1.05
         var fussbild = tempbild
         fussbild.fett = false
-        fussbild.groesse = groesse * 0.85
+        fussbild.groesse = groesse * 0.8
+        fussbild.zeilenabstand = 1.05
 
-        let farbe = bild.farbe.uiFarbe
         for (nummer, s) in tabelle.spalten.enumerated() {
             let x = rechteck.minX + CGFloat(nummer) * spalte
-            var y = rechteck.minY + einheit * 1.55
+            var y = rechteck.minY + einheit * 1.45
             zeichneText(s.name, bild: namenbild,
-                        rechteck: CGRect(x: x, y: y, width: spalte, height: einheit * 1.2),
+                        rechteck: CGRect(x: x, y: y, width: spalte, height: einheit * 1.1),
                         in: zusammenhang, seitenhoehe: seitenhoehe)
-            y += einheit * 1.2
-            let kante = einheit * 2.1
-            let konfiguration = UIImage.SymbolConfiguration(pointSize: kante, weight: .regular)
-                .applying(UIImage.SymbolConfiguration.preferringMulticolor())
-            if let symbol = UIImage(systemName: s.symbol, withConfiguration: konfiguration) {
-                let mass = symbol.size
-                let faktor = min(kante / max(mass.width, 1), kante / max(mass.height, 1))
-                let ziel = CGRect(x: x + (spalte - mass.width * faktor) / 2,
-                                  y: y + (kante - mass.height * faktor) / 2,
-                                  width: mass.width * faktor, height: mass.height * faktor)
-                // Mehrfarbig, wo das Symbol eigene Farben hat (Sonne gelb,
-                // Regen blau); was keine hat (die Wolke), nimmt die Farbe
-                // der Schrift — auf einem Foto also Weiß wie der Rest.
-                // Ob UIKit beides so mischt, ist die Lesart der
-                // Dokumentation und NICHT gemessen.
-                let gefaerbt = symbol.withTintColor(farbe)
-                mitUIKit(zusammenhang) { gefaerbt.draw(in: ziel) }
-            }
-            y += kante + einheit * 0.25
+            y += einheit * 1.1
+            let kante = einheit * 1.6
+            s.symbol.zeichne(in: CGRect(x: x + (spalte - kante) / 2, y: y, width: kante, height: kante),
+                             zusammenhang: zusammenhang)
+            y += kante + einheit * 0.15
             zeichneText(s.temperatur, bild: tempbild,
-                        rechteck: CGRect(x: x, y: y, width: spalte, height: einheit * 1.5),
+                        rechteck: CGRect(x: x, y: y, width: spalte, height: einheit * 1.3),
                         in: zusammenhang, seitenhoehe: seitenhoehe)
-            y += einheit * 1.45
+            y += einheit * 1.25
             zeichneText(s.fusszeile, bild: fussbild,
-                        rechteck: CGRect(x: x + 2, y: y, width: spalte - 4, height: einheit * 1.3),
+                        rechteck: CGRect(x: x + 1, y: y, width: spalte - 2, height: einheit * 1.8),
                         in: zusammenhang, seitenhoehe: seitenhoehe)
         }
+    }
+}
+
+// MARK: - Die Symbole
+
+// SELBST GEZEICHNET, NICHT ALS SF SYMBOL (ab 1.0.117). Ansage des Nutzers
+// 09/2026: „Die Wolken sollen weiß mit einem dünnen schwarzen Rand
+// umrandet sein. Die Sonne in gelb-orange und die Regentropfen in blau."
+// Ein SF Symbol lässt sich nur als Ganzes oder je Ebene färben — welche
+// Ebene bei „cloud.sun.rain.fill" die Wolke ist, sagt keine Schnittstelle,
+// und eine weiße Fläche MIT Rand kann kein gefülltes Symbol. Dazu war in
+// 1.0.116 offen, ob `withTintColor` die Mehrfarbigkeit stehen lässt. Mit
+// CoreGraphics ist beides gelöst, und Bildschirm und PDF zeichnen
+// Strich für Strich dasselbe. Die Farben sind FEST und hängen nicht an
+// der Schriftfarbe: Eine Wettertabelle auf einem Foto zeigt dieselben
+// Symbole wie auf weißem Papier — die Kontur trägt sie auf beidem.
+enum Wettersymbol {
+    case sonne, mond, sonneWolke, mondWolke, wolke, nebel, niesel, regen, starkregen, schnee, gewitter
+
+    // Die Farben, gewählt und nicht gemessen.
+    private static let sonnengelb = CGColor(red: 1.0, green: 0.76, blue: 0.10, alpha: 1)
+    private static let sonnenorange = CGColor(red: 0.96, green: 0.52, blue: 0.05, alpha: 1)
+    private static let mondgelb = CGColor(red: 0.98, green: 0.90, blue: 0.55, alpha: 1)
+    private static let regenblau = CGColor(red: 0.12, green: 0.45, blue: 0.95, alpha: 1)
+    private static let blitzgelb = CGColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1)
+    private static let nebelgrau = CGColor(red: 0.55, green: 0.58, blue: 0.62, alpha: 1)
+    private static let weiss = CGColor(red: 1, green: 1, blue: 1, alpha: 1)
+    private static let schwarz = CGColor(red: 0, green: 0, blue: 0, alpha: 1)
+
+    // Gezeichnet wird im Einheitsquadrat, abgebildet auf `r`. Die
+    // Zeichenfläche liegt in beiden Zeichnern mit dem Ursprung oben links
+    // (y wächst nach unten) — dieselbe Lage wie die Blockrahmen.
+    func zeichne(in r: CGRect, zusammenhang z: CGContext) {
+        z.saveGState()
+        defer { z.restoreGState() }
+        z.translateBy(x: r.minX, y: r.minY)
+        z.scaleBy(x: r.width, y: r.height)
+        z.setLineCap(.round)
+        z.setLineJoin(.round)
+        switch self {
+        case .sonne:
+            Self.sonne(z, mitte: CGPoint(x: 0.5, y: 0.5), radius: 0.2)
+        case .mond:
+            Self.mond(z, mitte: CGPoint(x: 0.5, y: 0.5), radius: 0.3)
+        case .sonneWolke:
+            Self.sonne(z, mitte: CGPoint(x: 0.38, y: 0.36), radius: 0.15)
+            Self.wolke(z, versatz: CGPoint(x: 0.06, y: 0.1), mass: 0.85)
+        case .mondWolke:
+            Self.mond(z, mitte: CGPoint(x: 0.38, y: 0.34), radius: 0.2)
+            Self.wolke(z, versatz: CGPoint(x: 0.06, y: 0.1), mass: 0.85)
+        case .wolke:
+            Self.wolke(z, versatz: .zero, mass: 1)
+        case .nebel:
+            Self.wolke(z, versatz: CGPoint(x: 0, y: -0.1), mass: 0.9)
+            z.setStrokeColor(Self.nebelgrau)
+            z.setLineWidth(0.05)
+            for (y, von, bis) in [(0.78, 0.18, 0.82), (0.9, 0.28, 0.72)] as [(CGFloat, CGFloat, CGFloat)] {
+                z.move(to: CGPoint(x: von, y: y))
+                z.addLine(to: CGPoint(x: bis, y: y))
+            }
+            z.strokePath()
+        case .niesel:
+            Self.wolke(z, versatz: CGPoint(x: 0, y: -0.12), mass: 0.9)
+            Self.tropfen(z, stellen: [0.32, 0.5, 0.68], laenge: 0.08)
+        case .regen:
+            Self.wolke(z, versatz: CGPoint(x: 0, y: -0.12), mass: 0.9)
+            Self.tropfen(z, stellen: [0.32, 0.5, 0.68], laenge: 0.16)
+        case .starkregen:
+            Self.wolke(z, versatz: CGPoint(x: 0, y: -0.12), mass: 0.9)
+            Self.tropfen(z, stellen: [0.26, 0.39, 0.52, 0.65, 0.78], laenge: 0.18)
+        case .schnee:
+            Self.wolke(z, versatz: CGPoint(x: 0, y: -0.12), mass: 0.9)
+            z.setLineWidth(0.025)
+            for (x, y) in [(0.32, 0.8), (0.5, 0.9), (0.68, 0.8)] as [(CGFloat, CGFloat)] {
+                let punkt = CGRect(x: x - 0.045, y: y - 0.045, width: 0.09, height: 0.09)
+                z.setFillColor(Self.weiss)
+                z.fillEllipse(in: punkt)
+                z.setStrokeColor(Self.regenblau)
+                z.strokeEllipse(in: punkt)
+            }
+        case .gewitter:
+            Self.wolke(z, versatz: CGPoint(x: 0, y: -0.12), mass: 0.9)
+            Self.tropfen(z, stellen: [0.3, 0.7], laenge: 0.14)
+            let blitz = CGMutablePath()
+            blitz.addLines(between: [CGPoint(x: 0.54, y: 0.62), CGPoint(x: 0.42, y: 0.8),
+                                     CGPoint(x: 0.51, y: 0.8), CGPoint(x: 0.44, y: 0.98),
+                                     CGPoint(x: 0.62, y: 0.74), CGPoint(x: 0.53, y: 0.74),
+                                     CGPoint(x: 0.6, y: 0.62)])
+            blitz.closeSubpath()
+            z.addPath(blitz)
+            z.setFillColor(Self.blitzgelb)
+            z.setStrokeColor(Self.sonnenorange)
+            z.setLineWidth(0.02)
+            z.drawPath(using: .fillStroke)
+        }
+    }
+
+    private static func sonne(_ z: CGContext, mitte m: CGPoint, radius: CGFloat) {
+        z.setStrokeColor(sonnenorange)
+        z.setLineWidth(radius * 0.28)
+        for i in 0..<8 {
+            let w = CGFloat(i) * .pi / 4
+            z.move(to: CGPoint(x: m.x + cos(w) * radius * 1.4, y: m.y + sin(w) * radius * 1.4))
+            z.addLine(to: CGPoint(x: m.x + cos(w) * radius * 1.95, y: m.y + sin(w) * radius * 1.95))
+        }
+        z.strokePath()
+        let scheibe = CGRect(x: m.x - radius, y: m.y - radius, width: 2 * radius, height: 2 * radius)
+        z.setFillColor(sonnengelb)
+        z.fillEllipse(in: scheibe)
+        z.setLineWidth(radius * 0.14)
+        z.strokeEllipse(in: scheibe)
+    }
+
+    // Eine Sichel: die Scheibe, von der eine versetzte Scheibe abgezogen
+    // wird (gerade-ungerade-Füllung innerhalb der Scheibe).
+    private static func mond(_ z: CGContext, mitte m: CGPoint, radius: CGFloat) {
+        let scheibe = CGRect(x: m.x - radius, y: m.y - radius, width: 2 * radius, height: 2 * radius)
+        let biss = scheibe.offsetBy(dx: radius * 0.55, dy: -radius * 0.35)
+        let sichel = CGMutablePath()
+        sichel.addEllipse(in: scheibe)
+        sichel.addEllipse(in: biss)
+        z.saveGState()
+        z.addEllipse(in: scheibe)
+        z.clip()
+        z.addPath(sichel)
+        z.setFillColor(mondgelb)
+        z.fillPath(using: .evenOdd)
+        z.restoreGState()
+    }
+
+    // DIE WOLKE: weiß mit dünnem schwarzem Rand. Sie besteht aus einem
+    // Sockel und drei Kreisen; einzeln umrandet stünden die Innenkanten
+    // mitten in der Wolke. Deshalb erst alle Teile doppelt so breit
+    // UMRANDEN, dann alle weiß FÜLLEN — die Füllung deckt die innere Hälfte
+    // jeder Linie ab, und stehen bleibt genau der äußere Rand.
+    private static func wolke(_ z: CGContext, versatz v: CGPoint, mass: CGFloat) {
+        func teil(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: 0.5 + (x - 0.5) * mass + v.x, y: 0.5 + (y - 0.5) * mass + v.y)
+        }
+        let form = CGMutablePath()
+        let sockelA = teil(0.12, 0.5), sockelB = teil(0.88, 0.78)
+        form.addRoundedRect(in: CGRect(x: sockelA.x, y: sockelA.y,
+                                       width: sockelB.x - sockelA.x, height: sockelB.y - sockelA.y),
+                            cornerWidth: 0.14 * mass, cornerHeight: 0.14 * mass)
+        for (x, y, r) in [(0.34, 0.52, 0.17), (0.57, 0.43, 0.23), (0.76, 0.56, 0.14)] as [(CGFloat, CGFloat, CGFloat)] {
+            let c = teil(x, y), rr = r * mass
+            form.addEllipse(in: CGRect(x: c.x - rr, y: c.y - rr, width: 2 * rr, height: 2 * rr))
+        }
+        z.addPath(form)
+        z.setStrokeColor(schwarz)
+        z.setLineWidth(0.07)
+        z.strokePath()
+        z.addPath(form)
+        z.setFillColor(weiss)
+        z.fillPath()
+    }
+
+    private static func tropfen(_ z: CGContext, stellen: [CGFloat], laenge: CGFloat) {
+        z.setStrokeColor(regenblau)
+        z.setLineWidth(0.06)
+        for (i, x) in stellen.enumerated() {
+            let oben: CGFloat = i % 2 == 0 ? 0.74 : 0.8
+            z.move(to: CGPoint(x: x + 0.02, y: oben))
+            z.addLine(to: CGPoint(x: x - 0.03, y: oben + laenge))
+        }
+        z.strokePath()
     }
 }

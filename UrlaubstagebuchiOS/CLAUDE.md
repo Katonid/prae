@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.116 (Build 117). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.117 (Build 118). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7532,6 +7532,42 @@ Befunde, und keiner davon war Geschmack:
     — im PDF kann eine Sonne auch ganz in Schriftfarbe erscheinen. Gewählt
     und nicht gemessen sind die Maße der Tabelle (acht Einheiten, Spalte
     höchstens elf Einheiten breit). **Nicht als erledigt darstellen.**
+- **DIE WETTERSYMBOLE SIND SELBST GEZEICHNET — KLEINER, FARBIG, SKALIERBAR**
+  (`Wettersymbol` in `Model/Wettertabelle.swift`, `Gestaltung.wettergroesse`,
+  `Views/WettergroesseRegler.swift`, ab 1.0.117; Befund des Nutzers 09/2026
+  zu 1.0.116: „Die Wettersymbole sind mir jetzt viel zu groß. Die Tabelle
+  möchte ich viel kleiner haben und sie gerne auch skalieren können. Außerdem
+  möchte ich die Symbole farbig haben. Die Wolken sollen weiß mit einem
+  dünnen schwarzen Rand umrandet sein. Die Sonne in gelb-orange und die
+  Regentropfen in blau.").
+  - **Kein SF Symbol mehr.** Eine weiße Wolke MIT Rand kann kein gefülltes
+    Symbol, und welche Ebene eines zusammengesetzten Symbols die Wolke ist,
+    sagt keine Schnittstelle. Dazu stand in 1.0.116 offen, ob
+    `withTintColor` die Mehrfarbigkeit stehen lässt — gemeldet wurde, dass
+    die Symbole NICHT farbig waren. Gezeichnet wird jetzt mit CoreGraphics im
+    Einheitsquadrat, damit Bildschirm und PDF Strich für Strich gleich sind.
+    Die Farben hängen NICHT an der Schriftfarbe; die Kontur der Wolke trägt
+    sie auch auf einem Foto.
+  - **Die Wolke: erst umranden, dann füllen.** Sie besteht aus Sockel und
+    drei Kreisen; einzeln umrandet stünden die Innenkanten mitten in der
+    Wolke. Der Strich doppelt so breit, die weiße Füllung darüber deckt die
+    innere Hälfte ab, stehen bleibt nur der äußere Rand.
+  - **Kleiner in sich:** Symbol 1,6 statt 2,1 Einheiten, die Tabelle 7,4
+    statt 8 Einheiten hoch, eine Spalte höchstens 7,5 Einheiten breit, die
+    Beschreibung darf zwei Zeilen haben. Dazu ein Anteil für das ganze Buch
+    (Vorgabe 70 %), Regler unter Ränder und Druckzugaben → Aussehen und im
+    Tagesmenü neben der Tabelle; gesetzt wird beim Loslassen.
+  - **Die Einheit folgt Höhe UND Breite.** Bis 1.0.116 kam sie allein aus
+    der Höhe; ein schmaler gezogener Block quetschte die Spalten. Jetzt passt
+    die Tabelle in beide Richtungen, ohne ihr Verhältnis zu ändern — der
+    Block lässt sich an seinen Griffen frei skalieren.
+  - **Tage mit Handarbeit** bekommen beim Umstellen nur die neue Blockhöhe
+    (oben bleibt, wo es liegt); wird sie größer, kann sie dort über das
+    Nächste reichen — die Quittung sagt es.
+  - **Nicht gemessen (1.0.117):** Keine Seite ist damit gesehen worden. Die
+    Farben, die Formen und die Vorgabe 70 % sind gewählt, nicht gemessen; ob
+    der Wolkenrand (rund 0,35 pt bei Vorgabegröße) im Druck noch steht, sagt
+    erst ein Ausdruck. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

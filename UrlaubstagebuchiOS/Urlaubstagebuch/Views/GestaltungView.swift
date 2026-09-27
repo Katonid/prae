@@ -152,6 +152,7 @@ struct GestaltungView: View {
                         }
                     }
                     ZweiteUeberschriftSchalter(werk: werk)
+                    WettergroesseRegler(werk: werk)
                 } header: {
                     Text("Aussehen")
                 } footer: {
