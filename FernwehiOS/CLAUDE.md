@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -575,6 +575,32 @@
   Wanderung (`SpurVollbild.alleZeitmarken`), Uhrzeit per Tipp, Schalter.
   **Wer eine neue Ansicht baut, zeigt dort keine zweite Karte** — eine
   Karte je Tag bzw. Eintrag, und die bündelt alles.
+- **Den Tag abfahren** (`Views/Tagesfahrt.swift`, ab 1.0.31; Ansage des
+  Nutzers 09/2026: „die einzelnen Punkte des Tages auf der Karte abfahren …
+  wie in der Tagesspur-App … direkt in einer 2D-Darstellung … langsamer …
+  zunächst die gesamte Spur des Tages bildschirmfüllend … Schieberegler …
+  zoomen … Die Zeitanzeige … unabhängig von der Zoomstufe nicht allzu
+  groß"). Nach `TrackReplayView` der Tagesspur-App, aber:
+  - **Nur 2D, flach** (`interactionModes: [.zoom, .pan]`, `elevation:
+    .flat`), Start mit `.automatic` = ganze Spur; die Karte steht, der
+    Punkt wandert, zoomen/verschieben geht auch beim Abspielen. „Ganze Spur"
+    oben rechts.
+  - **Langsamer**: 1× = 120 s für den Tag (Tagesspur 45 s), ½×/1×/2×/4×.
+    Fortschritt über die STRECKE, nicht die Uhr (sonst Stillstand über
+    Nacht und Rasen auf der Autobahn); die Uhrzeit wird zwischen den
+    Nachbarpunkten gerechnet. Startet nach 0,9 s von selbst.
+  - **Alle Linien des Tages in einer Folge**, jede in ihrer Farbe; Punkte der
+    Gerätespur INNERHALB einer Fahrt/Wanderung fallen weg (Zickzack, wie im
+    Reisebuch 1.0.114). Abgefahren wird nur, was per Schalter eingeblendet
+    ist. Höchstens 1500 Punkte.
+  - **Uhrzeit klein am Punkt** (Annotation = feste Bildschirmgröße, wächst
+    beim Zoomen nicht) und klein in der Leiste; Zeitleiste zum Ziehen, mit
+    Anfangs- und Endzeit.
+  - Aufruf: Knopf „Abfahren" auf jeder Tageskarte der Reise, ▶ im Vollbild
+    eines Tages (Tagebuch/Eintrag), „Abfahren" in der Vollkarte, wenn ein
+    Tag gewählt ist.
+  - **Nicht gemessen**: kein Gerät; ob 30 Neuzeichnungen je Sekunde mit
+    vielen Stücken flüssig bleiben, ist nicht gesehen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

@@ -475,7 +475,20 @@ private struct TagAbschnitt: View {
     @State private var wetter: Wetternachtrag.Tageswahl?
     @State private var karteOffen = false
     @State private var fahrtenOffen = false
+    @State private var abfahren = false
     @ObservedObject private var farben = Kartenfarben.shared
+    @AppStorage(Kartenebene.reisespur.schluessel) private var zeigeSpur = true
+    @AppStorage(Kartenebene.fahrt.schluessel) private var zeigeFahrten = true
+    @AppStorage(Kartenebene.wanderung.schluessel) private var zeigeWanderungen = true
+
+    /// Abgefahren wird, was auf der Karte eingeschaltet ist.
+    private func sichtbar(_ art: Spurart) -> Bool {
+        switch art {
+        case .reisespur: return zeigeSpur
+        case .fahrt: return zeigeFahrten
+        case .wanderung: return zeigeWanderungen
+        }
+    }
 
     /// Ändert sich, sobald ein Eintrag des Tages Wetter bekommt.
     private var wetterStand: String {
@@ -568,7 +581,19 @@ private struct TagAbschnitt: View {
                     .overlay {
                         Color.clear.contentShape(Rectangle()).onTapGesture { karteOffen = true }
                     }
+                    // Den Tag abfahren (ab 1.0.31) — über der Tippfläche,
+                    // damit der Knopf seinen Tipp selbst bekommt.
+                    .overlay(alignment: .bottomTrailing) {
+                        AbfahrenKnopf { abfahren = true }.padding(10)
+                    }
                     .fullScreenCover(isPresented: $karteOffen) { Vollkarte(reise: reise, startTag: tag) }
+                    .fullScreenCover(isPresented: $abfahren) {
+                        let schluessel = Tag.schluessel(tag)
+                        Tagesfahrt(titel: "Tag \(nummer) · " + Tag.wochentagLang.string(from: tag),
+                                   linien: Tagesspurwahl.linien(tag: schluessel, nurReise: reise).0
+                                       .filter { sichtbar($0.art) },
+                                   zone: reise.zone(am: schluessel), palette: reise.palette)
+                    }
             }
 
             // Die Autofahrten des Tages (ab 1.0.21) — seit 1.0.28 in einer

@@ -277,6 +277,7 @@ struct Vollkarte: View {
     @Environment(\.dismiss) private var schliessen
     @State private var tag: Date?
     @State private var farbenZeigen = false
+    @State private var abfahren = false
 
     /// `startTag` (ab 1.0.26): aus der Karte eines Tages geöffnet, steht
     /// die Vollkarte gleich auf diesem Tag.
@@ -334,7 +335,22 @@ struct Vollkarte: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { farbenZeigen = true } label: { Label("Farben", systemImage: "paintpalette") }
                     }
+                    // Einen gewählten Tag abfahren (ab 1.0.31).
+                    if tag != nil {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button { abfahren = true } label: { Label("Abfahren", systemImage: "play.fill") }
+                        }
+                    }
                     ToolbarItem(placement: .confirmationAction) { Button("Fertig") { schliessen() } }
+                }
+                .fullScreenCover(isPresented: $abfahren) {
+                    if let tag {
+                        let schluessel = Tag.schluessel(tag)
+                        Tagesfahrt(titel: Tag.wochentagLang.string(from: tag),
+                                   linien: Tagesspurwahl.linien(tag: schluessel, nurReise: reise).0
+                                       .filter { l in UserDefaults.standard.object(forKey: Kartenebene.an(l.art).schluessel) as? Bool ?? true },
+                                   zone: reise.zone(am: schluessel), palette: reise.palette)
+                    }
                 }
                 .sheet(isPresented: $farbenZeigen) {
                     KartenfarbenView(palette: reise.palette)
