@@ -1368,7 +1368,9 @@ struct Layoutautomat {
     // In `Double`, wie `Textmass.hoehe`, dessen Platz es einnimmt — die
     // Aufrufer rechnen damit weiter wie zuvor mit der gemessenen Zeile.
     private func wetterhoehe(_ tag: Reisetag, breite: Double) -> Double {
-        if tag.geltendeWettertabelle != nil { return Wettertabelle.hoehe(bild: typografie.datum, anteil: gestaltung.wettergroesse) }
+        if let tabelle = tag.geltendeWettertabelle {
+            return tabelle.hoehe(bild: typografie.datum, anteil: gestaltung.wettergroesse)
+        }
         let wetter = tag.wetter.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !wetter.isEmpty else { return 0 }
         return Textmass.hoehe(wetter, bild: typografie.datum, breite: breite)
