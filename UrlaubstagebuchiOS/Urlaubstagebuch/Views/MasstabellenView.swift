@@ -17,6 +17,8 @@ struct MasstabellenView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
     @State private var produktID: String?
+    @State private var wechsel: Formatwechsel.Vorschau?
+    @State private var quittung = ""
 
     private var produkt: Druckprodukt? { Druckprodukt.produkt(produktID) }
 
@@ -41,6 +43,7 @@ struct MasstabellenView: View {
 
                 if let produkt {
                     abgleich(produkt)
+                    beheben(produkt)
                     innenseiten(produkt)
                     umschlag(produkt)
                 }
@@ -56,6 +59,15 @@ struct MasstabellenView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { schliessen() }
+                }
+            }
+            // Weicht das FORMAT ab, geht es über den Formatwechsel mit seiner
+            // Rückfrage (mitrechnen / nur das Format) — derselbe Weg wie
+            // unter Seitenformat; das Produkt setzt seine übrigen Maße erst
+            // danach, sonst stünde die Umschlaghälfte um den Faktor daneben.
+            .sheet(item: $wechsel) { vorschau in
+                Wechselblatt(werk: werk, vorschau: vorschau, danach: produkt) {
+                    quittung = "Format umgestellt und die Maße von \(produkt?.vollerName ?? "") übernommen."
                 }
             }
             .onAppear {
@@ -106,8 +118,63 @@ struct MasstabellenView: View {
         } footer: {
             Text(fehler == 0
                  ? "Alles, was sich vergleichen lässt, stimmt."
-                 : "\(fehler) Angaben weichen ab. Ein Tipp auf das Produkt unter Ganzes Buch \u{2192} Seitenformat setzt sie alle auf einmal.")
+                 : "\(fehler) Angaben weichen ab \u{2014} der Knopf darunter behebt sie.")
         }
+    }
+
+    // AUTOMATISCH BEHEBEN (ab 1.0.122; Ansage des Nutzers 09/2026: „Wenn
+    // bei der Prüfung etwas nicht stimmt, dann möchte ich, dass es
+    // automatisch behoben werden kann."). Behoben wird mit demselben
+    // `Druckprodukt.anwenden`, das auch unter Seitenformat wirkt — ein
+    // zweiter Weg, dieselben Maße zu setzen, liefe auseinander. Die
+    // SEITENZAHL behebt kein Knopf: Seiten erfinden kann nur der Mensch.
+    @ViewBuilder
+    private func beheben(_ p: Druckprodukt) -> some View {
+        let zeilen = pruefzeilen(p)
+        let offen = zeilen.filter { $0.passt == false && $0.name != "Seitenzahl" }.count
+        let seitenFalsch = zeilen.contains { $0.name == "Seitenzahl" && $0.passt == false }
+        if offen > 0 || seitenFalsch || !quittung.isEmpty {
+            Section {
+                if offen > 0 {
+                    Button {
+                        uebernehmen(p)
+                    } label: {
+                        Label("\(offen) Abweichungen automatisch beheben", systemImage: "wand.and.stars")
+                    }
+                }
+                if !quittung.isEmpty {
+                    Text(quittung).font(.caption).foregroundStyle(.secondary)
+                }
+                if seitenFalsch {
+                    Text(seitenhinweis(p)).font(.caption).foregroundStyle(.orange)
+                }
+            } footer: {
+                Text("Behoben wird mit den Maßen des Produkts: Beschnitt, Sicherheitsabstand, Lage von Seite 1, U2/U3 und der Umschlag samt Rückentabelle. Weicht das Seitenformat ab, fragt die App vorher, ob die Seiten mitgerechnet werden sollen. Zurück geht es mit \u{201E}Widerrufen\u{201C}.")
+            }
+        }
+    }
+
+    private func uebernehmen(_ p: Druckprodukt) {
+        let neu = p.seitenformat
+        if neu.millimeter == werk.reise.format.millimeter {
+            werk.merken()
+            werk.reise.format = neu
+            p.anwenden(auf: &werk.reise)
+            quittung = "Die Maße von \(p.vollerName) sind übernommen."
+        } else {
+            wechsel = Formatwechsel.vorschau(reise: werk.reise, auf: neu)
+        }
+    }
+
+    private func seitenhinweis(_ p: Druckprodukt) -> String {
+        let n = werk.reise.blockseiten
+        if n < p.seitenVon {
+            return "Dein Buch hat \(n) Seiten, \(p.anbieter) verlangt mindestens \(p.seitenVon). Das behebt kein Knopf: Füge Seiten hinzu oder schalte beim Ausgeben Schmutztitel und Schlussseite ein."
+        }
+        if n > p.seitenBis {
+            return "Dein Buch hat \(n) Seiten, \(p.anbieter) nimmt höchstens \(p.seitenBis)."
+        }
+        return "Die Seitenzahl muss in Schritten von \(p.seitenSchritt) wachsen. Mit Schmutztitel und Schlussseite (beim Ausgeben) lässt sie sich auffüllen."
     }
 
     private func symbol(_ passt: Bool?) -> String {
@@ -178,12 +245,25 @@ struct MasstabellenView: View {
             passt: imRahmen && imSchritt))
 
         if let u = p.umschlag {
-            let seite1Ist = reise.umschlag.innenseitenImBlock ? "links (U2)" : "rechts"
+            // SEITE 1 LINKS HEISST: sie liegt auf U2 (`umschlagTraegtInhalt`,
+            // seit 1.0.74). Bis 1.0.121 fragte diese Zeile, ob U2 und U3 in
+            // der INNENTEIL-Datei stehen (`innenseitenImBlock`) — das ist
+            // eine zweite Frage, und das Buch des Nutzers bekam „rechts",
+            // obwohl seine Seite 1 sichtbar links lag. Jetzt zwei Zeilen.
+            let links = reise.umschlagTraegtInhalt
             zeilen.append(Pruefzeile(
                 name: "Seite 1 liegt",
-                soll: p.seiteEinsLinks ? "links (U2)" : "rechts",
-                ist: seite1Ist,
-                passt: p.seiteEinsLinks == reise.umschlag.innenseitenImBlock))
+                soll: p.seiteEinsLinks ? "links (auf U2, der Innenseite des Deckels)" : "rechts",
+                ist: links ? "links (auf U2)" : "rechts",
+                passt: p.seiteEinsLinks == links))
+            if p.seiteEinsLinks {
+                zeilen.append(Pruefzeile(
+                    name: "U2 und U3 in der Datei",
+                    soll: "in der Innenteil-Datei (zählen bei \(p.anbieter) mit)",
+                    ist: reise.umschlag.innenseitenImBlock
+                        ? "in der Innenteil-Datei" : "in der Umschlag-Datei",
+                    passt: reise.umschlag.innenseitenImBlock))
+            }
 
             if reise.hatRueckseite {
                 let pt = Umschlagmass.bogen(f, gestaltung: g, umschlag: reise.umschlag,

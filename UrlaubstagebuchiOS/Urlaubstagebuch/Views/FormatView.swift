@@ -439,7 +439,9 @@ private struct Seitenriss: View {
 
 // MARK: - Das Blatt, das vor der Umrechnung steht
 
-private struct Wechselblatt: View {
+// Nicht privat (ab 1.0.122): Auch „Maße der Druckerei prüfen" stellt
+// über dieses Blatt um, wenn das Format abweicht.
+struct Wechselblatt: View {
     @ObservedObject var werk: Reisewerk
     let vorschau: Formatwechsel.Vorschau
     /// Ein Druckprodukt, dessen übrige Maße NACH dem Wechsel gelten.
