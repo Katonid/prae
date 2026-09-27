@@ -1095,6 +1095,15 @@ struct BlockInspektor: View {
                           systemImage: "textformat.size")
                 }
             }
+            // Dasselbe für die Karte (ab 1.0.119): Rand und Schatten aller
+            // Karten stehen unter Ganzes Buch → Karten.
+            if block.inhalt == .karte {
+                Button {
+                    blatt = .kartenstil
+                } label: {
+                    Label("Rand für alle Karten einstellen\u{2026}", systemImage: "map")
+                }
+            }
             VStack(alignment: .leading) {
                 LabeledContent("Randbreite", value: String(format: "%.1f pt", wirkung.randbreite))
                 Slider(value: Binding(

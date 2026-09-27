@@ -1827,12 +1827,13 @@ struct Layoutautomat {
         let kartenhoehe = hoehe - zeile
         guard zeile > 0, kartenhoehe >= 24 else {
             return [Block(inhalt: .karte,
-                          rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
-                          schatten: stil.schatten == .keiner ? nil : stil.schatten)]
+                          rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe))]
         }
+        // Ohne Schatten (ab 1.0.119): Er steht am BUCH
+        // (`Gestaltung.kartenschatten`, sonst der der Fotos) — dieselbe
+        // Regel wie beim `fotoblock` darüber.
         let karte = Block(inhalt: .karte,
-                          rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: kartenhoehe),
-                          schatten: stil.schatten == .keiner ? nil : stil.schatten)
+                          rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: kartenhoehe))
         let unten = Block(inhalt: .kartenunterschrift,
                           rahmen: Rahmen(x: x, y: y + kartenhoehe + kartenfuge,
                                          breite: breite, hoehe: zeile - kartenfuge))

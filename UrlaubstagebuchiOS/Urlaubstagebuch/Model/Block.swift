@@ -354,6 +354,13 @@ struct Block: Identifiable, Codable, Hashable {
             buchschatten = gestaltung.fotoschatten
             buchrandbreite = gestaltung.fotorandbreite
             buchrandfarbe = gestaltung.fotorandfarbe
+        } else if inhalt == .karte {
+            buchschatten = gestaltung.kartenschatten ?? gestaltung.fotoschatten
+            buchrandbreite = gestaltung.kartenrandbreite
+            // Ohne gewählte Farbe die leise Vorgabe — eine Breite ohne Farbe
+            // zeichnete sonst nichts, und der Regler täte scheinbar nichts.
+            buchrandfarbe = gestaltung.kartenrandfarbe
+                ?? (gestaltung.kartenrandbreite > 0 ? .leise : nil)
         } else if fuerText {
             buchschatten = gestaltung.textschatten
             buchrandbreite = gestaltung.textrandbreite

@@ -401,11 +401,11 @@ enum Handbuch {
             Handbucheintrag(
                 id: "kartenstil",
                 titel: "Wie die Karten aussehen",
-                text: "Kartenquelle (Apple, OpenStreetMap, OpenTopoMap oder ein eigener Kachelserver), hell oder dunkel, Beschriftung, Breite im Satz — und die REISEPUNKTE: nur die Linie, dezente Punkte, nur Anfang und Ziel, oder Punkte mit Ring. Was hier steht, gilt für alle Karten im Buch.\n\nEin einzelner Tag und eine einzelne Karte dürfen abweichen; das steht im Inspektor (Pinsel), wenn eine Karte gewählt ist. Was dort nicht ausdrücklich gesetzt ist, folgt weiter der Einstellung des Buches.",
+                text: "Kartenquelle (Apple, OpenStreetMap, OpenTopoMap oder ein eigener Kachelserver), hell oder dunkel, Beschriftung, Breite im Satz — und die REISEPUNKTE: nur die Linie, dezente Punkte, nur Anfang und Ziel, oder Punkte mit Ring. Dazu Rand und Schatten aller Karten: eine Linie ringsum in eigener Farbe und Breite. Was hier steht, gilt für alle Karten im Buch.\n\nEin einzelner Tag und eine einzelne Karte dürfen abweichen; das steht im Inspektor (Pinsel), wenn eine Karte gewählt ist. Was dort nicht ausdrücklich gesetzt ist, folgt weiter der Einstellung des Buches.",
                 weg: "Buchsymbol \u{2192} Karten",
                 ziel: .kartenstil,
                 stichworte: ["karte", "reisepunkte", "punkte", "spur", "linie", "osm",
-                             "openstreetmap", "satellit", "gelände", "kachel"]),
+                             "openstreetmap", "satellit", "gelände", "kachel", "rand", "schatten"]),
             Handbucheintrag(
                 id: "raender",
                 titel: "Ränder und Satzspiegel",

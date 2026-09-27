@@ -400,6 +400,19 @@ struct Gestaltung: Codable, Hashable {
     var fotorandbreite: Double = 0
     var fotorandfarbe: Farbwert?
 
+    // WIE SICH KARTEN ABHEBEN — ebenso einmal für das ganze Buch (ab
+    // 1.0.119; Frage des Nutzers 09/2026: „Kann ich global an den Karten
+    // einen Rand einstellen?" — es ging nur je Karte im Inspektor).
+    // Dieselbe Bauweise wie bei Fotos und Textfeldern: Abweichung am Block,
+    // Vorgabe am Buch, aufgelöst in `Block.wirkung`. Der Schatten `nil`
+    // heißt „wie die Fotos" — das ist genau das, was der Automat bis
+    // 1.0.118 fest in jeden Kartenblock schrieb (der Schatten des Stils,
+    // den der Stil auch den Fotos gibt); ein neu gesetzter Tag sieht also
+    // aus wie vorher.
+    var kartenschatten: Schattenart?
+    var kartenrandbreite: Double = 0
+    var kartenrandfarbe: Farbwert?
+
     // WIE WEIT DIE BILDUNTERSCHRIFT VOM BILD ABRÜCKT, in Millimetern
     // (ab 1.0.92).
     //
@@ -517,6 +530,9 @@ struct Gestaltung: Codable, Hashable {
         fotorand = b.wert(.fotorand, 0.0)
         fotorandbreite = b.wert(.fotorandbreite, 0.0)
         fotorandfarbe = b.wahlweise(.fotorandfarbe)
+        kartenschatten = b.wahlweise(.kartenschatten)
+        kartenrandbreite = b.wert(.kartenrandbreite, 0.0)
+        kartenrandfarbe = b.wahlweise(.kartenrandfarbe)
         unterschriftabstand = b.wert(.unterschriftabstand, 2.0)
         textgrund = b.wahlweise(.textgrund)
         textinnenabstand = b.wert(.textinnenabstand, 0.0)

@@ -214,6 +214,9 @@ struct Vorlagenwerte: Codable, Hashable {
         g.fotorand = gestaltung.fotorand
         g.fotorandbreite = gestaltung.fotorandbreite
         g.fotorandfarbe = gestaltung.fotorandfarbe
+        g.kartenschatten = gestaltung.kartenschatten
+        g.kartenrandbreite = gestaltung.kartenrandbreite
+        g.kartenrandfarbe = gestaltung.kartenrandfarbe
         g.unterschriftabstand = gestaltung.unterschriftabstand
         g.textgrund = gestaltung.textgrund
         g.textinnenabstand = gestaltung.textinnenabstand

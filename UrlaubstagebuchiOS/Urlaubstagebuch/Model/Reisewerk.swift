@@ -1854,6 +1854,24 @@ final class Reisewerk: ObservableObject, Identifiable {
         zeilenAnsBildLegen()
     }
 
+    // Dasselbe für die Karten (ab 1.0.119). Getroffen werden vor allem die
+    // Karten, denen der Automat bis 1.0.118 den Schatten des Stils fest
+    // hineingeschrieben hat — an ihnen wirkte die Einstellung des Buches
+    // sonst nie.
+    func kartenwirkungVereinheitlichen() {
+        merken()
+        for t in reise.tage.indices {
+            for s in reise.tage[t].seiten.indices {
+                for b in reise.tage[t].seiten[s].bloecke.indices
+                where reise.tage[t].seiten[s].bloecke[b].inhalt == .karte {
+                    reise.tage[t].seiten[s].bloecke[b].schatten = nil
+                    reise.tage[t].seiten[s].bloecke[b].randbreite = nil
+                    reise.tage[t].seiten[s].bloecke[b].rand = nil
+                }
+            }
+        }
+    }
+
     // Dasselbe für die Textkästen — danach folgt jeder wieder der
     // Einstellung des Buches. Der weiße Sofortbild-Rand bleibt außen vor:
     // Den gibt es nur am Foto.
