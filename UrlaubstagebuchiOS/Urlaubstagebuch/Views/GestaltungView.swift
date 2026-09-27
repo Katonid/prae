@@ -151,6 +151,7 @@ struct GestaltungView: View {
                             Text(stil.name).tag(stil)
                         }
                     }
+                    ZweiteUeberschriftSchalter(werk: werk)
                 } header: {
                     Text("Aussehen")
                 } footer: {

@@ -1563,6 +1563,17 @@ enum Buchausgabe {
             }
 
             switch block.inhalt {
+            // Die Wettertabelle (ab 1.0.116) — derselbe Zeichner wie auf
+            // dem Bildschirm (`Wetterkasten`). Ohne Tabelle bleibt es die
+            // Zeile darunter.
+            case .wetter where buchseite.tag?.geltendeWettertabelle != nil:
+                if let tabelle = buchseite.tag?.geltendeWettertabelle {
+                    Seitensatz.zeichneWettertabelle(
+                        tabelle, bild: Seitensatz.schriftbild(block, reise: reise, tag: buchseite.tag),
+                        rechteck: block.textrechteck(rechteck, rand: wirkung.textrand),
+                        in: zusammenhang, seitenhoehe: endformat.height)
+                }
+
             case .titel, .unterueberschrift, .datum, .wetter, .text, .bildunterschrift,
                  .kartenunterschrift:
                 let bild = Seitensatz.schriftbild(block, reise: reise, tag: buchseite.tag)

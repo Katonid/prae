@@ -1306,7 +1306,7 @@ struct Layoutautomat {
         // (ab 1.0.48). Ihre Höhe geht in die Rechnung ein, bevor `y` gesetzt
         // wird — der Block wird von UNTEN aufgebaut, und eine nachträglich
         // eingeschobene Zeile schiebe sonst den Titel aus dem Satzspiegel.
-        let zweite = tag.unterueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+        let zweite = zweiteUeberschrift(tag)
         var zweitbild = typografie[.unterueberschrift]
         zweitbild.farbe = Farbwert(rot: 1, gruen: 1, blau: 1)
         let zweitHoehe = zweite.isEmpty ? 0
@@ -1315,10 +1315,8 @@ struct Layoutautomat {
         // Das Wetter steht auch hier (ab 1.0.108), in derselben hellen
         // Farbe wie das Datum — und geht wie die zweite Überschrift VOR dem
         // Setzen von `y` in die Rechnung ein.
-        let wetter = tag.wetter.trimmingCharacters(in: .whitespacesAndNewlines)
-        let wetterHoehe = wetter.isEmpty ? 0
-            : Textmass.hoehe(wetter, bild: typografie.datum, breite: satz.width * 0.8)
-        let wetterLuft = wetter.isEmpty ? 0 : wetterHoehe + 4
+        let wetterHoehe = wetterhoehe(tag, breite: Double(satz.width * 0.8))
+        let wetterLuft = wetterHoehe == 0 ? 0 : wetterHoehe + 4
         var y = satz.maxY - titelHoehe - datumHoehe - zweitLuft - wetterLuft - 6
 
         var datumhell = hell
@@ -1348,7 +1346,7 @@ struct Layoutautomat {
             ))
             y += zweitHoehe + 4
         }
-        if !wetter.isEmpty {
+        if wetterHoehe > 0 {
             bloecke.append(Block(
                 inhalt: .wetter,
                 rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width * 0.8, hoehe: wetterHoehe),
@@ -1356,6 +1354,24 @@ struct Layoutautomat {
             ))
         }
         return Seite(bloecke: bloecke, ohneSeitenzahl: true)
+    }
+
+    // Die zweite Überschrift — leer, wenn das Buch sie nicht zeigt (ab
+    // 1.0.116). An EINER Stelle, gefragt von Aufmacher und Kopfzeile.
+    private func zweiteUeberschrift(_ tag: Reisetag) -> String {
+        guard gestaltung.unterueberschriftZeigen else { return "" }
+        return tag.unterueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // Die Höhe des Wetterblocks: die Tabelle (ab 1.0.116) in ihrer festen
+    // Höhe, sonst die Zeile, gemessen wie jeder Text. 0: kein Wetter.
+    // In `Double`, wie `Textmass.hoehe`, dessen Platz es einnimmt — die
+    // Aufrufer rechnen damit weiter wie zuvor mit der gemessenen Zeile.
+    private func wetterhoehe(_ tag: Reisetag, breite: Double) -> Double {
+        if tag.geltendeWettertabelle != nil { return Wettertabelle.hoehe(bild: typografie.datum) }
+        let wetter = tag.wetter.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !wetter.isEmpty else { return 0 }
+        return Textmass.hoehe(wetter, bild: typografie.datum, breite: breite)
     }
 
     private func kopfzeile(tag: Reisetag, y: inout CGFloat, knapp: Bool,
@@ -1389,7 +1405,7 @@ struct Layoutautomat {
         // wo sie in der Vorlage steht: nach dem Datum, vor dem Fließtext.
         // Wie der Titel nur auf dem Aufmacher — auf der Fortsetzungsseite
         // wäre sie dieselbe Angabe ein zweites Mal.
-        let zweite = tag.unterueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+        let zweite = zweiteUeberschrift(tag)
         if !zweite.isEmpty, !knapp {
             let bild = typografie[.unterueberschrift]
             let hoehe = Textmass.hoehe(zweite, bild: bild, breite: spaltenbreite)
@@ -1402,9 +1418,8 @@ struct Layoutautomat {
         // Das WETTER (ab 1.0.108) — unter den Überschriften, in der Schrift
         // der Datumszeile. Auch nur auf dem Aufmacher: Es gilt für den Tag
         // und nicht für die Seite.
-        let wetter = tag.wetter.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !wetter.isEmpty, !knapp {
-            let hoehe = Textmass.hoehe(wetter, bild: typografie.datum, breite: spaltenbreite)
+        let hoehe = knapp ? 0 : wetterhoehe(tag, breite: Double(spaltenbreite))
+        if hoehe > 0 {
             bloecke.append(Block(
                 inhalt: .wetter,
                 rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: hoehe)

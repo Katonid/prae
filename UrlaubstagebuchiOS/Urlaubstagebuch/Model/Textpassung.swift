@@ -41,6 +41,10 @@ enum Textpassung {
 
     static func pruefe(_ block: Block, tag: Reisetag?, reise: Reise) -> Befund? {
         guard block.inhalt.istText else { return nil }
+        // Die Wettertabelle (ab 1.0.116) ist kein Text: Sie wird in jedes
+        // Rechteck skaliert und fällt nie heraus. Gemessen würde sonst die
+        // Zeile, die gar nicht gezeichnet wird.
+        if block.inhalt == .wetter, tag?.geltendeWettertabelle != nil { return nil }
         let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
         guard !text.isEmpty, block.rahmen.breite > 1 else { return nil }
         let bild = Seitensatz.schriftbild(block, reise: reise)

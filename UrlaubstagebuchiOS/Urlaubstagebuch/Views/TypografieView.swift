@@ -161,6 +161,7 @@ struct TypografieView: View {
     @ViewBuilder
     private var ableitungshinweis: some View {
         if rolle == .unterueberschrift {
+            ZweiteUeberschriftSchalter(werk: werk)
             if werk.reise.typografie.unterueberschrift == nil {
                 Label("Abgeleitet aus der Überschrift — dieselbe Schrift, gut halb so groß, kursiv. Sobald du hier etwas änderst, steht sie für sich und folgt der Überschrift nicht mehr.",
                       systemImage: "arrow.triangle.branch")

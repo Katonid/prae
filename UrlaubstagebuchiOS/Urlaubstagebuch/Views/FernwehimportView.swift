@@ -25,7 +25,7 @@ struct FernwehimportView: View {
 
     @State private var ersetzen = false
     @State private var autorenNennen = false
-    @State private var wetter: Reisewerk.Wetterziel = .zeile
+    @State private var wetter: Reisewerk.Wetterziel = .tabelle
     @State private var texte = true
     @State private var fotos = true
     @State private var titel = false
@@ -155,6 +155,7 @@ struct FernwehimportView: View {
             Section {
                 Toggle("Texte und Überschriften", isOn: $texte)
                 Picker("Wetter", selection: $wetter) {
+                    Text("Tabelle mit Symbolen").tag(Reisewerk.Wetterziel.tabelle)
                     Text("Eigene Zeile").tag(Reisewerk.Wetterziel.zeile)
                     Text("Unter den Text").tag(Reisewerk.Wetterziel.unterText)
                     Text("Nicht übernehmen").tag(Reisewerk.Wetterziel.keins)
@@ -389,6 +390,18 @@ struct FernwehimportView: View {
         let mitWetter = befund.tage.filter { $0.wetter != nil }.count
         var satz = "Wetter steht in der Datei an \(mitWetter) von \(befund.tage.count) Tagen. "
         switch wetter {
+        case .tabelle:
+            let mitTabelle = befund.tage.filter { $0.wettertabelle != nil }.count
+            satz += "Als Tabelle steht es oben auf der ersten Seite des Tages, unter den "
+                + "Überschriften: je Tageszeit eine Spalte mit Symbol, Temperatur und Regen "
+                + "\u{2014} wie in Fernweh. "
+            if mitTabelle < mitWetter {
+                satz += "An \(mitWetter - mitTabelle) Tagen reichen die Angaben dafür nicht; "
+                    + "dort steht es als Zeile. "
+            }
+            satz += "Wer schon einmal eingelesen hat, liest dieselbe Datei einfach noch "
+                + "einmal: Wo noch die Wetterzeile von damals steht, kommt die Tabelle an "
+                + "ihre Stelle."
         case .zeile:
             satz += "Als eigene Zeile steht es unter den Überschriften, in der Schrift der "
                 + "Datumszeile, und lässt sich getrennt vom Tagebuchtext ändern oder "
