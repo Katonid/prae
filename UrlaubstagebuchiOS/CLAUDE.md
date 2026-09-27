@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.119 (Build 120). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.120 (Build 121). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7599,6 +7599,40 @@ Befunde, und keiner davon war Geschmack:
   - Kein weißer Rand wie beim Sofortbild: Der liegt außerhalb des Rahmens
     und hinge an Umriss, Einrasten und Kartenzeile. Die Linie liegt innen.
   - **Nicht gemessen (1.0.119):** auf keinem Gerät gesehen.
+- **DIE WETTERZEILEN DER ERSTEN ÜBERNAHME WERDEN ZU TABELLEN** (`Wettertabelle.init?(zeile:)`,
+  `Reisewerk.wetterzeilenUmwandeln`, `Reise.wetterUmgewandelt`, ab 1.0.120;
+  gemeldet 09/2026 mit Bildschirmfoto: „Das mit dem Wetter ist ja leider
+  wieder komplett schiefgegangen."). Auf der Seite stand weiter die
+  Versalienzeile der ersten Übernahme. **1.0.116 bis 1.0.119 haben die
+  Tabelle nur beim EINLESEN gebaut** — ein Buch, das schon eingelesen war,
+  bekam sie nur über ein zweites Einlesen derselben Datei, und das stand
+  nur in einer Antwort und einer Fußzeile. **Dritte Auflage derselben
+  Lehre** (nach `zeilenAnsBildLegen` 1.0.90 und 1.0.92): **Wer eine neue
+  Darstellung für vorhandene Daten baut, erreicht damit keinen Tag, der
+  schon dasteht.**
+  - **Die Zeile trägt alles außer dem Code, und den gibt die Beschreibung
+    eindeutig her** — Fernweh schreibt sie aus `Wettercode.text`, je Text
+    ein Code. Gelesen wird genau die Form aus `Fernweheinfuhr.wetterzeile`;
+    lässt sich ein einziger Abschnitt nicht lesen, bleibt die Zeile (eine
+    halbe Tabelle wäre schlechter). Wer in Fernweh eine Beschreibung ändert,
+    zieht die Tabelle in `code(fuer:)` nach.
+  - **Einmal beim Öffnen, danach auf Knopfdruck.** Der Merker steht am
+    BUCH: Eine ausdrücklich als Zeile gewählte Darstellung darf nicht bei
+    jedem Öffnen wieder zur Tabelle werden.
+  - **Tage mit Handarbeit:** Der Wetterblock bekommt die Höhe der Tabelle,
+    und was auf derselben Seite darunter liegt, rückt um genau diesen Betrag
+    nach unten — sonst läge die Tabelle über dem Text. Das kann unten über
+    den Satzspiegel reichen; die rote Marke zeigt es, die Meldung zählt es.
+- **„Überschriften…" und „Wetter…" oben im Buchmenü** (`UeberschriftenView`,
+  `WetterstilView`, ab 1.0.120; Ansage des Nutzers: „Ich hätte gerne im
+  Buchmenü auf oberster Ebene … auch noch: Wetterkacheln, Überschriften,
+  Karten, Fotos, Textfelder."). Karten, Fotos und Textfelder standen dort
+  schon; Datumszeile, zweite Überschrift und Wettergröße lagen unter
+  „Ränder und Druckzugaben" — hinter einem Namen, der nichts davon sagt.
+  Die alten Stellen bleiben; die neuen Blätter zeigen dieselben Ansichten.
+- **Nicht gemessen (1.0.120):** Die Rückwandlung ist an der Form des
+  Quelltextes gebaut und an keiner echten Zeile geprüft; auf keinem Gerät
+  gesehen. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

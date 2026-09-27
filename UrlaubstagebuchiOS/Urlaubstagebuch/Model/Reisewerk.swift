@@ -928,6 +928,76 @@ final class Reisewerk: ObservableObject, Identifiable {
             seitenNeuSetzen(stelle, mit: werkzeug)
         }
         zeilenAnsBildLegen()
+        if !reise.wetterUmgewandelt {
+            let satz = wetterzeilenUmwandeln(merken: false)
+            if !satz.isEmpty { meldung = Meldung(text: satz) }
+        }
+    }
+
+    // WETTERZEILEN IN TABELLEN WANDELN (ab 1.0.120) — beim ersten Öffnen
+    // von selbst, danach auf Knopfdruck (Ganzes Buch → Wetter). Warum es
+    // das braucht, steht an `Wettertabelle.init?(zeile:)`.
+    //
+    // Unberührte Tage werden neu gesetzt. Auf Tagen mit Handarbeit wird der
+    // Wetterblock auf die Höhe der Tabelle gebracht, und was auf derselben
+    // Seite DARUNTER liegt, rückt um genau diesen Betrag nach unten — sonst
+    // läge die Tabelle über dem Text. Das kann unten über den Satzspiegel
+    // hinausreichen; die rote Marke zeigt es dann, und die Quittung zählt
+    // diese Tage.
+    @discardableResult
+    func wetterzeilenUmwandeln(merken mitMerken: Bool = true) -> String {
+        if mitMerken { merken() }
+        reise.wetterUmgewandelt = true
+        let werkzeug = automat
+        var gewandelt = 0
+        var handarbeit = 0
+        var unlesbar = 0
+        for stelle in reise.tage.indices {
+            guard reise.tage[stelle].geltendeWettertabelle == nil,
+                  !reise.tage[stelle].wetter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { continue }
+            guard let tabelle = Wettertabelle(zeile: reise.tage[stelle].wetter) else {
+                unlesbar += 1
+                continue
+            }
+            reise.tage[stelle].wettertabelle = tabelle
+            gewandelt += 1
+            guard reise.tage[stelle].seiten.contains(where: { $0.vonHand }) else {
+                wortlautSichern(stelle)
+                seitenNeuSetzen(stelle, mit: werkzeug)
+                continue
+            }
+            let hoehe = tabelle.hoehe(bild: reise.typografie.datum,
+                                      anteil: reise.gestaltung.wettergroesse)
+            var angefasst = false
+            for s in reise.tage[stelle].seiten.indices {
+                guard let b = reise.tage[stelle].seiten[s].bloecke.firstIndex(where: { $0.inhalt == .wetter })
+                else { continue }
+                let alt = reise.tage[stelle].seiten[s].bloecke[b].rahmen
+                let mehr = hoehe - alt.hoehe
+                guard mehr > 0.5 else { continue }
+                for i in reise.tage[stelle].seiten[s].bloecke.indices where i != b {
+                    if reise.tage[stelle].seiten[s].bloecke[i].rahmen.y >= alt.y + alt.hoehe - 0.5 {
+                        reise.tage[stelle].seiten[s].bloecke[i].rahmen.y += mehr
+                    }
+                }
+                reise.tage[stelle].seiten[s].bloecke[b].rahmen.hoehe = hoehe
+                angefasst = true
+            }
+            if angefasst { handarbeit += 1 }
+        }
+        befundeAuffrischen()
+        var saetze: [String] = []
+        if gewandelt > 0 {
+            saetze.append("Das Wetter steht an \(gewandelt) Tagen jetzt als Tabelle mit Symbolen.")
+        }
+        if handarbeit > 0 {
+            saetze.append("An \(handarbeit) Tagen mit Handarbeit ist, was unter dem Wetter lag, nach unten gerückt \u{2014} bitte ansehen.")
+        }
+        if unlesbar > 0 {
+            saetze.append("An \(unlesbar) Tagen ließ sich die Wetterzeile nicht lesen; dort bleibt sie stehen.")
+        }
+        return saetze.joined(separator: " ")
     }
 
     // JEDE UNTERSCHRIFT LIEGT AN IHREM BILD (ab 1.0.90, seit 1.0.92 auch

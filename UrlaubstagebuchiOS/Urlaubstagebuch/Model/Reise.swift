@@ -183,6 +183,13 @@ struct Reise: Identifiable, Codable {
     // „nichts bestellt", und dann wird auch nichts behauptet.
     var bestellteSeiten: Int?
 
+    // Ob die Wetterzeilen dieses Buches schon einmal in Tabellen gewandelt
+    // wurden (ab 1.0.120). Gewandelt wird beim Öffnen EINMAL — danach gilt,
+    // was jemand gewählt hat: Eine ausdrücklich als Zeile übernommene oder
+    // von einer Tabelle zurückgestellte Zeile darf nicht bei jedem Öffnen
+    // wieder zur Tabelle werden.
+    var wetterUmgewandelt: Bool = false
+
     // WAS UNTER DEM TITEL STEHT — gerechnet oder selbst gesetzt
     // (ab 1.0.97).
     //
@@ -274,6 +281,7 @@ struct Reise: Identifiable, Codable {
         titelseite = b.wert(.titelseite, true)
         umschlag = b.wert(.umschlag, Umschlag())
         bestellteSeiten = b.wahlweise(.bestellteSeiten)
+        wetterUmgewandelt = b.wert(.wetterUmgewandelt, false)
         zeitraumtext = b.wahlweise(.zeitraumtext)
         zeitraumZeigen = b.wert(.zeitraumZeigen, true)
         schmutztitel = b.wert(.schmutztitel, false)

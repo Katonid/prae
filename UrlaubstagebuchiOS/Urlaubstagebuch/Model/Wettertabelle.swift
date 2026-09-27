@@ -106,6 +106,102 @@ struct Wettertabelle: Codable, Hashable {
 
     var leer: Bool { spalten.isEmpty }
 
+    // AUS DER ZEILE ZURÜCK IN DIE TABELLE (ab 1.0.120). Gemeldet 09/2026
+    // mit Bildschirmfoto: „Das mit dem Wetter ist ja leider wieder komplett
+    // schiefgegangen." Auf der Seite stand die Zeile der ersten Übernahme —
+    // die Tabelle kam bis 1.0.119 nur mit einem ZWEITEN Einlesen derselben
+    // Datei, und wer das nicht tat, sah nach dem Update genau dasselbe wie
+    // vorher. **Wer eine neue Darstellung für schon vorhandene Daten baut,
+    // erreicht damit keinen Tag, der schon dasteht** (dieselbe Lehre wie
+    // `zeilenAnsBildLegen`, 1.0.90).
+    //
+    // Die Zeile trägt aber ALLES außer dem Code, und den Code gibt die
+    // Beschreibung eindeutig her: Fernweh schreibt sie aus
+    // `Wettercode.text`, und dort hat jede Beschreibung genau einen Code
+    // (Stand Fernweh 1.0.22 — wer dort eine ändert, zieht es hier nach).
+    // Gelesen wird die Form aus `Fernweheinfuhr.wetterzeile`:
+    // „Wetter[ in Ort][ (Vorhersage)]: Name beschreibung, a–b °C, x mm · …".
+    // Lässt sich ein einziger Abschnitt nicht lesen, gibt es KEINE Tabelle —
+    // eine halbe wäre schlechter als die Zeile, die dann stehen bleibt.
+    init?(zeile roh: String) {
+        let zeile = roh.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard zeile.hasPrefix("Wetter"), let doppel = zeile.range(of: ": ") else { return nil }
+        var kopf = String(zeile[..<doppel.lowerBound])
+        let rumpf = String(zeile[doppel.upperBound...])
+        let vorhersage = kopf.hasSuffix(" (Vorhersage)")
+        if vorhersage { kopf = String(kopf.dropLast(" (Vorhersage)".count)) }
+        var ort = ""
+        if kopf.hasPrefix("Wetter in ") {
+            ort = String(kopf.dropFirst("Wetter in ".count))
+        } else if kopf != "Wetter" {
+            return nil
+        }
+        var spalten: [Spalte] = []
+        for teil in rumpf.components(separatedBy: " \u{00B7} ") {
+            guard let spalte = Wettertabelle.spalte(aus: teil) else { return nil }
+            spalten.append(spalte)
+        }
+        guard !spalten.isEmpty else { return nil }
+        self.init(ort: ort, vorhersage: vorhersage, spalten: spalten)
+    }
+
+    private static func spalte(aus roh: String) -> Spalte? {
+        let stuecke = roh.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: ", ")
+        guard stuecke.count >= 2, let vorn = stuecke.first, !vorn.isEmpty else { return nil }
+        // Vorn: Name und Beschreibung. Der Name ist das erste Wort.
+        let woerter = vorn.split(separator: " ", maxSplits: 1).map(String.init)
+        let name = woerter[0]
+        let beschreibung = woerter.count > 1 ? woerter[1] : ""
+        // Temperatur: „-3–3 °C" oder „2 °C".
+        let temp = stuecke[1]
+        guard temp.hasSuffix(" °C") else { return nil }
+        let zahlen = String(temp.dropLast(3)).components(separatedBy: "\u{2013}")
+        guard let tief = Double(zahlen[0]),
+              let hoch = zahlen.count > 1 ? Double(zahlen[1]) : Optional(tief) else { return nil }
+        var regen = 0.0
+        if stuecke.count >= 3 {
+            let mm = stuecke[2]
+            guard mm.hasSuffix(" mm"),
+                  let wert = Double(String(mm.dropLast(3)).replacingOccurrences(of: ",", with: "."))
+            else { return nil }
+            regen = wert
+        }
+        let gross = beschreibung.prefix(1).uppercased() + beschreibung.dropFirst()
+        guard let code = code(fuer: gross) else { return nil }
+        return Spalte(name: name, code: code, beschreibung: gross,
+                      tiefst: tief, hoechst: hoch, regen: regen)
+    }
+
+    // Fernwehs `Wettercode.text` rückwärts — je Text ein Code, der
+    // dasselbe Symbol ergibt.
+    private static func code(fuer text: String) -> Int? {
+        switch text {
+        case "Klar", "Sonnig": return 0
+        case "Überwiegend klar", "Überwiegend sonnig": return 1
+        case "Teils bewölkt": return 2
+        case "Bedeckt": return 3
+        case "Nebel": return 45
+        case "Nieselregen": return 51
+        case "Gefrierender Niesel": return 56
+        case "Leichter Regen": return 61
+        case "Regen": return 63
+        case "Starker Regen": return 65
+        case "Gefrierender Regen": return 66
+        case "Leichter Schnee": return 71
+        case "Schnee": return 73
+        case "Starker Schnee": return 75
+        case "Schneegriesel": return 77
+        case "Schauer": return 80
+        case "Heftige Schauer": return 82
+        case "Schneeschauer": return 85
+        case "Gewitter": return 95
+        case "Gewitter mit Hagel": return 96
+        case "Unbekannt", "": return -1
+        default: return nil
+        }
+    }
+
     // KEIN „Wetter in …" MEHR ÜBER DER TABELLE (ab 1.0.118; Ansage des
     // Nutzers 09/2026: „‚Wetter in…' muss nicht angezeigt werden. Die
     // Wettersymbole sprechen ja für sich."). Stehen bleibt nur das Wort
