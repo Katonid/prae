@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.117 (Build 118). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.118 (Build 119). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7568,6 +7568,17 @@ Befunde, und keiner davon war Geschmack:
     Farben, die Formen und die Vorgabe 70 % sind gewählt, nicht gemessen; ob
     der Wolkenrand (rund 0,35 pt bei Vorgabegröße) im Druck noch steht, sagt
     erst ein Ausdruck. **Nicht als erledigt darstellen.**
+- **KEIN „WETTER IN …" ÜBER DER TABELLE** (`Wettertabelle.kopf`, ab
+  1.0.118; Ansage des Nutzers 09/2026 mit Bildschirmfoto: „‚Wetter in…'
+  muss nicht angezeigt werden. Die Wettersymbole sprechen ja für sich.").
+  Die Kopfzeile fällt weg, und mit ihr ihre Höhe (`hoeheneinheiten`, 5,95
+  statt 7,4 Einheiten) — sonst bliebe über den Spalten ein leerer Streifen.
+  **Stehen bleibt „Vorhersage"**, wo es eine ist: Eine Vorhersage sagt,
+  dass sie eine ist (dieselbe Regel wie „Plan" gegen „pünktlich"). Der Ort
+  bleibt in der Tabelle gespeichert. Schon gesetzte Blöcke sind für die
+  alte Höhe bemessen; die Tabelle passt sich in Höhe und Breite ein und
+  wird darin etwas größer, bis der Tag neu angeordnet oder der Regler
+  bewegt wird. **Nicht gemessen (1.0.118):** auf keinem Gerät gesehen.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

@@ -106,11 +106,17 @@ struct Wettertabelle: Codable, Hashable {
 
     var leer: Bool { spalten.isEmpty }
 
-    var kopf: String {
-        var text = ort.isEmpty ? "Wetter" : "Wetter in " + ort
-        if vorhersage { text += " (Vorhersage)" }
-        return text
-    }
+    // KEIN „Wetter in …" MEHR ÜBER DER TABELLE (ab 1.0.118; Ansage des
+    // Nutzers 09/2026: „‚Wetter in…' muss nicht angezeigt werden. Die
+    // Wettersymbole sprechen ja für sich."). Stehen bleibt nur das Wort
+    // „Vorhersage", wo es eine ist: Eine Vorhersage sagt, dass sie eine
+    // ist — sie ist keine Messung (derselbe Unterschied wie „Plan" gegen
+    // „pünktlich"). Der Ort bleibt in der Tabelle gespeichert.
+    var kopf: String { vorhersage ? "Vorhersage" : "" }
+
+    // Die Höhe der Kopfzeile in Einheiten — null, wo keine steht.
+    var kopfeinheiten: Double { kopf.isEmpty ? 0 : 1.45 }
+    var hoeheneinheiten: Double { Wettertabelle.einheiten - 1.45 + kopfeinheiten }
 
     // DIE MASSE DER TABELLE in Einheiten — eine Einheit ist die Größe, in
     // der die Spaltennamen stehen. Bis 1.0.116 waren es acht Einheiten
@@ -125,8 +131,14 @@ struct Wettertabelle: Codable, Hashable {
 
     // Die Höhe, in der der Layoutautomat den Block anlegt: Datumsgröße mal
     // Einheiten mal dem Anteil aus der Gestaltung.
-    static func hoehe(bild: Schriftbild, anteil: Double = 1) -> Double {
+    // `einheiten` ist die Höhe MIT Kopfzeile; wer die Tabelle kennt, nimmt
+    // `tabelle.hoehe(…)`.
+    static func hoehe(bild: Schriftbild, anteil: Double = 1, einheiten: Double = Wettertabelle.einheiten) -> Double {
         max(bild.groesse, 5) * einheiten * min(max(anteil, 0.3), 2)
+    }
+
+    func hoehe(bild: Schriftbild, anteil: Double) -> Double {
+        Wettertabelle.hoehe(bild: bild, anteil: anteil, einheiten: hoeheneinheiten)
     }
 }
 
@@ -147,7 +159,7 @@ extension Seitensatz {
     {
         guard !tabelle.leer, rechteck.width > 4, rechteck.height > 4 else { return }
         let anzahl = CGFloat(tabelle.spalten.count)
-        let einheit = min(rechteck.height / CGFloat(Wettertabelle.einheiten),
+        let einheit = min(rechteck.height / CGFloat(tabelle.hoeheneinheiten),
                           rechteck.width / (anzahl * CGFloat(Wettertabelle.spalteneinheiten)))
         guard einheit > 0.5 else { return }
         let groesse = Double(einheit)
@@ -158,10 +170,12 @@ extension Seitensatz {
         kopfbild.zeilenabstand = 1.1
         kopfbild.ausrichtung = .links
         kopfbild.trennung = false
-        zeichneText(tabelle.kopf, bild: kopfbild,
+        if !tabelle.kopf.isEmpty {
+            zeichneText(tabelle.kopf, bild: kopfbild,
                     rechteck: CGRect(x: rechteck.minX, y: rechteck.minY,
                                      width: max(rechteck.width, spalte * anzahl), height: einheit * 1.3),
                     in: zusammenhang, seitenhoehe: seitenhoehe)
+        }
 
         var namenbild = kopfbild
         namenbild.ausrichtung = .mitte
@@ -178,7 +192,7 @@ extension Seitensatz {
 
         for (nummer, s) in tabelle.spalten.enumerated() {
             let x = rechteck.minX + CGFloat(nummer) * spalte
-            var y = rechteck.minY + einheit * 1.45
+            var y = rechteck.minY + einheit * CGFloat(tabelle.kopfeinheiten)
             zeichneText(s.name, bild: namenbild,
                         rechteck: CGRect(x: x, y: y, width: spalte, height: einheit * 1.1),
                         in: zusammenhang, seitenhoehe: seitenhoehe)

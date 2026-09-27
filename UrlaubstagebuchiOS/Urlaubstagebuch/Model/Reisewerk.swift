@@ -668,10 +668,10 @@ final class Reisewerk: ObservableObject, Identifiable {
         merken()
         reise.gestaltung.wettergroesse = neu
         let werkzeug = automat
-        let hoehe = Wettertabelle.hoehe(bild: reise.typografie.datum, anteil: neu)
         var angepasst = 0
         for stelle in reise.tage.indices {
-            guard reise.tage[stelle].geltendeWettertabelle != nil else { continue }
+            guard let tabelle = reise.tage[stelle].geltendeWettertabelle else { continue }
+            let hoehe = tabelle.hoehe(bild: reise.typografie.datum, anteil: neu)
             if !reise.tage[stelle].seiten.contains(where: { $0.vonHand }) {
                 wortlautSichern(stelle)
                 seitenNeuSetzen(stelle, mit: werkzeug)
