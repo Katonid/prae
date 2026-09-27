@@ -102,6 +102,7 @@ enum Formatwechsel {
         g.bundsteg = gerundet(g.bundsteg * f)
         g.fotorand = gerundet(g.fotorand * f)
         g.fotorandbreite = gerundet(g.fotorandbreite * f)
+        g.kartenrandbreite = gerundet(g.kartenrandbreite * f)
         g.textinnenabstand = gerundet(g.textinnenabstand * f)
         g.textrandbreite = gerundet(g.textrandbreite * f)
         g.eckenradius = gerundet(g.eckenradius * f)

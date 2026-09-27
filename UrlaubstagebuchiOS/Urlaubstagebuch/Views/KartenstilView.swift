@@ -55,6 +55,39 @@ struct KartenstilView: View {
                     Text("Die Akzentfarbe zeichnet die Spur auf der Karte, solange unter „Linienfarben“ nichts anderes gewählt ist; sie gilt im ganzen Buch und nicht nur hier.")
                 }
 
+                // RAND UND SCHATTEN ALLER KARTEN (ab 1.0.119, Frage des
+                // Nutzers 09/2026: „Kann ich global an den Karten einen Rand
+                // einstellen?"). Dieselben Felder wie bei den Fotos.
+                Section {
+                    VStack(alignment: .leading) {
+                        LabeledContent("Linie ringsum",
+                                       value: String(format: "%.1f pt", werk.reise.gestaltung.kartenrandbreite)
+                                           .replacingOccurrences(of: ".", with: ","))
+                        Slider(value: $werk.reise.gestaltung.kartenrandbreite, in: 0...6, step: 0.5)
+                    }
+                    ColorPicker("Farbe der Linie", selection: Binding(
+                        get: { (werk.reise.gestaltung.kartenrandfarbe ?? .leise).farbe },
+                        set: { werk.reise.gestaltung.kartenrandfarbe = Farbwert($0) }
+                    ), supportsOpacity: false)
+                    Picker("Schatten", selection: Binding(
+                        get: { werk.reise.gestaltung.kartenschatten },
+                        set: { werk.reise.gestaltung.kartenschatten = $0 }
+                    )) {
+                        Text("Wie die Fotos (\(werk.reise.gestaltung.fotoschatten.name))")
+                            .tag(Schattenart?.none)
+                        ForEach(Schattenart.allCases) { art in
+                            Text(art.name).tag(Schattenart?.some(art))
+                        }
+                    }
+                    Button("Abweichungen einzelner Karten aufheben") {
+                        werk.kartenwirkungVereinheitlichen()
+                    }
+                } header: {
+                    Text("Rand und Schatten aller Karten")
+                } footer: {
+                    Text("Die Linie liegt innen an der Kante der Karte. Eine einzelne Karte darf abweichen \u{2014} im Inspektor (Pinsel), wenn sie gewählt ist. Karten, die vor dieser Fassung gesetzt wurden, tragen den Schatten des Stils fest in sich; \u{201E}Abweichungen aufheben\u{201C} lässt sie wieder dieser Einstellung folgen.")
+                }
+
                 // DIE FARBEN DER LINIEN (ab 1.0.114, Ansage des Nutzers
                 // 09/2026 in Fernweh: „Insgesamt möchte ich die Farben auf
                 // der Karte einstellen können und auch dies soll …an

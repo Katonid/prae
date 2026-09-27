@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.118 (Build 119). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.119 (Build 120). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7579,6 +7579,26 @@ Befunde, und keiner davon war Geschmack:
   alte Höhe bemessen; die Tabelle passt sich in Höhe und Breite ein und
   wird darin etwas größer, bis der Tag neu angeordnet oder der Regler
   bewegt wird. **Nicht gemessen (1.0.118):** auf keinem Gerät gesehen.
+- **RAND UND SCHATTEN FÜR ALLE KARTEN** (`Gestaltung.kartenrandbreite`,
+  `.kartenrandfarbe`, `.kartenschatten`, Abschnitt unter Ganzes Buch →
+  Karten, ab 1.0.119; Frage des Nutzers 09/2026: „Kann ich global an den
+  Karten einen Rand einstellen? Wenn nicht, möchte ich das einbauen.").
+  Es ging nicht: `Block.wirkung` kannte eine Buchvorgabe nur für Fotos und
+  Textfelder; eine Karte hatte nur, was an ihr selbst stand. Jetzt dieselbe
+  Bauweise wie seit 1.0.9/1.0.12 — Abweichung am Block, Vorgabe am Buch.
+  - **Der Automat schrieb den Schatten des Stils fest in jede Karte** (die
+    Falle, die 1.0.9 bei den Fotos abgestellt hat, war hier stehen
+    geblieben). Er tut es nicht mehr; `kartenschatten == nil` heißt „wie die
+    Fotos", und das ist derselbe Stilschatten — ein neu gesetzter Tag sieht
+    also aus wie vorher. Schon gesetzte Karten tragen ihn weiter fest in
+    sich; „Abweichungen einzelner Karten aufheben" lässt sie der
+    Einstellung folgen.
+  - **Eine Breite ohne gewählte Farbe zeichnet die leise Vorgabe**, sonst
+    täte der Regler scheinbar nichts (beim Foto ist das anders und bleibt
+    es — eine Sache auf einmal).
+  - Kein weißer Rand wie beim Sofortbild: Der liegt außerhalb des Rahmens
+    und hinge an Umriss, Einrasten und Kartenzeile. Die Linie liegt innen.
+  - **Nicht gemessen (1.0.119):** auf keinem Gerät gesehen.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
