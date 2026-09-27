@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.121 (Build 122). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.122 (Build 123). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7649,6 +7649,25 @@ Befunde, und keiner davon war Geschmack:
   (1.0.121):** auf keinem Gerät gesehen; ob `blockseiten` in jedem Fall die
   Zahl ist, die die Druckerei zählt, ist an Saals 26-Seiten-Vorlage
   nachgerechnet, nicht an einer Bestellung.
+- **„SEITE 1 LIEGT" FRAGTE DAS FALSCHE FELD — UND DER ABGLEICH BEHEBT JETZT
+  SELBST** (ab 1.0.122; gemeldet 09/2026 mit Bildschirmfoto: „Aber das
+  stimmt doch nicht! Meine Seite 1 liegt doch links. Und: Wenn bei der
+  Prüfung etwas nicht stimmt, dann möchte ich, dass es automatisch behoben
+  werden kann.").
+  - 1.0.121 las `innenseitenImBlock` (stehen U2/U3 in der Innenteil-Datei?)
+    und nannte das „Seite 1 liegt". Ob Seite 1 links liegt, sagt aber
+    `umschlagTraegtInhalt` (seit 1.0.74). Im Buch des Nutzers lag sie links,
+    nur die Datei-Zuordnung war die alte — zwei Fragen, jetzt zwei Zeilen.
+    **Wer eine Prüfzeile benennt, prüft, ob das Feld dahinter genau das
+    sagt, was die Zeile behauptet.**
+  - **Beheben geht über `Druckprodukt.anwenden`**, denselben Weg wie unter
+    Seitenformat; weicht das Format ab, über den `Wechselblatt` samt
+    Rückfrage (dafür ist er nicht mehr `private`). Die Seitenzahl behebt kein
+    Knopf — die Zeile sagt, was zu tun ist.
+  - Der Umschlagbogen des gemeldeten Buches (441 × 276 statt 461,5 × 288)
+    war kein Rechenfehler: Umschlaghälfte und -beschnitt waren nicht
+    eingestellt, es galten die des Buchblocks. Genau das setzt `anwenden`.
+  - **Nicht gemessen (1.0.122):** auf keinem Gerät gesehen.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
