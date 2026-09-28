@@ -119,6 +119,7 @@ gilt.
 | Terminkonverter (Web) | `terminkonverter/` | `FASSUNG` in `sw.js`, `einzeldatei.html` neu bauen |
 | Textauszug (Web) | `textauszug/` | `FASSUNG` in `sw.js`, `einzeldatei.html` neu bauen |
 | Klassenraum (Web) | `klassenraum/` | — |
+| Container-Finder (Web) | `container-finder/` | `FASSUNG` in `sw.js` + `js/app.js` |
 
 Bei Querverweisen („dieselbe Lehre wie bei Schulalarm", „Lehre aus
 Tafelbild 1.4.5") steht die Stelle in der `CLAUDE.md` des genannten

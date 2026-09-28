@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Container-Finder — Altglas &amp; Altpapier</title>
+    <meta name="description" content="Findet Altglas- und Altpapiercontainer in der Nähe — amtliche Daten für Bochum und Dortmund, OpenStreetMap für ganz Deutschland." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)" />
+    <!-- iOS nimmt für den Homescreen das apple-touch-icon, nicht das Manifest. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="./icons/icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="./icons/icon-120.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Container" />
+    <link rel="stylesheet" href="./vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body>
+    <div id="karte" aria-label="Karte der Container-Standorte"></div>
+
+    <div class="oben">
+      <p id="hinweis" class="hinweis" role="status" aria-live="polite" hidden></p>
+      <button type="button" id="info-knopf" class="rund" aria-label="Über die App und Datenquellen">i</button>
+    </div>
+
+    <!-- Unten, in Daumenreichweite: alles, was man mit einer Hand braucht. -->
+    <div class="unten">
+      <section id="blatt" class="blatt" hidden aria-live="polite">
+        <div class="blatt__kopf">
+          <h2 id="blatt-titel"></h2>
+          <button type="button" id="blatt-zu" class="rund rund--klein" aria-label="Schließen">✕</button>
+        </div>
+        <div id="blatt-inhalt" class="blatt__inhalt"></div>
+      </section>
+
+      <nav class="leiste" aria-label="Bedienung">
+        <div class="filter" role="radiogroup" aria-label="Welche Container?">
+          <button type="button" role="radio" data-filter="glas" aria-checked="false"><span class="punkt punkt--glas"></span>Altglas</button>
+          <button type="button" role="radio" data-filter="beides" aria-checked="true"><span class="punkt punkt--beides"></span>Beides</button>
+          <button type="button" role="radio" data-filter="papier" aria-checked="false"><span class="punkt punkt--papier"></span>Altpapier</button>
+        </div>
+        <div class="knoepfe">
+          <button type="button" id="suche-knopf" class="rund" aria-label="Ort suchen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+          </button>
+          <button type="button" id="naechster" class="haupt">Nächster Container</button>
+          <button type="button" id="standort-knopf" class="rund" aria-label="Zum eigenen Standort">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" class="voll"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+
+    <template id="vorlage-suche">
+      <form class="suche" role="search">
+        <input type="search" name="q" placeholder="Ort, Straße oder PLZ" autocomplete="off" enterkeyhint="search" aria-label="Ort suchen" />
+        <button type="submit">Suchen</button>
+      </form>
+      <ul class="liste" id="suche-ergebnisse"></ul>
+    </template>
+
+    <template id="vorlage-info">
+      <p>Zeigt Altglas- und Altpapiercontainer. Für <strong>Bochum</strong> und <strong>Dortmund</strong> kommen die Standorte aus den amtlichen Open-Data-Angeboten, überall sonst aus <strong>OpenStreetMap</strong> — die werden ab Zoomstufe 13 für den sichtbaren Ausschnitt geladen.</p>
+      <div class="legende">
+        <span><span class="punkt punkt--glas"></span>Altglas</span>
+        <span><span class="punkt punkt--papier"></span>Altpapier</span>
+        <span><span class="punkt punkt--beides"></span>beides</span>
+        <span><span class="punkt punkt--hof"></span>Wertstoffhof</span>
+      </div>
+      <h3>Quellen</h3>
+      <ul class="quellen" id="info-quellen"></ul>
+      <p><a id="info-notiz" target="_blank" rel="noopener">Standort falsch oder fehlt? → Hinweis an OpenStreetMap</a></p>
+      <p class="klein">Ortssuche: Nominatim (OpenStreetMap). Karte: OpenStreetMap-Kacheln. Entfernungen sind Luftlinie. <span id="info-fassung"></span></p>
+    </template>
+
+    <script src="./vendor/leaflet/leaflet.js"></script>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
