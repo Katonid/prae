@@ -46,6 +46,9 @@ final class Klasse {
     /// Letzter freigeschalteter Schritt (Index in `Zeichenvorrat.schritte`).
     var freiBis: Int { didSet { speichern() } }
 
+    /// Was jedes Kind bearbeitet hat, mit den Spuren (Klassenübersicht).
+    let protokoll = Protokoll()
+
     /// Wer gerade schreibt. Absichtlich nicht gespeichert: Am Klassen-iPad
     /// wählt jedes Kind sich beim Öffnen selbst.
     var aktivID: UUID?
@@ -202,6 +205,7 @@ final class Klasse {
 
     func entfernen(_ id: UUID) {
         kinder.removeAll { $0.id == id }
+        protokoll.loeschen(kind: id)
         if kinder.isEmpty { kinder = [Kind(name: "Kind 1", tier: "🦊")] }
         if aktiv == nil { aktivID = kinder.count == 1 ? kinder[0].id : nil }
         speichern()

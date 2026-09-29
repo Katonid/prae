@@ -11,11 +11,22 @@ struct EinstellungenAnsicht: View {
     @AppStorage(Schluessel.heftHoehe) private var heftHoehe = 16.0
 
     @State private var pfad: [UUID] = []
+    @State private var zeigeKlasse = false
 
     var body: some View {
         @Bindable var klasse = klasse
         NavigationStack(path: $pfad) {
             Form {
+                Section {
+                    Button {
+                        zeigeKlasse = true
+                    } label: {
+                        Label("Klassenübersicht öffnen", systemImage: "chart.bar.doc.horizontal")
+                    }
+                } footer: {
+                    Text("Welche Buchstaben jedes Kind bearbeitet hat, wie viele Anläufe und Fehlversuche es brauchte, und jede Seite zum Nachsehen.")
+                }
+
                 Section {
                     ForEach(klasse.kinder) { kind in
                         NavigationLink(value: kind.id) {
@@ -99,6 +110,9 @@ struct EinstellungenAnsicht: View {
                     Button("Fertig") { dismiss() }
                 }
             }
+            .fullScreenCover(isPresented: $zeigeKlasse) {
+                KlassenAnsicht().environment(klasse)
+            }
         }
     }
 }
@@ -163,7 +177,7 @@ private struct KindBearbeiten: View {
                 dismiss()
             }
         } message: {
-            Text("Das Kind und alle seine Sterne werden gelöscht.")
+            Text("Das Kind, alle seine Sterne und seine gespeicherten Seiten werden gelöscht.")
         }
     }
 }
@@ -173,6 +187,7 @@ private struct KindBearbeiten: View {
 /// verstellt oder ein anderes Kind löscht.
 struct ErwachsenenTor<Inhalt: View>: View {
     private let inhalt: () -> Inhalt
+    private let titel: String
 
     @Environment(\.dismiss) private var dismiss
     @State private var offen = false
@@ -182,7 +197,8 @@ struct ErwachsenenTor<Inhalt: View>: View {
     @State private var falsch = false
     @FocusState private var fokus: Bool
 
-    init(@ViewBuilder inhalt: @escaping () -> Inhalt) {
+    init(titel: String = "Einstellungen", @ViewBuilder inhalt: @escaping () -> Inhalt) {
+        self.titel = titel
         self.inhalt = inhalt
     }
 
@@ -204,7 +220,7 @@ struct ErwachsenenTor<Inhalt: View>: View {
                         if falsch { Text("Das stimmt nicht — neue Aufgabe.").foregroundStyle(.red) }
                     }
                 }
-                .navigationTitle("Einstellungen")
+                .navigationTitle(titel)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {

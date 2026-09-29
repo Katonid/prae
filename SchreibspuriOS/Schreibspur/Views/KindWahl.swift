@@ -5,6 +5,7 @@ import SwiftUI
 struct KindWahl: View {
     @Environment(Klasse.self) private var klasse
     @State private var zeigeEinstellungen = false
+    @State private var zeigeKlasse = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -13,6 +14,7 @@ struct KindWahl: View {
                     .font(.system(size: 38, weight: .heavy, design: .rounded))
                     .foregroundStyle(Farben.tinteDunkel)
                 Spacer()
+                Knopf(symbol: "chart.bar.doc.horizontal", name: "Klassenübersicht") { zeigeKlasse = true }
                 Knopf(symbol: "gearshape.fill", name: "Einstellungen für Erwachsene") { zeigeEinstellungen = true }
             }
             ScrollView {
@@ -46,6 +48,10 @@ struct KindWahl: View {
         .background(Farben.verlauf.ignoresSafeArea())
         .sheet(isPresented: $zeigeEinstellungen) {
             ErwachsenenTor { EinstellungenAnsicht() }
+                .environment(klasse)
+        }
+        .fullScreenCover(isPresented: $zeigeKlasse) {
+            ErwachsenenTor(titel: "Klassenübersicht") { KlassenAnsicht() }
                 .environment(klasse)
         }
     }

@@ -48,6 +48,7 @@ struct UebenAnsicht: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(Klasse.self) private var klasse
     @Environment(\.verticalSizeClass) private var hoehenklasse
+    @Environment(\.scenePhase) private var szene
 
     @AppStorage(Schluessel.vorfuehren) private var vorfuehren = true
     @AppStorage(Schluessel.stift) private var stift = Stift.blau
@@ -72,6 +73,21 @@ struct UebenAnsicht: View {
     /// Heftseite geschafft: kleiner Hinweis oben, der das Weiterschreiben
     /// nicht versperrt.
     @State private var seiteGeschafft = false
+    /// Die laufende Bearbeitung für die Klassenübersicht.
+    @State private var sitzung: Sitzung?
+
+    /// Wer was auf welcher Stufe seit wann schreibt. Gespeichert wird beim
+    /// Schaffen und beim Verlassen (Blättern, Neu, Übersicht, App im
+    /// Hintergrund) — eine Heftseite dann mit dem freiwillig Geschriebenen.
+    private struct Sitzung {
+        let id = UUID()
+        let beginn = Date()
+        let kind: UUID
+        let zeichen: Zeichen
+        let stufe: Stufe
+        /// Die Stufe war schon mit drei Sternen gemeistert.
+        let freiwillig: Bool
+    }
 
     init(liste: [Zeichen], start: Int) {
         self.liste = liste
@@ -167,6 +183,10 @@ struct UebenAnsicht: View {
         .onAppear {
             stufe = klasse.offeneStufe(zeichen)
             neuBeginnen()
+        }
+        .onDisappear { sitzungSpeichern() }
+        .onChange(of: szene) { _, neu in
+            if neu != .active { sitzungSpeichern() }
         }
         .task(id: lauf) {
             guard phase == .vorfuehren else { return }
@@ -293,6 +313,7 @@ struct UebenAnsicht: View {
     /// Vorgeführt wird von selbst nur auf der ersten Stufe; danach soll das
     /// Kind die Bewegung schon kennen (der Knopf ▶ zeigt sie jederzeit).
     private func neuBeginnen(mitVorfuehrung: Bool? = nil) {
+        sitzungSpeichern()
         let g = klasse.genauigkeit
         spur = Spurpruefer(zeichen: zeichen,
                            toleranz: g.toleranz * stufe.toleranzFaktor,
@@ -305,6 +326,7 @@ struct UebenAnsicht: View {
         hinweis = nil
         starthilfe = false
         neueStufe = nil
+        sitzungBeginnen()
         if mitVorfuehrung ?? (vorfuehren && stufe == .spur) {
             vorfuehrenStarten()
         } else {
@@ -333,6 +355,13 @@ struct UebenAnsicht: View {
     }
 
     private func vorfuehrenStarten() {
+        // Vorführen setzt das Zeichen zurück (Stufe 1–4) — was bis dahin
+        // geschrieben war, ist eine eigene Bearbeitung.
+        if seite == nil, !spur.protokoll.isEmpty {
+            sitzungSpeichern()
+            spur.vonVorn()
+            sitzungBeginnen()
+        }
         spur.vonVorn()
         seite?.abbrechen()
         hinweis = nil
@@ -366,6 +395,7 @@ struct UebenAnsicht: View {
     private func geschafft() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         let vorher = klasse.offeneStufe(zeichen)
+        sitzungSpeichern()
         klasse.eintragen(spur.sterne, zeichen, stufe)
         let nachher = klasse.offeneStufe(zeichen)
         neueStufe = nachher > vorher && nachher > stufe ? nachher : nil
@@ -388,8 +418,56 @@ struct UebenAnsicht: View {
             let m = reihe.muster
             if zeichen.istFolge ? m.istFolge : !m.istFolge { bedacht.append(m) }
         }
+        sitzungSpeichern()
         for z in bedacht { klasse.eintragen(seite.sterne, z, .heft) }
         withAnimation(.easeOut(duration: 0.3)) { seiteGeschafft = true }
+    }
+
+    // MARK: Klassenübersicht
+
+    private func sitzungBeginnen() {
+        guard let kind = klasse.aktivID else { sitzung = nil; return }
+        let freiwillig = zeichen.id != Klasse.mischungID && klasse.sterne(zeichen, stufe) == 3
+        sitzung = Sitzung(kind: kind, zeichen: zeichen, stufe: stufe, freiwillig: freiwillig)
+    }
+
+    /// Hält fest, was bisher geschrieben ist (nichts, wenn noch nichts
+    /// geschrieben wurde). Mehrfach aufgerufen, ersetzt es den Eintrag.
+    private func sitzungSpeichern() {
+        guard let s = sitzung else { return }
+        let linie = { (p: Protokollstrich) in
+            Blattspuren.Linie(p.punkte, verworfen: p.verworfen, kuer: p.kuer,
+                              t: p.zeit.timeIntervalSince(s.beginn))
+        }
+        var b = Bearbeitung(zeichen: s.zeichen.id, titel: s.zeichen.text, stufe: s.stufe.rawValue,
+                            beginn: s.beginn, dauer: Date().timeIntervalSince(s.beginn),
+                            geschafft: false, sterne: 0, fehler: 0, freiwillig: s.freiwillig)
+        b.id = s.id
+        let reihen: [Blattspuren.Reihe]
+        if s.stufe == .heft, let seite {
+            reihen = seite.reihen.map { r in
+                Blattspuren.Reihe(teile: r.vorgabe.teile.map(\.id), art: r.vorgabe.art,
+                                  linien: r.pruefer.protokoll.map(linie))
+            }
+            b.titel = seite.reihen.map(\.muster.text).joined(separator: " · ")
+            b.geschafft = seite.geschafft
+            // Fehler nur bis zur erfüllten Pflicht — was das Kind danach
+            // freiwillig weiterschreibt, zählt nicht.
+            b.fehler = seite.geschafftBeiFehlern ?? seite.fehler
+            b.sterne = seite.geschafft ? seite.sterne : 0
+            for r in seite.reihen {
+                let p = r.pruefer
+                b.buchstaben += p.fertige.count
+                b.kuer += max(0, p.fertige.count - p.mindestens * p.einheitLaenge)
+            }
+        } else {
+            reihen = [Blattspuren.Reihe(teile: [s.zeichen.id], art: .einzeln, linien: spur.protokoll.map(linie))]
+            b.geschafft = spur.fertig
+            b.fehler = spur.fehler
+            b.sterne = spur.fertig ? spur.sterne : 0
+        }
+        guard reihen.contains(where: { !$0.linien.isEmpty }) else { return }
+        klasse.protokoll.speichern(b, spuren: Blattspuren(reihen: reihen), kind: s.kind)
     }
 
     /// Nächstes offenes Zeichen in Blätterrichtung — im Lehrgang gesperrte
@@ -512,16 +590,7 @@ struct UebenAnsicht: View {
         let tinte: CGFloat = 0.075
         for (r, reihe) in seite.reihen.enumerated() {
             let ra = reihenAbbildung(a, r)
-            Zeichner.linien(&ctx, breite: groesse.width, lineatur: .buchstaben, ra)
-            // Das Muster am Anfang der Reihe, wie gedruckt.
-            Zeichner.spur(&ctx, zeichen: reihe.muster, ra, farbe: Farben.tinteDunkel.opacity(0.8), breite: 0.07)
-            // Gestrichelte Trennlinie: rechts davon wird geschrieben.
-            let x = Heftseite.musterEnde(reihe.muster)
-            var trenner = Path()
-            trenner.move(to: ra.ansicht(CGPoint(x: x, y: -0.1)))
-            trenner.addLine(to: ra.ansicht(CGPoint(x: x, y: 1.5)))
-            ctx.stroke(trenner, with: .color(Farben.grundlinie.opacity(0.5)),
-                       style: StrokeStyle(lineWidth: 1.5, dash: [4, 5]))
+            Zeichner.heftreihe(&ctx, breite: groesse.width, muster: reihe.muster, ra)
 
             let p = reihe.pruefer
             for buchstabe in p.fertige {
