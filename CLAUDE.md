@@ -30,10 +30,10 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   Antwort mit dem nächsten Link abwarten.** Ein bereits gemergter PR
   ist nie ein Problem; alles Weitere kommt automatisch als neuer PR.
 
-## iOS-Apps — zwei Dinge bei JEDER App, ohne Nachfrage
+## iOS-Apps — drei Dinge bei JEDER App, ohne Nachfrage
 
 Gilt für alle iOS-Projekte dieses Repos, auch für künftige neue Apps
-(Ansage des Nutzers, 08/2026). Beides einmal beim Anlegen setzen und
+(Ansage des Nutzers, 08/2026). Alles einmal beim Anlegen setzen und
 danach bei jeder Arbeitseinheit mitziehen:
 
 1. **Keine eigene Verschlüsselung angeben.** In jedes Target gehört
@@ -55,6 +55,10 @@ danach bei jeder Arbeitseinheit mitziehen:
    die Skript-Bauphase „Build-Nummer setzen" (Anzahl der Git-Commits).
    Dort nur die Patch-Nummer heben und `CURRENT_PROJECT_VERSION` in
    Ruhe lassen.
+3. **Team immer eintragen** (Ansage des Nutzers, 09/2026):
+   `DEVELOPMENT_TEAM = F4989GSTWS` in jedem Target, Debug und Release —
+   bei neuen Apps gleich beim Anlegen, nie `""` stehen lassen. Sonst
+   muss der Nutzer es in Xcode jedes Mal von Hand wählen.
 
 ## Bau in GitHub Actions — nur bauen, was sich geändert hat
 
