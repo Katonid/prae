@@ -22,7 +22,9 @@
   Wörter und „Gemischt üben“ in der Heftzeile, Lehrgang mit allen
   Schritten des Merkblatts; 1.0.5 (6) Heftzeile wieder einzeilig (Muster
   links), großzügigere Heftprüfung, Team eingetragen; 1.0.6 (7) alle
-  Prüfungen auf echte Anfängerschrift eingestellt.
+  Prüfungen auf echte Anfängerschrift eingestellt; 1.0.7 (8) Heftseite
+  mit mehreren Reihen, Abstandsprüfung, neue Farben ohne Türkis und
+  Regenbogen, orange Warnfarbe beim Schreiben, rund 600 Wörter.
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
@@ -37,13 +39,15 @@
 | `Model/Spurpruefer.swift` | Die Regeln des Nachspurens (Start, Richtung, Spur, Absetzen) |
 | `Model/Zeichen.swift` | Zeichen (auch Folgen = Wörter), Lineatur, Bereiche, Lehrgang, Wortzuordnung |
 | `Model/Stufe.swift` | Die vier Stufen vom Nachspuren zum freien Schreiben |
+| `Model/Heftseite.swift` | Stufe 5: mehrere Reihen, je Reihe Muster + `Heftpruefer`, Pflicht und Kür |
+| `Model/Tinte.swift` | `Tintenpunkt`: Schrift des Kindes mit Warnwert je Punkt |
 | `Model/Heftpruefer.swift` | Prüfung der Heftzeile (Stufe 5): Vergleich nach Abschluss jedes Strichs |
 | `Model/Anlautbilder.swift` | Bilder (Emoji) mit Wörtern je Buchstabe, nach dem Anlaut ausgewählt |
 | `Model/Klasse.swift` | Kinderprofile, Sterne je Kind/Zeichen/Stufe, Lehrgangsfreigabe |
 | `Views/UebenAnsicht.swift` | Vorführung, Nachspuren, Stufenwahl, Rückmeldung, Blättern |
 | `Views/KindWahl.swift` | „Wer schreibt?" — Tierkarten |
 | `Views/EinstellungenAnsicht.swift` | Kinder, Lehrgang, Stift — hinter der Malaufgabe (`ErwachsenenTor`) |
-| `Views/Blatt.swift` | Zeichnen: Linienblatt, weiße Spur, Tinte, Start-/Zielpunkt, Hand |
+| `Views/Blatt.swift` | Zeichnen: Linienblatt, Spur, Tinte, Start-/Zielpunkt, Hand |
 | `Views/EingabeFlaeche.swift` | UIKit-Berührungen (Stift, zusammengefasste Punkte, Handballen) |
 
 ## Koordinaten und Zeichen
@@ -90,7 +94,7 @@
 
 ## Die Prüfung (Spurpruefer)
 
-- Start innerhalb 1,5 × Toleranz um den roten Pfeil; wer am Zielkreis
+- Start innerhalb 1,5 × Toleranz um den grünen Pfeil; wer am Zielkreis
   ansetzt, bekommt „Andersherum!".
 - Der Fortschritt läuft nur vorwärts. Gesucht wird die nächste Stelle
   des Wegs in einem Fenster **1,5 × Toleranz zurück bis 4 × Toleranz
@@ -112,7 +116,7 @@
 - Genauigkeit: Locker 0,17 · Normal 0,12 · Streng 0,08 (seit 1.0.6,
   vorher 0,14 / 0,1 / 0,07 — „Lernanfänger schreiben nicht so
   ordentlich“) (halbe Bandbreite;
-  die weiße Spur ist 0,085 breit).
+  die Spur ist 0,085 breit).
 - Sterne: 3 ohne Fehler, 2 bei ein oder zwei Fehlern, sonst 1. Jeder
   falsche Start, jedes Verlassen der Spur, jedes vorzeitige Absetzen ist
   ein Fehler; der Strich beginnt dann von vorn, schon geschaffte Striche
@@ -138,11 +142,11 @@
   `freiBis` zählt seit 1.0.4 diese Schritte (vorher Buchstaben-Lektionen;
   `Klasse.init` rechnet alte Stände um). Blättern überspringt Gesperrtes;
   Schwünge, Ziffern und Wörter sind immer offen.
-- **Stufen** (`Stufe`): 1 weiße Spur mit Pfeil/Punkten/Ziel · 2 nur
+- **Stufen** (`Stufe`): 1 Spur mit Pfeil/Punkten/Ziel · 2 nur
   Punktlinie mit Start/Ziel · 3 nur Start und Ziel · 4 frei im
-  aufgehellten Schreibfeld. Die nächste Stufe öffnet sich mit **drei
-  Sternen**. Ab Stufe 3 zeigt die Tinte die echte Schrift des Kindes
-  (`Spurpruefer.tinte`), vorher läuft sie sauber auf dem Weg. Auf Stufe 4
+  getönten Schreibfeld. Die nächste Stufe öffnet sich mit **drei
+  Sternen**. Die Tinte zeigt seit 1.0.7 auf allen Stufen die echte
+  Schrift des Kindes (`Spurpruefer.tinte`, mit Warnfarbe). Auf Stufe 4
   erscheint der Startpunkt erst nach einem falschen Ansatz (`starthilfe`).
   Vorgeführt wird von selbst nur auf Stufe 1.
 - Auf Stufe 3/4 wird das Band breiter (Faktor 1,25/1,6), die Regeln
@@ -164,6 +168,24 @@
 
 ## Gestaltung (Ansage des Nutzers, 09/2026)
 
+- **Kein Türkis, kein Regenbogen** (seit 1.0.7): Beides ist das
+  Kennzeichen der App, die als Beispiel diente — der Nutzer will keine
+  Ansprüche riskieren, und der Regenbogen verwirrt die Kinder. Farben in
+  `Farben` (Blatt.swift): warmes Papier (Creme), Erdgeschoss zart grün,
+  Linien blaugrau, Spur hell stahlblau mit Rand, Start grün, Ziel
+  violett, Tinte dunkelblau (Stift wählbar: Blau, Grün, Lila,
+  Dunkelgrau — nie Orange/Rot), Hinweise korallrot, Hauptknöpfe orange.
+  Übersicht auf warmem Verlauf, jeder Bereich hat eine eigene Farbe
+  (Reiter, Kachelrand, Schriftzug). Karten und Bilder mit weichem
+  Schatten. Die App erzwingt die helle Darstellung.
+- **Farbrückmeldung beim Schreiben:** Die Tinte zeigt die echte Schrift
+  des Kindes (auf allen Stufen) und färbt sich **orange, wo der Strich
+  aus der Form zu laufen droht** — auf Stufe 1–4 ab der halben
+  Bandbreite (`Spurpruefer`, Wert je Punkt in `Tintenpunkt.warnung`), auf
+  der Heftseite, sobald der Stift die Höhe seines Strichs verlässt
+  (`Heftpruefer.warnung`). Drei Stufen: Stiftfarbe, Hellorange, Orange.
+- Das App-Symbol (`scripts/app-symbol.py`) folgt denselben Farben.
+
 - **Farbenfroh, aber ohne grafischen Ballast.** Nichts blinkt; Animation
   nur sparsam. Deshalb: kein Wackeln bei Fehlern (nur ein Satz und eine
   leichte Vibration), die Sterne im Lob erscheinen leise nacheinander
@@ -178,7 +200,30 @@
   Schaf beim S, kein Pferd beim P). Nicht antippbar, nicht bewegt; auf
   dem iPhone quer ausgeblendet.
 
-## Stufe 5: Heftzeile (Ansage des Nutzers, 09/2026)
+## Stufe 5: Heftseite (Ansage des Nutzers, 09/2026)
+
+- **Seit 1.0.7 mehrere Reihen untereinander** (`Heftseite`). Am Anfang
+  jeder Reihe steht, was darin geschrieben wird
+  (`Zeichenvorrat.heftreihen`): Großbuchstabe, Kleinbuchstabe, dann
+  erste Verbindungen mit schon gelernten Buchstaben (beim M „Ma“ und
+  „mo“, beim O „Mo“ und „lo“, beim Q „Qu“, beim ß „aß“). Wörter: das
+  gewählte Wort und die drei folgenden der Liste, je eine Reihe.
+  „Gemischt üben“: vier gelernte Buchstaben, je eine Reihe. Ziffern:
+  zwei Reihen.
+- **Pflicht und Kür:** je Reihe drei Buchstaben, zwei Silben oder ein
+  Wort; danach erscheint oben ein Lob, das nichts versperrt — das Kind
+  darf die Reihen voll schreiben (Ansage: „Manche wollen die ganze Reihe
+  voll bekommen“). Sterne zählen die Fehler bis zur erfüllten Pflicht;
+  eingetragen für alle Buchstaben bzw. Wörter der Seite.
+- **Abstand** (`Heftpruefer`): geschätzt am Ansatz des neuen Buchstabens
+  gegen den rechten Rand des vorigen (abzüglich des Stücks, das der
+  Ansatz in der Vorlage vom linken Rand liegt). Höchstens 0,9 zwischen
+  Wiederholungen, 0,5 im Wort/in der Silbe, 1,2 nach dem Muster (× √
+  Genauigkeitsfaktor); darauf oder links davon: „Schreib rechts
+  daneben“. Grund: sonst schreiben Kinder drei Buchstaben pro Reihe.
+- Welche Reihe gemeint ist: die, in deren Linien der Stift ansetzt —
+  außer ein Buchstabe ist angefangen (i-Punkt, Unterlänge), dann bleibt
+  es bei dessen Reihe, solange der Ansatz in ihrer Nähe liegt.
 
 - Zweck: Buchstaben „in die normale Erstklässler-Lineatur“ schreiben und
   dabei prüfen, ob sie **lesbar** sind, an den richtigen **Etagen des
@@ -239,6 +284,10 @@
     Hut der 5) dürfen kürzer sein — die Buchstaben bleiben lesbar.
 
 ## Wörter und „Gemischt üben“ (seit 1.0.4, Ansage des Nutzers 09/2026)
+
+- 1.0.7: rund 600 Wörter statt 260 (Ansage: „noch mehr Alternativen“),
+  auch Tunwörter und Wiewörter (malen, rot, lila); schon ab L gibt es
+  ein gutes Dutzend.
 
 - Auf der Heftstufe sollen nicht nur einzelne Buchstaben geschrieben
   werden, sondern **Wörter aus bereits bekannten Buchstaben**, und
