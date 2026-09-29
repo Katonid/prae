@@ -16,7 +16,8 @@
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release).
   Erste Fassung: 1.0.0 (1); 1.0.1 (2) stellt die Buchstaben auf das
-  Merkblatt „Flex und Flora“ um.
+  Merkblatt „Flex und Flora“ um; 1.0.2 (3) bringt Kinderprofile,
+  Lehrgang, vier Stufen und Schwungübungen.
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
   `GENERATE_INFOPLIST_FILE = YES`). Nie entfernen.
@@ -28,8 +29,12 @@
 | `Model/Zeichensatz.swift` | Alle Zeichen als Striche in der Wegsprache (M, L, A, Q, C, P) |
 | `Model/Strich.swift` | Abtasten der Wege, Weglänge, nächste Stelle zu einem Punkt |
 | `Model/Spurpruefer.swift` | Die Regeln des Nachspurens (Start, Richtung, Spur, Absetzen) |
-| `Model/Zeichen.swift` | Zeichen und Gruppen (Groß-, Kleinbuchstaben, Ziffern), Lineatur |
-| `Views/UebenAnsicht.swift` | Vorführung, Nachspuren, Rückmeldung, Blättern |
+| `Model/Zeichen.swift` | Zeichen, Lineatur, Bereiche (Schwünge, Buchstaben im Lehrgang, Ziffern) |
+| `Model/Stufe.swift` | Die vier Stufen vom Nachspuren zum freien Schreiben |
+| `Model/Klasse.swift` | Kinderprofile, Sterne je Kind/Zeichen/Stufe, Lehrgangsfreigabe |
+| `Views/UebenAnsicht.swift` | Vorführung, Nachspuren, Stufenwahl, Rückmeldung, Blättern |
+| `Views/KindWahl.swift` | „Wer schreibt?" — Tierkarten |
+| `Views/EinstellungenAnsicht.swift` | Kinder, Lehrgang, Stift — hinter der Malaufgabe (`ErwachsenenTor`) |
 | `Views/Blatt.swift` | Zeichnen: Linienblatt, weiße Spur, Tinte, Start-/Zielpunkt, Hand |
 | `Views/EingabeFlaeche.swift` | UIKit-Berührungen (Stift, zusammengefasste Punkte, Handballen) |
 
@@ -83,7 +88,8 @@
   am oberen Wendepunkt ab).
 - **Diese Zahlen sind mit `scripts/spur-simulation.py` abgestimmt** —
   dort sauber nachspuren mit Zittern (muss klappen), verkehrt herum und
-  halb geschrieben (darf nie klappen), für alle drei Genauigkeiten. Wer
+  halb geschrieben (darf nie klappen), für alle drei Genauigkeiten und
+  die Stufen 1, 3 und 4 (Stufe 2 prüft wie Stufe 1). Wer
   sie ändert, ändert sie in beiden Dateien und lässt die Simulation
   laufen (`Alles in Ordnung.` ist das Ziel). Gemessen: Ein kürzerer Blick
   nach vorn (2,5) lässt spitze Ecken wie beim W abbrechen, ein längerer
@@ -96,6 +102,45 @@
   falsche Start, jedes Verlassen der Spur, jedes vorzeitige Absetzen ist
   ein Fehler; der Strich beginnt dann von vorn, schon geschaffte Striche
   bleiben stehen.
+
+## Kinder, Lehrgang, Stufen (seit 1.0.2, Ansage des Nutzers 09/2026)
+
+- **Kinderprofile** (`Klasse`): Name, Tier (Emoji, damit Nichtleser
+  sich finden), Genauigkeit und Sterne je Kind; gespeichert als JSON
+  unter `klasse.v1`. Wer schreibt, wird absichtlich **nicht**
+  gespeichert — am Klassen-iPad wählt jedes Kind sich beim Öffnen; bei
+  nur einem Kind entfällt die Wahl. Beim ersten Start mit 1.0.2 werden
+  die alten Sterne (`fortschritt.sterne`) als Stufe 1 eines „Kind 1“
+  übernommen.
+- **Lehrgang:** `Zeichensatz.lehrgang` — Buchstabenpaare in der
+  Reihenfolge des Merkblatts (zeilenweise, Vorder- vor Rückseite;
+  Verbindungen wie Au, Sch, ck weggelassen, Qu → Q q). Der Bereich
+  „Buchstaben“ zeigt sie in dieser Reihenfolge. Mit „Freischalten“ sind
+  nur Lektionen bis `freiBis` offen; Blättern überspringt Gesperrtes.
+  Schwünge und Ziffern sind immer offen.
+- **Stufen** (`Stufe`): 1 weiße Spur mit Pfeil/Punkten/Ziel · 2 nur
+  Punktlinie mit Start/Ziel · 3 nur Start und Ziel · 4 frei im
+  aufgehellten Schreibfeld. Die nächste Stufe öffnet sich mit **drei
+  Sternen**. Ab Stufe 3 zeigt die Tinte die echte Schrift des Kindes
+  (`Spurpruefer.tinte`), vorher läuft sie sauber auf dem Weg. Auf Stufe 4
+  erscheint der Startpunkt erst nach einem falschen Ansatz (`starthilfe`).
+  Vorgeführt wird von selbst nur auf Stufe 1.
+- Auf Stufe 3/4 wird das Band breiter (Faktor 1,25/1,6), die Regeln
+  bleiben. Damit das nicht die Prüfung aushöhlt: **Fang höchstens 0,32
+  und höchstens halbe Strichlänge, Zielrest höchstens 0,2 und höchstens
+  ein Viertel der Strichlänge, Suchfenster aus höchstens 0,14** — sonst
+  (gemessen) ging der t-Querstrich verkehrt herum durch und das n sprang
+  über den Rückweg.
+- **Stufe 4 verschiebt die Vorlage** mit dem ersten Ansatz
+  (`verschiebbar`, `versatz`): Ohne Spur schreibt kein Kind genau an die
+  gedachte Stelle; ohne das scheiterte eine ganz leicht versetzte, sonst
+  richtige Schrift an spitzen Ecken (W).
+- **Schwungübungen** (`Zeichensatz.schwuenge`): lange/kurze Striche,
+  Querstriche, Zacken, Wendebögen, Brücken (n), Girlanden (u), Bögen (c),
+  Kreise (o), Wellen (s) — Richtungen wie in den Buchstaben. Sie laufen
+  durch dieselbe Prüfung und dieselben Stufen.
+- **Einstellungen** liegen hinter einer Malaufgabe (6–9 × 4–9) — Kinder
+  sollen weder Lehrgang noch Profile verstellen können.
 
 ## Fallen
 

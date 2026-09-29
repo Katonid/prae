@@ -17,10 +17,10 @@ struct Abbildung {
     let massstab: CGFloat
     let verschiebung: CGPoint
 
-    /// Passt das Zeichen so ins Feld, dass der Sichtbereich der Gruppe die
+    /// Passt das Zeichen so ins Feld, dass der Sichtbereich seiner Lineatur die
     /// Höhe füllt, das Zeichen aber nie seitlich anstößt.
-    init(groesse: CGSize, zeichen: Zeichen, gruppe: Gruppe, rand: CGFloat = 0.5) {
-        let bereich = gruppe.sichtbereich
+    init(groesse: CGSize, zeichen: Zeichen, rand: CGFloat = 0.5) {
+        let bereich = zeichen.lineatur.sichtbereich
         let hoehe = bereich.upperBound - bereich.lowerBound
         let rahmen = zeichen.rahmen
         let breite = max(rahmen.width, 0.3) + rand
@@ -59,12 +59,12 @@ enum Zeichner {
     }
 
     /// Hintergrund mit Lineatur: helleres Band für die kleinen Buchstaben.
-    static func blatt(_ ctx: inout GraphicsContext, groesse: CGSize, gruppe: Gruppe, _ a: Abbildung) {
+    static func blatt(_ ctx: inout GraphicsContext, groesse: CGSize, lineatur: Lineatur, _ a: Abbildung) {
         ctx.fill(Path(CGRect(origin: .zero, size: groesse)), with: .color(Farben.blatt))
         let oben = a.y(Zeichensatz.mittellinie), unten = a.y(1)
         ctx.fill(Path(CGRect(x: 0, y: oben, width: groesse.width, height: unten - oben)),
                  with: .color(Farben.band))
-        for linie in gruppe.linien {
+        for linie in lineatur.linien {
             let y = a.y(linie)
             var p = Path()
             p.move(to: CGPoint(x: 0, y: y))
@@ -87,6 +87,32 @@ enum Zeichner {
                 ctx.stroke(pfad(strich.punkte, a), with: .color(farbe), style: stil)
             }
         }
+    }
+
+    /// Das ganze Zeichen als weiße Punktlinie (Stufe 2).
+    static func punktlinie(_ ctx: inout GraphicsContext, zeichen: Zeichen, _ a: Abbildung) {
+        let abstand = max(9, 0.05 * a.massstab)
+        let stil = StrokeStyle(lineWidth: max(5, 0.028 * a.massstab), lineCap: .round, dash: [0, abstand])
+        for strich in zeichen.striche {
+            if strich.istPunkt {
+                let r = max(3, 0.018 * a.massstab), m = a.ansicht(strich.anfang)
+                ctx.fill(Path(ellipseIn: CGRect(x: m.x - r, y: m.y - r, width: 2 * r, height: 2 * r)),
+                         with: .color(Farben.spur))
+            } else {
+                ctx.stroke(pfad(strich.punkte, a), with: .color(Farben.spur), style: stil)
+            }
+        }
+    }
+
+    /// Leicht aufgehelltes Feld, in das das Zeichen gehört (Stufe 4) —
+    /// ohne Spur weiß das Kind sonst nicht, wie groß und wo es schreiben soll.
+    static func schreibfeld(_ ctx: inout GraphicsContext, zeichen: Zeichen, _ a: Abbildung) {
+        let r = zeichen.rahmen
+        let bereich = zeichen.lineatur.linien
+        let links = a.ansicht(CGPoint(x: r.minX - 0.18, y: bereich.first ?? 0))
+        let rechts = a.ansicht(CGPoint(x: r.maxX + 0.18, y: bereich.last ?? 1))
+        let feld = CGRect(x: links.x, y: links.y, width: rechts.x - links.x, height: rechts.y - links.y)
+        ctx.fill(Path(roundedRect: feld, cornerRadius: 12), with: .color(.white.opacity(0.12)))
     }
 
     /// Geschriebene Tinte entlang `punkte`. Der Regenbogen wechselt die
@@ -199,12 +225,11 @@ enum Zeichner {
 /// Kleines Bild eines Zeichens für die Übersicht.
 struct ZeichenBild: View {
     let zeichen: Zeichen
-    let gruppe: Gruppe
 
     var body: some View {
         Canvas { ctx, groesse in
-            let a = Abbildung(groesse: groesse, zeichen: zeichen, gruppe: gruppe, rand: 0.35)
-            Zeichner.blatt(&ctx, groesse: groesse, gruppe: gruppe, a)
+            let a = Abbildung(groesse: groesse, zeichen: zeichen, rand: 0.35)
+            Zeichner.blatt(&ctx, groesse: groesse, lineatur: zeichen.lineatur, a)
             Zeichner.spur(&ctx, zeichen: zeichen, a, breite: 0.09)
         }
         .accessibilityLabel(Text(zeichen.text))

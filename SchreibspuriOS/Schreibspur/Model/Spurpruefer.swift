@@ -25,19 +25,40 @@ final class Spurpruefer {
         case aufDerSpurBleiben
         case nichtAbsetzen
 
-        var text: String {
-            switch self {
-            case .amStartBeginnen: "Fang beim roten Pfeil an!"
-            case .andersherum: "Andersherum! Beginne beim Pfeil."
-            case .aufDerSpurBleiben: "Bleib auf der Spur!"
-            case .nichtAbsetzen: "Nicht absetzen – schreib bis zum Kreis!"
+        /// `mitHilfen`: ob Pfeil und Zielkreis zu sehen sind — beim freien
+        /// Schreiben gibt es keinen Pfeil, auf den der Satz zeigen könnte.
+        func text(mitHilfen: Bool) -> String {
+            switch (self, mitHilfen) {
+            case (.amStartBeginnen, true): "Fang beim roten Pfeil an!"
+            case (.amStartBeginnen, false): "Da fängt der Strich nicht an."
+            case (.andersherum, true): "Andersherum! Beginne beim Pfeil."
+            case (.andersherum, false): "Andersherum!"
+            case (.aufDerSpurBleiben, true): "Bleib auf der Spur!"
+            case (.aufDerSpurBleiben, false): "Schau noch mal genau hin!"
+            case (.nichtAbsetzen, true): "Nicht absetzen – schreib bis zum Kreis!"
+            case (.nichtAbsetzen, false): "Nicht absetzen – schreib den Strich zu Ende!"
             }
         }
     }
 
     let zeichen: Zeichen
     /// Halbe Breite des erlaubten Bandes um den Strich.
-    var toleranz: CGFloat
+    let toleranz: CGFloat
+    /// Wie weit neben dem Startpunkt ein Strich beginnen darf.
+    let fang: CGFloat
+    /// Wie viel vom Ende eines Strichs beim Absetzen fehlen darf.
+    let zielRest: CGFloat
+    /// Maß für Suchfenster und Zerlegung. Bei breitem Band (freies
+    /// Schreiben) wächst es nicht mit — sonst spränge der Fortschritt beim
+    /// n über den Rückweg (siehe unten).
+    private let such: CGFloat
+    /// Freies Schreiben: Die Vorlage wandert mit dem ersten Ansatz mit.
+    /// Ohne Spur schreibt kaum ein Kind genau an die gedachte Stelle — ein
+    /// insgesamt etwas verschobenes, aber richtig geschriebenes Zeichen soll
+    /// zählen. Form, Folge und Richtung werden danach wie sonst geprüft.
+    let verschiebbar: Bool
+    /// Um so viel liegt die Schrift des Kindes neben der Vorlage.
+    private(set) var versatz: CGVector = .zero
 
     private(set) var strichNummer = 0
     /// Geschaffte Weglänge im aktuellen Strich.
@@ -50,11 +71,23 @@ final class Spurpruefer {
     /// Zählt jeden geschafften Strich hoch.
     private(set) var strichZaehler = 0
 
+    /// Was das Kind wirklich geschrieben hat, je geschafftem Strich — für
+    /// die Stufen ohne Spur, auf denen die eigene Schrift zu sehen ist.
+    private(set) var tinte: [[CGPoint]] = []
+    private(set) var aktuelleTinte: [CGPoint] = []
+
     private var letzterPunkt: CGPoint?
 
-    init(zeichen: Zeichen, toleranz: CGFloat) {
+    /// Fang und Zielrest sind gedeckelt: Beim freien Schreiben wird das
+    /// Band breit, aber der Anfang eines Strichs darf nicht beliebig weit
+    /// daneben liegen, und ein halber Querstrich bleibt ein halber.
+    init(zeichen: Zeichen, toleranz: CGFloat, fangFaktor: CGFloat = 1.5, verschiebbar: Bool = false) {
         self.zeichen = zeichen
+        self.verschiebbar = verschiebbar
         self.toleranz = toleranz
+        fang = min(toleranz * fangFaktor, 0.32)
+        zielRest = min(toleranz * 0.9, 0.2)
+        such = min(toleranz, 0.14)
     }
 
     var fertig: Bool { strichNummer >= zeichen.striche.count }
@@ -74,42 +107,49 @@ final class Spurpruefer {
 
     // MARK: Eingabe
 
-    func beginnen(bei p: CGPoint) {
+    func beginnen(bei roh: CGPoint) {
         guard let strich = aktuellerStrich else { return }
-        let fang = toleranz * 1.5
-        if p.abstand(zu: strich.anfang) <= fang {
+        let radius = fangRadius(fuer: strich)
+        if verschiebbar, strichNummer == 0, roh.abstand(zu: strich.anfang) <= radius {
+            versatz = CGVector(dx: roh.x - strich.anfang.x, dy: roh.y - strich.anfang.y)
+        }
+        let p = vorlage(roh)
+        if p.abstand(zu: strich.anfang) <= radius {
             hinweis = nil
             schreibtGerade = true
             fortschritt = 0
             letzterPunkt = p
-        } else if !strich.istPunkt, p.abstand(zu: strich.ende) <= fang {
+            aktuelleTinte = [roh]
+        } else if !strich.istPunkt, p.abstand(zu: strich.ende) <= radius {
             fehlerMelden(.andersherum)
         } else {
             fehlerMelden(.amStartBeginnen)
         }
     }
 
-    func bewegen(nach p: CGPoint) {
+    func bewegen(nach roh: CGPoint) {
         guard schreibtGerade, let strich = aktuellerStrich else { return }
+        let p = vorlage(roh)
         let von = letzterPunkt ?? p
         // Schnelle Bewegungen in kleine Schritte zerlegen, damit kein Stück
         // des Wegs übersprungen wird.
-        let schritt = toleranz * 0.4
+        let schritt = such * 0.4
         let anzahl = max(1, Int(ceil(von.abstand(zu: p) / schritt)))
         for k in 1...anzahl {
             let q = von.mitte(zu: p, anteil: CGFloat(k) / CGFloat(anzahl))
             if !pruefen(q, auf: strich) { return }
         }
         letzterPunkt = p
+        aktuelleTinte.append(roh)
     }
 
-    func beenden(bei p: CGPoint) {
+    func beenden(bei roh: CGPoint) {
         guard schreibtGerade, let strich = aktuellerStrich else { return }
-        bewegen(nach: p)
+        bewegen(nach: roh)
         guard schreibtGerade else { return }  // unterwegs schon von der Spur
         schreibtGerade = false
         letzterPunkt = nil
-        if strich.istPunkt || fortschritt >= strich.gesamt - toleranz * 0.9 {
+        if strich.istPunkt || fortschritt >= strich.gesamt - min(zielRest, strich.gesamt * 0.25) {
             strichGeschafft()
         } else {
             fehlerMelden(.nichtAbsetzen)
@@ -122,16 +162,30 @@ final class Spurpruefer {
         schreibtGerade = false
         letzterPunkt = nil
         fortschritt = 0
+        aktuelleTinte = []
     }
 
     func vonVorn() {
         abbrechen()
+        tinte = []
+        versatz = .zero
         strichNummer = 0
         fehler = 0
         hinweis = nil
     }
 
     // MARK: Intern
+
+    /// Punkt des Kindes in Koordinaten der Vorlage.
+    private func vorlage(_ p: CGPoint) -> CGPoint {
+        CGPoint(x: p.x - versatz.dx, y: p.y - versatz.dy)
+    }
+
+    /// Bei kurzen Strichen (Querstrich des t) liegen Anfang und Ende dicht
+    /// beisammen — ein weiter Fang nähme sonst auch den verkehrten Anfang.
+    private func fangRadius(fuer strich: Strich) -> CGFloat {
+        strich.istPunkt ? fang : min(fang, strich.gesamt * 0.5)
+    }
 
     private func pruefen(_ q: CGPoint, auf strich: Strich) -> Bool {
         if strich.istPunkt {
@@ -149,10 +203,10 @@ final class Spurpruefer {
         // springen.
         let stelle = strich.naechsteStelle(
             zu: q,
-            von: max(0, fortschritt - toleranz * 1.5),
-            bis: fortschritt + toleranz * 3.5,
+            von: max(0, fortschritt - such * 1.5),
+            bis: fortschritt + such * 3.5,
             bezug: fortschritt,
-            gleichstand: toleranz * 0.05
+            gleichstand: such * 0.05
         )
         guard stelle.abstand <= toleranz else {
             fehlerMelden(.aufDerSpurBleiben)
@@ -163,6 +217,8 @@ final class Spurpruefer {
     }
 
     private func strichGeschafft() {
+        tinte.append(aktuelleTinte)
+        aktuelleTinte = []
         strichNummer += 1
         fortschritt = 0
         hinweis = nil
@@ -173,6 +229,7 @@ final class Spurpruefer {
         schreibtGerade = false
         letzterPunkt = nil
         fortschritt = 0
+        aktuelleTinte = []
         fehler += 1
         hinweis = art
         fehlerZaehler += 1

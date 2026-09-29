@@ -2,12 +2,19 @@ import SwiftUI
 
 @main
 struct SchreibspurApp: App {
-    @State private var fortschritt = Fortschritt()
+    @State private var klasse = Klasse()
 
     var body: some Scene {
         WindowGroup {
-            StartAnsicht()
-                .environment(fortschritt)
+            Group {
+                // Mehrere Kinder an einem Gerät: erst wählen, wer schreibt.
+                if klasse.aktiv == nil {
+                    KindWahl()
+                } else {
+                    StartAnsicht()
+                }
+            }
+            .environment(klasse)
         }
     }
 }
