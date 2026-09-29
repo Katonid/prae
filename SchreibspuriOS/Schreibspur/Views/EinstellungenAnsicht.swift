@@ -45,15 +45,15 @@ struct EinstellungenAnsicht: View {
                     Toggle("Buchstaben nach Lehrgang freischalten", isOn: $klasse.lehrgangAn)
                     if klasse.lehrgangAn {
                         Picker("Im Unterricht bis", selection: $klasse.freiBis) {
-                            ForEach(Zeichenvorrat.lehrgang.indices, id: \.self) { i in
-                                Text("\(i + 1). \(Zeichenvorrat.lektionsname(i))").tag(i)
+                            ForEach(Zeichenvorrat.schritte.indices, id: \.self) { i in
+                                Text("\(i + 1). \(Zeichenvorrat.schritte[i])").tag(i)
                             }
                         }
                     }
                 } header: {
                     Text("Lehrgang „Flex und Flora“")
                 } footer: {
-                    Text("Die Buchstaben stehen in der Reihenfolge des Merkblatts. Ist das Freischalten an, sind nur die Buchstaben bis zur gewählten Stelle offen; Schwünge und Ziffern bleiben immer offen.")
+                    Text("Reihenfolge wie auf dem Merkblatt: A, M, O, I, L, U … samt Au, Ei, Sch usw. Ist das Freischalten an, sind nur die Buchstaben bis zur gewählten Stelle offen, und unter „Wörter“ stehen nur Wörter, die sich daraus schreiben lassen. Schwünge und Ziffern bleiben immer offen.")
                 }
 
                 Section {

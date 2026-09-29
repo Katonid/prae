@@ -3,9 +3,9 @@ import SwiftUI
 /// Übersicht: Bereich wählen, dann ein Zeichen antippen.
 struct StartAnsicht: View {
     struct Auswahl: Identifiable {
-        let bereich: Bereich
+        let liste: [Zeichen]
         let index: Int
-        var id: String { "\(bereich.rawValue)-\(index)" }
+        let id = UUID()
     }
 
     @Environment(Klasse.self) private var klasse
@@ -54,7 +54,8 @@ struct StartAnsicht: View {
                                 .font(.system(.headline, design: .rounded, weight: .bold))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
-                            Text("\(b.zeichen.filter { klasse.geuebt($0) }.count) von \(b.zeichen.count)")
+                            let liste = klasse.zeichen(in: b)
+                            Text("\(liste.filter { klasse.geuebt($0) }.count) von \(liste.count)")
                                 .font(.system(.caption, design: .rounded))
                         }
                         .foregroundStyle(bereich == b ? Farben.blatt : .white)
@@ -67,12 +68,21 @@ struct StartAnsicht: View {
             }
 
             ScrollView {
-                let breite: CGFloat = bereich == .schwuenge ? 200 : 104
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: breite), spacing: 14)], spacing: 14) {
-                    ForEach(Array(bereich.zeichen.enumerated()), id: \.element.id) { i, zeichen in
+                let liste = klasse.zeichen(in: bereich)
+                let breit = bereich == .schwuenge || bereich == .woerter
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: breit ? 200 : 104), spacing: 14)], spacing: 14) {
+                    if bereich == .woerter {
+                        Button {
+                            auswahl = Auswahl(liste: [klasse.mischung()], index: 0)
+                        } label: {
+                            GemischtKachel()
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    ForEach(Array(liste.enumerated()), id: \.element.id) { i, zeichen in
                         let offen = klasse.istOffen(zeichen)
                         Button {
-                            auswahl = Auswahl(bereich: bereich, index: i)
+                            auswahl = Auswahl(liste: liste, index: i)
                         } label: {
                             Kachel(zeichen: zeichen, stufen: Stufe.stufen(fuer: zeichen).count,
                                    gemeistert: klasse.gemeistert(zeichen),
@@ -83,13 +93,20 @@ struct StartAnsicht: View {
                     }
                 }
                 .padding(.bottom, 24)
+                if bereich == .woerter, liste.isEmpty {
+                    Text("Sobald ein paar Buchstaben mehr gelernt sind, stehen hier Wörter zum Schreiben.")
+                        .font(.system(.title3, design: .rounded))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 8)
+                }
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .background(Farben.blatt.ignoresSafeArea())
         .fullScreenCover(item: $auswahl) { a in
-            UebenAnsicht(liste: a.bereich.zeichen, start: a.index)
+            UebenAnsicht(liste: a.liste, start: a.index)
                 .environment(klasse)
         }
         .sheet(isPresented: $zeigeEinstellungen) {
@@ -112,7 +129,7 @@ private struct Kachel: View {
     var body: some View {
         VStack(spacing: 6) {
             ZeichenBild(zeichen: zeichen)
-                .aspectRatio(zeichen.istSchwung ? 2 : 1, contentMode: .fit)
+                .aspectRatio(zeichen.istSchwung || zeichen.istFolge ? 2 : 1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay {
                     if !offen {
@@ -136,6 +153,33 @@ private struct Kachel: View {
         .background(RoundedRectangle(cornerRadius: 18).fill(.white.opacity(0.15)))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(offen ? "\(zeichen.text), \(gemeistert) von \(stufen) Stufen geschafft" : "\(zeichen.text), noch gesperrt"))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// „Gemischt üben": schon gelernte Buchstaben durcheinander, jedes Mal neu
+/// zusammengestellt — die mit wenig Sternen öfter.
+private struct GemischtKachel: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            VStack(spacing: 4) {
+                Image(systemName: "shuffle")
+                    .font(.system(size: 34, weight: .bold))
+                Text("Gemischt üben")
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                Text("Bekannte Buchstaben wiederholen")
+                    .font(.system(.caption, design: .rounded))
+            }
+            .foregroundStyle(Farben.blatt)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(2, contentMode: .fit)
+            .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+            Color.clear.frame(height: 9)
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 18).fill(.white.opacity(0.15)))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Gemischt üben: bekannte Buchstaben wiederholen"))
         .accessibilityAddTraits(.isButton)
     }
 }

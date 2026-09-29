@@ -136,12 +136,55 @@ enum Zeichensatz {
         ("Wellen", ["M 0 0.725 C 0.10 0.5 0.20 0.5 0.30 0.725 C 0.40 0.95 0.50 0.95 0.60 0.725 C 0.70 0.5 0.80 0.5 0.90 0.725 C 1.00 0.95 1.10 0.95 1.20 0.725 C 1.30 0.5 1.40 0.5 1.50 0.725"]),
     ]
 
-    /// Lehrgangsreihenfolge von „Flex und Flora 1“, abgelesen aus der
-    /// Reihenfolge des Merkblatts (zeilenweise, Vorder- vor Rückseite).
-    /// Buchstabenverbindungen wie Au, Sch oder ck stehen dort auch; sie sind
-    /// hier weggelassen, ihre Einzelbuchstaben stehen an der Stelle ihres
-    /// ersten Auftretens (Qu → Q q). Eine Lektion ist ein Buchstabenpaar.
-    static let lehrgang: [[String]] = [
-        ["A", "a"], ["M", "m"], ["O", "o"], ["I", "i"], ["L", "l"], ["U", "u"], ["E", "e"], ["S", "s"], ["F", "f"], ["N", "n"], ["W", "w"], ["R", "r"], ["T", "t"], ["P", "p"], ["D", "d"], ["K", "k"], ["H", "h"], ["B", "b"], ["G", "g"], ["Z", "z"], ["J", "j"], ["V", "v"], ["Ö", "ö"], ["Ü", "ü"], ["Ä", "ä"], ["Q", "q"], ["ß"], ["C", "c"], ["Y", "y"], ["X", "x"],
+    /// Lehrgangsreihenfolge von „Flex und Flora 1“ — genau die Reihenfolge
+    /// des Merkblatts: Vorderseite beginnend mit A, daneben M, dann O und
+    /// weiter zeilenweise, danach die Rückseite (Ansage des Nutzers
+    /// 09/2026). Jeder Schritt ist ein Buchstabe (Groß und klein) oder eine
+    /// Buchstabenverbindung, die als eigener Laut gelernt wird (Au, Sch …).
+    /// Die Verbindungen haben keine eigene Schreibübung, entscheiden aber,
+    /// ab wann ein Wort mit ihnen geschrieben werden darf.
+    static let lehrgangSchritte: [String] = [
+        "A a", "M m", "O o", "I i", "L l", "U u", "E e", "S s",
+        "F f", "N n", "W w", "R r", "T t", "Au au", "P p", "Ei ei",
+        "D d", "Sch sch", "K k", "H h", "B b", "G g", "Z z", "Eu eu",
+        "ch", "ie", "Sp sp", "St st", "J j", "V v", "Ö ö", "Ü ü",
+        "Ä ä", "äu", "Pf pf", "Qu qu", "ß", "C c", "Y y", "X x",
+        "ng", "tz", "ck", "nk",
+    ]
+
+    /// Wörter für die Heftzeile. Welches Wort wann dran ist, ergibt sich aus
+    /// `Zeichenvorrat.wortSchritt`: erst wenn alle Buchstaben **und** alle
+    /// Verbindungen darin (ei, au, sch, ch, ie, st/sp am Anfang, pf, ng …)
+    /// gelernt sind. Bewusst nicht aufgenommen: Wörter, in denen Buchstaben
+    /// anders klingen, als das Kind sie kennt (Mais, Ferien, Clown,
+    /// Computer).
+    static let woerter: [String] = [
+        "Mama", "Oma", "Omi", "Mimi", "Mia", "Lama", "Limo", "Lola", "Lili", "Lolli",
+        "Milo", "Ali", "alle", "Ulli", "Ulla", "Uli", "Emil", "Emma", "Ella", "Lea",
+        "Leo", "Allee", "Ulme", "Emu", "Esel", "Salami", "Lisa", "Susi", "Suse",
+        "Saal", "Moos", "Mus", "Oase", "Sessel", "alles", "Sofa", "Fee", "Fell", "Film",
+        "Fass", "Nase", "Nina", "Name", "Nil", "Mann", "Sonne", "Linse", "Nuss", "Nonne",
+        "Mine", "Ofen", "Nudel", "Wal", "Wolle", "Welle", "Wanne", "Wolf", "Waffel", "Rose",
+        "Rasen", "Rolle", "Roller", "Wasser", "Rosine", "Ruine", "Tomate", "Tante", "Tor", "Turm",
+        "Tasse", "Tunnel", "Tanne", "Ente", "Tee", "Tafel", "Taste", "Wurst", "Mantel", "Nest",
+        "Auto", "Maus", "Laus", "Traum", "Frau", "Pause", "Papa", "Post", "Puppe", "Pirat",
+        "Pilot", "Pinsel", "Lampe", "Tulpe", "Ei", "Eis", "Eimer", "Seil", "Seife", "Reis",
+        "Wein", "Dose", "Dino", "Dame", "Radio", "Wand", "Dorf", "Mond", "Ende", "Leder",
+        "Fisch", "Tisch", "Schule", "Schaf", "Schal", "Dusche", "Tasche", "Flasche", "Kamel", "Kanu",
+        "Kino", "Kakao", "Kiste", "Paket", "Kette", "Rakete", "Kerze", "Kater", "Hut", "Haus",
+        "Hose", "Hand", "Honig", "Huhn", "Uhu", "Uhr", "Kuh", "Hemd", "Himmel", "Baum",
+        "Ball", "Bus", "Banane", "Bett", "Birne", "Brot", "Rabe", "Hobel", "Gans", "Gabel",
+        "Igel", "Gurke", "Garten", "Regen", "Nagel", "Geld", "Gold", "Wagen", "Tiger", "Berg",
+        "Glas", "Zebra", "Zahn", "Zelt", "Zug", "Zaun", "Zitrone", "Pilz", "Salz", "Herz",
+        "Zimmer", "Eule", "Heu", "Feuer", "Euro", "Buch", "Dach", "Milch", "Kuchen", "Bach",
+        "Biene", "Wiese", "Tier", "Spiel", "Spinne", "Stern", "Stein", "Stift", "Stuhl", "Jojo",
+        "Jana", "Juli", "Jonas", "Jaguar", "Vogel", "Vase", "Vulkan", "Vater", "Klavier", "Olive",
+        "Öl", "Löwe", "Möhre", "Vögel", "Flöte", "König", "Kröte", "Löffel", "Tür", "Mütze",
+        "Küken", "Rübe", "Tüte", "Hütte", "Bügel", "Bär", "Käse", "Träne", "Säge", "Käfer",
+        "Zähne", "Hände", "Mäuse", "Häuser", "Bäume", "Apfel", "Äpfel", "Kopf", "Pferd", "Pfanne",
+        "Qualle", "Quark", "Quelle", "Fuß", "Straße", "Füße", "Fußball", "Soße", "Pony", "Baby",
+        "Teddy", "Taxi", "Hexe", "Axt", "Box", "Nixe", "Ring", "Engel", "Finger", "Hunger",
+        "Zange", "Katze", "Platz", "Sack", "Rock", "Socke", "Jacke", "Brücke", "Zucker", "Bank",
+        "Onkel", "Anker", "Schrank",
     ]
 }
