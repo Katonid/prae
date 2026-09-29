@@ -20,7 +20,9 @@
   Lehrgang, vier Stufen und Schwungübungen; 1.0.3 (4) Stufe 5
   (Heftzeile), Bilderleiste und die ruhigere Gestaltung; 1.0.4 (5)
   Wörter und „Gemischt üben“ in der Heftzeile, Lehrgang mit allen
-  Schritten des Merkblatts.
+  Schritten des Merkblatts; 1.0.5 (6) Heftzeile wieder einzeilig (Muster
+  links), großzügigere Heftprüfung, Team eingetragen.
+- Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
   `GENERATE_INFOPLIST_FILE = YES`). Nie entfernen.
@@ -183,24 +185,39 @@
   des Schreibens entlang einer Spur, sondern bei jedem Abheben. Kind und
   Vorlage werden nach Weglänge in 40 Punkte geteilt und Punkt für Punkt
   verglichen — dadurch fällt ein andersherum geschriebenes O auf, obwohl
-  es fertig genauso aussieht. Waagerecht wird die Vorlage an den ersten
-  Ansatz gelegt und in der Breite angepasst; **senkrecht nie** (die
-  Etagen sind Prüfgegenstand). Ein Fehler setzt nur das angefangene
+  es fertig genauso aussieht. Waagerecht wird die Vorlage so über den
+  ersten Strich gelegt, dass sie am besten passt (kleinste Quadrate), und
+  in der Breite angepasst; weitere Striche dürfen bis 0,12 daneben liegen
+  und ±20 % länger/kürzer sein; **senkrecht nie** (die Etagen sind
+  Prüfgegenstand). Ein Fehler setzt nur das angefangene
   Zeichen zurück; die Hinweise nennen die Etage („Dieser Strich beginnt
   ganz oben unter dem Dach“).
-- Abgestimmt mit `scripts/heft-simulation.py` (sauber in beliebiger Lage
-  und Breite 0,8–1,25 → angenommen; verkehrt, eine Etage zu hoch/tief,
-  nach 60 % abgesetzt → abgelehnt). Gemessene Lehren:
+- **Lehre aus 1.0.4 → 1.0.5 (Nutzer: „noch nicht einmal geschafft“):**
+  Das Muster stand in einer eigenen Zeile über der Schreibzeile. Beide
+  sahen gleich aus; der Nutzer schrieb neben das Muster in die obere
+  Zeile, die Prüfung las es als Schrift der unteren — eine ganze Zeile
+  daneben, also immer „falsche Etage“. Jetzt wieder **eine** Zeile: Muster
+  links, gestrichelte Trennlinie, rechts davon wird geschrieben (weiter
+  links: „Schreib rechts neben das Muster“). Nie wieder zwei gleich
+  aussehende Zeilen mit nur einer gültigen.
+- Zugleich war die Prüfung zu starr: Die Vorlage hing am Ansatzpunkt, und
+  ein ungenau gesetzter Anfang verschob den ganzen Buchstaben. Die
+  Simulation spielt seither einen solchen Anfang mit; die Maße wurden
+  großzügiger (Mittel 0,12, Spitze 0,3, Etage 0,15, Ende 0,22).
+- Abgestimmt mit `scripts/heft-simulation.py` (sauber mit Zittern,
+  ungenauem Ansatz, beliebiger Lage und Breite 0,8–1,25 → angenommen;
+  verkehrt, eine Etage zu hoch/tief, nach 60 % abgesetzt → abgelehnt;
+  „Locker“ lässt vereinzelt verkürzte Striche durch). Gemessene Lehren:
   - Breite nur aus schon angenommenen Strichen mit genug waagerechter
     Ausdehnung (Σu² > 1,5) — sonst schluckte die Breite einen halben
     Querstrich, und das kurze erste Stück des y wurde zum Maßstab.
-  - Das Strichende wird **vom eigenen Anfang aus** gemessen, nicht
-    absolut — sonst scheiterten saubere kurze Querstriche am Zittern.
-  - **Bekannte Grenzen:** Querstriche unter 0,45 (t, f, A) dürfen
-    kürzer sein; ein waagerechter Strich, bevor die Breite feststeht
-    (oberer Querstrich des E), ebenso — die Buchstaben bleiben lesbar.
-    Bei anderen Zufallsfolgen der Simulation fallen vereinzelt (≈ 1 von
-    1000) saubere Striche unter „Streng“ durch.
+  - Das Strichende wird **ab 15 % des Wegs** gemessen, nicht absolut und
+    nicht ab dem Ansatz — sonst scheiterten saubere kurze Querstriche am
+    Zittern und am ungenauen Anfang.
+  - Nur Striche mit mindestens 0,4 Breite bestimmen die Schriftbreite
+    (der Haken oben am f war ein wackliger Maßstab für den Querstrich).
+  - **Bekannte Grenzen:** Striche unter 0,6 (Querstriche von t, f, A, E,
+    Hut der 5) dürfen kürzer sein — die Buchstaben bleiben lesbar.
 
 ## Wörter und „Gemischt üben“ (seit 1.0.4, Ansage des Nutzers 09/2026)
 
@@ -216,8 +233,8 @@
   kommt — nach jeder Änderung an der Liste ansehen. Nicht aufnehmen:
   Wörter, in denen Buchstaben anders klingen als gelernt (Mais, Ferien,
   Clown, Computer).
-- Geschrieben wird in die Heftzeile unter einer Musterzeile (zwei
-  Zeilen: oben Vorschrift, unten das Kind). Geprüft wird Buchstabe für
+- Geschrieben wird in die Heftzeile rechts neben das Musterwort
+  (eine Zeile, siehe Lehre oben). Geprüft wird Buchstabe für
   Buchstabe mit dem `Heftpruefer` (Folge statt einzelnem Zeichen): jeder
   Buchstabe legt die Vorlage neu an, der nächste muss rechts vom vorigen
   beginnen. Fehler nennen den Buchstaben („m: Dieser Strich …“) und

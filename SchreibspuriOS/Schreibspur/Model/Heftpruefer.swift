@@ -19,8 +19,10 @@ import Observation
 ///   fertig genauso aussieht. Die Strichfolge ist durch die Reihenfolge
 ///   der Vergleiche festgelegt.
 ///
-/// Waagerecht legt sich die Vorlage an den ersten Ansatz und passt ihre
-/// Breite an (Kinder schreiben schmaler oder breiter). Alle Maße in
+/// Waagerecht legt sich die Vorlage so über den ersten Strich, dass sie am
+/// besten passt, und passt ihre Breite an (Kinder schreiben schmaler oder
+/// breiter); weitere Striche dürfen etwas daneben liegen und etwas länger
+/// oder kürzer sein. Senkrecht wird nichts angepasst. Alle Maße in
 /// Einheiten des Vierliniensystems (Oberlinie bis Grundlinie = 1) und
 /// abgestimmt mit `scripts/heft-simulation.py` — dort stehen auch die
 /// bekannten Grenzen (kurze Querstriche).
@@ -37,6 +39,7 @@ final class Heftpruefer {
         case form
         case punkt
         case rechtsDaneben
+        case nebenMuster
 
         var text: String {
             switch self {
@@ -47,6 +50,7 @@ final class Heftpruefer {
             case .form: "Das ist schwer zu lesen – schreib es noch einmal genau."
             case .punkt: "Setz den Punkt genau an seinen Platz."
             case .rechtsDaneben: "Schreib den nächsten Buchstaben rechts daneben."
+            case .nebenMuster: "Schreib rechts neben das Muster."
             }
         }
     }
@@ -63,15 +67,22 @@ final class Heftpruefer {
         }
     }
 
-    // Wie in scripts/heft-simulation.py
+    // Wie in scripts/heft-simulation.py — dort abgestimmt und begründet.
     static let n = 40
-    private static let mittel: CGFloat = 0.1
-    private static let spitze: CGFloat = 0.25
-    private static let etage: CGFloat = 0.14
-    private static let endeMax: CGFloat = 0.2
+    private static let mittel: CGFloat = 0.12
+    private static let spitze: CGFloat = 0.3
+    private static let etage: CGFloat = 0.15
+    private static let endeMax: CGFloat = 0.22
     /// Ab dieser Summe Σu² gilt die Breite als gesichert — kleiner, und das
     /// kurze erste Stück des y wurde zum Maßstab für das lange zweite.
     private static let fest: CGFloat = 1.5
+    /// Nur so breite Striche bestimmen die Schriftbreite (der Haken oben
+    /// am f war sonst ein wackliger Maßstab für den Querstrich).
+    private static let breit: CGFloat = 0.4
+    /// So weit darf ein weiterer Strich waagerecht neben seinem Platz liegen.
+    private static let versatz: CGFloat = 0.12
+    /// Der Anfang sitzt oft etwas daneben: Längen erst ab 15 % des Wegs.
+    private static let k0 = n * 3 / 20
 
     /// Die Buchstaben der Zeile in Schreibreihenfolge.
     let folge: [Zeichen]
@@ -98,9 +109,12 @@ final class Heftpruefer {
     private(set) var fehlerZaehler = 0
     private(set) var strichZaehler = 0
 
-    init(folge: [Zeichen], genauigkeit: Genauigkeit) {
+    /// `rechtsVon`: rechter Rand des Musters in der Zeile — geschrieben
+    /// wird rechts davon.
+    init(folge: [Zeichen], genauigkeit: Genauigkeit, rechtsVon: CGFloat? = nil) {
         self.folge = folge
         f = genauigkeit.heftFaktor
+        letzterAnsatz = rechtsVon
     }
 
     var anzahl: Int { folge.count }
@@ -192,50 +206,79 @@ final class Heftpruefer {
         let erster = ax == nil
         // Ein neuer Buchstabe gehört rechts neben den vorigen.
         if erster, strichNummer == 0, let links = letzterAnsatz, roh[0].x < links + 0.15 {
-            return .rechtsDaneben
+            return fertige.isEmpty ? .nebenMuster : .rechtsDaneben
         }
-        let anker = erster ? p[0].x - (t[0].x - x0) : ax!
 
-        // Breite: aus den schon angenommenen Strichen; nur wenn die noch
-        // nichts sagen, aus diesem Strich — eng begrenzt, sonst schluckte
-        // die Breite einen halb geschriebenen Querstrich.
+        // Lage: beim ersten Strich so, dass die Vorlage am besten passt.
+        let anker = erster ? anpassen(p, t).anker : ax!
         var neuUV = suv, neuUU = suu
         for (a, b) in zip(p, t) {
             let u = b.x - x0
             neuUV += u * (a.x - anker)
             neuUU += u * u
         }
-        let sx: CGFloat
-        if suu > Self.fest {
+        // Breite: beim ersten Strich aus ihm selbst; danach aus den schon
+        // angenommenen breiten Strichen; sonst aus diesem Strich, eng begrenzt.
+        var sx: CGFloat
+        if erster {
+            sx = anpassen(p, t).breite
+        } else if suu > Self.fest {
             sx = breite()
         } else {
             sx = neuUU > 0.02 ? min(1.25, max(0.8, neuUV / neuUU)) : 1
         }
+        var tt = abbilden(t, anker, sx)
+        if !erster {
+            // Jeder weitere Strich darf waagerecht ein wenig neben seinem
+            // Platz liegen und ±20 % länger oder kürzer sein — die
+            // Querstriche eines E sind bei Kindern nie gleich lang.
+            let u = t[Self.k0...].map { $0.x - x0 }
+            let v = p[Self.k0...].map { $0.x - anker }
+            if let uMin = u.min(), let uMax = u.max(), uMax - uMin >= 0.25 {
+                let mu = u.reduce(0, +) / CGFloat(u.count), mv = v.reduce(0, +) / CGFloat(v.count)
+                let varianz = u.reduce(CGFloat(0)) { $0 + ($1 - mu) * ($1 - mu) }
+                let kovarianz = zip(u, v).reduce(CGFloat(0)) { $0 + ($1.0 - mu) * ($1.1 - mv) }
+                sx = min(sx * 1.2, max(sx * 0.8, kovarianz / varianz))
+                tt = abbilden(t, anker, sx)
+            }
+            let summe = zip(p[Self.k0...], tt[Self.k0...]).reduce(CGFloat(0)) { $0 + ($1.0.x - $1.1.x) }
+            let d = max(-Self.versatz, min(Self.versatz, summe / CGFloat(Self.n - Self.k0)))
+            tt = tt.map { CGPoint(x: $0.x + d, y: $0.y) }
+        }
 
-        let tt = abbilden(t, anker, sx)
         let (mittel, spitze) = Self.vergleich(p, tt)
         let l = Self.laenge(vorlage)
         let endeRest = max(0.12, min(Self.endeMax, 0.25 * l) * sqrt(f))
         let etageEnde = min(Self.etage, max(0.08, 0.3 * l)) * f
         let anfangOK = abs(p[0].y - tt[0].y) <= Self.etage * f
-            && (erster || abs(p[0].x - tt[0].x) <= Self.endeMax * f * 1.25)
-        // Das Ende gemessen vom eigenen Anfang aus: zählt, ob der Strich lang
-        // genug ist und in die richtige Richtung geht.
-        let wegKind = CGPoint(x: p[p.count - 1].x - p[0].x, y: p[p.count - 1].y - p[0].y)
-        let wegVorlage = CGPoint(x: tt[tt.count - 1].x - tt[0].x, y: tt[tt.count - 1].y - tt[0].y)
+            && abs(p[0].x - tt[0].x) <= Self.endeMax * f * 1.25
+        // Das Ende gemessen ab einem kleinen Stück nach dem Ansatz: zählt,
+        // ob der Strich lang genug ist und in die richtige Richtung geht.
+        let k = Self.k0
+        let wegKind = CGPoint(x: p[p.count - 1].x - p[k].x, y: p[p.count - 1].y - p[k].y)
+        let wegVorlage = CGPoint(x: tt[tt.count - 1].x - tt[k].x, y: tt[tt.count - 1].y - tt[k].y)
         let endeOK = abs(p[p.count - 1].y - tt[tt.count - 1].y) <= etageEnde
             && wegKind.abstand(zu: wegVorlage) <= endeRest
 
         if anfangOK && endeOK && mittel <= Self.mittel * f && spitze <= Self.spitze * f {
             ax = anker
-            suv = neuUV
-            suu = neuUU
+            let xs = vorlage.map(\.x)
+            if let a = xs.min(), let b = xs.max(), b - a >= Self.breit {
+                suv = neuUV   // nur breite Striche sagen etwas über die Breite
+                suu = neuUU
+            }
             return nil
         }
 
         // Andersherum? Dann liegt das Ende des Kindes am Anfang der Vorlage.
-        let ankerR = erster ? p[p.count - 1].x - (t[0].x - x0) : anker
-        let tr = Array(abbilden(t, ankerR, sx).reversed())
+        let umgekehrt = Array(t.reversed())
+        var ankerR = anker, sxR = sx
+        if erster {
+            let passung = anpassen(p, umgekehrt)
+            ankerR = passung.anker
+            sxR = passung.breite
+        }
+        let tr = Array(abbilden(t, ankerR, sxR).reversed())
         let mittelR = Self.vergleich(p, tr).mittel
         if mittelR <= Self.mittel * f * 1.3 && mittelR < mittel * 0.7 { return .andersherum }
 
@@ -249,6 +292,22 @@ final class Heftpruefer {
         if !anfangOK { return .anfang(t[0].y) }
         if !endeOK { return .ende(t[t.count - 1].y) }
         return .form
+    }
+
+    /// Lage und Breite, bei denen die Vorlage waagerecht am besten auf dem
+    /// Strich des Kindes liegt (kleinste Quadrate). So kostet ein etwas
+    /// anders gesetzter Anfang nicht den ganzen Buchstaben.
+    private func anpassen(_ p: [CGPoint], _ t: [CGPoint]) -> (anker: CGFloat, breite: CGFloat) {
+        let u = t.map { $0.x - x0 }
+        let v = p.map(\.x)
+        let mu = u.reduce(0, +) / CGFloat(u.count), mv = v.reduce(0, +) / CGFloat(v.count)
+        var sx: CGFloat = 1
+        if let a = u.min(), let b = u.max(), b - a >= 0.25 {
+            let varianz = u.reduce(CGFloat(0)) { $0 + ($1 - mu) * ($1 - mu) }
+            let kovarianz = zip(u, v).reduce(CGFloat(0)) { $0 + ($1.0 - mu) * ($1.1 - mv) }
+            sx = min(1.25, max(0.8, kovarianz / varianz))
+        }
+        return (mv - sx * mu, sx)
     }
 
     private func breite() -> CGFloat {
@@ -274,7 +333,7 @@ final class Heftpruefer {
     }
 
     static func laenge(_ p: [CGPoint]) -> CGFloat {
-        zip(p, p.dropFirst()).reduce(0) { $0 + $1.0.abstand(zu: $1.1) }
+        zip(p, p.dropFirst()).reduce(CGFloat(0)) { $0 + $1.0.abstand(zu: $1.1) }
     }
 
     /// `n` Punkte in gleichen Weglängen-Abständen.

@@ -259,7 +259,8 @@ struct UebenAnsicht: View {
                            verschiebbar: stufe == .frei)
         // Stufe 5: ein Buchstabe viermal; Wörter und Mischungen Buchstabe für Buchstabe.
         heft = stufe == .heft
-            ? Heftpruefer(folge: zeichen.istFolge ? zeichen.folge : Array(repeating: zeichen, count: 4), genauigkeit: g)
+            ? Heftpruefer(folge: zeichen.istFolge ? zeichen.folge : Array(repeating: zeichen, count: 4),
+                          genauigkeit: g, rechtsVon: musterEnde - 0.2)
             : nil
         hinweis = nil
         starthilfe = false
@@ -342,7 +343,12 @@ struct UebenAnsicht: View {
         let a = lage.vorlage
         Zeichner.blatt(&ctx, groesse: groesse, lineatur: zeichen.lineatur, a)
         if stufe == .heft {
-            Zeichner.linien(&ctx, breite: groesse.width, lineatur: zeichen.lineatur, lage.schreiben)
+            // Feine Trennlinie: links das Muster, rechts wird geschrieben.
+            var trenner = Path()
+            trenner.move(to: a.ansicht(CGPoint(x: musterEnde, y: -0.1)))
+            trenner.addLine(to: a.ansicht(CGPoint(x: musterEnde, y: 1.5)))
+            ctx.stroke(trenner, with: .color(.white.opacity(0.45)),
+                       style: StrokeStyle(lineWidth: 1.5, dash: [4, 5]))
         }
         if !zeichen.istSchwung, stufe != .heft {
             vorlage(&ctx, groesse: groesse, platz: a.ansicht(CGPoint(x: zeichen.rahmen.minX, y: 0)).x)
@@ -413,11 +419,17 @@ struct UebenAnsicht: View {
         }
     }
 
-    /// Wo Vorlage und Schreibzeile liegen. Auf Stufe 1–4 ist beides
-    /// dasselbe große Blatt; auf Stufe 5 steht oben die Musterzeile (wie die
-    /// Vorschrift im Heft), darunter die Zeile für das Kind — beide in echter
-    /// Größe: Grundlinie–Oberlinie `heftHoehe` mm, auf dem iPad etwa
-    /// 5,2 Punkte je Millimeter. Passt das nicht, wird es kleiner.
+    /// Wo Vorlage und Schreibzeile liegen. Auf Stufe 1–4 ist beides das
+    /// große Blatt. Auf Stufe 5 ist es **eine** Zeile in echter Größe
+    /// (Grundlinie–Oberlinie `heftHoehe` mm, auf dem iPad ≈ 5,2 pt/mm):
+    /// links das Muster wie die Vorschrift im Heft, rechts daneben schreibt
+    /// das Kind.
+    ///
+    /// Lehre aus 1.0.4: Dort stand das Muster in einer eigenen Zeile über
+    /// der Schreibzeile. Beide sahen gleich aus, der Nutzer schrieb — wie
+    /// jedes Kind — neben das Muster in die obere Zeile, die Prüfung las es
+    /// als Schrift der unteren und meldete jedes Mal die falsche Etage.
+    /// Deshalb nur eine Zeile, und beide Abbildungen sind dieselbe.
     struct Blattlage {
         let vorlage: Abbildung
         let schreiben: Abbildung
@@ -428,18 +440,22 @@ struct UebenAnsicht: View {
             let a = Abbildung(groesse: groesse, zeichen: zeichen)
             return Blattlage(vorlage: a, schreiben: a)
         }
-        let zeile: CGFloat = 1.78, luecke: CGFloat = 0.4   // Sichtbereich −0,28 … 1,5
-        let m = min(CGFloat(heftHoehe) * 5.2, groesse.height / (2 * zeile + luecke))
-        let oben = (groesse.height - (2 * zeile + luecke) * m) / 2 + 0.28 * m
-        return Blattlage(
-            vorlage: Abbildung(massstab: m, verschiebung: CGPoint(x: 28 - zeichen.rahmen.minX * m, y: oben)),
-            schreiben: Abbildung(massstab: m, verschiebung: CGPoint(x: 28, y: oben + (zeile + luecke) * m))
-        )
+        // Platz: Muster, Trennlinie, dann Raum zum Schreiben — bei einem
+        // Buchstaben für viermal, bei Wörtern für das Wort und etwas mehr.
+        let w = zeichen.rahmen.width
+        let bedarf = zeichen.istFolge ? w * 2.3 + 1.4 : w * 5 + 3.4
+        let m = min(CGFloat(heftHoehe) * 5.2, groesse.height / 1.9, (groesse.width - 40) / bedarf)
+        let a = Abbildung(massstab: m, verschiebung: CGPoint(x: 28 - zeichen.rahmen.minX * m,
+                                                             y: groesse.height / 2 - 0.62 * m))
+        return Blattlage(vorlage: a, schreiben: a)
     }
+
+    /// Wo das Kind rechts vom Muster zu schreiben beginnt (Einheiten).
+    private var musterEnde: CGFloat { zeichen.rahmen.maxX + 0.35 }
 
     /// Rechts in der Musterzeile: wie viele Buchstaben schon geschafft sind.
     private func fortschrittsOrt(_ vorlage: Abbildung, _ groesse: CGSize) -> CGPoint {
-        CGPoint(x: groesse.width - 30, y: vorlage.y(0.72))
+        CGPoint(x: groesse.width - 30, y: vorlage.y(-0.2))
     }
 
     /// Stufe 5: was das Kind geschrieben hat. Wird derselbe Buchstabe
