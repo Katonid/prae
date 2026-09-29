@@ -25,9 +25,13 @@ _spec = importlib.util.spec_from_file_location("vorschau", os.path.join(HIER, "z
 vorschau = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(vorschau)
 
-# Wie in Spurpruefer.swift
-ZURUECK, VORAUS, GLEICHSTAND, FANG, ZIEL = 1.5, 3.5, 0.05, 1.5, 0.9
-TOLERANZEN = {"streng": 0.07, "normal": 0.1, "locker": 0.14}
+# Wie in Spurpruefer.swift und Stufe.swift
+ZURUECK, VORAUS, GLEICHSTAND = 1.5, 3.5, 0.05
+GENAUIGKEIT = {"streng": 0.07, "normal": 0.1, "locker": 0.14}
+# Stufe → (Toleranzfaktor, Fangfaktor)
+# Stufe → (Toleranzfaktor, Fangfaktor, Vorlage wandert mit)
+STUFEN = {"Spur": (1, 1.5, False), "Start/Ziel": (1.25, 1.5, False), "frei": (1.6, 1.9, True)}
+TOLERANZEN = {f"{g}/{st}": (t * tf, ff, v) for g, t in GENAUIGKEIT.items() for st, (tf, ff, v) in STUFEN.items()}
 ZITTERN = 0.5
 VERSUCHE = 30
 
@@ -75,25 +79,38 @@ class Strich:
         return min(gleich, key=lambda k: entfernung(k[0]))
 
 
-def nachspuren(strich, punkte, tol):
-    """'ok' oder der Grund der Ablehnung — wie Spurpruefer.swift."""
-    if math.dist(punkte[0], strich.p[0]) > tol * FANG:
+def nachspuren(strich, punkte, tol, fang_faktor=1.5, verschiebbar=False, versatz=None):
+    """'ok' oder der Grund der Ablehnung — wie Spurpruefer.swift.
+
+    Mit `verschiebbar` wandert die Vorlage mit (freies Schreiben): beim
+    ersten Strich eines Zeichens um den Abstand des Ansatzes (`versatz`
+    None), bei den weiteren um den dort gemessenen `versatz`."""
+    if verschiebbar and versatz is not None:
+        punkte = [(x - versatz[0], y - versatz[1]) for x, y in punkte]
+        verschiebbar = False
+    fang, ziel, such = min(tol * fang_faktor, 0.32), min(tol * 0.9, 0.2), min(tol, 0.14)
+    if strich.gesamt >= 0.001:
+        fang, ziel = min(fang, strich.gesamt * 0.5), min(ziel, strich.gesamt * 0.25)
+    if math.dist(punkte[0], strich.p[0]) > fang:
         return "start"
+    if verschiebbar:
+        dx, dy = punkte[0][0] - strich.p[0][0], punkte[0][1] - strich.p[0][1]
+        punkte = [(x - dx, y - dy) for x, y in punkte]
     f, letzter = 0.0, punkte[0]
     for p in punkte:
-        n = max(1, math.ceil(math.dist(letzter, p) / (tol * 0.4)))
+        n = max(1, math.ceil(math.dist(letzter, p) / (such * 0.4)))
         for k in range(1, n + 1):
             q = (letzter[0] + (p[0] - letzter[0]) * k / n, letzter[1] + (p[1] - letzter[1]) * k / n)
             if strich.gesamt < 0.001:
                 if math.dist(q, strich.p[0]) > tol * 1.8:
                     return "spur"
                 continue
-            s, d = strich.naechste_stelle(q, max(0, f - tol * ZURUECK), f + tol * VORAUS, f, tol * GLEICHSTAND)
+            s, d = strich.naechste_stelle(q, max(0, f - such * ZURUECK), f + such * VORAUS, f, such * GLEICHSTAND)
             if d > tol:
                 return f"spur bei {f:.2f}"
             f = max(f, s)
         letzter = p
-    if strich.gesamt < 0.001 or f >= strich.gesamt - tol * ZIEL:
+    if strich.gesamt < 0.001 or f >= strich.gesamt - ziel:
         return "ok"
     return f"abgesetzt bei {f:.2f}/{strich.gesamt:.2f}"
 
@@ -101,34 +118,44 @@ def nachspuren(strich, punkte, tol):
 def main():
     random.seed(1)
     fehler = 0
-    for name_tol, tol in TOLERANZEN.items():
+    for name_tol, (tol, fang_faktor, verschiebbar) in TOLERANZEN.items():
         for name, wege in vorschau.lesen():
-            for weg in wege:
+            for nummer, weg in enumerate(wege):
                 strich = Strich(weg)
                 for _ in range(VERSUCHE):
                     grenze = tol * ZITTERN
                     ox, oy = random.uniform(-grenze, grenze), random.uniform(-grenze, grenze)
+                    # Freies Schreiben: die ganze Schrift liegt etwas neben
+                    # der Vorlage, das Zittern kommt um diese Lage dazu.
+                    vx = vy = 0.0
+                    if verschiebbar:
+                        # bis 0,8 × Fang: weiter daneben darf ein Ansatz nie liegen
+                        r = random.uniform(0, 0.8 * min(tol * fang_faktor, 0.32))
+                        w = random.uniform(0, 2 * math.pi)
+                        vx, vy = r * math.cos(w), r * math.sin(w)
+                        ox = oy = 0.0
+                    bekannt = (vx, vy) if verschiebbar and nummer > 0 else None
                     punkte, s = [], 0.0
                     schritt = random.uniform(0.01, 0.08)
                     while s < strich.gesamt:
                         x, y = strich.punkt(s)
                         ox = max(-grenze, min(grenze, ox + random.uniform(-0.01, 0.01)))
                         oy = max(-grenze, min(grenze, oy + random.uniform(-0.01, 0.01)))
-                        punkte.append((x + ox, y + oy))
+                        punkte.append((x + vx + ox, y + vy + oy))
                         s += schritt
-                    punkte.append(strich.p[-1])
-                    ergebnis = nachspuren(strich, punkte, tol)
+                    punkte.append((strich.p[-1][0] + vx, strich.p[-1][1] + vy))
+                    ergebnis = nachspuren(strich, punkte, tol, fang_faktor, verschiebbar, bekannt)
                     if ergebnis != "ok":
                         print(f"[{name_tol}] {name}: sauber nachgespurt, abgelehnt ({ergebnis}) – {weg}")
                         fehler += 1
                         break
                 if strich.gesamt > 0.3:
                     rueckwaerts = [strich.punkt(strich.gesamt * (1 - k / 100)) for k in range(101)]
-                    if nachspuren(strich, rueckwaerts, tol) == "ok":
+                    if nachspuren(strich, rueckwaerts, tol, fang_faktor, verschiebbar) == "ok":
                         print(f"[{name_tol}] {name}: verkehrt herum angenommen – {weg}")
                         fehler += 1
                     halb = [strich.punkt(strich.gesamt * 0.6 * k / 100) for k in range(101)]
-                    if nachspuren(strich, halb, tol) == "ok":
+                    if nachspuren(strich, halb, tol, fang_faktor, verschiebbar) == "ok":
                         print(f"[{name_tol}] {name}: halb geschrieben angenommen – {weg}")
                         fehler += 1
     print("Alles in Ordnung." if fehler == 0 else f"{fehler} Auffälligkeiten.")

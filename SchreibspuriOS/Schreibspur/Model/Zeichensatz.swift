@@ -118,4 +118,30 @@ enum Zeichensatz {
         ("8", ["M 0.3 0 C 0.02 0 0.02 0.25 0.06 0.3 C 0.12 0.4 0.58 0.5 0.58 0.75 C 0.58 1.0 0.02 1.0 0.02 0.75 C 0.02 0.5 0.48 0.4 0.54 0.3 C 0.58 0.25 0.58 0 0.3 0"]),
         ("9", ["M 0.55 0.3 A 0.3 0.3 0.25 0.3 0 -360 L 0.55 0.62 C 0.55 0.9 0.4 1 0.1 1"]),
     ]
+
+    /// Schwungübungen: die Grundformen, aus denen die Buchstaben bestehen —
+    /// Striche, Zacken, Wendebogen, Brücken (n, m, h, r), Girlanden (u),
+    /// Bögen (c, e), Kreise gegen den Uhrzeigersinn (o, a, d, g) und Wellen
+    /// (s). Richtungen wie in den Buchstaben des Merkblatts.
+    static let schwuenge: [(String, [String])] = [
+        ("Lange Striche", ["M 0 0 L 0 1", "M 0.32 0 L 0.32 1", "M 0.64 0 L 0.64 1", "M 0.96 0 L 0.96 1", "M 1.28 0 L 1.28 1"]),
+        ("Kurze Striche", ["M 0 0.45 L 0 1", "M 0.28 0.45 L 0.28 1", "M 0.56 0.45 L 0.56 1", "M 0.84 0.45 L 0.84 1", "M 1.12 0.45 L 1.12 1", "M 1.4 0.45 L 1.4 1"]),
+        ("Querstriche", ["M 0 0.6 L 1.3 0.6", "M 0 0.86 L 1.3 0.86"]),
+        ("Zacken", ["M 0 1 L 0.2 0.45 L 0.4 1 L 0.6 0.45 L 0.8 1 L 1 0.45 L 1.2 1 L 1.4 0.45 L 1.6 1"]),
+        ("Wendebögen", ["M 0 0.45 L 0 0.84 C 0 0.95 0.05 1 0.15 0.98", "M 0.36 0.45 L 0.36 0.84 C 0.36 0.95 0.41 1 0.51 0.98", "M 0.72 0.45 L 0.72 0.84 C 0.72 0.95 0.77 1 0.87 0.98", "M 1.08 0.45 L 1.08 0.84 C 1.08 0.95 1.13 1 1.23 0.98"]),
+        ("Brücken", ["M 0 1 L 0 0.7 C 0 0.54 0.1 0.45 0.22 0.45 C 0.34 0.45 0.44 0.54 0.44 0.7 L 0.44 1 L 0.44 0.7 C 0.44 0.54 0.54 0.45 0.66 0.45 C 0.78 0.45 0.88 0.54 0.88 0.7 L 0.88 1 L 0.88 0.7 C 0.88 0.54 0.98 0.45 1.1 0.45 C 1.22 0.45 1.32 0.54 1.32 0.7 L 1.32 1"]),
+        ("Girlanden", ["M 0 0.45 L 0 0.75 C 0 0.9 0.1 1 0.22 1 C 0.34 1 0.44 0.9 0.44 0.75 L 0.44 0.45 L 0.44 0.75 C 0.44 0.9 0.54 1 0.66 1 C 0.78 1 0.88 0.9 0.88 0.75 L 0.88 0.45 L 0.88 0.75 C 0.88 0.9 0.98 1 1.1 1 C 1.22 1 1.32 0.9 1.32 0.75 L 1.32 0.45"]),
+        ("Bögen", ["M 0.4 0.55 A 0.23 0.725 0.23 0.275 -40 -320", "M 0.95 0.55 A 0.78 0.725 0.23 0.275 -40 -320", "M 1.5 0.55 A 1.33 0.725 0.23 0.275 -40 -320"]),
+        ("Kreise", ["M 0.352 0.492 A 0.23 0.725 0.23 0.275 -58 -418", "M 0.922 0.492 A 0.8 0.725 0.23 0.275 -58 -418", "M 1.492 0.492 A 1.37 0.725 0.23 0.275 -58 -418"]),
+        ("Wellen", ["M 0 0.725 C 0.10 0.5 0.20 0.5 0.30 0.725 C 0.40 0.95 0.50 0.95 0.60 0.725 C 0.70 0.5 0.80 0.5 0.90 0.725 C 1.00 0.95 1.10 0.95 1.20 0.725 C 1.30 0.5 1.40 0.5 1.50 0.725"]),
+    ]
+
+    /// Lehrgangsreihenfolge von „Flex und Flora 1“, abgelesen aus der
+    /// Reihenfolge des Merkblatts (zeilenweise, Vorder- vor Rückseite).
+    /// Buchstabenverbindungen wie Au, Sch oder ck stehen dort auch; sie sind
+    /// hier weggelassen, ihre Einzelbuchstaben stehen an der Stelle ihres
+    /// ersten Auftretens (Qu → Q q). Eine Lektion ist ein Buchstabenpaar.
+    static let lehrgang: [[String]] = [
+        ["A", "a"], ["M", "m"], ["O", "o"], ["I", "i"], ["L", "l"], ["U", "u"], ["E", "e"], ["S", "s"], ["F", "f"], ["N", "n"], ["W", "w"], ["R", "r"], ["T", "t"], ["P", "p"], ["D", "d"], ["K", "k"], ["H", "h"], ["B", "b"], ["G", "g"], ["Z", "z"], ["J", "j"], ["V", "v"], ["Ö", "ö"], ["Ü", "ü"], ["Ä", "ä"], ["Q", "q"], ["ß"], ["C", "c"], ["Y", "y"], ["X", "x"],
+    ]
 }

@@ -1,10 +1,13 @@
 import SwiftUI
 
-/// Lob nach einem geschafften Zeichen: Sterne je nach Fehlerzahl.
+/// Lob nach einem geschafften Zeichen: Sterne je nach Fehlerzahl. Ist mit
+/// drei Sternen die nächste Stufe aufgegangen, steht sie vorn.
 struct Belohnung: View {
     let sterne: Int
-    let nochmal: () -> Void
+    let neueStufe: Stufe?
     let hatWeiter: Bool
+    let nochmal: () -> Void
+    let stufeWeiter: () -> Void
     let weiter: () -> Void
     let fertig: () -> Void
 
@@ -37,13 +40,25 @@ struct Belohnung: View {
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundStyle(Farben.blatt)
 
+            if let neueStufe {
+                Text("Stufe \(neueStufe.rawValue) ist offen: \(neueStufe.titel)")
+                    .font(.system(.title3, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
             HStack(spacing: 16) {
                 Button(action: nochmal) {
                     Label("Nochmal", systemImage: "arrow.counterclockwise")
                 }
                 .buttonStyle(RundKnopf(farbe: Farben.blatt))
 
-                if hatWeiter {
+                if let neueStufe {
+                    Button(action: stufeWeiter) {
+                        Label("Stufe \(neueStufe.rawValue)", systemImage: "arrow.up.forward")
+                    }
+                    .buttonStyle(RundKnopf(farbe: Farben.markierung))
+                } else if hatWeiter {
                     Button(action: weiter) {
                         Label("Weiter", systemImage: "arrow.right")
                     }

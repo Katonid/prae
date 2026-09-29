@@ -1,0 +1,64 @@
+import CoreGraphics
+import Foundation
+
+/// Vom Nachspuren zum freien Schreiben: Jedes Zeichen wird in vier Stufen
+/// geübt, die Hilfen verschwinden nach und nach. Die nächste Stufe öffnet
+/// sich erst mit drei Sternen auf der vorigen.
+///
+/// Geprüft wird auf jeder Stufe dasselbe — Ansatzpunkt, Strichfolge,
+/// Richtung und Absetzen. Nur die Hilfen und das Maß ändern sich.
+enum Stufe: Int, CaseIterable, Identifiable, Comparable {
+    case spur = 1, punkte, startZiel, frei
+
+    var id: Int { rawValue }
+
+    static func < (a: Stufe, b: Stufe) -> Bool { a.rawValue < b.rawValue }
+
+    var titel: String {
+        switch self {
+        case .spur: "Nachspuren"
+        case .punkte: "Punkte"
+        case .startZiel: "Start und Ziel"
+        case .frei: "Frei schreiben"
+        }
+    }
+
+    var beschreibung: String {
+        switch self {
+        case .spur: "Weiße Spur mit Pfeil, Punkten und Zielkreis"
+        case .punkte: "Nur noch die gepunktete Linie"
+        case .startZiel: "Nur noch Start- und Zielpunkte"
+        case .frei: "Leere Linien — aus dem Kopf"
+        }
+    }
+
+    /// Die weiße Spur des ganzen Zeichens.
+    var zeigtSpur: Bool { self == .spur }
+    /// Gepunktete Linie entlang des Zeichens.
+    var zeigtPunktlinie: Bool { self <= .punkte }
+    /// Roter Pfeil am Anfang und Zielkreis am Ende des aktuellen Strichs.
+    var zeigtStartZiel: Bool { self <= .startZiel }
+
+    /// Auf den ersten beiden Stufen läuft die Tinte sauber auf dem Weg,
+    /// danach zeigt sie, was das Kind wirklich geschrieben hat.
+    var echteTinte: Bool { self >= .startZiel }
+
+    /// Ohne sichtbare Spur trifft niemand so genau — das Band wird breiter,
+    /// die Regeln bleiben.
+    var toleranzFaktor: CGFloat {
+        switch self {
+        case .spur, .punkte: 1
+        case .startZiel: 1.25
+        case .frei: 1.6
+        }
+    }
+
+    /// Wie weit neben dem Startpunkt ein Strich noch beginnen darf
+    /// (Vielfaches der Toleranz). Ohne sichtbaren Punkt großzügiger.
+    var fangFaktor: CGFloat {
+        switch self {
+        case .spur, .punkte, .startZiel: 1.5
+        case .frei: 1.9
+        }
+    }
+}

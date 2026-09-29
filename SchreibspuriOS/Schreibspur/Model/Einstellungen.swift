@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Wie genau das Kind in der Spur bleiben muss.
-enum Genauigkeit: String, CaseIterable, Identifiable {
+enum Genauigkeit: String, CaseIterable, Identifiable, Codable {
     case locker, normal, streng
 
     var id: String { rawValue }
@@ -54,11 +54,10 @@ enum Stift: String, CaseIterable, Identifiable {
 }
 
 /// Schlüssel für `@AppStorage` — an einer Stelle, damit Übungs- und
-/// Einstellungsansicht nicht auseinanderlaufen.
+/// Einstellungsansicht nicht auseinanderlaufen. Was je Kind gilt
+/// (Genauigkeit, Sterne), steht in `Klasse`.
 enum Schluessel {
-    static let genauigkeit = "genauigkeit"
     static let vorfuehren = "vorfuehren"
-    static let hilfen = "hilfen"
     static let stift = "stift"
     static let nurStift = "nurApplePencil"
 }
