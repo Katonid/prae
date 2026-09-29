@@ -10,6 +10,7 @@
 import { abstandM } from './geo.js';
 
 export const DOPPELT_M = 30;
+const WC_DOPPELT_M = 20;
 
 // Dateien in daten/ — je eine je Quelle (scripts/daten-aktualisieren.py).
 const DATEIEN = ['bochum', 'dortmund', 'muenchen', 'salzburg', 'land-salzburg'];
@@ -133,9 +134,30 @@ export function zusammenfuehren(amtlich, osmOrte) {
   }
   const ergaenzt = new Map(); // amtliche id → Kopie mit OSM-Ergänzung
   const ergebnis = [];
+  // In OSM stehen Damen- und Herren-WC oft als zwei Punkte nebeneinander —
+  // in der Liste sähe das aus wie zwei Toiletten. Unter WC_DOPPELT_M: eine.
+  const osmWc = new Map();
   for (const p of osmOrte) {
     const amtlicher = naechsterAmtlicher(amtlichRaster, p);
-    if (!amtlicher) { ergebnis.push(p); continue; }
+    if (!amtlicher) {
+      if (p.wc) {
+        const k = schluessel(Math.floor(p.lat / RASTER), Math.floor(p.lon / RASTER));
+        const y0 = Math.floor(p.lat / RASTER);
+        const x0 = Math.floor(p.lon / RASTER);
+        let doppelt = false;
+        for (let y = y0 - 1; y <= y0 + 1 && !doppelt; y += 1) {
+          for (let x = x0 - 1; x <= x0 + 1 && !doppelt; x += 1) {
+            doppelt = (osmWc.get(schluessel(y, x)) || [])
+              .some((o) => abstandM(p.lat, p.lon, o.lat, o.lon) < WC_DOPPELT_M);
+          }
+        }
+        if (doppelt) continue;
+        if (!osmWc.has(k)) osmWc.set(k, []);
+        osmWc.get(k).push(p);
+      }
+      ergebnis.push(p);
+      continue;
+    }
     if (p.wc) continue; // amtliche Toilette gewinnt
     const neuGlas = p.glas && !amtlicher.glas;
     const neuPapier = p.papier && !amtlicher.papier;
