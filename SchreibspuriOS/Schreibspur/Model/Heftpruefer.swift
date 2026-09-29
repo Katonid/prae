@@ -42,6 +42,8 @@ final class Heftpruefer {
         case nebenMuster
         case zuWeit
         case zuWeitImWort
+        case zuEng
+        case zuEngImWort
 
         var text: String {
             switch self {
@@ -55,6 +57,8 @@ final class Heftpruefer {
             case .nebenMuster: "Schreib rechts neben das Muster."
             case .zuWeit: "Zu viel Platz – schreib näher an den vorigen Buchstaben."
             case .zuWeitImWort: "Im Wort stehen die Buchstaben dicht beieinander."
+            case .zuEng: "Zu eng – lass etwas Platz zum vorigen Buchstaben."
+            case .zuEngImWort: "Die Buchstaben dürfen nicht übereinanderstehen."
             }
         }
     }
@@ -106,6 +110,15 @@ final class Heftpruefer {
     static let lueckeImWort: CGFloat = 0.5
     static let lueckeZwischen: CGFloat = 0.9
     static let lueckeNachMuster: CGFloat = 1.2
+    /// Mindestabstand zwischen Buchstaben, die nicht zu einem Wort gehören
+    /// (A A A, A a A a), gemessen am fertigen Buchstaben — „AA“ dicht an-
+    /// oder ineinander wird beanstandet (Ansage des Nutzers). Im Wort
+    /// dürfen sie sich fast berühren, aber nicht übereinanderliegen.
+    static let mindestZwischen: CGFloat = 0.15
+    static let mindestImWort: CGFloat = -0.03
+    /// Gehören die Buchstaben einer Einheit zu einem Wort (Silbe, Wort)
+    /// oder stehen sie nur nebeneinander (A a im Wechsel)?
+    let imWort: Bool
     /// Rechter Rand des zuletzt geschafften Buchstabens (anfangs: die
     /// Trennlinie hinter dem Muster).
     private var letzterRand: CGFloat?
@@ -131,9 +144,10 @@ final class Heftpruefer {
 
     /// `rechtsVon`: die Trennlinie hinter dem Muster — geschrieben wird
     /// rechts davon.
-    init(folge: [Zeichen], einheitLaenge: Int = 1, mindestens: Int,
+    init(folge: [Zeichen], einheitLaenge: Int = 1, imWort: Bool = true, mindestens: Int,
          genauigkeit: Genauigkeit, rechtsVon: CGFloat? = nil) {
         self.folge = folge
+        self.imWort = imWort
         self.einheitLaenge = max(1, einheitLaenge)
         self.mindestens = mindestens
         f = genauigkeit.heftFaktor
@@ -146,6 +160,8 @@ final class Heftpruefer {
     /// Das Kind schreibt gerade an einem Buchstaben (einem Teil davon).
     var imBuchstaben: Bool { strichNummer > 0 || schreibtGerade }
     private var buchstabe: Zeichen { folge[min(fertige.count, folge.count - 1)] }
+    /// Der Buchstabe, an dem geschrieben wird, beginnt eine neue Einheit.
+    private var neueEinheit: Bool { fertige.count % einheitLaenge == 0 }
     private var vorlagen: [[CGPoint]] { buchstabe.striche.map(\.punkte) }
     private var x0: CGFloat { buchstabe.striche.first?.anfang.x ?? 0 }
 
@@ -199,7 +215,24 @@ final class Heftpruefer {
             strichNummer += 1
             strichZaehler += 1
             if strichNummer >= vorlagen.count {
-                letzterRand = tinte.flatMap { $0 }.map(\.p.x).max()
+                // Verglichen wird unterhalb der Mittellinie: Das Dach des T
+                // und der Haken des f dürfen über den nächsten Buchstaben
+                // ragen („To“, „fe“), die Buchstaben selbst nicht.
+                let punkte = tinte.flatMap { $0 }.map(\.p)
+                let unten = punkte.filter { $0.y >= 0.5 }.map(\.x)
+                let xs = unten.isEmpty ? punkte.map(\.x) : unten
+                // Der fertige Buchstabe: steht er zu dicht am vorigen?
+                if !fertige.isEmpty, let rand = letzterRand, let links = xs.min(),
+                   links - rand < (neueEinheit || !imWort ? Self.mindestZwischen : Self.mindestImWort) {
+                    fehler += 1
+                    hinweis = neueEinheit || !imWort ? .zuEng : .zuEngImWort
+                    hinweisBuchstabe = buchstabe.text
+                    fehlerZaehler += 1
+                    tinte = []
+                    zeichenZuruecksetzen()
+                    return
+                }
+                letzterRand = xs.max()
                 fertige.append(tinte)
                 tinte = []
                 zeichenZuruecksetzen()
@@ -252,16 +285,34 @@ final class Heftpruefer {
             let grenze: CGFloat
             if fertige.isEmpty {
                 grenze = Self.lueckeNachMuster
-            } else if fertige.count % einheitLaenge == 0 {
+            } else if neueEinheit || !imWort {
                 grenze = Self.lueckeZwischen
             } else {
                 grenze = Self.lueckeImWort
             }
             if luecke > grenze * sqrt(f) {
-                return fertige.count % einheitLaenge == 0 || fertige.isEmpty ? .zuWeit : .zuWeitImWort
+                return neueEinheit || !imWort || fertige.isEmpty ? .zuWeit : .zuWeitImWort
             }
         }
 
+        if let fehler = bewerten(p, t, vorlage) {
+            // Ein O darf auch etwas früher oder später auf dem Kreis
+            // beginnen (oben in der Mitte statt oben rechts): die Vorlage um
+            // bis zu ein Viertel ihres Wegs weiterdrehen — in derselben
+            // Richtung; verkehrt herum passt weiterhin keine Drehung.
+            guard Self.geschlossen(vorlage) else { return fehler }
+            for k in [3, -3, 6, -6, 9, -9] where bewerten(p, Self.zyklisch(t, k), vorlage) == nil {
+                return nil
+            }
+            return fehler
+        }
+        return nil
+    }
+
+    /// nil, wenn der Strich zur (abgetasteten) Vorlage `t` passt — dann
+    /// sind Lage und Breite gemerkt; sonst die Art des Fehlers.
+    private func bewerten(_ p: [CGPoint], _ t: [CGPoint], _ vorlage: [CGPoint]) -> Hinweis? {
+        let erster = ax == nil
         // Lage: beim ersten Strich so, dass die Vorlage am besten passt.
         let anker = erster ? anpassen(p, t).anker : ax!
         var neuUV = suv, neuUU = suu
@@ -352,6 +403,19 @@ final class Heftpruefer {
         if !anfangOK { return .anfang(t[0].y) }
         if !endeOK { return .ende(t[t.count - 1].y) }
         return .form
+    }
+
+    /// Ob ein Strich dort endet, wo er begann (O, o, 0).
+    private static func geschlossen(_ p: [CGPoint]) -> Bool {
+        p.count > 2 && p[0].abstand(zu: p[p.count - 1]) < 0.05 && laenge(p) > 0.5
+    }
+
+    /// Gleich abgetasteter geschlossener Weg, Anfang um `k` Punkte versetzt.
+    private static func zyklisch(_ t: [CGPoint], _ k: Int) -> [CGPoint] {
+        let ring = Array(t.dropLast())
+        let v = ((k % ring.count) + ring.count) % ring.count
+        let neu = Array(ring[v...] + ring[..<v])
+        return neu + [neu[0]]
     }
 
     /// Lage und Breite, bei denen die Vorlage waagerecht am besten auf dem

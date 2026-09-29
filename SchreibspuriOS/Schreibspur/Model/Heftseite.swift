@@ -15,6 +15,17 @@ import Observation
 final class Heftseite {
     static let zeilenabstand: CGFloat = 1.95
 
+    /// Was eine Reihe verlangt, bevor es einen Prüfer dafür gibt.
+    struct Vorgabe {
+        /// Was am Anfang der Reihe steht.
+        let muster: Zeichen
+        /// Die Buchstaben einer Einheit, die wiederholt wird.
+        let teile: [Zeichen]
+        /// Silbe/Wort (eng) oder nur nebeneinander (A a im Wechsel).
+        let imWort: Bool
+        let mindestens: Int
+    }
+
     struct Reihe {
         /// Was am Anfang der Reihe steht (Buchstabe, Silbe oder Wort).
         let muster: Zeichen
@@ -33,14 +44,14 @@ final class Heftseite {
     /// Wo die Schreibfläche einer Reihe beginnt (rechts vom Muster).
     static func musterEnde(_ muster: Zeichen) -> CGFloat { muster.rahmen.maxX + 0.35 }
 
-    init(muster: [Zeichen], mindestens: (Zeichen) -> Int, genauigkeit: Genauigkeit) {
-        reihen = muster.map { m in
-            let teile = m.istFolge ? m.folge : [m]
+    init(vorgaben: [Vorgabe], genauigkeit: Genauigkeit) {
+        reihen = vorgaben.map { v in
             // Genug Wiederholungen, dass jede Reihe voll werden kann.
-            let folge = Array(repeating: teile, count: 30).flatMap { $0 }
-            return Reihe(muster: m, pruefer: Heftpruefer(folge: folge, einheitLaenge: teile.count,
-                                                          mindestens: mindestens(m), genauigkeit: genauigkeit,
-                                                          rechtsVon: Heftseite.musterEnde(m)))
+            let folge = Array(repeating: v.teile, count: 30).flatMap { $0 }
+            return Reihe(muster: v.muster,
+                         pruefer: Heftpruefer(folge: folge, einheitLaenge: v.teile.count, imWort: v.imWort,
+                                              mindestens: v.mindestens, genauigkeit: genauigkeit,
+                                              rechtsVon: Heftseite.musterEnde(v.muster)))
         }
     }
 
@@ -111,5 +122,26 @@ final class Heftseite {
 
     private func lokal(_ p: CGPoint, _ r: Int) -> CGPoint {
         CGPoint(x: p.x, y: p.y - CGFloat(r) * Self.zeilenabstand)
+    }
+}
+
+typealias Reihenvorgabe = Heftseite.Vorgabe
+
+extension Heftseite.Vorgabe {
+    /// Ein Buchstabe, dreimal.
+    static func einzeln(_ z: Zeichen) -> Self {
+        Self(muster: z, teile: [z], imWort: false, mindestens: 3)
+    }
+
+    /// Groß und klein im Wechsel („A a A a“) — mit Abstand, nicht als Wort.
+    static func wechsel(_ paar: [Zeichen]) -> Self {
+        let muster = Zeichenvorrat.folge(id: paar.map(\.id).joined(separator: " "), paar, abstand: 0.35)
+        return Self(muster: muster, teile: paar, imWort: false, mindestens: 2)
+    }
+
+    /// Silbe oder Wort: kurze zweimal, längere einmal.
+    static func wort(_ w: Zeichen) -> Self {
+        let teile = w.istFolge ? w.folge : [w]
+        return Self(muster: w, teile: teile, imWort: true, mindestens: teile.count <= 3 ? 2 : 1)
     }
 }

@@ -299,9 +299,7 @@ struct UebenAnsicht: View {
                            fangFaktor: stufe.fangFaktor,
                            verschiebbar: stufe == .frei)
         seite = stufe == .heft
-            ? Heftseite(muster: heftreihen(), mindestens: { m in
-                m.istFolge ? (m.folge.count <= 2 ? 2 : 1) : 3
-            }, genauigkeit: g)
+            ? Heftseite(vorgaben: heftreihen(), genauigkeit: g)
             : nil
         seiteGeschafft = false
         hinweis = nil
@@ -316,13 +314,13 @@ struct UebenAnsicht: View {
     }
 
     /// Was am Anfang der Reihen der Heftseite steht.
-    private func heftreihen() -> [Zeichen] {
+    private func heftreihen() -> [Reihenvorgabe] {
         if zeichen.id == Klasse.mischungID {
-            return klasse.mischungsBuchstaben(4)
+            return klasse.mischungsBuchstaben(4).map { .einzeln($0) }
         }
         if zeichen.istFolge {
             // Wörter: dieses und die nächsten drei der Liste.
-            return (0..<min(4, liste.count)).map { liste[(index + $0) % liste.count] }
+            return (0..<min(4, liste.count)).map { .wort(liste[(index + $0) % liste.count]) }
         }
         return Zeichenvorrat.heftreihen(fuer: zeichen)
     }

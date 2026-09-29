@@ -192,45 +192,71 @@ enum Zeichenvorrat {
 
     private static let selbstlaute: Set<String> = ["a", "e", "i", "o", "u", "ä", "ö", "ü"]
 
-    /// Was am Anfang der Reihen einer Buchstabenseite steht: der Groß-,
-    /// der Kleinbuchstabe und erste Verbindungen mit schon gelernten
-    /// Buchstaben — beim M „Ma“ und „mo“, beim O „Mo“ und „lo“. Gelernt
-    /// heißt hier: im Lehrgang bis zu diesem Buchstaben dran gewesen.
-    static func heftreihen(fuer zeichen: Zeichen) -> [Zeichen] {
+    /// Die Reihen einer Buchstabenseite (Ansage des Nutzers 09/2026, nach
+    /// dem Vorbild einer Fibelseite): eine Reihe Großbuchstabe, eine Reihe
+    /// Kleinbuchstabe, eine Reihe Groß und klein im Wechsel, dann zwei
+    /// Reihen Verbindungen — anfangs Silben („Ma“), sobald es geht ganze
+    /// Wörter mit dem Buchstaben, die sich aus schon Gelerntem schreiben
+    /// lassen („Mama“). Ziffern: zwei Reihen.
+    static func heftreihen(fuer zeichen: Zeichen) -> [Reihenvorgabe] {
         guard let n = lehrgang.firstIndex(where: { $0.zeichen.contains { $0.id == zeichen.id } }) else {
-            return [zeichen, zeichen]   // Ziffern: zwei Reihen
+            return [.einzeln(zeichen), .einzeln(zeichen)]
         }
-        var reihen = lehrgang[n].zeichen
-        guard let klein = reihen.last?.id.lowercased() else { return reihen }
+        let paar = lehrgang[n].zeichen
+        var reihen = paar.map { Reihenvorgabe.einzeln($0) }
+        if paar.count == 2 {
+            reihen.append(.wechsel(paar))
+        }
+        guard let klein = paar.last?.id.lowercased() else { return reihen }
+
+        // Silben mit schon gelernten Buchstaben
         let bisher = lehrgang[..<n].flatMap { $0.zeichen }.map(\.id).filter { $0 == $0.lowercased() }
         let istSelbstlaut = selbstlaute.contains(klein)
         let partner = bisher.filter { selbstlaute.contains($0) != istSelbstlaut && $0 != "ß" }
-        var verbindungen: [String] = []
+        var silben: [String] = []
         if klein == "q" {
-            verbindungen = ["Qu", "qu"]
+            silben = ["Qu", "qu"]
         } else if klein == "ß" {
-            verbindungen = partner.prefix(2).map { $0 + "ß" }
+            silben = partner.prefix(2).map { $0 + "ß" }
         } else if istSelbstlaut {
-            // Mitlaut davor: „Mo“, dann klein mit dem nächsten: „lo“.
-            if let erster = partner.first { verbindungen.append(erster.uppercased() + klein) }
-            if let zweiter = partner.dropFirst().first ?? partner.first { verbindungen.append(zweiter + klein) }
+            if let erster = partner.first { silben.append(erster.uppercased() + klein) }
+            if let zweiter = partner.dropFirst().first ?? partner.first { silben.append(zweiter + klein) }
         } else {
-            // Selbstlaut dahinter: „Ma“, „mo“; gibt es erst einen, auch „am“.
-            let gross = reihen.first?.id ?? klein.uppercased()
-            if let erster = partner.first { verbindungen.append(gross + erster) }
+            let gross = paar.first?.id ?? klein.uppercased()
+            if let erster = partner.first { silben.append(gross + erster) }
             if let zweiter = partner.dropFirst().first {
-                verbindungen.append(klein + zweiter)
+                silben.append(klein + zweiter)
             } else if let erster = partner.first {
-                verbindungen.append(erster + klein)
+                silben.append(erster + klein)
             }
         }
-        for v in verbindungen {
-            let teile = v.map { buchstaben[String($0)] }
-            if teile.allSatisfy({ $0 != nil }) {
-                reihen.append(folge(id: v, teile.compactMap { $0 }, abstand: 0.16))
+
+        // Wörter mit diesem Buchstaben, die bis hierher schreibbar sind —
+        // kurze zuerst, die mit dem Buchstaben am Anfang bevorzugt.
+        let schritt = lehrgang[n].schritt
+        let passende = woerter
+            .filter { $0.schritt <= schritt && $0.wort.id.lowercased().contains(klein) }
+            .map(\.wort)
+            .sorted { a, b in
+                let aVorn = a.id.lowercased().hasPrefix(klein), bVorn = b.id.lowercased().hasPrefix(klein)
+                if aVorn != bVorn { return aVorn }
+                return a.id.count < b.id.count
             }
+
+        let silbenReihen = silben.compactMap { text -> Reihenvorgabe? in
+            let teile = text.map { buchstaben[String($0)] }
+            guard teile.allSatisfy({ $0 != nil }) else { return nil }
+            return .wort(folge(id: text, teile.compactMap { $0 }, abstand: 0.16))
         }
-        return reihen
+        let wortReihen = passende.map { Reihenvorgabe.wort($0) }
+        // Eine Reihe Silbe, eine Reihe Wort; solange es noch kein Wort gibt,
+        // zwei Silben (beim A gibt es noch nichts zu verbinden).
+        let kandidaten = Array(silbenReihen.prefix(1)) + wortReihen + silbenReihen.dropFirst()
+        var verbindungen: [Reihenvorgabe] = []
+        for k in kandidaten where verbindungen.count < 2 && !verbindungen.contains(where: { $0.muster.id == k.muster.id }) {
+            verbindungen.append(k)
+        }
+        return reihen + verbindungen
     }
 
     private static let verbindungen: Set<String> = ["äu", "eu", "au", "ei", "ie", "ch", "pf", "qu", "ng", "nk", "ck", "tz"]

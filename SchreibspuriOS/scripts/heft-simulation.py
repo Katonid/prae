@@ -144,6 +144,21 @@ class Heftpruefer:
 
         p = abtasten(roh)
         t = abtasten(vorlage)
+        erg = self.bewerten(p, t, vorlage)
+        if erg != "ok" and geschlossen(vorlage):
+            # Ein O darf auch etwas früher oder später auf dem Kreis
+            # beginnen (oben in der Mitte statt oben rechts): die Vorlage
+            # um bis zu ein Viertel ihres Wegs weiterdrehen — in derselben
+            # Richtung, verkehrt herum passt weiterhin keine Drehung.
+            for k in (3, -3, 6, -6, 9, -9):
+                if self.bewerten(p, zyklisch(t, k), vorlage) == "ok":
+                    erg = "ok"
+                    break
+        return self.weiter() if erg == "ok" else self.fehler(erg)
+
+    def bewerten(self, p, t, vorlage):
+        """'ok' (und merkt sich Lage und Breite) oder die Fehlerart."""
+        f = self.f
         erster = self.ax is None
         ax = self.ax
         if erster:
@@ -212,7 +227,7 @@ class Heftpruefer:
             self.ax = ax
             if max(x for x, _ in vorlage) - min(x for x, _ in vorlage) >= BREIT:
                 self.suv, self.suu = suv, suu   # nur breite Striche sagen etwas über die Breite
-            return self.weiter()
+            return "ok"
         # Andersherum? Dann liegt das Ende des Kindes am Anfang der Vorlage.
         if erster:
             ax_r, sx_r = self.anpassen(p, t[::-1])
@@ -221,18 +236,18 @@ class Heftpruefer:
         tr = self.abbilden(t, ax_r, sx_r)[::-1]
         mittel_r, _ = self.vergleich(p, tr)
         if mittel_r <= MITTEL * f * 1.3 and mittel_r < mittel * 0.7:
-            return self.fehler("andersherum")
+            return "andersherum"
         # Zu früh abgesetzt? Dann passt ein Anfangsstück der Vorlage.
         if start_ok:
             for zehntel in range(2, 10):
                 tp = self.abbilden(abtasten(teil(vorlage, zehntel / 10)), ax, sx)
                 if self.vergleich(p, tp)[0] <= MITTEL * f:
-                    return self.fehler("abgesetzt")
+                    return "abgesetzt"
         if not start_ok:
-            return self.fehler("start")
+            return "start"
         if not ende_ok:
-            return self.fehler("ende")
-        return self.fehler("form")
+            return "ende"
+        return "form"
 
     def weiter(self):
         self.k += 1
@@ -241,6 +256,19 @@ class Heftpruefer:
     def fehler(self, art):
         self.k, self.ax, self.suv, self.suu = 0, None, 0.0, 0.0
         return art
+
+
+def geschlossen(pkt):
+    """Ob ein Strich dort endet, wo er begann (O, o, 0)."""
+    return len(pkt) > 2 and math.dist(pkt[0], pkt[-1]) < 0.05 and laenge(pkt) > 0.5
+
+
+def zyklisch(t, k):
+    """Gleich abgetasteter geschlossener Weg, Anfang um k Punkte versetzt."""
+    ring = t[:-1]
+    k %= len(ring)
+    neu = ring[k:] + ring[:k]
+    return neu + [neu[0]]
 
 
 def waagerecht(pkt):
@@ -292,7 +320,11 @@ class Hand:
         ax0, ay0 = random.uniform(-self.ans, self.ans), random.uniform(-self.ans, self.ans) * 0.6
         wx = wy = 0.0
         aus = []
-        for i, (x, y) in enumerate(abtasten(vorlage, 120)):
+        weg = abtasten(vorlage, 121)
+        if geschlossen(vorlage):
+            # Beim O setzen Kinder mal oben in der Mitte, mal weiter rechts an.
+            weg = zyklisch(weg, random.randint(-18, 18))
+        for i, (x, y) in enumerate(weg):
             wx = max(-self.z, min(self.z, wx + random.uniform(-self.sch, self.sch)))
             wy = max(-self.z, min(self.z, wy + random.uniform(-self.sch, self.sch)))
             abklingen = max(0.0, 1 - i / 15)
