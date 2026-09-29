@@ -17,7 +17,7 @@
  * Zwischenspeicher stehen.
  */
 
-const FASSUNG = 'v1';
+const FASSUNG = 'v2';
 const SPEICHER = `container-finder-${FASSUNG}`;
 const KACHELN = 'container-finder-kacheln';
 const KACHEL_MAX = 800;
@@ -37,6 +37,9 @@ const DATEIEN = [
   './vendor/leaflet/leaflet.css',
   './daten/bochum.json',
   './daten/dortmund.json',
+  './daten/muenchen.json',
+  './daten/salzburg.json',
+  './daten/land-salzburg.json',
   './icons/icon.svg',
   './icons/icon-32.png',
   './icons/icon-180.png',
@@ -44,10 +47,16 @@ const DATEIEN = [
   './icons/icon-512.png',
 ];
 
+// Der feste OSM-Stand entsteht im Arbeitsablauf container-finder-daten.yml.
+// Fehlt er (Ablauf gescheitert), darf das die Installation nicht kippen —
+// addAll() bricht bei EINER fehlenden Datei komplett ab.
+const WENN_VORHANDEN = ['./daten/osm-regionen.json'];
+
 self.addEventListener('install', (ereignis) => {
   ereignis.waitUntil(
     caches.open(SPEICHER)
-      .then((speicher) => speicher.addAll(DATEIEN))
+      .then((speicher) => speicher.addAll(DATEIEN)
+        .then(() => Promise.all(WENN_VORHANDEN.map((d) => speicher.add(d).catch(() => {})))))
       .then(() => self.skipWaiting())
   );
 });

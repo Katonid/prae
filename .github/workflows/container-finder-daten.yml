@@ -1,0 +1,67 @@
+name: Container-Finder – Daten aktualisieren
+
+# Holt die amtlichen Daten UND den OpenStreetMap-Stand für die festen Gebiete
+# (container-finder/scripts/daten-aktualisieren.py). Die Overpass API ist aus
+# der Claude-Umgebung nicht erreichbar, von GitHub aus schon — deshalb läuft
+# das hier.
+#
+# - Push auf einen claude/-Zweig, der das Skript oder diesen Ablauf ändert:
+#   Ergebnis wird als Commit auf DENSELBEN Zweig gelegt.
+# - Von Hand (Reiter „Actions" → „Run workflow") auf main: Ergebnis kommt auf
+#   einen neuen Zweig claude/container-finder-daten-<Lauf>; main wird nie
+#   direkt beschrieben.
+# Ein Push mit dem GITHUB_TOKEN löst keine weiteren Arbeitsabläufe aus —
+# keine Schleife.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths:
+      - 'container-finder/scripts/daten-aktualisieren.py'
+      - '.github/workflows/container-finder-daten.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: container-finder-daten-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  daten:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Daten holen
+        id: holen
+        run: |
+          set +e
+          python3 container-finder/scripts/daten-aktualisieren.py
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Ergebnis sichern
+        run: |
+          git add container-finder/daten container-finder/scripts/adressen-cache.json
+          if git diff --cached --quiet; then
+            echo "Keine Änderung an den Daten."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Container-Finder: Daten aktualisiert (Lauf ${GITHUB_RUN_ID})"
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            ziel="claude/container-finder-daten-${GITHUB_RUN_ID}"
+          else
+            ziel="$GITHUB_REF_NAME"
+          fi
+          git push origin "HEAD:refs/heads/${ziel}"
+          echo "Gepusht nach ${ziel}"
+
+      - name: Quellen, die nicht geliefert haben
+        if: steps.holen.outputs.status != '0'
+        run: |
+          echo "Mindestens eine Quelle ist fehlgeschlagen — ihre alte Datei bleibt (Einzelheiten im Schritt „Daten holen“)."
+          exit 1

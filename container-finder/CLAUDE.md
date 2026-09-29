@@ -23,34 +23,63 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 | Quelle | Datei | Lizenz | Inhalt |
 |---|---|---|---|
 | USB Bochum (Open Data Ruhr) | `daten/bochum.json` | CC0 1.0 | nur Altglas + Wertstoffhöfe |
-| EDG Dortmund (open-data.dortmund.de, `edg-abfallentsorgung`) | `daten/dortmund.json` | dl-de/zero-2.0 | Altglas, Altpapier, Recyclinghöfe |
-| OpenStreetMap (Overpass) | zur Laufzeit, IndexedDB | ODbL | ganz Deutschland |
+| EDG + Stadt Dortmund (open-data.dortmund.de) | `daten/dortmund.json` | dl-de/zero-2.0 | Glas, Papier, Recyclinghöfe, Toiletten |
+| Landeshauptstadt München (opendata.muenchen.de, WFS geoportal.muenchen.de) | `daten/muenchen.json` | **dl-de/by-2.0 (Namensnennung Pflicht)** | Altglas, städtische Toiletten |
+| Stadt Salzburg (data.stadt-salzburg.at, WFS) | `daten/salzburg.json` | CC BY 3.0 AT | Glas, Papier, WC-Anlagen |
+| Land Salzburg (ArcGIS-REST, Ebene 8) | `daten/land-salzburg.json` | OGD Österreich | Recyclinghöfe im ganzen Land |
+| OpenStreetMap, feste Gebiete | `daten/osm-regionen.json` | ODbL | Container + Toiletten |
+| OpenStreetMap (Overpass) live | IndexedDB | ODbL | überall sonst |
 
 Aktualisieren: `python3 scripts/daten-aktualisieren.py` (nur Standardbibliothek).
+Flags: `--ohne-osm`, `--nur-osm`, `--ohne-adressen`. Eine fehlgeschlagene
+Quelle lässt ihre alte Datei stehen.
+
+**Feste OSM-Gebiete** (`REGIONEN` im Skript, auf 0,1° ausgerichtet = das
+Zellraster der App): Ruhrgebiet (Bochum, Dortmund, Witten, Castrop-Rauxel),
+München + Fünfseenland (Pilsensee), Salzburg + Berchtesgadener Land. Wunsch
+des Nutzers 09/2026 — „für ganz Deutschland live ist schwierig". Zellen darin
+fragt die App NIE bei Overpass an (`osm.gebieteSetzen`). Ein neues Gebiet: in
+`REGIONEN` eintragen, pushen — mehr nicht.
+
+**Overpass ist aus der Claude-Umgebung nicht erreichbar.** Den OSM-Teil holt
+`.github/workflows/container-finder-daten.yml`: Er läuft bei jedem Push auf
+einen `claude/`-Zweig, der das Skript oder den Ablauf ändert, und legt das
+Ergebnis als Commit auf DENSELBEN Zweig. Also: nach so einem Push auf diesen
+Commit WARTEN und `git pull`, bevor der PR-Link rausgeht. Von Hand auf `main`
+gestartet, pusht er auf einen neuen Zweig `claude/container-finder-daten-<Lauf>`
+(nie direkt auf main) — daraus dann einen PR machen.
 
 Fallen und Entscheidungen:
 - **Die Bochumer CSV hat Koordinaten, aber fast keine Adressen** (262 von 284
   Containerinseln: `Adresse` = `NULL`). Das Skript schlägt sie per Nominatim
-  RÜCKWÄRTS nach (1 Anfrage/s, eigener User-Agent) und merkt sie sich in
-  `scripts/adressen-cache.json` — dieser Cache gehört ins Repo, sonst fragt
-  jede Aktualisierung alle 260 Adressen neu. Solche Adressen tragen
-  `ungefaehr: true` und werden als „bei …" angezeigt.
-- **Bochum führt kein Altpapier** (Spalte fehlt; Papier geht dort über die
-  blaue Tonne). Papiercontainer in Bochum kommen allein aus OSM.
-- In der Bochumer CSV stehen auch Lager, Verwerter (bis Krefeld), Deponien,
-  Gewerbekunden — die werden verworfen. Übernommen werden Containerinseln mit
-  `Glascontainer > 0` und Wertstoffhöfe; eine Insel < 80 m vom Wertstoffhof
-  gilt als derselbe Platz.
-- Dortmund führt Glas und Papier als GETRENNTE Einträge am selben Platz; das
-  Skript fasst Einträge < 25 m zu einem Standort zusammen.
-- Beide Portale senden `Access-Control-Allow-Origin: *` — Live-Laden ginge.
-  Entschieden (09/2026) für einen festen Stand im Repo: robuster, offline.
+  RÜCKWÄRTS nach (1 Anfrage/s, eigener User-Agent, bei 429 Pause) und merkt
+  sie sich in `scripts/adressen-cache.json` — dieser Cache gehört ins Repo.
+  Solche Adressen tragen `ungefaehr: true` und werden als „bei …" angezeigt.
+- **Bochum und München führen kein Altpapier** (dort blaue Tonne). Papier-
+  container kommen dort allein aus OSM.
+- In der Bochumer CSV stehen auch Lager, Verwerter, Deponien, Gewerbekunden —
+  verworfen. Übernommen: Containerinseln mit `Glascontainer > 0` und
+  Wertstoffhöfe (Kürzel `WEH ` UND `WSH `); Insel < 80 m vom Hof = derselbe Platz.
+- Dortmund und Salzburg führen Glas und Papier als GETRENNTE Einträge;
+  zusammengefasst werden Einträge < 25 m (Salzburg zusätzlich über
+  `STANDPLATZNUMMER`).
+- Das Münchner WC-Verzeichnis hat eine Zeile JE KABINE (Damen/Herren/
+  barrierefrei) — zusammengefasst < 25 m. Die Beschreibungen enthalten
+  „Bild: http://badsyip001.srv.muenchen.de/…" — Intranet, wird entfernt.
+- „Nette Toilette" (Dortmund, Salzburg) = Toilette in Geschäft/Lokal, ohne
+  Verzehr nutzbar — mit Hinweis angezeigt. In OSM gelten `access=customers`
+  und `permit` als NICHT öffentlich.
+- Der Datenstand je Datei heißt in der App „abgerufen am" — es ist das Datum
+  des Skriptlaufs, nicht das Änderungsdatum der Quelle.
 
 ## Zusammenführen (js/daten.js)
 
-Amtlich hat Vorrang. Ein OSM-Container < 30 m (`DOPPELT_M`) von einem
-amtlichen Standort verschwindet; hat er eine Art, die dem amtlichen fehlt,
-wird sie dem amtlichen angehängt (`ergaenzt`, mit Hinweis im Detailblatt).
+Amtlich hat Vorrang. Ein OSM-Standort < 30 m (`DOPPELT_M`) von einem
+amtlichen Standort DERSELBEN Art (Toilette nur mit Toilette, Container nur
+mit Container) verschwindet; hat ein OSM-Container eine Art, die dem
+amtlichen fehlt, wird sie angehängt (`ergaenzt`, Hinweis im Detailblatt).
+Fester OSM-Stand und live Geladenes werden vorher über die OSM-Nummer
+entdoppelt (live gewinnt).
 
 ## OSM / Overpass (js/osm.js)
 
@@ -74,6 +103,17 @@ wird sie dem amtlichen angehängt (`ergaenzt`, mit Hinweis im Detailblatt).
 - Dunkelmodus: Kacheln per CSS-Filter umgekehrt (kein eigener Kachelserver).
 
 ## Oberfläche
+
+- Filter unten sind drei UMSCHALTER (Altglas, Altpapier, WC), einzeln an und
+  aus, gespeichert als JSON in `cf-filter`; der letzte bleibt an. Der
+  Hauptknopf heißt je nach Auswahl „Nächster Container" / „Nächste
+  Toilette" / „Was ist in der Nähe?".
+- Hell/Dunkel unabhängig vom Gerät (Wunsch 09/2026): Knopf oben rechts
+  schaltet automatisch → hell → dunkel, `data-thema` am `<html>`, Schlüssel
+  `cf-thema`. Ein Inline-Skript im `<head>` setzt es VOR dem ersten Zeichnen.
+  Die dunklen Farbwerte stehen in `css/app.css` ZWEIMAL (Geräteeinstellung
+  und feste Wahl) — beide ändern.
+- Ortssuche: `countrycodes=de,at` (Salzburg).
 
 Bedienung unten in Daumenreichweite (Filter, Suche, „Nächster Container",
 Standort); Blatt für Details/Listen fährt darüber auf. `zentrieren()` setzt

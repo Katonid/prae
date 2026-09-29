@@ -1,5 +1,7 @@
-// OpenStreetMap über die Overpass API: Glas- und Papiercontainer in ganz
-// Deutschland (und darüber hinaus — die Abfrage kennt keine Grenzen).
+// OpenStreetMap über die Overpass API: Glas- und Papiercontainer und
+// öffentliche Toiletten überall dort, wo es keinen festen Stand gibt.
+// Für die festen Gebiete (daten/osm-regionen.json) wird NICHT gefragt — die
+// Zellen darin gelten als geladen (gebieteSetzen).
 //
 // Geladen wird in festen Rasterzellen (siehe geo.js). Jede Zelle wird eine
 // Woche lang gemerkt, im Speicher und auf dem Gerät (IndexedDB); ohne Netz
@@ -15,6 +17,7 @@ import * as speicher from './speicher.js';
 // gelegentlich Verbindungen abweist.
 const SERVER = [
   'https://z.overpass-api.de/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
   'https://overpass.openstreetmap.fr/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
@@ -24,6 +27,21 @@ const MAX_ZELLEN_JE_ABFRAGE = 6;
 
 const imSpeicher = new Map();   // zelle → { zeit, orte }
 const unterwegs = new Map();    // zelle → Promise
+let festeZellen = new Set();    // Zellen innerhalb der festen Gebiete
+
+/** Gebiete mit festem OSM-Stand: [{ kasten: [s, w, n, o] }]. */
+export function gebieteSetzen(regionen, zellenIm) {
+  festeZellen = new Set();
+  for (const { kasten: [s, w, n, o] } of regionen) {
+    // Ein Hauch nach innen, damit die Randzelle jenseits der Grenze nicht
+    // mitgezählt wird (51.7 / 0.1 = 517 → Zelle 517 gehört NICHT dazu).
+    for (const z of zellenIm(s + 1e-6, w + 1e-6, n - 1e-6, o - 1e-6)) festeZellen.add(z);
+  }
+}
+
+export function zelleFest(z) {
+  return festeZellen.has(z);
+}
 
 function abfrage([s, w, n, o]) {
   const kasten = `(${s},${w},${n},${o})`;
@@ -33,6 +51,7 @@ ${grund}["recycling:glass_bottles"="yes"]${kasten};
 ${grund}["recycling:glass"="yes"]${kasten};
 ${grund}["recycling:paper"="yes"]${kasten};
 ${grund}["recycling:cardboard"="yes"]${kasten};
+nwr["amenity"="toilets"]${kasten};
 );out center tags;`;
 }
 
@@ -42,12 +61,38 @@ function adresseAus(t) {
   return [strasse, ort].filter(Boolean).join(', ');
 }
 
+// Dieselben Regeln wie osm_ort() in scripts/daten-aktualisieren.py.
+function toiletteAus(e, lat, lon) {
+  const t = e.tags || {};
+  // „customers" = nur für Gäste, „permit" = mit Genehmigung: nicht öffentlich.
+  if (['private', 'no', 'customers', 'permit'].includes(t.access)) return null;
+  let gebuehr = null;
+  if (t.fee === 'no') gebuehr = 'kostenlos';
+  else if (t.fee === 'yes') gebuehr = t.charge || 'kostenpflichtig';
+  return {
+    id: `osm-${e.type[0]}${e.id}`,
+    lat, lon, wc: true,
+    name: t.name || '',
+    adresse: adresseAus(t),
+    betreiber: t.operator || '',
+    zeiten: t.opening_hours || '',
+    gebuehr,
+    barrierefrei: t.wheelchair === 'yes' ? true : t.wheelchair === 'no' ? false : null,
+    wickeln: t.changing_table === 'yes',
+    eurokey: t.centralkey === 'eurokey' || t.centralkey === 'yes',
+    info: [t.description, t.note].filter(Boolean).join(' · '),
+    quelle: 'osm',
+    osm: `https://www.openstreetmap.org/${e.type}/${e.id}`,
+  };
+}
+
 function standortAus(e) {
   const t = e.tags || {};
-  if (t.access === 'private' || t.access === 'no') return null;
   const lat = e.lat ?? e.center?.lat;
   const lon = e.lon ?? e.center?.lon;
   if (lat == null || lon == null) return null;
+  if (t.amenity === 'toilets') return toiletteAus(e, lat, lon);
+  if (t.access === 'private' || t.access === 'no') return null;
   const glas = t['recycling:glass_bottles'] === 'yes' || t['recycling:glass'] === 'yes';
   const papier = t['recycling:paper'] === 'yes' || t['recycling:cardboard'] === 'yes';
   if (!glas && !papier) return null;
@@ -151,6 +196,7 @@ export async function zellenLaden(zellen, { netz = true } = {}) {
   let neu = false;
 
   for (const z of zellen) {
+    if (festeZellen.has(z)) continue;
     const da = imSpeicher.get(z);
     if (da && jetzt - da.zeit < FRISCH_MS) continue;
     if (unterwegs.has(z)) continue;
@@ -191,5 +237,5 @@ export function alleOrte() {
 }
 
 export function zelleBekannt(z) {
-  return imSpeicher.has(z);
+  return festeZellen.has(z) || imSpeicher.has(z);
 }

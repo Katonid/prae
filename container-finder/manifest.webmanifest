@@ -1,7 +1,7 @@
 {
-  "name": "Container-Finder — Altglas & Altpapier",
+  "name": "Container-Finder — Altglas, Altpapier, Toiletten",
   "short_name": "Container",
-  "description": "Findet Altglas- und Altpapiercontainer in der Nähe — amtliche Daten für Bochum und Dortmund, OpenStreetMap für ganz Deutschland.",
+  "description": "Findet Altglas- und Altpapiercontainer und öffentliche Toiletten in der Nähe — amtliche Daten für Bochum, Dortmund, München und Salzburg, OpenStreetMap für den Rest.",
   "lang": "de",
   "start_url": "./",
   "scope": "./",
