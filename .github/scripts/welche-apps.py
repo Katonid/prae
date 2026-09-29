@@ -60,6 +60,7 @@ APPS = [
     ("PhotoSpotRadariOS", "PhotoSpotRadar"),
     ("ReisekasseiOS", "Reisekasse"),
     ("RoutenplaneriOS", "Routenplaner"),
+    ("SchreibspuriOS", "Schreibspur"),
     ("SoundboardiOS", "Soundboard"),
     ("TafelbildiOS", "Tafelbild"),
     ("TagesspuriOS", "Tagesspur"),
