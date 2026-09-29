@@ -17,6 +17,9 @@ final class Heftseite {
 
     /// Was eine Reihe verlangt, bevor es einen Prüfer dafür gibt.
     struct Vorgabe {
+        enum Art: String, Codable { case einzeln, wechsel, wort }
+
+        let art: Art
         /// Was am Anfang der Reihe steht.
         let muster: Zeichen
         /// Die Buchstaben einer Einheit, die wiederholt wird.
@@ -29,6 +32,7 @@ final class Heftseite {
     struct Reihe {
         /// Was am Anfang der Reihe steht (Buchstabe, Silbe oder Wort).
         let muster: Zeichen
+        let vorgabe: Vorgabe
         let pruefer: Heftpruefer
     }
 
@@ -48,7 +52,7 @@ final class Heftseite {
         reihen = vorgaben.map { v in
             // Genug Wiederholungen, dass jede Reihe voll werden kann.
             let folge = Array(repeating: v.teile, count: 30).flatMap { $0 }
-            return Reihe(muster: v.muster,
+            return Reihe(muster: v.muster, vorgabe: v,
                          pruefer: Heftpruefer(folge: folge, einheitLaenge: v.teile.count, imWort: v.imWort,
                                               mindestens: v.mindestens, genauigkeit: genauigkeit,
                                               rechtsVon: Heftseite.musterEnde(v.muster)))
@@ -130,18 +134,33 @@ typealias Reihenvorgabe = Heftseite.Vorgabe
 extension Heftseite.Vorgabe {
     /// Ein Buchstabe, dreimal.
     static func einzeln(_ z: Zeichen) -> Self {
-        Self(muster: z, teile: [z], imWort: false, mindestens: 3)
+        Self(art: .einzeln, muster: z, teile: [z], imWort: false, mindestens: 3)
     }
 
     /// Groß und klein im Wechsel („A a A a“) — mit Abstand, nicht als Wort.
     static func wechsel(_ paar: [Zeichen]) -> Self {
         let muster = Zeichenvorrat.folge(id: paar.map(\.id).joined(separator: " "), paar, abstand: 0.35)
-        return Self(muster: muster, teile: paar, imWort: false, mindestens: 2)
+        return Self(art: .wechsel, muster: muster, teile: paar, imWort: false, mindestens: 2)
     }
 
     /// Silbe oder Wort: kurze zweimal, längere einmal.
     static func wort(_ w: Zeichen) -> Self {
         let teile = w.istFolge ? w.folge : [w]
-        return Self(muster: w, teile: teile, imWort: true, mindestens: teile.count <= 3 ? 2 : 1)
+        return Self(art: .wort, muster: w, teile: teile, imWort: true, mindestens: teile.count <= 3 ? 2 : 1)
+    }
+}
+
+extension Heftseite.Vorgabe {
+    /// Eine gespeicherte Reihe wieder aufbauen (Klassenübersicht).
+    static func aus(teile ids: [String], art: Art) -> Self? {
+        let teile = ids.compactMap { Zeichenvorrat.zeichen(id: $0) }
+        guard teile.count == ids.count, let erster = teile.first else { return nil }
+        switch art {
+        case .einzeln: return .einzeln(erster)
+        case .wechsel: return .wechsel(teile)
+        case .wort:
+            return .wort(teile.count == 1 ? erster
+                         : Zeichenvorrat.folge(id: ids.joined(), teile, abstand: 0.16))
+        }
     }
 }

@@ -133,6 +133,11 @@ final class Heftpruefer {
     /// Angenommene Striche des Zeichens, an dem das Kind gerade schreibt.
     private(set) var tinte: [[Tintenpunkt]] = []
     private(set) var aktuelleTinte: [Tintenpunkt] = []
+    /// Alles, was das Kind in dieser Reihe geschrieben hat, in der
+    /// Reihenfolge des Schreibens, auch Verworfenes (`Protokoll`).
+    private(set) var protokoll: [Protokollstrich] = []
+    /// Wo im Protokoll der angefangene Buchstabe beginnt.
+    private var buchstabenStart = 0
     private(set) var schreibtGerade = false
 
     private(set) var fehler = 0
@@ -202,6 +207,8 @@ final class Heftpruefer {
         let strich = aktuelleTinte
         aktuelleTinte = []
         if let fehlerArt = pruefen(strich.map(\.p)) {
+            protokoll.append(Protokollstrich(punkte: strich, verworfen: true))
+            buchstabeVerwerfen()
             fehler += 1
             hinweis = fehlerArt
             hinweisBuchstabe = buchstabe.text
@@ -211,6 +218,7 @@ final class Heftpruefer {
             zeichenZuruecksetzen()
         } else {
             hinweis = nil
+            protokoll.append(Protokollstrich(punkte: strich, verworfen: false, kuer: fertig))
             tinte.append(strich)
             strichNummer += 1
             strichZaehler += 1
@@ -224,6 +232,7 @@ final class Heftpruefer {
                 // Der fertige Buchstabe: steht er zu dicht am vorigen?
                 if !fertige.isEmpty, let rand = letzterRand, let links = xs.min(),
                    links - rand < (neueEinheit || !imWort ? Self.mindestZwischen : Self.mindestImWort) {
+                    buchstabeVerwerfen()
                     fehler += 1
                     hinweis = neueEinheit || !imWort ? .zuEng : .zuEngImWort
                     hinweisBuchstabe = buchstabe.text
@@ -233,6 +242,7 @@ final class Heftpruefer {
                     return
                 }
                 letzterRand = xs.max()
+                buchstabenStart = protokoll.count
                 fertige.append(tinte)
                 tinte = []
                 zeichenZuruecksetzen()
@@ -243,6 +253,13 @@ final class Heftpruefer {
     func abbrechen() {
         schreibtGerade = false
         aktuelleTinte = []
+    }
+
+    /// Der angefangene Buchstabe gilt nicht: im Protokoll als verworfen
+    /// markieren, der nächste beginnt dahinter.
+    private func buchstabeVerwerfen() {
+        for i in buchstabenStart..<protokoll.count { protokoll[i].verworfen = true }
+        buchstabenStart = protokoll.count
     }
 
     /// Wie weit der Stift gerade aus der Höhe des Strichs läuft (0…1):

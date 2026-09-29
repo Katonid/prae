@@ -119,6 +119,19 @@ enum Zeichner {
         }
     }
 
+    /// Eine Reihe der Heftseite: Linien, das Muster am Anfang wie gedruckt
+    /// und die gestrichelte Trennlinie, rechts von der geschrieben wird.
+    static func heftreihe(_ ctx: inout GraphicsContext, breite: CGFloat, muster: Zeichen, _ a: Abbildung) {
+        linien(&ctx, breite: breite, lineatur: .buchstaben, a)
+        spur(&ctx, zeichen: muster, a, farbe: Farben.tinteDunkel.opacity(0.8), breite: 0.07)
+        let x = Heftseite.musterEnde(muster)
+        var trenner = Path()
+        trenner.move(to: a.ansicht(CGPoint(x: x, y: -0.1)))
+        trenner.addLine(to: a.ansicht(CGPoint(x: x, y: 1.5)))
+        ctx.stroke(trenner, with: .color(Farben.grundlinie.opacity(0.5)),
+                   style: StrokeStyle(lineWidth: 1.5, dash: [4, 5]))
+    }
+
     /// Die weiße Schreibspur aller Striche.
     static func spur(_ ctx: inout GraphicsContext, zeichen: Zeichen, _ a: Abbildung,
                      farbe: Color = Farben.spur, breite: CGFloat = spurBreite) {

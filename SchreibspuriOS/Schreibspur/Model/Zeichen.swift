@@ -102,6 +102,16 @@ enum Zeichenvorrat {
         return Dictionary(uniqueKeysWithValues: alle.map { ($0.id, $0) })
     }()
 
+    /// Ein einzelnes Zeichen nach seiner id (Buchstabe, Ziffer, Schwung).
+    static func zeichen(id: String) -> Zeichen? {
+        buchstaben[id] ?? ziffern.first { $0.id == id } ?? schwuenge.first { $0.id == id }
+    }
+
+    /// Groß- und Kleinbuchstabe einer Lektion teilen sich die Heftseite.
+    static func seitenpartner(_ id: String) -> [String] {
+        lehrgang.first { $0.zeichen.contains { $0.id == id } }?.zeichen.map(\.id) ?? [id]
+    }
+
     /// Die Schritte des Lehrgangs (Merkblatt-Reihenfolge), z. B. „A a“, „Au au“.
     static let schritte = Zeichensatz.lehrgangSchritte
 

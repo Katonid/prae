@@ -25,7 +25,9 @@
   Prüfungen auf echte Anfängerschrift eingestellt; 1.0.7 (8) Heftseite
   mit mehreren Reihen, Abstandsprüfung, neue Farben ohne Türkis und
   Regenbogen, orange Warnfarbe beim Schreiben, rund 600 Wörter; 1.0.8
-  (9) fünf Reihen je Buchstabenseite, „zu eng“, O darf anders ansetzen.
+  (9) fünf Reihen je Buchstabenseite, „zu eng“, O darf anders ansetzen;
+  1.0.9 (10) Klassenübersicht mit gespeicherten Seiten, kräftigeres
+  App-Symbol.
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
@@ -45,6 +47,8 @@
 | `Model/Heftpruefer.swift` | Prüfung der Heftzeile (Stufe 5): Vergleich nach Abschluss jedes Strichs |
 | `Model/Anlautbilder.swift` | Bilder (Emoji) mit Wörtern je Buchstabe, nach dem Anlaut ausgewählt |
 | `Model/Klasse.swift` | Kinderprofile, Sterne je Kind/Zeichen/Stufe, Lehrgangsfreigabe |
+| `Model/Protokoll.swift` | Bearbeitungen je Kind und ihre Spuren als Vektoren (Klassenübersicht) |
+| `Views/KlassenAnsicht.swift` | Klassenübersicht: Raster Kinder × Buchstaben, je Kind Stufen, Seiten nachsehen |
 | `Views/UebenAnsicht.swift` | Vorführung, Nachspuren, Stufenwahl, Rückmeldung, Blättern |
 | `Views/KindWahl.swift` | „Wer schreibt?" — Tierkarten |
 | `Views/EinstellungenAnsicht.swift` | Kinder, Lehrgang, Stift — hinter der Malaufgabe (`ErwachsenenTor`) |
@@ -185,7 +189,12 @@
   Bandbreite (`Spurpruefer`, Wert je Punkt in `Tintenpunkt.warnung`), auf
   der Heftseite, sobald der Stift die Höhe seines Strichs verlässt
   (`Heftpruefer.warnung`). Drei Stufen: Stiftfarbe, Hellorange, Orange.
-- Das App-Symbol (`scripts/app-symbol.py`) folgt denselben Farben.
+- Das App-Symbol (`scripts/app-symbol.py`) folgt denselben Farben. Seit
+  1.0.9 kräftig (Nutzer: „zu blass, vom A sieht man nur den ersten
+  Strich“): satter Verlauf Orange → Korallrot, Heftblatt, das **ganze** A
+  in dunkelblauer Tinte, grüner Start am Fuß (Merkblatt: hoch und ohne
+  Absetzen wieder hinunter), violettes Ziel. Keine blassen Spurreste als
+  Hauptmotiv — auf dem Homescreen sind sie nicht zu erkennen.
 
 - **Farbenfroh, aber ohne grafischen Ballast.** Nichts blinkt; Animation
   nur sparsam. Deshalb: kein Wackeln bei Fehlern (nur ein Satz und eine
@@ -333,6 +342,49 @@
 - „Gemischt üben“ (`Klasse.mischung`): sechs gelernte Buchstaben, jedes
   Mal neu gewürfelt; wenig Sterne → öfter; nie derselbe zweimal
   hintereinander. Keine Sterne gespeichert (jede Mischung ist anders).
+
+## Klassenübersicht (seit 1.0.9, Ansage des Nutzers 09/2026)
+
+- Zweck: Die Lehrkraft sieht, **welche Buchstaben jedes Kind bearbeitet
+  hat und wie viele Versuche es brauchte** — ohne die Versuche, die das
+  Kind freiwillig zusätzlich macht — und kann **jede Seite nachträglich
+  ansehen**: Die Spuren werden als Vektoren gespeichert und auf dem
+  Hintergrund der Stufe neu gezeichnet.
+- Zugang: Knopf „Klassenübersicht“ auf „Wer schreibt?“ und oben in den
+  Einstellungen, beide hinter der Malaufgabe (`ErwachsenenTor`).
+- `Protokoll` (in `Klasse.protokoll`): Dateien unter Application
+  Support/Protokoll/<Kind-Id>/ — `verzeichnis.json` mit allen
+  `Bearbeitung`en (klein, beim ersten Zugriff geladen) und je Bearbeitung
+  eine Datei mit den `Blattspuren` (nur beim Ansehen geladen). Punkte in
+  Tausendsteln einer Einheit, Farbstufe je Punkt, Zeit je Strich (für
+  das Nachspielen über alle Reihen). Kind entfernen löscht seine Dateien.
+- **Was gezählt wird:**
+  - Eine Bearbeitung = ein Anlauf auf einer Stufe (Seite geöffnet bis
+    Blättern/Neu/Vorführen/Übersicht/App im Hintergrund). Ohne jeden
+    Strich wird nichts gespeichert.
+  - `fehler` nur bis zur erfüllten Pflicht (Heftseite:
+    `geschafftBeiFehlern`); was danach freiwillig geschrieben wird, steht
+    als `kuer` daneben und zählt nicht.
+  - `freiwillig`: Die Stufe war beim Beginn schon mit drei Sternen
+    gemeistert — erscheint in den Listen, zählt aber nicht in „Anläufe“
+    und „F“ der Übersicht (`Auswertung.je`).
+  - Stufe 5 eines Buchstabens zählt für Groß- und Kleinbuchstaben
+    (`Zeichenvorrat.seitenpartner`) — beide öffnen dieselbe Seite.
+- **Verworfenes wird mitgespeichert** (`protokoll` in `Spurpruefer` und
+  `Heftpruefer`, `Protokollstrich`): falscher Ansatz als Punkt (roter
+  Kreis), abgebrochener Strich bis zur Stelle des Fehlers, auf der
+  Heftseite der ganze verworfene Buchstabe (auch seine schon
+  angenommenen Striche). In der Seitenansicht rot gestrichelt,
+  ausblendbar; Regler und ▶ spielen die Seite Strich für Strich nach.
+- Gespeichert wird beim Schaffen **und** beim Verlassen (`sitzungSpeichern`
+  mit derselben id ersetzt den Eintrag) — sonst fehlte auf der Heftseite,
+  was das Kind nach dem Lob noch geschrieben hat. Vorführen setzt auf
+  Stufe 1–4 das Zeichen zurück; was bis dahin geschrieben war, wird
+  vorher als eigene Bearbeitung gespeichert.
+- Muster und Hintergrund werden aus `Blattspuren.Reihe` (`teile`, `art`)
+  mit `Heftseite.Vorgabe.aus` neu gebaut. Wer die Wegdaten eines
+  Buchstabens ändert, ändert damit auch das Muster alter Seiten — die
+  Schrift des Kindes bleibt, wie sie war.
 
 ## Fallen
 

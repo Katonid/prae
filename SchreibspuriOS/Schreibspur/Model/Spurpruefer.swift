@@ -75,6 +75,9 @@ final class Spurpruefer {
     /// die Stufen ohne Spur, auf denen die eigene Schrift zu sehen ist.
     private(set) var tinte: [[Tintenpunkt]] = []
     private(set) var aktuelleTinte: [Tintenpunkt] = []
+    /// Alles, was das Kind geschrieben hat, auch Verworfenes — für die
+    /// Klassenübersicht (`Protokoll`).
+    private(set) var protokoll: [Protokollstrich] = []
     /// Wie nah der Stift zuletzt am Rand des erlaubten Bandes war (0…1).
     private var naehe: CGFloat = 0
 
@@ -123,9 +126,9 @@ final class Spurpruefer {
             letzterPunkt = p
             aktuelleTinte = [Tintenpunkt(p: roh, warnung: 0)]
         } else if !strich.istPunkt, p.abstand(zu: strich.ende) <= radius {
-            fehlerMelden(.andersherum)
+            fehlerMelden(.andersherum, bei: roh)
         } else {
-            fehlerMelden(.amStartBeginnen)
+            fehlerMelden(.amStartBeginnen, bei: roh)
         }
     }
 
@@ -171,6 +174,7 @@ final class Spurpruefer {
     func vonVorn() {
         abbrechen()
         tinte = []
+        protokoll = []
         versatz = .zero
         strichNummer = 0
         fehler = 0
@@ -224,6 +228,7 @@ final class Spurpruefer {
 
     private func strichGeschafft() {
         tinte.append(aktuelleTinte)
+        protokoll.append(Protokollstrich(punkte: aktuelleTinte, verworfen: false))
         aktuelleTinte = []
         strichNummer += 1
         fortschritt = 0
@@ -231,7 +236,13 @@ final class Spurpruefer {
         strichZaehler += 1
     }
 
-    private func fehlerMelden(_ art: Hinweis) {
+    /// `bei`: falscher Ansatz — für das Protokoll als Punkt festgehalten.
+    private func fehlerMelden(_ art: Hinweis, bei ansatz: CGPoint? = nil) {
+        if !aktuelleTinte.isEmpty {
+            protokoll.append(Protokollstrich(punkte: aktuelleTinte, verworfen: true))
+        } else if let ansatz {
+            protokoll.append(Protokollstrich(punkte: [Tintenpunkt(p: ansatz, warnung: 0)], verworfen: true))
+        }
         schreibtGerade = false
         letzterPunkt = nil
         fortschritt = 0
