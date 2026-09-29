@@ -24,7 +24,8 @@
   links), großzügigere Heftprüfung, Team eingetragen; 1.0.6 (7) alle
   Prüfungen auf echte Anfängerschrift eingestellt; 1.0.7 (8) Heftseite
   mit mehreren Reihen, Abstandsprüfung, neue Farben ohne Türkis und
-  Regenbogen, orange Warnfarbe beim Schreiben, rund 600 Wörter.
+  Regenbogen, orange Warnfarbe beim Schreiben, rund 600 Wörter; 1.0.8
+  (9) fünf Reihen je Buchstabenseite, „zu eng“, O darf anders ansetzen.
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
@@ -202,15 +203,20 @@
 
 ## Stufe 5: Heftseite (Ansage des Nutzers, 09/2026)
 
-- **Seit 1.0.7 mehrere Reihen untereinander** (`Heftseite`). Am Anfang
-  jeder Reihe steht, was darin geschrieben wird
-  (`Zeichenvorrat.heftreihen`): Großbuchstabe, Kleinbuchstabe, dann
-  erste Verbindungen mit schon gelernten Buchstaben (beim M „Ma“ und
-  „mo“, beim O „Mo“ und „lo“, beim Q „Qu“, beim ß „aß“). Wörter: das
-  gewählte Wort und die drei folgenden der Liste, je eine Reihe.
-  „Gemischt üben“: vier gelernte Buchstaben, je eine Reihe. Ziffern:
-  zwei Reihen.
-- **Pflicht und Kür:** je Reihe drei Buchstaben, zwei Silben oder ein
+- **Seit 1.0.7 mehrere Reihen untereinander** (`Heftseite`), seit 1.0.8
+  nach dem Vorbild einer Fibelseite des Nutzers **fünf Reihen**
+  (`Zeichenvorrat.heftreihen`, `Heftseite.Vorgabe`): Großbuchstabe,
+  Kleinbuchstabe, Groß und klein im Wechsel („A a A a“, zählt als
+  einzelne Buchstaben, nicht als Wort), dann zwei Reihen Verbindungen
+  aus schon Gelerntem — eine Silbe („Ma“) und ein Wort mit dem
+  Buchstaben („Mama“, kurze und mit ihm beginnende zuerst); solange es
+  noch kein Wort gibt, zwei Silben. Das A hat nur drei Reihen (nichts zu
+  verbinden), ß eine Reihe plus Silbe/Wort. Wörter: das gewählte Wort
+  und die drei folgenden der Liste, je eine Reihe. „Gemischt üben“: vier
+  gelernte Buchstaben, je eine Reihe. Ziffern: zwei Reihen. Passen die
+  Reihen nicht in echter Größe, wird die Seite kleiner (`abbildung`).
+- **Pflicht und Kür:** je Reihe drei Buchstaben, zweimal „A a“, zwei Silben
+  oder kurze Wörter (bis drei Buchstaben), sonst ein
   Wort; danach erscheint oben ein Lob, das nichts versperrt — das Kind
   darf die Reihen voll schreiben (Ansage: „Manche wollen die ganze Reihe
   voll bekommen“). Sterne zählen die Fehler bis zur erfüllten Pflicht;
@@ -221,6 +227,22 @@
   Wiederholungen, 0,5 im Wort/in der Silbe, 1,2 nach dem Muster (× √
   Genauigkeitsfaktor); darauf oder links davon: „Schreib rechts
   daneben“. Grund: sonst schreiben Kinder drei Buchstaben pro Reihe.
+- **Zu eng** (seit 1.0.8, Nutzer: „beanstanden, wenn Buchstaben so eng
+  zusammengeschrieben werden“ — „AA“ ineinander wurde angenommen):
+  Gemessen am **fertigen** Buchstaben, nur **unterhalb der Mittellinie**
+  (y ≥ 0,5), linker Rand gegen rechten Rand des vorigen. Zwischen
+  Buchstaben, die kein Wort bilden, mindestens 0,15; im Wort −0,03
+  (fast berühren ja, übereinander nein). Unterhalb der Mittellinie,
+  damit das Dach des T und der Haken des f über den nächsten Buchstaben
+  ragen dürfen („Tor“, „fe“). Der zu enge Buchstabe wird verworfen.
+- **Lehre aus 1.0.7 → 1.0.8 (Nutzer: „Beim O ist die App wieder zu
+  pingelig“):** Kinder setzen das O oft oben in der Mitte oder weiter
+  links an statt oben rechts. Die Vorlage hing an einem festen Ansatz
+  auf dem Kreis. Jetzt wird bei **geschlossenen** Strichen (Anfang ≈
+  Ende, Länge > 0,5) die Vorlage um 3, 6 oder 9 von 40 Punkten
+  weitergedreht (`zyklisch`) — gleiche Richtung, deshalb bleibt ein
+  andersherum geschriebenes O abgelehnt. Genauso in
+  `scripts/heft-simulation.py`.
 - Welche Reihe gemeint ist: die, in deren Linien der Stift ansetzt —
   außer ein Buchstabe ist angefangen (i-Punkt, Unterlänge), dann bleibt
   es bei dessen Reihe, solange der Ansatz in ihrer Nähe liegt.
