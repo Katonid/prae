@@ -9,6 +9,8 @@ enum Farben {
     static let spur = Color.white
     static let markierung = Color(red: 0.84, green: 0.12, blue: 0.24)
     static let knopf = Color(red: 0.78, green: 0.94, blue: 0.98)
+    /// Schrift auf hellen Karten (Bilderleiste) — in hell und dunkel gleich.
+    static let tinteDunkel = Color(red: 0.13, green: 0.24, blue: 0.33)
     static let stern = Color(red: 1.0, green: 0.8, blue: 0.15)
 }
 
@@ -30,6 +32,12 @@ struct Abbildung {
             x: groesse.width / 2 - rahmen.midX * m,
             y: (groesse.height - hoehe * m) / 2 - bereich.lowerBound * m
         )
+    }
+
+    /// Feste Größe, z. B. die Heftzeile in Millimetern.
+    init(massstab: CGFloat, verschiebung: CGPoint) {
+        self.massstab = massstab
+        self.verschiebung = verschiebung
     }
 
     func ansicht(_ p: CGPoint) -> CGPoint {
@@ -119,8 +127,8 @@ enum Zeichner {
     /// Farbe mit der Weglänge, `versatz` lässt ihn über mehrere Striche
     /// hinweg weiterlaufen.
     static func tinte(_ ctx: inout GraphicsContext, punkte: [CGPoint], stift: Stift,
-                      versatz: CGFloat, _ a: Abbildung) {
-        let breite = tintenBreite * a.massstab
+                      versatz: CGFloat, _ a: Abbildung, breite einheiten: CGFloat = tintenBreite) {
+        let breite = einheiten * a.massstab
         if punkte.count == 1 {
             let m = a.ansicht(punkte[0]), r = breite * 0.6
             ctx.fill(Path(ellipseIn: CGRect(x: m.x - r, y: m.y - r, width: 2 * r, height: 2 * r)),

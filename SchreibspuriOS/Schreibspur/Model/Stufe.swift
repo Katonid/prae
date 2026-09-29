@@ -1,14 +1,20 @@
 import CoreGraphics
 import Foundation
 
-/// Vom Nachspuren zum freien Schreiben: Jedes Zeichen wird in vier Stufen
-/// geübt, die Hilfen verschwinden nach und nach. Die nächste Stufe öffnet
-/// sich erst mit drei Sternen auf der vorigen.
+/// Vom Nachspuren zum freien Schreiben: Jedes Zeichen wird in bis zu fünf
+/// Stufen geübt, die Hilfen verschwinden nach und nach. Die nächste Stufe
+/// öffnet sich erst mit drei Sternen auf der vorigen. Stufe 5 ist die
+/// Heftzeile in normaler Größe — für Schwünge gibt es sie nicht.
 ///
 /// Geprüft wird auf jeder Stufe dasselbe — Ansatzpunkt, Strichfolge,
 /// Richtung und Absetzen. Nur die Hilfen und das Maß ändern sich.
 enum Stufe: Int, CaseIterable, Identifiable, Comparable {
-    case spur = 1, punkte, startZiel, frei
+    case spur = 1, punkte, startZiel, frei, heft
+
+    /// Die Stufen, die es für ein Zeichen gibt.
+    static func stufen(fuer zeichen: Zeichen) -> [Stufe] {
+        zeichen.istSchwung ? [.spur, .punkte, .startZiel, .frei] : allCases
+    }
 
     var id: Int { rawValue }
 
@@ -20,6 +26,7 @@ enum Stufe: Int, CaseIterable, Identifiable, Comparable {
         case .punkte: "Punkte"
         case .startZiel: "Start und Ziel"
         case .frei: "Frei schreiben"
+        case .heft: "Wie im Heft"
         }
     }
 
@@ -29,6 +36,7 @@ enum Stufe: Int, CaseIterable, Identifiable, Comparable {
         case .punkte: "Nur noch die gepunktete Linie"
         case .startZiel: "Nur noch Start- und Zielpunkte"
         case .frei: "Leere Linien — aus dem Kopf"
+        case .heft: "Normale Lineatur, mehrmals in die Zeile"
         }
     }
 
@@ -49,7 +57,7 @@ enum Stufe: Int, CaseIterable, Identifiable, Comparable {
         switch self {
         case .spur, .punkte: 1
         case .startZiel: 1.25
-        case .frei: 1.6
+        case .frei, .heft: 1.6
         }
     }
 
@@ -58,7 +66,7 @@ enum Stufe: Int, CaseIterable, Identifiable, Comparable {
     var fangFaktor: CGFloat {
         switch self {
         case .spur, .punkte, .startZiel: 1.5
-        case .frei: 1.9
+        case .frei, .heft: 1.9
         }
     }
 }

@@ -77,17 +77,18 @@ final class Klasse {
 
     /// Höchste offene Stufe: die erste, die noch keine drei Sterne hat.
     func offeneStufe(_ zeichen: Zeichen) -> Stufe {
-        for stufe in Stufe.allCases where sterne(zeichen, stufe) < 3 { return stufe }
-        return .frei
+        let stufen = Stufe.stufen(fuer: zeichen)
+        for stufe in stufen where sterne(zeichen, stufe) < 3 { return stufe }
+        return stufen.last ?? .spur
     }
 
     /// Stufen mit drei Sternen — für die Punkte unter den Kacheln.
     func gemeistert(_ zeichen: Zeichen) -> Int {
-        Stufe.allCases.filter { sterne(zeichen, $0) == 3 }.count
+        Stufe.stufen(fuer: zeichen).filter { sterne(zeichen, $0) == 3 }.count
     }
 
     func geuebt(_ zeichen: Zeichen) -> Bool {
-        Stufe.allCases.contains { sterne(zeichen, $0) > 0 }
+        Stufe.stufen(fuer: zeichen).contains { sterne(zeichen, $0) > 0 }
     }
 
     func eintragen(_ anzahl: Int, _ zeichen: Zeichen, _ stufe: Stufe) {
