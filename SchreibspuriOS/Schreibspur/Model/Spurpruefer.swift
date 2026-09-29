@@ -73,8 +73,10 @@ final class Spurpruefer {
 
     /// Was das Kind wirklich geschrieben hat, je geschafftem Strich — für
     /// die Stufen ohne Spur, auf denen die eigene Schrift zu sehen ist.
-    private(set) var tinte: [[CGPoint]] = []
-    private(set) var aktuelleTinte: [CGPoint] = []
+    private(set) var tinte: [[Tintenpunkt]] = []
+    private(set) var aktuelleTinte: [Tintenpunkt] = []
+    /// Wie nah der Stift zuletzt am Rand des erlaubten Bandes war (0…1).
+    private var naehe: CGFloat = 0
 
     private var letzterPunkt: CGPoint?
 
@@ -119,7 +121,7 @@ final class Spurpruefer {
             schreibtGerade = true
             fortschritt = 0
             letzterPunkt = p
-            aktuelleTinte = [roh]
+            aktuelleTinte = [Tintenpunkt(p: roh, warnung: 0)]
         } else if !strich.istPunkt, p.abstand(zu: strich.ende) <= radius {
             fehlerMelden(.andersherum)
         } else {
@@ -135,12 +137,13 @@ final class Spurpruefer {
         // des Wegs übersprungen wird.
         let schritt = such * 0.4
         let anzahl = max(1, Int(ceil(von.abstand(zu: p) / schritt)))
+        naehe = 0
         for k in 1...anzahl {
             let q = von.mitte(zu: p, anteil: CGFloat(k) / CGFloat(anzahl))
             if !pruefen(q, auf: strich) { return }
         }
         letzterPunkt = p
-        aktuelleTinte.append(roh)
+        aktuelleTinte.append(Tintenpunkt(p: roh, warnung: naehe))
     }
 
     func beenden(bei roh: CGPoint) {
@@ -212,6 +215,9 @@ final class Spurpruefer {
             fehlerMelden(.aufDerSpurBleiben)
             return false
         }
+        // Ab der halben Bandbreite wird die Tinte orange — das Kind sieht,
+        // dass der Strich aus der Form zu laufen droht, bevor es passiert.
+        naehe = max(naehe, min(1, max(0, (stelle.abstand / toleranz - 0.5) / 0.5)))
         fortschritt = max(fortschritt, stelle.s)
         return true
     }

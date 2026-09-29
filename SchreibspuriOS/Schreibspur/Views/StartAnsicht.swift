@@ -16,11 +16,7 @@ struct StartAnsicht: View {
     var body: some View {
         VStack(spacing: 16) {
             HStack(spacing: 12) {
-                Text("Schreibspur")
-                    .font(.system(size: 38, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                Titel()
                 Spacer()
                 if let kind = klasse.aktiv {
                     Button {
@@ -32,10 +28,10 @@ struct StartAnsicht: View {
                                 .font(.system(.headline, design: .rounded, weight: .bold))
                                 .lineLimit(1)
                         }
-                        .foregroundStyle(Farben.blatt)
+                        .foregroundStyle(Farben.tinteDunkel)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 4)
-                        .background(Capsule().fill(.white))
+                        .background(Capsule().fill(.white).shadow(color: .black.opacity(0.1), radius: 4, y: 2))
                     }
                     .buttonStyle(.plain)
                     .disabled(klasse.kinder.count < 2)
@@ -58,10 +54,11 @@ struct StartAnsicht: View {
                             Text("\(liste.filter { klasse.geuebt($0) }.count) von \(liste.count)")
                                 .font(.system(.caption, design: .rounded))
                         }
-                        .foregroundStyle(bereich == b ? Farben.blatt : .white)
+                        .foregroundStyle(bereich == b ? .white : Farben.farbe(b))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Capsule().fill(bereich == b ? Color.white : Color.white.opacity(0.18)))
+                        .background(Capsule().fill(bereich == b ? Farben.farbe(b) : Color.white)
+                            .shadow(color: .black.opacity(bereich == b ? 0.18 : 0.08), radius: 5, y: 2))
                     }
                     .buttonStyle(.plain)
                 }
@@ -75,7 +72,7 @@ struct StartAnsicht: View {
                         Button {
                             auswahl = Auswahl(liste: [klasse.mischung()], index: 0)
                         } label: {
-                            GemischtKachel()
+                            GemischtKachel(farbe: Farben.farbe(.woerter))
                         }
                         .buttonStyle(.plain)
                     }
@@ -84,7 +81,7 @@ struct StartAnsicht: View {
                         Button {
                             auswahl = Auswahl(liste: liste, index: i)
                         } label: {
-                            Kachel(zeichen: zeichen, stufen: Stufe.stufen(fuer: zeichen).count,
+                            Kachel(zeichen: zeichen, farbe: Farben.farbe(bereich), stufen: Stufe.stufen(fuer: zeichen).count,
                                    gemeistert: klasse.gemeistert(zeichen),
                                    geuebt: klasse.geuebt(zeichen), offen: offen)
                         }
@@ -96,7 +93,7 @@ struct StartAnsicht: View {
                 if bereich == .woerter, liste.isEmpty {
                     Text("Sobald ein paar Buchstaben mehr gelernt sind, stehen hier Wörter zum Schreiben.")
                         .font(.system(.title3, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Farben.tinteDunkel)
                         .multilineTextAlignment(.center)
                         .padding(.top, 8)
                 }
@@ -104,7 +101,7 @@ struct StartAnsicht: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
-        .background(Farben.blatt.ignoresSafeArea())
+        .background(Farben.verlauf.ignoresSafeArea())
         .fullScreenCover(item: $auswahl) { a in
             UebenAnsicht(liste: a.liste, start: a.index)
                 .environment(klasse)
@@ -121,6 +118,7 @@ struct StartAnsicht: View {
 /// Buchstaben sind abgedunkelt und tragen ein Schloss.
 private struct Kachel: View {
     let zeichen: Zeichen
+    let farbe: Color
     let stufen: Int
     let gemeistert: Int
     let geuebt: Bool
@@ -134,23 +132,30 @@ private struct Kachel: View {
                 .overlay {
                     if !offen {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 14).fill(.black.opacity(0.35))
+                            RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.7))
                             Image(systemName: "lock.fill")
                                 .font(.title.weight(.bold))
-                                .foregroundStyle(.white.opacity(0.85))
+                                .foregroundStyle(Farben.linie)
                         }
                     }
                 }
             HStack(spacing: 4) {
                 ForEach(0..<stufen, id: \.self) { i in
                     Circle()
-                        .fill(i < gemeistert ? Farben.stern : .white.opacity(geuebt ? 0.45 : 0.25))
+                        .fill(i < gemeistert ? Farben.stern : farbe.opacity(geuebt ? 0.35 : 0.15))
                         .frame(width: 9, height: 9)
                 }
             }
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: 18).fill(.white.opacity(0.15)))
+        .background(RoundedRectangle(cornerRadius: 18).fill(.white)
+            .shadow(color: .black.opacity(0.1), radius: 6, y: 3))
+        .overlay(alignment: .top) {
+            // Farbiger Rand oben: zu welchem Bereich die Kachel gehört.
+            UnevenRoundedRectangle(topLeadingRadius: 18, topTrailingRadius: 18)
+                .fill(farbe)
+                .frame(height: 5)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(offen ? "\(zeichen.text), \(gemeistert) von \(stufen) Stufen geschafft" : "\(zeichen.text), noch gesperrt"))
         .accessibilityAddTraits(.isButton)
@@ -160,6 +165,8 @@ private struct Kachel: View {
 /// „Gemischt üben": schon gelernte Buchstaben durcheinander, jedes Mal neu
 /// zusammengestellt — die mit wenig Sternen öfter.
 private struct GemischtKachel: View {
+    let farbe: Color
+
     var body: some View {
         VStack(spacing: 6) {
             VStack(spacing: 4) {
@@ -170,16 +177,37 @@ private struct GemischtKachel: View {
                 Text("Bekannte Buchstaben wiederholen")
                     .font(.system(.caption, design: .rounded))
             }
-            .foregroundStyle(Farben.blatt)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .aspectRatio(2, contentMode: .fit)
-            .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+            .background(RoundedRectangle(cornerRadius: 14).fill(farbe))
             Color.clear.frame(height: 9)
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: 18).fill(.white.opacity(0.15)))
+        .background(RoundedRectangle(cornerRadius: 18).fill(.white)
+            .shadow(color: .black.opacity(0.1), radius: 6, y: 3))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Gemischt üben: bekannte Buchstaben wiederholen"))
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Der Schriftzug: jeder Buchstabe in einer der Bereichsfarben — bunt,
+/// aber ruhig.
+private struct Titel: View {
+    private let farben: [Color] = Bereich.allCases.map { Farben.farbe($0) }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array("Schreibspur".enumerated()), id: \.offset) { i, c in
+                Text(String(c)).foregroundStyle(farben[i % farben.count])
+            }
+        }
+        .font(.system(size: 38, weight: .heavy, design: .rounded))
+        .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Schreibspur"))
     }
 }

@@ -1,17 +1,50 @@
 import SwiftUI
 
-/// Die Farben des Schreibblatts.
+/// Die Farben der App.
+///
+/// Bewusst **kein** Türkis und **kein** Regenbogen mehr (Ansage des
+/// Nutzers 09/2026): beides ist das Kennzeichen der App, die als Beispiel
+/// diente. Stattdessen warmes Papier, farbige Akzente, dunkelblaue Tinte —
+/// und Orange nur als Rückmeldung, wenn ein Strich aus der Form zu laufen
+/// droht.
 enum Farben {
-    static let blatt = Color(red: 0.0, green: 0.71, blue: 0.83)
-    /// Band zwischen Mittel- und Grundlinie, etwas heller.
-    static let band = Color(red: 0.1, green: 0.75, blue: 0.86)
-    static let linie = Color.white.opacity(0.75)
-    static let spur = Color.white
-    static let markierung = Color(red: 0.84, green: 0.12, blue: 0.24)
-    static let knopf = Color(red: 0.78, green: 0.94, blue: 0.98)
-    /// Schrift auf hellen Karten (Bilderleiste) — in hell und dunkel gleich.
-    static let tinteDunkel = Color(red: 0.13, green: 0.24, blue: 0.33)
-    static let stern = Color(red: 1.0, green: 0.8, blue: 0.15)
+    /// Papier: warmes Creme.
+    static let blatt = Color(red: 1.0, green: 0.973, blue: 0.918)
+    /// Erdgeschoss (zwischen Mittel- und Grundlinie), zart grün.
+    static let band = Color(red: 0.925, green: 0.961, blue: 0.851)
+    static let linie = Color(red: 0.62, green: 0.71, blue: 0.79)
+    static let grundlinie = Color(red: 0.43, green: 0.54, blue: 0.65)
+    /// Die Spur zum Nachfahren.
+    static let spur = Color(red: 0.84, green: 0.88, blue: 0.93)
+    static let spurRand = Color(red: 0.74, green: 0.8, blue: 0.87)
+    /// Start: grün (los geht's), Ziel: violett.
+    static let start = Color(red: 0.18, green: 0.62, blue: 0.42)
+    static let ziel = Color(red: 0.48, green: 0.35, blue: 0.82)
+    /// Rückmeldung: Orange, wenn es knapp wird; Korallrot bei Fehlern.
+    static let warnung = Color(red: 0.96, green: 0.55, blue: 0.13)
+    static let markierung = Color(red: 0.86, green: 0.3, blue: 0.32)
+    /// Symbole der Leisten.
+    static let knopf = Color(red: 0.24, green: 0.3, blue: 0.43)
+    /// Schrift auf hellen Flächen.
+    static let tinteDunkel = Color(red: 0.16, green: 0.22, blue: 0.34)
+    static let stern = Color(red: 1.0, green: 0.76, blue: 0.1)
+    /// Hauptknöpfe.
+    static let akzent = Color(red: 0.95, green: 0.5, blue: 0.2)
+
+    /// Hintergrund der Übersicht: warmer Verlauf.
+    static let verlauf = LinearGradient(
+        colors: [Color(red: 1.0, green: 0.96, blue: 0.88), Color(red: 1.0, green: 0.88, blue: 0.8)],
+        startPoint: .top, endPoint: .bottom)
+
+    /// Jeder Bereich hat seine Farbe.
+    static func farbe(_ bereich: Bereich) -> Color {
+        switch bereich {
+        case .schwuenge: Color(red: 0.55, green: 0.4, blue: 0.85)
+        case .buchstaben: Color(red: 0.95, green: 0.5, blue: 0.2)
+        case .woerter: Color(red: 0.2, green: 0.62, blue: 0.4)
+        case .ziffern: Color(red: 0.24, green: 0.5, blue: 0.86)
+        }
+    }
 }
 
 /// Umrechnung zwischen Einheiten des Vierliniensystems und Bildpunkten.
@@ -82,7 +115,7 @@ enum Zeichner {
             var p = Path()
             p.move(to: CGPoint(x: 0, y: y))
             p.addLine(to: CGPoint(x: breite, y: y))
-            ctx.stroke(p, with: .color(Farben.linie), lineWidth: linie == 1 ? 2 : 1.2)
+            ctx.stroke(p, with: .color(linie == 1 ? Farben.grundlinie : Farben.linie), lineWidth: linie == 1 ? 2 : 1.2)
         }
     }
 
@@ -97,12 +130,17 @@ enum Zeichner {
                 ctx.fill(Path(ellipseIn: CGRect(x: m.x - r, y: m.y - r, width: 2 * r, height: 2 * r)),
                          with: .color(farbe))
             } else {
+                if farbe == Farben.spur {
+                    // Zarter Rand, damit die helle Spur auf dem Papier steht.
+                    let rand = StrokeStyle(lineWidth: breite * a.massstab + 3, lineCap: .round, lineJoin: .round)
+                    ctx.stroke(pfad(strich.punkte, a), with: .color(Farben.spurRand), style: rand)
+                }
                 ctx.stroke(pfad(strich.punkte, a), with: .color(farbe), style: stil)
             }
         }
     }
 
-    /// Das ganze Zeichen als weiße Punktlinie (Stufe 2).
+    /// Das ganze Zeichen als Punktlinie (Stufe 2).
     static func punktlinie(_ ctx: inout GraphicsContext, zeichen: Zeichen, _ a: Abbildung) {
         let abstand = max(9, 0.05 * a.massstab)
         let stil = StrokeStyle(lineWidth: max(5, 0.028 * a.massstab), lineCap: .round, dash: [0, abstand])
@@ -110,14 +148,14 @@ enum Zeichner {
             if strich.istPunkt {
                 let r = max(3, 0.018 * a.massstab), m = a.ansicht(strich.anfang)
                 ctx.fill(Path(ellipseIn: CGRect(x: m.x - r, y: m.y - r, width: 2 * r, height: 2 * r)),
-                         with: .color(Farben.spur))
+                         with: .color(Farben.grundlinie.opacity(0.7)))
             } else {
-                ctx.stroke(pfad(strich.punkte, a), with: .color(Farben.spur), style: stil)
+                ctx.stroke(pfad(strich.punkte, a), with: .color(Farben.grundlinie.opacity(0.7)), style: stil)
             }
         }
     }
 
-    /// Leicht aufgehelltes Feld, in das das Zeichen gehört (Stufe 4) —
+    /// Leicht getöntes Feld, in das das Zeichen gehört (Stufe 4) —
     /// ohne Spur weiß das Kind sonst nicht, wie groß und wo es schreiben soll.
     static func schreibfeld(_ ctx: inout GraphicsContext, zeichen: Zeichen, _ a: Abbildung) {
         let r = zeichen.rahmen
@@ -125,49 +163,56 @@ enum Zeichner {
         let links = a.ansicht(CGPoint(x: r.minX - 0.18, y: bereich.first ?? 0))
         let rechts = a.ansicht(CGPoint(x: r.maxX + 0.18, y: bereich.last ?? 1))
         let feld = CGRect(x: links.x, y: links.y, width: rechts.x - links.x, height: rechts.y - links.y)
-        ctx.fill(Path(roundedRect: feld, cornerRadius: 12), with: .color(.white.opacity(0.12)))
+        ctx.fill(Path(roundedRect: feld, cornerRadius: 12), with: .color(Farben.ziel.opacity(0.07)))
     }
 
-    /// Geschriebene Tinte entlang `punkte`. Der Regenbogen wechselt die
-    /// Farbe mit der Weglänge, `versatz` lässt ihn über mehrere Striche
-    /// hinweg weiterlaufen.
+    /// Tinte einer Vorführung: sauber auf dem Weg.
     static func tinte(_ ctx: inout GraphicsContext, punkte: [CGPoint], stift: Stift,
-                      versatz: CGFloat, _ a: Abbildung, breite einheiten: CGFloat = tintenBreite) {
+                      _ a: Abbildung, breite einheiten: CGFloat = tintenBreite) {
+        tinte(&ctx, punkte: punkte.map { Tintenpunkt(p: $0, warnung: 0) }, stift: stift, a, breite: einheiten)
+    }
+
+    /// Was das Kind geschrieben hat. Wo der Strich aus der Form zu laufen
+    /// drohte, färbt sich die Tinte orange — sofort beim Schreiben, damit
+    /// das Kind merkt, dass es sich korrigieren kann.
+    static func tinte(_ ctx: inout GraphicsContext, punkte: [Tintenpunkt], stift: Stift,
+                      _ a: Abbildung, breite einheiten: CGFloat = tintenBreite) {
         let breite = einheiten * a.massstab
+        guard let erster = punkte.first else { return }
         if punkte.count == 1 {
-            let m = a.ansicht(punkte[0]), r = breite * 0.6
+            let m = a.ansicht(erster.p), r = breite * 0.6
             ctx.fill(Path(ellipseIn: CGRect(x: m.x - r, y: m.y - r, width: 2 * r, height: 2 * r)),
-                     with: .color(stift == .regenbogen ? regenbogen(versatz) : stift.farbe))
+                     with: .color(farbe(stift, erster.warnung)))
             return
         }
         let stil = StrokeStyle(lineWidth: breite, lineCap: .round, lineJoin: .round)
-        guard stift == .regenbogen else {
-            ctx.stroke(pfad(punkte, a), with: .color(stift.farbe), style: stil)
-            return
-        }
-        // In kurzen Stücken zeichnen, jedes in seiner Farbe.
-        var laenge = versatz
-        var stueck: [CGPoint] = [punkte[0]]
-        var stueckLaenge: CGFloat = 0
+        // Stücke gleicher Farbstufe am Stück zeichnen.
+        var stueck = [erster.p]
+        var stufe = farbstufe(erster.warnung)
         for q in punkte.dropFirst() {
-            let d = stueck.last!.abstand(zu: q)
-            stueck.append(q)
-            stueckLaenge += d
-            if stueckLaenge >= 0.04 {
-                ctx.stroke(pfad(stueck, a), with: .color(regenbogen(laenge)), style: stil)
-                laenge += stueckLaenge
-                stueck = [q]
-                stueckLaenge = 0
+            stueck.append(q.p)
+            let neu = farbstufe(q.warnung)
+            if neu != stufe {
+                ctx.stroke(pfad(stueck, a), with: .color(farbe(stift, CGFloat(stufe) / 2)), style: stil)
+                stueck = [q.p]
+                stufe = neu
             }
         }
         if stueck.count > 1 {
-            ctx.stroke(pfad(stueck, a), with: .color(regenbogen(laenge)), style: stil)
+            ctx.stroke(pfad(stueck, a), with: .color(farbe(stift, CGFloat(stufe) / 2)), style: stil)
         }
     }
 
-    static func regenbogen(_ laenge: CGFloat) -> Color {
-        let farbton = (laenge / 1.6).truncatingRemainder(dividingBy: 1)
-        return Color(hue: farbton, saturation: 0.75, brightness: 1)
+    private static func farbstufe(_ warnung: CGFloat) -> Int {
+        warnung < 0.35 ? 0 : (warnung < 0.8 ? 1 : 2)
+    }
+
+    private static func farbe(_ stift: Stift, _ warnung: CGFloat) -> Color {
+        switch farbstufe(warnung) {
+        case 0: stift.farbe
+        case 1: Color(red: 0.93, green: 0.62, blue: 0.2)
+        default: Farben.warnung
+        }
     }
 
     /// Gepunktete Führungslinie auf dem noch offenen Teil des Strichs.
@@ -176,16 +221,16 @@ enum Zeichner {
         var rest = [strich.punkt(bei: s)]
         for (i, q) in strich.punkte.enumerated() where strich.laengen[i] > s { rest.append(q) }
         let abstand = max(10, 0.045 * a.massstab)
-        ctx.stroke(pfad(rest, a), with: .color(Farben.markierung),
+        ctx.stroke(pfad(rest, a), with: .color(Farben.start.opacity(0.8)),
                    style: StrokeStyle(lineWidth: max(3, 0.012 * a.massstab), lineCap: .round,
                                       dash: [0, abstand]))
     }
 
-    /// Roter Startpunkt mit weißem Pfeil in Schreibrichtung.
+    /// Grüner Startpunkt mit weißem Pfeil in Schreibrichtung.
     static func start(_ ctx: inout GraphicsContext, strich: Strich, _ a: Abbildung, puls: CGFloat = 1) {
         let m = a.ansicht(strich.anfang)
         let r = 0.058 * a.massstab * puls
-        kreis(&ctx, m, r)
+        kreis(&ctx, m, r, Farben.start)
         if strich.istPunkt {
             let i = r * 0.35
             ctx.fill(Path(ellipseIn: CGRect(x: m.x - i, y: m.y - i, width: 2 * i, height: 2 * i)),
@@ -205,20 +250,22 @@ enum Zeichner {
                      style: StrokeStyle(lineWidth: r * 0.2, lineCap: .round, lineJoin: .round))
     }
 
-    /// Roter Zielring am Ende des Strichs — nur hier darf abgesetzt werden.
+    /// Violetter Zielring am Ende des Strichs — nur hier darf abgesetzt werden.
     static func ziel(_ ctx: inout GraphicsContext, strich: Strich, _ a: Abbildung) {
         guard !strich.istPunkt else { return }
         let m = a.ansicht(strich.ende)
         let r = 0.05 * a.massstab
-        kreis(&ctx, m, r)
+        kreis(&ctx, m, r, Farben.ziel)
         let i = r * 0.42
         ctx.fill(Path(ellipseIn: CGRect(x: m.x - i, y: m.y - i, width: 2 * i, height: 2 * i)),
                  with: .color(.white))
     }
 
-    private static func kreis(_ ctx: inout GraphicsContext, _ m: CGPoint, _ r: CGFloat) {
+    private static func kreis(_ ctx: inout GraphicsContext, _ m: CGPoint, _ r: CGFloat, _ farbe: Color) {
         let rahmen = CGRect(x: m.x - r, y: m.y - r, width: 2 * r, height: 2 * r)
-        ctx.fill(Path(ellipseIn: rahmen), with: .color(Farben.markierung))
+        var schatten = ctx
+        schatten.addFilter(.shadow(color: .black.opacity(0.18), radius: 3, y: 1.5))
+        schatten.fill(Path(ellipseIn: rahmen), with: .color(farbe))
         ctx.stroke(Path(ellipseIn: rahmen), with: .color(.white.opacity(0.9)), lineWidth: max(1.5, r * 0.08))
     }
 

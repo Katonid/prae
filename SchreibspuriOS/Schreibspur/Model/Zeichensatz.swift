@@ -12,8 +12,8 @@ import Foundation
 ///     y = 1.4   Unterlinie  (Unterlängen: f, g, j, p, q, y, ß und J)
 ///
 /// Maße, Strichfolge, Ansatzpunkte und Schreibrichtung folgen dem
-/// **Merkblatt Schreibrichtung aus „Flex und Flora 1“** (Westermann),
-/// Vorgabe des Nutzers 09/2026 („GENAU so“). Dort bedeutet ein Pfeil mit
+/// **Merkblatt zur Schreibrichtung**, das der Nutzer vorgegeben hat
+/// (09/2026: „GENAU so“). Dort bedeutet ein Pfeil mit
 /// Punkt: hier ansetzen (lila = erster Strich, türkis = weiterer Strich);
 /// ein Pfeil ohne Punkt: ohne Absetzen weiter in diese Richtung. Die
 /// Linienabstände (Mittellinie 0,45, Unterlinie 1,4) sind aus dem Blatt
@@ -136,8 +136,7 @@ enum Zeichensatz {
         ("Wellen", ["M 0 0.725 C 0.10 0.5 0.20 0.5 0.30 0.725 C 0.40 0.95 0.50 0.95 0.60 0.725 C 0.70 0.5 0.80 0.5 0.90 0.725 C 1.00 0.95 1.10 0.95 1.20 0.725 C 1.30 0.5 1.40 0.5 1.50 0.725"]),
     ]
 
-    /// Lehrgangsreihenfolge von „Flex und Flora 1“ — genau die Reihenfolge
-    /// des Merkblatts: Vorderseite beginnend mit A, daneben M, dann O und
+    /// Lehrgangsreihenfolge — genau die Reihenfolge des Merkblatts: Vorderseite beginnend mit A, daneben M, dann O und
     /// weiter zeilenweise, danach die Rückseite (Ansage des Nutzers
     /// 09/2026). Jeder Schritt ist ein Buchstabe (Groß und klein) oder eine
     /// Buchstabenverbindung, die als eigener Laut gelernt wird (Au, Sch …).
@@ -161,30 +160,66 @@ enum Zeichensatz {
     static let woerter: [String] = [
         "Mama", "Oma", "Omi", "Mimi", "Mia", "Lama", "Limo", "Lola", "Lili", "Lolli",
         "Milo", "Ali", "alle", "Ulli", "Ulla", "Uli", "Emil", "Emma", "Ella", "Lea",
-        "Leo", "Allee", "Ulme", "Emu", "Esel", "Salami", "Lisa", "Susi", "Suse",
-        "Saal", "Moos", "Mus", "Oase", "Sessel", "alles", "Sofa", "Fee", "Fell", "Film",
-        "Fass", "Nase", "Nina", "Name", "Nil", "Mann", "Sonne", "Linse", "Nuss", "Nonne",
-        "Mine", "Ofen", "Nudel", "Wal", "Wolle", "Welle", "Wanne", "Wolf", "Waffel", "Rose",
-        "Rasen", "Rolle", "Roller", "Wasser", "Rosine", "Ruine", "Tomate", "Tante", "Tor", "Turm",
-        "Tasse", "Tunnel", "Tanne", "Ente", "Tee", "Tafel", "Taste", "Wurst", "Mantel", "Nest",
-        "Auto", "Maus", "Laus", "Traum", "Frau", "Pause", "Papa", "Post", "Puppe", "Pirat",
-        "Pilot", "Pinsel", "Lampe", "Tulpe", "Ei", "Eis", "Eimer", "Seil", "Seife", "Reis",
-        "Wein", "Dose", "Dino", "Dame", "Radio", "Wand", "Dorf", "Mond", "Ende", "Leder",
-        "Fisch", "Tisch", "Schule", "Schaf", "Schal", "Dusche", "Tasche", "Flasche", "Kamel", "Kanu",
-        "Kino", "Kakao", "Kiste", "Paket", "Kette", "Rakete", "Kerze", "Kater", "Hut", "Haus",
-        "Hose", "Hand", "Honig", "Huhn", "Uhu", "Uhr", "Kuh", "Hemd", "Himmel", "Baum",
-        "Ball", "Bus", "Banane", "Bett", "Birne", "Brot", "Rabe", "Hobel", "Gans", "Gabel",
-        "Igel", "Gurke", "Garten", "Regen", "Nagel", "Geld", "Gold", "Wagen", "Tiger", "Berg",
-        "Glas", "Zebra", "Zahn", "Zelt", "Zug", "Zaun", "Zitrone", "Pilz", "Salz", "Herz",
-        "Zimmer", "Eule", "Heu", "Feuer", "Euro", "Buch", "Dach", "Milch", "Kuchen", "Bach",
-        "Biene", "Wiese", "Tier", "Spiel", "Spinne", "Stern", "Stein", "Stift", "Stuhl", "Jojo",
-        "Jana", "Juli", "Jonas", "Jaguar", "Vogel", "Vase", "Vulkan", "Vater", "Klavier", "Olive",
-        "Öl", "Löwe", "Möhre", "Vögel", "Flöte", "König", "Kröte", "Löffel", "Tür", "Mütze",
-        "Küken", "Rübe", "Tüte", "Hütte", "Bügel", "Bär", "Käse", "Träne", "Säge", "Käfer",
-        "Zähne", "Hände", "Mäuse", "Häuser", "Bäume", "Apfel", "Äpfel", "Kopf", "Pferd", "Pfanne",
-        "Qualle", "Quark", "Quelle", "Fuß", "Straße", "Füße", "Fußball", "Soße", "Pony", "Baby",
-        "Teddy", "Taxi", "Hexe", "Axt", "Box", "Nixe", "Ring", "Engel", "Finger", "Hunger",
-        "Zange", "Katze", "Platz", "Sack", "Rock", "Socke", "Jacke", "Brücke", "Zucker", "Bank",
-        "Onkel", "Anker", "Schrank",
+        "Leo", "Allee", "Ulme", "Emu", "Esel", "Salami", "Lisa", "Susi", "Suse", "Saal",
+        "Moos", "Mus", "Oase", "Sessel", "alles", "Sofa", "Fee", "Fell", "Film", "Fass",
+        "Nase", "Nina", "Name", "Nil", "Mann", "Sonne", "Linse", "Nuss", "Nonne", "Mine",
+        "Ofen", "Nudel", "Wal", "Wolle", "Welle", "Wanne", "Wolf", "Waffel", "Rose", "Rasen",
+        "Rolle", "Roller", "Wasser", "Rosine", "Ruine", "Tomate", "Tante", "Tor", "Turm", "Tasse",
+        "Tunnel", "Tanne", "Ente", "Tee", "Tafel", "Taste", "Wurst", "Mantel", "Nest", "Auto",
+        "Maus", "Laus", "Traum", "Frau", "Pause", "Papa", "Post", "Puppe", "Pirat", "Pilot",
+        "Pinsel", "Lampe", "Tulpe", "Ei", "Eis", "Eimer", "Seil", "Seife", "Reis", "Wein",
+        "Dose", "Dino", "Dame", "Radio", "Wand", "Dorf", "Mond", "Ende", "Leder", "Fisch",
+        "Tisch", "Schule", "Schaf", "Schal", "Dusche", "Tasche", "Flasche", "Kamel", "Kanu", "Kino",
+        "Kakao", "Kiste", "Paket", "Kette", "Rakete", "Kerze", "Kater", "Hut", "Haus", "Hose",
+        "Hand", "Honig", "Huhn", "Uhu", "Uhr", "Kuh", "Hemd", "Himmel", "Baum", "Ball",
+        "Bus", "Banane", "Bett", "Birne", "Brot", "Rabe", "Hobel", "Gans", "Gabel", "Igel",
+        "Gurke", "Garten", "Regen", "Nagel", "Geld", "Gold", "Wagen", "Tiger", "Berg", "Glas",
+        "Zebra", "Zahn", "Zelt", "Zug", "Zaun", "Zitrone", "Pilz", "Salz", "Herz", "Zimmer",
+        "Eule", "Heu", "Feuer", "Euro", "Buch", "Dach", "Milch", "Kuchen", "Bach", "Biene",
+        "Wiese", "Tier", "Spiel", "Spinne", "Stern", "Stein", "Stift", "Stuhl", "Jojo", "Jana",
+        "Juli", "Jonas", "Jaguar", "Vogel", "Vase", "Vulkan", "Vater", "Klavier", "Olive", "Öl",
+        "Löwe", "Möhre", "Vögel", "Flöte", "König", "Kröte", "Löffel", "Tür", "Mütze", "Küken",
+        "Rübe", "Tüte", "Hütte", "Bügel", "Bär", "Käse", "Träne", "Säge", "Käfer", "Zähne",
+        "Hände", "Mäuse", "Häuser", "Bäume", "Apfel", "Äpfel", "Kopf", "Pferd", "Pfanne", "Qualle",
+        "Quark", "Quelle", "Fuß", "Straße", "Füße", "Fußball", "Soße", "Pony", "Baby", "Teddy",
+        "Taxi", "Hexe", "Axt", "Box", "Nixe", "Ring", "Engel", "Finger", "Hunger", "Zange",
+        "Katze", "Platz", "Sack", "Rock", "Socke", "Jacke", "Brücke", "Zucker", "Bank", "Onkel",
+        "Anker", "Schrank", "am", "im", "um", "Mila", "Lilo", "Ole", "Olli", "Oli",
+        "Elli", "Lia", "mal", "Mimose", "Samuel", "Sam", "Sami", "Selma", "Muse",
+        "Fels", "Muffel", "Mofa", "Fussel", "Luna", "Nils", "Nele", "Lena", "Anna",
+        "Anne", "Ina", "Mona", "Lina", "Nomen", "Omas", "Nasen", "Mund", "Ananas", "Melone",
+        "Limonade", "Wurm", "Wiesel", "Weste", "Welt", "Rita", "Rosa", "Rolf",
+        "Reifen", "Riese", "Ramona", "Rinne", "Uwe", "Ware", "Iris", "Tina", "Timo",
+        "Tom", "Tim", "Toni", "Tomaten", "Motor", "Monat", "Minute", "Mutter", "Winter", "Fenster",
+        "Ritter", "Wetter", "Salat", "Rest", "Auge", "Raupe", "Sauna", "Faust", "Laut", "Tau",
+        "Au", "Paula", "Peter", "Pia", "Palme", "Lupe", "Suppe", "Pumpe", "Pinguin", "Pullover",
+        "Papier", "Tempo", "Opa", "Leine", "Reiter", "Meise", "Feile", "Weile", "Ameise", "Daumen",
+        "Delfin", "Nadel", "Feder", "Pudel", "Sand", "Moped", "Idee", "Schwan", "Schwein", "Schiff",
+        "Schnee", "Schuh", "Schere", "Schirm", "Muschel", "Maschine", "Schuppe", "Schatten", "Schmetterling", "Karte",
+        "Kasse", "Keks", "Koffer", "Kasper", "Kuss", "Kurs", "Kante", "Kilo", "Kiwi", "Kran",
+        "Krone", "Karotte", "Hase", "Hafen", "Hammer", "Heft", "Hotel", "Hund", "Hummel", "Hupe",
+        "Hof", "Hitze", "Rahmen", "Blume", "Blatt", "Boot", "Burg", "Bruder", "Butter", "Bild",
+        "Brief", "Besen", "Biber", "Bohne", "Bad", "Robbe", "Hobby", "Gras", "Gitarre", "Gorilla",
+        "Gurt", "Gast", "Tag", "Garage", "Regal", "Segel", "Zirkus", "Zeitung", "Zoo", "Zwerg",
+        "Zauberer", "Pizza", "Pinzette", "Zettel", "Zeh", "Beule", "Keule", "Freund", "Leute", "neun",
+        "heute", "Scheune", "Loch", "Koch", "Bauch", "Nacht", "Licht", "Tuch", "Rauch", "Drache",
+        "Becher", "Kachel", "Sachen", "Fliege", "Spiegel", "Ziege", "Liebe", "Knie", "Lied", "Dieb",
+        "Spaten", "Spur", "Sport", "Spagat", "Spatz", "Spange", "Stock", "Stall", "Stirn", "Stadt",
+        "Strumpf", "Stufe", "Stute", "Jahr", "Jan", "Juni", "Boje", "Koje", "Kajak",
+        "Vanille", "Vers", "Veilchen", "Pulver", "Larve", "Nerven", "Brötchen", "Mönch", "Höhle", "Möwe",
+        "Öfen", "Söhne", "Töne", "Hühner", "Mühle", "Füller", "Müll", "Tüten", "Würfel", "Gürtel",
+        "Blüte", "Kübel", "Hüte", "Ärmel", "Säle", "Räder", "Bälle", "Kämme", "Hähne", "Nägel",
+        "Täler", "Mäntel", "Läuse", "Säule", "Räuber", "Träume", "Zäune", "Pfote", "Pfeife", "Pflaume",
+        "Topf", "Zopf", "Napf", "Tropfen", "Knopf", "Pfau", "Pfeil", "Pflaster", "Karpfen", "Quiz",
+        "Qualm", "Quader", "Gruß", "Kloß", "Strauß", "Grüße", "Spaß", "Maß", "Floß", "Yoga",
+        "Yak", "Max", "Boxer", "Text", "Mixer", "Lexikon", "Schlange", "Stange", "Wange", "Junge",
+        "Zunge", "Angel", "Sprung", "Ding", "Sitz", "Blitz", "Pfütze", "Spitze", "Tatze", "Glatze",
+        "Netz", "Satz", "Bäcker", "Decke", "Glocke", "Hecke", "Schnecke", "Ecke", "Rucksack", "Stück",
+        "Mücke", "Wecker", "Tank", "Punkt", "Funke", "Enkel", "Dank", "Schinken", "malen",
+        "lesen", "rufen", "essen", "rennen", "raten", "warten", "turnen", "lernen", "rollen", "fallen",
+        "wollen", "sollen", "laufen", "kaufen", "tanzen", "singen", "springen", "trinken", "spielen", "schreiben",
+        "reiten", "lachen", "machen", "suchen", "kochen", "waschen", "rot", "lila", "alt", "toll",
+        "warm", "rund", "nass", "lieb", "faul", "laut", "leise", "neu", "hell", "dunkel",
+        "grün", "blau", "klein", "groß", "dick", "dünn",
     ]
 }

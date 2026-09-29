@@ -37,29 +37,29 @@ enum Genauigkeit: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-/// Farbe der geschriebenen Spur.
+/// Farbe der Tinte. Kein Regenbogen (Kennzeichen der Beispiel-App, und
+/// er lenkt ab) und kein Orange oder Rot — die zeigen an, dass ein Strich
+/// aus der Form zu laufen droht.
 enum Stift: String, CaseIterable, Identifiable {
-    case regenbogen, rot, blau, gruen, lila
+    case blau, gruen, lila, dunkel
 
     var id: String { rawValue }
 
     var titel: String {
         switch self {
-        case .regenbogen: "Regenbogen"
-        case .rot: "Rot"
         case .blau: "Blau"
         case .gruen: "Grün"
         case .lila: "Lila"
+        case .dunkel: "Dunkelgrau"
         }
     }
 
-    /// Einfarbige Stifte; der Regenbogen wird beim Zeichnen berechnet.
     var farbe: Color {
         switch self {
-        case .regenbogen, .rot: Color(red: 0.93, green: 0.2, blue: 0.35)
-        case .blau: Color(red: 0.15, green: 0.35, blue: 0.85)
-        case .gruen: Color(red: 0.15, green: 0.65, blue: 0.3)
-        case .lila: Color(red: 0.55, green: 0.3, blue: 0.8)
+        case .blau: Color(red: 0.14, green: 0.32, blue: 0.72)
+        case .gruen: Color(red: 0.1, green: 0.5, blue: 0.3)
+        case .lila: Color(red: 0.45, green: 0.26, blue: 0.72)
+        case .dunkel: Color(red: 0.2, green: 0.23, blue: 0.3)
         }
     }
 }

@@ -188,6 +188,51 @@ enum Zeichenvorrat {
         return aus
     }
 
+    // MARK: Heftseite
+
+    private static let selbstlaute: Set<String> = ["a", "e", "i", "o", "u", "ä", "ö", "ü"]
+
+    /// Was am Anfang der Reihen einer Buchstabenseite steht: der Groß-,
+    /// der Kleinbuchstabe und erste Verbindungen mit schon gelernten
+    /// Buchstaben — beim M „Ma“ und „mo“, beim O „Mo“ und „lo“. Gelernt
+    /// heißt hier: im Lehrgang bis zu diesem Buchstaben dran gewesen.
+    static func heftreihen(fuer zeichen: Zeichen) -> [Zeichen] {
+        guard let n = lehrgang.firstIndex(where: { $0.zeichen.contains { $0.id == zeichen.id } }) else {
+            return [zeichen, zeichen]   // Ziffern: zwei Reihen
+        }
+        var reihen = lehrgang[n].zeichen
+        guard let klein = reihen.last?.id.lowercased() else { return reihen }
+        let bisher = lehrgang[..<n].flatMap { $0.zeichen }.map(\.id).filter { $0 == $0.lowercased() }
+        let istSelbstlaut = selbstlaute.contains(klein)
+        let partner = bisher.filter { selbstlaute.contains($0) != istSelbstlaut && $0 != "ß" }
+        var verbindungen: [String] = []
+        if klein == "q" {
+            verbindungen = ["Qu", "qu"]
+        } else if klein == "ß" {
+            verbindungen = partner.prefix(2).map { $0 + "ß" }
+        } else if istSelbstlaut {
+            // Mitlaut davor: „Mo“, dann klein mit dem nächsten: „lo“.
+            if let erster = partner.first { verbindungen.append(erster.uppercased() + klein) }
+            if let zweiter = partner.dropFirst().first ?? partner.first { verbindungen.append(zweiter + klein) }
+        } else {
+            // Selbstlaut dahinter: „Ma“, „mo“; gibt es erst einen, auch „am“.
+            let gross = reihen.first?.id ?? klein.uppercased()
+            if let erster = partner.first { verbindungen.append(gross + erster) }
+            if let zweiter = partner.dropFirst().first {
+                verbindungen.append(klein + zweiter)
+            } else if let erster = partner.first {
+                verbindungen.append(erster + klein)
+            }
+        }
+        for v in verbindungen {
+            let teile = v.map { buchstaben[String($0)] }
+            if teile.allSatisfy({ $0 != nil }) {
+                reihen.append(folge(id: v, teile.compactMap { $0 }, abstand: 0.16))
+            }
+        }
+        return reihen
+    }
+
     private static let verbindungen: Set<String> = ["äu", "eu", "au", "ei", "ie", "ch", "pf", "qu", "ng", "nk", "ck", "tz"]
 
     /// Mehrere Buchstaben nebeneinander zu einem Zeichen zusammengesetzt —

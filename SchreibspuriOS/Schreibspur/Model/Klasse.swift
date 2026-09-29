@@ -137,6 +137,27 @@ final class Klasse {
             .map { $0.wort }
     }
 
+    /// Buchstaben für „Gemischt üben“: `anzahl` verschiedene schon
+    /// gelernte, die mit wenig Sternen öfter. Jeder bekommt auf der
+    /// Heftseite eine eigene Reihe.
+    func mischungsBuchstaben(_ anzahl: Int) -> [Zeichen] {
+        var bekannt = Zeichenvorrat.lehrgang
+            .filter { $0.schritt <= bekannterSchritt }
+            .flatMap { $0.zeichen }
+        var wahl: [Zeichen] = []
+        while wahl.count < anzahl, !bekannt.isEmpty {
+            let gewichte = bekannt.map { CGFloat(1 + Stufe.allCases.count - gemeistert($0)) }
+            var zufall = CGFloat.random(in: 0..<gewichte.reduce(0, +))
+            var i = 0
+            for (k, g) in gewichte.enumerated() {
+                if zufall < g { i = k; break }
+                zufall -= g
+            }
+            wahl.append(bekannt.remove(at: i))
+        }
+        return wahl
+    }
+
     /// Eine Reihe aus sechs schon gelernten Buchstaben zum Wiederholen.
     /// Buchstaben mit wenig Sternen kommen häufiger dran; derselbe nie
     /// zweimal hintereinander.
