@@ -41,19 +41,25 @@ enum Gruppe: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Kleinbuchstaben brauchen die Unterlinie (g, j, p, q, y).
-    var mitUnterlaenge: Bool { self == .kleinbuchstaben }
+    /// Buchstaben brauchen die Unterlinie (f, g, j, p, q, y, ß — und das J,
+    /// das im Merkblatt „Flex und Flora“ in die Unterlänge reicht).
+    var mitUnterlaenge: Bool { self != .ziffern }
 
     /// Senkrechter Ausschnitt des Linienblatts in Einheiten — für alle
     /// Zeichen einer Gruppe gleich, damit die Linien beim Blättern nicht
-    /// springen. Oben ist Platz für Umlautpunkte.
+    /// springen. Oben ist Platz für die Umlautpunkte über Ä, Ö, Ü.
     var sichtbereich: ClosedRange<CGFloat> {
-        mitUnterlaenge ? -0.12...1.62 : -0.34...1.16
+        switch self {
+        case .grossbuchstaben: -0.28...1.5
+        case .kleinbuchstaben: -0.1...1.5
+        case .ziffern: -0.12...1.12
+        }
     }
 
-    /// Die Linien des Blatts (Oberlinie, Mittellinie, Grundlinie, ggf. Unterlinie).
+    /// Die Linien des Blatts (Oberlinie, Mittellinie, Grundlinie, ggf.
+    /// Unterlinie) — Abstände wie im Merkblatt gemessen.
     var linien: [CGFloat] {
-        mitUnterlaenge ? [0, 0.5, 1, 1.5] : [0, 0.5, 1]
+        mitUnterlaenge ? [0, Zeichensatz.mittellinie, 1, 1.4] : [0, Zeichensatz.mittellinie, 1]
     }
 
     var zeichen: [Zeichen] { Gruppe.alle[self] ?? [] }

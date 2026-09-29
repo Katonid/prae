@@ -63,7 +63,7 @@ struct Strich {
     ///
     /// Liegen mehrere Stellen praktisch gleich nah (bis auf `gleichstand`),
     /// gewinnt die, die am dichtesten beim bisherigen Fortschritt `bezug`
-    /// liegt — vorwärts zählt dabei nur halb. Das braucht es für Striche,
+    /// liegt — vorwärts zählt dabei nur 0,4-fach. Das braucht es für Striche,
     /// die auf sich selbst zurücklaufen (b, d, h, n): Am Wendepunkt liegen
     /// Hin- und Rückweg übereinander, und nur so bleibt der Fortschritt
     /// weder hängen noch springt er über die Schleife.
@@ -92,7 +92,7 @@ struct Strich {
             return (von, .greatestFiniteMagnitude)
         }
         func entfernung(_ s: CGFloat) -> CGFloat {
-            s >= bezug ? (s - bezug) * 0.5 : bezug - s
+            s >= bezug ? (s - bezug) * 0.4 : bezug - s
         }
         let gleichNah = kandidaten.filter { $0.abstand <= bester.abstand + gleichstand }
         return gleichNah.min(by: { entfernung($0.s) < entfernung($1.s) }) ?? bester

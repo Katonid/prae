@@ -81,7 +81,7 @@ def main():
     for n, (name, wege) in enumerate(zeichen):
         ox = (n % spalten) * zelle + 45
         oy = (n // spalten) * zelle + 30
-        for y in (0, 0.5, 1, 1.5):
+        for y in (0, 0.45, 1, 1.4):
             d.line([(ox - 40, oy + y * s), (ox + 150, oy + y * s)], fill=(200, 220, 230))
         d.text((ox - 40, oy - 28), name, fill="black")
         p = lambda q: (ox + q[0] * s, oy + q[1] * s)

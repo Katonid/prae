@@ -15,7 +15,8 @@
   vorgesehenen Stellen abgesetzt wird.
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release).
-  Erste Fassung: 1.0.0 (1).
+  Erste Fassung: 1.0.0 (1); 1.0.1 (2) stellt die Buchstaben auf das
+  Merkblatt „Flex und Flora“ um.
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
   `GENERATE_INFOPLIST_FILE = YES`). Nie entfernen.
@@ -34,22 +35,41 @@
 
 ## Koordinaten und Zeichen
 
+- **Vorlage ist das „Merkblatt Schreibrichtung" aus Flex und Flora 1**
+  (Westermann, Ansage des Nutzers 09/2026: „GENAU so sollen die
+  Buchstaben geschrieben werden"). Strichfolge, Ansatzpunkte,
+  Richtungen und Absetzstellen kommen von dort — nicht aus eigenem
+  Ermessen ändern. Lesart des Blatts: Pfeil mit Punkt = hier ansetzen
+  (lila = erster Strich, türkis = weiterer Strich), Pfeil ohne Punkt =
+  ohne Absetzen in diese Richtung weiter.
 - Vierliniensystem in Einheiten, y nach unten: Oberlinie 0, Mittellinie
-  0,5, Grundlinie 1, Unterlinie 1,5. Die Breite ergibt sich aus den
-  Punkten, das Zeichen wird mittig gesetzt.
+  0,45 (`Zeichensatz.mittellinie`), Grundlinie 1, Unterlinie 1,4 — aus
+  dem Blatt gemessen. Groß- und Kleinbuchstaben zeigen alle vier Linien
+  (das J reicht in die Unterlänge), Ziffern nur drei.
 - **Reihenfolge und Richtung der Striche sind der Lehrinhalt.** Ein Bogen
   mit vertauschten Winkeln sieht gleich aus, läuft aber andersherum —
   der Compiler merkt das nie. Nach jeder Änderung an einem Weg:
   `python3 SchreibspuriOS/scripts/zeichen-vorschau.py vorschau.png`
-  (Pillow nötig) und das Bild ansehen: Nummer am Strichanfang, Pfeile in
-  Schreibrichtung.
-- Getroffene Festlegungen (Grundschrift nach Grundschulverband, so wie in
-  Anlauttabellen üblich): A in drei Strichen (hoch, runter, quer — wie in
-  den Bildschirmfotos der Vorlage-App), E/F/T Stamm zuerst, 5 mit dem
-  „Hut" zuletzt, 4 offen, 7 ohne Querstrich, a/d/g/q beginnen mit dem
-  Bogen gegen den Uhrzeigersinn, b/h/n/m/p/r laufen den Stamm ein Stück
-  zurück hinauf. i- und Umlautpunkte sind eigene Striche (nur antippen)
-  und kommen zuletzt.
+  (Pillow nötig) und das Bild neben das Merkblatt legen.
+- Was das Merkblatt festlegt (Auswahl, weil es von der üblichen
+  Druckschrift abweicht):
+  - A: hoch und ohne Absetzen wieder runter, dann Querstrich. M, N, W,
+    V, Z, L, U in einem Zug; das M reicht in der Mitte bis zur Grundlinie.
+  - E, F, T, H: senkrechter Strich zuerst; H: links, rechts, Querstrich.
+    B, D, P, R: Strich runter, dann oben neu ansetzen. G: Bogen, dann
+    ohne Absetzen waagerecht nach links. Q: O, dann Schwanz von innen.
+    J geht in die Unterlänge.
+  - a, d, g, q, c, o, s: oben rechts ansetzen, gegen den Uhrzeigersinn;
+    a/d/g/q danach ohne Absetzen den Strich hinunter.
+  - b, h, n, m, p, r: erst runter, dann ein Stück zurück hinauf und den
+    Bogen. e: waagerecht nach rechts, dann herum.
+  - **Wendebogen** (Haken nach rechts) am Ende von a, d, h, i, l, m, n,
+    t, u (und ä, ü). Kein Wendebogen bei k, q, f.
+  - f und ß reichen bis zur Unterlinie; ß beginnt **unten** an der
+    Unterlinie und geht hinauf. g und j enden mit einem Bogen nach links.
+  - i-, j- und Umlautpunkte kommen zuletzt, links vor rechts.
+- Die Ziffern stehen nicht auf dem Merkblatt; sie folgen der üblichen
+  Schreibweise (5 mit dem „Hut" zuletzt, 4 offen, 7 ohne Querstrich).
 
 ## Die Prüfung (Spurpruefer)
 
@@ -58,7 +78,9 @@
 - Der Fortschritt läuft nur vorwärts. Gesucht wird die nächste Stelle
   des Wegs in einem Fenster **1,5 × Toleranz zurück bis 3,5 × Toleranz
   voraus**; bei praktisch gleichem Abstand (5 % der Toleranz) gewinnt die
-  Stelle nächst dem bisherigen Fortschritt, vorwärts halb gewichtet.
+  Stelle nächst dem bisherigen Fortschritt, vorwärts nur 0,4-fach
+  gewichtet (mit 0,5 brach beim d unter „Streng“ selten der Rückweg
+  am oberen Wendepunkt ab).
 - **Diese Zahlen sind mit `scripts/spur-simulation.py` abgestimmt** —
   dort sauber nachspuren mit Zittern (muss klappen), verkehrt herum und
   halb geschrieben (darf nie klappen), für alle drei Genauigkeiten. Wer

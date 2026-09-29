@@ -61,7 +61,7 @@ enum Zeichner {
     /// Hintergrund mit Lineatur: helleres Band für die kleinen Buchstaben.
     static func blatt(_ ctx: inout GraphicsContext, groesse: CGSize, gruppe: Gruppe, _ a: Abbildung) {
         ctx.fill(Path(CGRect(origin: .zero, size: groesse)), with: .color(Farben.blatt))
-        let oben = a.y(0.5), unten = a.y(1)
+        let oben = a.y(Zeichensatz.mittellinie), unten = a.y(1)
         ctx.fill(Path(CGRect(x: 0, y: oben, width: groesse.width, height: unten - oben)),
                  with: .color(Farben.band))
         for linie in gruppe.linien {

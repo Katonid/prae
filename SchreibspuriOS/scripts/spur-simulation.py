@@ -70,7 +70,7 @@ class Strich:
             fuss = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
             kandidaten.append((s0 + t * d, math.dist(q, fuss)))
         bester = min(kandidaten, key=lambda k: k[1])
-        entfernung = lambda s: (s - bezug) * 0.5 if s >= bezug else bezug - s
+        entfernung = lambda s: (s - bezug) * 0.4 if s >= bezug else bezug - s
         gleich = [k for k in kandidaten if k[1] <= bester[1] + gleichstand]
         return min(gleich, key=lambda k: entfernung(k[0]))
 
