@@ -1,3 +1,8 @@
+/* Hell und Dunkel: „Automatisch" folgt dem Gerät, „Hell"/„Dunkel" gelten
+   fest (data-thema am <html>, gesetzt vom Knopf oben rechts). Die dunklen
+   Werte stehen deshalb zweimal — einmal für die Geräteeinstellung, einmal
+   für die feste Wahl. Wer eine Farbe ändert, ändert beide. */
+
 :root {
   --grund: #f4f6f5;
   --flaeche: #ffffff;
@@ -10,14 +15,17 @@
   --glas: #16a34a;
   --papier: #2563eb;
   --hof: #b45309;
+  --wc: #7c3aed;
   --schatten: 0 6px 24px rgba(15, 30, 22, 0.18);
+  --kachelfilter: none;
+  --kartengrund: #dde3df;
   --rand-unten: env(safe-area-inset-bottom, 0px);
   --rand-oben: env(safe-area-inset-top, 0px);
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-thema="hell"]) {
     --grund: #121614;
     --flaeche: #1c221f;
     --flaeche-2: #262e2a;
@@ -29,15 +37,37 @@
     --glas: #22c55e;
     --papier: #60a5fa;
     --hof: #f59e0b;
+    --wc: #a78bfa;
     --schatten: 0 6px 24px rgba(0, 0, 0, 0.5);
+    --kachelfilter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
+    --kartengrund: #1b1f1d;
+    color-scheme: dark;
   }
-  /* Dunkle Karte ohne eigenen Kachelserver: die hellen OSM-Kacheln umkehren
-     und die Farbtöne zurückdrehen. Wasser bleibt blau, Wald grün. */
-  .leaflet-tile-pane {
-    filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
-  }
-  .leaflet-container { background: #1b1f1d; }
 }
+
+:root[data-thema="dunkel"] {
+  --grund: #121614;
+  --flaeche: #1c221f;
+  --flaeche-2: #262e2a;
+  --text: #e8eeea;
+  --leise: #9eaca4;
+  --linie: #34403a;
+  --akzent: #34c27a;
+  --akzent-text: #07130c;
+  --glas: #22c55e;
+  --papier: #60a5fa;
+  --hof: #f59e0b;
+  --wc: #a78bfa;
+  --schatten: 0 6px 24px rgba(0, 0, 0, 0.5);
+  --kachelfilter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
+  --kartengrund: #1b1f1d;
+  color-scheme: dark;
+}
+
+/* Dunkle Karte ohne eigenen Kachelserver: die hellen OSM-Kacheln umkehren
+   und die Farbtöne zurückdrehen. Wasser bleibt blau, Wald grün. */
+.leaflet-tile-pane { filter: var(--kachelfilter); }
+.leaflet-container { background: var(--kartengrund); }
 
 * { box-sizing: border-box; }
 
@@ -117,6 +147,8 @@ a { color: var(--akzent); }
 .rund svg .voll { fill: currentColor; stroke: none; }
 .rund--klein { width: 34px; height: 34px; font-size: 15px; box-shadow: none; background: var(--flaeche-2); }
 .rund--aktiv { color: var(--akzent); }
+.oben__knoepfe { display: flex; flex-direction: column; gap: 8px; }
+#thema-knopf { font-size: 24px; font-weight: 400; line-height: 1; }
 
 /* ── unten: Blatt + Leiste ────────────────────────────────────────────── */
 
@@ -165,7 +197,7 @@ a { color: var(--akzent); }
   gap: 6px;
   color: var(--leise);
 }
-.filter button[aria-checked="true"] {
+.filter button[aria-pressed="true"] {
   background: var(--flaeche);
   color: var(--text);
   font-weight: 600;
@@ -303,6 +335,8 @@ a { color: var(--akzent); }
 .punkt--papier { background: var(--papier); }
 .punkt--beides { background: linear-gradient(90deg, var(--glas) 50%, var(--papier) 50%); }
 .punkt--hof { background: var(--hof); border-radius: 3px; }
+.punkt--wc { background: var(--wc); border-radius: 3px; }
+.filter button[aria-pressed="false"] .punkt { opacity: 0.35; }
 
 .pin {
   border-radius: 50%;
@@ -323,6 +357,16 @@ a { color: var(--akzent); }
 .pin--fern.pin--hof { border-radius: 3px; }
 .pin--mittel { border-width: 2px; }
 .pin--mittel.pin--hof { border-radius: 5px; }
+.pin--wc {
+  background: var(--wc);
+  border-radius: 7px;
+  color: #fff;
+  font: 700 10px/19px -apple-system, sans-serif;
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+.pin--fern.pin--wc { border-radius: 3px; }
+.pin--mittel.pin--wc { border-radius: 5px; }
 .pin--osm { border-color: #f1f1f1; border-style: solid; opacity: 0.95; }
 .pin--gewaehlt { outline: 3px solid var(--text); outline-offset: 1px; }
 

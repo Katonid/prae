@@ -4,19 +4,22 @@
 import { abstandM, entfernungText, zellenIm, zellenUm } from './geo.js';
 import * as osm from './osm.js';
 import {
-  amtlichLaden, zusammenfuehren, passtZuFilter, artText, QUELLEN, stand,
+  datenLaden, zusammenfuehren, passtZuFilter, artText, QUELLEN, stand,
 } from './daten.js';
 
-const FASSUNG = '1.0.0';
+const FASSUNG = '1.1.0';
 const START = { lat: 51.495, lon: 7.34, zoom: 11 }; // zwischen Bochum und Dortmund
 const OSM_AB_ZOOM = 13;       // darunter keine neuen Overpass-Abfragen
 const MARKER_AB_ZOOM = 9;     // darunter keine Markierungen (ganz Deutschland)
 const MAX_ZELLEN_SICHT = 12;  // mehr Zellen im Ausschnitt: nicht nachladen
 
-// Bochum und Dortmund grob — hier gibt es amtliche Daten auch ohne OSM.
+// Städte mit amtlichen Daten, grob — dort braucht es keinen Zoom-Hinweis.
+// Die Gebiete mit festem OSM-Stand kommen aus daten/osm-regionen.json dazu.
 const AMTLICHE_GEBIETE = [
-  [51.41, 7.10, 51.54, 7.35],
-  [51.41, 7.30, 51.61, 7.64],
+  [51.41, 7.10, 51.54, 7.35],   // Bochum
+  [51.41, 7.30, 51.61, 7.64],   // Dortmund
+  [48.06, 11.36, 48.25, 11.73], // München
+  [47.74, 12.98, 47.87, 13.13], // Salzburg
 ];
 
 const $ = (sel) => document.querySelector(sel);
@@ -38,8 +41,18 @@ function esc(text) {
 // ── Zustand ──────────────────────────────────────────────────────────────
 
 let amtlich = [];
+let osmFest = [];           // fester OSM-Stand der Gebiete
+let regionen = [];
 let alle = [];              // zusammengeführt
-let filter = ['glas', 'papier', 'beides'].includes(lokal('cf-filter')) ? lokal('cf-filter') : 'beides';
+let filter = (() => {
+  try {
+    const f = JSON.parse(lokal('cf-filter') || 'null');
+    if (f && typeof f === 'object' && (f.glas || f.papier || f.wc)) {
+      return { glas: Boolean(f.glas), papier: Boolean(f.papier), wc: Boolean(f.wc) };
+    }
+  } catch { /* alte Fassung speicherte 'glas' | 'papier' | 'beides' */ }
+  return { glas: true, papier: true, wc: false };
+})();
 let gewaehlt = null;        // id
 let ich = null;             // { lat, lon, genau }
 let ichMarker = null;
@@ -47,7 +60,11 @@ let ichKreis = null;
 const marker = new Map();   // id → L.Marker
 
 function neuBerechnen() {
-  alle = zusammenfuehren(amtlich, osm.alleOrte());
+  // Fester Stand und live Geladenes überschneiden sich am Rand der Gebiete —
+  // gleiche OSM-Nummer, gleicher Standort: der frischere (live) gewinnt.
+  const osmOrte = new Map(osmFest.map((o) => [o.id, o]));
+  for (const o of osm.alleOrte()) osmOrte.set(o.id, o);
+  alle = zusammenfuehren(amtlich, [...osmOrte.values()]);
 }
 
 // ── Karte ────────────────────────────────────────────────────────────────
@@ -72,8 +89,7 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   // kaum Kacheln halten.
   crossOrigin: true,
   attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-Mitwirkende (ODbL)'
-    + ' · <a href="' + QUELLEN.bochum.link + '" target="_blank" rel="noopener">Open Data Bochum</a> (CC0)'
-    + ' · <a href="' + QUELLEN.dortmund.link + '" target="_blank" rel="noopener">Open Data Dortmund</a>',
+    + ' · Open Data Bochum, Dortmund, München, Stadt und Land Salzburg (Quellen: ⓘ)',
 }).addTo(karte);
 
 // Die Leiste unten deckt einen Teil der Karte ab: Leaflets untere Ecke
@@ -103,6 +119,7 @@ function zentrieren(lat, lon, zoom) {
 }
 
 function klasseFuer(ort) {
+  if (ort.wc) return 'wc';
   if (ort.hof) return 'hof';
   if (ort.glas && ort.papier) return 'beides';
   return ort.glas ? 'glas' : 'papier';
@@ -123,11 +140,12 @@ function iconFuer(ort, istGewaehlt) {
   const st = istGewaehlt ? 'nah' : stufe();
   const schluessel = `${art}|${ort.quelle === 'osm'}|${istGewaehlt}|${st}`;
   if (!iconSpeicher.has(schluessel)) {
-    const groesse = GROESSE[st][art === 'hof' ? 1 : 0];
+    const eckig = art === 'hof' || art === 'wc';
+    const groesse = GROESSE[st][eckig ? 1 : 0];
     iconSpeicher.set(schluessel, L.divIcon({
       className: `pin pin--${art} pin--${st}${ort.quelle === 'osm' ? ' pin--osm' : ''}${istGewaehlt ? ' pin--gewaehlt' : ''}`,
       iconSize: [groesse, groesse],
-      html: art === 'hof' && st === 'nah' ? 'W' : '',
+      html: st !== 'nah' ? '' : art === 'hof' ? 'W' : art === 'wc' ? 'WC' : '',
     }));
   }
   return iconSpeicher.get(schluessel);
@@ -185,7 +203,8 @@ function hinweis(text, { laedt = false, dauer = 0 } = {}) {
 }
 
 function imAmtlichenGebiet(lat, lon) {
-  return AMTLICHE_GEBIETE.some(([s, w, n, o]) => lat >= s && lat <= n && lon >= w && lon <= o);
+  return [...AMTLICHE_GEBIETE, ...regionen.map((r) => r.kasten)]
+    .some(([s, w, n, o]) => lat >= s && lat <= n && lon >= w && lon <= o);
 }
 
 // ── OSM nachladen (entprellt) ────────────────────────────────────────────
@@ -201,7 +220,7 @@ async function sichtNachladen() {
   const mitte = karte.getCenter();
 
   if (zoom < MARKER_AB_ZOOM) {
-    hinweis('Zum Anzeigen der Container hineinzoomen');
+    hinweis('Zum Anzeigen der Standorte hineinzoomen');
     return;
   }
   if (zoom < OSM_AB_ZOOM || zellen.length > MAX_ZELLEN_SICHT) {
@@ -212,12 +231,12 @@ async function sichtNachladen() {
     }
     if (nummer !== ladeNummer) return;
     if (imAmtlichenGebiet(mitte.lat, mitte.lng)) hinweis('');
-    else hinweis('Für Container aus OpenStreetMap näher heranzoomen');
+    else hinweis('Für Standorte aus OpenStreetMap näher heranzoomen');
     return;
   }
 
   const offen = zellen.some((z) => !osm.zelleBekannt(z));
-  if (offen) hinweis('Lade Container aus OpenStreetMap …', { laedt: true });
+  if (offen) hinweis('Lade Standorte aus OpenStreetMap …', { laedt: true });
   const { neu, fehler } = await osm.zellenLaden(zellen);
   if (neu) { neuBerechnen(); zeichnen(); }
   if (nummer !== ladeNummer) return;
@@ -312,7 +331,8 @@ function notizLink(lat, lon) {
 }
 
 function appleKartenLink(ort) {
-  const name = encodeURIComponent(`${artText(ort)}-Container`.replace('hof-Container', 'hof'));
+  const text = ort.wc || ort.hof ? artText(ort) : `${artText(ort)}-Container`;
+  const name = encodeURIComponent(text);
   return `https://maps.apple.com/?daddr=${ort.lat.toFixed(6)},${ort.lon.toFixed(6)}&q=${name}`;
 }
 
@@ -331,8 +351,8 @@ function ortZeigen(ort, { fliegen = false, ausListe = false } = {}) {
   } else {
     teile.push('<p class="klein">Keine Adresse hinterlegt.</p>');
   }
-  if (ort.name && ort.quelle !== 'osm' && !ort.hof) {
-    teile.push(`<p class="klein">Bezeichnung beim ${ort.quelle === 'bochum' ? 'USB' : 'Betreiber'}: ${esc(ort.name)}</p>`);
+  if (ort.name && ort.quelle === 'bochum' && !ort.hof) {
+    teile.push(`<p class="klein">Bezeichnung beim USB: ${esc(ort.name)}</p>`);
   } else if (ort.name) {
     teile.push(`<p>${esc(ort.name)}</p>`);
   }
@@ -344,7 +364,15 @@ function ortZeigen(ort, { fliegen = false, ausListe = false } = {}) {
   if (ort.glas) marken.push('<span class="marke"><span class="punkt punkt--glas"></span>Altglas</span>');
   if (ort.papier) marken.push('<span class="marke"><span class="punkt punkt--papier"></span>Altpapier</span>');
   if (ort.hof) marken.push('<span class="marke"><span class="punkt punkt--hof"></span>Wertstoffannahme</span>');
-  teile.push(`<div class="marken">${marken.join('')}</div>`);
+  if (ort.wc) {
+    if (ort.gebuehr) marken.push(`<span class="marke">${ort.gebuehr === 'kostenlos' ? 'kostenlos' : `Gebühr: ${esc(ort.gebuehr)}`}</span>`);
+    if (ort.barrierefrei === true) marken.push('<span class="marke">♿ barrierefrei</span>');
+    if (ort.barrierefrei === false) marken.push('<span class="marke">nicht barrierefrei</span>');
+    if (ort.eurokey) marken.push('<span class="marke">Euroschlüssel</span>');
+    if (ort.wickeln) marken.push('<span class="marke">Wickeltisch</span>');
+  }
+  if (marken.length) teile.push(`<div class="marken">${marken.join('')}</div>`);
+  if (ort.zeiten) teile.push(`<p class="klein">Öffnungszeiten: ${esc(ort.zeiten)}</p>`);
   if (ort.anzahl) teile.push(`<p class="klein">${ort.anzahl} Glascontainer am Platz</p>`);
   if (ort.betreiber) teile.push(`<p class="klein">Betreiber: ${esc(ort.betreiber)}</p>`);
   if (ort.info) teile.push(`<p class="klein">${ort.hof ? 'Öffnungszeiten: ' : ''}${esc(ort.info)}</p>`);
@@ -365,8 +393,7 @@ function ortZeigen(ort, { fliegen = false, ausListe = false } = {}) {
     <a class="aktion aktion--still" href="${notizLink(ort.lat, ort.lon)}" target="_blank" rel="noopener">Standort falsch oder fehlt?</a>
   </div>`);
   if (ort.quelle !== 'osm') {
-    const stelle = ort.quelle === 'bochum' ? 'dem Umweltservice Bochum (USB)' : 'der EDG';
-    const von = ort.quelle === 'bochum' ? 'vom Umweltservice Bochum (USB)' : 'von der EDG';
+    const [von, stelle] = quelle.stelle;
     teile.push(`<p class="klein">Dieser Standort stammt ${von}. Ein Hinweis an OpenStreetMap hilft der Karte — für eine Korrektur im amtlichen Datensatz bitte zusätzlich ${stelle} Bescheid geben.</p>`);
   }
 
@@ -389,8 +416,8 @@ function listeBauen(eintraege, start) {
     const knopf = document.createElement('button');
     knopf.type = 'button';
     knopf.innerHTML = `<span class="punkt punkt--${klasseFuer(ort)}"></span>
-      <span class="zeile"><strong>${esc(artText(ort))}</strong>
-      <span>${esc(ort.adresse ? `${ort.ungefaehr ? 'bei ' : ''}${ort.adresse}` : ort.name || QUELLEN[ort.quelle].kurz)}</span></span>
+      <span class="zeile"><strong>${esc(ort.wc && ort.name ? ort.name : artText(ort))}</strong>
+      <span>${esc(ort.adresse ? `${ort.ungefaehr ? 'bei ' : ''}${ort.adresse}` : (!ort.wc && ort.name) || QUELLEN[ort.quelle].kurz)}</span></span>
       <span class="weite">${entfernungText(weite)}</span>`;
     knopf.addEventListener('click', () => ortZeigen(ort, { fliegen: true, ausListe: true }));
     li.append(knopf);
@@ -402,6 +429,12 @@ function listeBauen(eintraege, start) {
   kopf.textContent = start;
   huelle.append(kopf, ul);
   return huelle;
+}
+
+function suchName() {
+  if (filter.wc && !filter.glas && !filter.papier) return { titel: 'Nächste Toiletten', knopf: 'Nächste Toilette', was: 'Toiletten' };
+  if (!filter.wc) return { titel: 'Nächste Container', knopf: 'Nächster Container', was: 'Container' };
+  return { titel: 'In der Nähe', knopf: 'Was ist in der Nähe?', was: 'Standorte' };
 }
 
 function naechste(lat, lon, anzahl = 10) {
@@ -428,7 +461,7 @@ async function naechsteZeigen() {
       herkunft = 'Standort nicht verfügbar — ab der Kartenmitte · Luftlinie';
     }
 
-    hinweis('Suche Container in der Nähe …', { laedt: true });
+    hinweis(`Suche ${suchName().was} in der Nähe …`, { laedt: true });
     let { neu, fehler } = await osm.zellenLaden(zellenUm(start.lat, start.lon, 3000));
     if (neu) neuBerechnen();
     let liste = naechste(start.lat, start.lon);
@@ -441,11 +474,11 @@ async function naechsteZeigen() {
     zeichnen();
 
     if (!liste.length) {
-      hinweis(fehler ? 'OpenStreetMap nicht erreichbar und nichts gespeichert — bitte später noch einmal.' : 'Keine Container in der Nähe gefunden.', { dauer: 6000 });
+      hinweis(fehler ? 'OpenStreetMap nicht erreichbar und nichts gespeichert — bitte später noch einmal.' : `Keine ${suchName().was} in der Nähe gefunden.`, { dauer: 6000 });
       return;
     }
     hinweis(fehler ? 'OpenStreetMap nicht erreichbar — Liste kann unvollständig sein.' : '', { dauer: 6000 });
-    letzteListe = { titel: 'Nächste Container', inhalt: listeBauen(liste, herkunft) };
+    letzteListe = { titel: suchName().titel, inhalt: listeBauen(liste, herkunft) };
     blattOeffnen('liste', letzteListe.titel, letzteListe.inhalt);
 
     // Standort und die nächsten drei ins Bild holen — über dem Blatt.
@@ -480,19 +513,63 @@ $('#standort-knopf').addEventListener('click', async () => {
 
 // ── Filter ───────────────────────────────────────────────────────────────
 
-function filterSetzen(neu) {
-  filter = neu;
-  lokal('cf-filter', neu);
+function filterZeigen() {
   for (const b of document.querySelectorAll('.filter button')) {
-    b.setAttribute('aria-checked', String(b.dataset.filter === neu));
+    b.setAttribute('aria-pressed', String(filter[b.dataset.filter]));
   }
+  $('#naechster').textContent = suchName().knopf;
+}
+
+function filterUmschalten(art) {
+  const neu = { ...filter, [art]: !filter[art] };
+  // Alles aus ergäbe eine leere Karte — der letzte Knopf bleibt an.
+  if (!neu.glas && !neu.papier && !neu.wc) return;
+  filter = neu;
+  lokal('cf-filter', JSON.stringify(filter));
+  filterZeigen();
   zeichnen();
   if (blattArt === 'liste') naechsteZeigen();
 }
 
 for (const b of document.querySelectorAll('.filter button')) {
-  b.addEventListener('click', () => filterSetzen(b.dataset.filter));
+  b.addEventListener('click', () => filterUmschalten(b.dataset.filter));
 }
+filterZeigen();
+
+// ── Hell / Dunkel ────────────────────────────────────────────────────────
+// Unabhängig von der Geräteeinstellung wählbar. „auto" folgt dem Gerät.
+// Der gleiche Schlüssel wird im <head> von index.html gelesen, damit beim
+// Start nichts aufblitzt.
+
+const THEMEN = {
+  auto: { name: 'automatisch (wie das Gerät)', zeichen: '◐' },
+  hell: { name: 'hell', zeichen: '☀' },
+  dunkel: { name: 'dunkel', zeichen: '☾' },
+};
+let thema = ['hell', 'dunkel'].includes(lokal('cf-thema')) ? lokal('cf-thema') : 'auto';
+
+function themaAnwenden() {
+  const wurzel = document.documentElement;
+  if (thema === 'auto') delete wurzel.dataset.thema;
+  else wurzel.dataset.thema = thema;
+  const knopf = $('#thema-knopf');
+  knopf.textContent = THEMEN[thema].zeichen;
+  knopf.setAttribute('aria-label', `Darstellung: ${THEMEN[thema].name} — tippen zum Wechseln`);
+  // Statusleiste in Safari/als Web-App mitfärben.
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    const dunkel = meta.media.includes('dark');
+    meta.content = thema === 'auto' ? (dunkel ? '#121614' : '#f4f6f5')
+      : thema === 'dunkel' ? '#121614' : '#f4f6f5';
+  }
+}
+
+$('#thema-knopf').addEventListener('click', () => {
+  thema = { auto: 'hell', hell: 'dunkel', dunkel: 'auto' }[thema];
+  lokal('cf-thema', thema);
+  themaAnwenden();
+  hinweis(`Darstellung: ${THEMEN[thema].name}`, { dauer: 2000 });
+});
+themaAnwenden();
 
 // ── Ortssuche (Nominatim) ────────────────────────────────────────────────
 // Nominatim erlaubt keine Suche beim Tippen — gesucht wird erst beim
@@ -519,7 +596,7 @@ $('#suche-knopf').addEventListener('click', () => {
     ergebnisse.innerHTML = '<li class="klein" style="padding:10px 2px">Suche …</li>';
     const c = karte.getCenter();
     const adresse = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
-      q, format: 'jsonv2', limit: '6', countrycodes: 'de', 'accept-language': 'de',
+      q, format: 'jsonv2', limit: '6', countrycodes: 'de,at', 'accept-language': 'de',
       // Nähe zur aktuellen Karte bevorzugen, ohne sie zu erzwingen.
       viewbox: `${c.lng - 0.5},${c.lat + 0.3},${c.lng + 0.5},${c.lat - 0.3}`,
     });
@@ -566,6 +643,9 @@ $('#info-knopf').addEventListener('click', () => {
     li.innerHTML = `<a href="${q.link}" target="_blank" rel="noopener">${esc(q.lang)}</a>${datum}`;
     quellen.append(li);
   }
+  huelle.querySelector('#info-regionen').textContent = regionen.length
+    ? regionen.map((r) => r.name).join('; ')
+    : 'noch nicht geladen';
   const c = karte.getCenter();
   huelle.querySelector('#info-notiz').href = notizLink(c.lat, c.lng);
   huelle.querySelector('#info-fassung').textContent = `Fassung ${FASSUNG}.`;
@@ -575,7 +655,8 @@ $('#info-knopf').addEventListener('click', () => {
 // ── Start ────────────────────────────────────────────────────────────────
 
 (async () => {
-  amtlich = await amtlichLaden();
+  ({ amtlich, osmFest, regionen } = await datenLaden());
+  osm.gebieteSetzen(regionen, zellenIm);
   neuBerechnen();
   zeichnen();
   sichtNachladen();

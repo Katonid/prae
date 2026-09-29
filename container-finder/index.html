@@ -3,14 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Container-Finder — Altglas &amp; Altpapier</title>
-    <meta name="description" content="Findet Altglas- und Altpapiercontainer in der Nähe — amtliche Daten für Bochum und Dortmund, OpenStreetMap für ganz Deutschland." />
+    <title>Container-Finder — Altglas, Altpapier, Toiletten</title>
+    <meta name="description" content="Findet Altglas- und Altpapiercontainer und öffentliche Toiletten in der Nähe — amtliche Daten für Bochum, Dortmund, München und Salzburg, OpenStreetMap für den Rest." />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png" />
     <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)" />
+    <!-- Hell/Dunkel VOR dem ersten Zeichnen setzen, sonst blitzt beim Start
+         kurz die Geräteeinstellung auf. Gleicher Schlüssel wie in js/app.js. -->
+    <script>
+      try {
+        var thema = localStorage.getItem('cf-thema');
+        if (thema === 'hell' || thema === 'dunkel') document.documentElement.dataset.thema = thema;
+      } catch (e) { /* privates Fenster: Geräteeinstellung */ }
+    </script>
     <!-- iOS nimmt für den Homescreen das apple-touch-icon, nicht das Manifest. -->
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
     <link rel="apple-touch-icon" sizes="167x167" href="./icons/icon-167.png" />
@@ -28,7 +36,10 @@
 
     <div class="oben">
       <p id="hinweis" class="hinweis" role="status" aria-live="polite" hidden></p>
-      <button type="button" id="info-knopf" class="rund" aria-label="Über die App und Datenquellen">i</button>
+      <div class="oben__knoepfe">
+        <button type="button" id="info-knopf" class="rund" aria-label="Über die App und Datenquellen">i</button>
+        <button type="button" id="thema-knopf" class="rund" aria-label="Darstellung: automatisch"></button>
+      </div>
     </div>
 
     <!-- Unten, in Daumenreichweite: alles, was man mit einer Hand braucht. -->
@@ -42,10 +53,10 @@
       </section>
 
       <nav class="leiste" aria-label="Bedienung">
-        <div class="filter" role="radiogroup" aria-label="Welche Container?">
-          <button type="button" role="radio" data-filter="glas" aria-checked="false"><span class="punkt punkt--glas"></span>Altglas</button>
-          <button type="button" role="radio" data-filter="beides" aria-checked="true"><span class="punkt punkt--beides"></span>Beides</button>
-          <button type="button" role="radio" data-filter="papier" aria-checked="false"><span class="punkt punkt--papier"></span>Altpapier</button>
+        <div class="filter" role="group" aria-label="Was zeigen?">
+          <button type="button" data-filter="glas" aria-pressed="true"><span class="punkt punkt--glas"></span>Altglas</button>
+          <button type="button" data-filter="papier" aria-pressed="true"><span class="punkt punkt--papier"></span>Altpapier</button>
+          <button type="button" data-filter="wc" aria-pressed="false"><span class="punkt punkt--wc"></span>WC</button>
         </div>
         <div class="knoepfe">
           <button type="button" id="suche-knopf" class="rund" aria-label="Ort suchen">
@@ -68,12 +79,14 @@
     </template>
 
     <template id="vorlage-info">
-      <p>Zeigt Altglas- und Altpapiercontainer. Für <strong>Bochum</strong> und <strong>Dortmund</strong> kommen die Standorte aus den amtlichen Open-Data-Angeboten, überall sonst aus <strong>OpenStreetMap</strong> — die werden ab Zoomstufe 13 für den sichtbaren Ausschnitt geladen.</p>
+      <p>Zeigt Altglas- und Altpapiercontainer und öffentliche Toiletten. Die drei Knöpfe unten schalten jede Art einzeln ein und aus.</p>
+      <p><strong>Amtliche Daten</strong> gibt es für Bochum, Dortmund, München und die Stadt Salzburg (dazu die Recyclinghöfe im Land Salzburg). Für diese Gebiete liegt außerdem ein <strong>fester Stand aus OpenStreetMap</strong> in der App — auch ohne Netz: <span id="info-regionen"></span>. Überall sonst werden die Standorte ab Zoomstufe 13 live aus OpenStreetMap geladen.</p>
       <div class="legende">
         <span><span class="punkt punkt--glas"></span>Altglas</span>
         <span><span class="punkt punkt--papier"></span>Altpapier</span>
         <span><span class="punkt punkt--beides"></span>beides</span>
-        <span><span class="punkt punkt--hof"></span>Wertstoffhof</span>
+        <span><span class="punkt punkt--hof"></span>Wertstoff-/Recyclinghof</span>
+        <span><span class="punkt punkt--wc"></span>Toilette</span>
       </div>
       <h3>Quellen</h3>
       <ul class="quellen" id="info-quellen"></ul>
