@@ -21,7 +21,8 @@
   (Heftzeile), Bilderleiste und die ruhigere Gestaltung; 1.0.4 (5)
   Wörter und „Gemischt üben“ in der Heftzeile, Lehrgang mit allen
   Schritten des Merkblatts; 1.0.5 (6) Heftzeile wieder einzeilig (Muster
-  links), großzügigere Heftprüfung, Team eingetragen.
+  links), großzügigere Heftprüfung, Team eingetragen; 1.0.6 (7) alle
+  Prüfungen auf echte Anfängerschrift eingestellt.
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
@@ -88,8 +89,9 @@
 - Start innerhalb 1,5 × Toleranz um den roten Pfeil; wer am Zielkreis
   ansetzt, bekommt „Andersherum!".
 - Der Fortschritt läuft nur vorwärts. Gesucht wird die nächste Stelle
-  des Wegs in einem Fenster **1,5 × Toleranz zurück bis 3,5 × Toleranz
-  voraus**; bei praktisch gleichem Abstand (5 % der Toleranz) gewinnt die
+  des Wegs in einem Fenster **1,5 × Toleranz zurück bis 4 × Toleranz
+  voraus** (Toleranz hier höchstens 0,14; 3,5 reichte mit den
+  großzügigeren Maßen von 1.0.6 an spitzen Ecken wie beim M nicht mehr); bei praktisch gleichem Abstand (5 % der Toleranz) gewinnt die
   Stelle nächst dem bisherigen Fortschritt, vorwärts nur 0,4-fach
   gewichtet (mit 0,5 brach beim d unter „Streng“ selten der Rückweg
   am oberen Wendepunkt ab).
@@ -103,7 +105,9 @@
   (4,5) lässt den Fortschritt beim n über den Rückweg springen; ein
   großer Gleichstand (0,02 fest) lässt den Fortschritt hinterherhinken.
 - Absetzen zählt nur, wenn höchstens 0,9 × Toleranz bis zum Ende fehlen.
-- Genauigkeit: Locker 0,14 · Normal 0,1 · Streng 0,07 (halbe Bandbreite;
+- Genauigkeit: Locker 0,17 · Normal 0,12 · Streng 0,08 (seit 1.0.6,
+  vorher 0,14 / 0,1 / 0,07 — „Lernanfänger schreiben nicht so
+  ordentlich“) (halbe Bandbreite;
   die weiße Spur ist 0,085 breit).
 - Sterne: 3 ohne Fehler, 2 bei ein oder zwei Fehlern, sonst 1. Jeder
   falsche Start, jedes Verlassen der Spur, jedes vorzeitige Absetzen ist
@@ -200,6 +204,17 @@
   links, gestrichelte Trennlinie, rechts davon wird geschrieben (weiter
   links: „Schreib rechts neben das Muster“). Nie wieder zwei gleich
   aussehende Zeilen mit nur einer gültigen.
+- **1.0.6: auf Anfängerschrift eingestellt** (Nutzer: „Du bist trotzdem
+  zu streng. Lernanfänger schreiben nicht so ordentlich.“). Die
+  Simulation schreibt seither je Genauigkeit unterschiedlich unordentlich
+  (`SCHRIFT`: Zittern, schiefe Buchstaben ±15 %, Größe ±12 %, Lage ±0,06,
+  Striche treffen sich nicht, Anfang daneben — bei „Normal“) und misst
+  Anteile statt Einzelfälle: richtig geschriebene Buchstaben ≥ 98 %
+  angenommen (Locker ≥ 97 %), verkehrt herum und eine Etage daneben
+  **ausnahmslos** abgelehnt, halbe lange Striche ≥ 95 % (Locker ≥ 85 %).
+  Maße: Mittel 0,18, Spitze 0,42, Etage 0,25 (wächst mit der Genauigkeit
+  höchstens um 10 %), Ende 0,3; Anfang gemessen bei 5 % des Wegs. Vorher
+  lehnte „Normal“ jeden siebten richtig geschriebenen Buchstaben ab.
 - Zugleich war die Prüfung zu starr: Die Vorlage hing am Ansatzpunkt, und
   ein ungenau gesetzter Anfang verschob den ganzen Buchstaben. Die
   Simulation spielt seither einen solchen Anfang mit; die Maße wurden

@@ -26,8 +26,8 @@ vorschau = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(vorschau)
 
 # Wie in Spurpruefer.swift und Stufe.swift
-ZURUECK, VORAUS, GLEICHSTAND = 1.5, 3.5, 0.05
-GENAUIGKEIT = {"streng": 0.07, "normal": 0.1, "locker": 0.14}
+ZURUECK, VORAUS, GLEICHSTAND = 1.5, 4, 0.05
+GENAUIGKEIT = {"streng": 0.08, "normal": 0.12, "locker": 0.17}
 # Stufe → (Toleranzfaktor, Fangfaktor)
 # Stufe → (Toleranzfaktor, Fangfaktor, Vorlage wandert mit)
 STUFEN = {"Spur": (1, 1.5, False), "Start/Ziel": (1.25, 1.5, False), "frei": (1.6, 1.9, True)}

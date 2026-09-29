@@ -15,13 +15,14 @@ enum Genauigkeit: String, CaseIterable, Identifiable, Codable {
     }
 
     /// Halbe Bandbreite in Einheiten (Oberlinie bis Grundlinie = 1).
-    /// Die weiße Spur selbst ist 0,085 breit — „Normal" erlaubt also,
-    /// knapp eine halbe Spurbreite danebenzuliegen.
+    /// Die weiße Spur selbst ist 0,085 breit. Seit 1.0.6 großzügiger
+    /// (vorher 0,14 / 0,1 / 0,07) — Lernanfänger schreiben nicht so
+    /// ordentlich (Ansage des Nutzers).
     var toleranz: CGFloat {
         switch self {
-        case .locker: 0.14
-        case .normal: 0.1
-        case .streng: 0.07
+        case .locker: 0.17
+        case .normal: 0.12
+        case .streng: 0.08
         }
     }
 

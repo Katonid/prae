@@ -204,7 +204,7 @@ final class Spurpruefer {
         let stelle = strich.naechsteStelle(
             zu: q,
             von: max(0, fortschritt - such * 1.5),
-            bis: fortschritt + such * 3.5,
+            bis: fortschritt + such * 4,
             bezug: fortschritt,
             gleichstand: such * 0.05
         )

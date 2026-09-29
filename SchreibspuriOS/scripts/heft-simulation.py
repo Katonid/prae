@@ -38,7 +38,7 @@ _spec.loader.exec_module(vorschau)
 
 # Wie in Heftpruefer.swift
 N = 40
-MITTEL, SPITZE, ETAGE, ENDE = 0.12, 0.3, 0.15, 0.22
+MITTEL, SPITZE, ETAGE, ENDE = 0.18, 0.42, 0.25, 0.3
 # Ab dieser Summe (Σ u² über die abgetasteten Punkte) gilt die Breite als
 # gesichert: ein Strich mit rund 0,2 waagerechter Ausdehnung im Mittel.
 # Kleiner (0,5) machte das kurze erste Stück des y zum Maßstab für das
@@ -188,9 +188,16 @@ class Heftpruefer:
         # Am Ende zählt auch die Länge des Strichs: Bei kurzen Strichen
         # wäre ein fester Spielraum schon ein halber Strich.
         l = laenge(vorlage)
-        ende_rest = max(0.12, min(ENDE, 0.25 * l) * math.sqrt(f))
-        etage_ende = min(ETAGE, max(0.08, 0.3 * l)) * f
-        start_ok = abs(p[0][1] - tt[0][1]) <= ETAGE * f and abs(p[0][0] - tt[0][0]) <= ENDE * f * 1.25
+        ende_rest = max(0.18, min(ENDE, 0.3 * l) * math.sqrt(f))
+        # Die Etage wächst mit der Genauigkeit nur wenig mit — auch bei
+        # „Locker“ muss eine ganze Etage daneben (0,45) auffallen.
+        etage = ETAGE * min(f, 1.1)
+        etage_ende = min(etage, max(0.1, 0.35 * l))
+        # Der Anfang: gemessen ein kleines Stück nach dem Ansatz (5 % des
+        # Wegs) — Anfänger setzen den Stift oft etwas daneben auf und
+        # finden erst dann in den Strich.
+        a0 = N // 20
+        start_ok = abs(p[a0][1] - tt[a0][1]) <= etage and abs(p[a0][0] - tt[a0][0]) <= ENDE * f * 1.25
         # Das Ende gemessen vom eigenen Anfang aus: So zählt, ob der Strich
         # lang genug und in die richtige Richtung geht — eine kleine
         # Verschiebung des ganzen Strichs steckt schon in der Etagenprüfung.
@@ -246,86 +253,135 @@ def waagerecht(pkt):
     return abweichung <= 0.04 and abs(bx - ax) > abs(by - ay)
 
 
-def kindschrift(vorlage, ax, sx, x0, zittern):
-    """Die Vorlage, wie ein Kind sie schreibt: verschoben, breiter oder
-    schmaler, leicht versetzt und zittrig."""
-    oy = random.uniform(-0.04, 0.04)
-    ox = random.uniform(-0.03, 0.03)
-    # Der Anfang sitzt oft etwas daneben und läuft dann auf die Form ein.
-    ax0, ay0 = random.uniform(-0.06, 0.06), random.uniform(-0.04, 0.04)
-    if len(vorlage) == 1:  # Punkt: kurz getippt
-        x, y = vorlage[0]
-        return [(ax + sx * (x - x0) + ox, y + oy + d) for d in (0, 0.01, 0.015)]
-    wx = wy = 0.0
-    aus = []
-    for i, (x, y) in enumerate(abtasten(vorlage, 120)):
-        wx = max(-zittern, min(zittern, wx + random.uniform(-0.012, 0.012)))
-        wy = max(-zittern, min(zittern, wy + random.uniform(-0.012, 0.012)))
-        abklingen = max(0.0, 1 - i / 15)
-        aus.append((ax + sx * (x - x0) + ox + wx + ax0 * abklingen, y + oy + wy + ay0 * abklingen))
-    return aus
+# Wie unordentlich der Test-Finger schreibt — je Genauigkeit. „Streng“
+# ist für Kinder, die schon sauber schreiben; „Normal“ ist echte
+# Anfängerschrift (Ansage des Nutzers: „Lernanfänger schreiben nicht so
+# ordentlich“): schief, zu groß oder zu klein, Striche treffen sich nicht
+# genau, der Anfang sitzt daneben, die Hand wackelt.
+SCHRIFT = {
+    #          Zittern Schritt  Ansatz  Strich  Höhe±  Schräge± Lage±
+    "streng": (0.03,   0.012,   0.05,   0.03,   0.04,  0.05,    0.03),
+    "normal": (0.06,   0.02,    0.1,    0.06,   0.12,  0.15,    0.06),
+    "locker": (0.075,  0.025,   0.12,   0.08,   0.15,  0.2,     0.08),
+}
+
+
+class Hand:
+    """Eine Kinderhand für einen Buchstaben: Schräge, Größe und Lage
+    gelten für alle seine Striche, Zittern und Ansatz je Strich."""
+
+    def __init__(self, stil, ax, sx, x0):
+        z, sch, ans, strich, hoehe, schraege, lage = SCHRIFT[stil]
+        self.z, self.sch, self.ans, self.strich = z, sch, ans, strich
+        self.ax, self.sx, self.x0 = ax, sx, x0
+        self.sy = 1 + random.uniform(-hoehe, hoehe)          # zu groß / zu klein
+        self.scher = random.uniform(-schraege, schraege)     # schief
+        self.oy = random.uniform(-lage, lage)                # etwas über/unter der Linie
+
+    def ort(self, x, y):
+        y2 = 1 + self.sy * (y - 1) + self.oy                 # Grundlinie bleibt Bezug
+        x2 = self.ax + self.sx * (x - self.x0) + self.scher * (1 - y2)
+        return x2, y2
+
+    def schreiben(self, vorlage):
+        ox = random.uniform(-self.strich, self.strich)
+        oy = random.uniform(-self.strich, self.strich) * 0.6
+        if len(vorlage) == 1:  # Punkt: kurz getippt
+            x, y = self.ort(*vorlage[0])
+            return [(x + ox, y + oy + d) for d in (0, 0.01, 0.015)]
+        ax0, ay0 = random.uniform(-self.ans, self.ans), random.uniform(-self.ans, self.ans) * 0.6
+        wx = wy = 0.0
+        aus = []
+        for i, (x, y) in enumerate(abtasten(vorlage, 120)):
+            wx = max(-self.z, min(self.z, wx + random.uniform(-self.sch, self.sch)))
+            wy = max(-self.z, min(self.z, wy + random.uniform(-self.sch, self.sch)))
+            abklingen = max(0.0, 1 - i / 15)
+            x2, y2 = self.ort(x, y)
+            aus.append((x2 + ox + wx + ax0 * abklingen, y2 + oy + wy + ay0 * abklingen))
+        return aus
+
+
+# Anforderung: saubere Buchstaben (in der Unordnung der jeweiligen Stufe)
+# fast immer angenommen; verkehrt herum und um eine Etage versetzt immer
+# abgelehnt; halbe lange Striche fast immer.
+MINDESTENS = {"sauber": 0.98, "verkehrt": 1.0, "Etage": 1.0, "halb": 0.95}
+# „Locker“ ist für sehr krakelige Schrift: dort gilt „fast immer“ etwas
+# weiter, und ein verkürzter Strich geht öfter durch — Richtung und Etage
+# bleiben aber ausnahmslos Pflicht.
+MINDESTENS_LOCKER = {"sauber": 0.97, "verkehrt": 1.0, "Etage": 1.0, "halb": 0.85}
 
 
 def main():
     random.seed(2)
     fehler = 0
     for gname, f in GENAUIGKEIT.items():
-        zittern = 0.035 * f
+        zaehler = {k: [0, 0] for k in MINDESTENS}   # [bestanden, versucht]
+        beispiele = {}
         for name, wege in vorschau.lesen():
             if name in SCHWUENGE:
                 continue  # Schwünge gibt es auf Stufe 5 nicht
             striche = [vorschau.abtasten(w) for w in wege]
             x0 = striche[0][0][0]
-            # 1. sauber geschrieben
+            # 1. ordentlich im Sinne der Stufe geschrieben → annehmen
             for _ in range(VERSUCHE):
                 h = Heftpruefer(striche, f)
-                ax, sx = random.uniform(1, 8), random.uniform(0.8, 1.25)
-                for k, s in enumerate(striche):
-                    erg = h.strich(kindschrift(s, ax, sx, x0, zittern))
-                    if erg != "ok":
-                        print(f"[{gname}] {name}: sauber, Strich {k + 1} abgelehnt ({erg})")
-                        fehler += 1
-                        break
-                else:
-                    continue
-                break
-            # 2.–4. falsch geschrieben: jeder Strich einzeln an seinem Platz
+                hand = Hand(gname, random.uniform(1, 8), random.uniform(0.8, 1.25), x0)
+                ok = all(h.strich(hand.schreiben(s)) == "ok" for s in striche)
+                zaehler["sauber"][0] += ok
+                zaehler["sauber"][1] += 1
+                if not ok:
+                    beispiele.setdefault("sauber", []).append(name)
+            # 2.–4. falsch geschrieben → ablehnen
             for k, s in enumerate(striche):
                 if len(s) == 1 or laenge(s) < 0.3:
                     continue
                 for art, roh in (("verkehrt", s[::-1]), ("halb", teil(s, 0.6)),
-                                 ("Etage hoch", [(x, y - 0.45) for x, y in s]),
-                                 ("Etage tief", [(x, y + 0.45) for x, y in s])):
+                                 ("Etage", [(x, y - 0.45) for x, y in s]),
+                                 ("Etage", [(x, y + 0.45) for x, y in s])):
+                    if art == "halb" and (laenge(s) < 0.6 or waagerecht(s)):
+                        # Bekannte Grenze: kurze und waagerechte Striche
+                        # (Querstriche von t, f, A, E, Hut der 5) dürfen
+                        # kürzer sein — das liegt im Zittern und in der
+                        # Breite der Schrift; lesbar bleibt es.
+                        continue
+                    if art == "verkehrt" and math.dist(s[0], s[-1]) < 0.05:
+                        continue  # geschlossene Form: verkehrt fällt am Weg auf, siehe O unten
                     h = Heftpruefer(striche, f)
-                    ax = random.uniform(1, 8)
+                    hand = Hand(gname, random.uniform(1, 8), 1, x0)
                     for vorher in striche[:k]:
-                        h.strich(kindschrift(vorher, ax, 1, x0, 0.01))
+                        h.strich(hand.schreiben(vorher))
                     if h.k != k:
                         continue
-                    if art == "halb" and laenge(s) < 0.6:
-                        # Bekannte Grenze: Bei kurzen Strichen (Querstriche
-                        # von t, f, A, E, Hut der 5) sind 60 % nur 2–4 mm
-                        # kürzer als der ganze Strich — das liegt im Zittern
-                        # und im ungenauen Ansatz. Ein kurzer Querstrich
-                        # lässt den Buchstaben lesbar.
+                    abgelehnt = h.strich(hand.schreiben(roh)) != "ok"
+                    zaehler[art][0] += abgelehnt
+                    zaehler[art][1] += 1
+                    if not abgelehnt:
+                        beispiele.setdefault(art, []).append(f"{name}{k + 1}")
+            # Geschlossene Formen andersherum (O, o, 0 im Uhrzeigersinn)
+            for k, s in enumerate(striche):
+                if len(s) > 1 and math.dist(s[0], s[-1]) < 0.05:
+                    h = Heftpruefer(striche, f)
+                    hand = Hand(gname, random.uniform(1, 8), 1, x0)
+                    for vorher in striche[:k]:
+                        h.strich(hand.schreiben(vorher))
+                    if h.k != k:
                         continue
-                    if art == "halb" and h.suu <= FEST and waagerecht(s):
-                        # Bekannte Grenze: Ein waagerechter Strich, bevor die
-                        # Breite feststeht (oberer Querstrich des E), darf
-                        # kurz sein — ein schmales E ist ein lesbares E.
-                        continue
-                    erg = h.strich(kindschrift(roh, ax, 1, x0, 0.01))
-                    if erg == "ok" and art == "halb" and gname == "locker":
-                        # „Locker“ ist bewusst nachsichtig: vereinzelt geht
-                        # ein deutlich verkürzter Strich durch.
-                        print(f"   (Hinweis) [{gname}] {name}: Strich {k + 1} {art} angenommen")
-                    elif erg == "ok":
-                        print(f"[{gname}] {name}: Strich {k + 1} {art} angenommen")
-                        fehler += 1
-                    elif art == "verkehrt" and erg != "andersherum" and math.dist(s[0], s[-1]) > 0.05:
-                        # Nur ein Hinweis: abgelehnt ist es, aber mit anderer Begründung.
-                        print(f"   (Hinweis) [{gname}] {name}: Strich {k + 1} verkehrt → „{erg}“")
-    print("Alles in Ordnung." if fehler == 0 else f"{fehler} Auffälligkeiten.")
+                    abgelehnt = h.strich(hand.schreiben(s[::-1])) != "ok"
+                    zaehler["verkehrt"][0] += abgelehnt
+                    zaehler["verkehrt"][1] += 1
+                    if not abgelehnt:
+                        beispiele.setdefault("verkehrt", []).append(f"{name}{k + 1}")
+        zeile = []
+        for art, (gut, alle) in zaehler.items():
+            anteil = gut / alle if alle else 1
+            zeile.append(f"{art} {anteil:.1%}")
+            if anteil < (MINDESTENS_LOCKER if gname == "locker" else MINDESTENS)[art]:
+                fehler += 1
+                zeile[-1] += " ✗"
+        print(f"[{gname}] " + " · ".join(zeile))
+        for art, namen in beispiele.items():
+            print(f"    {art} daneben: {' '.join(namen[:25])}")
+    print("Alles in Ordnung." if fehler == 0 else f"{fehler} Anforderungen verfehlt.")
     raise SystemExit(1 if fehler else 0)
 
 

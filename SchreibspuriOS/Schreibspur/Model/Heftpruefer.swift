@@ -69,10 +69,13 @@ final class Heftpruefer {
 
     // Wie in scripts/heft-simulation.py — dort abgestimmt und begründet.
     static let n = 40
-    private static let mittel: CGFloat = 0.12
-    private static let spitze: CGFloat = 0.3
-    private static let etage: CGFloat = 0.15
-    private static let endeMax: CGFloat = 0.22
+    // Eingestellt auf echte Anfängerschrift (schief, zu groß oder klein,
+    // Striche treffen sich nicht, Anfang daneben) — Ansage des Nutzers:
+    // „Lernanfänger schreiben nicht so ordentlich.“
+    private static let mittel: CGFloat = 0.18
+    private static let spitze: CGFloat = 0.42
+    private static let etage: CGFloat = 0.25
+    private static let endeMax: CGFloat = 0.3
     /// Ab dieser Summe Σu² gilt die Breite als gesichert — kleiner, und das
     /// kurze erste Stück des y wurde zum Maßstab für das lange zweite.
     private static let fest: CGFloat = 1.5
@@ -248,10 +251,17 @@ final class Heftpruefer {
 
         let (mittel, spitze) = Self.vergleich(p, tt)
         let l = Self.laenge(vorlage)
-        let endeRest = max(0.12, min(Self.endeMax, 0.25 * l) * sqrt(f))
-        let etageEnde = min(Self.etage, max(0.08, 0.3 * l)) * f
-        let anfangOK = abs(p[0].y - tt[0].y) <= Self.etage * f
-            && abs(p[0].x - tt[0].x) <= Self.endeMax * f * 1.25
+        let endeRest = max(0.18, min(Self.endeMax, 0.3 * l) * sqrt(f))
+        // Die Etage wächst mit der Genauigkeit nur wenig mit — auch bei
+        // „Locker“ muss eine ganze Etage daneben (0,45) auffallen.
+        let etage = Self.etage * min(f, 1.1)
+        let etageEnde = min(etage, max(0.1, 0.35 * l))
+        // Der Anfang: ein kleines Stück nach dem Ansatz (5 % des Wegs) —
+        // Anfänger setzen den Stift oft daneben auf und finden dann erst in
+        // den Strich.
+        let a0 = Self.n / 20
+        let anfangOK = abs(p[a0].y - tt[a0].y) <= etage
+            && abs(p[a0].x - tt[a0].x) <= Self.endeMax * f * 1.25
         // Das Ende gemessen ab einem kleinen Stück nach dem Ansatz: zählt,
         // ob der Strich lang genug ist und in die richtige Richtung geht.
         let k = Self.k0
