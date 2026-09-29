@@ -109,7 +109,12 @@ enum Zeichenvorrat {
     /// Verbindungen (Au, Sch …) bringen keine — außer Qu das Q, das es
     /// nirgends allein gibt.
     static let lehrgang: [(schritt: Int, zeichen: [Zeichen])] = {
-        let einzeln = Set(schritte.flatMap { $0.split(separator: " ") }.filter { $0.count == 1 }.map(String.init))
+        var einzeln: Set<String> = []
+        for schritt in schritte {
+            for teil in schritt.split(separator: " ") where teil.count == 1 {
+                einzeln.insert(String(teil))
+            }
+        }
         var aus: [(schritt: Int, zeichen: [Zeichen])] = []
         for (n, schritt) in schritte.enumerated() {
             let teile = schritt.split(separator: " ").map(String.init)
