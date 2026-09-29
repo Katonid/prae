@@ -33,8 +33,8 @@ struct Bilderleiste: View {
     /// Das Wort, der geübte Buchstabe darin farbig.
     private func wort(_ w: String) -> Text {
         let ziel = zeichen.id.lowercased()
-        guard let bereich = w.range(of: ziel, options: [.caseInsensitive]) else {
-            return Text(w).foregroundColor(.primary)
+        guard !zeichen.istFolge, let bereich = w.range(of: ziel, options: [.caseInsensitive]) else {
+            return Text(w).foregroundColor(Farben.tinteDunkel)
         }
         return Text(w[..<bereich.lowerBound]).foregroundColor(Farben.tinteDunkel)
             + Text(w[bereich]).foregroundColor(Farben.markierung)

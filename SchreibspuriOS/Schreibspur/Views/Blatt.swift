@@ -69,14 +69,19 @@ enum Zeichner {
     /// Hintergrund mit Lineatur: helleres Band für die kleinen Buchstaben.
     static func blatt(_ ctx: inout GraphicsContext, groesse: CGSize, lineatur: Lineatur, _ a: Abbildung) {
         ctx.fill(Path(CGRect(origin: .zero, size: groesse)), with: .color(Farben.blatt))
+        linien(&ctx, breite: groesse.width, lineatur: lineatur, a)
+    }
+
+    /// Eine Zeile der Lineatur (Band und Linien) über die ganze Breite.
+    static func linien(_ ctx: inout GraphicsContext, breite: CGFloat, lineatur: Lineatur, _ a: Abbildung) {
         let oben = a.y(Zeichensatz.mittellinie), unten = a.y(1)
-        ctx.fill(Path(CGRect(x: 0, y: oben, width: groesse.width, height: unten - oben)),
+        ctx.fill(Path(CGRect(x: 0, y: oben, width: breite, height: unten - oben)),
                  with: .color(Farben.band))
         for linie in lineatur.linien {
             let y = a.y(linie)
             var p = Path()
             p.move(to: CGPoint(x: 0, y: y))
-            p.addLine(to: CGPoint(x: groesse.width, y: y))
+            p.addLine(to: CGPoint(x: breite, y: y))
             ctx.stroke(p, with: .color(Farben.linie), lineWidth: linie == 1 ? 2 : 1.2)
         }
     }

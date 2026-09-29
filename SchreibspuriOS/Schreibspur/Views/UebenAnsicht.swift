@@ -86,11 +86,14 @@ struct UebenAnsicht: View {
                      heft?.aktuelleTinte.count, heft?.fertige.count, heft?.strichNummer)
             leiste
             GeometryReader { geo in
-                let a = stufe == .heft ? heftAbbildung(geo.size) : Abbildung(groesse: geo.size, zeichen: zeichen)
+                let lage = blattlage(geo.size)
+                // Eingaben landen in der Schreibzeile; nur auf Stufe 5 ist
+                // das eine andere als die mit der Vorlage.
+                let a = lage.schreiben
                 ZStack {
                     TimelineView(.animation(paused: phase != .vorfuehren)) { zeitpunkt in
                         Canvas { ctx, groesse in
-                            zeichnen(&ctx, groesse: groesse, a, zeit: zeitpunkt.date)
+                            zeichnen(&ctx, groesse: groesse, lage, zeit: zeitpunkt.date)
                         }
                     }
 
@@ -177,7 +180,7 @@ struct UebenAnsicht: View {
         }
         .onChange(of: heft?.fehlerZaehler ?? 0) { alt, neu in
             guard neu > alt else { return }
-            fehlerZeigen(heft?.hinweis?.text)
+            fehlerZeigen(heft?.hinweisText)
         }
         .task(id: hinweisNummer) {
             try? await Task.sleep(for: .seconds(3))
@@ -254,7 +257,10 @@ struct UebenAnsicht: View {
                            toleranz: g.toleranz * stufe.toleranzFaktor,
                            fangFaktor: stufe.fangFaktor,
                            verschiebbar: stufe == .frei)
-        heft = stufe == .heft ? Heftpruefer(zeichen: zeichen, genauigkeit: g) : nil
+        // Stufe 5: ein Buchstabe viermal; Wörter und Mischungen Buchstabe für Buchstabe.
+        heft = stufe == .heft
+            ? Heftpruefer(folge: zeichen.istFolge ? zeichen.folge : Array(repeating: zeichen, count: 4), genauigkeit: g)
+            : nil
         hinweis = nil
         starthilfe = false
         neueStufe = nil
@@ -332,8 +338,12 @@ struct UebenAnsicht: View {
 
     // MARK: Zeichnen
 
-    private func zeichnen(_ ctx: inout GraphicsContext, groesse: CGSize, _ a: Abbildung, zeit: Date) {
+    private func zeichnen(_ ctx: inout GraphicsContext, groesse: CGSize, _ lage: Blattlage, zeit: Date) {
+        let a = lage.vorlage
         Zeichner.blatt(&ctx, groesse: groesse, lineatur: zeichen.lineatur, a)
+        if stufe == .heft {
+            Zeichner.linien(&ctx, breite: groesse.width, lineatur: zeichen.lineatur, lage.schreiben)
+        }
         if !zeichen.istSchwung, stufe != .heft {
             vorlage(&ctx, groesse: groesse, platz: a.ansicht(CGPoint(x: zeichen.rahmen.minX, y: 0)).x)
         }
@@ -342,7 +352,7 @@ struct UebenAnsicht: View {
         case .punkte: Zeichner.punktlinie(&ctx, zeichen: zeichen, a)
         case .startZiel: break
         case .frei: Zeichner.schreibfeld(&ctx, zeichen: zeichen, a)
-        case .heft: Zeichner.spur(&ctx, zeichen: zeichen, a, breite: 0.08)  // Musterbuchstabe
+        case .heft: Zeichner.spur(&ctx, zeichen: zeichen, a, breite: 0.08)  // Musterzeile
         }
         let tintenBreite: CGFloat = stufe == .heft ? 0.075 : Zeichner.tintenBreite
 
@@ -359,6 +369,9 @@ struct UebenAnsicht: View {
                 }
                 versatz += strich.gesamt
             }
+            if let heft {  // Beim Vorführen bleibt stehen, was schon geschrieben ist.
+                heftZeichnen(&ctx, heft, lage.schreiben, tintenBreite, fortschrittBei: fortschrittsOrt(a, groesse))
+            }
             if stand.strich < striche.count {
                 let strich = striche[stand.strich]
                 Zeichner.ziel(&ctx, strich: strich, a)
@@ -369,7 +382,7 @@ struct UebenAnsicht: View {
         }
 
         if let heft {
-            heftZeichnen(&ctx, heft, a, tintenBreite, breiteBlatt: groesse.width)
+            heftZeichnen(&ctx, heft, lage.schreiben, tintenBreite, fortschrittBei: fortschrittsOrt(a, groesse))
             return
         }
 
@@ -400,25 +413,47 @@ struct UebenAnsicht: View {
         }
     }
 
-    /// Die Heftzeile in echter Größe: Grundlinie–Oberlinie `heftHoehe` mm
-    /// (auf dem iPad etwa 5,2 Punkte je Millimeter). Die Zeile liegt
-    /// mittig, der Musterbuchstabe links am Rand.
-    private func heftAbbildung(_ groesse: CGSize) -> Abbildung {
-        let m = CGFloat(heftHoehe) * 5.2
-        return Abbildung(massstab: m,
-                         verschiebung: CGPoint(x: 28 - zeichen.rahmen.minX * m, y: groesse.height / 2 - 0.7 * m))
+    /// Wo Vorlage und Schreibzeile liegen. Auf Stufe 1–4 ist beides
+    /// dasselbe große Blatt; auf Stufe 5 steht oben die Musterzeile (wie die
+    /// Vorschrift im Heft), darunter die Zeile für das Kind — beide in echter
+    /// Größe: Grundlinie–Oberlinie `heftHoehe` mm, auf dem iPad etwa
+    /// 5,2 Punkte je Millimeter. Passt das nicht, wird es kleiner.
+    struct Blattlage {
+        let vorlage: Abbildung
+        let schreiben: Abbildung
     }
 
-    /// Stufe 5: was das Kind geschrieben hat, darunter je geschafftem
-    /// Zeichen ein Stern; rechts oben, wie viele noch fehlen.
+    private func blattlage(_ groesse: CGSize) -> Blattlage {
+        guard stufe == .heft else {
+            let a = Abbildung(groesse: groesse, zeichen: zeichen)
+            return Blattlage(vorlage: a, schreiben: a)
+        }
+        let zeile: CGFloat = 1.78, luecke: CGFloat = 0.4   // Sichtbereich −0,28 … 1,5
+        let m = min(CGFloat(heftHoehe) * 5.2, groesse.height / (2 * zeile + luecke))
+        let oben = (groesse.height - (2 * zeile + luecke) * m) / 2 + 0.28 * m
+        return Blattlage(
+            vorlage: Abbildung(massstab: m, verschiebung: CGPoint(x: 28 - zeichen.rahmen.minX * m, y: oben)),
+            schreiben: Abbildung(massstab: m, verschiebung: CGPoint(x: 28, y: oben + (zeile + luecke) * m))
+        )
+    }
+
+    /// Rechts in der Musterzeile: wie viele Buchstaben schon geschafft sind.
+    private func fortschrittsOrt(_ vorlage: Abbildung, _ groesse: CGSize) -> CGPoint {
+        CGPoint(x: groesse.width - 30, y: vorlage.y(0.72))
+    }
+
+    /// Stufe 5: was das Kind geschrieben hat. Wird derselbe Buchstabe
+    /// mehrmals geschrieben, steht unter jedem geschafften ein Stern; bei
+    /// Wörtern nicht (zu unruhig) — dort zeigen nur die Punkte den Stand.
     private func heftZeichnen(_ ctx: inout GraphicsContext, _ heft: Heftpruefer, _ a: Abbildung,
-                              _ breite: CGFloat, breiteBlatt: CGFloat) {
+                              _ breite: CGFloat, fortschrittBei rechts: CGPoint) {
+        let sterneZeigen = Set(heft.folge.map(\.id)).count == 1
         for buchstabe in heft.fertige {
             for strich in buchstabe {
                 Zeichner.tinte(&ctx, punkte: strich, stift: stift, versatz: 0, a, breite: breite)
             }
             let xs = buchstabe.flatMap { $0 }.map(\.x)
-            if let x0 = xs.min(), let x1 = xs.max() {
+            if sterneZeigen, let x0 = xs.min(), let x1 = xs.max() {
                 var stern = ctx.resolve(Image(systemName: "star.fill"))
                 stern.shading = .color(Farben.stern)
                 let m = a.ansicht(CGPoint(x: (x0 + x1) / 2, y: 1.62))
@@ -429,11 +464,10 @@ struct UebenAnsicht: View {
         for strich in heft.tinte + [heft.aktuelleTinte] where !strich.isEmpty {
             Zeichner.tinte(&ctx, punkte: strich, stift: stift, versatz: 0, a, breite: breite)
         }
-        // Fortschritt der Zeile als Punkte oben rechts
+        // Fortschritt der Zeile als Punkte
         let r: CGFloat = 7
-        let oben = a.y(-0.35)
         for i in 0..<heft.anzahl {
-            let mitte = CGPoint(x: breiteBlatt - 30 - CGFloat(heft.anzahl - 1 - i) * 22, y: oben)
+            let mitte = CGPoint(x: rechts.x - CGFloat(heft.anzahl - 1 - i) * 22, y: rechts.y)
             let kreis = Path(ellipseIn: CGRect(x: mitte.x - r, y: mitte.y - r, width: 2 * r, height: 2 * r))
             ctx.fill(kreis, with: .color(i < heft.fertige.count ? Farben.stern : .white.opacity(0.35)))
         }

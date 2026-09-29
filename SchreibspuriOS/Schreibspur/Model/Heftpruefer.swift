@@ -2,8 +2,11 @@ import CoreGraphics
 import Foundation
 import Observation
 
-/// Prüft Stufe 5: Das Kind schreibt ein Zeichen mehrmals in eine Zeile in
-/// normaler Heftgröße — ohne Spur, an beliebiger Stelle der Zeile.
+/// Prüft Stufe 5: Das Kind schreibt in eine Zeile in normaler Heftgröße —
+/// ohne Spur, an beliebiger Stelle der Zeile. Geschrieben wird eine Folge
+/// von Buchstaben: derselbe viermal, ein Wort oder eine gemischte Reihe.
+/// Jeder Buchstabe wird für sich geprüft und legt die Vorlage neu an; der
+/// nächste muss rechts vom vorigen beginnen.
 ///
 /// Geprüft wird jeder Strich, sobald der Stift abhebt:
 ///
@@ -33,6 +36,7 @@ final class Heftpruefer {
         case ende(CGFloat)
         case form
         case punkt
+        case rechtsDaneben
 
         var text: String {
             switch self {
@@ -42,6 +46,7 @@ final class Heftpruefer {
             case .ende(let y): "Dieser Strich endet \(Heftpruefer.ort(y))."
             case .form: "Das ist schwer zu lesen – schreib es noch einmal genau."
             case .punkt: "Setz den Punkt genau an seinen Platz."
+            case .rechtsDaneben: "Schreib den nächsten Buchstaben rechts daneben."
             }
         }
     }
@@ -68,19 +73,18 @@ final class Heftpruefer {
     /// kurze erste Stück des y wurde zum Maßstab für das lange zweite.
     private static let fest: CGFloat = 1.5
 
-    let zeichen: Zeichen
-    /// Wie oft das Zeichen in die Zeile soll.
-    let anzahl: Int
+    /// Die Buchstaben der Zeile in Schreibreihenfolge.
+    let folge: [Zeichen]
     private let f: CGFloat
-    private let vorlagen: [[CGPoint]]
-    private let x0: CGFloat
+    /// Ansatz des ersten Strichs des zuletzt geschafften Buchstabens.
+    private var letzterAnsatz: CGFloat?
 
     private(set) var strichNummer = 0
     private var ax: CGFloat?
     private var suv: CGFloat = 0
     private var suu: CGFloat = 0
 
-    /// Geschaffte Zeichen der Zeile (je Zeichen die Striche).
+    /// Geschaffte Buchstaben der Zeile (je Buchstabe die Striche).
     private(set) var fertige: [[[CGPoint]]] = []
     /// Angenommene Striche des Zeichens, an dem das Kind gerade schreibt.
     private(set) var tinte: [[CGPoint]] = []
@@ -89,18 +93,30 @@ final class Heftpruefer {
 
     private(set) var fehler = 0
     private(set) var hinweis: Hinweis?
+    /// Bei welchem Buchstaben der letzte Fehler war.
+    private(set) var hinweisBuchstabe: String?
     private(set) var fehlerZaehler = 0
     private(set) var strichZaehler = 0
 
-    init(zeichen: Zeichen, genauigkeit: Genauigkeit, anzahl: Int = 4) {
-        self.zeichen = zeichen
-        self.anzahl = anzahl
+    init(folge: [Zeichen], genauigkeit: Genauigkeit) {
+        self.folge = folge
         f = genauigkeit.heftFaktor
-        vorlagen = zeichen.striche.map(\.punkte)
-        x0 = zeichen.striche.first?.anfang.x ?? 0
     }
 
+    var anzahl: Int { folge.count }
     var fertig: Bool { fertige.count >= anzahl }
+    private var buchstabe: Zeichen { folge[min(fertige.count, folge.count - 1)] }
+    private var vorlagen: [[CGPoint]] { buchstabe.striche.map(\.punkte) }
+    private var x0: CGFloat { buchstabe.striche.first?.anfang.x ?? 0 }
+
+    /// Hinweis mit dem Buchstaben davor, wenn die Zeile verschiedene hat
+    /// („m: Dieser Strich beginnt …“).
+    var hinweisText: String? {
+        guard let hinweis else { return nil }
+        let verschieden = Set(folge.map(\.id)).count > 1
+        if verschieden, let b = hinweisBuchstabe { return "\(b): \(hinweis.text)" }
+        return hinweis.text
+    }
 
     var sterne: Int {
         switch fehler {
@@ -132,6 +148,7 @@ final class Heftpruefer {
         if let fehlerArt = pruefen(roh) {
             fehler += 1
             hinweis = fehlerArt
+            hinweisBuchstabe = buchstabe.text
             fehlerZaehler += 1
             // Das angefangene Zeichen beginnt neu; fertige bleiben stehen.
             tinte = []
@@ -142,6 +159,7 @@ final class Heftpruefer {
             strichNummer += 1
             strichZaehler += 1
             if strichNummer >= vorlagen.count {
+                letzterAnsatz = tinte.first?.first?.x
                 fertige.append(tinte)
                 tinte = []
                 zeichenZuruecksetzen()
@@ -172,6 +190,10 @@ final class Heftpruefer {
         let p = Self.abtasten(roh)
         let t = Self.abtasten(vorlage)
         let erster = ax == nil
+        // Ein neuer Buchstabe gehört rechts neben den vorigen.
+        if erster, strichNummer == 0, let links = letzterAnsatz, roh[0].x < links + 0.15 {
+            return .rechtsDaneben
+        }
         let anker = erster ? p[0].x - (t[0].x - x0) : ax!
 
         // Breite: aus den schon angenommenen Strichen; nur wenn die noch

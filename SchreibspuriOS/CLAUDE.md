@@ -18,7 +18,9 @@
   Erste Fassung: 1.0.0 (1); 1.0.1 (2) stellt die Buchstaben auf das
   Merkblatt „Flex und Flora“ um; 1.0.2 (3) bringt Kinderprofile,
   Lehrgang, vier Stufen und Schwungübungen; 1.0.3 (4) Stufe 5
-  (Heftzeile), Bilderleiste und die ruhigere Gestaltung.
+  (Heftzeile), Bilderleiste und die ruhigere Gestaltung; 1.0.4 (5)
+  Wörter und „Gemischt üben“ in der Heftzeile, Lehrgang mit allen
+  Schritten des Merkblatts.
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
   `GENERATE_INFOPLIST_FILE = YES`). Nie entfernen.
@@ -30,7 +32,7 @@
 | `Model/Zeichensatz.swift` | Alle Zeichen als Striche in der Wegsprache (M, L, A, Q, C, P) |
 | `Model/Strich.swift` | Abtasten der Wege, Weglänge, nächste Stelle zu einem Punkt |
 | `Model/Spurpruefer.swift` | Die Regeln des Nachspurens (Start, Richtung, Spur, Absetzen) |
-| `Model/Zeichen.swift` | Zeichen, Lineatur, Bereiche (Schwünge, Buchstaben im Lehrgang, Ziffern) |
+| `Model/Zeichen.swift` | Zeichen (auch Folgen = Wörter), Lineatur, Bereiche, Lehrgang, Wortzuordnung |
 | `Model/Stufe.swift` | Die vier Stufen vom Nachspuren zum freien Schreiben |
 | `Model/Heftpruefer.swift` | Prüfung der Heftzeile (Stufe 5): Vergleich nach Abschluss jedes Strichs |
 | `Model/Anlautbilder.swift` | Bilder (Emoji) mit Wörtern je Buchstabe, nach dem Anlaut ausgewählt |
@@ -115,12 +117,17 @@
   nur einem Kind entfällt die Wahl. Beim ersten Start mit 1.0.2 werden
   die alten Sterne (`fortschritt.sterne`) als Stufe 1 eines „Kind 1“
   übernommen.
-- **Lehrgang:** `Zeichensatz.lehrgang` — Buchstabenpaare in der
-  Reihenfolge des Merkblatts (zeilenweise, Vorder- vor Rückseite;
-  Verbindungen wie Au, Sch, ck weggelassen, Qu → Q q). Der Bereich
-  „Buchstaben“ zeigt sie in dieser Reihenfolge. Mit „Freischalten“ sind
-  nur Lektionen bis `freiBis` offen; Blättern überspringt Gesperrtes.
-  Schwünge und Ziffern sind immer offen.
+- **Lehrgang:** `Zeichensatz.lehrgangSchritte` — **genau die Reihenfolge
+  des Merkblatts** (Ansage des Nutzers: „Es gilt die Seite, die mit dem A
+  anfängt. Der nächste Buchstabe ist das M daneben, dann das O und dann
+  wird es reihenweise so abgearbeitet“): A a, M m, O o, I i, L l, U u,
+  E e, S s, F f, N n, W w, R r, T t, Au au, P p, Ei ei, D d, Sch sch …,
+  danach die Rückseite. Die Verbindungen (Au, Ei, Sch, Eu, ch, ie, Sp,
+  St, äu, Pf, ng, tz, ck, nk) sind eigene Schritte ohne Schreibübung;
+  sie entscheiden, ab wann Wörter mit ihnen dran sind. Qu bringt das Q.
+  `freiBis` zählt seit 1.0.4 diese Schritte (vorher Buchstaben-Lektionen;
+  `Klasse.init` rechnet alte Stände um). Blättern überspringt Gesperrtes;
+  Schwünge, Ziffern und Wörter sind immer offen.
 - **Stufen** (`Stufe`): 1 weiße Spur mit Pfeil/Punkten/Ziel · 2 nur
   Punktlinie mit Start/Ziel · 3 nur Start und Ziel · 4 frei im
   aufgehellten Schreibfeld. Die nächste Stufe öffnet sich mit **drei
@@ -194,6 +201,31 @@
     (oberer Querstrich des E), ebenso — die Buchstaben bleiben lesbar.
     Bei anderen Zufallsfolgen der Simulation fallen vereinzelt (≈ 1 von
     1000) saubere Striche unter „Streng“ durch.
+
+## Wörter und „Gemischt üben“ (seit 1.0.4, Ansage des Nutzers 09/2026)
+
+- Auf der Heftstufe sollen nicht nur einzelne Buchstaben geschrieben
+  werden, sondern **Wörter aus bereits bekannten Buchstaben**, und
+  bekannte Buchstaben sollen **weitergeübt** werden. Bereich „Wörter“:
+  zuerst die Kachel „Gemischt üben“, dann die Wörter, die neuesten zuerst.
+- Wortschatz: `Zeichensatz.woerter`. Ein Wort ist dran, wenn alle
+  Buchstaben **und** alle Verbindungen darin gelernt sind
+  (`Zeichenvorrat.wortSchritt`): „Eis“ erst nach Ei, „Tisch“ nach Sch,
+  „Stern“ nach St (st/sp nur am Wortanfang), „Katze“ nach tz.
+  `scripts/woerter-pruefen.py` listet, welches Wort ab welchem Schritt
+  kommt — nach jeder Änderung an der Liste ansehen. Nicht aufnehmen:
+  Wörter, in denen Buchstaben anders klingen als gelernt (Mais, Ferien,
+  Clown, Computer).
+- Geschrieben wird in die Heftzeile unter einer Musterzeile (zwei
+  Zeilen: oben Vorschrift, unten das Kind). Geprüft wird Buchstabe für
+  Buchstabe mit dem `Heftpruefer` (Folge statt einzelnem Zeichen): jeder
+  Buchstabe legt die Vorlage neu an, der nächste muss rechts vom vorigen
+  beginnen. Fehler nennen den Buchstaben („m: Dieser Strich …“) und
+  setzen nur den angefangenen Buchstaben zurück. i- und Umlautpunkte
+  kommen direkt nach ihrem Buchstaben, nicht erst am Wortende.
+- „Gemischt üben“ (`Klasse.mischung`): sechs gelernte Buchstaben, jedes
+  Mal neu gewürfelt; wenig Sterne → öfter; nie derselbe zweimal
+  hintereinander. Keine Sterne gespeichert (jede Mischung ist anders).
 
 ## Fallen
 

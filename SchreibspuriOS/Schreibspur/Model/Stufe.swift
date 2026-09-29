@@ -13,7 +13,8 @@ enum Stufe: Int, CaseIterable, Identifiable, Comparable {
 
     /// Die Stufen, die es für ein Zeichen gibt.
     static func stufen(fuer zeichen: Zeichen) -> [Stufe] {
-        zeichen.istSchwung ? [.spur, .punkte, .startZiel, .frei] : allCases
+        if zeichen.istFolge { return [.heft] }  // Wörter und Mischungen: nur in die Heftzeile
+        return zeichen.istSchwung ? [.spur, .punkte, .startZiel, .frei] : allCases
     }
 
     var id: Int { rawValue }

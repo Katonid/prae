@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -30,6 +31,9 @@ final class Klasse {
         var kinder: [Kind]
         var lehrgangAn: Bool
         var freiBis: Int
+        /// Seit 1.0.4 zählt `freiBis` die Schritte des Merkblatts (mit Au,
+        /// Sch …), vorher die Buchstaben-Lektionen. nil = alter Stand.
+        var freiBisInSchritten: Bool?
     }
 
     private static let schluessel = "klasse.v1"
@@ -39,7 +43,7 @@ final class Klasse {
     private(set) var kinder: [Kind]
     /// Nur Buchstaben bis zur freigeschalteten Lektion sind offen.
     var lehrgangAn: Bool { didSet { speichern() } }
-    /// Letzte freigeschaltete Lektion (Index in `Zeichenvorrat.lehrgang`).
+    /// Letzter freigeschalteter Schritt (Index in `Zeichenvorrat.schritte`).
     var freiBis: Int { didSet { speichern() } }
 
     /// Wer gerade schreibt. Absichtlich nicht gespeichert: Am Klassen-iPad
@@ -52,7 +56,12 @@ final class Klasse {
            let stand = try? JSONDecoder().decode(Stand.self, from: daten) {
             kinder = stand.kinder
             lehrgangAn = stand.lehrgangAn
-            freiBis = stand.freiBis
+            if stand.freiBisInSchritten == true {
+                freiBis = min(stand.freiBis, Zeichenvorrat.schritte.count - 1)
+            } else {
+                let lektionen = Zeichenvorrat.lehrgang
+                freiBis = lektionen[min(max(stand.freiBis, 0), lektionen.count - 1)].schritt
+            }
         } else {
             // Erster Start oder Umstieg von 1.0.x: ein Kind anlegen und die
             // alten Sterne als Sterne der ersten Stufe übernehmen.
@@ -92,7 +101,8 @@ final class Klasse {
     }
 
     func eintragen(_ anzahl: Int, _ zeichen: Zeichen, _ stufe: Stufe) {
-        guard let i = kinder.firstIndex(where: { $0.id == aktivID }) else { return }
+        guard let i = kinder.firstIndex(where: { $0.id == aktivID }),
+              zeichen.id != Klasse.mischungID else { return }  // jede Mischung ist anders
         let s = Kind.schluessel(zeichen, stufe)
         guard anzahl > kinder[i].sterne[s] ?? 0 else { return }
         kinder[i].sterne[s] = anzahl
@@ -103,12 +113,54 @@ final class Klasse {
 
     // MARK: Lehrgang
 
-    /// Ob ein Zeichen im Unterricht schon dran war. Schwünge und Ziffern
-    /// sind immer offen.
-    func istOffen(_ zeichen: Zeichen) -> Bool {
-        guard lehrgangAn, let lektion = Zeichenvorrat.lektion(von: zeichen) else { return true }
-        return lektion <= freiBis
+    /// Bis zu welchem Schritt des Merkblatts gelernt wurde — ohne Lehrgang
+    /// alles.
+    var bekannterSchritt: Int {
+        lehrgangAn ? freiBis : Zeichenvorrat.schritte.count - 1
     }
+
+    /// Ob ein Zeichen im Unterricht schon dran war. Schwünge, Ziffern und
+    /// Wörter (die ohnehin nur aus Bekanntem bestehen) sind immer offen.
+    func istOffen(_ zeichen: Zeichen) -> Bool {
+        guard lehrgangAn, let schritt = Zeichenvorrat.schritt(von: zeichen) else { return true }
+        return schritt <= freiBis
+    }
+
+    /// Was im Bereich zu sehen ist. Wörter: nur solche aus schon gelernten
+    /// Buchstaben und Verbindungen, die neuesten zuerst.
+    func zeichen(in bereich: Bereich) -> [Zeichen] {
+        guard bereich == .woerter else { return bereich.zeichen }
+        let grenze = bekannterSchritt
+        return Zeichenvorrat.woerter
+            .filter { $0.schritt <= grenze }
+            .sorted { $0.schritt > $1.schritt }
+            .map { $0.wort }
+    }
+
+    /// Eine Reihe aus sechs schon gelernten Buchstaben zum Wiederholen.
+    /// Buchstaben mit wenig Sternen kommen häufiger dran; derselbe nie
+    /// zweimal hintereinander.
+    func mischung() -> Zeichen {
+        let bekannt = Zeichenvorrat.lehrgang
+            .filter { $0.schritt <= bekannterSchritt }
+            .flatMap { $0.zeichen }
+        guard !bekannt.isEmpty else { return Zeichenvorrat.folge(id: Klasse.mischungID, [], abstand: 0.5) }
+        let gewichte = bekannt.map { CGFloat(1 + Stufe.allCases.count - gemeistert($0)) }
+        var reihe: [Zeichen] = []
+        while reihe.count < 6 {
+            var zufall = CGFloat.random(in: 0..<gewichte.reduce(0, +))
+            var wahl = bekannt[0]
+            for (z, g) in zip(bekannt, gewichte) {
+                if zufall < g { wahl = z; break }
+                zufall -= g
+            }
+            if bekannt.count > 1, reihe.last?.id == wahl.id { continue }
+            reihe.append(wahl)
+        }
+        return Zeichenvorrat.folge(id: Klasse.mischungID, reihe, abstand: 0.5)
+    }
+
+    static let mischungID = "Gemischt"
 
     // MARK: Kinder verwalten
 
@@ -141,7 +193,7 @@ final class Klasse {
     }
 
     private func speichern() {
-        let stand = Stand(kinder: kinder, lehrgangAn: lehrgangAn, freiBis: freiBis)
+        let stand = Stand(kinder: kinder, lehrgangAn: lehrgangAn, freiBis: freiBis, freiBisInSchritten: true)
         if let daten = try? JSONEncoder().encode(stand) {
             UserDefaults.standard.set(daten, forKey: Klasse.schluessel)
         }

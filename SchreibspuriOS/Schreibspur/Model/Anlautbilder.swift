@@ -19,6 +19,13 @@ enum Anlautbilder {
     /// Bilder zu einem Buchstaben; Groß- und Kleinbuchstabe teilen sie.
     static func bilder(fuer zeichen: Zeichen) -> [Bild] {
         guard !zeichen.istSchwung else { return [] }
+        if zeichen.istFolge {
+            // Ein Wort: sein eigenes Bild, falls es eines gibt (Maus 🐭).
+            return liste.values.flatMap { $0 }
+                .filter { $0.1 == zeichen.id }
+                .prefix(1)
+                .map { Bild(emoji: $0.0, wort: $0.1) }
+        }
         let schluessel = zeichen.id == "ß" ? "ß" : zeichen.id.uppercased()
         return (liste[schluessel] ?? []).map { Bild(emoji: $0.0, wort: $0.1) }
     }

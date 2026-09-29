@@ -21,6 +21,10 @@ in der richtigen Richtung geschrieben.
 
 Unter jedem Buchstaben stehen Bilder von Dingen, die mit ihm beginnen.
 
+In der Heftzeile schreiben die Kinder auch **Wörter** — nur solche, die
+sich aus schon gelernten Buchstaben und Lauten zusammensetzen (Mama ab M,
+Maus erst nach Au) — und üben bekannte Buchstaben **gemischt** weiter.
+
 Für die Klasse: Kinderprofile mit Tierbild, Buchstaben nach Lehrgang
 freischalten, Genauigkeit je Kind. Die Einstellungen liegen hinter einer
 Malaufgabe für Erwachsene.
