@@ -16,7 +16,7 @@
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release).
   Erste Fassung: 1.0.0 (1); 1.0.1 (2) stellt die Buchstaben auf das
-  Merkblatt „Flex und Flora“ um; 1.0.2 (3) bringt Kinderprofile,
+  Merkblatt des Nutzers um; 1.0.2 (3) bringt Kinderprofile,
   Lehrgang, vier Stufen und Schwungübungen; 1.0.3 (4) Stufe 5
   (Heftzeile), Bilderleiste und die ruhigere Gestaltung; 1.0.4 (5)
   Wörter und „Gemischt üben“ in der Heftzeile, Lehrgang mit allen
@@ -48,8 +48,12 @@
 
 ## Koordinaten und Zeichen
 
-- **Vorlage ist das „Merkblatt Schreibrichtung" aus Flex und Flora 1**
-  (Westermann, Ansage des Nutzers 09/2026: „GENAU so sollen die
+- **Kein Verlags- oder Fibelname in der App** (Ansage des Nutzers
+  09/2026: die Übungen sind nicht mit dem Verlag abgesprochen). Auch in
+  Kommentaren und Doku nur „Merkblatt“ bzw. „Lehrgang“ schreiben.
+
+- **Vorlage ist das Merkblatt zur Schreibrichtung, das der Nutzer vorgab**
+  (Ansage des Nutzers 09/2026: „GENAU so sollen die
   Buchstaben geschrieben werden"). Strichfolge, Ansatzpunkte,
   Richtungen und Absetzstellen kommen von dort — nicht aus eigenem
   Ermessen ändern. Lesart des Blatts: Pfeil mit Punkt = hier ansetzen
@@ -169,7 +173,7 @@
 - **Bilderleiste** unter dem Schreibblatt jeder Buchstabenseite: zwei bis
   vier Bilder mit Wort, der Buchstabe im Wort rot. Emoji statt eigener
   Grafiken (farbig statt piktogrammhaft, überall vorhanden, keine
-  Bildrechte — die Anlautbilder von „Flex und Flora“ dürfen nicht
+  Bildrechte — Anlautbilder aus Verlagsfibeln dürfen nicht
   übernommen werden). Nach dem **Laut** gewählt (kein Eis beim E, kein
   Schaf beim S, kein Pferd beim P). Nicht antippbar, nicht bewegt; auf
   dem iPhone quer ausgeblendet.

@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Als Emoji, nicht als eigene Grafiken: Sie sind farbig und freundlich
 /// gezeichnet statt piktogrammhaft, auf jedem Gerät vorhanden, frei von
-/// Bildrechten (die Anlautbilder von „Flex und Flora“ dürfen wir nicht
+/// Bildrechten (die Anlautbilder von Verlagsfibeln dürfen wir nicht
 /// übernehmen) und in einheitlichem Stil. Ausgewählt nach dem **Laut**,
 /// nicht nur nach dem Buchstaben: kein „Eis“ beim E (Ei ist ein eigener
 /// Laut), kein „Schaf“ beim S, kein „Pferd“ beim P. Für X, Y und die

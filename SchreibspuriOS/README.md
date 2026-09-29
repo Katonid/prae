@@ -10,7 +10,7 @@ iPhone, mit Finger oder Apple Pencil.
    verlässt oder zu früh absetzt, beginnt den Strich neu.
 
 Bereiche: Schwungübungen (Striche, Zacken, Bögen, Kreise, Wellen …),
-Buchstaben in der Reihenfolge von „Flex und Flora“ (mit Ä, Ö, Ü, ß) und
+Buchstaben in der Reihenfolge des Lehrgangs (mit Ä, Ö, Ü, ß) und
 Ziffern (0–9).
 
 Fünf Stufen je Zeichen: weiße Spur → Punktlinie → nur Start und Ziel →

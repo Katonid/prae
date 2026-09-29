@@ -37,7 +37,7 @@ enum Stufe: Int, CaseIterable, Identifiable, Comparable {
         case .punkte: "Nur noch die gepunktete Linie"
         case .startZiel: "Nur noch Start- und Zielpunkte"
         case .frei: "Leere Linien — aus dem Kopf"
-        case .heft: "Normale Lineatur, mehrmals in die Zeile"
+        case .heft: "Heftseite mit mehreren Reihen in normaler Größe"
         }
     }
 
@@ -48,9 +48,6 @@ enum Stufe: Int, CaseIterable, Identifiable, Comparable {
     /// Roter Pfeil am Anfang und Zielkreis am Ende des aktuellen Strichs.
     var zeigtStartZiel: Bool { self <= .startZiel }
 
-    /// Auf den ersten beiden Stufen läuft die Tinte sauber auf dem Weg,
-    /// danach zeigt sie, was das Kind wirklich geschrieben hat.
-    var echteTinte: Bool { self >= .startZiel }
 
     /// Ohne sichtbare Spur trifft niemand so genau — das Band wird breiter,
     /// die Regeln bleiben.

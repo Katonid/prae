@@ -11,7 +11,7 @@ struct KindWahl: View {
             HStack {
                 Text("Wer schreibt?")
                     .font(.system(size: 38, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Farben.tinteDunkel)
                 Spacer()
                 Knopf(symbol: "gearshape.fill", name: "Einstellungen für Erwachsene") { zeigeEinstellungen = true }
             }
@@ -23,15 +23,17 @@ struct KindWahl: View {
                         } label: {
                             VStack(spacing: 6) {
                                 Text(kind.tier).font(.system(size: 72))
+                                    .shadow(color: .black.opacity(0.15), radius: 4, y: 3)
                                 Text(kind.name)
                                     .font(.system(.title3, design: .rounded, weight: .bold))
-                                    .foregroundStyle(Farben.blatt)
+                                    .foregroundStyle(Farben.tinteDunkel)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.6)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
-                            .background(RoundedRectangle(cornerRadius: 24).fill(.white))
+                            .background(RoundedRectangle(cornerRadius: 24).fill(.white)
+                                .shadow(color: .black.opacity(0.1), radius: 8, y: 4))
                         }
                         .buttonStyle(.plain)
                     }
@@ -41,7 +43,7 @@ struct KindWahl: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
-        .background(Farben.blatt.ignoresSafeArea())
+        .background(Farben.verlauf.ignoresSafeArea())
         .sheet(isPresented: $zeigeEinstellungen) {
             ErwachsenenTor { EinstellungenAnsicht() }
                 .environment(klasse)

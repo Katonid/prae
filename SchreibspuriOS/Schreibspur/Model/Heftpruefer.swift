@@ -40,6 +40,8 @@ final class Heftpruefer {
         case punkt
         case rechtsDaneben
         case nebenMuster
+        case zuWeit
+        case zuWeitImWort
 
         var text: String {
             switch self {
@@ -51,6 +53,8 @@ final class Heftpruefer {
             case .punkt: "Setz den Punkt genau an seinen Platz."
             case .rechtsDaneben: "Schreib den nächsten Buchstaben rechts daneben."
             case .nebenMuster: "Schreib rechts neben das Muster."
+            case .zuWeit: "Zu viel Platz – schreib näher an den vorigen Buchstaben."
+            case .zuWeitImWort: "Im Wort stehen die Buchstaben dicht beieinander."
             }
         }
     }
@@ -87,11 +91,24 @@ final class Heftpruefer {
     /// Der Anfang sitzt oft etwas daneben: Längen erst ab 15 % des Wegs.
     private static let k0 = n * 3 / 20
 
-    /// Die Buchstaben der Zeile in Schreibreihenfolge.
+    /// Die Buchstaben der Zeile in Schreibreihenfolge — das Muster der
+    /// Zeile, so oft hintereinander, wie die Zeile es fassen kann.
     let folge: [Zeichen]
+    /// Buchstaben je Einheit: 1 bei „A“, 2 bei „Ma“, 4 bei „Mama“.
+    let einheitLaenge: Int
+    /// So viele Einheiten sind Pflicht; mehr darf das Kind freiwillig.
+    let mindestens: Int
     private let f: CGFloat
-    /// Ansatz des ersten Strichs des zuletzt geschafften Buchstabens.
-    private var letzterAnsatz: CGFloat?
+
+    // Abstände zum vorigen Buchstaben (Einheiten der Lineatur), geschätzt
+    // am ersten Ansatz. Nicht zu weit, damit die Zeile nicht mit drei
+    // Buchstaben voll ist (Ansage des Nutzers) — im Wort enger.
+    static let lueckeImWort: CGFloat = 0.5
+    static let lueckeZwischen: CGFloat = 0.9
+    static let lueckeNachMuster: CGFloat = 1.2
+    /// Rechter Rand des zuletzt geschafften Buchstabens (anfangs: die
+    /// Trennlinie hinter dem Muster).
+    private var letzterRand: CGFloat?
 
     private(set) var strichNummer = 0
     private var ax: CGFloat?
@@ -99,10 +116,10 @@ final class Heftpruefer {
     private var suu: CGFloat = 0
 
     /// Geschaffte Buchstaben der Zeile (je Buchstabe die Striche).
-    private(set) var fertige: [[[CGPoint]]] = []
+    private(set) var fertige: [[[Tintenpunkt]]] = []
     /// Angenommene Striche des Zeichens, an dem das Kind gerade schreibt.
-    private(set) var tinte: [[CGPoint]] = []
-    private(set) var aktuelleTinte: [CGPoint] = []
+    private(set) var tinte: [[Tintenpunkt]] = []
+    private(set) var aktuelleTinte: [Tintenpunkt] = []
     private(set) var schreibtGerade = false
 
     private(set) var fehler = 0
@@ -112,16 +129,22 @@ final class Heftpruefer {
     private(set) var fehlerZaehler = 0
     private(set) var strichZaehler = 0
 
-    /// `rechtsVon`: rechter Rand des Musters in der Zeile — geschrieben
-    /// wird rechts davon.
-    init(folge: [Zeichen], genauigkeit: Genauigkeit, rechtsVon: CGFloat? = nil) {
+    /// `rechtsVon`: die Trennlinie hinter dem Muster — geschrieben wird
+    /// rechts davon.
+    init(folge: [Zeichen], einheitLaenge: Int = 1, mindestens: Int,
+         genauigkeit: Genauigkeit, rechtsVon: CGFloat? = nil) {
         self.folge = folge
+        self.einheitLaenge = max(1, einheitLaenge)
+        self.mindestens = mindestens
         f = genauigkeit.heftFaktor
-        letzterAnsatz = rechtsVon
+        letzterRand = rechtsVon
     }
 
-    var anzahl: Int { folge.count }
-    var fertig: Bool { fertige.count >= anzahl }
+    var fertigeEinheiten: Int { fertige.count / einheitLaenge }
+    /// Die Pflicht ist erfüllt.
+    var fertig: Bool { fertigeEinheiten >= mindestens }
+    /// Das Kind schreibt gerade an einem Buchstaben (einem Teil davon).
+    var imBuchstaben: Bool { strichNummer > 0 || schreibtGerade }
     private var buchstabe: Zeichen { folge[min(fertige.count, folge.count - 1)] }
     private var vorlagen: [[CGPoint]] { buchstabe.striche.map(\.punkte) }
     private var x0: CGFloat { buchstabe.striche.first?.anfang.x ?? 0 }
@@ -146,23 +169,23 @@ final class Heftpruefer {
     // MARK: Eingabe
 
     func beginnen(bei p: CGPoint) {
-        guard !fertig else { return }
+        guard fertige.count < folge.count else { return }
         schreibtGerade = true
-        aktuelleTinte = [p]
+        aktuelleTinte = [Tintenpunkt(p: p, warnung: warnung(p))]
     }
 
     func bewegen(nach p: CGPoint) {
         guard schreibtGerade else { return }
-        aktuelleTinte.append(p)
+        aktuelleTinte.append(Tintenpunkt(p: p, warnung: warnung(p)))
     }
 
     func beenden(bei p: CGPoint) {
         guard schreibtGerade else { return }
-        aktuelleTinte.append(p)
+        aktuelleTinte.append(Tintenpunkt(p: p, warnung: warnung(p)))
         schreibtGerade = false
-        let roh = aktuelleTinte
+        let strich = aktuelleTinte
         aktuelleTinte = []
-        if let fehlerArt = pruefen(roh) {
+        if let fehlerArt = pruefen(strich.map(\.p)) {
             fehler += 1
             hinweis = fehlerArt
             hinweisBuchstabe = buchstabe.text
@@ -172,11 +195,11 @@ final class Heftpruefer {
             zeichenZuruecksetzen()
         } else {
             hinweis = nil
-            tinte.append(roh)
+            tinte.append(strich)
             strichNummer += 1
             strichZaehler += 1
             if strichNummer >= vorlagen.count {
-                letzterAnsatz = tinte.first?.first?.x
+                letzterRand = tinte.flatMap { $0 }.map(\.p.x).max()
                 fertige.append(tinte)
                 tinte = []
                 zeichenZuruecksetzen()
@@ -187,6 +210,18 @@ final class Heftpruefer {
     func abbrechen() {
         schreibtGerade = false
         aktuelleTinte = []
+    }
+
+    /// Wie weit der Stift gerade aus der Höhe des Strichs läuft (0…1):
+    /// Ein Strich, der unter die Grundlinie oder über seine Etage gerät,
+    /// färbt sich orange, noch bevor das Kind absetzt.
+    private func warnung(_ p: CGPoint) -> CGFloat {
+        guard strichNummer < vorlagen.count else { return 0 }
+        let ys = vorlagen[strichNummer].map(\.y)
+        guard let oben = ys.min(), let unten = ys.max() else { return 0 }
+        let draussen = max(oben - p.y, p.y - unten, 0)
+        let erlaubt = Self.etage * min(f, 1.1)
+        return min(1, max(0, (draussen / erlaubt - 0.35) / 0.65))
     }
 
     // MARK: Prüfung
@@ -207,9 +242,24 @@ final class Heftpruefer {
         let p = Self.abtasten(roh)
         let t = Self.abtasten(vorlage)
         let erster = ax == nil
-        // Ein neuer Buchstabe gehört rechts neben den vorigen.
-        if erster, strichNummer == 0, let links = letzterAnsatz, roh[0].x < links + 0.15 {
-            return fertige.isEmpty ? .nebenMuster : .rechtsDaneben
+        // Ein neuer Buchstabe gehört rechts neben den vorigen — nicht darauf,
+        // nicht zu weit weg. Geschätzt am Ansatz, abzüglich des Stücks, das
+        // der Ansatz in der Vorlage vom linken Rand entfernt liegt (das a
+        // beginnt oben rechts).
+        if erster, strichNummer == 0, let rand = letzterRand {
+            let luecke = roh[0].x - rand - (t[0].x - buchstabe.rahmen.minX)
+            if luecke < -0.15 { return fertige.isEmpty ? .nebenMuster : .rechtsDaneben }
+            let grenze: CGFloat
+            if fertige.isEmpty {
+                grenze = Self.lueckeNachMuster
+            } else if fertige.count % einheitLaenge == 0 {
+                grenze = Self.lueckeZwischen
+            } else {
+                grenze = Self.lueckeImWort
+            }
+            if luecke > grenze * sqrt(f) {
+                return fertige.count % einheitLaenge == 0 || fertige.isEmpty ? .zuWeit : .zuWeitImWort
+            }
         }
 
         // Lage: beim ersten Strich so, dass die Vorlage am besten passt.

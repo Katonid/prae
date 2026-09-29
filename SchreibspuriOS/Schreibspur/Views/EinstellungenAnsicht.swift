@@ -6,7 +6,7 @@ struct EinstellungenAnsicht: View {
     @Environment(Klasse.self) private var klasse
 
     @AppStorage(Schluessel.vorfuehren) private var vorfuehren = true
-    @AppStorage(Schluessel.stift) private var stift = Stift.regenbogen
+    @AppStorage(Schluessel.stift) private var stift = Stift.blau
     @AppStorage(Schluessel.nurStift) private var nurStift = false
     @AppStorage(Schluessel.heftHoehe) private var heftHoehe = 16.0
 
@@ -51,7 +51,7 @@ struct EinstellungenAnsicht: View {
                         }
                     }
                 } header: {
-                    Text("Lehrgang „Flex und Flora“")
+                    Text("Lehrgang")
                 } footer: {
                     Text("Reihenfolge wie auf dem Merkblatt: A, M, O, I, L, U … samt Au, Ei, Sch usw. Ist das Freischalten an, sind nur die Buchstaben bis zur gewählten Stelle offen, und unter „Wörter“ stehen nur Wörter, die sich daraus schreiben lassen. Schwünge und Ziffern bleiben immer offen.")
                 }
@@ -73,7 +73,7 @@ struct EinstellungenAnsicht: View {
                 } header: {
                     Text("Stufe 5: Heftzeile")
                 } footer: {
-                    Text("So groß wie die Lineatur im Heft der Klasse — auf dem iPad etwa maßstabsgetreu. Das Kind schreibt den Buchstaben viermal in die Zeile, frei und an beliebiger Stelle. Geprüft wird jeder Strich: ob er lesbar ist, an der richtigen Linie des Schreibhauses beginnt und endet und in der richtigen Richtung geschrieben ist.")
+                    Text("So groß wie die Lineatur im Heft der Klasse — auf dem iPad etwa maßstabsgetreu. Eine Heftseite hat mehrere Reihen; am Anfang jeder Reihe steht, was darin geschrieben wird (Großbuchstabe, Kleinbuchstabe, erste Verbindungen). Pflicht sind drei Buchstaben je Reihe, danach darf das Kind die Reihe voll schreiben. Geprüft wird jeder Strich: lesbar, an der richtigen Linie des Schreibhauses begonnen und beendet, in der richtigen Richtung — und dass der Abstand zum vorigen Buchstaben nicht zu groß ist.")
                 }
 
                 Section {
@@ -125,7 +125,7 @@ private struct KindBearbeiten: View {
                                 .font(.system(size: 34))
                                 .frame(width: 52, height: 52)
                                 .background(RoundedRectangle(cornerRadius: 12)
-                                    .fill(kind.tier == tier ? Farben.blatt.opacity(0.3) : .clear))
+                                    .fill(kind.tier == tier ? Farben.akzent.opacity(0.25) : .clear))
                         }
                         .buttonStyle(.plain)
                     }

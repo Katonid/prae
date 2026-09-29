@@ -13,6 +13,7 @@ struct Bilderleiste: View {
                 HStack(spacing: 8) {
                     Text(bild.emoji)
                         .font(.system(size: 40))
+                        .shadow(color: .black.opacity(0.22), radius: 3, x: 1, y: 3)
                     wort(bild.wort)
                         .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .lineLimit(1)
@@ -20,7 +21,8 @@ struct Bilderleiste: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(RoundedRectangle(cornerRadius: 16).fill(.white.opacity(0.9)))
+                .background(RoundedRectangle(cornerRadius: 16).fill(.white)
+                    .shadow(color: .black.opacity(0.12), radius: 6, y: 3))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text(bild.wort))
             }

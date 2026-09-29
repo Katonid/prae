@@ -15,6 +15,8 @@ struct SchreibspurApp: App {
                 }
             }
             .environment(klasse)
+            // Die Gestaltung ist auf helles Papier abgestimmt.
+            .preferredColorScheme(.light)
         }
     }
 }

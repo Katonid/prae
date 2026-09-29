@@ -36,7 +36,7 @@ struct Belohnung: View {
 
             Text(lob)
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .foregroundStyle(Farben.blatt)
+                .foregroundStyle(Farben.tinteDunkel)
 
             if let neueStufe {
                 Text("Stufe \(neueStufe.rawValue) ist offen: \(neueStufe.titel)")
@@ -49,28 +49,29 @@ struct Belohnung: View {
                 Button(action: nochmal) {
                     Label("Nochmal", systemImage: "arrow.counterclockwise")
                 }
-                .buttonStyle(RundKnopf(farbe: Farben.blatt))
+                .buttonStyle(RundKnopf(farbe: Farben.knopf))
 
                 if let neueStufe {
                     Button(action: stufeWeiter) {
                         Label("Stufe \(neueStufe.rawValue)", systemImage: "arrow.up.forward")
                     }
-                    .buttonStyle(RundKnopf(farbe: Farben.markierung))
+                    .buttonStyle(RundKnopf(farbe: Farben.akzent))
                 } else if hatWeiter {
                     Button(action: weiter) {
                         Label("Weiter", systemImage: "arrow.right")
                     }
-                    .buttonStyle(RundKnopf(farbe: Farben.markierung))
+                    .buttonStyle(RundKnopf(farbe: Farben.akzent))
                 } else {
                     Button(action: fertig) {
                         Label("Fertig", systemImage: "checkmark")
                     }
-                    .buttonStyle(RundKnopf(farbe: Farben.markierung))
+                    .buttonStyle(RundKnopf(farbe: Farben.akzent))
                 }
             }
         }
         .padding(32)
-        .background(RoundedRectangle(cornerRadius: 32).fill(.white).shadow(radius: 12))
+        .background(RoundedRectangle(cornerRadius: 32).fill(.white)
+            .shadow(color: .black.opacity(0.18), radius: 18, y: 8))
         .padding(24)
         // Die Sterne erscheinen nacheinander und leise — kein Hüpfen,
         // kein Drehen (Ansage des Nutzers: Animation nur sparsam).
@@ -92,7 +93,7 @@ struct RundKnopf: ButtonStyle {
             .foregroundStyle(.white)
             .padding(.horizontal, 26)
             .padding(.vertical, 14)
-            .background(Capsule().fill(farbe))
+            .background(Capsule().fill(farbe).shadow(color: .black.opacity(0.15), radius: 4, y: 2))
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
     }
 }
