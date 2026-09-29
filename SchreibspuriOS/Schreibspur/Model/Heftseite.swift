@@ -107,6 +107,16 @@ final class Heftseite {
         }
     }
 
+    /// Die Reihe, in der gerade geschrieben wird (vor dem ersten Strich die erste).
+    var aktuelleReihe: Reihe { reihen[aktiv ?? 0] }
+
+    func hilfeAnfordern() {
+        aktuelleReihe.pruefer.hilfeAnfordern()
+    }
+
+    /// Buchstaben mit Hilfe auf der ganzen Seite.
+    var hilfen: Int { reihen.reduce(0) { $0 + $1.pruefer.hilfen } }
+
     func abbrechen() {
         for reihe in reihen { reihe.pruefer.abbrechen() }
     }

@@ -71,6 +71,34 @@ final class Spurpruefer {
     /// Zählt jeden geschafften Strich hoch.
     private(set) var strichZaehler = 0
 
+    // MARK: Hilfe-Treppe (seit 1.0.10)
+
+    /// Fehlversuche am aktuellen Strich.
+    private(set) var fehlerImStrich = 0
+    private var angefordert = 0
+    /// Striche, bei denen eine Hilfe zu sehen war.
+    private(set) var hilfen = 0
+    private var hilfeGezaehlt = false
+
+    /// Wie viel Hilfe beim aktuellen Strich: 0 keine · 1 Start und Ziel ·
+    /// 2 dazu die Punktlinie, und die Hand schreibt den Strich einmal vor ·
+    /// 3 die Spur. Die Ansicht zeigt davon, was die Stufe nicht ohnehin
+    /// zeigt — die Hilfen der leichteren Stufen kommen zurück. Ab dem
+    /// zweiten Fehlversuch am selben Strich eine Stufe je Fehlversuch.
+    var hilfe: Int { min(3, max(fehlerImStrich - 1, angefordert)) }
+
+    func hilfeAnfordern() {
+        angefordert = min(3, hilfe + 1)
+        hilfeMerken()
+    }
+
+    private func hilfeMerken() {
+        if hilfe > 0, !hilfeGezaehlt {
+            hilfen += 1
+            hilfeGezaehlt = true
+        }
+    }
+
     /// Was das Kind wirklich geschrieben hat, je geschafftem Strich — für
     /// die Stufen ohne Spur, auf denen die eigene Schrift zu sehen ist.
     private(set) var tinte: [[Tintenpunkt]] = []
@@ -175,6 +203,10 @@ final class Spurpruefer {
         abbrechen()
         tinte = []
         protokoll = []
+        fehlerImStrich = 0
+        angefordert = 0
+        hilfen = 0
+        hilfeGezaehlt = false
         versatz = .zero
         strichNummer = 0
         fehler = 0
@@ -233,6 +265,9 @@ final class Spurpruefer {
         strichNummer += 1
         fortschritt = 0
         hinweis = nil
+        fehlerImStrich = 0
+        angefordert = 0
+        hilfeGezaehlt = false
         strichZaehler += 1
     }
 
@@ -248,6 +283,8 @@ final class Spurpruefer {
         fortschritt = 0
         aktuelleTinte = []
         fehler += 1
+        fehlerImStrich += 1
+        hilfeMerken()
         hinweis = art
         fehlerZaehler += 1
     }

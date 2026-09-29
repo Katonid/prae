@@ -73,6 +73,9 @@ struct UebenAnsicht: View {
     /// Heftseite geschafft: kleiner Hinweis oben, der das Weiterschreiben
     /// nicht versperrt.
     @State private var seiteGeschafft = false
+    /// Die laufende Vorführung ist eine Hilfe: nur der aktuelle Strich
+    /// (Stufe 1–4) bzw. der angefangene Buchstabe an seinem Platz (Heft).
+    @State private var hilfeVorfuehrung = false
     /// Die laufende Bearbeitung für die Klassenübersicht.
     @State private var sitzung: Sitzung?
 
@@ -102,7 +105,7 @@ struct UebenAnsicht: View {
             // Der Canvas liest die Prüfer erst beim Zeichnen — außerhalb der
             // Beobachtung. Hier gelesen, zeichnet jede Bewegung neu.
             let _ = (spur.strichNummer, spur.fortschritt, spur.schreibtGerade, spur.aktuelleTinte.count,
-                     seite?.stand)
+                     seite?.stand, spur.hilfe, seite?.aktuelleReihe.pruefer.hilfe)
             leiste
             GeometryReader { geo in
                 let a = abbildung(geo.size)
@@ -205,6 +208,14 @@ struct UebenAnsicht: View {
             guard neu > alt else { return }
             fehlerZeigen(seite?.hinweisText)
         }
+        // Beim zweiten Fehlversuch an derselben Stelle (Hilfe 2) schreibt
+        // die Hand es einmal vor — genau dort, wo das Kind schreiben soll.
+        .onChange(of: spur.hilfe) { alt, neu in
+            if seite == nil, neu >= 2, alt < 2 { hilfeVorfuehren() }
+        }
+        .onChange(of: seite?.aktuelleReihe.pruefer.hilfe ?? 0) { alt, neu in
+            if seite != nil, neu >= 2, alt < 2 { hilfeVorfuehren() }
+        }
         .task(id: hinweisNummer) {
             try? await Task.sleep(for: .seconds(3))
             if !Task.isCancelled { withAnimation(.easeOut(duration: 0.3)) { hinweis = nil } }
@@ -263,6 +274,7 @@ struct UebenAnsicht: View {
 
     private var knoepfeRechts: some View {
         HStack(spacing: 6) {
+            Knopf(symbol: "lightbulb.fill", name: "Hilfe") { hilfeAnfordern() }
             Knopf(symbol: "play.circle.fill", name: "Vorführen") { vorfuehrenStarten() }
             Knopf(symbol: "arrow.counterclockwise", name: "Neu beginnen") { neuBeginnen(mitVorfuehrung: false) }
             Knopf(symbol: "arrow.right", name: "Nächstes Zeichen") { blaettern(1) }
@@ -323,6 +335,7 @@ struct UebenAnsicht: View {
             ? Heftseite(vorgaben: heftreihen(), genauigkeit: g)
             : nil
         seiteGeschafft = false
+        hilfeVorfuehrung = false
         hinweis = nil
         starthilfe = false
         neueStufe = nil
@@ -350,11 +363,39 @@ struct UebenAnsicht: View {
     /// Was vorgeführt wird: auf der Heftseite das Muster der Reihe, in der
     /// das Kind gerade schreibt.
     private var vorfuehrZeichen: Zeichen {
+        if hilfeVorfuehrung {
+            if let seite {
+                if let z = seite.aktuelleReihe.pruefer.hilfeZeichen { return z }
+            } else if let strich = spur.aktuellerStrich {
+                return Zeichen(id: zeichen.id, striche: [strich], lineatur: zeichen.lineatur, istSchwung: false)
+            }
+        }
         guard let seite else { return zeichen }
         return seite.reihen[seite.aktiv ?? 0].muster
     }
 
+    /// Hilfe-Knopf: die nächste Stufe der Hilfe-Treppe.
+    private func hilfeAnfordern() {
+        guard phase == .schreiben else { return }
+        if let seite { seite.hilfeAnfordern() } else { spur.hilfeAnfordern() }
+    }
+
+    /// Die Hand schreibt vor, was gerade dran ist — ohne das schon
+    /// Geschriebene zu löschen.
+    private func hilfeVorfuehren() {
+        guard phase == .schreiben else { return }
+        spur.abbrechen()
+        seite?.abbrechen()
+        hilfeVorfuehrung = true
+        vorfuehrBeginn = Date()
+        hinweisNummer += 1
+        withAnimation(.easeOut(duration: 0.2)) { hinweis = "Schau zu – dann schreibst du." }
+        withAnimation { phase = .vorfuehren }
+        lauf += 1
+    }
+
     private func vorfuehrenStarten() {
+        hilfeVorfuehrung = false
         // Vorführen setzt das Zeichen zurück (Stufe 1–4) — was bis dahin
         // geschrieben war, ist eine eigene Bearbeitung.
         if seite == nil, !spur.protokoll.isEmpty {
@@ -455,6 +496,7 @@ struct UebenAnsicht: View {
             // freiwillig weiterschreibt, zählt nicht.
             b.fehler = seite.geschafftBeiFehlern ?? seite.fehler
             b.sterne = seite.geschafft ? seite.sterne : 0
+            b.hilfen = seite.hilfen
             for r in seite.reihen {
                 let p = r.pruefer
                 b.buchstaben += p.fertige.count
@@ -465,6 +507,7 @@ struct UebenAnsicht: View {
             b.geschafft = spur.fertig
             b.fehler = spur.fehler
             b.sterne = spur.fertig ? spur.sterne : 0
+            b.hilfen = spur.hilfen
         }
         guard reihen.contains(where: { !$0.linien.isEmpty }) else { return }
         klasse.protokoll.speichern(b, spuren: Blattspuren(reihen: reihen), kind: s.kind)
@@ -524,15 +567,33 @@ struct UebenAnsicht: View {
         if !zeichen.istSchwung {
             vorlage(&ctx, groesse: groesse, platz: a.ansicht(CGPoint(x: zeichen.rahmen.minX, y: 0)).x)
         }
+        // Hilfen liegen dort, wo die Prüfung das Zeichen erwartet — auf
+        // Stufe 4 also mit der Verschiebung durch den ersten Ansatz.
+        let av = Abbildung(massstab: a.massstab,
+                           verschiebung: CGPoint(x: a.verschiebung.x + spur.versatz.dx * a.massstab,
+                                                 y: a.verschiebung.y + spur.versatz.dy * a.massstab))
+        // Hilfe-Treppe: Die Hilfen der leichteren Stufen kommen zurück.
+        let h = spur.hilfe
         switch stufe {
         case .spur: Zeichner.spur(&ctx, zeichen: zeichen, a)
-        case .punkte: Zeichner.punktlinie(&ctx, zeichen: zeichen, a)
-        case .startZiel, .heft: break
-        case .frei: Zeichner.schreibfeld(&ctx, zeichen: zeichen, a)
+        case .punkte:
+            if h >= 3 { Zeichner.spur(&ctx, zeichen: zeichen, av) } else { Zeichner.punktlinie(&ctx, zeichen: zeichen, a) }
+        case .startZiel, .frei, .heft:
+            if stufe == .frei { Zeichner.schreibfeld(&ctx, zeichen: zeichen, a) }
+            if h >= 3 {
+                Zeichner.spur(&ctx, zeichen: zeichen, av)
+            } else if h >= 2 {
+                Zeichner.punktlinie(&ctx, zeichen: zeichen, av)
+            }
         }
 
         if phase == .vorfuehren {
-            vorfuehren(&ctx, zeichen, a, zeit: zeit)
+            if hilfeVorfuehrung {
+                for strich in spur.tinte where !strich.isEmpty {
+                    Zeichner.tinte(&ctx, punkte: strich, stift: stift, a)
+                }
+            }
+            vorfuehren(&ctx, vorfuehrZeichen, hilfeVorfuehrung ? av : a, zeit: zeit)
             return
         }
 
@@ -542,12 +603,12 @@ struct UebenAnsicht: View {
         }
 
         if phase == .schreiben, let strich = spur.aktuellerStrich {
-            if stufe == .spur { Zeichner.fuehrung(&ctx, strich: strich, ab: spur.fortschritt, a) }
-            if stufe.zeigtStartZiel {
-                Zeichner.ziel(&ctx, strich: strich, a)
-                if !spur.schreibtGerade { Zeichner.start(&ctx, strich: strich, a) }
+            if stufe == .spur || h >= 3 { Zeichner.fuehrung(&ctx, strich: strich, ab: spur.fortschritt, av) }
+            if stufe.zeigtStartZiel || h >= 1 {
+                Zeichner.ziel(&ctx, strich: strich, av)
+                if !spur.schreibtGerade { Zeichner.start(&ctx, strich: strich, av) }
             } else if starthilfe, !spur.schreibtGerade {
-                Zeichner.start(&ctx, strich: strich, a)
+                Zeichner.start(&ctx, strich: strich, av)
             }
         }
     }
@@ -593,11 +654,25 @@ struct UebenAnsicht: View {
             Zeichner.heftreihe(&ctx, breite: groesse.width, muster: reihe.muster, ra)
 
             let p = reihe.pruefer
+            // Hilfe-Treppe: Punktlinie oder Spur des Buchstabens an seinem Platz.
+            let hilfeZeichen = p.hilfe > 0 ? p.hilfeZeichen : nil
+            if let hz = hilfeZeichen {
+                if p.hilfe >= 3 {
+                    Zeichner.spur(&ctx, zeichen: hz, ra, breite: 0.075)
+                } else if p.hilfe >= 2 {
+                    Zeichner.punktlinie(&ctx, zeichen: hz, ra)
+                }
+            }
             for buchstabe in p.fertige {
                 for strich in buchstabe { Zeichner.tinte(&ctx, punkte: strich, stift: stift, ra, breite: tinte) }
             }
             for strich in p.tinte + [p.aktuelleTinte] where !strich.isEmpty {
                 Zeichner.tinte(&ctx, punkte: strich, stift: stift, ra, breite: tinte)
+            }
+            // Startpunkt des nächsten Strichs — groß genug, um ihn in der
+            // kleinen Heftschrift zu sehen.
+            if let hz = hilfeZeichen, phase == .schreiben, !p.schreibtGerade, p.strichNummer < hz.striche.count {
+                Zeichner.start(&ctx, strich: hz.striche[p.strichNummer], ra, puls: 2)
             }
 
             // Pflicht der Reihe als Punkte am rechten Rand; gefüllt = geschafft.

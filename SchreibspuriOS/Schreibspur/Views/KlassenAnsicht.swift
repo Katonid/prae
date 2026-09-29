@@ -391,6 +391,7 @@ struct BearbeitungsZeile: View {
                     }
                     .font(.caption2).foregroundStyle(Farben.stern)
                 }
+                if let h = b.hilfen, h > 0 { marke("Hilfe \(h)×", Farben.warnung) }
                 if b.freiwillig { marke("freiwillig", Farben.ziel) }
                 if b.kuer > 0 { marke("+\(b.kuer) freiwillig", Farben.ziel) }
                 Spacer()
