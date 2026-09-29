@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Einstellungen für Lehrkraft und Eltern: Kinder, Lehrgang, Vorführung, Stift.
+/// Einstellungen für Lehrkraft und Eltern: Kinder, Lehrgang, Vorführung,
+/// Stift — im Lehrerbereich hinter dem Code (`LehrerTor`).
 struct EinstellungenAnsicht: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(Klasse.self) private var klasse
@@ -12,6 +13,7 @@ struct EinstellungenAnsicht: View {
 
     @State private var pfad: [UUID] = []
     @State private var zeigeKlasse = false
+    @AppStorage(Lehrerzugang.biometrieSchluessel) private var mitBiometrie = false
 
     var body: some View {
         @Bindable var klasse = klasse
@@ -25,6 +27,17 @@ struct EinstellungenAnsicht: View {
                     }
                 } footer: {
                     Text("Welche Buchstaben jedes Kind bearbeitet hat, wie viele Anläufe und Fehlversuche es brauchte, und jede Seite zum Nachsehen.")
+                }
+
+                Section {
+                    NavigationLink("Code ändern") { CodeAendern() }
+                    if let name = Lehrerzugang.biometrieName {
+                        Toggle("Mit \(name) öffnen", isOn: $mitBiometrie)
+                    }
+                } header: {
+                    Text("Lehrerbereich")
+                } footer: {
+                    Text("Klassenübersicht und Einstellungen öffnen nur mit dem Code. Geht die App in den Hintergrund, schließt sich der Bereich. Tipp: Mit „Geführter Zugriff“ (Einstellungen des iPads → Bedienungshilfen) können Kinder die App gar nicht erst verlassen.")
                 }
 
                 Section {
@@ -178,68 +191,6 @@ private struct KindBearbeiten: View {
             }
         } message: {
             Text("Das Kind, alle seine Sterne und seine gespeicherten Seiten werden gelöscht.")
-        }
-    }
-}
-
-/// Sperre vor den Einstellungen: eine Malaufgabe, die Schulanfänger noch
-/// nicht lösen — damit niemand im Unterricht aus Versehen den Lehrgang
-/// verstellt oder ein anderes Kind löscht.
-struct ErwachsenenTor<Inhalt: View>: View {
-    private let inhalt: () -> Inhalt
-    private let titel: String
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var offen = false
-    @State private var a = Int.random(in: 6...9)
-    @State private var b = Int.random(in: 4...9)
-    @State private var eingabe = ""
-    @State private var falsch = false
-    @FocusState private var fokus: Bool
-
-    init(titel: String = "Einstellungen", @ViewBuilder inhalt: @escaping () -> Inhalt) {
-        self.titel = titel
-        self.inhalt = inhalt
-    }
-
-    var body: some View {
-        if offen {
-            inhalt()
-        } else {
-            NavigationStack {
-                Form {
-                    Section {
-                        TextField("Ergebnis", text: $eingabe)
-                            .keyboardType(.numberPad)
-                            .focused($fokus)
-                            .onSubmit(pruefen)
-                        Button("Öffnen", action: pruefen)
-                    } header: {
-                        Text("Für Erwachsene: Wie viel ist \(a) × \(b)?")
-                    } footer: {
-                        if falsch { Text("Das stimmt nicht — neue Aufgabe.").foregroundStyle(.red) }
-                    }
-                }
-                .navigationTitle(titel)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Abbrechen") { dismiss() }
-                    }
-                }
-                .onAppear { fokus = true }
-            }
-        }
-    }
-
-    private func pruefen() {
-        if Int(eingabe.trimmingCharacters(in: .whitespaces)) == a * b {
-            offen = true
-        } else {
-            falsch = true
-            eingabe = ""
-            a = Int.random(in: 6...9)
-            b = Int.random(in: 4...9)
         }
     }
 }

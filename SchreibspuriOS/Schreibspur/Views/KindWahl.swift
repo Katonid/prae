@@ -15,7 +15,7 @@ struct KindWahl: View {
                     .foregroundStyle(Farben.tinteDunkel)
                 Spacer()
                 Knopf(symbol: "chart.bar.doc.horizontal", name: "Klassenübersicht") { zeigeKlasse = true }
-                Knopf(symbol: "gearshape.fill", name: "Einstellungen für Erwachsene") { zeigeEinstellungen = true }
+                Knopf(symbol: "gearshape.fill", name: "Lehrerbereich: Einstellungen") { zeigeEinstellungen = true }
             }
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
@@ -47,11 +47,11 @@ struct KindWahl: View {
         .padding(.top, 12)
         .background(Farben.verlauf.ignoresSafeArea())
         .sheet(isPresented: $zeigeEinstellungen) {
-            ErwachsenenTor { EinstellungenAnsicht() }
+            LehrerTor { EinstellungenAnsicht() }
                 .environment(klasse)
         }
         .fullScreenCover(isPresented: $zeigeKlasse) {
-            ErwachsenenTor(titel: "Klassenübersicht") { KlassenAnsicht() }
+            LehrerTor(titel: "Klassenübersicht") { KlassenAnsicht() }
                 .environment(klasse)
         }
     }

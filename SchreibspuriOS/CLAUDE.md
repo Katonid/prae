@@ -27,7 +27,7 @@
   Regenbogen, orange Warnfarbe beim Schreiben, rund 600 Wörter; 1.0.8
   (9) fünf Reihen je Buchstabenseite, „zu eng“, O darf anders ansetzen;
   1.0.9 (10) Klassenübersicht mit gespeicherten Seiten, kräftigeres
-  App-Symbol.
+  App-Symbol; 1.0.10 (11) Hilfe-Treppe und Lehrerbereich mit Code.
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
@@ -51,7 +51,9 @@
 | `Views/KlassenAnsicht.swift` | Klassenübersicht: Raster Kinder × Buchstaben, je Kind Stufen, Seiten nachsehen |
 | `Views/UebenAnsicht.swift` | Vorführung, Nachspuren, Stufenwahl, Rückmeldung, Blättern |
 | `Views/KindWahl.swift` | „Wer schreibt?" — Tierkarten |
-| `Views/EinstellungenAnsicht.swift` | Kinder, Lehrgang, Stift — hinter der Malaufgabe (`ErwachsenenTor`) |
+| `Views/EinstellungenAnsicht.swift` | Kinder, Lehrgang, Stift, Code — im Lehrerbereich |
+| `Views/LehrerTor.swift` | Tür zum Lehrerbereich: Code festlegen/eingeben, Face ID, Code ändern |
+| `Model/Lehrerzugang.swift` | Code als gesalzener SHA-256 im Schlüsselbund, Sperre nach Fehlversuchen |
 | `Views/Blatt.swift` | Zeichnen: Linienblatt, Spur, Tinte, Start-/Zielpunkt, Hand |
 | `Views/EingabeFlaeche.swift` | UIKit-Berührungen (Stift, zusammengefasste Punkte, Handballen) |
 
@@ -168,8 +170,9 @@
   Querstriche, Zacken, Wendebögen, Brücken (n), Girlanden (u), Bögen (c),
   Kreise (o), Wellen (s) — Richtungen wie in den Buchstaben. Sie laufen
   durch dieselbe Prüfung und dieselben Stufen.
-- **Einstellungen** liegen hinter einer Malaufgabe (6–9 × 4–9) — Kinder
-  sollen weder Lehrgang noch Profile verstellen können.
+- **Einstellungen** liegen seit 1.0.10 im Lehrerbereich hinter einem Code
+  (vorher eine Malaufgabe 6–9 × 4–9, die nur Schulanfänger aufhielt —
+  Nutzer: „theoretisch kann jeder sie erreichen“). Siehe unten.
 
 ## Gestaltung (Ansage des Nutzers, 09/2026)
 
@@ -351,7 +354,7 @@
   ansehen**: Die Spuren werden als Vektoren gespeichert und auf dem
   Hintergrund der Stufe neu gezeichnet.
 - Zugang: Knopf „Klassenübersicht“ auf „Wer schreibt?“ und oben in den
-  Einstellungen, beide hinter der Malaufgabe (`ErwachsenenTor`).
+  Einstellungen, beide im Lehrerbereich (`LehrerTor`).
 - `Protokoll` (in `Klasse.protokoll`): Dateien unter Application
   Support/Protokoll/<Kind-Id>/ — `verzeichnis.json` mit allen
   `Bearbeitung`en (klein, beim ersten Zugriff geladen) und je Bearbeitung
@@ -385,6 +388,57 @@
   mit `Heftseite.Vorgabe.aus` neu gebaut. Wer die Wegdaten eines
   Buchstabens ändert, ändert damit auch das Muster alter Seiten — die
   Schrift des Kindes bleibt, wie sie war.
+
+## Hilfe-Treppe (seit 1.0.10, Ansage des Nutzers 09/2026)
+
+- Wird ein Strich (Stufe 1–4) bzw. Buchstabe (Heftseite) wiederholt
+  abgelehnt, braucht das Kind noch einmal eine Anleitung. Statt gleich
+  alles zu zeigen, wächst die Hilfe mit jedem Fehlversuch **an derselben
+  Stelle** (`hilfe` in `Spurpruefer` und `Heftpruefer`):
+  1. erster Fehlversuch: nur der Hinweissatz (wie bisher);
+  2. zweiter: **Startpunkt mit Pfeil** (und Ziel) des nächsten Strichs;
+  3. dritter: dazu die **Punktlinie** — und die **Hand schreibt es einmal
+     vor**, genau an der Stelle, wo das Kind schreiben soll (auf der
+     Heftseite der ganze Buchstabe an seinem Platz, auf Stufe 1–4 nur der
+     aktuelle Strich; das schon Geschriebene bleibt stehen);
+  4. ab dem vierten: die **Spur** zum Nachfahren (auf Stufe 1–4 mit
+     grüner Führungslinie).
+  Die Idee dahinter: Die Hilfen der leichteren Stufen kommen zurück; auf
+  Stufe 1 ist schon alles zu sehen, dort bleibt die Vorführung.
+- **Hilfe-Knopf** (Glühbirne, oben rechts): Das Kind holt sich selbst die
+  nächste Stufe, auch ohne Fehler.
+- Die Hilfe gilt nur für den angefangenen Strich/Buchstaben; ist er
+  geschafft, beginnt der nächste wieder ohne. Die Prüfung bleibt gleich
+  — die Hilfe zeigt, wo und wie, schreiben muss das Kind selbst.
+- Auf der Heftseite liegt die Hilfe dort, wo die Prüfung den Buchstaben
+  erwartet (`hilfeZeichen`): Ist schon ein Strich angenommen, so wie
+  dieser; sonst rechts neben dem vorigen Buchstaben mit dem üblichen
+  Abstand. Auf Stufe 4 mit der Verschiebung des ersten Ansatzes.
+- Sterne ändern sich durch Hilfe nicht (die Fehler zählen ohnehin). Die
+  Klassenübersicht zeigt „Hilfe n×“ (`Bearbeitung.hilfen`, optional —
+  Einträge aus 1.0.9 haben das Feld nicht; neue Felder in `Bearbeitung`
+  immer optional anlegen, sonst lassen sich alte Verzeichnisse nicht mehr
+  lesen).
+
+## Lehrerbereich (seit 1.0.10, Ansage des Nutzers 09/2026)
+
+- Klassenübersicht und Einstellungen liegen hinter `LehrerTor`. Beim
+  ersten Öffnen legt die Lehrkraft einen **Code** fest (mindestens vier
+  Ziffern); danach Code oder — wenn eingeschaltet — **Face ID/Touch ID**
+  (`INFOPLIST_KEY_NSFaceIDUsageDescription` im Target, ohne sie stürzt
+  die App beim Face-ID-Aufruf ab).
+- `Lehrerzugang`: Gespeichert wird nur Salz + SHA-256 im Schlüsselbund
+  (`AfterFirstUnlockThisDeviceOnly`). Dazu ein Merker in den
+  Voreinstellungen: Nach Löschen und Neuladen der App bleibt der
+  Schlüsselbund stehen, der Merker nicht — dann wird neu eingerichtet
+  statt mit einem alten Code ausgesperrt.
+- Nach drei falschen Codes 30 s gesperrt, danach jeweils doppelt so
+  lange, höchstens 15 min.
+- **Code vergessen:** Face ID oder Gerätecode des iPads legt einen neuen
+  fest. Ohne Gerätecode geht das nicht (Hinweis im Tor).
+- Geht die App in den Hintergrund, schließt sich der Bereich.
+- Hashing und Schlüsselbund sind keine meldepflichtige Verschlüsselung —
+  `ITSAppUsesNonExemptEncryption = NO` bleibt richtig.
 
 ## Fallen
 

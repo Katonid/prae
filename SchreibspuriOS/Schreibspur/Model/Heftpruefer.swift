@@ -147,6 +147,55 @@ final class Heftpruefer {
     private(set) var fehlerZaehler = 0
     private(set) var strichZaehler = 0
 
+    // MARK: Hilfe-Treppe (seit 1.0.10)
+
+    /// Fehlversuche am Buchstaben, an dem das Kind gerade schreibt.
+    private(set) var fehlerAmBuchstaben = 0
+    /// Mit dem Hilfe-Knopf angeforderte Stufe.
+    private var angefordert = 0
+    /// Buchstaben dieser Reihe, bei denen eine Hilfe zu sehen war.
+    private(set) var hilfen = 0
+    private var hilfeGezaehlt = false
+
+    /// Wie viel Hilfe das Kind beim angefangenen Buchstaben bekommt:
+    /// 0 keine · 1 Startpunkt mit Pfeil · 2 dazu die Punktlinie des
+    /// Buchstabens (und die Hand schreibt ihn einmal an seinem Platz vor) ·
+    /// 3 eine Spur zum Nachfahren. Ab dem zweiten Fehlversuch am selben
+    /// Buchstaben eine Stufe je Fehlversuch — der erste Fehler bekommt nur
+    /// den Hinweissatz.
+    var hilfe: Int { min(3, max(fehlerAmBuchstaben - 1, angefordert)) }
+
+    /// Hilfe-Knopf: eine Stufe mehr.
+    func hilfeAnfordern() {
+        angefordert = min(3, hilfe + 1)
+        hilfeMerken()
+    }
+
+    private func hilfeMerken() {
+        if hilfe > 0, !hilfeGezaehlt {
+            hilfen += 1
+            hilfeGezaehlt = true
+        }
+    }
+
+    /// Der angefangene Buchstabe an dem Platz, wo er hingehört: Ist schon
+    /// ein Strich angenommen, liegt er so wie dieser; sonst rechts neben
+    /// dem vorigen Buchstaben mit dem richtigen Abstand.
+    var hilfeZeichen: Zeichen? {
+        guard fertige.count < folge.count else { return nil }
+        let striche: [[CGPoint]]
+        if let ax {
+            striche = vorlagen.map { abbilden($0, ax, breite()) }
+        } else {
+            let rand = letzterRand ?? 0
+            let luecke: CGFloat = fertige.isEmpty ? 0.45 : (neueEinheit || !imWort ? 0.4 : 0.14)
+            let dx = rand + luecke - buchstabe.rahmen.minX
+            striche = vorlagen.map { $0.map { CGPoint(x: $0.x + dx, y: $0.y) } }
+        }
+        return Zeichen(id: buchstabe.id, striche: striche.map { Strich(punkte: $0) },
+                       lineatur: .buchstaben, istSchwung: false)
+    }
+
     /// `rechtsVon`: die Trennlinie hinter dem Muster — geschrieben wird
     /// rechts davon.
     init(folge: [Zeichen], einheitLaenge: Int = 1, imWort: Bool = true, mindestens: Int,
@@ -209,6 +258,8 @@ final class Heftpruefer {
         if let fehlerArt = pruefen(strich.map(\.p)) {
             protokoll.append(Protokollstrich(punkte: strich, verworfen: true))
             buchstabeVerwerfen()
+            fehlerAmBuchstaben += 1
+            hilfeMerken()
             fehler += 1
             hinweis = fehlerArt
             hinweisBuchstabe = buchstabe.text
@@ -233,6 +284,8 @@ final class Heftpruefer {
                 if !fertige.isEmpty, let rand = letzterRand, let links = xs.min(),
                    links - rand < (neueEinheit || !imWort ? Self.mindestZwischen : Self.mindestImWort) {
                     buchstabeVerwerfen()
+                    fehlerAmBuchstaben += 1
+                    hilfeMerken()
                     fehler += 1
                     hinweis = neueEinheit || !imWort ? .zuEng : .zuEngImWort
                     hinweisBuchstabe = buchstabe.text
@@ -243,6 +296,9 @@ final class Heftpruefer {
                 }
                 letzterRand = xs.max()
                 buchstabenStart = protokoll.count
+                fehlerAmBuchstaben = 0
+                angefordert = 0
+                hilfeGezaehlt = false
                 fertige.append(tinte)
                 tinte = []
                 zeichenZuruecksetzen()

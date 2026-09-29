@@ -28,6 +28,9 @@ struct Bearbeitung: Codable, Identifiable, Equatable {
     /// Angenommene Buchstaben (Heftseite), davon nach der Pflicht.
     var buchstaben: Int = 0
     var kuer: Int = 0
+    /// Striche bzw. Buchstaben, bei denen die Hilfe-Treppe half (seit
+    /// 1.0.10; fehlt in älteren Einträgen).
+    var hilfen: Int?
 }
 
 /// Die Spuren einer Bearbeitung als Vektoren — daraus wird die Seite

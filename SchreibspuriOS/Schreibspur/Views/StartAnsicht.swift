@@ -37,7 +37,7 @@ struct StartAnsicht: View {
                     .disabled(klasse.kinder.count < 2)
                     .accessibilityLabel(Text("\(kind.name) schreibt. Kind wechseln"))
                 }
-                Knopf(symbol: "gearshape.fill", name: "Einstellungen für Erwachsene") { zeigeEinstellungen = true }
+                Knopf(symbol: "gearshape.fill", name: "Lehrerbereich: Einstellungen") { zeigeEinstellungen = true }
             }
 
             HStack(spacing: 10) {
@@ -107,7 +107,7 @@ struct StartAnsicht: View {
                 .environment(klasse)
         }
         .sheet(isPresented: $zeigeEinstellungen) {
-            ErwachsenenTor { EinstellungenAnsicht() }
+            LehrerTor { EinstellungenAnsicht() }
                 .environment(klasse)
         }
     }
