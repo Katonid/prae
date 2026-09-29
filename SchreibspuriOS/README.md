@@ -13,8 +13,13 @@ Bereiche: Schwungübungen (Striche, Zacken, Bögen, Kreise, Wellen …),
 Buchstaben in der Reihenfolge von „Flex und Flora“ (mit Ä, Ö, Ü, ß) und
 Ziffern (0–9).
 
-Vier Stufen je Zeichen: weiße Spur → Punktlinie → nur Start und Ziel →
-frei schreiben. Drei Sterne öffnen die nächste Stufe.
+Fünf Stufen je Zeichen: weiße Spur → Punktlinie → nur Start und Ziel →
+frei schreiben → viermal in eine Heftzeile in echter Größe. Drei Sterne
+öffnen die nächste Stufe. In der Heftzeile prüft die App jeden Strich:
+lesbar, an der richtigen Etage des Schreibhauses begonnen und beendet,
+in der richtigen Richtung geschrieben.
+
+Unter jedem Buchstaben stehen Bilder von Dingen, die mit ihm beginnen.
 
 Für die Klasse: Kinderprofile mit Tierbild, Buchstaben nach Lehrgang
 freischalten, Genauigkeit je Kind. Die Einstellungen liegen hinter einer

@@ -74,7 +74,8 @@ struct StartAnsicht: View {
                         Button {
                             auswahl = Auswahl(bereich: bereich, index: i)
                         } label: {
-                            Kachel(zeichen: zeichen, gemeistert: klasse.gemeistert(zeichen),
+                            Kachel(zeichen: zeichen, stufen: Stufe.stufen(fuer: zeichen).count,
+                                   gemeistert: klasse.gemeistert(zeichen),
                                    geuebt: klasse.geuebt(zeichen), offen: offen)
                         }
                         .buttonStyle(.plain)
@@ -98,11 +99,12 @@ struct StartAnsicht: View {
     }
 }
 
-/// Kachel eines Zeichens: Bild, darunter vier Punkte für die vier Stufen
+/// Kachel eines Zeichens: Bild, darunter ein Punkt je Stufe
 /// (voll = mit drei Sternen geschafft). Im Lehrgang noch gesperrte
 /// Buchstaben sind abgedunkelt und tragen ein Schloss.
 private struct Kachel: View {
     let zeichen: Zeichen
+    let stufen: Int
     let gemeistert: Int
     let geuebt: Bool
     let offen: Bool
@@ -123,7 +125,7 @@ private struct Kachel: View {
                     }
                 }
             HStack(spacing: 4) {
-                ForEach(0..<Stufe.allCases.count, id: \.self) { i in
+                ForEach(0..<stufen, id: \.self) { i in
                     Circle()
                         .fill(i < gemeistert ? Farben.stern : .white.opacity(geuebt ? 0.45 : 0.25))
                         .frame(width: 9, height: 9)
@@ -133,7 +135,7 @@ private struct Kachel: View {
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 18).fill(.white.opacity(0.15)))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(offen ? "\(zeichen.text), \(gemeistert) von 4 Stufen geschafft" : "\(zeichen.text), noch gesperrt"))
+        .accessibilityLabel(Text(offen ? "\(zeichen.text), \(gemeistert) von \(stufen) Stufen geschafft" : "\(zeichen.text), noch gesperrt"))
         .accessibilityAddTraits(.isButton)
     }
 }

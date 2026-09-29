@@ -8,6 +8,7 @@ struct EinstellungenAnsicht: View {
     @AppStorage(Schluessel.vorfuehren) private var vorfuehren = true
     @AppStorage(Schluessel.stift) private var stift = Stift.regenbogen
     @AppStorage(Schluessel.nurStift) private var nurStift = false
+    @AppStorage(Schluessel.heftHoehe) private var heftHoehe = 16.0
 
     @State private var pfad: [UUID] = []
 
@@ -61,6 +62,18 @@ struct EinstellungenAnsicht: View {
                     Text("Vorführen")
                 } footer: {
                     Text("Auf den Stufen 2 bis 4 soll das Kind die Bewegung schon kennen; der Knopf ▶ zeigt sie trotzdem jederzeit.")
+                }
+
+                Section {
+                    Picker("Grundlinie bis Oberlinie", selection: $heftHoehe) {
+                        ForEach([12.0, 14.0, 16.0, 20.0, 24.0], id: \.self) { mm in
+                            Text("\(Int(mm)) mm").tag(mm)
+                        }
+                    }
+                } header: {
+                    Text("Stufe 5: Heftzeile")
+                } footer: {
+                    Text("So groß wie die Lineatur im Heft der Klasse — auf dem iPad etwa maßstabsgetreu. Das Kind schreibt den Buchstaben viermal in die Zeile, frei und an beliebiger Stelle. Geprüft wird jeder Strich: ob er lesbar ist, an der richtigen Linie des Schreibhauses beginnt und endet und in der richtigen Richtung geschrieben ist.")
                 }
 
                 Section {

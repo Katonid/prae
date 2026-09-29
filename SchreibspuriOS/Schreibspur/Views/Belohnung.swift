@@ -28,9 +28,7 @@ struct Belohnung: View {
                     Image(systemName: i < sterne ? "star.fill" : "star")
                         .font(.system(size: 64, weight: .bold))
                         .foregroundStyle(i < sterne ? Farben.stern : Color.gray.opacity(0.4))
-                        .scaleEffect(i < sichtbar ? 1 : 0.2)
                         .opacity(i < sichtbar ? 1 : 0)
-                        .rotationEffect(.degrees(i < sichtbar ? 0 : -60))
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -74,10 +72,12 @@ struct Belohnung: View {
         .padding(32)
         .background(RoundedRectangle(cornerRadius: 32).fill(.white).shadow(radius: 12))
         .padding(24)
+        // Die Sterne erscheinen nacheinander und leise — kein Hüpfen,
+        // kein Drehen (Ansage des Nutzers: Animation nur sparsam).
         .task {
             for i in 1...3 {
-                try? await Task.sleep(for: .seconds(0.25))
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) { sichtbar = i }
+                try? await Task.sleep(for: .seconds(0.2))
+                withAnimation(.easeOut(duration: 0.25)) { sichtbar = i }
             }
         }
     }

@@ -24,6 +24,16 @@ enum Genauigkeit: String, CaseIterable, Identifiable, Codable {
         case .streng: 0.07
         }
     }
+
+    /// Faktor auf die Maße der Heftzeile (Stufe 5), abgestimmt mit
+    /// `scripts/heft-simulation.py`.
+    var heftFaktor: CGFloat {
+        switch self {
+        case .locker: 1.25
+        case .normal: 1
+        case .streng: 0.8
+        }
+    }
 }
 
 /// Farbe der geschriebenen Spur.
@@ -60,4 +70,6 @@ enum Schluessel {
     static let vorfuehren = "vorfuehren"
     static let stift = "stift"
     static let nurStift = "nurApplePencil"
+    /// Höhe Grundlinie–Oberlinie der Heftzeile in Millimetern.
+    static let heftHoehe = "heftHoeheMM"
 }

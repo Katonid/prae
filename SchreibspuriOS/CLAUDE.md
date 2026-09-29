@@ -17,7 +17,8 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release).
   Erste Fassung: 1.0.0 (1); 1.0.1 (2) stellt die Buchstaben auf das
   Merkblatt „Flex und Flora“ um; 1.0.2 (3) bringt Kinderprofile,
-  Lehrgang, vier Stufen und Schwungübungen.
+  Lehrgang, vier Stufen und Schwungübungen; 1.0.3 (4) Stufe 5
+  (Heftzeile), Bilderleiste und die ruhigere Gestaltung.
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (es gibt keine eigene Info.plist,
   `GENERATE_INFOPLIST_FILE = YES`). Nie entfernen.
@@ -31,6 +32,8 @@
 | `Model/Spurpruefer.swift` | Die Regeln des Nachspurens (Start, Richtung, Spur, Absetzen) |
 | `Model/Zeichen.swift` | Zeichen, Lineatur, Bereiche (Schwünge, Buchstaben im Lehrgang, Ziffern) |
 | `Model/Stufe.swift` | Die vier Stufen vom Nachspuren zum freien Schreiben |
+| `Model/Heftpruefer.swift` | Prüfung der Heftzeile (Stufe 5): Vergleich nach Abschluss jedes Strichs |
+| `Model/Anlautbilder.swift` | Bilder (Emoji) mit Wörtern je Buchstabe, nach dem Anlaut ausgewählt |
 | `Model/Klasse.swift` | Kinderprofile, Sterne je Kind/Zeichen/Stufe, Lehrgangsfreigabe |
 | `Views/UebenAnsicht.swift` | Vorführung, Nachspuren, Stufenwahl, Rückmeldung, Blättern |
 | `Views/KindWahl.swift` | „Wer schreibt?" — Tierkarten |
@@ -141,6 +144,56 @@
   durch dieselbe Prüfung und dieselben Stufen.
 - **Einstellungen** liegen hinter einer Malaufgabe (6–9 × 4–9) — Kinder
   sollen weder Lehrgang noch Profile verstellen können.
+
+## Gestaltung (Ansage des Nutzers, 09/2026)
+
+- **Farbenfroh, aber ohne grafischen Ballast.** Nichts blinkt; Animation
+  nur sparsam. Deshalb: kein Wackeln bei Fehlern (nur ein Satz und eine
+  leichte Vibration), die Sterne im Lob erscheinen leise nacheinander
+  (kein Hüpfen/Drehen), Übergänge nur als Überblendung. Die einzige
+  echte Bewegung ist die Hand der Vorführung. Neue Effekte nur nach
+  Rücksprache.
+- **Bilderleiste** unter dem Schreibblatt jeder Buchstabenseite: zwei bis
+  vier Bilder mit Wort, der Buchstabe im Wort rot. Emoji statt eigener
+  Grafiken (farbig statt piktogrammhaft, überall vorhanden, keine
+  Bildrechte — die Anlautbilder von „Flex und Flora“ dürfen nicht
+  übernommen werden). Nach dem **Laut** gewählt (kein Eis beim E, kein
+  Schaf beim S, kein Pferd beim P). Nicht antippbar, nicht bewegt; auf
+  dem iPhone quer ausgeblendet.
+
+## Stufe 5: Heftzeile (Ansage des Nutzers, 09/2026)
+
+- Zweck: Buchstaben „in die normale Erstklässler-Lineatur“ schreiben und
+  dabei prüfen, ob sie **lesbar** sind, an den richtigen **Etagen des
+  Schreibhauses** beginnen und enden und **bewegungsrichtig**
+  geschrieben sind — gerade weil Kinder im Heft anfangen, das O
+  andersherum zu schreiben oder sich eigene Richtungen auszudenken.
+- Das Kind schreibt das Zeichen viermal frei in eine Zeile in echter
+  Größe (Einstellung Grundlinie–Oberlinie 12–24 mm, Standard 16 mm, auf
+  dem iPad ≈ 5,2 pt/mm). Links steht der Musterbuchstabe; ▶ führt ihn
+  vor. Nur Buchstaben und Ziffern, keine Schwünge.
+- **Prüfung anders als auf Stufe 1–4** (`Heftpruefer`): nicht während
+  des Schreibens entlang einer Spur, sondern bei jedem Abheben. Kind und
+  Vorlage werden nach Weglänge in 40 Punkte geteilt und Punkt für Punkt
+  verglichen — dadurch fällt ein andersherum geschriebenes O auf, obwohl
+  es fertig genauso aussieht. Waagerecht wird die Vorlage an den ersten
+  Ansatz gelegt und in der Breite angepasst; **senkrecht nie** (die
+  Etagen sind Prüfgegenstand). Ein Fehler setzt nur das angefangene
+  Zeichen zurück; die Hinweise nennen die Etage („Dieser Strich beginnt
+  ganz oben unter dem Dach“).
+- Abgestimmt mit `scripts/heft-simulation.py` (sauber in beliebiger Lage
+  und Breite 0,8–1,25 → angenommen; verkehrt, eine Etage zu hoch/tief,
+  nach 60 % abgesetzt → abgelehnt). Gemessene Lehren:
+  - Breite nur aus schon angenommenen Strichen mit genug waagerechter
+    Ausdehnung (Σu² > 1,5) — sonst schluckte die Breite einen halben
+    Querstrich, und das kurze erste Stück des y wurde zum Maßstab.
+  - Das Strichende wird **vom eigenen Anfang aus** gemessen, nicht
+    absolut — sonst scheiterten saubere kurze Querstriche am Zittern.
+  - **Bekannte Grenzen:** Querstriche unter 0,45 (t, f, A) dürfen
+    kürzer sein; ein waagerechter Strich, bevor die Breite feststeht
+    (oberer Querstrich des E), ebenso — die Buchstaben bleiben lesbar.
+    Bei anderen Zufallsfolgen der Simulation fallen vereinzelt (≈ 1 von
+    1000) saubere Striche unter „Streng“ durch.
 
 ## Fallen
 
