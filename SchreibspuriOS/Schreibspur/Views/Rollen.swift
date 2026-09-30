@@ -69,6 +69,9 @@ struct LehrerStart: View {
     @Environment(Klasse.self) private var klasse
     @State private var zeigeUebersicht = false
     @State private var zeigeEinstellungen = false
+    @State private var neueKlasse = false
+    @State private var tafel: Klassenzimmer?
+    @State private var fehler: String?
 
     var body: some View {
         ScrollView {
@@ -106,26 +109,49 @@ struct LehrerStart: View {
                     }
                 }
 
-                Text("Klasse")
-                    .font(.system(.title2, design: .rounded, weight: .bold))
-                    .foregroundStyle(Farben.tinteDunkel)
+                HStack {
+                    Text("Klassen")
+                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .foregroundStyle(Farben.tinteDunkel)
+                    Spacer()
+                    Button {
+                        neueKlasse = true
+                    } label: {
+                        Label("Neue Klasse", systemImage: "plus.circle.fill")
+                    }
+                    .buttonStyle(RundKnopf(farbe: Farben.akzent))
+                    .disabled(klasse.wolke == nil)
+                }
                 if let wolke = klasse.wolke, !wolke.klassen.isEmpty {
-                    HStack(spacing: 12) {
-                        ForEach(wolke.klassen) { k in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Klasse \(k.name)").font(.system(.headline, design: .rounded))
-                                Text(Klassencode.anzeige(k.code))
-                                    .font(.system(.title2, design: .monospaced, weight: .bold))
-                                    .foregroundStyle(k.offen ? Farben.farbe(.woerter) : .secondary)
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 12) {
+                            ForEach(wolke.klassen) { k in
+                                Button { tafel = k } label: {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Klasse \(k.name)").font(.system(.headline, design: .rounded))
+                                            .foregroundStyle(Farben.tinteDunkel)
+                                        Text(Klassencode.anzeige(k.code))
+                                            .font(.system(.title2, design: .monospaced, weight: .bold))
+                                            .foregroundStyle(k.offen ? Farben.farbe(.woerter) : .secondary)
+                                    }
+                                    .padding(12)
+                                    .background(RoundedRectangle(cornerRadius: 16).fill(.white)
+                                        .shadow(color: .black.opacity(0.08), radius: 5, y: 2))
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .padding(12)
-                            .background(RoundedRectangle(cornerRadius: 16).fill(.white)
-                                .shadow(color: .black.opacity(0.08), radius: 5, y: 2))
                         }
+                        .padding(.vertical, 6)
                     }
                 }
+                if let fehler {
+                    Text(fehler).foregroundStyle(Farben.markierung)
+                }
+                Text("Kinder")
+                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .foregroundStyle(Farben.tinteDunkel)
                 if klasse.kinder.isEmpty {
-                    Text("Noch keine Kinder. Lege unter „Klassen & Einstellungen“ eine Klasse an und schreib ihren Code an die Tafel — die Kinder melden sich damit auf ihren iPads selbst an.")
+                    Text("Noch keine Kinder. Lege mit „Neue Klasse“ eine Klasse an und schreib ihren Code an die Tafel — die Kinder melden sich damit auf ihren iPads selbst an.")
                         .foregroundStyle(.secondary)
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
@@ -157,6 +183,16 @@ struct LehrerStart: View {
         .sheet(isPresented: $zeigeEinstellungen) {
             LehrerTor { EinstellungenAnsicht() }
                 .environment(klasse)
+        }
+        .klasseAnlegen(isPresented: $neueKlasse) { name in
+            guard let wolke = klasse.wolke else { return }
+            fehler = nil
+            Task {
+                do { tafel = try await wolke.klasseAnlegen(name) } catch { fehler = Wolke.klartext(error) }
+            }
+        }
+        .sheet(item: $tafel) { k in
+            KlassencodeTafel(klassenzimmer: k).environment(klasse)
         }
         .task { await klasse.wolke?.abgleichen() }
     }
