@@ -30,14 +30,15 @@
   1.0.9 (10) Klassenübersicht mit gespeicherten Seiten, kräftigeres
   App-Symbol; 1.0.10 (11) Hilfe-Treppe und Lehrerbereich mit Code;
   1.0.11 (12) Klasse über iCloud: Lehrergerät, Kindergeräte,
-  Anmeldekarten.
+  Anmeldekarten; 1.0.12 (13) Klassencode statt Anmeldekarten — die Kinder
+  melden sich selbst an.
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (`GENERATE_INFOPLIST_FILE = YES`). Nie
   entfernen. Seit 1.0.11 gibt es zusätzlich `Config/Info.plist`
   (`INFOPLIST_FILE`, wird mit der erzeugten zusammengeführt) — nur für
-  Schlüssel ohne Build-Einstellung: `CKSharingSupported` (sonst öffnet
-  ein Freigabe-Link die App nicht) und Deutsch als Entwicklungssprache.
+  Schlüssel ohne Build-Einstellung: `CKSharingSupported` (aus 1.0.11,
+  als Freigabe-Links noch geöffnet wurden; schadet nicht) und Deutsch als Entwicklungssprache.
   Der Ordner `Config/` liegt absichtlich AUSSERHALB des synchronisierten
   Ordners `Schreibspur/`, sonst würde die Info.plist als Ressource
   kopiert.
@@ -66,9 +67,10 @@
 | `Model/Anlautbilder.swift` | Bilder (Emoji) mit Wörtern je Buchstabe, nach dem Anlaut ausgewählt |
 | `Model/Klasse.swift` | Kinderprofile, Sterne je Kind/Zeichen/Stufe, Lehrgangsfreigabe |
 | `Model/Protokoll.swift` | Bearbeitungen je Kind und ihre Spuren als Vektoren (Klassenübersicht) |
-| `Model/Wolke.swift` | iCloud-Abgleich (CKSyncEngine): Zonen je Kind, Freigaben, Einladung annehmen |
-| `Views/Rollen.swift` | Erster Start (wer benutzt das Gerät?), Lehrer-Startseite, Warten aufs Profil |
-| `Views/Anmeldekarte.swift` | Anmeldekarte je Kind (QR-Code), Einladen per Apple-ID, alle Karten als PDF |
+| `Model/Wolke.swift` | iCloud-Abgleich (CKSyncEngine), Klassen anlegen, Beitreten mit Code, Anmeldungen abholen |
+| `Model/Klassencode.swift` | Klassencode, Klassenzimmer, verschlüsselte Anmeldung, Schlüssel der Lehrkraft |
+| `Views/Rollen.swift` | Erster Start (wer benutzt das Gerät?), Lehrer-Startseite |
+| `Views/KlassencodeAnsichten.swift` | Code-Eingabe mit Name und Tier (Kind), Klassen und Codes, Code groß (Lehrkraft) |
 | `Views/KlassenAnsicht.swift` | Klassenübersicht: Raster Kinder × Buchstaben, je Kind Stufen, Seiten nachsehen |
 | `Views/UebenAnsicht.swift` | Vorführung, Nachspuren, Stufenwahl, Rückmeldung, Blättern |
 | `Views/KindWahl.swift` | „Wer schreibt?" — Tierkarten |
@@ -461,58 +463,80 @@
 - Hashing und Schlüsselbund sind keine meldepflichtige Verschlüsselung —
   `ITSAppUsesNonExemptEncryption = NO` bleibt richtig.
 
-## Klasse über iCloud (seit 1.0.11, Ansage des Nutzers 09/2026)
+## Klasse über iCloud mit Klassencode (seit 1.0.12, Ansage des Nutzers 09/2026)
 
 - Nutzer: „Die Kinder haben jeweils eigene Geräte und ich als Lehrer habe
   mein eigenes Gerät.“ In seiner Schule: **geteilte iPads, jedes Kind mit
-  eigener verwalteter Apple-ID**. Gewählt hat der Nutzer die
-  iCloud-Freigabe (statt Klassencode über Firebase oder AirDrop).
+  eigener verwalteter Apple-ID**. Dann (zu 1.0.11 mit Anmeldekarten):
+  „Mir schwebt vor, dass ich als Lehrer einen Schulcode anlegen kann, den
+  die Kinder auf ihrem Gerät eingeben und danach ihren Benutzernamen
+  anlegen“ — **über iCloud, nicht Firebase** (Sorge vor Kosten; auch
+  andere Klassen sollen die App nutzen, ohne dass beim Nutzer Kosten
+  entstehen).
+- **Kosten:** keine für die Lehrkraft und keine für den Entwickler im
+  üblichen Rahmen. Die öffentliche Datenbank trägt nur ein paar Bytes je
+  Klasse (Apples Freimenge wächst mit der Zahl der Nutzer); die Seiten
+  liegen im iCloud des jeweiligen Kindes (verwaltete Apple-IDs: 200 GB).
+  Jede Lehrkraft arbeitet mit ihrem eigenen iCloud — beliebig viele
+  Klassen und Schulen, ohne gemeinsamen Server.
 - **Geräterolle** (`Klasse.rolle`, `geraet.rolle`): `allein` (wie bis
   1.0.10 — bestehende Installationen landen automatisch hier), `lehrer`,
   `kind`. Beim ersten Start fragt `Willkommen`.
-- **Je Kind eine Zone** `Kind-<id>` in der privaten Datenbank der
-  Lehrkraft, als Ganzes freigegeben (`CKShare(recordZoneID:)`). Der Link
-  steht als QR-Code auf der **Anmeldekarte**; das Kind scannt sie einmal
-  in seiner Sitzung. Damit ist ohne Namensauswahl klar, wer schreibt, und
-  kein Kind sieht die Daten eines anderen (bei einer gemeinsamen
-  Klassen-Zone mit Schreibrecht könnten alle alles lesen).
-- In der Zone: `profil` (Typ `Kind`, schreibt NUR die Lehrkraft: Name,
-  Tier, Genauigkeit, Lehrgang, Vorführen, Heftgröße, Nur-Pencil),
-  `stand` (Typ `Stand`, schreibt NUR das Kind: Sterne als JSON) und
-  `b-<id>` (Typ `Bearbeitung`, schreibt NUR das Kind: `daten` = JSON,
-  `spuren` = `CKAsset`). **Jede Seite schreibt nur ihre eigenen
-  Datensätze** — dadurch keine Konflikte zwischen den Geräten. Sterne
-  werden beim Empfang zusammengeführt (das Bessere gewinnt).
-- `CKSyncEngine` (iOS 17): Lehrergerät gegen die private, Kindergerät
-  gegen die geteilte Datenbank. Zustand und Systemfelder liegen unter
-  Application Support/Wolke/. Datensätze entstehen aus einem `Bauplan`,
-  der auf dem Hauptfaden gelesen wird (die Engine ruft von eigenen
-  Fäden). Systemfelder hinter einem Schloss.
-- **Offener Link oder Einladung:** Erst `publicPermission = .readWrite`.
-  Bleibt die Freigabe ohne `url` (Lehre aus Tafelbild: bei manchen
-  Konten nicht erlaubt — bei verwalteten Apple-IDs gut möglich), wird
-  sie ohne öffentliche Berechtigung neu angelegt, und die Lehrkraft lädt
-  das Kind mit seiner verwalteten Apple-ID ein
-  (`CKFetchShareParticipantsOperation`; `shareParticipants(for:)` gibt
-  es erst ab iOS 26).
+- **Ablauf:**
+  1. Lehrkraft legt eine Klasse an → Datensatz `Klasse` in der
+     **öffentlichen** Datenbank, Name = Code (6 Zeichen ohne
+     Verwechsler, angezeigt „KMR 47Q“): Klassenname, öffentlicher
+     Schlüssel der Lehrkraft, ihre iCloud-Kennung, `offen`, Einstellungen
+     der Klasse (Lehrgang, Vorführen, Heftgröße, Nur-Pencil).
+  2. Kind gibt den Code ein, sieht den Klassennamen, gibt seinen Vornamen
+     ein und wählt ein Tier. Das iPad legt im **privaten** iCloud des
+     Kindes die Zone `Schreibspur` an (`profil` mit Kind-Id), gibt sie
+     frei (erst offener Link mit Schreibrecht; erlaubt iCloud das nicht,
+     nur für die Lehrkraft über ihre iCloud-Kennung) und legt den Link
+     **verschlüsselt** (Curve25519 + ChaChaPoly aus CryptoKit, nur die
+     Lehrkraft kann ihn lesen) als `Anmeldung` in die öffentliche
+     Datenbank — auf den ersten freien Platz `<Code>-1` … `<Code>-60`.
+  3. Das Lehrergerät holt bei jedem Abgleich die Plätze aller seiner
+     Klassen per Id (kein Suchindex nötig), entschlüsselt, nimmt die
+     Freigabe an (`CKFetchShareMetadataOperation` + `accept`) und
+     schreibt `vorgaben` mit `bestaetigt` in die Zone des Kindes.
+     Daraufhin löscht das Kindergerät seine Anmeldung (nur der Erzeuger
+     darf in der öffentlichen Datenbank löschen).
+- **Wer schreibt was:** Das Kind schreibt `profil`, `stand` (Sterne),
+  `b-<id>` (Seiten mit Spuren als `CKAsset`); die Lehrkraft nur
+  `vorgaben` (Name, Tier, Genauigkeit, `bestaetigt`, `entfernt`). Alle
+  Kind-Datensätze tragen `kind` (Id) — daran erkennt ein zweites
+  Lehrergerät, wem eine Zone gehört. Sterne werden zusammengeführt (das
+  Bessere gewinnt); von der Lehrkraft geänderte Namen gehen vor.
+- `CKSyncEngine` (iOS 17): **Lehrergerät gegen die geteilte**, Kindergerät
+  gegen die private Datenbank (umgekehrt zu 1.0.11). Zustand unter
+  Application Support/Wolke/ (`zustand2-…`, `ablage2-…`). Datensätze
+  entstehen aus einem `Bauplan`, gelesen auf dem Hauptfaden.
+- **Kein Kind sieht die Daten eines anderen:** Jede Zone gehört dem Kind
+  und ist nur mit der Lehrkraft geteilt; der Link steht nur
+  verschlüsselt in der öffentlichen Datenbank.
+- Aus der Klasse nehmen: `vorgaben.entfernt = 1`, dann verlässt die
+  Lehrkraft die Freigabe. Das Kindergerät fragt wieder, wer es benutzt.
+  Die Seiten bleiben im iCloud des Kindes.
+- „Anmeldung offen“ je Klasse (Code gilt nicht mehr für neue Kinder),
+  Klasse löschen (Code weg, Kinder bleiben), vorhandene Klasse auf ein
+  neues Lehrergerät holen (nur mit derselben Apple-ID; veröffentlicht den
+  Schlüssel dieses Geräts neu — noch nicht abgeholte Anmeldungen, die mit
+  dem alten verschlüsselt sind, müssen wiederholt werden).
+- Zwei Swift-Dateien dürfen nicht gleich heißen, auch nicht in
+  verschiedenen Ordnern (`Klassencode.swift` in Model und Views: „Multiple
+  commands produce …stringsdata“) — deshalb `KlassencodeAnsichten.swift`.
 - **Voraussetzung, die die App nicht prüfen kann:** Verwaltete Apple-IDs
-  dürfen in der Regel nur mit Apple-IDs derselben Organisation teilen.
-  Die Lehrkraft sollte auf ihrem Gerät deshalb mit ihrer verwalteten
-  Schul-Apple-ID angemeldet sein. Fehler zeigt die App mit Apples Wortlaut.
-- Einladungen nimmt `FreigabeSceneDelegate` entgegen (Muster aus
-  Tafelbild: `scene(_:willConnectTo:)` NICHT beantworten). Auf dem
-  Lehrergerät wird eine gescannte Karte abgewiesen.
-- Kind aus der Klasse nehmen = Zone löschen. Das Kindergerät merkt es
-  beim nächsten Abgleich und fragt wieder, wer es benutzt.
-- Die Lehrkraft kann auf ihrem Gerät „Selbst ausprobieren“ (`probe`):
-  alle Stufen offen, nichts gezählt oder gespeichert.
+  dürfen in der Regel nur innerhalb derselben Schule teilen — die
+  Lehrkraft sollte mit ihrer verwalteten Schul-Apple-ID angemeldet sein.
 - **Vor TestFlight:** In der CloudKit-Konsole „Deploy Schema Changes to
-  Production“ (Typen `Kind`, `Stand`, `Bearbeitung` und `cloudkit.share`
-  entstehen beim ersten Speichern in Development) — Lehre aus Tafelbild.
-- **Nicht gemessen:** Der ganze Abgleich ist nur übersetzt, nie auf
-  Geräten gelaufen (GitHub Actions signiert nicht und hat kein iCloud).
-  Erst die Probe mit zwei Geräten und zwei Apple-IDs zeigt, ob Freigabe,
-  Beitritt und Abgleich tragen.
+  Production“ (Typen `Klasse`, `Anmeldung`, `Profil`, `Stand`,
+  `Bearbeitung`, `Vorgaben`, `cloudkit.share` entstehen beim ersten
+  Speichern in Development) — Lehre aus Tafelbild. Die öffentliche
+  Datenbank braucht keinen Index (nur Abruf per Id).
+- **Nicht gemessen:** Der Abgleich ist nur übersetzt, nie auf Geräten
+  gelaufen. Erst die Probe mit zwei Geräten und zwei Apple-IDs zeigt, ob
+  Beitritt, Freigabe und Abgleich tragen.
 
 ## Fallen
 

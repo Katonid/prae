@@ -205,8 +205,7 @@ final class Wolke {
     }
 
     func anmeldungOeffnen(_ k: Klassenzimmer, _ offen: Bool) async throws {
-        var neu = k
-        neu.offen = offen
+        let neu = Klassenzimmer(code: k.code, name: k.name, offen: offen)
         try await klasseVeroeffentlichen(neu)
         await MainActor.run {
             if let i = klassen.firstIndex(where: { $0.code == k.code }) { klassen[i] = neu }
