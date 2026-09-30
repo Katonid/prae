@@ -1,684 +1,746 @@
 import CloudKit
-import CryptoKit
 import Foundation
+import MultipeerConnectivity
 import Observation
 
-/// Abgleich der Klasse über iCloud — mit Klassencode (seit 1.0.12, Ansage
-/// des Nutzers 09/2026: „dass ich als Lehrer einen Code anlege, den die
-/// Kinder auf ihrem Gerät eingeben und danach ihren Benutzernamen anlegen“;
-/// ohne Kosten für die Lehrkraft, auch für andere Klassen).
+/// Datenaustausch zwischen Kindergeräten und Lehrergerät (seit 1.0.13).
 ///
-/// **Aufbau — alles in CloudKit, kein eigener Server:**
+/// Ansage des Nutzers 09/2026: Es muss **in allen Fällen** gehen —
+/// 1. Kind mit eigener verwalteter Apple-ID (auch auf dem geteilten iPad),
+/// 2. Kind als **Gast** auf dem geteilten iPad (ohne Apple-ID, ohne iCloud),
+/// 3. Lehrkraft mit dem dienstlichen iPad (verwaltete Schul-Apple-ID),
+/// 4. Lehrkraft mit dem privaten iPad (private Apple-ID).
 ///
-/// * **Öffentliche Datenbank** (kostenlos im Rahmen von Apples Freimenge,
-///   für ein paar Bytes je Klasse):
-///   - `Klasse`, Name des Datensatzes = Klassencode: Klassenname, der
-///     öffentliche Schlüssel der Lehrkraft, ihre iCloud-Kennung, ob die
-///     Anmeldung offen ist, und die Einstellungen der Klasse (Lehrgang,
-///     Vorführen, Heftgröße, Nur-Pencil). Schreibt nur die Lehrkraft.
-///   - `Anmeldung`, Namen `<Code>-1` … `<Code>-60` (feste Plätze, damit die
-///     Lehrkraft sie ohne Suchindex abholen kann): der Freigabe-Link des
-///     Kindes, **verschlüsselt** für die Lehrkraft (`Anmeldung`).
-/// * **Private Datenbank des Kindes**, Zone `Schreibspur`: `profil`
-///   (Name, Tier), `stand` (Sterne), `b-<id>` (Seiten mit Spuren) — das
-///   schreibt das Kind; `vorgaben` (Genauigkeit, Name, entfernt) — das
-///   schreibt die Lehrkraft. Das Kind gibt seine Zone frei; die Lehrkraft
-///   nimmt die Freigabe an und liest sie in IHRER geteilten Datenbank.
+/// Eine iCloud-Freigabe (1.0.11/1.0.12) kann das nicht: Ein Gast hat kein
+/// iCloud, und verwaltete Apple-IDs dürfen nicht mit privaten teilen.
+/// Deshalb zwei Wege, die beide ohne Freigabe auskommen:
 ///
-/// Speicher: Die Seiten eines Kindes liegen in seinem eigenen iCloud
-/// (verwaltete Apple-IDs haben 200 GB), nicht bei der Lehrkraft. Kein Kind
-/// sieht die Daten eines anderen.
+/// * **Briefkasten** in der *öffentlichen* CloudKit-Datenbank. Lesen darf
+///   jedes Gerät (auch ohne Apple-ID), schreiben jedes mit Apple-ID —
+///   verwaltet oder privat, das ist dort gleich. Alles, was ein Kind
+///   einwirft, ist für die Lehrkraft verschlüsselt (`Umschlag`); lesen
+///   kann es nur ihr Gerät.
+///   - `Klasse` (Name = Code): Name, öffentlicher Schlüssel, offen,
+///     Einstellungen. Schreibt die Lehrkraft.
+///   - `Anmeldung` `<Code>-1…60`: ein neues Kind (verschlüsselt). Feste
+///     Plätze — die Lehrkraft holt sie per Id, ohne Suchindex.
+///   - `Post` `p-<Kind>-<n>`: Pakete des Kindes (Seiten, Sterne, Name),
+///     fortlaufend nummeriert — die Lehrkraft holt ab der nächsten Nummer.
+///   - `Quittung` `q-<Kind>`: Vorgaben der Lehrkraft (Genauigkeit,
+///     entfernt); zugleich das Zeichen, dass die Anmeldung angekommen ist.
+/// * **Funk im Klassenzimmer** (`Nahfunk`): für den Gast — und für alle,
+///   wenn Netz oder iCloud fehlen. Die Pakete sind dieselben.
+///
+/// Jedes Paket hat eine Id; die Lehrkraft nimmt es genau einmal, egal auf
+/// welchem Weg es kommt. Kosten entstehen niemandem: Die öffentliche
+/// Datenbank gehört zur App, ihr Freikontingent wächst mit der Zahl der
+/// Nutzer.
 @Observable
 final class Wolke {
     static let containerID = "iCloud.de.familie.schreibspur"
-    static let zonenName = "Schreibspur"
-    /// So viele Anmeldungen je Klasse können gleichzeitig warten.
     static let plaetze = 60
 
     enum Typ {
         static let klasse = "Klasse"
         static let anmeldung = "Anmeldung"
-        static let profil = "Profil"
-        static let stand = "Stand"
-        static let bearbeitung = "Bearbeitung"
-        static let vorgaben = "Vorgaben"
+        static let post = "Post"
+        static let quittung = "Quittung"
+        static let ich = "Ich"
+    }
+
+    /// Kindergerät: wer hier schreibt.
+    struct Ich: Codable, Equatable {
+        var kind: UUID
+        var code: String
+        var name: String
+        var tier: String
+        /// Nächste Nummer im Briefkasten.
+        var naechster = 1
+        /// Die Lehrkraft hat die Anmeldung (Briefkasten) quittiert.
+        var angemeldet = false
+        /// Platz der Anmeldung in der öffentlichen Datenbank.
+        var platz: String?
+    }
+
+    /// Kindergerät: ein Paket, das noch zur Lehrkraft muss.
+    struct Eintrag: Codable, Identifiable {
+        var id: UUID
+        var umschlag: Data
+        /// Neuere Fassung derselben Seite/der Sterne ersetzt eine wartende.
+        var ersetzt: String?
+        var hochgeladen = false
+        var zugestellt = false
+    }
+
+    /// Lehrergerät: was es von einem Kind schon hat.
+    struct KindAblage: Codable {
+        var code: String
+        var naechster = 1
+        var pakete: Set<UUID> = []
     }
 
     let rolle: Geraeterolle
-    /// Was die Ansichten zeigen: „Abgeglichen um 10:32“, Fehler im Klartext.
-    fileprivate(set) var status = "Verbinde mit iCloud …"
+    fileprivate(set) var status = "Verbinde …"
     private(set) var arbeitet = false
-    /// Lehrergerät: die Klassen mit ihren Codes.
+    /// Dieses Gerät kann in iCloud schreiben (Apple-ID angemeldet).
+    private(set) var icloud = false
+    /// Geräte, die gerade über Funk verbunden sind.
+    private(set) var inDerNaehe = 0
+
+    // Lehrergerät
     private(set) var klassen: [Klassenzimmer] = []
+    /// Die Zahl, die ein zweites Lehrergerät zum Übernehmen braucht.
+    private(set) var uebertragungsPIN: String?
+    @ObservationIgnored private var bekannt: [UUID: KindAblage] = [:]
+    @ObservationIgnored private var abgeholt: Set<String> = []
+    @ObservationIgnored private var entfernt: Set<UUID> = []
+
+    // Kindergerät
+    private(set) var ich: Ich?
+    private(set) var klasseninfo: Klasseninfo?
+    private(set) var warteschlange: [Eintrag] = []
+    /// Pakete, die noch nirgends angekommen sind.
+    var wartend: Int { warteschlange.filter { !$0.hochgeladen && !$0.zugestellt }.count }
 
     @ObservationIgnored private weak var klasse: Klasse?
     @ObservationIgnored private let container = CKContainer(identifier: Wolke.containerID)
-    @ObservationIgnored private var engine: CKSyncEngine?
-    @ObservationIgnored private var vermittler: Vermittler?
-    @ObservationIgnored private let schloss = NSLock()
-    /// Systemfelder je Datensatz (Änderungsmarke des Servers). Die Engine
-    /// ruft von eigenen Fäden — deshalb hinter dem Schloss.
-    @ObservationIgnored private var systemfelder: [String: Data] = [:]
-    /// Lehrergerät: Zone je Kind (sie gehört dem Kind).
-    @ObservationIgnored private var zonen: [UUID: ZonenAdresse] = [:]
-    /// Lehrergerät: schon abgeholte Anmeldungen.
-    @ObservationIgnored private var abgeholt: Set<String> = []
+    @ObservationIgnored private var nahfunk: Nahfunk?
 
-    struct ZonenAdresse: Codable, Hashable {
-        var name: String
-        var besitzer: String
-        var id: CKRecordZone.ID { CKRecordZone.ID(zoneName: name, ownerName: besitzer) }
-        init(_ z: CKRecordZone.ID) { name = z.zoneName; besitzer = z.ownerName }
-    }
+    private var oeffentlich: CKDatabase { container.publicCloudDatabase }
 
-    private var datenbank: CKDatabase {
-        rolle == .lehrer ? container.sharedCloudDatabase : container.privateCloudDatabase
-    }
-
-    private static var eigeneZone: CKRecordZone.ID {
-        CKRecordZone.ID(zoneName: zonenName, ownerName: CKCurrentUserDefaultName)
-    }
-
-    init(rolle: Geraeterolle, klasse: Klasse) {
+    init(rolle: Geraeterolle, klasse: Klasse, ich: Ich? = nil, info: Klasseninfo? = nil) {
         self.rolle = rolle
         self.klasse = klasse
         laden()
-        let v = Vermittler(self)
-        vermittler = v
-        var konfiguration = CKSyncEngine.Configuration(
-            database: datenbank, stateSerialization: zustand(), delegate: v)
-        konfiguration.automaticallySync = true
-        engine = CKSyncEngine(konfiguration)
-        Task { await kontoPruefen() }
+        if let ich { self.ich = ich }
+        if let info { klasseninfo = info }
+        speichern()
+        funkStarten()
+        Task { await abgleichen() }
     }
+
+    deinit { nahfunk?.beenden() }
 
     // MARK: Anstoßen
 
-    /// Holt, was sich geändert hat, und schickt, was wartet. Lehrergerät:
-    /// dazu neue Anmeldungen; Kindergerät: die Einstellungen der Klasse.
+    /// Holt und schickt, was ansteht — über iCloud und über Funk.
     func abgleichen() async {
-        guard let engine else { return }
-        await MainActor.run { arbeitet = true }
-        do {
-            if rolle == .lehrer { await anmeldungenAbholen() } else { await klassenEinstellungenHolen() }
-            try await engine.sendChanges()
-            try await engine.fetchChanges()
-            await MainActor.run { status = "Abgeglichen um \(Date().formatted(date: .omitted, time: .shortened))" }
-        } catch {
-            await MainActor.run { status = Self.klartext(error) }
+        let schon = await MainActor.run { () -> Bool in
+            if arbeitet { return true }
+            arbeitet = true
+            nahfunk?.starten()
+            return false
         }
-        await MainActor.run { arbeitet = false }
-    }
-
-    private func kontoPruefen() async {
-        let s = try? await container.accountStatus()
+        guard !schon else { return }
+        let konto = (try? await container.accountStatus()) == .available
+        await MainActor.run { icloud = konto }
+        if rolle == .lehrer {
+            await anmeldungenAbholen()
+            await postAbholen()
+        } else if rolle == .kind {
+            await klasseLesen()
+            await quittungLesen()
+            await senden()
+        }
         await MainActor.run {
-            switch s {
-            case .available: status = "iCloud verbunden"
-            case .noAccount: status = "Auf diesem Gerät ist niemand bei iCloud angemeldet."
-            case .restricted: status = "iCloud ist auf diesem Gerät eingeschränkt (Verwaltung der Schule)."
-            default: status = "iCloud ist gerade nicht erreichbar."
+            arbeitet = false
+            statusSetzen()
+        }
+    }
+
+    @MainActor private func statusSetzen() {
+        var teile: [String] = []
+        teile.append(icloud ? "iCloud: abgeglichen um \(Date().formatted(date: .omitted, time: .shortened))"
+                            : "Ohne iCloud (Gast oder nicht angemeldet)")
+        if inDerNaehe > 0 { teile.append("in der Nähe verbunden: \(inDerNaehe)") }
+        if rolle == .kind, wartend > 0 { teile.append("\(wartend) warten") }
+        status = teile.joined(separator: " · ")
+    }
+
+    // MARK: Funk
+
+    private func funkStarten() {
+        let art: Nahfunk.Art
+        switch rolle {
+        case .lehrer: art = .lehrer(codes: klassen.map(\.code))
+        case .kind:
+            guard let code = ich?.code else { return }
+            art = .kind(code: code)
+        case .allein: return
+        }
+        let f = Nahfunk(art)
+        f.verbunden = { [weak self, weak f] peer in
+            guard let self, let f else { return }
+            inDerNaehe = f.gegenueber.count
+            if rolle == .kind, let code = ich?.code {
+                f.senden(.hallo(code: code), an: [peer])
+                Task { await self.senden() }
             }
+            statusSetzen()
         }
-        if s == .available { await abgleichen() }
+        f.getrennt = { [weak self, weak f] _ in
+            self?.inDerNaehe = f?.gegenueber.count ?? 0
+            self?.statusSetzen()
+        }
+        f.empfangen = { [weak self] n, peer in self?.funkEmpfangen(n, von: peer) }
+        f.starten()
+        nahfunk = f
     }
 
-    // MARK: Meldungen aus der App
+    @MainActor private func funkEmpfangen(_ n: Nachricht, von peer: MCPeerID) {
+        switch (rolle, n) {
+        case (.lehrer, .hallo(let code)):
+            guard klassen.contains(where: { $0.code == code }) else { return }
+            nahfunk?.senden(.klasse(info(code, mitKindern: true)), an: [peer])
+        case (.lehrer, .anmeldung(let code, let umschlag)):
+            if let a = try? Umschlag.entpackt(Anmeldung.self, umschlag, mit: Klassenschluessel.geheim()) {
+                registrieren(a, code: code)
+            }
+        case (.lehrer, .paket(let code, let id, let umschlag)):
+            guard let p = try? Umschlag.entpackt(Paket.self, umschlag, mit: Klassenschluessel.geheim()) else { return }
+            verarbeiten(p, code: code)
+            nahfunk?.senden(.quittung(kind: p.kind, pakete: [id], vorgaben: vorgaben(p.kind)), an: [peer])
+        case (.lehrer, .schluesselAnfrage(let pin)):
+            guard let soll = uebertragungsPIN, pin == soll, let klasse else { return }
+            let kinder = klasse.kinder.map(Self.kurz)
+            var zuordnung: [UUID: String] = [:]
+            for k in klasse.kinder { if let c = k.klasse { zuordnung[k.id] = c } }
+            nahfunk?.senden(.schluessel(Klassenschluessel.rohdaten(), klassen, kinder, zuordnung), an: [peer])
+            uebertragungsPIN = nil
 
-    /// Lehrergerät: Name, Tier oder Genauigkeit eines Kindes geändert.
-    func kindGeaendert(_ kind: Kind) {
-        guard rolle == .lehrer, let engine, let zone = zonen[kind.id] else { return }
-        engine.state.add(pendingRecordZoneChanges: [.saveRecord(CKRecord.ID(recordName: "vorgaben", zoneID: zone.id))])
-    }
-
-    /// Lehrergerät: Das Kind ist aus der Klasse genommen. Sein iPad erfährt
-    /// es über die Vorgaben; danach verlässt die Lehrkraft die Freigabe.
-    func kindEntfernt(_ id: UUID) {
-        guard rolle == .lehrer, let zone = zonen[id]?.id else { return }
-        zonen[id] = nil
-        speichern()
-        Task {
-            let db = container.sharedCloudDatabase
-            let r = CKRecord(recordType: Typ.vorgaben, recordID: CKRecord.ID(recordName: "vorgaben", zoneID: zone))
-            r["entfernt"] = 1
-            _ = try? await db.modifyRecords(saving: [r], deleting: [], savePolicy: .changedKeys)
-            _ = try? await db.modifyRecords(saving: [], deleting: [CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zone)])
+        case (.kind, .klasse(let info)):
+            klasseninfo = Klasseninfo(code: info.code, name: info.name, schluessel: info.schluessel,
+                                      offen: info.offen, einstellungen: info.einstellungen)
+            einstellungenAnwenden(info.einstellungen)
+            if let ich, let meins = info.kinder.first(where: { $0.id == ich.kind }) {
+                klasse?.sterneAusWolke(meins.sterne, kind: ich.kind)
+                vorgabenAnwenden(Vorgaben(genauigkeit: meins.genauigkeit))
+            }
+            speichern()
+            Task { await senden() }
+        case (.kind, .quittung(let kind, let pakete, let v)):
+            guard kind == ich?.kind else { return }
+            for i in warteschlange.indices where pakete.contains(warteschlange[i].id) {
+                warteschlange[i].zugestellt = true
+            }
+            aufraeumen()
+            speichern()
+            vorgabenAnwenden(v)
+            statusSetzen()
+        default:
+            break
         }
     }
 
-    /// Lehrergerät: Lehrgang, Vorführen, Heftgröße gelten für die Klasse.
-    func klasseGeaendert() {
-        guard rolle == .lehrer else { return }
-        Task {
-            for k in await MainActor.run(body: { klassen }) { try? await klasseVeroeffentlichen(k) }
-        }
-    }
+    // MARK: Lehrergerät — Klassen
 
-    /// Kindergerät: neue Sterne.
-    func sterneGeaendert() {
-        guard rolle == .kind, let engine else { return }
-        engine.state.add(pendingRecordZoneChanges: [.saveRecord(CKRecord.ID(recordName: "stand", zoneID: Self.eigeneZone))])
-    }
-
-    /// Kindergerät: eine Seite gespeichert.
-    func bearbeitungGespeichert(_ b: Bearbeitung, kind: UUID) {
-        guard rolle == .kind, let engine else { return }
-        engine.state.add(pendingRecordZoneChanges: [
-            .saveRecord(CKRecord.ID(recordName: "b-\(b.id.uuidString)", zoneID: Self.eigeneZone))])
-    }
-
-    // MARK: Klassen (Lehrergerät)
-
-    /// Neue Klasse mit frischem Code.
+    /// Neue Klasse mit frischem Code. Ohne iCloud geht sie trotzdem — dann
+    /// erreichen die Kinder sie nur über Funk, bis sie veröffentlicht ist.
     func klasseAnlegen(_ name: String) async throws -> Klassenzimmer {
-        let db = container.publicCloudDatabase
         var code = Klassencode.neu()
-        // Den Code darf es noch nicht geben.
         for _ in 0..<5 {
-            guard (try? await db.record(for: CKRecord.ID(recordName: code))) != nil else { break }
+            guard (try? await oeffentlich.record(for: CKRecord.ID(recordName: code))) != nil else { break }
             code = Klassencode.neu()
         }
         let k = Klassenzimmer(code: code, name: name)
-        try await klasseVeroeffentlichen(k)
         await MainActor.run {
             klassen.append(k)
             speichern()
+            nahfunk?.codesAendern(klassen.map(\.code))
+        }
+        do {
+            try await veroeffentlichen(k)
+        } catch {
+            let text = "Klasse angelegt, in iCloud aber noch nicht eingetragen (\(Self.klartext(error))) — bis dahin nur über Funk erreichbar."
+            await MainActor.run { status = text }
         }
         return k
     }
 
-    /// Eine Klasse, die es schon gibt (neues Gerät, App neu geladen) —
-    /// nur, wenn sie dieser Lehrkraft gehört.
-    func klasseHinzufuegen(_ eingabe: String) async throws {
-        let code = Klassencode.lesen(eingabe)
-        let r = try await container.publicCloudDatabase.record(for: CKRecord.ID(recordName: code))
-        let ich = try await container.userRecordID().recordName
-        guard r["lehrer"] as? String == ich else { throw Fehler.fremdeKlasse }
-        let k = Klassenzimmer(code: code, name: r["name"] as? String ?? code, offen: (r["offen"] as? Int ?? 1) == 1)
-        // Mit dem Schlüssel DIESES Geräts neu veröffentlichen.
-        try await klasseVeroeffentlichen(k)
-        await MainActor.run {
-            klassen.removeAll { $0.code == code }
-            klassen.append(k)
-            speichern()
-        }
-    }
-
     func anmeldungOeffnen(_ k: Klassenzimmer, _ offen: Bool) async throws {
         let neu = Klassenzimmer(code: k.code, name: k.name, offen: offen)
-        try await klasseVeroeffentlichen(neu)
         await MainActor.run {
             if let i = klassen.firstIndex(where: { $0.code == k.code }) { klassen[i] = neu }
             speichern()
         }
+        try await veroeffentlichen(neu)
     }
 
-    /// Die Klasse aus der öffentlichen Datenbank nehmen (der Code gilt dann
-    /// nicht mehr). Die Kinder bleiben in der Übersicht.
+    /// Die Klasse aus der öffentlichen Datenbank nehmen (der Code gilt nicht
+    /// mehr). Die Kinder bleiben in der Übersicht.
     func klasseLoeschen(_ k: Klassenzimmer) async throws {
-        _ = try await container.publicCloudDatabase.modifyRecords(saving: [], deleting: [CKRecord.ID(recordName: k.code)])
         await MainActor.run {
             klassen.removeAll { $0.code == k.code }
             speichern()
+            nahfunk?.codesAendern(klassen.map(\.code))
+        }
+        _ = try await oeffentlich.modifyRecords(saving: [], deleting: [CKRecord.ID(recordName: k.code)])
+    }
+
+    /// Lehrgang, Vorführen, Heftgröße geändert: alle Klassen neu eintragen.
+    func klasseGeaendert() {
+        guard rolle == .lehrer else { return }
+        Task {
+            for k in await MainActor.run(body: { klassen }) { try? await veroeffentlichen(k) }
         }
     }
 
-    private func klasseVeroeffentlichen(_ k: Klassenzimmer) async throws {
-        let ich = try await container.userRecordID().recordName
-        let werte = await MainActor.run { () -> (Bool, Int) in
-            (klasse?.lehrgangAn ?? false, klasse?.freiBis ?? 0)
-        }
-        let d = UserDefaults.standard
+    private func veroeffentlichen(_ k: Klassenzimmer) async throws {
+        let e = await MainActor.run { einstellungen() }
         let r = CKRecord(recordType: Typ.klasse, recordID: CKRecord.ID(recordName: k.code))
         r["name"] = k.name
         r["offen"] = k.offen ? 1 : 0
-        r["lehrer"] = ich
         r["schluessel"] = Klassenschluessel.geheim().publicKey.rawRepresentation
-        r["lehrgangAn"] = werte.0 ? 1 : 0
-        r["freiBis"] = werte.1
-        r["vorfuehren"] = (d.object(forKey: Schluessel.vorfuehren) as? Bool ?? true) ? 1 : 0
-        r["heftHoehe"] = d.object(forKey: Schluessel.heftHoehe) as? Double ?? 16
-        r["nurStift"] = d.bool(forKey: Schluessel.nurStift) ? 1 : 0
-        // Ohne Änderungsmarke überschreiben: nur die Lehrkraft schreibt hier.
-        _ = try await container.publicCloudDatabase.modifyRecords(saving: [r], deleting: [], savePolicy: .allKeys)
+        r["einstellungen"] = try JSONEncoder().encode(e)
+        _ = try await oeffentlich.modifyRecords(saving: [r], deleting: [], savePolicy: .allKeys)
+            .saveResults[r.recordID]?.get()
     }
 
-    /// Lehrergerät: neue Anmeldungen aller Klassen abholen und annehmen.
-    func anmeldungenAbholen() async {
+    @MainActor private func einstellungen() -> Klasseneinstellungen {
+        let d = UserDefaults.standard
+        return Klasseneinstellungen(lehrgangAn: klasse?.lehrgangAn ?? false, freiBis: klasse?.freiBis ?? 0,
+                                    vorfuehren: d.object(forKey: Schluessel.vorfuehren) as? Bool ?? true,
+                                    heftHoehe: d.object(forKey: Schluessel.heftHoehe) as? Double ?? 16,
+                                    nurStift: d.bool(forKey: Schluessel.nurStift))
+    }
+
+    @MainActor private func info(_ code: String, mitKindern: Bool) -> Klasseninfo {
+        let k = klassen.first { $0.code == code }
+        let kinder = mitKindern
+            ? (klasse?.kinder ?? []).filter { $0.klasse == code && !entfernt.contains($0.id) }.map(Self.kurz)
+            : []
+        return Klasseninfo(code: code, name: k?.name ?? code,
+                           schluessel: Klassenschluessel.geheim().publicKey.rawRepresentation,
+                           offen: k?.offen ?? true, einstellungen: einstellungen(), kinder: kinder)
+    }
+
+    private static func kurz(_ k: Kind) -> KindKurz {
+        KindKurz(id: k.id, name: k.name, tier: k.tier, genauigkeit: k.genauigkeit, sterne: k.sterne)
+    }
+
+    // MARK: Lehrergerät — Kinder
+
+    /// Name, Tier oder Genauigkeit geändert: Vorgaben neu quittieren.
+    func kindGeaendert(_ kind: Kind) {
         guard rolle == .lehrer else { return }
+        Task { await quittungSchreiben(kind.id) }
+    }
+
+    /// Aus der Klasse genommen: Das iPad des Kindes erfährt es über die
+    /// Quittung (Briefkasten oder Funk).
+    func kindEntfernt(_ id: UUID) {
+        guard rolle == .lehrer else { return }
+        entfernt.insert(id)
+        bekannt[id] = nil
+        speichern()
+        Task { await quittungSchreiben(id) }
+    }
+
+    @MainActor private func vorgaben(_ kind: UUID) -> Vorgaben {
+        Vorgaben(genauigkeit: klasse?.kinder.first { $0.id == kind }?.genauigkeit, entfernt: entfernt.contains(kind))
+    }
+
+    private func quittungSchreiben(_ kind: UUID) async {
+        let v = await MainActor.run { vorgaben(kind) }
+        let r = CKRecord(recordType: Typ.quittung, recordID: CKRecord.ID(recordName: "q-\(kind.uuidString)"))
+        r["vorgaben"] = try? JSONEncoder().encode(v)
+        _ = try? await oeffentlich.modifyRecords(saving: [r], deleting: [], savePolicy: .allKeys)
+    }
+
+    /// Neues Kind (aus dem Briefkasten oder über Funk).
+    @MainActor private func registrieren(_ a: Anmeldung, code: String) {
+        guard !entfernt.contains(a.kind) else { return }
+        if bekannt[a.kind] == nil { bekannt[a.kind] = KindAblage(code: code) }
+        if klasse?.kinder.contains(where: { $0.id == a.kind }) != true {
+            klasse?.ausWolke(Kind(id: a.kind, name: a.name, tier: a.tier, klasse: code))
+        }
+        speichern()
+    }
+
+    /// Ein Paket, genau einmal.
+    @MainActor private func verarbeiten(_ p: Paket, code: String) {
+        guard !entfernt.contains(p.kind) else { return }
+        var ablage = bekannt[p.kind] ?? KindAblage(code: code)
+        guard !ablage.pakete.contains(p.id) else { return }
+        ablage.pakete.insert(p.id)
+        bekannt[p.kind] = ablage
+        guard let klasse else { return }
+        if !klasse.kinder.contains(where: { $0.id == p.kind }) {
+            klasse.ausWolke(Kind(id: p.kind, name: "Kind", tier: "🦊", klasse: code))
+        }
+        switch p.inhalt {
+        case .profil(let name, let tier):
+            // Hat die Lehrkraft den Namen schon geändert, bleibt ihrer.
+            if var k = klasse.kinder.first(where: { $0.id == p.kind }), k.name == "Kind" {
+                k.name = name
+                k.tier = tier
+                klasse.ausWolke(k)
+            }
+        case .sterne(let s):
+            klasse.sterneAusWolke(s, kind: p.kind)
+        case .bearbeitung(let b, let spuren):
+            klasse.protokoll.ausWolke(b, spuren: spuren, kind: p.kind)
+        }
+        speichern()
+    }
+
+    private func anmeldungenAbholen() async {
         let geheim = Klassenschluessel.geheim()
-        let db = container.publicCloudDatabase
         for k in await MainActor.run(body: { klassen }) {
             let ids = (1...Self.plaetze).map { CKRecord.ID(recordName: "\(k.code)-\($0)") }
-            guard let ergebnisse = try? await db.records(for: ids) else { continue }
+            guard let ergebnisse = try? await oeffentlich.records(for: ids) else { continue }
+            let schon = await MainActor.run { abgeholt }
             for (id, ergebnis) in ergebnisse {
-                guard case .success(let r) = ergebnis, !abgeholt.contains(id.recordName),
+                guard case .success(let r) = ergebnis, !schon.contains(id.recordName),
                       let umschlag = r["umschlag"] as? Data,
-                      let a = try? Anmeldung.entschluesselt(umschlag, mit: geheim) else { continue }
-                do {
-                    let zone = try await freigabeAnnehmen(a.link)
+                      let a = try? Umschlag.entpackt(Anmeldung.self, umschlag, mit: geheim) else { continue }
+                await MainActor.run {
+                    registrieren(a, code: k.code)
+                    abgeholt.insert(id.recordName)
+                    speichern()
+                }
+                await quittungSchreiben(a.kind)
+            }
+        }
+    }
+
+    /// Je Kind ab der nächsten Nummer, bis eine fehlt.
+    private func postAbholen() async {
+        let geheim = Klassenschluessel.geheim()
+        let alle = await MainActor.run { bekannt }
+        for (kind, ablage) in alle {
+            var n = ablage.naechster
+            weiter: while true {
+                let ids = (n..<(n + 20)).map { CKRecord.ID(recordName: "p-\(kind.uuidString)-\($0)") }
+                guard let ergebnisse = try? await oeffentlich.records(for: ids) else { break }
+                for id in ids {
+                    guard case .success(let r)? = ergebnisse[id] else { break weiter }
+                    let daten = (r["umschlag"] as? Data)
+                        ?? (r["datei"] as? CKAsset)?.fileURL.flatMap { try? Data(contentsOf: $0) }
+                    if let daten, let p = try? Umschlag.entpackt(Paket.self, daten, mit: geheim) {
+                        await MainActor.run { verarbeiten(p, code: ablage.code) }
+                    }
+                    n += 1
+                    let bis = n
                     await MainActor.run {
-                        zonen[a.kind] = ZonenAdresse(zone)
-                        abgeholt.insert(id.recordName)
-                        klasse?.ausWolke(Kind(id: a.kind, name: a.name, tier: a.tier, klasse: k.code))
-                        // Bestätigen: Das Kind räumt dann seinen Platz frei.
-                        engine?.state.add(pendingRecordZoneChanges: [
-                            .saveRecord(CKRecord.ID(recordName: "vorgaben", zoneID: zone))])
+                        bekannt[kind]?.naechster = bis
                         speichern()
                     }
-                } catch {
-                    let text = "\(a.name): \(Self.klartext(error))"
-                    await MainActor.run { status = text }
                 }
             }
         }
     }
 
-    private func freigabeAnnehmen(_ link: URL) async throws -> CKRecordZone.ID {
-        let metadaten: CKShare.Metadata = try await withCheckedThrowingContinuation { fortsetzung in
-            var gefunden: CKShare.Metadata?
-            var fehler: Error?
-            let abfrage = CKFetchShareMetadataOperation(shareURLs: [link])
-            abfrage.perShareMetadataResultBlock = { _, ergebnis in
-                switch ergebnis {
-                case .success(let m): gefunden = m
-                case .failure(let f): fehler = f
-                }
-            }
-            abfrage.fetchShareMetadataResultBlock = { ergebnis in
-                if let gefunden {
-                    fortsetzung.resume(returning: gefunden)
-                } else if case .failure(let f) = ergebnis {
-                    fortsetzung.resume(throwing: f)
-                } else {
-                    fortsetzung.resume(throwing: fehler ?? CKError(.unknownItem))
-                }
-            }
-            container.add(abfrage)
-        }
-        if metadaten.participantStatus != .accepted {
-            _ = try await container.accept(metadaten)
-        }
-        return metadaten.share.recordID.zoneID
+    // MARK: Lehrergerät — zweites Gerät
+
+    /// Erstes Gerät: eine Zahl zeigen, mit der ein zweites Lehrergerät in
+    /// der Nähe Schlüssel, Klassen und Kinder übernimmt.
+    @MainActor func uebertragungStarten() {
+        uebertragungsPIN = String(format: "%06d", Int.random(in: 0...999_999))
+        nahfunk?.starten()
     }
 
-    // MARK: Beitreten (Kindergerät)
+    @MainActor func uebertragungBeenden() { uebertragungsPIN = nil }
+
+    /// Zweites Gerät: mit der Zahl vom ersten übernehmen (beide in der Nähe,
+    /// Schreibspur auf beiden offen).
+    func uebernehmen(pin: String) async throws {
+        let f = await MainActor.run { Nahfunk(.uebernahme) }
+        typealias Antwort = (Data, [Klassenzimmer], [KindKurz], [UUID: String])
+        let merker = Merker()
+        let antwort: Antwort = try await withCheckedThrowingContinuation { fortsetzung in
+            Task { @MainActor in
+                f.verbunden = { [weak f] peer in f?.senden(.schluesselAnfrage(pin: pin), an: [peer]) }
+                f.empfangen = { n, _ in
+                    guard !merker.fertig, case .schluessel(let s, let k, let kinder, let zuordnung) = n else { return }
+                    merker.fertig = true
+                    fortsetzung.resume(returning: (s, k, kinder, zuordnung))
+                }
+                f.starten()
+                try? await Task.sleep(for: .seconds(40))
+                guard !merker.fertig else { return }
+                merker.fertig = true
+                fortsetzung.resume(throwing: Fehler.keinLehrergeraet)
+            }
+        }
+        await MainActor.run { f.beenden() }
+        try Klassenschluessel.setzen(antwort.0)
+        await MainActor.run {
+            for k in antwort.1 where !klassen.contains(where: { $0.code == k.code }) { klassen.append(k) }
+            for kurz in antwort.2 {
+                let code = antwort.3[kurz.id]
+                klasse?.ausWolke(Kind(id: kurz.id, name: kurz.name, tier: kurz.tier, genauigkeit: kurz.genauigkeit,
+                                      sterne: kurz.sterne, klasse: code))
+                if let code, bekannt[kurz.id] == nil { bekannt[kurz.id] = KindAblage(code: code) }
+            }
+            speichern()
+            nahfunk?.codesAendern(klassen.map(\.code))
+        }
+        await abgleichen()
+    }
+
+    // MARK: Kindergerät — beitreten
 
     enum Fehler: LocalizedError {
-        case unbekannterCode, geschlossen, fremdeKlasse, voll, keinLink
+        case unbekannterCode, geschlossen, keinLehrergeraet
 
         var errorDescription: String? {
             switch self {
             case .unbekannterCode: "Diesen Klassencode gibt es nicht. Schau noch einmal genau hin."
             case .geschlossen: "Die Anmeldung für diese Klasse ist gerade geschlossen."
-            case .fremdeKlasse: "Diese Klasse gehört einer anderen Lehrkraft."
-            case .voll: "Gerade warten zu viele Anmeldungen. Deine Lehrkraft muss die App einmal öffnen."
-            case .keinLink: "iCloud hat die Freigabe nicht angelegt."
+            case .keinLehrergeraet: "Kein Lehrergerät gefunden. Ist es in der Nähe und Schreibspur dort offen?"
             }
         }
     }
 
-    /// Name der Klasse zu einem Code (Kindergerät, vor dem Namen).
-    static func klasseNachschlagen(_ eingabe: String) async throws -> String {
+    /// Die Klasse aus der öffentlichen Datenbank (geht auch ohne Apple-ID).
+    static func klasseNachschlagen(_ eingabe: String) async throws -> Klasseninfo {
         let code = Klassencode.lesen(eingabe)
         guard code.count == Klassencode.laenge else { throw Fehler.unbekannterCode }
+        let info: Klasseninfo
         do {
-            let r = try await CKContainer(identifier: containerID).publicCloudDatabase
-                .record(for: CKRecord.ID(recordName: code))
-            guard (r["offen"] as? Int ?? 1) == 1 else { throw Fehler.geschlossen }
-            return r["name"] as? String ?? code
+            info = try await klasseLesen(code)
         } catch let f as CKError where f.code == .unknownItem {
             throw Fehler.unbekannterCode
         }
+        guard info.offen else { throw Fehler.geschlossen }
+        return info
     }
 
-    /// Das Kind tritt der Klasse bei: eigene Zone anlegen, freigeben, den
-    /// Link verschlüsselt für die Lehrkraft ablegen.
-    static func beitreten(code eingabe: String, name: String, tier: String, klasse: Klasse) async throws {
+    private static func klasseLesen(_ code: String) async throws -> Klasseninfo {
+        let r = try await CKContainer(identifier: containerID).publicCloudDatabase.record(for: CKRecord.ID(recordName: code))
+        guard let schluessel = r["schluessel"] as? Data else { throw Fehler.unbekannterCode }
+        let e = (r["einstellungen"] as? Data).flatMap { try? JSONDecoder().decode(Klasseneinstellungen.self, from: $0) }
+        return Klasseninfo(code: code, name: r["name"] as? String ?? code, schluessel: schluessel,
+                           offen: (r["offen"] as? Int ?? 1) == 1, einstellungen: e ?? Klasseneinstellungen())
+    }
+
+    /// Über Funk: das Lehrergerät der Klasse in der Nähe fragen (für den
+    /// Gast ohne Netz oder wenn der Briefkasten nicht erreichbar ist). Die
+    /// Antwort enthält die Kinder der Klasse — der Gast wählt sich aus.
+    static func inDerNaeheSuchen(_ eingabe: String, sekunden: Double = 25) async -> Klasseninfo? {
         let code = Klassencode.lesen(eingabe)
-        let container = CKContainer(identifier: containerID)
-        let oeffentlich = container.publicCloudDatabase
-        let privat = container.privateCloudDatabase
-
-        let klassenDatensatz: CKRecord
-        do {
-            klassenDatensatz = try await oeffentlich.record(for: CKRecord.ID(recordName: code))
-        } catch let f as CKError where f.code == .unknownItem {
-            throw Fehler.unbekannterCode
-        }
-        guard (klassenDatensatz["offen"] as? Int ?? 1) == 1 else { throw Fehler.geschlossen }
-        guard let schluessel = klassenDatensatz["schluessel"] as? Data else { throw Fehler.unbekannterCode }
-
-        // Eigene Zone; war das Kind schon einmal angemeldet (App neu
-        // geladen), bleibt es dasselbe Kind.
-        let zone = eigeneZone
-        _ = try await privat.modifyRecordZones(saving: [CKRecordZone(zoneID: zone)], deleting: [])
-        let profilID = CKRecord.ID(recordName: "profil", zoneID: zone)
-        let alt = try? await privat.record(for: profilID)
-        let kindID = (alt?["kind"] as? String).flatMap(UUID.init(uuidString:)) ?? UUID()
-        let profil = alt ?? CKRecord(recordType: Typ.profil, recordID: profilID)
-        profil["kind"] = kindID.uuidString
-        profil["name"] = name
-        profil["tier"] = tier
-        profil["klasse"] = code
-        _ = try await privat.modifyRecords(saving: [profil], deleting: [], savePolicy: .allKeys)
-
-        // Freigabe der Zone: erst mit offenem Link; erlaubt iCloud das nicht
-        // (bei verwalteten Apple-IDs möglich), nur für die Lehrkraft.
-        let shareID = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zone)
-        var share = (try? await privat.record(for: shareID)) as? CKShare
-        if share?.url == nil {
-            if let alt = share { _ = try? await privat.modifyRecords(saving: [], deleting: [alt.recordID]) }
-            let neu = CKShare(recordZoneID: zone)
-            neu[CKShare.SystemFieldKey.title] = "Schreibspur: \(name)" as CKRecordValue
-            neu.publicPermission = .readWrite
-            share = try await gespeichert(neu, in: privat)
-        }
-        if share?.url == nil, let lehrer = klassenDatensatz["lehrer"] as? String {
-            if let alt = share { _ = try? await privat.modifyRecords(saving: [], deleting: [alt.recordID]) }
-            let neu = CKShare(recordZoneID: zone)
-            neu[CKShare.SystemFieldKey.title] = "Schreibspur: \(name)" as CKRecordValue
-            neu.publicPermission = .none
-            let lehrkraft = try await teilnehmer(CKRecord.ID(recordName: lehrer), container)
-            lehrkraft.permission = .readWrite
-            neu.addParticipant(lehrkraft)
-            share = try await gespeichert(neu, in: privat)
-        }
-        guard let link = share?.url else { throw Fehler.keinLink }
-
-        // Anmeldung auf den ersten freien Platz.
-        let umschlag = try Anmeldung(kind: kindID, name: name, tier: tier, link: link).verschluesselt(fuer: schluessel)
-        var platz: String?
-        for n in 1...plaetze {
-            let r = CKRecord(recordType: Typ.anmeldung, recordID: CKRecord.ID(recordName: "\(code)-\(n)"))
-            r["umschlag"] = umschlag
-            do {
-                _ = try await oeffentlich.modifyRecords(saving: [r], deleting: [], savePolicy: .ifServerRecordUnchanged)
-                    .saveResults[r.recordID]?.get()
-                platz = r.recordID.recordName
-                break
-            } catch let f as CKError where f.code == .serverRecordChanged || f.code == .permissionFailure {
-                continue   // Platz belegt
+        let f = await MainActor.run { Nahfunk(.kind(code: code)) }
+        let merker = Merker()
+        let info: Klasseninfo? = await withCheckedContinuation { fortsetzung in
+            Task { @MainActor in
+                f.verbunden = { [weak f] peer in f?.senden(.hallo(code: code), an: [peer]) }
+                f.empfangen = { n, _ in
+                    guard !merker.fertig, case .klasse(let info) = n else { return }
+                    merker.fertig = true
+                    fortsetzung.resume(returning: info)
+                }
+                f.starten()
+                try? await Task.sleep(for: .seconds(sekunden))
+                guard !merker.fertig else { return }
+                merker.fertig = true
+                fortsetzung.resume(returning: nil)
             }
         }
-        guard let platz else { throw Fehler.voll }
+        await MainActor.run { f.beenden() }
+        return info
+    }
 
-        let d = UserDefaults.standard
-        d.set(code, forKey: "wolke.kind.code")
-        d.set(platz, forKey: "wolke.kind.platz")
+    /// Früher schon angemeldet (App neu geladen, anderes iPad mit derselben
+    /// Apple-ID)? Steht im privaten iCloud des Kindes.
+    static func fruehereAnmeldung(_ code: String) async -> KindKurz? {
+        let db = CKContainer(identifier: containerID).privateCloudDatabase
+        guard let r = try? await db.record(for: CKRecord.ID(recordName: "ich")),
+              r["code"] as? String == code,
+              let id = (r["kind"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
+        return KindKurz(id: id, name: r["name"] as? String ?? "", tier: r["tier"] as? String ?? "🦊",
+                        genauigkeit: .normal, sterne: [:])
+    }
+
+    /// Das Kind tritt bei — neu (Name, Tier) oder als ein Kind, das die
+    /// Lehrkraft schon kennt (Gast wählt sich aus der Liste, frühere
+    /// Anmeldung).
+    @MainActor static func beitreten(_ info: Klasseninfo, als bestehend: KindKurz?, name: String, tier: String,
+                                     klasse: Klasse) {
+        let id = bestehend?.id ?? UUID()
+        let n = bestehend?.name ?? name
+        let t = bestehend?.tier ?? tier
+        let ich = Ich(kind: id, code: info.code, name: n, tier: t)
+        klasse.wolke = nil
+        vergessen()
+        klasse.rolle = .kind
+        klasse.alsKindGeraet(Kind(id: id, name: n, tier: t, genauigkeit: bestehend?.genauigkeit ?? .normal,
+                                  sterne: bestehend?.sterne ?? [:], klasse: info.code))
+        let w = Wolke(rolle: .kind, klasse: klasse, ich: ich, info: info)
+        klasse.wolke = w
+        w.einstellungenAnwenden(info.einstellungen)
+        w.einreihen(Paket(kind: id, inhalt: .profil(name: n, tier: t)), ersetzt: "profil")
+        w.einreihen(Paket(kind: id, inhalt: .sterne(klasse.aktiv?.sterne ?? [:])), ersetzt: "sterne")
+        Task {
+            // Für später merken (nur mit Apple-ID).
+            let r = CKRecord(recordType: Typ.ich, recordID: CKRecord.ID(recordName: "ich"))
+            r["kind"] = id.uuidString
+            r["code"] = info.code
+            r["name"] = n
+            r["tier"] = t
+            _ = try? await CKContainer(identifier: containerID).privateCloudDatabase
+                .modifyRecords(saving: [r], deleting: [], savePolicy: .allKeys)
+        }
+    }
+
+    // MARK: Kindergerät — schicken
+
+    /// Kindergerät: neue Sterne.
+    func sterneGeaendert() {
+        guard rolle == .kind, let kind = ich?.kind, let sterne = klasse?.aktiv?.sterne else { return }
+        einreihen(Paket(kind: kind, inhalt: .sterne(sterne)), ersetzt: "sterne")
+    }
+
+    /// Kindergerät: eine Seite gespeichert.
+    func bearbeitungGespeichert(_ b: Bearbeitung, kind: UUID) {
+        guard rolle == .kind, kind == ich?.kind, let klasse else { return }
+        let spuren = try? Data(contentsOf: klasse.protokoll.spurenDatei(b.id, kind))
+        einreihen(Paket(kind: kind, inhalt: .bearbeitung(b, spuren: spuren)), ersetzt: "b-\(b.id.uuidString)")
+    }
+
+    private func einreihen(_ p: Paket, ersetzt: String) {
+        guard let schluessel = klasseninfo?.schluessel,
+              let umschlag = try? Umschlag.verpackt(p, fuer: schluessel) else { return }
+        // Eine wartende ältere Fassung fällt weg.
+        warteschlange.removeAll { $0.ersetzt == ersetzt && !$0.hochgeladen && !$0.zugestellt }
+        warteschlange.append(Eintrag(id: p.id, umschlag: umschlag, ersetzt: ersetzt))
+        speichern()
+        Task { await senden() }
+    }
+
+    /// Über Funk (wenn verbunden) und in den Briefkasten (wenn Apple-ID).
+    private func senden() async {
+        guard rolle == .kind else { return }
+        let (ich0, schlange) = await MainActor.run { (ich, warteschlange) }
+        guard var ich = ich0 else { return }
+
         await MainActor.run {
-            klasse.rolle = .kind
-            klasse.alsKindGeraet(Kind(id: kindID, name: name, tier: tier, klasse: code))
-            klasse.wolke = nil
-            klasse.wolkeStarten()
-        }
-    }
-
-    private static func gespeichert(_ share: CKShare, in db: CKDatabase) async throws -> CKShare? {
-        let ergebnis = try await db.modifyRecords(saving: [share], deleting: [])
-        return try ergebnis.saveResults[share.recordID]?.get() as? CKShare
-    }
-
-    /// `shareParticipants(for:)` gibt es erst ab iOS 26 — die Operation seit jeher.
-    private static func teilnehmer(_ nutzer: CKRecord.ID, _ container: CKContainer) async throws -> CKShare.Participant {
-        try await withCheckedThrowingContinuation { fortsetzung in
-            var gefunden: CKShare.Participant?
-            let abfrage = CKFetchShareParticipantsOperation(userIdentityLookupInfos: [CKUserIdentity.LookupInfo(userRecordID: nutzer)])
-            abfrage.perShareParticipantResultBlock = { _, ergebnis in
-                if case .success(let p) = ergebnis { gefunden = p }
+            if let f = nahfunk, !f.gegenueber.isEmpty {
+                for e in schlange where !e.zugestellt {
+                    f.senden(.paket(code: ich.code, id: e.id, umschlag: e.umschlag))
+                }
             }
-            abfrage.fetchShareParticipantsResultBlock = { ergebnis in
-                if let gefunden {
-                    fortsetzung.resume(returning: gefunden)
-                } else if case .failure(let f) = ergebnis {
-                    fortsetzung.resume(throwing: f)
+        }
+
+        guard (try? await container.accountStatus()) == .available,
+              let schluessel = await MainActor.run(body: { klasseninfo?.schluessel }) else {
+            await MainActor.run { statusSetzen() }
+            return
+        }
+
+        // Anmeldung in den Briefkasten, bis die Lehrkraft quittiert.
+        if !ich.angemeldet, ich.platz == nil,
+           let umschlag = try? Umschlag.verpackt(Anmeldung(kind: ich.kind, name: ich.name, tier: ich.tier), fuer: schluessel) {
+            for n in 1...Self.plaetze {
+                let r = CKRecord(recordType: Typ.anmeldung, recordID: CKRecord.ID(recordName: "\(ich.code)-\(n)"))
+                r["umschlag"] = umschlag
+                if (try? await oeffentlich.modifyRecords(saving: [r], deleting: [], savePolicy: .ifServerRecordUnchanged)
+                    .saveResults[r.recordID]?.get()) != nil {
+                    ich.platz = r.recordID.recordName
+                    break
+                }
+            }
+            let fest = ich
+            await MainActor.run {
+                self.ich = fest
+                speichern()
+            }
+        }
+
+        // Pakete fortlaufend nummeriert; ist eine Nummer schon belegt (App
+        // neu geladen), die nächste.
+        for e in schlange where !e.hochgeladen {
+            var versuche = 0
+            while versuche < 200 {
+                let r = CKRecord(recordType: Typ.post,
+                                 recordID: CKRecord.ID(recordName: "p-\(ich.kind.uuidString)-\(ich.naechster)"))
+                var datei: URL?
+                if e.umschlag.count < 700_000 {
+                    r["umschlag"] = e.umschlag
                 } else {
-                    fortsetzung.resume(throwing: CKError(.unknownItem))
+                    let u = FileManager.default.temporaryDirectory.appendingPathComponent("\(e.id.uuidString).post")
+                    try? e.umschlag.write(to: u)
+                    r["datei"] = CKAsset(fileURL: u)
+                    datei = u
                 }
-            }
-            container.add(abfrage)
-        }
-    }
-
-    /// Kindergerät: Einstellungen der Klasse (Lehrgang usw.) holen.
-    private func klassenEinstellungenHolen() async {
-        guard let code = UserDefaults.standard.string(forKey: "wolke.kind.code"),
-              let r = try? await container.publicCloudDatabase.record(for: CKRecord.ID(recordName: code)) else { return }
-        let an = (r["lehrgangAn"] as? Int ?? 0) == 1
-        let bis = r["freiBis"] as? Int ?? 0
-        let d = UserDefaults.standard
-        d.set((r["vorfuehren"] as? Int ?? 1) == 1, forKey: Schluessel.vorfuehren)
-        d.set(r["heftHoehe"] as? Double ?? 16, forKey: Schluessel.heftHoehe)
-        d.set((r["nurStift"] as? Int ?? 0) == 1, forKey: Schluessel.nurStift)
-        await MainActor.run { klasse?.lehrgangAusWolke(an: an, bis: bis) }
-    }
-
-    // MARK: Datensätze bauen
-
-    /// Was in einen Datensatz gehört — auf dem Hauptfaden aus Klasse und
-    /// Protokoll gelesen, als einfache Werte, damit der Datensatz selbst
-    /// abseits davon entstehen kann.
-    struct Bauplan: Sendable {
-        enum Feld: Sendable {
-            case text(String), zahl(Int), daten(Data), datei(URL)
-        }
-        let typ: String
-        let felder: [String: Feld]
-    }
-
-    /// nil, wenn es den Datensatz nicht (mehr) gibt.
-    func bauplan(_ id: CKRecord.ID) -> Bauplan? {
-        guard let klasse else { return nil }
-        let name = id.recordName
-        if rolle == .lehrer {
-            guard name == "vorgaben",
-                  let kindID = zonen.first(where: { $0.value.id == id.zoneID })?.key,
-                  let kind = klasse.kinder.first(where: { $0.id == kindID }) else { return nil }
-            return Bauplan(typ: Typ.vorgaben, felder: [
-                "name": .text(kind.name),
-                "tier": .text(kind.tier),
-                "genauigkeit": .text(kind.genauigkeit.rawValue),
-                "bestaetigt": .zahl(1),
-            ])
-        }
-        guard let kind = klasse.aktiv else { return nil }
-        let kennung: Bauplan.Feld = .text(kind.id.uuidString)
-        switch name {
-        case "profil":
-            return Bauplan(typ: Typ.profil, felder: ["kind": kennung, "name": .text(kind.name), "tier": .text(kind.tier),
-                                                   "klasse": .text(kind.klasse ?? "")])
-        case "stand":
-            guard let daten = try? JSONEncoder().encode(kind.sterne) else { return nil }
-            return Bauplan(typ: Typ.stand, felder: ["kind": kennung, "sterne": .daten(daten)])
-        default:
-            guard name.hasPrefix("b-"), let bid = UUID(uuidString: String(name.dropFirst(2))),
-                  let b = klasse.protokoll.bearbeitungen(von: kind.id).first(where: { $0.id == bid }),
-                  let daten = try? JSONEncoder().encode(b) else { return nil }
-            var felder: [String: Bauplan.Feld] = ["kind": kennung, "daten": .daten(daten)]
-            let datei = klasse.protokoll.spurenDatei(bid, kind.id)
-            if FileManager.default.fileExists(atPath: datei.path) { felder["spuren"] = .datei(datei) }
-            return Bauplan(typ: Typ.bearbeitung, felder: felder)
-        }
-    }
-
-    private func datensatz(_ id: CKRecord.ID, _ plan: Bauplan) -> CKRecord {
-        let r = leer(plan.typ, id)
-        for (schluessel, feld) in plan.felder {
-            switch feld {
-            case .text(let t): r[schluessel] = t
-            case .zahl(let z): r[schluessel] = z
-            case .daten(let d): r[schluessel] = d
-            case .datei(let u): r[schluessel] = CKAsset(fileURL: u)
-            }
-        }
-        return r
-    }
-
-    /// Neuer Datensatz oder einer mit den Systemfeldern vom Server (sonst
-    /// lehnt CloudKit das Überschreiben ab).
-    private func leer(_ typ: String, _ id: CKRecord.ID) -> CKRecord {
-        if let daten = schloss.withLock({ systemfelder[Self.schluessel(id)] }),
-           let coder = try? NSKeyedUnarchiver(forReadingFrom: daten) {
-            coder.requiresSecureCoding = true
-            let r = CKRecord(coder: coder)
-            coder.finishDecoding()
-            if let r { return r }
-        }
-        return CKRecord(recordType: typ, recordID: id)
-    }
-
-    private static func schluessel(_ id: CKRecord.ID) -> String {
-        "\(id.zoneID.ownerName)/\(id.zoneID.zoneName)/\(id.recordName)"
-    }
-
-    private func merken(_ r: CKRecord) {
-        let coder = NSKeyedArchiver(requiringSecureCoding: true)
-        r.encodeSystemFields(with: coder)
-        coder.finishEncoding()
-        schloss.withLock { systemfelder[Self.schluessel(r.recordID)] = coder.encodedData }
-    }
-
-    // MARK: Ereignisse von CKSyncEngine
-
-    fileprivate func ereignis(_ e: CKSyncEngine.Event) async {
-        switch e {
-        case .stateUpdate(let u):
-            zustandSpeichern(u.stateSerialization)
-
-        case .accountChange(let a):
-            if case .signOut = a.changeType {
-                await MainActor.run { status = "Von iCloud abgemeldet." }
-            }
-
-        case .fetchedDatabaseChanges(let d):
-            // Lehrergerät: Ein Kind hat seine Freigabe beendet.
-            guard rolle == .lehrer else { break }
-            for loeschung in d.deletions {
-                await MainActor.run {
-                    guard let id = zonen.first(where: { $0.value.id == loeschung.zoneID })?.key else { return }
-                    zonen[id] = nil
-                    klasse?.entferntInWolke(id)
-                    speichern()
-                }
-            }
-
-        case .fetchedRecordZoneChanges(let z):
-            for m in z.modifications { await angekommen(m.record) }
-            speichern()
-
-        case .sentRecordZoneChanges(let s):
-            for r in s.savedRecords { merken(r) }
-            var nochmal: [CKSyncEngine.PendingRecordZoneChange] = []
-            var zonenNeu: [CKSyncEngine.PendingDatabaseChange] = []
-            for f in s.failedRecordSaves {
-                let id = f.record.recordID
-                switch f.error.code {
-                case .serverRecordChanged:
-                    if let server = f.error.serverRecord { merken(server) }
-                    nochmal.append(.saveRecord(id))
-                case .zoneNotFound:
-                    if rolle == .kind {
-                        zonenNeu.append(.saveZone(CKRecordZone(zoneID: id.zoneID)))
-                        nochmal.append(.saveRecord(id))
+                do {
+                    _ = try await oeffentlich.modifyRecords(saving: [r], deleting: [], savePolicy: .ifServerRecordUnchanged)
+                        .saveResults[r.recordID]?.get()
+                    if let datei { try? FileManager.default.removeItem(at: datei) }
+                    ich.naechster += 1
+                    let fest = ich
+                    await MainActor.run {
+                        self.ich = fest
+                        if let i = warteschlange.firstIndex(where: { $0.id == e.id }) { warteschlange[i].hochgeladen = true }
+                        aufraeumen()
+                        speichern()
                     }
-                case .unknownItem:
-                    _ = schloss.withLock { systemfelder.removeValue(forKey: Self.schluessel(id)) }
-                    nochmal.append(.saveRecord(id))
-                case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable,
-                     .requestRateLimited, .notAuthenticated, .operationCancelled:
-                    break   // wiederholt die Engine von selbst
-                default:
-                    let text = Self.klartext(f.error)
-                    await MainActor.run { status = text }
+                    break
+                } catch let f as CKError where f.code == .serverRecordChanged || f.code == .permissionFailure {
+                    ich.naechster += 1   // Nummer belegt
+                    versuche += 1
+                } catch {
+                    await MainActor.run { statusSetzen() }
+                    return   // kein Netz o. Ä. — beim nächsten Abgleich noch einmal
                 }
             }
-            if !zonenNeu.isEmpty { engine?.state.add(pendingDatabaseChanges: zonenNeu) }
-            if !nochmal.isEmpty { engine?.state.add(pendingRecordZoneChanges: nochmal) }
+        }
+        await MainActor.run { statusSetzen() }
+    }
+
+    /// Weg damit, sobald es sicher angekommen ist: im Briefkasten liegt
+    /// (dort holt es auch ein zweites Lehrergerät) — oder beim Gast, der
+    /// nichts hochladen kann, über Funk zugestellt ist.
+    @MainActor private func aufraeumen() {
+        warteschlange.removeAll { $0.hochgeladen || ($0.zugestellt && !icloud) }
+    }
+
+    private func klasseLesen() async {
+        guard let code = await MainActor.run(body: { ich?.code }),
+              let info = try? await Self.klasseLesen(code) else { return }
+        await MainActor.run {
+            klasseninfo = info
+            einstellungenAnwenden(info.einstellungen)
             speichern()
-
-        case .didFetchChanges, .didSendChanges:
-            await MainActor.run { status = "Abgeglichen um \(Date().formatted(date: .omitted, time: .shortened))" }
-
-        default:
-            break
         }
     }
 
-    /// Ein Datensatz aus iCloud kommt an.
-    private func angekommen(_ r: CKRecord) async {
-        merken(r)
-        let zone = r.recordID.zoneID
-        var kindID = (r["kind"] as? String).flatMap(UUID.init(uuidString:))
-        if rolle == .lehrer {
-            if let kindID {
-                await MainActor.run { zonen[kindID] = ZonenAdresse(zone) }
-            } else {
-                kindID = await MainActor.run { zonen.first(where: { $0.value.id == zone })?.key }
-            }
-        } else if kindID == nil {
-            kindID = await MainActor.run { klasse?.aktivID }
+    private func quittungLesen() async {
+        guard let ich = await MainActor.run(body: { self.ich }),
+              let r = try? await oeffentlich.record(for: CKRecord.ID(recordName: "q-\(ich.kind.uuidString)")) else { return }
+        let v = (r["vorgaben"] as? Data).flatMap { try? JSONDecoder().decode(Vorgaben.self, from: $0) } ?? Vorgaben()
+        // Die Lehrkraft hat die Anmeldung: Platz im Briefkasten freigeben.
+        if let platz = ich.platz {
+            _ = try? await oeffentlich.modifyRecords(saving: [], deleting: [CKRecord.ID(recordName: platz)])
         }
-        guard let kindID else { return }
-
-        switch r.recordType {
-        case Typ.profil:
-            let kind = Kind(id: kindID, name: r["name"] as? String ?? "Kind", tier: r["tier"] as? String ?? "🦊",
-                            klasse: r["klasse"] as? String)
-            await MainActor.run {
-                guard let klasse else { return }
-                if rolle == .lehrer {
-                    // Namen, die die Lehrkraft geändert hat, gehen vor.
-                    if !klasse.kinder.contains(where: { $0.id == kindID }) { klasse.ausWolke(kind) }
-                } else if klasse.aktiv == nil {
-                    // App neu geladen: dasselbe Kind wie vorher.
-                    klasse.alsKindGeraet(kind)
-                }
-            }
-        case Typ.vorgaben:
-            let name = r["name"] as? String
-            let tier = r["tier"] as? String
-            let genauigkeit = Genauigkeit(rawValue: r["genauigkeit"] as? String ?? "")
-            let entfernt = (r["entfernt"] as? Int ?? 0) == 1
-            let bestaetigt = (r["bestaetigt"] as? Int ?? 0) == 1
-            if rolle == .kind, bestaetigt, let platz = UserDefaults.standard.string(forKey: "wolke.kind.platz") {
-                // Die Lehrkraft hat die Anmeldung abgeholt: Platz freigeben.
-                _ = try? await container.publicCloudDatabase.modifyRecords(saving: [], deleting: [CKRecord.ID(recordName: platz)])
-                UserDefaults.standard.removeObject(forKey: "wolke.kind.platz")
-            }
-            await MainActor.run {
-                guard let klasse else { return }
-                if rolle == .kind, entfernt {
-                    klasse.wolke = nil
-                    klasse.klasseVerlassen()
-                    return
-                }
-                guard var kind = klasse.kinder.first(where: { $0.id == kindID }) else { return }
-                if let name, !name.isEmpty { kind.name = name }
-                if let tier, !tier.isEmpty { kind.tier = tier }
-                if let genauigkeit { kind.genauigkeit = genauigkeit }
-                klasse.ausWolke(kind)
-            }
-        case Typ.stand:
-            guard let daten = r["sterne"] as? Data,
-                  let sterne = try? JSONDecoder().decode([String: Int].self, from: daten) else { return }
-            await MainActor.run { klasse?.sterneAusWolke(sterne, kind: kindID) }
-        case Typ.bearbeitung:
-            guard let daten = r["daten"] as? Data,
-                  let b = try? JSONDecoder().decode(Bearbeitung.self, from: daten) else { return }
-            let spuren = (r["spuren"] as? CKAsset)?.fileURL.flatMap { try? Data(contentsOf: $0) }
-            await MainActor.run { klasse?.protokoll.ausWolke(b, spuren: spuren, kind: kindID) }
-        default:
-            break
+        await MainActor.run {
+            self.ich?.angemeldet = true
+            self.ich?.platz = nil
+            speichern()
+            vorgabenAnwenden(v)
         }
     }
 
-    fileprivate func naechsterStapel(_ kontext: CKSyncEngine.SendChangesContext,
-                                     _ engine: CKSyncEngine) async -> CKSyncEngine.RecordZoneChangeBatch? {
-        let wartend = engine.state.pendingRecordZoneChanges.filter { kontext.options.scope.contains($0) }
-        return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: wartend) { id in
-            guard let plan = await MainActor.run(body: { self.bauplan(id) }) else { return nil }
-            return self.datensatz(id, plan)
+    @MainActor private func vorgabenAnwenden(_ v: Vorgaben) {
+        guard let klasse, var kind = klasse.aktiv else { return }
+        if v.entfernt {
+            klasse.wolke = nil
+            Wolke.vergessen()
+            klasse.klasseVerlassen()
+            return
         }
+        if let g = v.genauigkeit, g != kind.genauigkeit {
+            kind.genauigkeit = g
+            klasse.ausWolke(kind)
+        }
+    }
+
+    @MainActor fileprivate func einstellungenAnwenden(_ e: Klasseneinstellungen) {
+        let d = UserDefaults.standard
+        d.set(e.vorfuehren, forKey: Schluessel.vorfuehren)
+        d.set(e.heftHoehe, forKey: Schluessel.heftHoehe)
+        d.set(e.nurStift, forKey: Schluessel.nurStift)
+        klasse?.lehrgangAusWolke(an: e.lehrgangAn, bis: e.freiBis)
     }
 
     // MARK: Ablage
@@ -688,46 +750,40 @@ final class Wolke {
             .appendingPathComponent("Wolke", isDirectory: true)
     }
 
-    private var zustandsDatei: URL { Self.ordner.appendingPathComponent("zustand2-\(rolle.rawValue).json") }
-    private var ablageDatei: URL { Self.ordner.appendingPathComponent("ablage2-\(rolle.rawValue).json") }
+    private var ablageDatei: URL { Self.ordner.appendingPathComponent("briefkasten-\(rolle.rawValue).json") }
 
     private struct Ablage: Codable {
-        var systemfelder: [String: Data]
-        var klassen: [Klassenzimmer]
-        var zonen: [UUID: ZonenAdresse]
-        var abgeholt: Set<String>
-    }
-
-    private func zustand() -> CKSyncEngine.State.Serialization? {
-        (try? Data(contentsOf: zustandsDatei))
-            .flatMap { try? JSONDecoder().decode(CKSyncEngine.State.Serialization.self, from: $0) }
-    }
-
-    private func zustandSpeichern(_ z: CKSyncEngine.State.Serialization) {
-        try? FileManager.default.createDirectory(at: Self.ordner, withIntermediateDirectories: true)
-        try? JSONEncoder().encode(z).write(to: zustandsDatei, options: .atomic)
+        var klassen: [Klassenzimmer] = []
+        var bekannt: [UUID: KindAblage] = [:]
+        var abgeholt: Set<String> = []
+        var entfernt: Set<UUID> = []
+        var ich: Ich?
+        var klasseninfo: Klasseninfo?
+        var warteschlange: [Eintrag] = []
     }
 
     private func laden() {
         guard let daten = try? Data(contentsOf: ablageDatei),
               let a = try? JSONDecoder().decode(Ablage.self, from: daten) else { return }
-        systemfelder = a.systemfelder
         klassen = a.klassen
-        zonen = a.zonen
+        bekannt = a.bekannt
         abgeholt = a.abgeholt
+        entfernt = a.entfernt
+        ich = a.ich
+        klasseninfo = a.klasseninfo
+        warteschlange = a.warteschlange
     }
 
     private func speichern() {
         try? FileManager.default.createDirectory(at: Self.ordner, withIntermediateDirectories: true)
-        let a = Ablage(systemfelder: schloss.withLock { systemfelder }, klassen: klassen, zonen: zonen, abgeholt: abgeholt)
+        let a = Ablage(klassen: klassen, bekannt: bekannt, abgeholt: abgeholt, entfernt: entfernt,
+                       ich: ich, klasseninfo: klasseninfo, warteschlange: warteschlange)
         try? JSONEncoder().encode(a).write(to: ablageDatei, options: .atomic)
     }
 
-    /// Rolle gewechselt: Zustand vergessen.
+    /// Rolle gewechselt oder aus der Klasse genommen: alles vergessen.
     static func vergessen() {
         try? FileManager.default.removeItem(at: ordner)
-        UserDefaults.standard.removeObject(forKey: "wolke.kind.code")
-        UserDefaults.standard.removeObject(forKey: "wolke.kind.platz")
     }
 
     /// Apples Meldung, mit einem Satz davor, wo es hilft.
@@ -736,7 +792,7 @@ final class Wolke {
         guard let ck = fehler as? CKError else { return fehler.localizedDescription }
         switch ck.code {
         case .notAuthenticated: return "Auf diesem Gerät ist niemand bei iCloud angemeldet."
-        case .networkUnavailable, .networkFailure: return "Kein Netz — der Abgleich holt es nach."
+        case .networkUnavailable, .networkFailure: return "Kein Netz."
         case .quotaExceeded: return "Der iCloud-Speicher ist voll."
         case .permissionFailure: return "Keine Berechtigung (\(ck.localizedDescription))."
         default: return ck.localizedDescription
@@ -744,21 +800,8 @@ final class Wolke {
     }
 }
 
-/// `CKSyncEngine` verlangt einen `Sendable`-Delegaten — ein kleiner
-/// Vermittler statt der beobachteten Klasse selbst (die Wolke hält ihn).
-private final class Vermittler: CKSyncEngineDelegate, @unchecked Sendable {
-    weak var wolke: Wolke?
-
-    init(_ wolke: Wolke) {
-        self.wolke = wolke
-    }
-
-    func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
-        await wolke?.ereignis(event)
-    }
-
-    func nextRecordZoneChangeBatch(_ context: CKSyncEngine.SendChangesContext,
-                                   syncEngine: CKSyncEngine) async -> CKSyncEngine.RecordZoneChangeBatch? {
-        await wolke?.naechsterStapel(context, syncEngine)
-    }
+/// Ob eine Wartezeit schon beantwortet ist (Antwort oder Zeitablauf, nur
+/// eins von beiden darf die Fortsetzung auslösen). Nur auf dem Hauptfaden.
+private final class Merker: @unchecked Sendable {
+    var fertig = false
 }

@@ -86,7 +86,7 @@ struct LehrerStart: View {
                     }
                 }
                 if let wolke = klasse.wolke {
-                    Label(wolke.status, systemImage: "icloud")
+                    Label(wolke.status, systemImage: wolke.icloud ? "icloud" : "antenna.radiowaves.left.and.right")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

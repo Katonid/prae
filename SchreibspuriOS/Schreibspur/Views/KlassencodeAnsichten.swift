@@ -1,26 +1,33 @@
 import SwiftUI
 
-/// Kindergerät: Klassencode eingeben, dann Namen und Tier wählen
-/// (seit 1.0.12). Groß und einfach — die Lehrkraft schreibt den Code an
-/// die Tafel.
+/// Kindergerät: Klassencode eingeben, dann Namen und Tier wählen — oder,
+/// wenn das Lehrergerät in der Nähe die Klasse schickt, sich aus der Liste
+/// wählen (Gast auf dem geteilten iPad, der jede Stunde neu beginnt).
 struct KlassencodeEingabe: View {
     /// Zurück zur Wahl beim ersten Start (nil: kein Zurück).
     var zurueck: (() -> Void)?
 
     @Environment(Klasse.self) private var klasse
     @State private var code = ""
-    @State private var klassenName: String?
+    @State private var info: Klasseninfo?
+    /// Frühere Anmeldung dieser Apple-ID in dieser Klasse.
+    @State private var frueher: KindKurz?
+    @State private var neu = false
     @State private var name = ""
     @State private var tier = Kind.tiere[0]
     @State private var fehler: String?
-    @State private var arbeitet = false
+    @State private var sucht: String?
     @FocusState private var fokus: Bool
 
     var body: some View {
         ScrollView {
             VStack(spacing: 22) {
-                if let klassenName {
-                    namenWahl(klassenName)
+                if let info {
+                    if neu || (info.kinder.isEmpty && frueher == nil) {
+                        namenWahl(info)
+                    } else {
+                        werBistDu(info)
+                    }
                 } else {
                     codeEingabe
                 }
@@ -30,7 +37,12 @@ struct KlassencodeEingabe: View {
                         .foregroundStyle(Farben.markierung)
                         .multilineTextAlignment(.center)
                 }
-                if arbeitet { ProgressView().controlSize(.large) }
+                if let sucht {
+                    HStack(spacing: 12) {
+                        ProgressView()
+                        Text(sucht).font(.system(.body, design: .rounded)).foregroundStyle(.secondary)
+                    }
+                }
             }
             .frame(maxWidth: 620)
             .padding(24)
@@ -70,15 +82,58 @@ struct KlassencodeEingabe: View {
                 }
                 Button("Weiter", action: nachschlagen)
                     .buttonStyle(RundKnopf(farbe: Farben.akzent))
-                    .disabled(Klassencode.lesen(code).count != Klassencode.laenge || arbeitet)
+                    .disabled(Klassencode.lesen(code).count != Klassencode.laenge || sucht != nil)
             }
         }
         .onAppear { fokus = true }
     }
 
-    private func namenWahl(_ klassenName: String) -> some View {
+    /// Das Lehrergerät hat die Kinder der Klasse geschickt, oder diese
+    /// Apple-ID war schon angemeldet: sich wählen.
+    private func werBistDu(_ info: Klasseninfo) -> some View {
         VStack(spacing: 18) {
-            Text("Klasse \(klassenName)")
+            Text("Klasse \(info.name)")
+                .font(.system(size: 30, weight: .heavy, design: .rounded))
+                .foregroundStyle(Farben.farbe(.woerter))
+                .padding(.top, 20)
+            Text("Wer bist du?")
+                .font(.system(.title2, design: .rounded, weight: .bold))
+                .foregroundStyle(Farben.tinteDunkel)
+            let liste = frueher.map { [$0] } ?? info.kinder
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
+                ForEach(liste) { k in
+                    Button {
+                        Wolke.beitreten(info, als: k, name: k.name, tier: k.tier, klasse: klasse)
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(k.tier).font(.system(size: 48))
+                            Text(k.name)
+                                .font(.system(.headline, design: .rounded))
+                                .foregroundStyle(Farben.tinteDunkel)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 18).fill(.white)
+                            .shadow(color: .black.opacity(0.08), radius: 5, y: 2))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            HStack(spacing: 14) {
+                Button("Zurück") { self.info = nil; frueher = nil }
+                    .buttonStyle(RundKnopf(farbe: Farben.knopf))
+                if info.offen {
+                    Button("Ich bin neu") { neu = true }
+                        .buttonStyle(RundKnopf(farbe: Farben.akzent))
+                }
+            }
+        }
+    }
+
+    private func namenWahl(_ info: Klasseninfo) -> some View {
+        VStack(spacing: 18) {
+            Text("Klasse \(info.name)")
                 .font(.system(size: 30, weight: .heavy, design: .rounded))
                 .foregroundStyle(Farben.farbe(.woerter))
                 .padding(.top, 20)
@@ -109,40 +164,54 @@ struct KlassencodeEingabe: View {
                 }
             }
             HStack(spacing: 14) {
-                Button("Zurück") { self.klassenName = nil }
-                    .buttonStyle(RundKnopf(farbe: Farben.knopf))
-                Button("Los geht’s!", action: beitreten)
-                    .buttonStyle(RundKnopf(farbe: Farben.akzent))
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || arbeitet)
+                Button("Zurück") {
+                    if neu { neu = false } else { self.info = nil }
+                }
+                .buttonStyle(RundKnopf(farbe: Farben.knopf))
+                Button("Los geht’s!") {
+                    Wolke.beitreten(info, als: nil, name: name.trimmingCharacters(in: .whitespaces),
+                                    tier: tier, klasse: klasse)
+                }
+                .buttonStyle(RundKnopf(farbe: Farben.akzent))
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || !info.offen)
             }
         }
     }
 
+    /// Erst im Briefkasten (iCloud) nachsehen; geht das nicht, das
+    /// Lehrergerät in der Nähe fragen — das geht auch ohne Apple-ID und
+    /// ohne Netz, und es schickt die Namen der Klasse mit.
     private func nachschlagen() {
-        guard Klassencode.lesen(code).count == Klassencode.laenge else { return }
-        arbeitet = true
+        guard Klassencode.lesen(code).count == Klassencode.laenge, sucht == nil else { return }
         fehler = nil
+        neu = false
+        sucht = "Ich suche die Klasse …"
         Task {
+            var gefunden: Klasseninfo?
             do {
-                klassenName = try await Wolke.klasseNachschlagen(code)
+                gefunden = try await Wolke.klasseNachschlagen(code)
+            } catch Wolke.Fehler.unbekannterCode {
+                fehler = Wolke.Fehler.unbekannterCode.errorDescription
+            } catch Wolke.Fehler.geschlossen {
+                fehler = Wolke.Fehler.geschlossen.errorDescription
             } catch {
-                fehler = Wolke.klartext(error)
+                // Kein Netz o. Ä. — gleich über Funk.
             }
-            arbeitet = false
-        }
-    }
-
-    private func beitreten() {
-        arbeitet = true
-        fehler = nil
-        let n = name.trimmingCharacters(in: .whitespaces)
-        Task {
-            do {
-                try await Wolke.beitreten(code: code, name: n, tier: tier, klasse: klasse)
-            } catch {
-                fehler = Wolke.klartext(error)
+            // Über Funk kommen die Namen der Klasse mit; das braucht der
+            // Gast, der sich jede Stunde neu anmeldet.
+            if fehler == nil {
+                sucht = "Ich suche das Lehrergerät in der Nähe …"
+                if let nah = await Wolke.inDerNaeheSuchen(code, sekunden: gefunden == nil ? 25 : 6) {
+                    gefunden = nah
+                }
             }
-            arbeitet = false
+            if let g = gefunden {
+                frueher = await Wolke.fruehereAnmeldung(g.code)
+                info = g
+            } else if fehler == nil {
+                fehler = "Die Klasse ist gerade nicht zu finden. Ist das Lehrergerät in der Nähe und Schreibspur dort offen?"
+            }
+            sucht = nil
         }
     }
 }
@@ -152,7 +221,6 @@ struct KlassencodeEingabe: View {
 struct KlassenVerwaltung: View {
     @Environment(Klasse.self) private var klasse
     @State private var neuerName = ""
-    @State private var vorhandenerCode = ""
     @State private var fehler: String?
     @State private var arbeitet = false
     @State private var anzeige: Klassenzimmer?
@@ -202,20 +270,12 @@ struct KlassenVerwaltung: View {
                 }
 
                 Section {
-                    TextField("Klassencode", text: $vorhandenerCode)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                    Button("Hinzufügen") {
-                        ausfuehren {
-                            try await wolke.klasseHinzufuegen(vorhandenerCode)
-                            vorhandenerCode = ""
-                        }
-                    }
-                    .disabled(Klassencode.lesen(vorhandenerCode).count != Klassencode.laenge || arbeitet)
+                    NavigationLink("Auf ein weiteres Lehrergerät übertragen") { UebertragungZeigen() }
+                    NavigationLink("Von einem anderen Lehrergerät übernehmen") { UebertragungAnnehmen() }
                 } header: {
-                    Text("Vorhandene Klasse auf dieses Gerät holen")
+                    Text("Zweites Lehrergerät")
                 } footer: {
-                    Text("Für ein neues Lehrergerät oder nach dem Neuladen der App. Geht nur mit deiner eigenen Apple-ID.")
+                    Text("Z. B. dienstliches und privates iPad: Beide nebeneinander legen, Schreibspur auf beiden öffnen. Das eine zeigt eine Zahl, am anderen gibst du sie ein — dann liest es dieselben Klassen.")
                 }
 
                 if let fehler {
@@ -298,5 +358,73 @@ struct KlassencodeTafel: View {
             }
             .onAppear { offen = klassenzimmer.offen }
         }
+    }
+}
+
+/// Erstes Lehrergerät: die Zahl für das zweite.
+struct UebertragungZeigen: View {
+    @Environment(Klasse.self) private var klasse
+
+    var body: some View {
+        VStack(spacing: 20) {
+            if let pin = klasse.wolke?.uebertragungsPIN {
+                Text("Gib diese Zahl am anderen Lehrergerät ein:")
+                    .font(.title3)
+                Text(pin)
+                    .font(.system(size: 64, weight: .black, design: .monospaced))
+                    .foregroundStyle(Farben.farbe(.woerter))
+                Text("Beide Geräte in der Nähe, Schreibspur auf beiden offen.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            } else {
+                Label("Übertragen", systemImage: "checkmark.circle.fill")
+                    .font(.title2).foregroundStyle(Farben.start)
+            }
+        }
+        .padding(30)
+        .navigationTitle("Übertragen")
+        .onAppear { klasse.wolke?.uebertragungStarten() }
+        .onDisappear { klasse.wolke?.uebertragungBeenden() }
+    }
+}
+
+/// Zweites Lehrergerät: mit der Zahl übernehmen.
+struct UebertragungAnnehmen: View {
+    @Environment(Klasse.self) private var klasse
+    @State private var pin = ""
+    @State private var laeuft = false
+    @State private var meldung: String?
+    @State private var fertig = false
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Zahl vom anderen Gerät", text: $pin)
+                    .keyboardType(.numberPad)
+                    .font(.system(.title, design: .monospaced))
+                Button(laeuft ? "Suche …" : "Übernehmen") {
+                    laeuft = true
+                    meldung = nil
+                    Task {
+                        do {
+                            try await klasse.wolke?.uebernehmen(pin: pin)
+                            fertig = true
+                        } catch {
+                            meldung = Wolke.klartext(error)
+                        }
+                        laeuft = false
+                    }
+                }
+                .disabled(pin.count != 6 || laeuft)
+            } footer: {
+                if fertig {
+                    Text("Übernommen. Die Seiten der Kinder werden jetzt aus dem Briefkasten geholt.").foregroundStyle(Farben.start)
+                } else if let meldung {
+                    Text(meldung).foregroundStyle(.red)
+                } else {
+                    Text("Am anderen Lehrergerät: Klassen und Codes → „Auf ein weiteres Lehrergerät übertragen“.")
+                }
+            }
+        }
+        .navigationTitle("Übernehmen")
     }
 }

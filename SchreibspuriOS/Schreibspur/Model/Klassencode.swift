@@ -36,36 +36,44 @@ enum Klassencode {
     }
 }
 
-/// Die Anmeldung eines Kindes, verschlüsselt für die Lehrkraft.
+/// Verschlüsselt für die Lehrkraft (seit 1.0.12, allgemein seit 1.0.13).
 ///
-/// Das Kind legt seinen Freigabe-Link in der öffentlichen Datenbank ab —
-/// die kann jeder lesen. Damit nur die Lehrkraft ihn lesen kann, wird er
-/// mit ihrem öffentlichen Schlüssel verschlüsselt (Curve25519 +
-/// ChaCha20-Poly1305 aus CryptoKit, also die Verschlüsselung des
-/// Betriebssystems). Der geheime Schlüssel bleibt im Schlüsselbund des
-/// Lehrergeräts.
-struct Anmeldung: Codable {
-    var kind: UUID
-    var name: String
-    var tier: String
-    var link: URL
-
-    func verschluesselt(fuer oeffentlich: Data) throws -> Data {
+/// Was ein Kind schickt — Anmeldung, Seiten, Sterne — liegt in der
+/// öffentlichen Datenbank, die jeder lesen kann, oder geht über Funk durch
+/// den Raum. Damit nur die Lehrkraft es lesen kann, wird es mit ihrem
+/// öffentlichen Schlüssel verschlüsselt: Curve25519 (Schlüsseltausch mit
+/// einem Einmal-Schlüssel) + ChaCha20-Poly1305 aus CryptoKit, also die
+/// Verschlüsselung des Betriebssystems. Der geheime Schlüssel bleibt im
+/// Schlüsselbund des Lehrergeräts.
+enum Umschlag {
+    static func zu(_ inhalt: Data, fuer oeffentlich: Data) throws -> Data {
         let empfaenger = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: oeffentlich)
         let einmal = Curve25519.KeyAgreement.PrivateKey()
-        let schluessel = try Self.schluessel(einmal.sharedSecretFromKeyAgreement(with: empfaenger),
-                                             einmal.publicKey.rawRepresentation, oeffentlich)
-        let kiste = try ChaChaPoly.seal(JSONEncoder().encode(self), using: schluessel)
+        let schluessel = try schluessel(einmal.sharedSecretFromKeyAgreement(with: empfaenger),
+                                        einmal.publicKey.rawRepresentation, oeffentlich)
+        let kiste = try ChaChaPoly.seal(inhalt, using: schluessel)
         return einmal.publicKey.rawRepresentation + kiste.combined
     }
 
-    static func entschluesselt(_ daten: Data, mit geheim: Curve25519.KeyAgreement.PrivateKey) throws -> Anmeldung {
+    static func auf(_ daten: Data, mit geheim: Curve25519.KeyAgreement.PrivateKey) throws -> Data {
         guard daten.count > 32 else { throw CryptoKitError.incorrectParameterSize }
         let absender = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: daten.prefix(32))
-        let schluessel = try Self.schluessel(geheim.sharedSecretFromKeyAgreement(with: absender),
-                                             absender.rawRepresentation, geheim.publicKey.rawRepresentation)
-        let kiste = try ChaChaPoly.SealedBox(combined: daten.dropFirst(32))
-        return try JSONDecoder().decode(Anmeldung.self, from: ChaChaPoly.open(kiste, using: schluessel))
+        let schluessel = try schluessel(geheim.sharedSecretFromKeyAgreement(with: absender),
+                                        absender.rawRepresentation, geheim.publicKey.rawRepresentation)
+        return try ChaChaPoly.open(ChaChaPoly.SealedBox(combined: daten.dropFirst(32)), using: schluessel)
+    }
+
+    /// Codable verschlüsseln (gepackt — Spuren werden damit etwa fünfmal kleiner).
+    static func verpackt<T: Encodable>(_ wert: T, fuer oeffentlich: Data) throws -> Data {
+        let roh = try JSONEncoder().encode(wert)
+        let gepackt = (try? (roh as NSData).compressed(using: .zlib) as Data) ?? roh
+        return try zu(gepackt, fuer: oeffentlich)
+    }
+
+    static func entpackt<T: Decodable>(_ typ: T.Type, _ daten: Data, mit geheim: Curve25519.KeyAgreement.PrivateKey) throws -> T {
+        let gepackt = try auf(daten, mit: geheim)
+        let roh = (try? (gepackt as NSData).decompressed(using: .zlib) as Data) ?? gepackt
+        return try JSONDecoder().decode(T.self, from: roh)
     }
 
     private static func schluessel(_ geteilt: SharedSecret, _ a: Data, _ b: Data) throws -> SymmetricKey {
@@ -87,6 +95,15 @@ enum Klassenschluessel {
         let neu = Curve25519.KeyAgreement.PrivateKey()
         speichern(neu.rawRepresentation)
         return neu
+    }
+
+    /// Für die Übertragung auf ein zweites Lehrergerät.
+    static func rohdaten() -> Data { geheim().rawRepresentation }
+
+    /// Den Schlüssel eines anderen Lehrergeräts übernehmen.
+    static func setzen(_ roh: Data) throws {
+        _ = try Curve25519.KeyAgreement.PrivateKey(rawRepresentation: roh)
+        speichern(roh)
     }
 
     private static func abfrage() -> [String: Any] {

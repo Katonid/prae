@@ -1,19 +1,7 @@
 import SwiftUI
-import UIKit
-
-/// Stille CloudKit-Pushes: Änderungen der anderen Geräte kommen dann von
-/// selbst (CKSyncEngine hört darauf).
-final class AppDelegate: NSObject, UIApplicationDelegate {
-    func application(_ application: UIApplication,
-                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        application.registerForRemoteNotifications()
-        return true
-    }
-}
 
 @main
 struct SchreibspurApp: App {
-    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var klasse = Klasse.geteilt
     @Environment(\.scenePhase) private var szene
 
@@ -36,9 +24,15 @@ struct SchreibspurApp: App {
             // Die Gestaltung ist auf helles Papier abgestimmt.
             .preferredColorScheme(.light)
             .task { klasse.wolkeStarten() }
-        }
-        .onChange(of: szene) { _, neu in
-            if neu == .active { Task { await klasse.wolke?.abgleichen() } }
+            // Solange die App vorn ist: jede Minute abgleichen (Briefkasten
+            // und Funk). Ohne Suchindex gibt es für den Briefkasten keine Pushes.
+            .task(id: szene) {
+                guard szene == .active else { return }
+                while !Task.isCancelled {
+                    await klasse.wolke?.abgleichen()
+                    try? await Task.sleep(for: .seconds(60))
+                }
+            }
         }
     }
 }
