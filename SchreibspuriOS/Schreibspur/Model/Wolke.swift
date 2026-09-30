@@ -213,8 +213,26 @@ final class Wolke {
         let shareID = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: Self.zone(kind.id))
         guard let share = try await db.record(for: shareID) as? CKShare else { throw CKError(.unknownItem) }
         let info = CKUserIdentity.LookupInfo(emailAddress: appleID)
-        guard let teilnehmer = try await container.shareParticipants(for: [info])[info]?.get() else {
-            throw CKError(.unknownItem)
+        // `shareParticipants(for:)` gibt es erst ab iOS 26 — die Operation seit jeher.
+        let teilnehmer: CKShare.Participant = try await withCheckedThrowingContinuation { fortsetzung in
+            var gefunden: CKShare.Participant?
+            let abfrage = CKFetchShareParticipantsOperation(userIdentityLookupInfos: [info])
+            abfrage.perShareParticipantResultBlock = { _, ergebnis in
+                if case .success(let p) = ergebnis { gefunden = p }
+            }
+            abfrage.fetchShareParticipantsResultBlock = { ergebnis in
+                switch ergebnis {
+                case .success:
+                    if let gefunden {
+                        fortsetzung.resume(returning: gefunden)
+                    } else {
+                        fortsetzung.resume(throwing: CKError(.unknownItem))
+                    }
+                case .failure(let fehler):
+                    fortsetzung.resume(throwing: fehler)
+                }
+            }
+            container.add(abfrage)
         }
         teilnehmer.permission = .readWrite
         share.addParticipant(teilnehmer)
