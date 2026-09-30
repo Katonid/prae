@@ -96,6 +96,9 @@ final class Protokoll {
     /// Zwischenspeicher selbst wird nicht beobachtet.
     private(set) var stand = 0
     @ObservationIgnored private var geladen: [UUID: [Bearbeitung]] = [:]
+    /// Meldet jede neu gespeicherte Bearbeitung weiter (Kindergerät →
+    /// iCloud). Nicht bei dem, was aus iCloud kommt.
+    @ObservationIgnored var gespeichert: ((Bearbeitung, UUID) -> Void)?
 
     private static var ordner: URL {
         let basis = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -110,7 +113,7 @@ final class Protokoll {
         ordner(kind).appendingPathComponent("verzeichnis.json")
     }
 
-    private func spurenDatei(_ id: UUID, _ kind: UUID) -> URL {
+    func spurenDatei(_ id: UUID, _ kind: UUID) -> URL {
         ordner(kind).appendingPathComponent("\(id.uuidString).json")
     }
 
@@ -138,6 +141,26 @@ final class Protokoll {
         } catch {
             // Kein Platz o. Ä.: Üben geht trotzdem weiter.
         }
+        stand += 1
+        gespeichert?(b, kind)
+    }
+
+    /// Eine Bearbeitung aus iCloud übernehmen (Spuren als fertige Datei).
+    func ausWolke(_ b: Bearbeitung, spuren: Data?, kind: UUID) {
+        var liste = bearbeitungen(von: kind)
+        if let i = liste.firstIndex(where: { $0.id == b.id }) {
+            guard liste[i] != b || spuren != nil else { return }
+            liste[i] = b
+        } else {
+            liste.append(b)
+            liste.sort { $0.beginn < $1.beginn }
+        }
+        geladen[kind] = liste
+        do {
+            try FileManager.default.createDirectory(at: ordner(kind), withIntermediateDirectories: true)
+            if let spuren { try spuren.write(to: spurenDatei(b.id, kind), options: .atomic) }
+            try JSONEncoder().encode(liste).write(to: verzeichnis(kind), options: .atomic)
+        } catch {}
         stand += 1
     }
 

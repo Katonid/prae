@@ -34,10 +34,25 @@ struct StartAnsicht: View {
                         .background(Capsule().fill(.white).shadow(color: .black.opacity(0.1), radius: 4, y: 2))
                     }
                     .buttonStyle(.plain)
-                    .disabled(klasse.kinder.count < 2)
+                    .disabled(klasse.kinder.count < 2 || klasse.rolle != .allein)
                     .accessibilityLabel(Text("\(kind.name) schreibt. Kind wechseln"))
                 }
-                Knopf(symbol: "gearshape.fill", name: "Lehrerbereich: Einstellungen") { zeigeEinstellungen = true }
+                switch klasse.rolle {
+                case .lehrer?:
+                    // Die Lehrkraft probiert aus — zurück zur Klasse.
+                    Button {
+                        klasse.probe = false
+                    } label: {
+                        Label("Fertig", systemImage: "checkmark")
+                    }
+                    .buttonStyle(RundKnopf(farbe: Farben.akzent))
+                case .kind?:
+                    // Auf dem Gerät des Kindes stellt die Lehrkraft alles
+                    // von ihrem Gerät aus ein.
+                    EmptyView()
+                default:
+                    Knopf(symbol: "gearshape.fill", name: "Lehrerbereich: Einstellungen") { zeigeEinstellungen = true }
+                }
             }
 
             HStack(spacing: 10) {
@@ -194,7 +209,7 @@ private struct GemischtKachel: View {
 
 /// Der Schriftzug: jeder Buchstabe in einer der Bereichsfarben — bunt,
 /// aber ruhig.
-private struct Titel: View {
+struct Titel: View {
     private let farben: [Color] = Bereich.allCases.map { Farben.farbe($0) }
 
     var body: some View {

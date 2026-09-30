@@ -20,6 +20,20 @@ struct Kind: Codable, Identifiable, Equatable {
     }
 }
 
+/// Wofür dieses Gerät da ist (seit 1.0.11, Ansage des Nutzers 09/2026:
+/// „Die Kinder haben jeweils eigene Geräte und ich als Lehrer habe mein
+/// eigenes Gerät“).
+enum Geraeterolle: String {
+    /// Ohne Klasse: ein Gerät, ein oder mehrere Kinder, alles bleibt hier
+    /// (so war die App bis 1.0.10).
+    case allein
+    /// Gerät der Lehrkraft: Klassenliste, Anmeldekarten, Übersicht aus iCloud.
+    case lehrer
+    /// Gerät eines Kindes (auf dem geteilten iPad: die Sitzung des Kindes),
+    /// über seine Anmeldekarte in der Klasse.
+    case kind
+}
+
 /// Alle Kinder an diesem Gerät, wer gerade schreibt, und wie weit der
 /// Lehrgang freigeschaltet ist.
 ///
@@ -42,9 +56,23 @@ final class Klasse {
 
     private(set) var kinder: [Kind]
     /// Nur Buchstaben bis zur freigeschalteten Lektion sind offen.
-    var lehrgangAn: Bool { didSet { speichern() } }
+    var lehrgangAn: Bool { didSet { speichern(); wolke?.klasseGeaendert() } }
     /// Letzter freigeschalteter Schritt (Index in `Zeichenvorrat.schritte`).
-    var freiBis: Int { didSet { speichern() } }
+    var freiBis: Int { didSet { speichern(); wolke?.klasseGeaendert() } }
+
+    private static let rollenSchluessel = "geraet.rolle"
+
+    /// nil: noch nicht gewählt (erster Start) — dann fragt die App.
+    var rolle: Geraeterolle? = nil {
+        didSet { UserDefaults.standard.set(rolle?.rawValue, forKey: Klasse.rollenSchluessel) }
+    }
+
+    /// Die Lehrkraft probiert auf ihrem Gerät selbst aus: alle Stufen
+    /// offen, nichts wird gezählt oder gespeichert.
+    var probe = false
+
+    /// Abgleich über iCloud (Lehrer- und Kindergerät), sonst nil.
+    var wolke: Wolke? = nil
 
     /// Was jedes Kind bearbeitet hat, mit den Spuren (Klassenübersicht).
     let protokoll = Protokoll()
@@ -76,7 +104,14 @@ final class Klasse {
             lehrgangAn = false
             freiBis = 0
         }
-        if kinder.count == 1 { aktivID = kinder[0].id }
+        if let wert = UserDefaults.standard.string(forKey: Klasse.rollenSchluessel) {
+            rolle = Geraeterolle(rawValue: wert)
+        } else if d.data(forKey: Klasse.schluessel) != nil {
+            // Schon vor 1.0.11 benutzt: so weiter wie bisher.
+            rolle = .allein
+        }
+        if kinder.count == 1, rolle != .lehrer { aktivID = kinder[0].id }
+        protokoll.gespeichert = { [weak self] b, kind in self?.wolke?.bearbeitungGespeichert(b, kind: kind) }
     }
 
     var aktiv: Kind? { kinder.first { $0.id == aktivID } }
@@ -90,6 +125,7 @@ final class Klasse {
     /// Höchste offene Stufe: die erste, die noch keine drei Sterne hat.
     func offeneStufe(_ zeichen: Zeichen) -> Stufe {
         let stufen = Stufe.stufen(fuer: zeichen)
+        if probe { return stufen.last ?? .spur }
         for stufe in stufen where sterne(zeichen, stufe) < 3 { return stufe }
         return stufen.last ?? .spur
     }
@@ -110,6 +146,7 @@ final class Klasse {
         guard anzahl > kinder[i].sterne[s] ?? 0 else { return }
         kinder[i].sterne[s] = anzahl
         speichern()
+        wolke?.sterneGeaendert()
     }
 
     var genauigkeit: Genauigkeit { aktiv?.genauigkeit ?? .normal }
@@ -194,6 +231,7 @@ final class Klasse {
         let kind = Kind(name: "Kind \(kinder.count + 1)", tier: frei)
         kinder.append(kind)
         speichern()
+        wolke?.kindGeaendert(kind)
         return kind
     }
 
@@ -201,13 +239,104 @@ final class Klasse {
         guard let i = kinder.firstIndex(where: { $0.id == kind.id }) else { return }
         kinder[i] = kind
         speichern()
+        wolke?.kindGeaendert(kind)
     }
 
     func entfernen(_ id: UUID) {
         kinder.removeAll { $0.id == id }
         protokoll.loeschen(kind: id)
-        if kinder.isEmpty { kinder = [Kind(name: "Kind 1", tier: "🦊")] }
-        if aktiv == nil { aktivID = kinder.count == 1 ? kinder[0].id : nil }
+        wolke?.kindEntfernt(id)
+        if kinder.isEmpty, rolle != .lehrer { kinder = [Kind(name: "Kind 1", tier: "🦊")] }
+        if aktiv == nil { aktivID = kinder.count == 1 && rolle != .lehrer ? kinder[0].id : nil }
+        speichern()
+    }
+
+    // MARK: Aus iCloud (ohne erneut hochzuladen)
+
+    /// Ein Kind, wie es in iCloud steht. Sterne werden zusammengeführt
+    /// (das Bessere gewinnt) — Sterne gehen nie verloren.
+    func ausWolke(_ neu: Kind) {
+        if let i = kinder.firstIndex(where: { $0.id == neu.id }) {
+            var kind = neu
+            kind.sterne = kinder[i].sterne.merging(neu.sterne) { max($0, $1) }
+            kinder[i] = kind
+        } else {
+            kinder.append(neu)
+        }
+        speichern()
+    }
+
+    /// Sterne aus iCloud dazunehmen.
+    func sterneAusWolke(_ sterne: [String: Int], kind id: UUID) {
+        guard let i = kinder.firstIndex(where: { $0.id == id }) else { return }
+        let neu = kinder[i].sterne.merging(sterne) { max($0, $1) }
+        guard neu != kinder[i].sterne else { return }
+        kinder[i].sterne = neu
+        speichern()
+    }
+
+    func entferntInWolke(_ id: UUID) {
+        kinder.removeAll { $0.id == id }
+        protokoll.loeschen(kind: id)
+        if aktivID == id { aktivID = nil }
+        speichern()
+    }
+
+    /// Lehrgang, wie ihn die Lehrkraft eingestellt hat (Kindergerät).
+    func lehrgangAusWolke(an: Bool, bis: Int) {
+        let w = wolke
+        wolke = nil   // nicht zurückmelden
+        if lehrgangAn != an { lehrgangAn = an }
+        let b = min(max(bis, 0), Zeichenvorrat.schritte.count - 1)
+        if freiBis != b { freiBis = b }
+        wolke = w
+    }
+
+    /// Kindergerät: dieses eine Kind schreibt hier.
+    func alsKindGeraet(_ kind: Kind) {
+        ausWolke(kind)
+        aktivID = kind.id
+    }
+
+    /// Die geteilte Klasse beim Start (für die Annahme von Einladungen,
+    /// die am Szenen-Delegaten ankommen).
+    static let geteilt = Klasse()
+
+    /// Abgleich starten, wenn dieses Gerät zu einer Klasse gehört.
+    func wolkeStarten() {
+        guard wolke == nil, let r = rolle, r != .allein else { return }
+        wolke = Wolke(rolle: r, klasse: self)
+    }
+
+    /// Dieses Gerät wird das Gerät der Lehrkraft. Die Kinder, die hier
+    /// schon angelegt sind, werden die Klasse.
+    func alsLehrergeraet() {
+        // Das unbenutzte „Kind 1“ vom ersten Start gehört nicht in die Klasse.
+        kinder.removeAll { $0.name == "Kind 1" && $0.sterne.isEmpty && protokoll.bearbeitungen(von: $0.id).isEmpty }
+        speichern()
+        rolle = .lehrer
+        aktivID = nil
+        probe = false
+        wolkeStarten()
+        for kind in kinder { wolke?.kindGeaendert(kind) }
+    }
+
+    /// Zurück zur Wahl beim ersten Start (Lehrergerät umstellen). Die
+    /// Klasse in iCloud bleibt stehen.
+    func rolleZuruecksetzen() {
+        wolke = nil
+        Wolke.vergessen()
+        probe = false
+        aktivID = nil
+        rolle = nil
+    }
+
+    /// Kindergerät ohne Klasse (Lehrkraft hat das Kind entfernt): zurück
+    /// zum Anfang.
+    func klasseVerlassen() {
+        kinder = [Kind(name: "Kind 1", tier: "🦊")]
+        aktivID = nil
+        rolle = nil
         speichern()
     }
 

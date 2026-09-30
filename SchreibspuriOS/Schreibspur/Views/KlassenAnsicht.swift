@@ -16,6 +16,9 @@ struct KlassenAnsicht: View {
                     Text("Tippe auf ein Kind, um seine Buchstaben, Stufen und Seiten zu sehen.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                    if let wolke = klasse.wolke {
+                        Label(wolke.status, systemImage: "icloud").font(.footnote).foregroundStyle(.secondary)
+                    }
                     Klassenraster()
                     Legende()
                 }
@@ -28,7 +31,20 @@ struct KlassenAnsicht: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { dismiss() }
                 }
+                if let wolke = klasse.wolke {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            Task { await wolke.abgleichen() }
+                        } label: {
+                            Label("Aktualisieren", systemImage: "arrow.clockwise")
+                        }
+                        .disabled(wolke.arbeitet)
+                    }
+                }
             }
+            // Was die Kinder auf ihren iPads geschrieben haben, holen.
+            .refreshable { await klasse.wolke?.abgleichen() }
+            .task { await klasse.wolke?.abgleichen() }
         }
     }
 }
