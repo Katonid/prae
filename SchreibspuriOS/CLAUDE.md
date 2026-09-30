@@ -32,7 +32,8 @@
   1.0.11 (12) Klasse über iCloud: Lehrergerät, Kindergeräte,
   Anmeldekarten; 1.0.12 (13) Klassencode statt Anmeldekarten — die Kinder
   melden sich selbst an; 1.0.13 (14) Briefkasten in der öffentlichen
-  Datenbank + Funk im Klassenzimmer (Gäste, private Apple-ID).
+  Datenbank + Funk im Klassenzimmer (Gäste, private Apple-ID); 1.0.14
+  (15) „Neue Klasse“ als Eingabefenster, auch auf der Lehrer-Startseite.
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (`GENERATE_INFOPLIST_FILE = YES`). Nie
@@ -530,6 +531,19 @@
 - **Kosten:** keine. Die öffentliche Datenbank gehört zur App; ihr
   Freikontingent wächst mit der Zahl der Nutzer. Jede Lehrkraft,
   beliebig viele Klassen und Schulen, ohne eigenen Server.
+- **Lehre aus 1.0.13 → 1.0.14 (Nutzer, mit Bildschirmfoto: „die Felder
+  sind grau, ich kann nichts eintragen“):** Das Namensfeld für eine neue
+  Klasse stand mitten in der `Form` von „Klassen und Codes“ und nahm keine
+  Eingabe an. Die Ansicht liest den Stand von `Wolke`, und der Abgleich
+  (Minutentakt, Funk) setzte `status`, `icloud` und `inDerNaehe` bei jedem
+  Durchlauf neu — auch mit gleichem Wert, und `@Observable` meldet jede
+  Zuweisung. Jetzt: „Neue Klasse“ ist ein Knopf mit eigenem
+  Eingabefenster (`alert` mit Textfeld, `klasseAnlegen(isPresented:)`),
+  auch groß auf der Lehrer-Startseite; und `Wolke` setzt diese Werte nur
+  noch, wenn sie sich wirklich ändern. **Merke: In Ansichten, die den
+  Abgleich beobachten, keine Eingabefelder in Listen — und beobachtete
+  Werte nie ohne Änderung neu zuweisen.** Nicht gemessen, welcher der
+  beiden Gründe es war; beide sind behoben.
 - Zwei Swift-Dateien dürfen nicht gleich heißen, auch nicht in
   verschiedenen Ordnern (`Klassencode.swift` in Model und Views: „Multiple
   commands produce …stringsdata“) — deshalb `KlassencodeAnsichten.swift`.

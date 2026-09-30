@@ -220,7 +220,7 @@ struct KlassencodeEingabe: View {
 /// schließen.
 struct KlassenVerwaltung: View {
     @Environment(Klasse.self) private var klasse
-    @State private var neuerName = ""
+    @State private var neueKlasse = false
     @State private var fehler: String?
     @State private var arbeitet = false
     @State private var anzeige: Klassenzimmer?
@@ -257,16 +257,13 @@ struct KlassenVerwaltung: View {
                     Text("Schreib den Code an die Tafel. Jedes Kind gibt ihn einmal auf seinem iPad ein und wählt seinen Namen und sein Tier — danach landet alles, was es schreibt, in deiner Klassenübersicht. Tippe auf eine Klasse, um den Code groß zu zeigen.")
                 }
 
-                Section("Neue Klasse") {
-                    TextField("Name, z. B. 1b", text: $neuerName)
-                    Button("Klasse anlegen") {
-                        let name = neuerName.trimmingCharacters(in: .whitespaces)
-                        ausfuehren {
-                            anzeige = try await wolke.klasseAnlegen(name)
-                            neuerName = ""
-                        }
+                Section {
+                    Button {
+                        neueKlasse = true
+                    } label: {
+                        Label("Neue Klasse anlegen …", systemImage: "plus.circle.fill")
                     }
-                    .disabled(neuerName.trimmingCharacters(in: .whitespaces).isEmpty || arbeitet)
+                    .disabled(arbeitet)
                 }
 
                 Section {
@@ -286,6 +283,10 @@ struct KlassenVerwaltung: View {
             }
         }
         .navigationTitle("Klassen und Codes")
+        .klasseAnlegen(isPresented: $neueKlasse) { name in
+            guard let wolke = klasse.wolke else { return }
+            ausfuehren { anzeige = try await wolke.klasseAnlegen(name) }
+        }
         .sheet(item: $anzeige) { k in
             KlassencodeTafel(klassenzimmer: k)
                 .environment(klasse)
@@ -426,5 +427,40 @@ struct UebertragungAnnehmen: View {
             }
         }
         .navigationTitle("Übernehmen")
+    }
+}
+
+/// „Neue Klasse“: der Name in einem eigenen Eingabefenster (seit 1.0.14).
+///
+/// Lehre aus 1.0.13 (Nutzer, mit Bildschirmfoto: „die Felder sind grau, ich
+/// kann nichts eintragen“): Ein Eingabefeld mitten in der Liste der Klassen
+/// nahm keine Eingabe an. Die Liste baut sich neu auf, sobald der Abgleich
+/// (Minutentakt, Funk) seinen Stand ändert; das Feld verlor dabei den
+/// Fokus. Das Eingabefenster (`alert` mit Textfeld) gehört UIKit und
+/// bleibt davon unberührt.
+private struct KlasseAnlegenFenster: ViewModifier {
+    @Binding var isPresented: Bool
+    let anlegen: (String) -> Void
+    @State private var name = ""
+
+    func body(content: Content) -> some View {
+        content.alert("Neue Klasse", isPresented: $isPresented) {
+            TextField("Name, z. B. 1b", text: $name)
+                .textInputAutocapitalization(.never)
+            Button("Anlegen") {
+                let n = name.trimmingCharacters(in: .whitespaces)
+                name = ""
+                if !n.isEmpty { anlegen(n) }
+            }
+            Button("Abbrechen", role: .cancel) { name = "" }
+        } message: {
+            Text("Wie heißt die Klasse? Danach zeigt die App ihren Code.")
+        }
+    }
+}
+
+extension View {
+    func klasseAnlegen(isPresented: Binding<Bool>, anlegen: @escaping (String) -> Void) -> some View {
+        modifier(KlasseAnlegenFenster(isPresented: isPresented, anlegen: anlegen))
     }
 }

@@ -133,7 +133,7 @@ final class Wolke {
         }
         guard !schon else { return }
         let konto = (try? await container.accountStatus()) == .available
-        await MainActor.run { icloud = konto }
+        await MainActor.run { if icloud != konto { icloud = konto } }
         if rolle == .lehrer {
             await anmeldungenAbholen()
             await postAbholen()
@@ -154,7 +154,11 @@ final class Wolke {
                             : "Ohne iCloud (Gast oder nicht angemeldet)")
         if inDerNaehe > 0 { teile.append("in der Nähe verbunden: \(inDerNaehe)") }
         if rolle == .kind, wartend > 0 { teile.append("\(wartend) warten") }
-        status = teile.joined(separator: " · ")
+        // Nur bei echter Änderung setzen: Jede Zuweisung baut alle Ansichten
+        // neu auf, die den Stand lesen — und ein Neuaufbau im falschen
+        // Augenblick nimmt einem Eingabefeld den Fokus.
+        let neu = teile.joined(separator: " · ")
+        if neu != status { status = neu }
     }
 
     // MARK: Funk
@@ -171,7 +175,7 @@ final class Wolke {
         let f = Nahfunk(art)
         f.verbunden = { [weak self, weak f] peer in
             guard let self, let f else { return }
-            inDerNaehe = f.gegenueber.count
+            if inDerNaehe != f.gegenueber.count { inDerNaehe = f.gegenueber.count }
             if rolle == .kind, let code = ich?.code {
                 f.senden(.hallo(code: code), an: [peer])
                 Task { await self.senden() }
@@ -179,7 +183,8 @@ final class Wolke {
             statusSetzen()
         }
         f.getrennt = { [weak self, weak f] _ in
-            self?.inDerNaehe = f?.gegenueber.count ?? 0
+            let n = f?.gegenueber.count ?? 0
+            if self?.inDerNaehe != n { self?.inDerNaehe = n }
             self?.statusSetzen()
         }
         f.empfangen = { [weak self] n, peer in self?.funkEmpfangen(n, von: peer) }
