@@ -212,8 +212,10 @@ final class Wolke {
         let db = container.privateCloudDatabase
         let shareID = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: Self.zone(kind.id))
         guard let share = try await db.record(for: shareID) as? CKShare else { throw CKError(.unknownItem) }
-        let teilnehmer = try await container.shareParticipant(
-            forUserIdentityLookupInfo: CKUserIdentity.LookupInfo(emailAddress: appleID))
+        let info = CKUserIdentity.LookupInfo(emailAddress: appleID)
+        guard let teilnehmer = try await container.shareParticipants(for: [info])[info]?.get() else {
+            throw CKError(.unknownItem)
+        }
         teilnehmer.permission = .readWrite
         share.addParticipant(teilnehmer)
         _ = try await gespeichert(share, in: db)
@@ -459,8 +461,8 @@ final class Wolke {
         guard let kindID = Self.kindID(r.recordID.zoneID) else { return }
         switch r.recordType {
         case Typ.kind:
-            var kind = Kind(id: kindID, name: r["name"] as? String ?? "Kind", tier: r["tier"] as? String ?? "🦊")
-            kind.genauigkeit = Genauigkeit(rawValue: r["genauigkeit"] as? String ?? "") ?? .normal
+            let kind = Kind(id: kindID, name: r["name"] as? String ?? "Kind", tier: r["tier"] as? String ?? "🦊",
+                            genauigkeit: Genauigkeit(rawValue: r["genauigkeit"] as? String ?? "") ?? .normal)
             let lehrgangAn = (r["lehrgangAn"] as? Int ?? 0) == 1
             let freiBis = r["freiBis"] as? Int ?? 0
             let vorfuehren = (r["vorfuehren"] as? Int ?? 1) == 1
