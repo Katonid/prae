@@ -613,11 +613,12 @@ final class Wolke {
         guard rolle == .kind else { return }
         let (ich0, schlange) = await MainActor.run { (ich, warteschlange) }
         guard var ich = ich0 else { return }
+        let code = ich.code
 
         await MainActor.run {
             if let f = nahfunk, !f.gegenueber.isEmpty {
                 for e in schlange where !e.zugestellt {
-                    f.senden(.paket(code: ich.code, id: e.id, umschlag: e.umschlag))
+                    f.senden(.paket(code: code, id: e.id, umschlag: e.umschlag))
                 }
             }
         }

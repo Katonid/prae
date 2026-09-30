@@ -31,24 +31,28 @@
   App-Symbol; 1.0.10 (11) Hilfe-Treppe und Lehrerbereich mit Code;
   1.0.11 (12) Klasse über iCloud: Lehrergerät, Kindergeräte,
   Anmeldekarten; 1.0.12 (13) Klassencode statt Anmeldekarten — die Kinder
-  melden sich selbst an.
+  melden sich selbst an; 1.0.13 (14) Briefkasten in der öffentlichen
+  Datenbank + Funk im Klassenzimmer (Gäste, private Apple-ID).
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (`GENERATE_INFOPLIST_FILE = YES`). Nie
   entfernen. Seit 1.0.11 gibt es zusätzlich `Config/Info.plist`
   (`INFOPLIST_FILE`, wird mit der erzeugten zusammengeführt) — nur für
-  Schlüssel ohne Build-Einstellung: `CKSharingSupported` (aus 1.0.11,
-  als Freigabe-Links noch geöffnet wurden; schadet nicht) und Deutsch als Entwicklungssprache.
+  Schlüssel ohne Build-Einstellung: `NSBonjourServices`
+  (`_schreibspur._tcp/_udp`, für den Funk im Klassenzimmer — ohne den
+  Eintrag findet MultipeerConnectivity nichts) und Deutsch als
+  Entwicklungssprache. `NSLocalNetworkUsageDescription` steht als
+  Build-Einstellung.
   Der Ordner `Config/` liegt absichtlich AUSSERHALB des synchronisierten
   Ordners `Schreibspur/`, sonst würde die Info.plist als Ressource
   kopiert.
 - **iCloud-Rechte seit 1.0.11:** `Config/Schreibspur.entitlements`
-  (Debug, `aps-environment = development`) und
-  `Config/Schreibspur-Release.entitlements` (Release, `production`) —
-  getrennt wie bei Schulalarm, damit TestFlight-Bauten Push bekommen.
-  Container `iCloud.de.familie.schreibspur`. **Die App-Id muss iCloud
-  (CloudKit, mit diesem Container) und Push tragen, sonst lässt sich die
-  App nicht mehr signieren** — einmalig in Xcode unter „Signing &
+  (Debug) und `Config/Schreibspur-Release.entitlements` (Release), nur
+  noch CloudKit mit Container `iCloud.de.familie.schreibspur` (seit
+  1.0.13 ohne `aps-environment`: Der Briefkasten wird im Minutentakt
+  abgeholt, Pushes braucht es nicht). **Die App-Id muss iCloud (CloudKit,
+  mit diesem Container) tragen, sonst lässt sich die App nicht mehr
+  signieren** — einmalig in Xcode unter „Signing &
   Capabilities“ bestätigen (Lehre aus Urlaubstagebuch 1.0.44/1.0.45). Ein
   grüner Bau in GitHub Actions sagt darüber nichts.
 
@@ -67,8 +71,10 @@
 | `Model/Anlautbilder.swift` | Bilder (Emoji) mit Wörtern je Buchstabe, nach dem Anlaut ausgewählt |
 | `Model/Klasse.swift` | Kinderprofile, Sterne je Kind/Zeichen/Stufe, Lehrgangsfreigabe |
 | `Model/Protokoll.swift` | Bearbeitungen je Kind und ihre Spuren als Vektoren (Klassenübersicht) |
-| `Model/Wolke.swift` | iCloud-Abgleich (CKSyncEngine), Klassen anlegen, Beitreten mit Code, Anmeldungen abholen |
-| `Model/Klassencode.swift` | Klassencode, Klassenzimmer, verschlüsselte Anmeldung, Schlüssel der Lehrkraft |
+| `Model/Wolke.swift` | Datenaustausch: Briefkasten (öffentliche Datenbank) + Funk, Klassen, Beitreten, Abholen |
+| `Model/Nahfunk.swift` | Funk im Klassenzimmer (MultipeerConnectivity): Lehrer kündigt an, Kind sucht |
+| `Model/Post.swift` | Pakete, Anmeldung, Klasseninfo, Vorgaben, Funk-Nachrichten |
+| `Model/Klassencode.swift` | Klassencode, Klassenzimmer, `Umschlag` (Verschlüsselung für die Lehrkraft), Schlüssel |
 | `Views/Rollen.swift` | Erster Start (wer benutzt das Gerät?), Lehrer-Startseite |
 | `Views/KlassencodeAnsichten.swift` | Code-Eingabe mit Name und Tier (Kind), Klassen und Codes, Code groß (Lehrkraft) |
 | `Views/KlassenAnsicht.swift` | Klassenübersicht: Raster Kinder × Buchstaben, je Kind Stufen, Seiten nachsehen |
@@ -463,80 +469,78 @@
 - Hashing und Schlüsselbund sind keine meldepflichtige Verschlüsselung —
   `ITSAppUsesNonExemptEncryption = NO` bleibt richtig.
 
-## Klasse über iCloud mit Klassencode (seit 1.0.12, Ansage des Nutzers 09/2026)
+## Klasse: Klassencode, Briefkasten und Funk (seit 1.0.13, Ansage des Nutzers 09/2026)
 
-- Nutzer: „Die Kinder haben jeweils eigene Geräte und ich als Lehrer habe
-  mein eigenes Gerät.“ In seiner Schule: **geteilte iPads, jedes Kind mit
-  eigener verwalteter Apple-ID**. Dann (zu 1.0.11 mit Anmeldekarten):
-  „Mir schwebt vor, dass ich als Lehrer einen Schulcode anlegen kann, den
-  die Kinder auf ihrem Gerät eingeben und danach ihren Benutzernamen
-  anlegen“ — **über iCloud, nicht Firebase** (Sorge vor Kosten; auch
-  andere Klassen sollen die App nutzen, ohne dass beim Nutzer Kosten
-  entstehen).
-- **Kosten:** keine für die Lehrkraft und keine für den Entwickler im
-  üblichen Rahmen. Die öffentliche Datenbank trägt nur ein paar Bytes je
-  Klasse (Apples Freimenge wächst mit der Zahl der Nutzer); die Seiten
-  liegen im iCloud des jeweiligen Kindes (verwaltete Apple-IDs: 200 GB).
-  Jede Lehrkraft arbeitet mit ihrem eigenen iCloud — beliebig viele
-  Klassen und Schulen, ohne gemeinsamen Server.
-- **Geräterolle** (`Klasse.rolle`, `geraet.rolle`): `allein` (wie bis
-  1.0.10 — bestehende Installationen landen automatisch hier), `lehrer`,
-  `kind`. Beim ersten Start fragt `Willkommen`.
-- **Ablauf:**
-  1. Lehrkraft legt eine Klasse an → Datensatz `Klasse` in der
-     **öffentlichen** Datenbank, Name = Code (6 Zeichen ohne
-     Verwechsler, angezeigt „KMR 47Q“): Klassenname, öffentlicher
-     Schlüssel der Lehrkraft, ihre iCloud-Kennung, `offen`, Einstellungen
-     der Klasse (Lehrgang, Vorführen, Heftgröße, Nur-Pencil).
-  2. Kind gibt den Code ein, sieht den Klassennamen, gibt seinen Vornamen
-     ein und wählt ein Tier. Das iPad legt im **privaten** iCloud des
-     Kindes die Zone `Schreibspur` an (`profil` mit Kind-Id), gibt sie
-     frei (erst offener Link mit Schreibrecht; erlaubt iCloud das nicht,
-     nur für die Lehrkraft über ihre iCloud-Kennung) und legt den Link
-     **verschlüsselt** (Curve25519 + ChaChaPoly aus CryptoKit, nur die
-     Lehrkraft kann ihn lesen) als `Anmeldung` in die öffentliche
-     Datenbank — auf den ersten freien Platz `<Code>-1` … `<Code>-60`.
-  3. Das Lehrergerät holt bei jedem Abgleich die Plätze aller seiner
-     Klassen per Id (kein Suchindex nötig), entschlüsselt, nimmt die
-     Freigabe an (`CKFetchShareMetadataOperation` + `accept`) und
-     schreibt `vorgaben` mit `bestaetigt` in die Zone des Kindes.
-     Daraufhin löscht das Kindergerät seine Anmeldung (nur der Erzeuger
-     darf in der öffentlichen Datenbank löschen).
-- **Wer schreibt was:** Das Kind schreibt `profil`, `stand` (Sterne),
-  `b-<id>` (Seiten mit Spuren als `CKAsset`); die Lehrkraft nur
-  `vorgaben` (Name, Tier, Genauigkeit, `bestaetigt`, `entfernt`). Alle
-  Kind-Datensätze tragen `kind` (Id) — daran erkennt ein zweites
-  Lehrergerät, wem eine Zone gehört. Sterne werden zusammengeführt (das
-  Bessere gewinnt); von der Lehrkraft geänderte Namen gehen vor.
-- `CKSyncEngine` (iOS 17): **Lehrergerät gegen die geteilte**, Kindergerät
-  gegen die private Datenbank (umgekehrt zu 1.0.11). Zustand unter
-  Application Support/Wolke/ (`zustand2-…`, `ablage2-…`). Datensätze
-  entstehen aus einem `Bauplan`, gelesen auf dem Hauptfaden.
-- **Kein Kind sieht die Daten eines anderen:** Jede Zone gehört dem Kind
-  und ist nur mit der Lehrkraft geteilt; der Link steht nur
-  verschlüsselt in der öffentlichen Datenbank.
-- Aus der Klasse nehmen: `vorgaben.entfernt = 1`, dann verlässt die
-  Lehrkraft die Freigabe. Das Kindergerät fragt wieder, wer es benutzt.
-  Die Seiten bleiben im iCloud des Kindes.
-- „Anmeldung offen“ je Klasse (Code gilt nicht mehr für neue Kinder),
-  Klasse löschen (Code weg, Kinder bleiben), vorhandene Klasse auf ein
-  neues Lehrergerät holen (nur mit derselben Apple-ID; veröffentlicht den
-  Schlüssel dieses Geräts neu — noch nicht abgeholte Anmeldungen, die mit
-  dem alten verschlüsselt sind, müssen wiederholt werden).
+- Vorgeschichte: 1.0.11 Anmeldekarten mit iCloud-Freigabe je Kind,
+  1.0.12 Klassencode mit Freigabe der Zone des Kindes. Dann die Ansage:
+  **„Stelle sicher, dass der Datenaustausch in allen Fällen
+  funktioniert“** — Kind mit verwalteter Apple-ID, **Kind als Gast auf
+  dem geteilten iPad**, Lehrkraft mit dienstlichem iPad (Schul-Apple-ID),
+  **Lehrkraft mit privatem iPad**. Dazu weiter: über iCloud, nicht
+  Firebase (keine Kosten, auch für andere Klassen).
+- **Lehre: Eine iCloud-Freigabe (`CKShare`) trägt das nicht.** Ein Gast
+  hat kein iCloud-Konto und kann nirgends schreiben; verwaltete
+  Apple-IDs dürfen in der Regel nicht mit privaten teilen. Deshalb keine
+  Freigaben mehr, sondern zwei Wege ohne Freigabe:
+- **Briefkasten** in der **öffentlichen** CloudKit-Datenbank (`Wolke`).
+  Lesen geht auf jedem Gerät, auch ohne Apple-ID; schreiben mit jeder
+  Apple-ID, ob verwaltet oder privat. Alles vom Kind ist mit dem
+  öffentlichen Schlüssel der Lehrkraft verschlüsselt (`Umschlag`:
+  Curve25519 + ChaChaPoly, vorher mit zlib gepackt).
+  - `Klasse` (Name = Code): Name, `schluessel`, `offen`,
+    `einstellungen` (JSON). Schreibt die Lehrkraft.
+  - `Anmeldung` `<Code>-1…60`: `umschlag` mit Kind-Id, Name, Tier. Feste
+    Plätze, per Id abgeholt — **kein Suchindex nötig**.
+  - `Post` `p-<Kind>-<n>`: `umschlag` (oder `datei` als Asset ab 700 KB)
+    mit einem `Paket` (Profil, Sterne oder Bearbeitung samt Spuren).
+    Fortlaufend nummeriert; die Lehrkraft holt je Kind ab `naechster`, bis
+    eine Nummer fehlt. Ist eine Nummer belegt (App neu geladen), nimmt das
+    Kind die nächste. Bleibt liegen, damit auch ein zweites Lehrergerät
+    alles bekommt.
+  - `Quittung` `q-<Kind>`: `vorgaben` (Genauigkeit, entfernt). Schreibt
+    die Lehrkraft; liest das Kind, danach löscht es seine Anmeldung.
+  - `Ich` in der **privaten** Datenbank des Kindes: Kind-Id und Code —
+    nach Neuladen der App bleibt es dasselbe Kind („Wer bist du?“).
+- **Funk im Klassenzimmer** (`Nahfunk`, MultipeerConnectivity über
+  Bluetooth und WLAN direkt, auch wenn das Schulnetz Geräte trennt):
+  Das Lehrergerät kündigt die Codes seiner Klassen an; ein Kindergerät
+  mit diesem Code verbindet sich, bekommt die Klasse (**mit der
+  Namensliste** — so wählt sich der Gast jede Stunde wieder aus und
+  bekommt seine Sterne zurück) und schickt dieselben Pakete. Das
+  Lehrergerät quittiert jedes Paket. Die Namensliste geht **nur** über
+  Funk, nie in die öffentliche Datenbank.
+- **Wer wann was:** Mit Apple-ID geht alles in den Briefkasten (und über
+  Funk, wenn verbunden); ein Paket bleibt auf dem Kindergerät, bis es
+  hochgeladen ist. Ohne Apple-ID (Gast) nur über Funk; es bleibt, bis
+  das Lehrergerät es quittiert. Das Kindergerät zeigt „Alles bei der
+  Lehrkraft“ oder „n Seiten warten“ — **der Gast muss Schreibspur auf dem
+  Lehrergerät offen haben und in der Nähe sein, bevor er sich abmeldet**,
+  sonst ist Wartendes weg (geteiltes iPad löscht Gastdaten).
+- Jedes Paket hat eine Id; das Lehrergerät nimmt es genau einmal
+  (`KindAblage.pakete`), egal über welchen Weg. Eine wartende ältere
+  Fassung derselben Seite bzw. der Sterne fällt beim Einreihen weg.
+- **Zweites Lehrergerät** (dienstlich + privat): „Auf ein weiteres
+  Lehrergerät übertragen“ zeigt eine sechsstellige Zahl; das andere Gerät
+  gibt sie ein und bekommt über Funk Schlüssel, Klassen und Kinder. Danach
+  holt es alles aus dem Briefkasten. Der geheime Schlüssel geht nie über
+  iCloud.
+- Abgleich im Minutentakt, solange die App vorn ist, dazu beim Öffnen der
+  Übersicht und mit „Aktualisieren“. Keine Pushes (bräuchten einen
+  Suchindex in der öffentlichen Datenbank).
+- **Kosten:** keine. Die öffentliche Datenbank gehört zur App; ihr
+  Freikontingent wächst mit der Zahl der Nutzer. Jede Lehrkraft,
+  beliebig viele Klassen und Schulen, ohne eigenen Server.
 - Zwei Swift-Dateien dürfen nicht gleich heißen, auch nicht in
   verschiedenen Ordnern (`Klassencode.swift` in Model und Views: „Multiple
   commands produce …stringsdata“) — deshalb `KlassencodeAnsichten.swift`.
-- **Voraussetzung, die die App nicht prüfen kann:** Verwaltete Apple-IDs
-  dürfen in der Regel nur innerhalb derselben Schule teilen — die
-  Lehrkraft sollte mit ihrer verwalteten Schul-Apple-ID angemeldet sein.
 - **Vor TestFlight:** In der CloudKit-Konsole „Deploy Schema Changes to
-  Production“ (Typen `Klasse`, `Anmeldung`, `Profil`, `Stand`,
-  `Bearbeitung`, `Vorgaben`, `cloudkit.share` entstehen beim ersten
-  Speichern in Development) — Lehre aus Tafelbild. Die öffentliche
-  Datenbank braucht keinen Index (nur Abruf per Id).
-- **Nicht gemessen:** Der Abgleich ist nur übersetzt, nie auf Geräten
-  gelaufen. Erst die Probe mit zwei Geräten und zwei Apple-IDs zeigt, ob
-  Beitritt, Freigabe und Abgleich tragen.
+  Production“ (Typen `Klasse`, `Anmeldung`, `Post`, `Quittung`, `Ich`
+  entstehen beim ersten Speichern in Development).
+- **Beim ersten Funk fragt iOS nach „Geräte im lokalen Netzwerk“** — auf
+  jedem Gerät einmal erlauben (beim Gast: in jeder Sitzung).
+- **Nicht gemessen:** Nur übersetzt, nie auf Geräten gelaufen. Zu prüfen
+  mit mindestens: Lehrergerät (privat), Kind mit verwalteter Apple-ID,
+  Gast ohne Apple-ID — Anmelden, Seite schreiben, in der Übersicht sehen.
 
 ## Fallen
 
