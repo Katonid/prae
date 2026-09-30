@@ -8,6 +8,13 @@ import SwiftUI
 struct KlassenAnsicht: View {
     @Environment(Klasse.self) private var klasse
     @Environment(\.dismiss) private var dismiss
+    /// Welche Klasse gezeigt wird (nil: alle).
+    @State private var klassencode: String?
+
+    private var kinder: [Kind] {
+        guard let klassencode else { return klasse.kinder }
+        return klasse.kinder.filter { $0.klasse == klassencode }
+    }
 
     var body: some View {
         NavigationStack {
@@ -19,7 +26,14 @@ struct KlassenAnsicht: View {
                     if let wolke = klasse.wolke {
                         Label(wolke.status, systemImage: "icloud").font(.footnote).foregroundStyle(.secondary)
                     }
-                    Klassenraster()
+                    if let wolke = klasse.wolke, wolke.klassen.count > 1 {
+                        Picker("Klasse", selection: $klassencode) {
+                            Text("Alle Klassen").tag(String?.none)
+                            ForEach(wolke.klassen) { k in Text("Klasse \(k.name)").tag(String?.some(k.code)) }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    Klassenraster(kinder: kinder)
                     Legende()
                 }
                 .padding(20)
@@ -54,6 +68,7 @@ struct KlassenAnsicht: View {
 /// Eine Zeile je Kind, eine Spalte je Lektion (A a, M m …); je Buchstabe
 /// fünf Punkte für die fünf Stufen.
 private struct Klassenraster: View {
+    let kinder: [Kind]
     @Environment(Klasse.self) private var klasse
 
     var body: some View {
@@ -69,7 +84,7 @@ private struct Klassenraster: View {
                             .frame(width: 56)
                     }
                 }
-                ForEach(klasse.kinder) { kind in
+                ForEach(kinder) { kind in
                     let je = Auswertung.je(klasse.protokoll.bearbeitungen(von: kind.id))
                     GridRow {
                         NavigationLink {

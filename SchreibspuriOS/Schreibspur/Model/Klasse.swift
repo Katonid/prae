@@ -11,6 +11,9 @@ struct Kind: Codable, Identifiable, Equatable {
     var genauigkeit: Genauigkeit = .normal
     /// Beste Sternzahl je Zeichen und Stufe, Schlüssel „A#1“.
     var sterne: [String: Int] = [:]
+    /// Klassencode, mit dem sich das Kind angemeldet hat (seit 1.0.12);
+    /// nil auf einem Gerät ohne Klasse.
+    var klasse: String? = nil
 
     static let tiere = ["🦊", "🐻", "🐸", "🦁", "🐧", "🐢", "🐰", "🐱", "🐶", "🐼", "🦉", "🐝",
                         "🐞", "🦄", "🐙", "🐬", "🐯", "🐨", "🐷", "🐮", "🐵", "🦒", "🐘", "🦔"]
@@ -27,10 +30,10 @@ enum Geraeterolle: String {
     /// Ohne Klasse: ein Gerät, ein oder mehrere Kinder, alles bleibt hier
     /// (so war die App bis 1.0.10).
     case allein
-    /// Gerät der Lehrkraft: Klassenliste, Anmeldekarten, Übersicht aus iCloud.
+    /// Gerät der Lehrkraft: Klassen mit Code, Übersicht aus iCloud.
     case lehrer
     /// Gerät eines Kindes (auf dem geteilten iPad: die Sitzung des Kindes),
-    /// über seine Anmeldekarte in der Klasse.
+    /// mit dem Klassencode angemeldet.
     case kind
 }
 
@@ -308,8 +311,9 @@ final class Klasse {
         wolke = Wolke(rolle: r, klasse: self)
     }
 
-    /// Dieses Gerät wird das Gerät der Lehrkraft. Die Kinder, die hier
-    /// schon angelegt sind, werden die Klasse.
+    /// Dieses Gerät wird das Gerät der Lehrkraft. Kinder, die hier schon
+    /// angelegt sind, bleiben mit ihren Seiten sichtbar („ohne Klasse“);
+    /// die Klasse meldet sich mit dem Klassencode selbst an.
     func alsLehrergeraet() {
         // Das unbenutzte „Kind 1“ vom ersten Start gehört nicht in die Klasse.
         kinder.removeAll { $0.name == "Kind 1" && $0.sterne.isEmpty && protokoll.bearbeitungen(von: $0.id).isEmpty }
@@ -318,7 +322,6 @@ final class Klasse {
         aktivID = nil
         probe = false
         wolkeStarten()
-        for kind in kinder { wolke?.kindGeaendert(kind) }
     }
 
     /// Zurück zur Wahl beim ersten Start (Lehrergerät umstellen). Die

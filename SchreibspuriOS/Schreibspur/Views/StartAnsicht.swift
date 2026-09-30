@@ -48,8 +48,8 @@ struct StartAnsicht: View {
                     .buttonStyle(RundKnopf(farbe: Farben.akzent))
                 case .kind?:
                     // Auf dem Gerät des Kindes stellt die Lehrkraft alles
-                    // von ihrem Gerät aus ein.
-                    EmptyView()
+                    // von ihrem Gerät aus ein. Hier nur: Ist alles bei ihr?
+                    if let wolke = klasse.wolke { Postfach(wolke: wolke) }
                 default:
                     Knopf(symbol: "gearshape.fill", name: "Lehrerbereich: Einstellungen") { zeigeEinstellungen = true }
                 }
@@ -224,5 +224,24 @@ struct Titel: View {
         .minimumScaleFactor(0.6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Schreibspur"))
+    }
+}
+
+/// Kindergerät: kleines Zeichen, ob alles bei der Lehrkraft angekommen ist.
+/// Wichtig für den Gast auf dem geteilten iPad: Was nicht angekommen ist,
+/// geht beim Abmelden verloren.
+private struct Postfach: View {
+    let wolke: Wolke
+
+    var body: some View {
+        let offen = wolke.wartend
+        Label(offen == 0 ? "Alles bei der Lehrkraft" : "\(offen) Seiten warten",
+              systemImage: offen == 0 ? "checkmark.circle.fill" : "tray.and.arrow.up.fill")
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+            .foregroundStyle(offen == 0 ? Farben.start : Farben.warnung)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(.white).shadow(color: .black.opacity(0.08), radius: 3, y: 1))
+            .accessibilityHint(Text(wolke.status))
     }
 }
