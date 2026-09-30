@@ -1,40 +1,13 @@
-import CloudKit
 import SwiftUI
 import UIKit
 
-/// Hängt an die App-Szene einen eigenen Delegaten — nur dafür, dass
-/// Einladungen ankommen: `windowScene(_:userDidAcceptCloudKitShareWith:)`
-/// gibt es ausschließlich am Szenen-Delegaten (dasselbe Muster wie
-/// Tafelbild).
+/// Stille CloudKit-Pushes: Änderungen der anderen Geräte kommen dann von
+/// selbst (CKSyncEngine hört darauf).
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        // Stille CloudKit-Pushes: Änderungen der anderen Geräte kommen dann
-        // von selbst (CKSyncEngine hört darauf).
         application.registerForRemoteNotifications()
         return true
-    }
-
-    func application(_ application: UIApplication,
-                     configurationForConnecting verbindung: UISceneSession,
-                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        let konfiguration = UISceneConfiguration(name: nil, sessionRole: verbindung.role)
-        konfiguration.delegateClass = FreigabeSceneDelegate.self
-        return konfiguration
-    }
-}
-
-/// Nimmt die Anmeldekarte eines Kindes entgegen (Freigabe-Link).
-///
-/// `scene(_:willConnectTo:options:)` bleibt absichtlich unbeantwortet —
-/// wer es beantwortet, verdrängt die `WindowGroup` von SwiftUI (Lehre aus
-/// Tafelbild). `window` gehört trotzdem dazu.
-final class FreigabeSceneDelegate: UIResponder, UIWindowSceneDelegate {
-    var window: UIWindow?
-
-    func windowScene(_ windowScene: UIWindowScene,
-                     userDidAcceptCloudKitShareWith metadaten: CKShare.Metadata) {
-        Wolke.annehmen(metadaten, klasse: Klasse.geteilt)
     }
 }
 
@@ -56,7 +29,7 @@ struct SchreibspurApp: App {
                 case .lehrer?:
                     if klasse.probe { StartAnsicht() } else { LehrerStart() }
                 case .kind?:
-                    if klasse.aktiv == nil { KindWartet() } else { StartAnsicht() }
+                    if klasse.aktiv == nil { KlassencodeEingabe() } else { StartAnsicht() }
                 }
             }
             .environment(klasse)
