@@ -13,6 +13,8 @@ struct EinstellungenAnsicht: View {
 
     @State private var pfad: [UUID] = []
     @State private var zeigeKlasse = false
+    @State private var frageLehrer = false
+    @State private var frageUmstellen = false
     @AppStorage(Lehrerzugang.biometrieSchluessel) private var mitBiometrie = false
 
     var body: some View {
@@ -59,10 +61,15 @@ struct EinstellungenAnsicht: View {
                     } label: {
                         Label("Kind hinzufügen", systemImage: "plus.circle.fill")
                     }
+                    if klasse.rolle == .lehrer { AnmeldekartenDruck() }
                 } header: {
-                    Text("Kinder")
+                    Text(klasse.rolle == .lehrer ? "Kinder der Klasse" : "Kinder")
                 } footer: {
-                    Text("Jedes Kind hat eigene Sterne und eine eigene Genauigkeit. Bei mehreren Kindern fragt die App beim Öffnen, wer schreibt.")
+                    if klasse.rolle == .lehrer {
+                        Text("Jedes Kind bekommt eine Anmeldekarte mit QR-Code. Es scannt sie einmal auf seinem iPad (angemeldet mit seiner eigenen Apple-ID) — danach landet alles, was es schreibt, hier. Name, Tier und Genauigkeit stellst du hier ein, sie gelten dann auf dem iPad des Kindes.")
+                    } else {
+                        Text("Jedes Kind hat eigene Sterne und eine eigene Genauigkeit. Bei mehreren Kindern fragt die App beim Öffnen, wer schreibt.")
+                    }
                 }
 
                 Section {
@@ -110,6 +117,23 @@ struct EinstellungenAnsicht: View {
                 } footer: {
                     Text("Mit Apple Pencil werden Finger und Handballen auf dem Bildschirm übergangen.")
                 }
+
+                Section {
+                    if klasse.rolle == .lehrer {
+                        if let wolke = klasse.wolke { Label(wolke.status, systemImage: "icloud") }
+                        Button("Dieses Gerät umstellen …") { frageUmstellen = true }
+                    } else {
+                        Button("Als Lehrergerät einrichten …") { frageLehrer = true }
+                    }
+                } header: {
+                    Text("Klasse über iCloud")
+                } footer: {
+                    if klasse.rolle == .lehrer {
+                        Text("Dies ist das Gerät der Lehrkraft. Die Klasse liegt in deinem iCloud; Lehrgang, Vorführen, Heftgröße und „Nur Apple Pencil“ gelten für alle iPads der Klasse.")
+                    } else {
+                        Text("Haben die Kinder eigene iPads (auch geteilte iPads mit verwalteter Apple-ID), wird dieses Gerät das Lehrergerät: Die Kinder hier werden die Klasse, jedes bekommt eine Anmeldekarte.")
+                    }
+                }
             }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
@@ -126,6 +150,25 @@ struct EinstellungenAnsicht: View {
             .fullScreenCover(isPresented: $zeigeKlasse) {
                 KlassenAnsicht().environment(klasse)
             }
+            .confirmationDialog("Als Lehrergerät einrichten?", isPresented: $frageLehrer, titleVisibility: .visible) {
+                Button("Einrichten") {
+                    klasse.alsLehrergeraet()
+                    dismiss()
+                }
+            } message: {
+                Text("Die Kinder auf diesem Gerät werden die Klasse und in deinem iCloud gespeichert. Üben tun sie dann auf ihren eigenen iPads.")
+            }
+            .confirmationDialog("Dieses Gerät umstellen?", isPresented: $frageUmstellen, titleVisibility: .visible) {
+                Button("Umstellen", role: .destructive) {
+                    klasse.rolleZuruecksetzen()
+                    dismiss()
+                }
+            } message: {
+                Text("Die App fragt dann wieder, wer das Gerät benutzt. Die Klasse in iCloud bleibt erhalten; richtest du das Gerät wieder als Lehrergerät ein, kommt sie zurück.")
+            }
+            .onChange(of: vorfuehren) { klasse.wolke?.klasseGeaendert() }
+            .onChange(of: heftHoehe) { klasse.wolke?.klasseGeaendert() }
+            .onChange(of: nurStift) { klasse.wolke?.klasseGeaendert() }
         }
     }
 }
@@ -169,9 +212,22 @@ private struct KindBearbeiten: View {
             } footer: {
                 Text("Angenommen wird nur, was am richtigen Punkt beginnt, in Schreibrichtung läuft, in der Spur bleibt und erst am Ziel abgesetzt wird. „Streng“ verlangt eine ruhigere Hand, „Locker“ passt für die ersten Versuche. Auf den Stufen 3 und 4 ist das Band von sich aus breiter.")
             }
+            if klasse.rolle == .lehrer {
+                Section {
+                    NavigationLink {
+                        AnmeldekarteAnsicht(kind: kind)
+                    } label: {
+                        Label("Anmeldekarte", systemImage: "qrcode")
+                    }
+                }
+            }
             Section {
-                Button("Sterne dieses Kindes löschen", role: .destructive) { frageSterne = true }
-                Button("Kind entfernen", role: .destructive) { frageLoeschen = true }
+                if klasse.rolle != .lehrer {
+                    Button("Sterne dieses Kindes löschen", role: .destructive) { frageSterne = true }
+                }
+                Button(klasse.rolle == .lehrer ? "Aus der Klasse nehmen" : "Kind entfernen", role: .destructive) {
+                    frageLoeschen = true
+                }
             }
         }
         .navigationTitle(kind.name.isEmpty ? "Kind" : kind.name)
@@ -190,7 +246,9 @@ private struct KindBearbeiten: View {
                 dismiss()
             }
         } message: {
-            Text("Das Kind, alle seine Sterne und seine gespeicherten Seiten werden gelöscht.")
+            Text(klasse.rolle == .lehrer
+                 ? "Das Kind, seine Sterne und seine Seiten werden auch in iCloud gelöscht; auf seinem iPad endet die Anmeldung."
+                 : "Das Kind, alle seine Sterne und seine gespeicherten Seiten werden gelöscht.")
         }
     }
 }
