@@ -488,6 +488,8 @@ struct UebenAnsicht: View {
         if s.stufe == .heft, let seite {
             reihen = seite.reihen.map { r in
                 Blattspuren.Reihe(teile: r.vorgabe.teile.map(\.id), art: r.vorgabe.art,
+                                  kaestchen: r.vorgabe.kaestchen ? true : nil,
+                                  faktor: r.vorgabe.kaestchen ? Double(r.vorgabe.faktor) : nil,
                                   linien: r.pruefer.protokoll.map(linie))
             }
             b.titel = seite.reihen.map(\.muster.text).joined(separator: " · ")
@@ -535,9 +537,8 @@ struct UebenAnsicht: View {
 
     /// Wie Einheiten auf den Bildschirm kommen. Stufe 1–4: das große Blatt.
     /// Stufe 5: die Heftseite in echter Größe (Grundlinie–Oberlinie
-    /// `heftHoehe` mm, auf dem iPad ≈ 5,2 pt/mm); Reihe 0 bei y = 0, jede
-    /// weitere `Heftseite.zeilenabstand` tiefer. Passt das nicht, wird es
-    /// kleiner.
+    /// `heftHoehe` mm, auf dem iPad ≈ 5,2 pt/mm); die Reihen liegen, wie
+    /// `Heftseite.Lage` sie verteilt. Passt das nicht, wird es kleiner.
     ///
     /// Lehre aus 1.0.4: Das Muster stand in einer eigenen Zeile über der
     /// Schreibzeile, beide sahen gleich aus — wer neben das Muster schrieb,
@@ -545,19 +546,21 @@ struct UebenAnsicht: View {
     /// Anfang **ihrer** Reihe.
     private func abbildung(_ groesse: CGSize) -> Abbildung {
         guard stufe == .heft, let seite else { return Abbildung(groesse: groesse, zeichen: zeichen) }
-        let reihen = CGFloat(seite.reihen.count)
-        let hoehe = (reihen - 1) * Heftseite.zeilenabstand + 1.78   // −0,28 … 1,5 je Reihe
-        let bedarf = seite.reihen.map { r in
-            Heftseite.musterEnde(r.muster) + CGFloat(r.pruefer.mindestens) * (r.muster.rahmen.width + 0.9) + 0.4
-        }.max() ?? 6
+        let hoehe = seite.lage.hoehe
+        let bedarf = seite.reihen.indices.map { seite.bedarf($0) }.max() ?? 6
         let m = min(CGFloat(heftHoehe) * 5.2, (groesse.height - 16) / hoehe, (groesse.width - 40) / bedarf)
-        return Abbildung(massstab: m, verschiebung: CGPoint(x: 28, y: (groesse.height - hoehe * m) / 2 + 0.28 * m))
+        // Ziffern in Kästchen: links eine halbe Kästchenbreite Rand mehr,
+        // damit das erste Kästchen nicht am Rand klebt.
+        let links: CGFloat = seite.lage.kaestchen.first == true ? 28 + 0.45 * m : 28
+        return Abbildung(massstab: m, verschiebung: CGPoint(x: links, y: (groesse.height - hoehe * m) / 2))
     }
 
     private func reihenAbbildung(_ a: Abbildung, _ r: Int) -> Abbildung {
-        Abbildung(massstab: a.massstab,
-                  verschiebung: CGPoint(x: a.verschiebung.x,
-                                        y: a.verschiebung.y + CGFloat(r) * Heftseite.zeilenabstand * a.massstab))
+        guard let seite else { return a }
+        let f = seite.lage.faktor[r]
+        return Abbildung(massstab: a.massstab * f,
+                         verschiebung: CGPoint(x: a.verschiebung.x,
+                                               y: a.verschiebung.y + seite.lage.ursprung[r] * a.massstab))
     }
 
     // MARK: Zeichnen — Stufe 1–4
@@ -651,7 +654,13 @@ struct UebenAnsicht: View {
         let tinte: CGFloat = 0.075
         for (r, reihe) in seite.reihen.enumerated() {
             let ra = reihenAbbildung(a, r)
-            Zeichner.heftreihe(&ctx, breite: groesse.width, muster: reihe.muster, ra)
+            if reihe.vorgabe.kaestchen {
+                // Rechts bleibt Platz für die Pflicht-Punkte.
+                Zeichner.kaestchenreihe(&ctx, breite: groesse.width - CGFloat(reihe.pruefer.mindestens) * 18 - 24,
+                                        muster: reihe.muster, musterKaesten: reihe.vorgabe.teile.count, ra)
+            } else {
+                Zeichner.heftreihe(&ctx, breite: groesse.width, muster: reihe.muster, ra)
+            }
 
             let p = reihe.pruefer
             // Hilfe-Treppe: Punktlinie oder Spur des Buchstabens an seinem Platz.

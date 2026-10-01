@@ -15,7 +15,7 @@ enum Lineatur {
     var sichtbereich: ClosedRange<CGFloat> {
         switch self {
         case .buchstaben: -0.28...1.5
-        case .ziffern: -0.12...1.12
+        case .ziffern: -0.2...1.2
         }
     }
 
@@ -55,6 +55,20 @@ struct Zeichen: Identifiable {
     }
 }
 
+/// Rechenkästchen für Ziffern (seit 1.0.15, Ansage des Nutzers 10/2026:
+/// „Geübt werden sollen sie natürlich in Rechenkästchen. Auch diese sollen
+/// zu Beginn groß sein und in weiteren Übungen immer kleiner.“).
+///
+/// Eine Ziffer ist 1 hoch und liegt um x = 0,3; das Kästchen ist 1,3 groß,
+/// oben bei −0,15 — die Ziffer füllt es zu gut drei Vierteln, wie im
+/// Ziffernschreibkurs. Kästchen `k` einer Reihe beginnt bei `links(k)`.
+enum Kaestchen {
+    static let seite: CGFloat = 1.3
+    static let oben: CGFloat = -0.15
+    static let mitte: CGFloat = 0.3
+    static func links(_ k: Int) -> CGFloat { mitte - seite / 2 + CGFloat(k) * seite }
+}
+
 /// Die Übungsbereiche der Übersicht.
 enum Bereich: String, CaseIterable, Identifiable {
     case schwuenge, buchstaben, woerter, ziffern
@@ -86,7 +100,7 @@ enum Bereich: String, CaseIterable, Identifiable {
         case .schwuenge: Zeichenvorrat.schwuenge
         case .buchstaben: Zeichenvorrat.lehrgang.flatMap { $0.zeichen }
         case .woerter: Zeichenvorrat.woerter.map { $0.wort }
-        case .ziffern: Zeichenvorrat.ziffern
+        case .ziffern: Zeichenvorrat.ziffern + [Zeichenvorrat.zehn]
         }
     }
 }
@@ -95,6 +109,23 @@ enum Bereich: String, CaseIterable, Identifiable {
 enum Zeichenvorrat {
     static let schwuenge = bauen(Zeichensatz.schwuenge, lineatur: .buchstaben, schwung: true)
     static let ziffern = bauen(Zeichensatz.ziffern, lineatur: .ziffern)
+    /// Die 10: zwei Ziffern in zwei Kästchen.
+    static let zehn = kaestchenFolge(ziffern.filter { $0.id == "1" } + ziffern.filter { $0.id == "0" }, id: "10")
+
+    /// Ziffern nebeneinander, jede mittig in ihrem eigenen Kästchen.
+    static func kaestchenFolge(_ teile: [Zeichen], id: String? = nil) -> Zeichen {
+        var striche: [Strich] = []
+        for (k, teil) in teile.enumerated() {
+            let dx = CGFloat(k) * Kaestchen.seite
+            striche += teil.striche.map { s in Strich(punkte: s.punkte.map { CGPoint(x: $0.x + dx, y: $0.y) }) }
+        }
+        return Zeichen(id: id ?? teile.map(\.id).joined(separator: " "), striche: striche, lineatur: .ziffern,
+                       istSchwung: false, folge: teile.count > 1 ? teile : [])
+    }
+
+    static func istZiffer(_ z: Zeichen) -> Bool {
+        z.lineatur == .ziffern && !z.istSchwung
+    }
 
     /// Alle Groß- und Kleinbuchstaben nach Namen.
     static let buchstaben: [String: Zeichen] = {
@@ -104,7 +135,7 @@ enum Zeichenvorrat {
 
     /// Ein einzelnes Zeichen nach seiner id (Buchstabe, Ziffer, Schwung).
     static func zeichen(id: String) -> Zeichen? {
-        buchstaben[id] ?? ziffern.first { $0.id == id } ?? schwuenge.first { $0.id == id }
+        buchstaben[id] ?? ziffern.first { $0.id == id } ?? (id == "10" ? zehn : nil) ?? schwuenge.first { $0.id == id }
     }
 
     /// Groß- und Kleinbuchstabe einer Lektion teilen sich die Heftseite.
@@ -200,6 +231,26 @@ enum Zeichenvorrat {
 
     // MARK: Heftseite
 
+    /// Ziffern in Rechenkästchen, wie im Ziffernschreibkurs: oben große
+    /// Kästchen, darunter mittlere, dann kleine (Faktor 1 · 0,75 · 0,55),
+    /// zuletzt im Wechsel mit der Ziffer davor.
+    static func kaestchenreihen(fuer zeichen: Zeichen) -> [Reihenvorgabe] {
+        let teile = zeichen.istFolge ? zeichen.folge : [zeichen]
+        var reihen: [Reihenvorgabe] = [
+            .kaestchen(teile, faktor: 1, mindestens: 3),
+            .kaestchen(teile, faktor: 1, mindestens: 3),
+            .kaestchen(teile, faktor: 0.75, mindestens: 4),
+            .kaestchen(teile, faktor: 0.75, mindestens: 4),
+            .kaestchen(teile, faktor: 0.55, mindestens: 5),
+        ]
+        if !zeichen.istFolge, let i = ziffern.firstIndex(where: { $0.id == zeichen.id }), i > 0 {
+            reihen.append(.kaestchen([ziffern[i - 1], zeichen], faktor: 0.55, mindestens: 3))
+        } else {
+            reihen.append(.kaestchen(teile, faktor: 0.55, mindestens: 5))
+        }
+        return reihen
+    }
+
     private static let selbstlaute: Set<String> = ["a", "e", "i", "o", "u", "ä", "ö", "ü"]
 
     /// Die Reihen einer Buchstabenseite (Ansage des Nutzers 09/2026, nach
@@ -209,6 +260,7 @@ enum Zeichenvorrat {
     /// Wörter mit dem Buchstaben, die sich aus schon Gelerntem schreiben
     /// lassen („Mama“). Ziffern: zwei Reihen.
     static func heftreihen(fuer zeichen: Zeichen) -> [Reihenvorgabe] {
+        if istZiffer(zeichen) { return kaestchenreihen(fuer: zeichen) }
         guard let n = lehrgang.firstIndex(where: { $0.zeichen.contains { $0.id == zeichen.id } }) else {
             return [.einzeln(zeichen), .einzeln(zeichen)]
         }

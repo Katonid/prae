@@ -71,6 +71,10 @@ struct Blattspuren: Codable {
         /// Die Buchstaben am Anfang der Reihe und wie sie zusammengehören.
         var teile: [String]
         var art: Heftseite.Vorgabe.Art
+        /// Ziffern in Rechenkästchen und ihre Größe (seit 1.0.15; fehlt in
+        /// älteren Seiten).
+        var kaestchen: Bool?
+        var faktor: Double?
         /// In der Reihenfolge, in der sie geschrieben wurden.
         var linien: [Linie]
     }

@@ -578,28 +578,40 @@ struct Seitenbild: View {
 
     // Stufe 5
     private var heft: some View {
-        let muster = spuren.reihen.map { r in Heftseite.Vorgabe.aus(teile: r.teile, art: r.art)?.muster }
-        let hoehe = CGFloat(max(spuren.reihen.count - 1, 0)) * Heftseite.zeilenabstand + 1.78
+        let vorgaben = spuren.reihen.map { r in
+            Heftseite.Vorgabe.aus(teile: r.teile, art: r.art, kaestchen: r.kaestchen ?? false,
+                                  faktor: CGFloat(r.faktor ?? 1))
+        }
+        let lage = Heftseite.Lage(spuren.reihen.map { ($0.kaestchen ?? false, CGFloat($0.faktor ?? 1)) })
         var breite: CGFloat = 8
         for (i, r) in spuren.reihen.enumerated() {
-            if let m = muster[i] { breite = max(breite, Heftseite.musterEnde(m) + 3) }
-            for l in r.linien { for p in l.punkte { breite = max(breite, p.p.x + 0.5) } }
+            let f = lage.faktor[i]
+            if let v = vorgaben[i] {
+                breite = max(breite, (v.kaestchen ? CGFloat(v.teile.count + 3) * Kaestchen.seite
+                                                  : Heftseite.musterEnde(v.muster) + 3) * f)
+            }
+            for l in r.linien { for p in l.punkte { breite = max(breite, (p.p.x + 0.7) * f) } }
         }
-        let rand: CGFloat = 0.3
+        let rand: CGFloat = 0.5
         return Canvas { ctx, groesse in
             let m = groesse.width / (breite + rand)
             for (r, reihe) in spuren.reihen.enumerated() {
-                let a = Abbildung(massstab: m, verschiebung: CGPoint(
-                    x: rand * m, y: (0.28 + CGFloat(r) * Heftseite.zeilenabstand) * m))
-                if let mu = muster[r] {
-                    Zeichner.heftreihe(&ctx, breite: groesse.width, muster: mu, a)
+                let a = Abbildung(massstab: m * lage.faktor[r],
+                                  verschiebung: CGPoint(x: rand * m, y: lage.ursprung[r] * m))
+                if let v = vorgaben[r] {
+                    if v.kaestchen {
+                        Zeichner.kaestchenreihe(&ctx, breite: groesse.width, muster: v.muster,
+                                                musterKaesten: v.teile.count, a)
+                    } else {
+                        Zeichner.heftreihe(&ctx, breite: groesse.width, muster: v.muster, a)
+                    }
                 } else {
                     Zeichner.linien(&ctx, breite: groesse.width, lineatur: .buchstaben, a)
                 }
                 tinte(&ctx, reihe, r, a, breite: Self.heftTinte)
             }
         }
-        .aspectRatio((breite + rand) / hoehe, contentMode: .fit)
+        .aspectRatio((breite + rand) / max(lage.hoehe, 1), contentMode: .fit)
     }
 
     private func tinte(_ ctx: inout GraphicsContext, _ reihe: Blattspuren.Reihe, _ r: Int,

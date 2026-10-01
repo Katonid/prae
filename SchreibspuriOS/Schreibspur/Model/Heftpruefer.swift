@@ -44,6 +44,10 @@ final class Heftpruefer {
         case zuWeitImWort
         case zuEng
         case zuEngImWort
+        /// Rechenkästchen (seit 1.0.15).
+        case naechstesKaestchen
+        case ueberRand
+        case zuKlein
 
         var text: String {
             switch self {
@@ -59,7 +63,30 @@ final class Heftpruefer {
             case .zuWeitImWort: "Im Wort stehen die Buchstaben dicht beieinander."
             case .zuEng: "Zu eng – lass etwas Platz zum vorigen Buchstaben."
             case .zuEngImWort: "Die Buchstaben dürfen nicht übereinanderstehen."
+            case .naechstesKaestchen: "Schreib in das nächste freie Kästchen."
+            case .ueberRand: "Bleib im Kästchen – die Ziffer läuft über den Rand."
+            case .zuKlein: "Schreib größer – die Ziffer soll das Kästchen gut füllen."
             }
+        }
+
+        /// Im Kästchen gibt es kein Schreibhaus — dort heißt es oben,
+        /// Mitte, unten.
+        func text(imKaestchen: Bool) -> String {
+            guard imKaestchen else { return text }
+            switch self {
+            case .anfang(let y): return "Dieser Strich beginnt \(Heftpruefer.ortImKaestchen(y))."
+            case .ende(let y): return "Dieser Strich endet \(Heftpruefer.ortImKaestchen(y))."
+            case .form: return "Das ist schwer zu lesen – schreib die Ziffer noch einmal genau."
+            default: return text
+            }
+        }
+    }
+
+    static func ortImKaestchen(_ y: CGFloat) -> String {
+        switch y {
+        case ..<0.3: "oben im Kästchen"
+        case ..<0.7: "in der Mitte des Kästchens"
+        default: "unten im Kästchen"
         }
     }
 
@@ -122,6 +149,34 @@ final class Heftpruefer {
     /// Rechter Rand des zuletzt geschafften Buchstabens (anfangs: die
     /// Trennlinie hinter dem Muster).
     private var letzterRand: CGFloat?
+
+    // MARK: Rechenkästchen (seit 1.0.15)
+
+    /// Ziffern in Rechenkästchen: so viele Kästchen belegt das Muster am
+    /// Anfang der Reihe; jede Ziffer gehört in das nächste. nil = Lineatur.
+    let kaestchenStart: Int?
+    /// So weit darf eine Ziffer über das Kästchen hinaus (berühren ist
+    /// erlaubt, ein wenig darüber auch — Ansage des Nutzers: „nicht
+    /// großartig hinauslaufen“). In Einheiten; das Kästchen ist 1,3.
+    static let randToleranz: CGFloat = 0.14
+    /// So hoch muss eine Ziffer mindestens sein (sie ist 1 hoch gedacht,
+    /// das Kästchen 1,3): „und auch nicht im Kästchen zu klein“.
+    static let mindestHoehe: CGFloat = 0.62
+
+    /// Das Kästchen, in das die angefangene Ziffer gehört.
+    private var kasten: Int { (kaestchenStart ?? 0) + fertige.count }
+
+    /// nil, wenn die fertige Ziffer im Kästchen Platz findet.
+    private func kaestchenFehler(_ punkte: [CGPoint]) -> Hinweis? {
+        guard kaestchenStart != nil, let x0 = punkte.map(\.x).min(), let x1 = punkte.map(\.x).max(),
+              let y0 = punkte.map(\.y).min(), let y1 = punkte.map(\.y).max() else { return nil }
+        let links = Kaestchen.links(kasten), rechts = links + Kaestchen.seite
+        let oben = Kaestchen.oben, unten = oben + Kaestchen.seite
+        let tol = Self.randToleranz * sqrt(f)
+        if x0 < links - tol || x1 > rechts + tol || y0 < oben - tol || y1 > unten + tol { return .ueberRand }
+        if y1 - y0 < Self.mindestHoehe / sqrt(f) { return .zuKlein }
+        return nil
+    }
 
     private(set) var strichNummer = 0
     private var ax: CGFloat?
@@ -186,6 +241,9 @@ final class Heftpruefer {
         let striche: [[CGPoint]]
         if let ax {
             striche = vorlagen.map { abbilden($0, ax, breite()) }
+        } else if kaestchenStart != nil {
+            let dx = Kaestchen.links(kasten) - Kaestchen.links(0)
+            striche = vorlagen.map { $0.map { CGPoint(x: $0.x + dx, y: $0.y) } }
         } else {
             let rand = letzterRand ?? 0
             let luecke: CGFloat = fertige.isEmpty ? 0.45 : (neueEinheit || !imWort ? 0.4 : 0.14)
@@ -193,13 +251,14 @@ final class Heftpruefer {
             striche = vorlagen.map { $0.map { CGPoint(x: $0.x + dx, y: $0.y) } }
         }
         return Zeichen(id: buchstabe.id, striche: striche.map { Strich(punkte: $0) },
-                       lineatur: .buchstaben, istSchwung: false)
+                       lineatur: kaestchenStart != nil ? .ziffern : .buchstaben, istSchwung: false)
     }
 
     /// `rechtsVon`: die Trennlinie hinter dem Muster — geschrieben wird
     /// rechts davon.
     init(folge: [Zeichen], einheitLaenge: Int = 1, imWort: Bool = true, mindestens: Int,
-         genauigkeit: Genauigkeit, rechtsVon: CGFloat? = nil) {
+         genauigkeit: Genauigkeit, rechtsVon: CGFloat? = nil, kaestchenStart: Int? = nil) {
+        self.kaestchenStart = kaestchenStart
         self.folge = folge
         self.imWort = imWort
         self.einheitLaenge = max(1, einheitLaenge)
@@ -224,8 +283,9 @@ final class Heftpruefer {
     var hinweisText: String? {
         guard let hinweis else { return nil }
         let verschieden = Set(folge.map(\.id)).count > 1
-        if verschieden, let b = hinweisBuchstabe { return "\(b): \(hinweis.text)" }
-        return hinweis.text
+        let text = hinweis.text(imKaestchen: kaestchenStart != nil)
+        if verschieden, let b = hinweisBuchstabe { return "\(b): \(text)" }
+        return text
     }
 
     var sterne: Int {
@@ -280,14 +340,21 @@ final class Heftpruefer {
                 let punkte = tinte.flatMap { $0 }.map(\.p)
                 let unten = punkte.filter { $0.y >= 0.5 }.map(\.x)
                 let xs = unten.isEmpty ? punkte.map(\.x) : unten
-                // Der fertige Buchstabe: steht er zu dicht am vorigen?
-                if !fertige.isEmpty, let rand = letzterRand, let links = xs.min(),
-                   links - rand < (neueEinheit || !imWort ? Self.mindestZwischen : Self.mindestImWort) {
+                // Der fertige Buchstabe: steht er zu dicht am vorigen? Die
+                // fertige Ziffer: passt sie in ihr Kästchen?
+                var schluss: Hinweis?
+                if kaestchenStart != nil {
+                    schluss = kaestchenFehler(punkte)
+                } else if !fertige.isEmpty, let rand = letzterRand, let links = xs.min(),
+                          links - rand < (neueEinheit || !imWort ? Self.mindestZwischen : Self.mindestImWort) {
+                    schluss = neueEinheit || !imWort ? .zuEng : .zuEngImWort
+                }
+                if let schluss {
                     buchstabeVerwerfen()
                     fehlerAmBuchstaben += 1
                     hilfeMerken()
                     fehler += 1
-                    hinweis = neueEinheit || !imWort ? .zuEng : .zuEngImWort
+                    hinweis = schluss
                     hinweisBuchstabe = buchstabe.text
                     fehlerZaehler += 1
                     tinte = []
@@ -327,7 +394,14 @@ final class Heftpruefer {
         guard let oben = ys.min(), let unten = ys.max() else { return 0 }
         let draussen = max(oben - p.y, p.y - unten, 0)
         let erlaubt = Self.etage * min(f, 1.1)
-        return min(1, max(0, (draussen / erlaubt - 0.35) / 0.65))
+        var w = min(1, max(0, (draussen / erlaubt - 0.35) / 0.65))
+        if kaestchenStart != nil {
+            // Über den Rand des Kästchens: ebenfalls orange.
+            let l = Kaestchen.links(kasten), o = Kaestchen.oben, s = Kaestchen.seite
+            let raus = max(l - p.x, p.x - (l + s), o - p.y, p.y - (o + s), 0)
+            w = max(w, min(1, max(0, (raus / (Self.randToleranz * sqrt(f)) - 0.3) / 0.7)))
+        }
+        return w
     }
 
     // MARK: Prüfung
@@ -352,7 +426,11 @@ final class Heftpruefer {
         // nicht zu weit weg. Geschätzt am Ansatz, abzüglich des Stücks, das
         // der Ansatz in der Vorlage vom linken Rand entfernt liegt (das a
         // beginnt oben rechts).
-        if erster, strichNummer == 0, let rand = letzterRand {
+        if erster, strichNummer == 0, kaestchenStart != nil {
+            // Die Ziffer beginnt im nächsten freien Kästchen.
+            let links = Kaestchen.links(kasten)
+            if roh[0].x < links - 0.25 || roh[0].x > links + Kaestchen.seite + 0.25 { return .naechstesKaestchen }
+        } else if erster, strichNummer == 0, let rand = letzterRand {
             let luecke = roh[0].x - rand - (t[0].x - buchstabe.rahmen.minX)
             if luecke < -0.15 { return fertige.isEmpty ? .nebenMuster : .rechtsDaneben }
             let grenze: CGFloat

@@ -102,7 +102,47 @@ enum Zeichner {
     /// Hintergrund mit Lineatur: helleres Band für die kleinen Buchstaben.
     static func blatt(_ ctx: inout GraphicsContext, groesse: CGSize, lineatur: Lineatur, _ a: Abbildung) {
         ctx.fill(Path(CGRect(origin: .zero, size: groesse)), with: .color(Farben.blatt))
-        linien(&ctx, breite: groesse.width, lineatur: lineatur, a)
+        if lineatur == .ziffern {
+            rechenpapier(&ctx, groesse: groesse, a)
+        } else {
+            linien(&ctx, breite: groesse.width, lineatur: lineatur, a)
+        }
+    }
+
+    /// Ziffern stehen in Rechenkästchen: zartes Gitter über das ganze Blatt,
+    /// das Kästchen der Ziffer kräftig (seit 1.0.15).
+    static func rechenpapier(_ ctx: inout GraphicsContext, groesse: CGSize, _ a: Abbildung) {
+        let s = Kaestchen.seite * a.massstab
+        guard s > 4 else { return }
+        let x0 = a.ansicht(CGPoint(x: Kaestchen.links(0), y: Kaestchen.oben))
+        var gitter = Path()
+        var x = x0.x.truncatingRemainder(dividingBy: s)
+        while x <= groesse.width { gitter.move(to: CGPoint(x: x, y: 0)); gitter.addLine(to: CGPoint(x: x, y: groesse.height)); x += s }
+        var y = x0.y.truncatingRemainder(dividingBy: s)
+        while y <= groesse.height { gitter.move(to: CGPoint(x: 0, y: y)); gitter.addLine(to: CGPoint(x: groesse.width, y: y)); y += s }
+        ctx.stroke(gitter, with: .color(Farben.linie.opacity(0.45)), lineWidth: 1)
+        ctx.stroke(Path(CGRect(x: x0.x, y: x0.y, width: s, height: s)), with: .color(Farben.grundlinie), lineWidth: 2.5)
+    }
+
+    /// Eine Reihe Rechenkästchen auf der Heftseite: das Muster in den ersten
+    /// Kästchen (dunkel, wie gedruckt), dann leere Kästchen bis zum Rand.
+    static func kaestchenreihe(_ ctx: inout GraphicsContext, breite: CGFloat, muster: Zeichen, musterKaesten: Int,
+                               _ a: Abbildung) {
+        let s = Kaestchen.seite * a.massstab
+        let o = a.ansicht(CGPoint(x: Kaestchen.links(0), y: Kaestchen.oben))
+        var n = 0
+        var kaesten = Path()
+        while o.x + CGFloat(n + 1) * s <= breite - 8 {
+            kaesten.addRect(CGRect(x: o.x + CGFloat(n) * s, y: o.y, width: s, height: s))
+            n += 1
+        }
+        ctx.fill(kaesten, with: .color(.white.opacity(0.55)))
+        ctx.stroke(kaesten, with: .color(Farben.grundlinie.opacity(0.8)), lineWidth: 1.5)
+        // Die Musterkästchen leicht getönt.
+        let musterFeld = CGRect(x: o.x, y: o.y, width: s * CGFloat(musterKaesten), height: s)
+        ctx.fill(Path(musterFeld), with: .color(Farben.band.opacity(0.8)))
+        ctx.stroke(Path(musterFeld), with: .color(Farben.grundlinie), lineWidth: 2)
+        spur(&ctx, zeichen: muster, a, farbe: Farben.tinteDunkel.opacity(0.75), breite: 0.075)
     }
 
     /// Eine Zeile der Lineatur (Band und Linien) über die ganze Breite.
