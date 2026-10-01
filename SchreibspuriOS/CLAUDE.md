@@ -33,7 +33,8 @@
   Anmeldekarten; 1.0.12 (13) Klassencode statt Anmeldekarten — die Kinder
   melden sich selbst an; 1.0.13 (14) Briefkasten in der öffentlichen
   Datenbank + Funk im Klassenzimmer (Gäste, private Apple-ID); 1.0.14
-  (15) „Neue Klasse“ als Eingabefenster, auch auf der Lehrer-Startseite.
+  (15) „Neue Klasse“ als Eingabefenster, auch auf der Lehrer-Startseite;
+  1.0.15 (16) Ziffern nach dem Ziffernschreibkurs in Rechenkästchen.
 - Team: `DEVELOPMENT_TEAM = F4989GSTWS` (Regel im Wurzel-CLAUDE.md).
 - `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht als
   Build-Einstellung im Target (`GENERATE_INFOPLIST_FILE = YES`). Nie
@@ -126,8 +127,14 @@
   - f und ß reichen bis zur Unterlinie; ß beginnt **unten** an der
     Unterlinie und geht hinauf. g und j enden mit einem Bogen nach links.
   - i-, j- und Umlautpunkte kommen zuletzt, links vor rechts.
-- Die Ziffern stehen nicht auf dem Merkblatt; sie folgen der üblichen
-  Schreibweise (5 mit dem „Hut" zuletzt, 4 offen, 7 ohne Querstrich).
+- **Ziffern seit 1.0.15 nach dem Ziffernschreibkurs des Nutzers**
+  (Bildschirmfotos 10/2026: „Die Ziffern sollen so aussehen“): Reihenfolge
+  1 … 9, 0, dann die 10 (zwei Kästchen, `Zeichenvorrat.zehn`). 1 mit
+  Anstrich; 4 offen — erst links hinunter mit dem Querstrich, dann der
+  rechte Strich von oben; 5 mit dem Hut zuletzt; **7 mit Querstrich**
+  (zweiter Strich); 6, 8, 9, 0 oben rechts begonnen und gegen den
+  Uhrzeigersinn, die 9 mit kleinem Bogen nach links. Vorher (bis 1.0.14)
+  7 ohne Querstrich, 0/9 anders begonnen.
 
 ## Die Prüfung (Spurpruefer)
 
@@ -346,6 +353,39 @@
     (der Haken oben am f war ein wackliger Maßstab für den Querstrich).
   - **Bekannte Grenzen:** Striche unter 0,6 (Querstriche von t, f, A, E,
     Hut der 5) dürfen kürzer sein — die Buchstaben bleiben lesbar.
+
+## Ziffern in Rechenkästchen (seit 1.0.15, Ansage des Nutzers 10/2026)
+
+- „Geübt werden sollen sie natürlich in Rechenkästchen. Auch diese sollen
+  zu Beginn groß sein und in weiteren Übungen immer kleiner. Die Ziffern
+  sollen bewegungsrichtig sein und im Kästchen Platz finden … Berühren
+  ist erlaubt und eine gewisse Toleranz auch, aber sie sollen nicht über
+  das Kästchen großartig hinauslaufen und auch nicht im Kästchen zu klein
+  sein.“
+- Maße (`Kaestchen`): Ziffer 1 hoch, um x = 0,3; Kästchen 1,3 groß, oben
+  bei −0,15 — die Ziffer füllt es zu gut drei Vierteln wie auf dem Blatt.
+  Stufe 1–4 zeigen Rechenpapier mit dem Kästchen der Ziffer
+  (`Zeichner.rechenpapier`, `Lineatur.ziffern`).
+- Heftseite einer Ziffer (`Zeichenvorrat.kaestchenreihen`): zwei Reihen
+  große Kästchen (Faktor 1, Pflicht 3), zwei mittlere (0,75, Pflicht 4),
+  eine kleine (0,55, Pflicht 5), zuletzt klein im Wechsel mit der Ziffer
+  davor. Bei 16 mm Heftgröße: etwa 21, 16 und 11 mm Kästchen. Die Reihen
+  verteilt `Heftseite.Lage` (verschiedene Größen, Seiten-y 0 = oberer
+  Rand); `UebenAnsicht.abbildung` und `Seitenbild` rechnen mit derselben.
+- Prüfung (`Heftpruefer`, `kaestchenStart`): dieselbe Formprüfung wie bei
+  den Buchstaben (Richtung, Strichfolge, Höhe nie angepasst), dazu: jede
+  Ziffer im nächsten freien Kästchen (Ansatz höchstens 0,25 daneben —
+  „Schreib in das nächste freie Kästchen“), die fertige Ziffer höchstens
+  `randToleranz` 0,14 (× √Genauigkeit) über den Rand („Bleib im
+  Kästchen“), mindestens `mindestHoehe` 0,62 hoch („Schreib größer“).
+  Die Tinte wird orange, sobald sie über den Rand läuft. Hinweise sagen
+  „oben im Kästchen“ statt „unter dem Dach“.
+- `Blattspuren.Reihe` trägt `kaestchen` und `faktor` (optional — ältere
+  Seiten haben sie nicht), damit die Klassenübersicht Ziffernseiten mit
+  Kästchen zeigt.
+- **Nicht gemessen:** Die Grenzen 0,14 und 0,62 sind geschätzt, nicht mit
+  der Simulation abgestimmt (die prüft nur die Form). Erst echte
+  Kinderschrift zeigt, ob sie passen.
 
 ## Wörter und „Gemischt üben“ (seit 1.0.4, Ansage des Nutzers 09/2026)
 
