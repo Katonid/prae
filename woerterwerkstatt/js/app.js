@@ -64,7 +64,12 @@ function bereichNachId(id) {
 
 function bereicheZeigen() {
   const gitter = h('div', { class: 'bereiche' });
-  const eigene = eigeneBereiche();
+  // Auch die eigenen Bereiche fragen nach der Sichtbarkeit. Bis 1.8.5 taten
+  // sie es NICHT — hier stand `eigeneBereiche()` ohne Filter, und in
+  // `bereichSichtbar` stand ein `if (bereich.eigen) return true;` davor. Zwei
+  // Stellen, dieselbe Festschreibung: Ein eigener Satz war unausblendbar, und
+  // das Häkchen in „Bereiche wählen" tat stumm nichts.
+  const eigene = eigeneBereiche().filter(bereichSichtbar);
   const themen = BEREICHE.filter(bereichSichtbar);
   const bloecke = RECHTSCHREIBUNG1
     .concat(RECHTSCHREIBUNG2, RECHTSCHREIBUNG3, RECHTSCHREIBUNG).filter(bereichSichtbar);

@@ -306,6 +306,31 @@
     die Kopfzeile nennt die Zahl der GEZEIGTEN Wörter, nicht die aller.
   - Das Kind sieht seine eigene Liste unter „?" → „Deine schweren Wörter". Wer
     die Daten erzeugt, darf sie sehen.
+- **Ein eigener Lernwörtersatz war unausblendbar — an ZWEI Stellen**
+  festgeschrieben (behoben 1.8.6, Frage des Nutzers 10/2026: „WO kann ich
+  auswählen, welche eigenen Lernwörtersätze einer Klasse gezeigt werden?").
+  Die Antwort war: nirgends. In `bereichSichtbar` stand `if (bereich.eigen)
+  return true;` VOR der Frage nach der Wahl, und `bereicheZeigen` (app.js)
+  nahm `eigeneBereiche()` ganz ohne Filter. Wer eine der beiden Stellen
+  allein repariert, baut das Schlimmste von beidem: ein Häkchen, das sich
+  setzen lässt und nichts tut. Die Vorgabe bleibt „an" — wer nie etwas wählt,
+  merkt nichts.
+- **Zwei Knöpfe, weil es zwei Fragen sind** (Klassenansicht, Abschnitt
+  „Bereiche für die Klasse"):
+  - „📚 Bereiche wählen" = was GEZEIGT wird. Seit 1.8.6 stehen die eigenen
+    Bereiche dort mit drin, als erste Gruppe — danach sucht eine Lehrkraft,
+    und es sind die wenigsten.
+  - „📒 Eigene Sätze mitgeben" = welche Sätze als DATEN zu den Kindern reisen
+    (`eigeneMitgeben` in klasse.js, schreibt `klasse.bereiche`). Bis 1.8.6 ließ
+    sich das nur EINMAL entscheiden, beim Anlegen der Klasse — ein Satz, der
+    erst später entstand, erreichte eine vorhandene Klasse nie.
+  - Nicht zu einem Knopf zusammenlegen: `klasseAuffrischen` trägt Bereiche nur
+    NACH, es nimmt nie einen weg. Ein abgehakter Satz verschwindet deshalb
+    nicht von Geräten, auf denen er schon liegt — verbergen lässt er sich nur
+    über die Sichtbarkeit. Genau das sagt die Fußnote im Blatt.
+  - `klasseAendern` schreibt per PATCH auf `klassen/<CODE>`; ein benanntes Kind
+    wie `bereiche` wird dabei VOLLSTÄNDIG ersetzt, nicht verschmolzen. Nur
+    deshalb nimmt ein Abhaken den Satz wirklich aus der Klasse.
 - **Sterne gehen weiterhin an die Klasse**, und keine Rangliste zwischen
   Kindern, nirgends.
 - **Und sie kommen wieder zurück** (ab 1.8.3). Bis dahin war der Fortschritt
