@@ -382,6 +382,91 @@ function neueKlasse(beiFertig) {
   return dialog;
 }
 
+/**
+ * Welche eigenen Lernwörtersätze eine BESTEHENDE Klasse mitbekommt.
+ *
+ * Bis 1.8.5 ließ sich das nur ein einziges Mal entscheiden, beim Anlegen der
+ * Klasse („Eigene Bereiche mitgeben" in `neueKlasse`). Danach gab es keinen
+ * Weg mehr daran — und ein Satz, der erst später entstand, erreichte eine
+ * vorhandene Klasse überhaupt nie. Gefragt 10/2026, und die ehrliche Antwort
+ * war: „Diese Auswahl gibt es nicht."
+ *
+ * Hier geht es um die DATEN — welche Sätze zu den Kindern reisen. Was davon
+ * auf der Startseite erscheint, entscheidet „📚 Bereiche wählen" daneben. Zwei
+ * Knöpfe, weil es zwei Fragen sind: Wer einen Satz wegnimmt, löscht ihn nicht
+ * von den Geräten, auf denen er schon liegt (`klasseAuffrischen` trägt nur
+ * nach, es nimmt nie etwas weg) — ausblenden lässt er sich nur über die
+ * Sichtbarkeit.
+ */
+function eigeneMitgeben(code, klasse) {
+  const eigene = eigeneBereiche();
+  const gewaehlt = new Set(Object.keys(klasse.bereiche || {}));
+  const liste = h('div', { class: 'mitgeben' });
+  for (const bereich of eigene) {
+    liste.appendChild(h('label', { class: 'mitgeben__eintrag' },
+      h('input', {
+        type: 'checkbox',
+        checked: gewaehlt.has(bereich.id),
+        onchange: (ereignis) => {
+          if (ereignis.target.checked) gewaehlt.add(bereich.id);
+          else gewaehlt.delete(bereich.id);
+        },
+      }),
+      h('span', {}, `${bereich.emoji || '📗'} ${bereich.name}`),
+      h('span', { class: 'mitgeben__zahl' }, `${bereich.woerter.length} Wörter`)));
+  }
+
+  const fehlerplatz = h('div', { class: 'is-versteckt' });
+  const sichern = h('button', { class: 'knopf knopf--voll', type: 'button' }, 'Sichern');
+  sichern.addEventListener('click', async () => {
+    sichern.disabled = true;
+    leeren(fehlerplatz).classList.add('is-versteckt');
+    // Eine Karte id -> Bereich, wie sie in der Klasse liegt. PATCH auf
+    // `klassen/<CODE>` ersetzt den Zweig `bereiche` vollständig — damit
+    // verschwindet auch, was abgehakt wurde.
+    const karte = {};
+    for (const bereich of eigene) if (gewaehlt.has(bereich.id)) karte[bereich.id] = bereich;
+    try {
+      await klasseAendern(code, { bereiche: karte });
+      klasse.bereiche = karte;
+      const anzahl = Object.keys(karte).length;
+      meldung(anzahl === 1
+        ? 'Ein Satz für diese Klasse. Die Kinder bekommen ihn, sobald sie die App öffnen.'
+        : (anzahl
+          ? `${anzahl} Sätze für diese Klasse. Die Kinder bekommen sie, sobald sie die App öffnen.`
+          : 'Kein eigener Satz mehr für diese Klasse.'), 'gut', 5000);
+      dialog.schliessen();
+    } catch (problem) {
+      fehlerplatz.classList.remove('is-versteckt');
+      fehlerplatz.appendChild(h('p', { class: 'blatt__fehler' }, klartext(problem)));
+      sichern.disabled = false;
+    }
+  });
+
+  const dialog = blatt({
+    titel: `Eigene Sätze für ${klasse.name}`,
+    inhalt: h('div', {},
+      eigene.length
+        ? h('div', {},
+          h('p', { class: 'blatt__text' },
+            'Was du anhakst, liegt für die Kinder dieser Klasse bereit — auch ein Satz, '
+            + 'den du erst nach dem Anlegen der Klasse geschrieben hast.'),
+          liste,
+          h('p', { class: 'blatt__fussnote' },
+            'Ein Haken weg nimmt den Satz nicht von Geräten, auf denen er schon liegt. '
+            + 'Verbergen lässt er sich über „📚 Bereiche wählen".'))
+        : h('p', { class: 'blatt__text' },
+          'Du hast noch keine eigenen Bereiche. Anlegen lassen sie sich über '
+          + '„📚 Bereiche" oben in der Kopfzeile. Die mitgelieferten haben die Kinder ohnehin.'),
+      fehlerplatz),
+    fusszeile: [
+      h('button', { class: 'knopf knopf--still', type: 'button', onclick: () => dialog.schliessen() }, 'Abbrechen'),
+      eigene.length ? sichern : null,
+    ].filter(Boolean),
+  });
+  return dialog;
+}
+
 /* ---------- Was die Kinder geschrieben haben ---------- */
 
 /** Ein Wort als Zeile: wie oft, wie sicher, und was danebenging. */
@@ -795,7 +880,8 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
       abschnitt('Bereiche für die Klasse',
         h('p', { class: 'blatt__text' },
           'Welche Bereiche die Kinder sehen. Deine Auswahl wird auf ihre Geräte übernommen, '
-          + 'sobald sie die App öffnen — auch die Rechtschreibblöcke, die von Haus aus ausgeblendet sind.'),
+          + 'sobald sie die App öffnen — auch die Rechtschreibblöcke, die von Haus aus ausgeblendet sind, '
+          + 'und deine eigenen Lernwörtersätze.'),
         h('div', { class: 'blatt__knopfreihe' },
           h('button', {
             class: 'knopf knopf--voll', type: 'button',
@@ -813,7 +899,11 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
                 }, 700);
               },
             }),
-          }, '📚 Bereiche wählen'))),
+          }, '📚 Bereiche wählen'),
+          h('button', {
+            class: 'knopf', type: 'button',
+            onclick: () => eigeneMitgeben(code, klasse),
+          }, '📒 Eigene Sätze mitgeben'))),
 
       abschnitt('Anmeldung der Kinder',
         zeile('Auch ohne PIN anmelden',

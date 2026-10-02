@@ -372,11 +372,11 @@ export function bereicheVerwalten(beiAenderung) {
 /* ---------- Welche Bereiche sichtbar sind ---------- */
 
 /**
- * Die Auswahl, welche mitgelieferten Bereiche erscheinen.
+ * Die Auswahl, welche Bereiche erscheinen — die eigenen wie die mitgelieferten.
  *
- * Von Haus aus sind die zwanzig Themenbereiche an und die siebenundzwanzig
+ * Von Haus aus sind die eigenen und die zwanzig Themenbereiche an, die
  * Rechtschreibblöcke aus. Eine Lehrkraft schaltet frei, was gerade dran ist —
- * und blendet aus, was ihre Klasse nicht braucht. Beides in derselben Liste,
+ * und blendet aus, was ihre Klasse nicht braucht. Alles in derselben Liste,
  * denn es ist dieselbe Frage.
  *
  * `beiWahl` bekommt die vollständige Auswahl gemeldet; die Klassenansicht
@@ -421,6 +421,11 @@ export function bereichswahl({ titel = 'Bereiche wählen', hinweis = '', beiWahl
     breit: true,
     inhalt: h('div', {},
       hinweis ? h('p', { class: 'blatt__text' }, hinweis) : null,
+      // Die eigenen zuerst — danach sucht eine Lehrkraft, und es sind die
+      // wenigsten. Bis 1.8.5 fehlten sie hier ganz; ein eigener Satz ließ
+      // sich überhaupt nicht ausblenden.
+      gruppe('Eigene Bereiche', eigeneBereiche(),
+        'Was du selbst angelegt oder von einer Klasse bekommen hast. Von Haus aus alle an.'),
       gruppe('Themenbereiche', BEREICHE,
         'Grundwortschatz nach Inhalt — Schule, Tiere, Wetter. Von Haus aus alle an.'),
       gruppe('Rechtschreibung — 1. Schuljahr', RECHTSCHREIBUNG1,

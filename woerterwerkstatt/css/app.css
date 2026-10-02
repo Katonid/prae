@@ -1214,6 +1214,7 @@ a.knopf { text-decoration: none; display: inline-flex; align-items: center; }
 .farbwahl__knopf.is-aktiv { border-color: var(--tinte); transform: scale(1.14); }
 .mitgeben { display: grid; gap: 6px; }
 .mitgeben__eintrag { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.7); border: 1px solid var(--linie); }
+.mitgeben__zahl { margin-left: auto; font-size: 13px; color: var(--tinte-zart); white-space: nowrap; }
 
 /* ---------- Beitreten und QR ---------- */
 

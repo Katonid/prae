@@ -241,10 +241,17 @@ export function melde(ereignis, nutzlast) {
  */
 export function bereichSichtbar(bereich) {
   if (!bereich) return false;
-  if (bereich.eigen) return true;
   const gewaehlt = zustand.sichtbareBereiche[bereich.id];
   if (typeof gewaehlt === 'boolean') return gewaehlt;
-  return bereich.gruppe !== 'rechtschreibung';
+  // Ohne Wahl: eigene Bereiche und Themenbereiche an, Rechtschreibblöcke aus.
+  //
+  // Bis 1.8.5 stand hier ein `if (bereich.eigen) return true;` VOR der Frage
+  // nach der Wahl — ein eigener Bereich war damit unausblendbar, und zwar
+  // stillschweigend: Das Häkchen ließ sich setzen und hatte keine Wirkung.
+  // Gemeldet 10/2026 („WO kann ich auswählen, welche eigenen Lernwörtersätze
+  // einer Klasse gezeigt werden?"). Die Vorgabe bleibt „an" — wer nie etwas
+  // wählt, merkt von der Änderung nichts.
+  return Boolean(bereich.eigen) || bereich.gruppe !== 'rechtschreibung';
 }
 
 export function setzeBereichSichtbar(id, an) {
