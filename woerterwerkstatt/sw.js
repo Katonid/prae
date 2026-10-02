@@ -9,7 +9,7 @@
  * bleibt der alte Zwischenspeicher stehen.
  */
 
-const FASSUNG = 'v23';
+const FASSUNG = 'v24';
 const SPEICHER = `woerterwerkstatt-${FASSUNG}`;
 
 const DATEIEN = [
@@ -18,18 +18,30 @@ const DATEIEN = [
   './manifest.webmanifest',
   './css/app.css',
   './css/fonts.css',
+  // ALLE acht Schriftschnitte, auch die „-ext". Die tragen Latein
+  // Erweitert (U+0100–), und das sind in einer Grundschulklasse keine
+  // Sonderzeichen, sondern Namen: Łukasz, Şeyma, Zeynep Çelik, Mareike
+  // Jabłońska. Bis 1.8.4 fehlten drei davon hier — online fielen sie
+  // nicht auf, weil sie nachgeladen wurden; ohne Netz stand der Name
+  // des Kindes plötzlich in einer fremden Schrift.
   './fonts/andika-400-latin.woff2',
   './fonts/andika-400-latin-ext.woff2',
   './fonts/andika-700-latin.woff2',
+  './fonts/andika-700-latin-ext.woff2',
   './fonts/lexend-latin.woff2',
+  './fonts/lexend-latin-ext.woff2',
   './fonts/quicksand-latin.woff2',
+  './fonts/quicksand-latin-ext.woff2',
   './icons/icon.svg',
   './icons/icon-32.png',
   './icons/icon-120.png',
+  './icons/icon-144.png',
   './icons/icon-152.png',
   './icons/icon-167.png',
   './icons/icon-180.png',
   './icons/icon-192.png',
+  './icons/icon-256.png',
+  './icons/icon-384.png',
   './icons/icon-512.png',
   './icons/icon-192-maskable.png',
   './icons/icon-512-maskable.png',
@@ -104,6 +116,17 @@ self.addEventListener('fetch', (ereignis) => {
         }
         return antwort;
       })
-      .catch(() => caches.match(anfrage).then((gefunden) => gefunden || caches.match('./index.html'))),
+      .catch(() => caches.match(anfrage).then((gefunden) => {
+        if (gefunden) return gefunden;
+        // Auf die Startseite zurückfallen darf NUR ein Seitenaufruf. Ein
+        // Skript, ein Bild oder eine Schrift mit `index.html` zu beantworten
+        // hilft niemandem: Der Browser liest dann HTML als JavaScript und
+        // meldet „Unexpected token '<'" — eine Fehlermeldung, die auf nichts
+        // hinweist und beim Suchen des echten Fehlers im Weg steht. Ohne Netz
+        // passierte genau das zweimal, weil `cloud.js` die
+        // `firebase-config.js` an zwei Orten probiert.
+        if (anfrage.mode === 'navigate') return caches.match('./index.html');
+        return Response.error();
+      })),
   );
 });
