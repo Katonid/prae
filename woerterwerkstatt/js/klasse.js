@@ -25,12 +25,12 @@ import {
   klasseAnlegen, klasseHolen, klasseLoeschen, klassenDerLehrkraft, klasseAendern,
   klasseWiederEintragen,
   kindAnlegen, kindAnmelden, kindEntfernen, pinNeuSetzen, kindUmbenennen, namensschluessel,
-  fortschrittDerKlasse, fortschrittMelden,
+  fortschrittDerKlasse, fortschrittMelden, fortschrittHolen,
   protokollMelden, protokollDerKlasse, protokollLoeschen,
 } from './cloud.js';
 import {
   eigeneBereiche, bereichSichern, klassen, klasseMerken, klasseVergessen,
-  setzeNutzer, nutzer, daten, protokoll,
+  setzeNutzer, nutzer, daten, protokoll, fortschrittZusammenfuehren,
   setzeSichtbareBereiche,
 } from './store.js';
 import { BEREICHE } from './woerter.js';
@@ -1002,6 +1002,10 @@ export function beitreten(code, beiFertig, beimSchliessen = null) {
         }
       }
       setzeNutzer({ art: 'kind', name: kind.name, schluessel: kind.schluessel, klasse: gross });
+      // Erst anmelden, dann die eigenen Sterne nachholen — an einem frischen
+      // Gerät ist das Heft sonst leer, obwohl in der Klasse alles steht.
+      const zurueck = await fortschrittAbholen();
+      if (zurueck) meldung('Deine Sterne sind wieder da.', 'gut', 4000);
       dialog.schliessen();
       if (beiFertig) beiFertig(kind);
     } catch (problem) {
@@ -1104,6 +1108,32 @@ export async function klasseAuffrischen() {
     protokoll: klasse.protokoll !== false,
     ohnePin: klasse.ohnePin === true,
   });
+}
+
+/**
+ * Die Sterne aus der Klasse zurück aufs Gerät holen.
+ *
+ * Das Gegenstück zu `fortschrittHochladen`, nachgereicht in 1.8.3. Ohne das
+ * war der Fortschritt eine Einbahnstraße: Ein Kind an einem zweiten Gerät
+ * sah ein leeres Heft, obwohl seine Sterne in der Klasse standen, und ein
+ * Gerät, dem Safari den Speicher weggeräumt hat, kam auch nach dem Anmelden
+ * nicht wieder an sie heran (siehe `docs/woerterwerkstatt/ios.md`:
+ * „Safari räumt den Speicher von Seiten auf, die sieben Tage nicht benutzt
+ * wurden" — sechs Wochen Sommerferien sind länger).
+ *
+ * Zusammengeführt wird, nicht ersetzt: `fortschrittZusammenfuehren` nimmt je
+ * Päckchen und Stufe den höheren Stand. Gibt die Zahl der Einträge zurück,
+ * die dadurch dazukamen oder stiegen — null heißt „es gab nichts nachzuholen"
+ * und ist der Normalfall.
+ */
+export async function fortschrittAbholen() {
+  const angemeldetesKind = nutzer();
+  if (!angemeldetesKind || angemeldetesKind.art !== 'kind' || !angemeldetesKind.klasse) return 0;
+  // Ein Fehler darf hier nicht laut werden: Das Kind kann üben, auch wenn das
+  // Netz schweigt. Es bleibt bei dem, was auf dem Gerät steht.
+  const dort = await fortschrittHolen(angemeldetesKind.klasse, angemeldetesKind.schluessel)
+    .catch(() => null);
+  return fortschrittZusammenfuehren(dort);
 }
 
 /**

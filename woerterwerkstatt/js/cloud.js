@@ -518,6 +518,15 @@ export async function kindEntfernen(code, schluessel) {
  * Päckchen und Stufe, keine einzelnen Wörter und keine Eingaben. Was ein Kind
  * falsch getippt hat, geht niemanden etwas an außer dem Kind selbst.
  */
+/**
+ * Derselbe Weg zurück. `klassen/<CODE>` darf lesen, wer den Code hat — ein
+ * Kind kommt also an seinen eigenen Stand, ohne angemeldete Lehrkraft.
+ */
+export async function fortschrittHolen(code, schluessel) {
+  const gross = String(code).toUpperCase();
+  return anfrage(`${WURZEL}/klassen/${gross}/kinder/${schluessel}/fortschritt`);
+}
+
 export async function fortschrittMelden(code, schluessel, fortschritt) {
   const gross = String(code).toUpperCase();
   await schreiben(`${WURZEL}/klassen/${gross}/kinder/${schluessel}/fortschritt`, fortschritt);
