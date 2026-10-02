@@ -606,7 +606,7 @@ private struct TagAbschnitt: View {
                 DisclosureGroup(isExpanded: $fahrtenOffen) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(fahrten) { f in
-                            Fahrtzeile(spur: f, darf: darf)
+                            Fahrtzeile(spur: f, darf: darf, palette: reise.palette)
                         }
                     }
                     .padding(.top, 8)
@@ -662,34 +662,6 @@ private struct TagAbschnitt: View {
         .task(id: wetterStand) {
             wetter = await Wetternachtrag.tag(Tag.schluessel(tag), in: reise)
         }
-    }
-}
-
-/// Eine Autofahrt unter ihrem Tag: Name, Uhrzeit, Kilometer. Lange drücken
-/// → löschen.
-private struct Fahrtzeile: View {
-    @ObservedObject var spur: Spur
-    let darf: Bool
-    @ObservedObject private var farben = Kartenfarben.shared
-
-    var body: some View {
-        let punkte = spur.punktListe
-        let zone = Fahrtenimport.zone(spur)
-        let zeit = punkte.first.map { a in
-            Tag.text(a.datum, "HH:mm", zone: zone) + (punkte.last.map { "–" + Tag.text($0.datum, "HH:mm", zone: zone) } ?? "")
-        } ?? ""
-        let teile = [Fahrtenimport.anzeigename(spur), zeit, Tagesspurwahl.kilometertext(spur.distanz / 1000)]
-        Label(teile.filter { !$0.isEmpty }.joined(separator: " · "), systemImage: "car.fill")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(farben.fahrt)
-            .lineLimit(1)
-            .contextMenu {
-                if darf {
-                    Button(role: .destructive) { Fahrtenimport.loeschen(spur) } label: {
-                        Label("Fahrt entfernen", systemImage: "trash")
-                    }
-                }
-            }
     }
 }
 
