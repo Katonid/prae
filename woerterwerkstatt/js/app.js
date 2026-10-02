@@ -27,7 +27,7 @@ import { laufStarten } from './lauf.js';
 import { einstellungenZeigen } from './einstellungen.js';
 import { bereicheVerwalten } from './bereiche.js';
 import {
-  lehrkraftAnmeldung, klassenVerwalten, beitreten, fortschrittHochladen,
+  lehrkraftAnmeldung, klassenVerwalten, beitreten, fortschrittHochladen, fortschrittAbholen,
   anmeldenMitCode, klasseAuffrischen,
 } from './klasse.js';
 import { angemeldet, wolkeStarten, abmelden, beiKontoWechsel, verwaltungPruefen } from './cloud.js';
@@ -481,6 +481,16 @@ async function start() {
   // gebraucht — scheitert sie, läuft alles andere weiter.
   wolkeStarten()
     .then(() => { kopfleisteZeichnen(); return klasseAuffrischen(); })
+    // Und dann die eigenen Sterne nachholen. Meistens kommt null zurück —
+    // dann geschieht hier nichts. Etwas kommt zurück, wenn das Kind an einem
+    // zweiten Gerät sitzt oder der Browser den Speicher geräumt hat; dann
+    // muss die Bühne neu gezeichnet werden, denn sie steht schon.
+    .then(() => fortschrittAbholen())
+    .then((zurueck) => {
+      if (!zurueck) return;
+      if (document.body.classList.contains('is-uebend')) return;
+      if (zeigtBereiche()) bereicheZeigen();
+    })
     .catch(() => {});
   beiKontoWechsel(() => kopfleisteZeichnen());
 

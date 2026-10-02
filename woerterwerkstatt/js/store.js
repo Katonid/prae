@@ -404,6 +404,58 @@ export function sterne(richtig, gesamt) {
   return 0;
 }
 
+/**
+ * Sterne aus der Wolke mit denen auf diesem Gerät zusammenführen.
+ *
+ * Der Fortschritt war bis 1.8.2 eine Einbahnstraße: Er ging als Sternzahl an
+ * die Klasse hoch und kam nie zurück. Zwei Folgen, beide schon gemeldet —
+ * ein Kind am zweiten iPad fängt bei null an, und Safari räumt den Speicher
+ * einer Web-App weg, die sieben Tage nicht geöffnet wurde
+ * (`docs/woerterwerkstatt/ios.md`). Nach sechs Wochen Sommerferien wäre ein
+ * ganzes Schuljahr Sterne fort, obwohl es in der Datenbank steht.
+ *
+ * Genommen wird je Päckchen und Stufe der HÖHERE Stand, nie der neuere: Wer
+ * zu Hause drei Sterne geholt hat, verliert sie nicht dadurch, dass er in der
+ * Schule an einem frischen Gerät noch einmal anfängt.
+ *
+ * Der Schlüssel muss umgerechnet werden. Firebase verbietet in Schlüsseln
+ * `.`, `#`, `$`, `/`, `[` und `]`; `fortschrittHochladen` ersetzt sie durch
+ * `_`, aus `k1-endung-el#2#salat` wird also `k1-endung-el_2_salat`. Zurück
+ * geht das, weil Bereichskennungen nur Kleinbuchstaben, Ziffern und
+ * Bindestriche enthalten (die Datenlisten ebenso wie `kennung()`) und
+ * Stufenkennungen nur Kleinbuchstaben: Das letzte `_Zahl_wort` ist immer die
+ * Trennstelle. Wer Kennungen mit anderen Zeichen einführt, bricht das hier.
+ */
+function schluesselAusDerWolke(schluessel) {
+  const teile = /^(.+)_(\d+)_([a-z]+)$/.exec(String(schluessel));
+  return teile ? `${teile[1]}#${teile[2]}#${teile[3]}` : null;
+}
+
+export function fortschrittZusammenfuehren(fremd) {
+  if (!fremd || typeof fremd !== 'object') return 0;
+  let gewachsen = 0;
+  for (const [wolke, dort] of Object.entries(fremd)) {
+    const sterneDort = Number(dort && dort.sterne) || 0;
+    if (!sterneDort) continue;
+    const schluessel = schluesselAusDerWolke(wolke);
+    if (!schluessel) continue;
+    const hier = zustand.fortschritt[schluessel] || null;
+    if (hier && (hier.sterne || 0) >= sterneDort) continue;
+    // Aus der Wolke kommen nur Sterne und Zeitpunkt — was ein Kind im
+    // Einzelnen getippt hat, reist nicht mit. Ein wiederhergestellter Eintrag
+    // trägt deshalb kein `bestRichtig`; gelesen wird davon ohnehin nur
+    // `sterne` (Kacheln, Sternsumme, Weiterweg).
+    zustand.fortschritt[schluessel] = Object.assign({}, hier, {
+      sterne: sterneDort,
+      zuletzt: Math.max((hier && hier.zuletzt) || 0, Number(dort.zuletzt) || 0),
+      ausDerWolke: true,
+    });
+    gewachsen += 1;
+  }
+  if (gewachsen) sichere();
+  return gewachsen;
+}
+
 export function sterneImBereich(bereichId, pakete, stufen) {
   let summe = 0;
   for (let p = 0; p < pakete; p += 1) {

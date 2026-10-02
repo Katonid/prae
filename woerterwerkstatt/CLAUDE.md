@@ -291,6 +291,35 @@
     die Daten erzeugt, darf sie sehen.
 - **Sterne gehen weiterhin an die Klasse**, und keine Rangliste zwischen
   Kindern, nirgends.
+- **Und sie kommen wieder zurück** (ab 1.8.3). Bis dahin war der Fortschritt
+  eine Einbahnstraße: hoch zur Klasse, nie zurück aufs Gerät. Zwei Folgen —
+  ein Kind an einem zweiten iPad sah ein leeres Heft, obwohl seine Sterne in
+  der Datenbank standen, und ein Gerät, dem der Browser den Speicher
+  weggeräumt hat, bekam sie auch nach dem Anmelden nicht wieder. Das ist kein
+  Randfall: Safari löscht den Speicher von Web-Apps, die sieben Tage nicht
+  benutzt wurden (`docs/woerterwerkstatt/ios.md`), und Sommerferien dauern
+  sechs Wochen. `fortschrittAbholen()` holt den Stand beim Anmelden und bei
+  jedem Start; `fortschrittZusammenfuehren()` nimmt je Päckchen und Stufe den
+  HÖHEREN Stand, nie den neueren — wer zu Hause drei Sterne geholt hat, soll
+  sie nicht verlieren, weil er in der Schule an einem frischen Gerät noch
+  einmal anfängt.
+  - **Der Schlüssel muss zurückgerechnet werden.** Firebase verbietet in
+    Schlüsseln `.`, `#`, `$`, `/`, `[`, `]`; hochgeladen wird deshalb
+    `k1-endung-el_2_salat` statt `k1-endung-el#2#salat`. Umkehrbar ist das
+    NUR, solange Bereichskennungen aus Kleinbuchstaben, Ziffern und
+    Bindestrichen bestehen und Stufenkennungen aus Kleinbuchstaben (beides
+    gilt, auch für `kennung()`). Wer eine Kennung mit einem Unterstrich oder
+    einem Großbuchstaben einführt, macht aus zurückgeholten Sternen stumm
+    verworfene.
+  - Ein wiederhergestellter Eintrag trägt `ausDerWolke: true` und KEIN
+    `bestRichtig` — hochgeladen werden nur Sterne und Zeitpunkt. Gelesen wird
+    von einem Fortschrittseintrag ohnehin nur `sterne`; wer das ändert, prüft
+    genau diesen Fall.
+  - Das Wortprotokoll kommt NICHT zurück. Es gehört der Lehrkraft, nicht dem
+    Gerät, und ein Kind soll seine alten Fehleingaben nicht auf einem
+    fremden iPad wiederfinden.
+  - Der angefangene Durchgang (`store.laeufe`) bleibt ebenfalls auf dem
+    Gerät — das war schon bei 1.7.0 so entschieden und ändert sich hier nicht.
 - **CSS schreibt keine deutschen Wörter groß** (ab 1.7.1). `text-transform:
   uppercase` macht aus „Saß auf Anhieb" ein „SASS AUF ANHIEB" — die
   Großschreibregel für ß ist SS, und der Browser wendet sie an. In einer
