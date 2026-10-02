@@ -44,15 +44,39 @@ let verwaltungsrecht = null; // Schulverwaltung: null = ungeprüft (siehe unten)
 let verwaltungsfrage = null; // die laufende Prüfung, damit nicht zwei losgehen
 const horcher = new Set();
 
-function konfigLaden() {
+/*
+ * Die Konfiguration liegt im Repo eine Ebene höher, weil der Klassenraum
+ * dieselbe benutzt. In einem App-Bündel gibt es dieses „eine Ebene höher"
+ * nicht — dort liegt alles nebeneinander. `docs/woerterwerkstatt/ios.md`
+ * führte das als die eine Zeile auf, die beim Umzug anzufassen wäre; billiger
+ * ist, hier beide Orte zu probieren — dann ist beim Umzug nichts mehr zu tun,
+ * und wer die Datei danebenlegt, hat recht damit.
+ *
+ * Die Reihenfolge ist nicht beliebig: Das Wurzelverzeichnis ZUERST, denn so
+ * liegt es heute auf der Seite. Andersherum holte sich jeder Start erst eine
+ * 404 ab, bevor er die Datei fände.
+ */
+const KONFIGORTE = ['../firebase-config.js', './firebase-config.js'];
+
+function skriptLaden(adresse) {
   return new Promise((fertig, fehler) => {
-    if (window.firebaseConfig) { fertig(window.firebaseConfig); return; }
     const knoten = document.createElement('script');
-    knoten.src = '../firebase-config.js';
-    knoten.addEventListener('load', () => fertig(window.firebaseConfig));
-    knoten.addEventListener('error', () => fehler(new Error('Keine Konfiguration gefunden')));
+    knoten.src = adresse;
+    knoten.addEventListener('load', () => fertig());
+    knoten.addEventListener('error', () => fehler(new Error(adresse)));
     document.head.appendChild(knoten);
   });
+}
+
+async function konfigLaden() {
+  if (window.firebaseConfig) return window.firebaseConfig;
+  for (const ort of KONFIGORTE) {
+    // Ein fehlendes Skript ist hier kein Fehler, sondern die Auskunft
+    // „nicht hier" — erst wenn kein Ort etwas hergibt, ist es einer.
+    await skriptLaden(ort).catch(() => {});
+    if (window.firebaseConfig) return window.firebaseConfig;
+  }
+  throw new Error('Keine Konfiguration gefunden');
 }
 
 function kontoHolen() {

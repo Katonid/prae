@@ -39,6 +39,8 @@ steht, das nicht reines HTML ist:
 | `inZwischenablage(text)` | `navigator.clipboard` | `UIPasteboard` |
 | `bleibWach(an)` | `navigator.wakeLock` | `UIApplication.isIdleTimerDisabled` |
 | `vollbild(an)` | `requestFullscreen` | entfällt (die App IST Vollbild) |
+| `kannScannen()` | `BarcodeDetector` (Chrome, nicht Safari) | immer `true` |
+| `qrScannen(bild)` | Kamera ins `<video>`, `BarcodeDetector` liest | `AVCaptureSession` |
 | `nativ()` / `alsApp()` | `display-mode: standalone` | meldet `true` |
 
 Jede Funktion prüft zuerst, ob sich unter `window.wwBruecke` eine native Hülle
@@ -68,9 +70,11 @@ Alle Pfade sind relativ (`./js/…`), und der Wegweiser läuft über
 `window.location.hash`. Beides funktioniert auch, wenn die App nicht unter
 `/prae/woerterwerkstatt/` liegt, sondern aus einem Bündel geladen wird.
 
-Eine Ausnahme, die beim Umzug anzufassen ist: `js/cloud.js` lädt
-`../firebase-config.js` aus dem Wurzelverzeichnis des Repos. In einer Hülle
-muss diese Datei ins Bündel und der Pfad angepasst werden — eine Zeile.
+Die eine Ausnahme, die hier früher stand, ist erledigt: `js/cloud.js` suchte
+`../firebase-config.js` fest im Wurzelverzeichnis des Repos, was es in einem
+Bündel nicht gibt. Seit 1.8.4 probiert `KONFIGORTE` beide Orte — erst das
+Wurzelverzeichnis (so liegt es auf der Seite), dann den eigenen Ordner (so
+läge es im Bündel). Beim Umzug ist daran nichts mehr zu tun.
 
 ### Sichere Ränder und Standalone-Verhalten
 
@@ -124,12 +128,20 @@ Sprachausgabe) — und dann mit einer Brücke, die genug beiträgt, um Richtlini
 
 ## Was in beiden Fällen zu tun ist
 
-1. **Kamera für den Klassen-Beitritt.** Heute scannen die Kinder den QR-Code
-   mit der Kamera-App des iPads, die dann Safari öffnet. In einer nativen App
-   gehört ein eigener Scanner hinein (`AVCaptureSession` mit
-   `AVMetadataMachineReadableCodeObject`) — das ist zugleich das stärkste
-   Argument gegen Richtlinie 4.2. Der Code steht schon fertig in der Adresse
-   (`#/beitreten/ABC234`), es fehlt nur der Weg von der Kamera dorthin.
+1. **Kamera für den Klassen-Beitritt** — *der Weg dorthin steht seit 1.8.4.*
+   `kannScannen()` und `qrScannen(bild)` in `js/plattform.js` führen von der
+   Kamera zum Code, `codeAusScan()` in `js/klasse.js` holt die sechs Zeichen
+   aus dem Gelesenen (aus der vollen Adresse oder aus einem aufgedruckten
+   Code — und aus nichts sonst, damit eine Milchpackung nicht als Klassencode
+   durchgeht). Im Browser trägt das `BarcodeDetector`: Chrome und Chromebooks
+   können es, **Safari nicht**, dort erscheint der Knopf gar nicht erst.
+
+   Eine native Hülle muss deshalb nur `qrScannen()` bereitstellen
+   (`AVCaptureSession` mit `AVMetadataMachineReadableCodeObject`, Versprechen
+   auf den Text oder `null`) und darf `qrAbbrechen()` dazulegen — an der
+   übrigen App ändert sich keine Zeile. Das ist zugleich das stärkste Argument
+   gegen Richtlinie 4.2, und auf einem Schul-iPad im geführten Zugriff der
+   einzige Weg, der ohne die Kamera-App auskommt.
 2. **`ITSAppUsesNonExemptEncryption = NO`** setzen, als Build-Einstellung
    `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` oder in der `Info.plist`.
    Ohne das fragt App Store Connect bei **jedem** TestFlight-Build nach der
@@ -146,13 +158,17 @@ Sprachausgabe) — und dann mit einer Brücke, die genug beiträgt, um Richtlini
    `docs/tafelbild/datenschutz.html`. Was gemeldet wird, ist knapp gehalten
    (nur Sterne je Päckchen, nie einzelne Eingaben) — das ist beim Ausfüllen der
    Angaben die halbe Miete.
-6. **Umzug des Fortschritts.** Wer die App schon im Browser genutzt hat, findet
-   in der nativen Hülle einen leeren Speicher (andere Herkunft). Zwei
-   Möglichkeiten: Beim ersten Start die Web-Fassung im `WKWebView` unter der
-   alten Adresse laden und den Zustand einmal überspielen — oder, viel
-   einfacher, das Kind meldet sich mit Name und PIN an und holt sich seinen
-   Stand aus der Klasse. Dafür ist der Fortschritt in der Klasse schon
-   vorgesehen; es fehlt nur das Zurückholen.
+6. **Umzug des Fortschritts** — *erledigt in 1.8.3.* Wer die App schon im
+   Browser genutzt hat, findet in der nativen Hülle einen leeren Speicher
+   (andere Herkunft). Das Kind meldet sich mit Name und PIN an und hat seinen
+   Stand wieder: `fortschrittAbholen()` in `js/klasse.js` holt die Sterne aus
+   der Klasse, `fortschrittZusammenfuehren()` in `js/store.js` nimmt je
+   Päckchen und Stufe den höheren Stand. Beim ersten Start die Web-Fassung
+   unter der alten Adresse zu laden und den Zustand zu überspielen, ist damit
+   nicht mehr nötig.
+
+   Nebenbei hat das einen Mangel geheilt, der nichts mit iOS zu tun hat: Am
+   zweiten Gerät fing dasselbe Kind bis dahin bei null an.
 7. **Bau in GitHub Actions eintragen.** Die App-Liste steht in
    `.github/scripts/welche-apps.py` und in den `options` von
    `.github/workflows/ios-apps-build.yml` — an beiden Stellen.

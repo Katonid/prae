@@ -19,7 +19,7 @@
 import { h, leeren, datum } from './util.js';
 import { blatt, abschnitt, zeile, schalter, frage, eingabe, ladeplatz, meldung } from './ui.js';
 import { qrSvg } from './qr.js';
-import { inZwischenablage } from './plattform.js';
+import { inZwischenablage, kannScannen, qrScannen } from './plattform.js';
 import {
   kontenVerfuegbar, anmelden, kontoAnlegen, klartext, regelnPruefen, angemeldet, verwaltungPruefen,
   klasseAnlegen, klasseHolen, klasseLoeschen, klassenDerLehrkraft, klasseAendern,
@@ -46,6 +46,22 @@ import { bereichswahl } from './bereiche.js';
 export function beitrittsadresse(code) {
   const grund = `${window.location.origin}${window.location.pathname}`;
   return `${grund}#/beitreten/${String(code).toUpperCase()}`;
+}
+
+/**
+ * Der Code aus dem, was die Kamera gelesen hat.
+ *
+ * Im QR-Code steht die volle Adresse (`…#/beitreten/ABC234`), aber es kann
+ * auch jemand einen Code auf einen Zettel gedruckt haben. Beides wird
+ * angenommen, alles andere nicht: Ein fremder QR-Code — eine Milchpackung,
+ * ein Plakat — darf nicht als Klassencode durchgehen und das Kind in ein
+ * Blatt schicken, das dann „Diese Klasse gibt es nicht" sagt.
+ */
+export function codeAusScan(text) {
+  const gross = String(text || '').trim().toUpperCase();
+  const inAdresse = /#\/BEITRETEN\/([A-Z0-9]{6})/.exec(gross);
+  if (inAdresse) return inAdresse[1];
+  return /^[A-Z0-9]{6}$/.test(gross) ? gross : null;
 }
 
 /**
@@ -1069,15 +1085,62 @@ export function anmeldenMitCode(beiFertig) {
     if (ereignis.key === 'Enter') { ereignis.preventDefault(); weiter(); }
   });
 
+  // ---- Der Weg über die Kamera ----
+  //
+  // Nur ein ZWEITER Weg. Getippt wird nach wie vor, und wenn das Gerät nicht
+  // scannen kann (Safari kennt `BarcodeDetector` nicht), erscheint der Knopf
+  // gar nicht erst — ein Knopf, der nichts tut, ist schlimmer als keiner.
+  const bild = h('video', { class: 'scanner__bild', playsinline: '', muted: '' });
+  const scanner = h('div', { class: 'scanner', hidden: '' },
+    bild,
+    h('p', { class: 'scanner__hinweis' }, 'Halt die Kamera auf den QR-Code an der Tafel.'));
+  let laufenderScan = null;
+
+  const scanBeenden = () => {
+    if (laufenderScan) { laufenderScan.abbrechen(); laufenderScan = null; }
+    scanner.hidden = true;
+  };
+
+  const scanStarten = async () => {
+    fehler.textContent = '';
+    scanner.hidden = false;
+    laufenderScan = qrScannen(bild);
+    const gelesen = await laufenderScan.gelesen;
+    // Abgebrochen, während wir warteten: dann hat `scanBeenden` schon
+    // aufgeräumt und das Blatt ist vielleicht längst zu.
+    if (!laufenderScan) return;
+    scanBeenden();
+    if (gelesen === null) {
+      fehler.textContent = 'Die Kamera ging nicht auf. Tipp den Code einfach ein.';
+      return;
+    }
+    const code = codeAusScan(gelesen);
+    if (!code) {
+      fehler.textContent = 'Das war kein Klassencode. Tipp die sechs Zeichen ein.';
+      return;
+    }
+    codefeld.value = code;
+    weiter();
+  };
+
+  const scanknopf = h('button', { class: 'knopf', type: 'button', onclick: scanStarten },
+    '\u{1F4F7} Code scannen');
+
+  const knopfreihe = h('div', { class: 'blatt__knopfreihe' },
+    h('button', { class: 'knopf knopf--voll knopf--gross', type: 'button', onclick: weiter }, 'Weiter'));
+  if (kannScannen()) knopfreihe.prepend(scanknopf);
+
   const dialog = blatt({
     titel: 'Mitmachen',
+    // Die Kamera MUSS wieder zugehen, auch wenn das Blatt über das Kreuz oder
+    // die Zurück-Taste verschwindet. Eine Leuchte, die danach weiterbrennt,
+    // erschreckt zu Recht.
+    beimSchliessen: scanBeenden,
     inhalt: h('div', {},
       h('p', { class: 'blatt__text' },
         'Tipp den Klassencode ein — die sechs Zeichen stehen unter dem QR-Code an der Tafel. '
         + 'Danach kommen dein Name und deine PIN.'),
-      codefeld, fehler,
-      h('div', { class: 'blatt__knopfreihe' },
-        h('button', { class: 'knopf knopf--voll knopf--gross', type: 'button', onclick: weiter }, 'Weiter'))),
+      codefeld, scanner, fehler, knopfreihe),
   });
   return dialog;
 }

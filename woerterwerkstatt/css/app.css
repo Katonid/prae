@@ -1265,6 +1265,32 @@ a.knopf { text-decoration: none; display: inline-flex; align-items: center; }
   font-size: 28px;
 }
 
+/* Das Kamerabild beim Scannen des Klassencodes. Höhe begrenzt, damit das
+   Blatt auf einem Telefon nicht über den Rand wächst und der Knopf
+   „Weiter" unerreichbar wird. */
+.scanner { margin: 12px 0 4px; }
+
+.scanner__bild {
+  display: block;
+  width: 100%;
+  /* Das Seitenverhältnis MUSS stehen, bevor das erste Kamerabild da ist.
+     Sonst ist das <video> einen Augenblick lang null Pixel hoch, das Blatt
+     springt beim ersten Bild auf, und wer die Kamera erlaubt hat, sieht
+     dazwischen nichts und drückt noch einmal. */
+  aspect-ratio: 4 / 3;
+  max-height: 46vh;
+  border-radius: 14px;
+  background: #000;
+  object-fit: cover;
+}
+
+.scanner__hinweis {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--tinte-zart);
+}
+
 .kopf__knopf--voll { background: var(--akzent-verlauf); color: #fff; border-color: transparent; box-shadow: var(--akzent-schein); }
 
 /* ---------- Wortbefunde (was die Kinder geschrieben haben) ---------- */
