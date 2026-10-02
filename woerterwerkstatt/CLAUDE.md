@@ -88,11 +88,12 @@
   - **Die Kamera MUSS wieder ausgehen**, auch wenn das Blatt über das Kreuz,
     den Hintergrund oder die Zurück-Taste verschwindet (`beimSchliessen`).
     Eine Leuchte, die danach weiterbrennt, erschreckt zu Recht — in einer
-    Grundschule zu Recht besonders. Die **Anmeldung ohne
-  PIN** ist je Klasse zuschaltbar (`klasse.ohnePin`), aus als Vorgabe: Wer den
-  Code hat, käme sonst als jedes Kind hinein. Ein NEUES Kind braucht immer eine
-  PIN. Der Klassencode kennt kein I, O, 0 oder 1 — deshalb wird bei der Eingabe
-  NICHT geraten und umgewandelt, sondern nur großgeschrieben.
+    Grundschule zu Recht besonders.
+  - Die **Anmeldung ohne PIN** ist je Klasse zuschaltbar (`klasse.ohnePin`),
+    aus als Vorgabe: Wer den Code hat, käme sonst als jedes Kind hinein. Ein
+    NEUES Kind braucht immer eine PIN. Der Klassencode kennt kein I, O, 0 oder
+    1 — deshalb wird bei der Eingabe NICHT geraten und umgewandelt, sondern nur
+    großgeschrieben.
 - **Wortformen stehen in den Daten, sie werden NIE gerechnet** (`woerter.js`,
   600 Wörter in 20 Bereichen; `rechtschreibung.js`, 405 in 27 Blöcken). Die deutsche Mehrzahl ist nicht regelmäßig
   (Baum → Bäume, aber Wort → Wörter und Ort → Orte). Eine erfundene Form, die
@@ -388,3 +389,20 @@
 - Die Fassungsnummer steht in `js/version.js` UND in `sw.js` (`FASSUNG`) — der
   Service Worker lädt keine Module. Beide bei jeder neuen Fassung hochsetzen,
   sonst bleibt der alte Zwischenspeicher stehen.
+- **Nach jeder Änderung an Dateien, Symbolen oder Schriften
+  `dateien-pruefen.mjs` laufen lassen**
+  (`node woerterwerkstatt/scripts/dateien-pruefen.mjs`). `caches.addAll()` ist
+  ALLES ODER NICHTS, und `sw.js` fängt den Fehlschlag ab, damit eine kaputte
+  Liste die App nicht am Starten hindert — die Folge ist ein Zwischenspeicher,
+  der LEER bleibt, während online alles weiterläuft. Auffallen würde das erst
+  ohne Netz. Andersherum ebenso still: Bis 1.8.5 fehlten DREI der acht
+  Schriftschnitte in der Liste, die „-ext"-Dateien mit Latein Erweitert. Online
+  wurden sie nachgeladen und niemand merkte es; ohne Netz stand der Name eines
+  Kindes plötzlich in einer fremden Schrift — und zwar genau bei Łukasz, Şeyma
+  oder Jabłońska. In einer Grundschule ist das keine Randgruppe.
+- **Für einen eigenen Webspace braucht es `firebase-config.js` DANEBEN.** Die
+  Datei liegt im Repo eine Ebene über der App, weil der Klassenraum dieselbe
+  benutzt; `KONFIGORTE` in `cloud.js` probiert seit 1.8.4 beide Orte, also
+  genügt es, sie neben die `index.html` zu legen. Sie enthält kein Geheimnis —
+  ein Firebase-Web-Schlüssel steht in jedem Client, der Schutz kommt
+  ausschließlich aus den Datenbankregeln.
