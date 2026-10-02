@@ -72,7 +72,23 @@
     sie nicht ab. Wortgruppen sind `x`.
 - **Drei Wege hinein für Kinder**: QR-Code, Link, oder Code abtippen („👋
   Mitmachen" in der Kopfzeile). Der dritte ist der wichtigste — ohne ihn kommt
-  ein Kind auf einem frischen Gerät gar nicht hinein. Die **Anmeldung ohne
+  ein Kind auf einem frischen Gerät gar nicht hinein. Seit 1.8.4 kann die App
+  den QR-Code auch SELBST lesen („📷 Code scannen" im selben Blatt): Das
+  spart den Umweg über die Kamera-App, der auf einem Schul-iPad im geführten
+  Zugriff oft versperrt ist. Getragen wird das von `BarcodeDetector` —
+  Chrome und Chromebooks können das, **Safari nicht**, dort erscheint der
+  Knopf gar nicht erst (`kannScannen()`). Einen eigenen Decoder dafür zu
+  schreiben wäre falsch: `qr.js` ZEICHNET Codes, und Lesen ist die ungleich
+  schwerere Hälfte. Das Abtippen bleibt der verlässliche Weg; der Knopf
+  ersetzt ihn nicht.
+  - **Was die Kamera liefert, ist noch kein Klassencode.** `codeAusScan()`
+    nimmt die volle Beitrittsadresse und einen aufgedruckten Sechszeiler an —
+    und sonst nichts. Ohne diese Prüfung schickte eine Milchpackung das Kind
+    in ein Blatt, das „Diese Klasse gibt es nicht" sagt.
+  - **Die Kamera MUSS wieder ausgehen**, auch wenn das Blatt über das Kreuz,
+    den Hintergrund oder die Zurück-Taste verschwindet (`beimSchliessen`).
+    Eine Leuchte, die danach weiterbrennt, erschreckt zu Recht — in einer
+    Grundschule zu Recht besonders. Die **Anmeldung ohne
   PIN** ist je Klasse zuschaltbar (`klasse.ohnePin`), aus als Vorgabe: Wer den
   Code hat, käme sonst als jedes Kind hinein. Ein NEUES Kind braucht immer eine
   PIN. Der Klassencode kennt kein I, O, 0 oder 1 — deshalb wird bei der Eingabe
@@ -333,7 +349,7 @@
   passiert dabei schlicht nichts. Für Ja/Nein gibt es `frage()`, für eine
   Eingabe `eingabe()`, beide in `js/ui.js`.
 - **Alles Plattformnahe läuft über `js/plattform.js`** — Sprachausgabe, Haptik,
-  Zwischenablage, Bildschirm wach halten, Vollbild. Das ist die einzige Datei,
+  Zwischenablage, Bildschirm wach halten, Vollbild, QR-Code lesen. Das ist die einzige Datei,
   die eine native Hülle bedienen müsste; wer irgendwo direkt
   `speechSynthesis` aufruft, verschiebt die Portierungsarbeit von einer Datei
   auf alle. Der Weg zu einer iOS-App steht in `docs/woerterwerkstatt/ios.md`.

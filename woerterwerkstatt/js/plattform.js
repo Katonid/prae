@@ -165,6 +165,92 @@ export async function bleibWach(an) {
   }
 }
 
+/* ---------- QR-Code lesen (Beitritt zur Klasse) ---------- */
+
+/**
+ * Kann dieses Gerät einen QR-Code einlesen?
+ *
+ * Heute scannen die Kinder den Code mit der Kamera-App des iPads, die dann
+ * Safari öffnet (`docs/woerterwerkstatt/ios.md`, Punkt 1). Auf einem
+ * Schul-iPad im geführten Zugriff ist dieser Weg oft versperrt, und in einer
+ * nativen Hülle gehört ein eigener Scanner hinein.
+ *
+ * Deshalb steht der Weg von der Kamera zum Code ab hier in der Brücke —
+ * dieselbe Stelle, die später die Hülle bedient. Im Browser trägt ihn
+ * `BarcodeDetector`: Chrome und Chromebooks können das, Safari nicht. Das ist
+ * kein Grund, einen eigenen Decoder zu schreiben (der QR-Code wird in
+ * `qr.js` nur GEZEICHNET, und Lesen ist die ungleich schwerere Hälfte) —
+ * wer nicht scannen kann, tippt die sechs Zeichen ein. Dieser Weg bleibt der
+ * wichtigste und wird durch den Knopf nicht ersetzt.
+ */
+export function kannScannen() {
+  const b = bruecke();
+  if (b && typeof b.qrScannen === 'function') return true;
+  return Boolean(window.BarcodeDetector && navigator.mediaDevices
+    && typeof navigator.mediaDevices.getUserMedia === 'function');
+}
+
+/**
+ * Die Kamera öffnen und auf einen QR-Code warten.
+ *
+ * Gibt `{ gelesen, abbrechen }` zurück: `gelesen` ist ein Versprechen auf den
+ * gefundenen Text oder `null` (abgebrochen, keine Erlaubnis, nichts gefunden),
+ * `abbrechen()` macht die Kamera wieder zu. Die Kamera MUSS wieder zugehen —
+ * eine Leuchte, die nach dem Schließen des Blattes weiterbrennt, erschreckt
+ * zu Recht.
+ *
+ * Im Browser läuft das Bild in das übergebene `<video>`. Eine native Hülle
+ * bringt ihre eigene Oberfläche mit und bekommt es gar nicht erst zu sehen;
+ * sie stellt `qrScannen()` (Versprechen auf Text oder null) und, wenn sie mag,
+ * `qrAbbrechen()` bereit.
+ */
+export function qrScannen(bild) {
+  const b = bruecke();
+  if (b && typeof b.qrScannen === 'function') {
+    return {
+      gelesen: Promise.resolve().then(() => b.qrScannen()).then((x) => (x ? String(x) : null)).catch(() => null),
+      abbrechen: () => { try { if (typeof b.qrAbbrechen === 'function') b.qrAbbrechen(); } catch (_) { /* egal */ } },
+    };
+  }
+
+  let laeuft = true;
+  let strom = null;
+  const abbrechen = () => {
+    laeuft = false;
+    if (!strom) return;
+    strom.getTracks().forEach((spur) => { try { spur.stop(); } catch (_) { /* egal */ } });
+    strom = null;
+  };
+
+  const gelesen = (async () => {
+    if (!kannScannen()) return null;
+    const leser = new window.BarcodeDetector({ formats: ['qr_code'] });
+    // Die rückwärtige Kamera, sonst filmt das iPad das Kind statt der Tafel.
+    strom = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    if (!laeuft) { abbrechen(); return null; }
+    bild.srcObject = strom;
+    // Ohne `playsinline` reißt iOS das Video ins Vollbild und das Blatt
+    // darunter ist weg.
+    bild.setAttribute('playsinline', '');
+    bild.muted = true;
+    await bild.play().catch(() => {});
+    while (laeuft) {
+      try {
+        const treffer = await leser.detect(bild);
+        if (treffer && treffer.length && treffer[0].rawValue) {
+          const text = String(treffer[0].rawValue);
+          abbrechen();
+          return text;
+        }
+      } catch (_) { /* ein einzelnes Bild zu verlieren ist belanglos */ }
+      await new Promise((warte) => { setTimeout(warte, 200); });
+    }
+    return null;
+  })().catch(() => { abbrechen(); return null; });
+
+  return { gelesen, abbrechen };
+}
+
 /**
  * Vollbild für den Beamer. In einer nativen Hülle gibt es kein Vollbild —
  * dort IST die App schon Vollbild, also passiert nichts.

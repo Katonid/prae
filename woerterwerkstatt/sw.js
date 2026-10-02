@@ -9,7 +9,7 @@
  * bleibt der alte Zwischenspeicher stehen.
  */
 
-const FASSUNG = 'v22';
+const FASSUNG = 'v23';
 const SPEICHER = `woerterwerkstatt-${FASSUNG}`;
 
 const DATEIEN = [
