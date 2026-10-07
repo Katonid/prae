@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Rufnummer-Detektiv</title>
+    <meta name="description" content="Wem gehört diese Nummer? Ort, Netz und mögliche Firmenzentrale ablesen, mit eigenem Nummernbuch und Kontakten abgleichen, Rückwärtssuche mit einem Tipp. Alles bleibt auf dem Gerät." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#11141a" media="(prefers-color-scheme: dark)" />
+    <!-- Hell/Dunkel VOR dem ersten Zeichnen setzen, sonst blitzt beim Start
+         kurz die Geräteeinstellung auf. Gleicher Schlüssel wie in js/app.js. -->
+    <script>
+      try {
+        var thema = localStorage.getItem('rn-thema');
+        if (thema === 'hell' || thema === 'dunkel') document.documentElement.dataset.thema = thema;
+      } catch (e) { /* privates Fenster: Geräteeinstellung */ }
+    </script>
+    <!-- iOS nimmt für den Homescreen das apple-touch-icon, nicht das Manifest. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="./icons/icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="./icons/icon-120.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Rufnummer" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body>
+    <header class="kopf">
+      <h1>Rufnummer-Detektiv</h1>
+      <div class="kopf__knoepfe">
+        <button type="button" id="info-knopf" class="rund" aria-label="Über die App">i</button>
+        <button type="button" id="thema-knopf" class="rund" aria-label="Darstellung: automatisch"></button>
+      </div>
+    </header>
+
+    <main class="seite">
+      <form id="suche" class="karte eingabe" autocomplete="off">
+        <label for="nummer" class="eingabe__titel">Rufnummer</label>
+        <div class="eingabe__zeile">
+          <input id="nummer" name="nummer" type="tel" inputmode="tel" autocomplete="off"
+                 autocorrect="off" spellcheck="false" placeholder="z. B. 0234 910-1234" />
+          <button type="button" id="leeren" class="rund rund--klein" aria-label="Eingabe leeren" hidden>✕</button>
+        </div>
+        <div class="eingabe__knoepfe">
+          <button type="button" id="einfuegen" class="knopf knopf--zweit">Einfügen</button>
+          <button type="submit" class="knopf">Prüfen</button>
+        </div>
+      </form>
+
+      <div id="ergebnis" aria-live="polite"></div>
+
+      <section class="karte ablage" aria-label="Eigene Daten">
+        <div class="reiter" role="tablist">
+          <button type="button" role="tab" data-reiter="buch" aria-selected="true">Nummernbuch</button>
+          <button type="button" role="tab" data-reiter="kontakte" aria-selected="false">Kontakte</button>
+          <button type="button" role="tab" data-reiter="verlauf" aria-selected="false">Verlauf</button>
+        </div>
+        <div id="ablage" role="tabpanel"></div>
+      </section>
+
+      <p class="fuss">Alles bleibt auf diesem Gerät. <span id="fuss-fassung"></span></p>
+    </main>
+
+    <dialog id="speichern" class="blatt" aria-labelledby="speichern-titel">
+      <form method="dialog" id="speichern-form">
+        <h2 id="speichern-titel">Im Nummernbuch merken</h2>
+        <label class="feld">Wem gehört die Nummer?
+          <input name="inhaber" required maxlength="200" placeholder="z. B. Stadtwerke Bochum" />
+        </label>
+        <label class="feld">Notiz (freiwillig)
+          <input name="notiz" maxlength="1000" placeholder="z. B. Kundenservice, rief wegen Zähler an" />
+        </label>
+        <fieldset class="umfang">
+          <legend>Was gehört dazu?</legend>
+          <div id="umfang-wahl"></div>
+        </fieldset>
+        <div class="blatt__knoepfe">
+          <button type="button" class="knopf knopf--zweit" data-schliessen>Abbrechen</button>
+          <button type="submit" class="knopf" value="ok">Speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="info" class="blatt" aria-labelledby="info-titel">
+      <div class="blatt__kopf">
+        <h2 id="info-titel">Über den Rufnummer-Detektiv</h2>
+        <button type="button" class="rund rund--klein" data-schliessen aria-label="Schließen">✕</button>
+      </div>
+      <div class="blatt__text">
+        <h3>Was die App kann</h3>
+        <ul>
+          <li><strong>Nummer lesen:</strong> Ort (amtliches Vorwahlverzeichnis), Handy oder Festnetz, Service- und teure Sondernummern.</li>
+          <li><strong>Zentrale vermuten:</strong> Firmen haben eine Stammnummer mit Durchwahlen; die Zentrale endet meist auf <b>-0</b>. Weil man nicht sieht, wo die Durchwahl beginnt, zeigt die App alle sinnvollen Möglichkeiten.</li>
+          <li><strong>Abgleichen:</strong> mit deinem Nummernbuch und deinen Kontakten. Eine Nummer, die mit einer bekannten bis auf die letzten Ziffern übereinstimmt, gehört oft zum selben Anschluss.</li>
+          <li><strong>Nachschlagen:</strong> Rückwärtssuche und Websuche in allen üblichen Schreibweisen mit einem Tipp.</li>
+        </ul>
+        <h3>Was sie nicht kann</h3>
+        <p>Nummern, die nirgends veröffentlicht sind, lassen sich nicht zuordnen — das ist bei den meisten Handynummern und vielen privaten Anschlüssen so. Die Zentrale ist eine <b>Vermutung</b>, kein Beweis.</p>
+        <h3>Datenschutz</h3>
+        <p>Nummernbuch, Kontakte und Verlauf liegen nur in diesem Browser auf diesem Gerät. Aus den Kontakten werden nur Name, Firma und Telefonnummern behalten. Erst wenn du auf einen Such-Knopf tippst, geht die Nummer an die jeweilige Seite.</p>
+        <p>Als App auf dem Home-Bildschirm bleiben die Daten erhalten. Im normalen Safari-Fenster kann iOS sie nach Wochen ohne Besuch löschen — dafür gibt es im Nummernbuch „Sichern".</p>
+        <h3>Schneller mit einem Kurzbefehl</h3>
+        <ol>
+          <li>App „Kurzbefehle" → <b>+</b></li>
+          <li>Aktion <b>„Zwischenablage abrufen"</b></li>
+          <li>Aktion <b>„URL-Codierung"</b> (codiert die Zwischenablage)</li>
+          <li>Aktion <b>„Text"</b>: <code id="kurzbefehl-adresse"></code> und dahinter die Variable „URL-codierter Text"</li>
+          <li>Aktion <b>„URLs öffnen"</b></li>
+        </ol>
+        <p>Dann: Nummer im Telefon-Verlauf lange drücken → Kopieren → Kurzbefehl antippen.</p>
+        <h3>Quellen</h3>
+        <p id="info-quelle"></p>
+        <p id="info-fassung" class="leise"></p>
+      </div>
+    </dialog>
+
+    <input type="file" id="vcf-datei" accept=".vcf,text/vcard,text/x-vcard,text/directory" hidden />
+    <input type="file" id="sicherung-datei" accept=".json,application/json" hidden />
+
+    <p id="hinweis" class="toast" role="status" aria-live="polite" hidden></p>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
