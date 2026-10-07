@@ -129,6 +129,40 @@
   (`einstellungen.diktatStimme`). Silben NICHT selbst trennen: Die deutsche
   Silbentrennung ist nicht ableitbar, und eine falsche lehrt das Falsche —
   dieselbe Regel wie bei den Wortformen.
+- **Eine mehrdeutige Vorlage hat MEHRERE richtige Lösungen — alle zählen**
+  (`weitereLoesungen` im `schreibfeld`, ab 1.8.7; gemeldet 10/2026: „Die App
+  lehnt richtige Lösungen ab, obwohl sie der Geheimschrift entsprechen.").
+  Die Geheimschrift zeigt nur die Gestalt: „die Mutter" und „der Keller" sind
+  dasselbe Bild, „die Rinde", „die Eiche" und „die Birke" alle drei. Nachgezählt
+  in den eigenen Listen: **93 der 123 Bereiche** enthalten solche Gruppen, 374
+  Wörter sind betroffen, und **140 der 160 Gruppen liegen innerhalb EINES
+  Päckchens** — also genau dort, wo das Kind die Wortliste vor sich hat und
+  unmöglich entscheiden kann. Das war kein Randfall, sondern ein Viertel des
+  Wortschatzes.
+  - **Die App wusste es und wies trotzdem ab.** Bis 1.8.6 stand da wörtlich
+    „Dein Wort passt genau ins Häuschen — aber es ist ein anderes". Wer
+    `musterPasst` schon ausrechnet, darf das Ergebnis nicht gegen das Kind
+    verwenden.
+  - **Kandidaten sind nur Wörter, die die App KENNT** (der ganze Bereich, nicht
+    nur das Päckchen — ein Kind mit weggeschalteter Liste liest genauso
+    richtig). Nicht einfach `musterPasst` als Treffer nehmen: „Hond" passt auch
+    ins Häuschen von „Hund" und ist kein Wort. Sonst wird aus der
+    Rechtschreibübung ein Formenraten.
+  - **Der Buchstabensalat hat dasselbe Problem**, nur viel seltener (genau ein
+    Paar: „schneien" = „scheinen", keines im selben Päckchen). Dort wird MIT
+    Rücksicht auf groß und klein verglichen — die Kacheln zeigen die Buchstaben
+    wie im Wort, „Lager" ist also kein Salat von „Regal": Das große L liegt
+    nicht da.
+  - **Mehrere Lösungen brauchen eine neue Fehlerdiagnose.** `warumFalsch`
+    erklärt gegen die NÄCHSTE Lösung (`naechstesZiel`), nicht stur gegen die
+    gemeinte. Sonst hört ein Kind, das „Keller" ohne Artikel schreibt, „es ist
+    keines der Lernwörter" — und sucht einen Fehler, den es nicht gemacht hat.
+    Genau diese Sorte Rückmeldung sollte `warumFalsch` abschaffen; wer
+    `weitereLoesungen` erweitert, prüft die Eingaben „Keller" und „der keller".
+  - Gewertet wird als voller Treffer, und die Rückmeldung NENNT beide Wörter
+    („… passt genauso ins Häuschen. Gemeint war …"). Ohne das lernt das Kind
+    aus dem Treffer nichts und wundert sich, wenn dasselbe Bild später ein
+    anderes Wort meint.
 - **Groß und klein wird beim Prüfen verglichen** (`uebungen/schreibfeld.js`).
   Das IST der halbe Rechtschreibstoff der Grundschule. Zwei Versuche, dann
   steht die Lösung da und wird abgeschrieben; für die Wertung zählt nur der

@@ -26,8 +26,8 @@
 // Wörter dreimal geübt hat, darf es ohne Netz versuchen.
 
 import { h } from '../util.js';
-import { schreibform, wortkern } from '../grammatik.js';
-import { wortbild, buchstabenzahl, musterPasst } from '../wortbild.js';
+import { eintraege, schreibform, wortkern } from '../grammatik.js';
+import { wortbild, buchstabenzahl, muster, musterPasst } from '../wortbild.js';
 import { einstellungen, setzeEinstellung } from '../store.js';
 import { schreibfeld } from './schreibfeld.js';
 import * as sfx from '../sfx.js';
@@ -44,6 +44,37 @@ export const UEBUNG = {
   aufbauen({ eintrag, bereich, paket = [], aufFertig }) {
     const wort = wortkern(eintrag);
     const loesung = schreibform(eintrag);
+
+    /*
+     * Welche ANDEREN Wörter dasselbe Wortbild haben.
+     *
+     * Das ist keine Nachsicht, sondern eine Berichtigung: Die Geheimschrift
+     * zeigt nur Stockwerke, Großbuchstaben und Tüpfelchen. „die Mutter" und
+     * „der Keller" sind darin dasselbe Bild, „die Rinde", „die Eiche" und „die
+     * Birke" alle drei. Gezählt in den eigenen Wortlisten: 93 der 123 Bereiche
+     * enthalten solche Gruppen, 374 Wörter sind betroffen, und 140 der Gruppen
+     * liegen INNERHALB eines Päckchens — also genau dort, wo das Kind die
+     * Wortliste vor sich hat und unmöglich entscheiden kann, welches gemeint
+     * ist. Bis 1.8.6 sagte die App dazu „Dein Wort passt genau ins Häuschen —
+     * aber es ist ein anderes": Sie erkannte die richtige Lesung und wies sie
+     * ab (gemeldet 10/2026).
+     *
+     * Gesucht wird im ganzen BEREICH, nicht nur im Päckchen. Die Liste unterm
+     * Bild zeigt das Päckchen, aber ein Kind, das sie weggeschaltet hat oder
+     * ein Wort von letzter Woche erinnert, liest genauso richtig.
+     *
+     * Und nur unter Wörtern, die die App KENNT: „Hond" passt auch ins
+     * Häuschen von „Hund" und ist trotzdem kein Wort. Deshalb nicht einfach
+     * `musterPasst` als Treffer nehmen — das wäre aus einer Rechtschreibübung
+     * ein Formenraten gemacht.
+     */
+    const zielmuster = muster(wort);
+    const auchRichtig = Array.from(new Set(
+      (bereich ? eintraege(bereich) : paket)
+        .filter((kandidat) => muster(wortkern(kandidat)) === zielmuster)
+        .map(schreibform),
+    )).filter((form) => form !== loesung);
+
     const e = einstellungen();
     let modus = e.geheimschrift || 'haus';
     let hilfen = 0;
@@ -104,13 +135,19 @@ export const UEBUNG = {
 
     const feld = schreibfeld({
       loesung,
+      weitereLoesungen: auchRichtig,
+      nebenlob: (eingabe) => `Richtig! „${eingabe}“ passt genauso ins Häuschen.`
+        + ` Gemeint war „${loesung}“ — im Wortbild sind beide nicht zu unterscheiden.`,
       platzhalter: 'Das versteckte Wort',
       hinweis: eintrag.art === 'n' ? 'Nomen bitte mit Artikel — im Bild steht nur das Wort selbst.' : '',
       // Passt die Eingabe nicht einmal ins Häuschen, sagt die App genau das:
       // Es ist die Rückmeldung, um die es in dieser Übung geht.
       zusatzhinweis: (eingabe) => {
         const kern = eintrag.art === 'n' ? eingabe.replace(/^(der|die|das)\s+/i, '') : eingabe;
-        if (musterPasst(kern, wort)) return 'Dein Wort passt genau ins Häuschen — aber es ist ein anderes.';
+        // Passt es ins Häuschen, ist es hier KEIN Lernwort — sonst wäre es
+        // über `weitereLoesungen` schon als richtig durchgegangen. Das muss die
+        // Rückmeldung sagen, sonst sucht das Kind den Fehler im Bild.
+        if (musterPasst(kern, wort)) return 'Dein Wort passt genau ins Häuschen — aber es ist keines der Lernwörter.';
         return 'Dein Wort passt nicht ins Häuschen. Zähl die Buchstaben und schau auf die Stockwerke.';
       },
       aufFertig: (ergebnis) => aufFertig(Object.assign({}, ergebnis, { hilfen })),

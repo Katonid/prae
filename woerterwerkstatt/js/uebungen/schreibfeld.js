@@ -20,17 +20,28 @@
 //    ein farbfehlsichtiges Kind schwächer geworden — und auf einem
 //    ausgeblichenen Beamer für alle. Die Farbe darf die Antwort begleiten,
 //    tragen muss sie das Zeichen und der Wortlaut.
+// 6. **Eine mehrdeutige Vorlage hat mehrere richtige Lösungen** — und alle
+//    zählen (`weitereLoesungen`, ab 1.8.7). Die Geheimschrift zeigt nur die
+//    Gestalt des Wortes; „die Mutter" und „der Keller" sind darin dasselbe
+//    Bild. Welche Wörter infrage kommen, weiß nur die Übung; dass sie zählen,
+//    steht hier.
 
 import { h, geputzt, entglaettet, ersteAbweichung } from '../util.js';
 import * as sfx from '../sfx.js';
 import { einstellungen } from '../store.js';
 
 /**
- * schreibfeld({ loesung, platzhalter, hinweis, gross, aufFertig })
+ * schreibfeld({ loesung, weitereLoesungen, nebenlob, platzhalter, hinweis, aufFertig })
+ *
+ * `weitereLoesungen` sind Schreibweisen, die genauso richtig sind wie
+ * `loesung` — die Übung entscheidet, welche (siehe Punkt 6 oben). `nebenlob`
+ * ist die Rückmeldung für diesen Fall; ohne sie steht nur „Richtig!" da, und
+ * das Kind erfährt nicht, dass es ein anderes Wort gelesen hat als gemeint war.
  *
  * aufFertig({ richtig, versuche, eingabe, fehlversuche }) wird genau einmal
  * gerufen, wenn die Aufgabe erledigt ist — richtig gelöst oder richtig
- * abgeschrieben.
+ * abgeschrieben. `eingabe` ist immer das, was das Kind TATSÄCHLICH geschrieben
+ * hat, auch wenn das eine der weiteren Lösungen war.
  *
  * `fehlversuche` sind die Wörter, wie das Kind sie geschrieben hat, bevor es
  * stimmte. Sie sind das Wertvollste, was hier entsteht: „Somer" statt
@@ -40,6 +51,8 @@ import { einstellungen } from '../store.js';
  */
 export function schreibfeld({
   loesung,
+  weitereLoesungen = [],
+  nebenlob = null,
   platzhalter = 'Hier schreiben',
   hinweis = '',
   aufFertig,
@@ -47,6 +60,25 @@ export function schreibfeld({
   zusatzhinweis = null,
 }) {
   const ziel = geputzt(loesung);
+
+  /*
+   * Weitere Schreibweisen, die GENAUSO richtig sind.
+   *
+   * Zwei Übungen brauchen das, weil ihre Vorlage mehrdeutig IST — nicht, weil
+   * jemand sie mehrdeutig gemacht hätte. In der Geheimschrift haben „die
+   * Mutter" und „der Keller" dasselbe Wortbild, „die Rinde", „die Eiche" und
+   * „die Birke" alle drei; im Buchstabensalat sind „schneien" und „scheinen"
+   * derselbe Haufen Buchstaben. Wer eines davon schreibt, hat die Aufgabe
+   * gelöst (gemeldet 10/2026: „Die App lehnt richtige Lösungen ab, obwohl sie
+   * der Geheimschrift entsprechen.").
+   *
+   * Gewertet wird es als voller Treffer, nicht als halber: Dem Kind ist kein
+   * Fehler nachzuweisen. Welche Wörter infrage kommen, entscheidet die Übung —
+   * das Schreibfeld weiß nicht, WARUM zwei Wörter gleich aussehen.
+   */
+  const nebenziele = new Set((weitereLoesungen || [])
+    .map((wort) => geputzt(String(wort)))
+    .filter((wort) => wort && wort !== ziel));
   let versuche = 0;
   let ersterVersuchRichtig = false;
   let abgeschlossen = false;
@@ -102,25 +134,60 @@ export function schreibfeld({
    * Erst danach kommt die Stelle, an der es auseinanderging.
    */
   const ARTIKEL = /^(der|die|das)\s+/i;
-  const zielHatArtikel = ARTIKEL.test(ziel);
-  const zielKern = ziel.replace(ARTIKEL, '');
+  const klein = (wort) => String(wort).toLocaleLowerCase('de-DE');
+
+  /**
+   * Gegen WELCHE Lösung wird der Fehler erklärt?
+   *
+   * Sobald es mehrere richtige Lösungen gibt, ist das nicht mehr
+   * selbstverständlich. Gemeint war „die Mutter", und „der Keller" gilt
+   * genauso — wer „Keller" ohne Artikel schreibt, hat NICHT „ein Wort, das es
+   * hier nicht gibt" geschrieben, sondern eine richtige Lösung ohne Artikel.
+   * Erklärt man den Fehler stur am gemeinten Wort, bekommt dieses Kind „passt
+   * ins Häuschen, ist aber keines der Lernwörter" zu hören — und sucht einen
+   * Fehler, den es nicht gemacht hat. Genau diese Sorte Rückmeldung sollte
+   * `warumFalsch` abschaffen.
+   *
+   * Gewählt wird deshalb die Lösung, der die Eingabe am NÄCHSTEN kommt.
+   */
+  function naehe(eingabe, kandidat) {
+    if (klein(eingabe) === klein(kandidat)) return 1e6;           // nur groß/klein
+    const kernE = eingabe.replace(ARTIKEL, '');
+    const kernK = kandidat.replace(ARTIKEL, '');
+    if (klein(kernE) === klein(kernK)) return 1e5;                // nur der Artikel
+    const stelle = ersteAbweichung(eingabe, kandidat);            // wie weit von vorn
+    return stelle < 0 ? 1e6 : stelle;
+  }
+
+  function naechstesZiel(eingabe) {
+    if (!nebenziele.size) return ziel;
+    let beste = ziel;
+    let bestwert = naehe(eingabe, ziel);
+    for (const kandidat of nebenziele) {
+      const wert = naehe(eingabe, kandidat);
+      if (wert > bestwert) { bestwert = wert; beste = kandidat; }
+    }
+    return beste;
+  }
 
   /** Welche Richtung? Das entscheidet, welche Regel zu nennen ist. */
-  function grossOderKlein() {
+  function grossOderKlein(zielKern) {
     return zielKern[0] === zielKern[0].toLocaleUpperCase('de-DE')
       ? 'Das Wort schreibt man groß.'
       : 'Das Wort schreibt man klein.';
   }
 
-  function warumFalsch(eingabe) {
+  function warumFalsch(eingabe, gegen = ziel) {
+    const zielHatArtikel = ARTIKEL.test(gegen);
+    const zielKern = gegen.replace(ARTIKEL, '');
     const eingabeKern = eingabe.replace(ARTIKEL, '');
-    const gleichbuchstabig = eingabeKern.toLocaleLowerCase('de-DE') === zielKern.toLocaleLowerCase('de-DE');
+    const gleichbuchstabig = klein(eingabeKern) === klein(zielKern);
 
     // 1. Alle Buchstaben stimmen, nur groß und klein nicht.
-    if (eingabe.toLocaleLowerCase('de-DE') === ziel.toLocaleLowerCase('de-DE')) {
+    if (klein(eingabe) === klein(gegen)) {
       return {
         vorrang: true,
-        text: `Fast! Jeder Buchstabe sitzt richtig — nur groß und klein noch nicht. ${grossOderKlein()}`,
+        text: `Fast! Jeder Buchstabe sitzt richtig — nur groß und klein noch nicht. ${grossOderKlein(zielKern)}`,
       };
     }
     // 2. Das Wort stimmt, der Artikel fehlt oder passt nicht.
@@ -133,7 +200,7 @@ export function schreibfeld({
         return {
           vorrang: true,
           text: `Zwei Kleinigkeiten: ${fehlt ? 'Der Artikel fehlt davor' : 'Der Artikel passt noch nicht'}`
-            + ` — der, die oder das? Und ${grossOderKlein().replace(/^Das Wort schreibt man/, 'das Wort schreibt man')}`,
+            + ` — der, die oder das? Und ${grossOderKlein(zielKern).replace(/^Das Wort schreibt man/, 'das Wort schreibt man')}`,
         };
       }
       return {
@@ -145,18 +212,18 @@ export function schreibfeld({
     }
     // 3. Die Stelle, an der es auseinanderging. Hier darf eine Übung, die
     //    mehr über den Fehler weiß, vorgehen (`zusatzhinweis`).
-    const stelle = ersteAbweichung(eingabe, ziel);
+    const stelle = ersteAbweichung(eingabe, gegen);
     if (stelle < 0) return { vorrang: false, text: '' };
     if (stelle >= eingabe.length) {
-      const fehlen = ziel.length - eingabe.length;
+      const fehlen = gegen.length - eingabe.length;
       return {
         vorrang: false,
         text: `Da fehlt noch etwas — nach „${eingabe.slice(0, stelle)}“ geht es weiter`
           + `${fehlen === 1 ? ' (ein Zeichen)' : ` (noch ${fehlen} Zeichen)`}.`,
       };
     }
-    if (stelle >= ziel.length) {
-      const zuviel = eingabe.length - ziel.length;
+    if (stelle >= gegen.length) {
+      const zuviel = eingabe.length - gegen.length;
       return { vorrang: false, text: `Das ist zu lang — ${zuviel === 1 ? 'ein Zeichen' : `${zuviel} Zeichen`} zu viel.` };
     }
     if (stelle === 0) return { vorrang: false, text: 'Schon der erste Buchstabe stimmt nicht.' };
@@ -178,7 +245,12 @@ export function schreibfeld({
     const eingabe = geputzt(entglaettet(feld.value));
     if (!eingabe) { feld.focus(); return; }
 
-    if (eingabe === ziel) {
+    // Ein Nebenziel gilt auch im Abschreibmodus. Dort steht zwar das gemeinte
+    // Wort auf dem Tisch, aber ein Kind, das statt dessen das andere richtige
+    // Wort schreibt, noch einmal abzuweisen, wäre dieselbe Ungerechtigkeit —
+    // und es käme aus der Schleife nicht heraus.
+    const nebentreffer = nebenziele.has(eingabe);
+    if (eingabe === ziel || nebentreffer) {
       markiere('is-richtig');
       if (abschreibmodus) {
         // Richtig abgeschrieben — die Aufgabe ist erledigt, aber schon als
@@ -191,7 +263,15 @@ export function schreibfeld({
       }
       versuche += 1;
       ersterVersuchRichtig = versuche === 1;
-      rueckmeldung.textContent = versuche === 1 ? '✓ Richtig!' : '✓ Richtig — beim zweiten Anlauf.';
+      // Bei einem Nebenziel darf die Antwort nicht bei „Richtig!" bleiben: Das
+      // Kind soll erfahren, dass es ein ANDERES Wort gelesen hat als gemeint
+      // war, und dass beide zur Vorlage passen. Sonst lernt es aus dem Treffer
+      // nichts — und wundert sich, wenn dasselbe Bild später ein anderes Wort
+      // meint.
+      const lob = nebentreffer && nebenlob ? nebenlob(eingabe) : '';
+      rueckmeldung.textContent = lob
+        ? `✓ ${lob}`
+        : (versuche === 1 ? '✓ Richtig!' : '✓ Richtig — beim zweiten Anlauf.');
       rueckmeldung.className = 'schreibfeld__antwort is-richtig';
       sfx.richtig();
       abschliessen(ersterVersuchRichtig);
@@ -212,7 +292,7 @@ export function schreibfeld({
       // Vorrang hat ein solcher Hinweis trotzdem nicht immer: Bei „nur groß
       // und klein" und beim fehlenden Artikel wäre er falsch bis irreführend
       // („passt nicht ins Häuschen", obwohl das Wort gekonnt ist).
-      const eigener = warumFalsch(eingabe);
+      const eigener = warumFalsch(eingabe, naechstesZiel(eingabe));
       const zusatz = zusatzhinweis ? zusatzhinweis(eingabe) : null;
       const text = eigener.vorrang
         ? eigener.text

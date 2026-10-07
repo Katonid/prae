@@ -13,7 +13,7 @@
 //   das fertige Wort zeigt, ist keiner (bei kurzen Wörtern passiert das oft).
 
 import { h, gemischt } from '../util.js';
-import { schreibform, wortkern } from '../grammatik.js';
+import { eintraege, schreibform, wortkern } from '../grammatik.js';
 import { schreibfeld } from './schreibfeld.js';
 import * as sfx from '../sfx.js';
 
@@ -37,11 +37,33 @@ export const UEBUNG = {
   farbe: '#38bdf8',
   beschreibung: 'Die Buchstaben sind durcheinander. Welches Wort ist es?',
 
-  aufbauen({ eintrag, aufFertig }) {
+  aufbauen({ eintrag, bereich, paket = [], aufFertig }) {
     const wort = wortkern(eintrag);
     const loesung = schreibform(eintrag);
     const buchstaben = Array.from(wort);
     const salat = wirklichGemischt(buchstaben);
+
+    /*
+     * Welche anderen Wörter aus GENAU diesen Buchstaben bestehen.
+     *
+     * Dieselbe Mehrdeutigkeit wie bei der Geheimschrift, nur viel seltener: In
+     * den eigenen Wortlisten gibt es genau EIN Paar („schneien" und
+     * „scheinen"), und keines innerhalb desselben Päckchens. Trotzdem richtig
+     * so — wer aus den gezeigten Buchstaben ein anderes echtes Wort legt, hat
+     * die Aufgabe gelöst, und eine Abweisung wäre dieselbe Ungerechtigkeit.
+     *
+     * Verglichen wird MIT Rücksicht auf groß und klein, anders als beim
+     * Hinweis zum Buchstabenvorrat unten: Die Kacheln zeigen die Buchstaben so,
+     * wie sie im Wort stehen — ein großes B bleibt groß. „Lager" ist deshalb
+     * kein zulässiger Salat von „Regal": Das große L liegt gar nicht da.
+     */
+    const alsVorrat = (text) => Array.from(String(text)).sort().join('');
+    const zielvorrat = alsVorrat(wort);
+    const auchRichtig = Array.from(new Set(
+      (bereich ? eintraege(bereich) : paket)
+        .filter((kandidat) => alsVorrat(wortkern(kandidat)) === zielvorrat)
+        .map(schreibform),
+    )).filter((form) => form !== loesung);
 
     const kacheln = h('div', { class: 'salat', role: 'img', 'aria-label': `Die Buchstaben ${salat.join(', ')} durcheinander` });
     salat.forEach((zeichen, i) => {
@@ -68,6 +90,9 @@ export const UEBUNG = {
 
     const feld = schreibfeld({
       loesung,
+      weitereLoesungen: auchRichtig,
+      nebenlob: (eingabe) => `Richtig! „${eingabe}“ steckt in genau denselben Buchstaben.`
+        + ` Gemeint war „${loesung}“ — beides geht.`,
       platzhalter: 'Das richtige Wort',
       hinweis: eintrag.art === 'n' ? 'Nomen bitte mit Artikel: der, die oder das.' : '',
       // Die Buchstaben liegen oben — dann kann die App auch sagen, welcher
