@@ -465,3 +465,32 @@
   genügt es, sie neben die `index.html` zu legen. Sie enthält kein Geheimnis —
   ein Firebase-Web-Schlüssel steht in jedem Client, der Schutz kommt
   ausschließlich aus den Datenbankregeln.
+- **Fehlerdetektive** (ab 1.9.0, Ansage des Nutzers 10/2026: „nachhalten,
+  welches Kind wie lange gebraucht hat und ob es alle gefunden hat"). Ein
+  Fließtext mit versteckten Fehlern, jedes Wort antippbar; Texte in
+  `js/fehlertexte.js`, die Übung in `js/fehlersuche.js`, Weg `#/fehlersuche/<id>`,
+  Karte auf der Startseite. Die Einzeldatei `fehlerdetektive/index.html` (ohne
+  Klasse) trägt DENSELBEN Text — beide mitziehen.
+  - **Die Ergebnisse liegen in `protokoll/<CODE>/<Kind>/fehlersuche/t<beginn>`**,
+    je Durchgang ein Eintrag (ALLE Versuche, nicht nur der erste — Wahl des
+    Nutzers). Dort darf jedes Kind schreiben und nur die Besitzerin lesen; es
+    brauchte keine neue Datenbankregel. Hängt am Mitschreiben-Schalter und
+    wird mit „Protokoll der Klasse löschen" gelöscht.
+  - **Deshalb schreibt `protokollMelden` per PATCH, nicht PUT.** Ein PUT auf
+    `protokoll/<CODE>/<Kind>` ersetzte den ganzen Knoten und nähme die
+    Ergebnisse bei jedem fertigen Päckchen stumm mit. Nicht zurückstellen.
+  - Erst auf dem Gerät vormerken (`store.fehlersucheOffen`, mit Klasse und
+    Kind), dann senden; was ohne Netz liegen bleibt, geht beim nächsten Start
+    (`fehlersucheNachsenden`). Gemeldet wird unter dem Kind, das ausgewertet
+    hat — nicht unter dem, das beim Nachsenden angemeldet ist.
+  - Die Zeit läuft vom Öffnen des Textes (bzw. „Noch einmal versuchen") bis
+    „Auswerten". Das Kind sieht vorher, DASS sein Ergebnis und seine Zeit
+    mitgehen; eine laufende Uhr sieht es nicht.
+  - **Grün/rot/orange ist hier die Ausnahme von „kein Grün"** — für genau
+    diese Übung vom Nutzer so vorgegeben. Jede Farbe hat zusätzlich eine
+    eigene Linienart.
+  - Vor der Auswertung trägt kein Wort-Element die Lösung (nur `data-i`).
+  - Klassenansicht, Abschnitt „🔍 Fehlerdetektive": je Kind 1. und bester
+    Versuch, Zahl der Versuche, auch wer noch nichts abgegeben hat; Name →
+    alle Durchgänge mit Uhrzeit, Dauer, Übersehenem; „Am häufigsten
+    übersehen" zählt den ERSTEN Versuch jedes Kindes.

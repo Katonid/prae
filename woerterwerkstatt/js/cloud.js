@@ -594,11 +594,35 @@ export async function protokollMelden(code, kind, name, woerter) {
       e: eintrag.eingaben || [],
     };
   }
+  // PATCH, nicht PUT: Neben `woerter` liegt im selben Knoten `fehlersuche`,
+  // die Ergebnisse der Fehlerdetektive. Ein PUT ersetzte den ganzen Knoten
+  // und nähme sie bei jedem fertigen Päckchen stumm mit. PATCH ersetzt nur die
+  // drei genannten Kinder — `woerter` dabei VOLLSTÄNDIG, ein geleertes
+  // Protokoll kommt also weiterhin leer an.
   await schreiben(`${WURZEL}/protokoll/${gross}/${kind}`, {
     name: name || kind,
     aktualisiert: Date.now(),
     woerter: nutzlast,
-  });
+  }, 'PATCH');
+}
+
+/**
+ * Ein Ergebnis der Fehlerdetektive melden — EIN Durchgang, unter eigenem
+ * Schlüssel, damit jeder Versuch stehen bleibt (Ansage des Nutzers, 10/2026:
+ * alle Versuche, nicht nur der erste).
+ *
+ * Es liegt im Zweig des Wortprotokolls: Schreiben darf dort jedes Kind, lesen
+ * nur die Besitzerin der Klasse — genau das Richtige für Leistungsdaten, und
+ * es braucht keine neue Datenbankregel. Ein Aufruf, ein PATCH mit zwei Pfaden:
+ * der Name (ein Kind, das noch kein Päckchen fertig hat, hätte sonst keinen)
+ * und der Durchgang.
+ */
+export async function fehlersucheMelden(code, kind, name, schluessel, ergebnis) {
+  const gross = String(code).toUpperCase();
+  await schreiben(`${WURZEL}/protokoll/${gross}/${kind}`, {
+    name: name || kind,
+    [`fehlersuche/${pfadschluessel(schluessel)}`]: ergebnis,
+  }, 'PATCH');
 }
 
 /** Das Protokoll der ganzen Klasse. Lesen darf das nur die Lehrkraft. */
@@ -610,6 +634,7 @@ export async function protokollDerKlasse(code) {
     name: (eintrag && eintrag.name) || schluessel,
     aktualisiert: (eintrag && eintrag.aktualisiert) || 0,
     woerter: Object.values((eintrag && eintrag.woerter) || {}),
+    fehlersuche: Object.values((eintrag && eintrag.fehlersuche) || {}),
   }));
 }
 

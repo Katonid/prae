@@ -106,6 +106,9 @@ function leererZustand() {
     // Angefangene, nicht beendete Durchgänge — siehe `laufMerken`.
     laeufe: {},
     protokoll: {},
+    // Ergebnisse der Fehlerdetektive, die noch nicht bei der Klasse sind —
+    // siehe `fehlersucheMerken`.
+    fehlersucheOffen: [],
     nutzer: null,
     klassen: [],
     zuletztBereich: '',
@@ -178,6 +181,7 @@ function zusammen(gelesen) {
     fortschritt: (gelesen.fortschritt && typeof gelesen.fortschritt === 'object') ? gelesen.fortschritt : {},
     laeufe: (gelesen.laeufe && typeof gelesen.laeufe === 'object') ? gelesen.laeufe : {},
     protokoll: (gelesen.protokoll && typeof gelesen.protokoll === 'object') ? gelesen.protokoll : {},
+    fehlersucheOffen: Array.isArray(gelesen.fehlersucheOffen) ? gelesen.fehlersucheOffen : [],
     nutzer: gelesen.nutzer || null,
     klassen: Array.isArray(gelesen.klassen) ? gelesen.klassen : [],
     zuletztBereich: gelesen.zuletztBereich || '',
@@ -472,6 +476,33 @@ export function sterneImBereich(bereichId, pakete, stufen) {
     }
   }
   return summe;
+}
+
+/* ---------- Fehlerdetektive ---------- */
+
+/**
+ * Ein ausgewertetes Ergebnis der Fehlerdetektive vormerken, bis es bei der
+ * Klasse angekommen ist.
+ *
+ * Erst sichern, dann senden: Ein Schul-iPad hat im Klassenraum nicht immer
+ * Netz, und ein Ergebnis, das beim Senden verloren geht, ist für die
+ * Lehrkraft ein Kind, das „nichts gemacht hat". Gemerkt wird auch, für WEN —
+ * meldet sich vor dem Nachsenden ein anderes Kind an, darf das Ergebnis nicht
+ * unter dessen Namen ankommen. Höchstens 30 bleiben liegen; ältere fallen weg.
+ */
+export function fehlersucheMerken(eintrag) {
+  zustand.fehlersucheOffen.push(eintrag);
+  if (zustand.fehlersucheOffen.length > 30) zustand.fehlersucheOffen.splice(0, zustand.fehlersucheOffen.length - 30);
+  sichere();
+}
+
+export function fehlersucheOffen() {
+  return zustand.fehlersucheOffen.slice();
+}
+
+export function fehlersucheErledigt(schluessel) {
+  zustand.fehlersucheOffen = zustand.fehlersucheOffen.filter((e) => e.schluessel !== schluessel);
+  sichere();
 }
 
 /* ---------- Wortprotokoll ---------- */

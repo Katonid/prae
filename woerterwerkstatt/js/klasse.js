@@ -26,12 +26,12 @@ import {
   klasseWiederEintragen,
   kindAnlegen, kindAnmelden, kindEntfernen, pinNeuSetzen, kindUmbenennen, namensschluessel,
   fortschrittDerKlasse, fortschrittMelden, fortschrittHolen,
-  protokollMelden, protokollDerKlasse, protokollLoeschen,
+  protokollMelden, protokollDerKlasse, protokollLoeschen, fehlersucheMelden,
 } from './cloud.js';
 import {
   eigeneBereiche, bereichSichern, klassen, klasseMerken, klasseVergessen,
   setzeNutzer, nutzer, daten, protokoll, fortschrittZusammenfuehren,
-  setzeSichtbareBereiche,
+  setzeSichtbareBereiche, fehlersucheMerken, fehlersucheOffen, fehlersucheErledigt,
 } from './store.js';
 import { BEREICHE } from './woerter.js';
 import { RECHTSCHREIBUNG } from './rechtschreibung.js';
@@ -41,6 +41,7 @@ import { RECHTSCHREIBUNG3 } from './rechtschreibung3.js';
 import { UEBUNGEN, stufenFuer } from './uebungen/index.js';
 import { paketzahl } from './paket.js';
 import { bereichswahl } from './bereiche.js';
+import { FEHLERTEXTE } from './fehlertexte.js';
 
 /** Die Adresse, die im QR-Code steht. */
 export function beitrittsadresse(code) {
@@ -572,6 +573,176 @@ function klassenprotokoll(code, kinder) {
   });
 }
 
+/* ---------- Fehlerdetektive in der Klassenansicht ---------- */
+
+/** 372 Sekunden → „6:12 min". Unter einer Minute „45 s". */
+function dauerText(sekunden) {
+  const s = Math.max(0, Math.round(Number(sekunden) || 0));
+  if (s < 60) return `${s} s`;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} min`;
+}
+
+function uhrzeit(zeit) {
+  const d = new Date(zeit);
+  return `${datum(zeit)}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} Uhr`;
+}
+
+/** Die Durchgänge eines Kindes zu EINEM Text, der erste zuerst. */
+function durchgaengeZu(kind, textId) {
+  return ((kind && kind.fehlersuche) || [])
+    .filter((d) => d && d.text === textId)
+    .sort((a, b) => (a.beginn || 0) - (b.beginn || 0));
+}
+
+function ergebnisKurz(d) {
+  return `${d.gefunden}/${d.fehler} gefunden · ${d.falsch || 0} falsch markiert · ${dauerText(d.dauer)}`;
+}
+
+/** Der beste Durchgang: mehr gefunden, dann weniger falsch, dann schneller. */
+function besterDurchgang(liste) {
+  return liste.slice().sort((a, b) => (b.gefunden - a.gefunden)
+    || ((a.falsch || 0) - (b.falsch || 0)) || ((a.dauer || 0) - (b.dauer || 0)))[0];
+}
+
+/** Alle Durchgänge EINES Kindes, mit dem, was übersehen und falsch markiert wurde. */
+function detektivKind(name, text, liste) {
+  return blatt({
+    titel: `${name} · ${text.emoji || '🔍'} ${text.titel}`,
+    breit: true,
+    inhalt: h('div', {},
+      h('p', { class: 'blatt__text' },
+        `${liste.length} ${liste.length === 1 ? 'Durchgang' : 'Durchgänge'}. Die Zeit läuft vom Öffnen des Textes `
+        + 'bis zum Tipp auf „Auswerten".'),
+      ...liste.map((d, nummer) => h('div', { class: 'wortbefund' },
+        h('div', { class: 'wortbefund__kopf' },
+          h('strong', { class: 'wortbefund__wort' }, `${nummer + 1}. Versuch`),
+          h('span', { class: 'wortbefund__zahlen' }, uhrzeit(d.beginn || d.ende))),
+        h('div', { class: 'detektivbefund__zahlen' },
+          h('span', {}, h('strong', {}, `${d.gefunden} von ${d.fehler}`), ' gefunden'),
+          h('span', {}, `Nomen ${d.gefundenN ?? '?'} · andere ${d.gefundenS ?? '?'}`),
+          h('span', {}, h('strong', {}, String(d.falsch || 0)), ' richtige Wörter markiert'),
+          h('span', {}, '⏱ ', h('strong', {}, dauerText(d.dauer)))),
+        (d.gefunden === d.fehler && !d.falsch)
+          ? h('span', { class: 'wortbefund__lob' }, 'Alle gefunden, nichts falsch markiert.')
+          : null,
+        (d.ue && d.ue.length)
+          ? h('div', { class: 'wortbefund__eingaben' },
+            h('span', { class: 'wortbefund__marke' }, 'übersehen'),
+            ...d.ue.map((f) => h('span', { class: 'wortbefund__falsch' }, `${f.w} → ${f.r}`)))
+          : null,
+        (d.fa && d.fa.length)
+          ? h('div', { class: 'wortbefund__eingaben' },
+            h('span', { class: 'wortbefund__marke' }, 'richtig, aber markiert'),
+            ...d.fa.map((w) => h('span', { class: 'detektivbefund__richtig' }, w)),
+            d.falsch > d.fa.length ? h('span', { class: 'wortbefund__marke' }, `und ${d.falsch - d.fa.length} weitere`) : null)
+          : null))),
+  });
+}
+
+/**
+ * Welche Fehler die Klasse übersieht — gezählt im ERSTEN Versuch jedes Kindes.
+ * Der erste sagt, was ein Kind sieht; ab dem zweiten hat es die Lösung schon
+ * einmal gesehen.
+ */
+function detektivKlasse(text, kinder) {
+  const zaehler = new Map();
+  let mitVersuch = 0;
+  for (const kind of kinder) {
+    const erster = durchgaengeZu(kind, text.id)[0];
+    if (!erster) continue;
+    mitVersuch += 1;
+    for (const f of erster.ue || []) {
+      const stand = zaehler.get(f.w) || { w: f.w, r: f.r, t: f.t, kinder: [] };
+      stand.kinder.push(kind.name);
+      zaehler.set(f.w, stand);
+    }
+  }
+  const liste = Array.from(zaehler.values()).sort((a, b) => b.kinder.length - a.kinder.length);
+  return blatt({
+    titel: `Am häufigsten übersehen · ${text.titel}`,
+    breit: true,
+    inhalt: h('div', {},
+      h('p', { class: 'blatt__text' },
+        `Gezählt im ersten Versuch von ${mitVersuch} ${mitVersuch === 1 ? 'Kind' : 'Kindern'}. `
+        + 'Die Fehler, die die meisten übersehen haben, zuerst.'),
+      liste.length
+        ? liste.map((f) => h('div', { class: 'wortbefund' },
+          h('div', { class: 'wortbefund__kopf' },
+            h('strong', { class: 'wortbefund__wort' }, `${f.w} → ${f.r}`),
+            h('span', { class: 'wortbefund__zahlen' },
+              `${f.kinder.length} ${f.kinder.length === 1 ? 'Kind' : 'Kinder'} · ${f.t === 'N' ? 'Nomen klein' : 'Rechtschreibung'}`)),
+          h('div', { class: 'wortbefund__eingaben' },
+            ...f.kinder.map((n) => h('span', { class: 'wortbefund__stufe' }, n)))))
+        : h('p', { class: 'blatt__gut' }, 'Im ersten Versuch hat niemand einen Fehler übersehen.')),
+  });
+}
+
+/**
+ * Der Abschnitt „Fehlerdetektive" der Klassenansicht: je Text eine Liste
+ * aller Kinder — auch derer, die noch nichts abgegeben haben, denn genau
+ * nach denen sucht eine Lehrkraft.
+ */
+function detektivZeichnen(platz, kinder, protokolle, gesperrt) {
+  leeren(platz);
+  if (gesperrt) {
+    platz.appendChild(h('p', { class: 'abschnitt__notiz' },
+      'Die Ergebnisse liegen beim Wortprotokoll und sind gerade nicht lesbar — der Hinweis dazu steht oben bei „Kinder".'));
+    return;
+  }
+  const nach = new Map(protokolle.map((p) => [p.schluessel, p]));
+  for (const text of FEHLERTEXTE) {
+    const zeilen = kinder.map((kind) => ({
+      name: kind.name,
+      liste: durchgaengeZu(nach.get(kind.schluessel), text.id),
+    }));
+    // Auch wer nicht mehr in der Klasse steht, aber Ergebnisse hinterließ
+    for (const p of protokolle) {
+      if (kinder.some((k) => k.schluessel === p.schluessel)) continue;
+      const liste = durchgaengeZu(p, text.id);
+      if (liste.length) zeilen.push({ name: `${p.name} (nicht mehr in der Klasse)`, liste });
+    }
+    const fertig = zeilen.filter((z) => z.liste.length);
+    const alle40 = fertig.filter((z) => z.liste.some((d) => d.gefunden === d.fehler && !d.falsch)).length;
+
+    const tabelle = h('div', { class: 'detektivliste' },
+      h('div', { class: 'detektivliste__kopf' },
+        h('span', {}, 'Kind'), h('span', {}, '1. Versuch'), h('span', {}, 'Bester Versuch'), h('span', {}, 'Versuche')));
+    for (const z of zeilen) {
+      const erster = z.liste[0];
+      const bester = z.liste.length > 1 ? besterDurchgang(z.liste) : null;
+      tabelle.appendChild(h('div', { class: `detektivliste__zeile${erster ? '' : ' is-offen'}` },
+        erster
+          ? h('button', {
+            class: 'kinderliste__name kinderliste__name--klickbar', type: 'button',
+            title: `Alle Durchgänge von ${z.name}`,
+            onclick: () => detektivKind(z.name, text, z.liste),
+          }, h('span', { class: 'kinderliste__kindname' }, `🔍 ${z.name}`))
+          : h('span', { class: 'kinderliste__name' }, z.name),
+        h('span', { class: 'detektivliste__wert', 'data-titel': '1. Versuch' },
+          erster ? ergebnisKurz(erster) : 'noch nicht bearbeitet'),
+        h('span', { class: 'detektivliste__wert', 'data-titel': 'Bester Versuch' },
+          bester ? ergebnisKurz(bester) : (erster ? '—' : '')),
+        h('span', { class: 'detektivliste__wert detektivliste__zahl', 'data-titel': 'Versuche' },
+          erster ? String(z.liste.length) : '')));
+    }
+
+    platz.appendChild(h('div', { class: 'detektivtext' },
+      h('h3', { class: 'detektivtext__titel' }, `${text.emoji || '🔍'} ${text.titel}`),
+      h('p', { class: 'abschnitt__notiz' },
+        `${fertig.length} von ${zeilen.length} ${zeilen.length === 1 ? 'Kind hat' : 'Kindern haben'} den Text ausgewertet`
+        + (fertig.length ? ` · ${alle40} ${alle40 === 1 ? 'hat' : 'haben'} alle Fehler ohne Fehlgriff gefunden` : '')
+        + '. Tipp auf einen Namen: alle Durchgänge mit Uhrzeit, Dauer und den übersehenen Fehlern.'),
+      zeilen.length ? tabelle : h('p', { class: 'blatt__text' }, 'Noch niemand in der Klasse.'),
+      fertig.length
+        ? h('div', { class: 'blatt__knopfreihe' },
+          h('button', {
+            class: 'knopf knopf--voll knopf--klein', type: 'button',
+            onclick: () => detektivKlasse(text, zeilen.map((z) => ({ name: z.name, fehlersuche: z.liste }))),
+          }, '🔍 Am häufigsten übersehen'))
+        : null));
+  }
+}
+
 /** Die Klassenansicht: QR-Code, Auftrag, Kinder und ihre Sterne. */
 export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
   const platz = h('div', {}, ladeplatz('Klasse wird geholt …'));
@@ -603,6 +774,7 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
     }
 
     const kinderplatz = h('div', { class: 'kinderliste' }, ladeplatz('Kinder werden geholt …'));
+    const detektivplatz = h('div', {}, ladeplatz('Ergebnisse werden geholt …'));
     let protokolle = [];
     let protokollsperre = null;
     const protokollhinweis = h('div', { class: 'is-versteckt' });
@@ -643,7 +815,7 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         return;
       }
       protokollhinweis.classList.remove('is-versteckt');
-      if (!protokolle.length) {
+      if (!protokolle.some((p) => (p.woerter || []).length)) {
         protokollhinweis.appendChild(h('p', { class: 'abschnitt__notiz' },
           'Noch keine Wörter. Sie kommen an, sobald ein Kind ein Päckchen zu Ende gebracht '
           + 'hat — bei laufender Übung wird noch nichts gemeldet.'));
@@ -681,6 +853,7 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         protokollsperre = problem;
       }
       protokollhinweisZeichnen();
+      detektivZeichnen(detektivplatz, stand, protokolle, Boolean(protokollsperre));
       const protokollNach = new Map(protokolle.map((p) => [p.schluessel, p]));
 
       leeren(kinderplatz);
@@ -692,7 +865,10 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
       stand.sort((a, b) => String(a.name).localeCompare(String(b.name), 'de'));
       for (const kind of stand) {
         const summe = Object.values(kind.fortschritt || {}).reduce((s, e) => s + (e.sterne || 0), 0);
-        const eigenes = protokollNach.get(kind.schluessel);
+        // Ein Kind, das nur die Fehlerdetektive gemacht hat, steht auch im
+        // Protokoll — aber ohne Wörter. Dann gibt es hier nichts zu öffnen.
+        const ausProtokoll = protokollNach.get(kind.schluessel);
+        const eigenes = ausProtokoll && (ausProtokoll.woerter || []).length ? ausProtokoll : null;
         const schwer = eigenes ? (eigenes.woerter || []).filter((w) => w.f > 0).length : 0;
         kinderplatz.appendChild(h('div', { class: 'kinderliste__eintrag' },
           // Der Name IST der Weg zu den Wörtern dieses Kindes. Dass er
@@ -872,10 +1048,13 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         h('div', { class: 'blatt__knopfreihe' },
           h('button', {
             class: 'knopf knopf--voll knopf--klein', type: 'button',
-            onclick: () => (protokolle.length
+            onclick: () => (protokolle.some((p) => (p.woerter || []).length)
               ? klassenprotokoll(code, protokolle)
               : meldung('Noch keine Wörter zum Nachsehen.', 'info')),
           }, '📋 Was der Klasse schwerfällt'),
+          h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden'))),
+      abschnitt('🔍 Fehlerdetektive', detektivplatz,
+        h('div', { class: 'blatt__knopfreihe' },
           h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden'))),
       abschnitt('Bereiche für die Klasse',
         h('p', { class: 'blatt__text' },
@@ -935,7 +1114,7 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
               meldung(klartext(problem), 'warnung', 5000);
             }
           }),
-          'Welche Wörter die Kinder bearbeitet haben und wie sie sie geschrieben haben. Lesen kannst nur du — die Kinder sehen die Fehler der anderen nicht.'),
+          'Welche Wörter die Kinder bearbeitet haben und wie sie sie geschrieben haben — und die Ergebnisse der Fehlerdetektive. Lesen kannst nur du — die Kinder sehen die Fehler der anderen nicht.'),
         h('p', { class: 'abschnitt__notiz' },
           'Das sind Leistungsdaten einzelner Kinder. Sie liegen so lange in der Datenbank, bis du sie löschst.'),
         h('button', {
@@ -943,7 +1122,7 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
           onclick: async () => {
             const ja = await frage({
               titel: 'Alle Wörter und Fehler löschen?',
-              text: 'Das Protokoll der ganzen Klasse wird entfernt. Die Sterne bleiben.',
+              text: 'Das Protokoll der ganzen Klasse wird entfernt — auch die Ergebnisse der Fehlerdetektive. Die Sterne bleiben.',
               ja: 'Löschen', gefahr: true,
             });
             if (!ja) return;
@@ -1313,4 +1492,57 @@ export async function fortschrittHochladen() {
     angemeldetesKind.name,
     protokoll(),
   ).catch(() => {});
+}
+
+/* ---------- Fehlerdetektive: das Ergebnis an die Klasse ---------- */
+
+/**
+ * Ein ausgewertetes Ergebnis festhalten und an die Klasse schicken.
+ *
+ * Gibt zurück, was mit dem Ergebnis geschieht — die Übung sagt es dem Kind:
+ * 'gemeldet' (angemeldet, Mitschreiben erlaubt), 'aus' (die Lehrkraft hat
+ * das Mitschreiben abgeschaltet) oder 'ohne' (niemand angemeldet).
+ */
+export function fehlersucheErgebnis(ergebnis) {
+  const kind = nutzer();
+  if (!kind || kind.art !== 'kind' || !kind.klasse) return 'ohne';
+  const klasse = klassen().find((k) => k.code === kind.klasse);
+  if (klasse && klasse.protokoll === false) return 'aus';
+  fehlersucheMerken({
+    schluessel: `t${ergebnis.beginn}`,
+    klasse: kind.klasse,
+    kind: kind.schluessel,
+    name: kind.name,
+    ergebnis,
+  });
+  fehlersucheNachsenden();
+  return 'gemeldet';
+}
+
+let nachsendenLaeuft = false;
+
+/**
+ * Alles schicken, was noch auf dem Gerät liegt — nach jedem Auswerten und
+ * bei jedem Start. Was nicht durchgeht, bleibt liegen und kommt beim nächsten
+ * Mal mit. Jedes Ergebnis geht unter dem Kind, das es erarbeitet hat, nicht
+ * unter dem, das gerade angemeldet ist.
+ */
+export async function fehlersucheNachsenden() {
+  if (nachsendenLaeuft) return;
+  nachsendenLaeuft = true;
+  try {
+    for (const offen of fehlersucheOffen()) {
+      try {
+        await fehlersucheMelden(offen.klasse, offen.kind, offen.name, offen.schluessel, offen.ergebnis);
+        fehlersucheErledigt(offen.schluessel);
+      } catch (_) {
+        // Kein Netz: alles Weitere später. Ein Rechtefehler bliebe ebenso
+        // liegen — die Regeln lassen das Schreiben ins Protokoll aber jedem
+        // Kind zu, also ist das hier praktisch immer das Netz.
+        break;
+      }
+    }
+  } finally {
+    nachsendenLaeuft = false;
+  }
 }

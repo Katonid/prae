@@ -24,6 +24,13 @@
   kein `data-`, kein `title`, kein `aria-label` vor der Auswertung). Am
   `<span>` hängt nur die laufende Nummer `data-i`.
 
+## Mit Klasse: in der Wörterwerkstatt
+
+Seit Wörterwerkstatt 1.9.0 gibt es dieselbe Übung MIT Ergebnisprotokoll
+(Zeit, Fund, alle Versuche) in der Wörterwerkstatt — Einzelheiten in
+`woerterwerkstatt/CLAUDE.md`. Der Text steht dort in `js/fehlertexte.js`
+noch einmal: Wer ihn hier ändert, ändert ihn dort mit.
+
 ## Versionierung
 
 `Fassung x.y.z` in der Fußzeile, Patch +1 bei jeder Änderung.
