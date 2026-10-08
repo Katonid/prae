@@ -262,3 +262,27 @@ export function vollbild(an) {
     else if (!an && document.exitFullscreen && document.fullscreenElement) document.exitFullscreen();
   } catch (_) { /* manche Browser verbieten es ohne Geste */ }
 }
+
+/* ---------- Gerätespeicher behalten ---------- */
+
+/**
+ * Den Browser bitten, die Daten dieser App nicht wegzuräumen.
+ *
+ * Safari löscht den Speicher von Seiten, die eine Weile nicht benutzt wurden
+ * (docs/woerterwerkstatt/ios.md) — und mit ihm die Anmeldung des Kindes
+ * (gemeldet 10/2026: „Kinder bleiben auf ihrem Gerät nicht angemeldet").
+ * `navigator.storage.persist()` fragt nach dauerhaftem Speicher; ob der
+ * Browser zustimmt, entscheidet er selbst (Safari eher für Apps auf dem
+ * Home-Bildschirm). Ein Nein ist kein Fehler: Dann bleibt es wie bisher.
+ */
+export async function speicherBehalten() {
+  const b = bruecke();
+  if (b) return true; // In einer nativen Hülle räumt niemand den Speicher.
+  try {
+    if (!navigator.storage || typeof navigator.storage.persist !== 'function') return false;
+    if (typeof navigator.storage.persisted === 'function' && await navigator.storage.persisted()) return true;
+    return Boolean(await navigator.storage.persist());
+  } catch (_) {
+    return false;
+  }
+}

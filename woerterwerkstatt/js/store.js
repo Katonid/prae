@@ -491,6 +491,9 @@ export function sterneImBereich(bereichId, pakete, stufen) {
  * unter dessen Namen ankommen. Höchstens 30 bleiben liegen; ältere fallen weg.
  */
 export function fehlersucheMerken(eintrag) {
+  // Derselbe Durchgang kommt nach jedem Prüfen wieder (ab 1.9.2) — der
+  // neuere Stand ersetzt den älteren, statt daneben zu liegen.
+  zustand.fehlersucheOffen = zustand.fehlersucheOffen.filter((e) => e.schluessel !== eintrag.schluessel);
   zustand.fehlersucheOffen.push(eintrag);
   if (zustand.fehlersucheOffen.length > 30) zustand.fehlersucheOffen.splice(0, zustand.fehlersucheOffen.length - 30);
   sichere();

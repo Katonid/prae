@@ -490,6 +490,25 @@
     diese Übung vom Nutzer so vorgegeben. Jede Farbe hat zusätzlich eine
     eigene Linienart.
   - Vor der Auswertung trägt kein Wort-Element die Lösung (nur `data-i`).
+  - **Die Lösung kommt in Stufen** (ab 1.9.2, Ansage des Nutzers 10/2026:
+    „liefert leider sofort auch die nicht gefundenen Wörter"). JEDES Prüfen
+    geht eine Stufe weiter (Wahl des Nutzers, kein eigener Tipp-Knopf),
+    dazwischen sucht das Kind weiter: 1 Anzahl der fehlenden (gefunden grün,
+    falsch markiert rot — Wahl des Nutzers), 2 davon Nomen/andere, 3 Bänder
+    über die ZEILEN mit fehlenden Fehlern, 4 Lösung (orange, antippbar).
+    Alles gefunden ohne Fehlgriff → sofort Schluss. Die Zeilen sind die
+    gerade umbrochenen; bei jeder Größenänderung neu gezeichnet. Ein Band geht
+    über die volle Breite — sonst verriete es das Wort.
+  - Gemeldet wird nach JEDEM Prüfen unter demselben Schlüssel; die Zahlen des
+    ERSTEN Prüfens bleiben (`gefunden`, `ue` …), `verlauf` wächst, `loesung`
+    sagt, ob die Lösung angesehen wurde. Die Warteschlange ersetzt den
+    älteren Stand desselben Schlüssels.
+  - **Testen nur mit `serviceWorkers: 'block'`.** Kontrolliert der Service
+    Worker die Seite, fängt Playwrights `route` die Anfragen an Firebase
+    nicht mehr ab — sie gingen 10/2026 an die ECHTE Datenbank (Testdaten unter
+    `protokoll/ABC234/anna`, wieder gelöscht). Und den Gerätezustand nie von
+    der App-Seite aus löschen: Die App hält ihre IndexedDB offen, das Löschen
+    wird blockiert und der alte Zustand bleibt.
   - **Zwei Texte** (ab 1.9.1): Übung 1 „Ein besonderer Herbsttag", Übung 2
     „Das Rätsel im Schulhaus" (`nummer` steht auf der Karte). Übung 1 bleibt
     inhaltlich unverändert (Vorgabe des Nutzers); ein Text mit eigenem
@@ -499,3 +518,26 @@
     Versuch, Zahl der Versuche, auch wer noch nichts abgegeben hat; Name →
     alle Durchgänge mit Uhrzeit, Dauer, Übersehenem; „Am häufigsten
     übersehen" zählt den ERSTEN Versuch jedes Kindes.
+- **Ein angemeldetes Kind bleibt angemeldet** (ab 1.9.3, gemeldet 10/2026:
+  „Kinder bleiben auf ihrem Gerät nicht angemeldet"). Zwei Ursachen:
+  - Der Beitrittslink `#/beitreten/<CODE>` öffnete IMMER das Anmeldeblatt —
+    auch für ein Kind, das in genau dieser Klasse schon angemeldet war. Den
+    Link öffnen Kinder aber ständig (QR-Code an der Tafel, Lesezeichen,
+    Home-Bildschirm-Symbol, das auf dem Beitrittslink abgelegt wurde). Jetzt
+    führt er dann still zur Startseite (`replaceState`, Meldung „schon
+    angemeldet"); nur eine ANDERE Klasse fragt neu.
+  - `navigator.storage.persist()` wurde nie erbeten (`speicherBehalten` in
+    plattform.js; beim Start, wenn jemand angemeldet ist, und gleich nach der
+    Anmeldung). Safari entscheidet selbst — bei einer App vom
+    Home-Bildschirm eher ja.
+  - NICHT zu lösen aus der App: Safari-Tab und Home-Bildschirm-App haben auf
+    iOS GETRENNTE Speicher, ebenso GitHub Pages und ein eigener Webspace.
+    Wer mal hier, mal dort öffnet, ist auf der anderen Seite nicht angemeldet.
+- **Ein neuer Satz fragt nach seinen Klassen** (ab 1.9.3, gemeldet 10/2026:
+  „Übung ‚2. Oktober' wird in der Klasse Kroko nicht angezeigt"). Eine Klasse
+  trägt KOPIEN ihrer Sätze; bis dahin kam ein Satz nur über „📒 Eigene Sätze
+  mitgeben" hinein, und eine spätere Änderung erreichte die Kinder nie.
+  `inKlassenNachziehen` (bereiche.js) nach jedem Sichern: Klassen mit dem Satz
+  bekommen still die neue Fassung (PATCH `bereiche/<id>`); hat ihn noch keine
+  Klasse, fragt ein Blatt, welche ihn bekommen soll (bei nur einer Klasse ist
+  der Haken gesetzt). Nur dann — sonst käme die Frage bei jeder Änderung.
