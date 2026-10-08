@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f6f4ee">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fehlerdetektive">
+<title>Fehlerdetektive</title>
+<style>
+  :root {
+    --hintergrund: #f6f4ee;
+    --karte: #ffffff;
+    --text: #1f2430;
+    --leise: #5a6170;
+    --rand: #e2ddd0;
+    --akzent: #2f5d8a;
+    --akzent-dunkel: #234870;
+
+    /* Markierung vor der Auswertung */
+    --markiert-bg: #ffe27a;
+    --markiert-linie: #8a6a00;
+
+    /* Auswertung – Farbe UND Linienart, damit es auch ohne Farbsehen klappt */
+    --gefunden-bg: #c9ecd3;
+    --gefunden-linie: #1d7a3e;
+    --falsch-bg: #fbd3d0;
+    --falsch-linie: #b3261e;
+    --uebersehen-bg: #ffdcb0;
+    --uebersehen-linie: #a85400;
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--hintergrund);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+    padding: 0 max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left));
+  }
+
+  .seite {
+    max-width: 46rem;
+    margin: 0 auto;
+  }
+
+  header {
+    padding: 32px 0 8px;
+  }
+
+  h1 {
+    font-size: clamp(1.6rem, 1.1rem + 2vw, 2.25rem);
+    line-height: 1.2;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+
+  h1 .lupe { font-weight: 400; }
+
+  .auftrag {
+    font-size: clamp(1.1rem, 1rem + 0.4vw, 1.25rem);
+    margin: 0 0 6px;
+  }
+
+  .auftrag.achtung {
+    color: var(--leise);
+  }
+
+  .auftrag strong { color: var(--text); }
+
+  /* Ergebnis der Auswertung */
+  .ergebnis {
+    margin: 20px 0 0;
+    padding: 18px 20px;
+    border-radius: 14px;
+    background: var(--karte);
+    border: 2px solid var(--rand);
+    font-size: 1.2rem;
+  }
+  .ergebnis[hidden] { display: none; }
+  .ergebnis p { margin: 0 0 4px; }
+  .ergebnis p:last-child { margin-bottom: 0; }
+  .ergebnis .haupt { font-weight: 700; font-size: 1.3rem; }
+  .ergebnis.perfekt {
+    border-color: var(--gefunden-linie);
+    background: #effaf2;
+  }
+  .ergebnis .tipp {
+    color: var(--leise);
+    font-size: 1rem;
+    margin-top: 10px;
+  }
+
+  .legende {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 1rem;
+  }
+  .legende li { display: flex; align-items: center; gap: 8px; }
+  .legende .probe {
+    display: inline-block;
+    width: 2.2em;
+    height: 1.2em;
+    border-radius: 4px;
+  }
+
+  /* Zählerleiste – bleibt beim Lesen oben sichtbar */
+  .leiste {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--hintergrund);
+    padding: 12px 0 10px;
+    margin-top: 12px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--leise);
+  }
+  .leiste strong { color: var(--text); }
+
+  /* Textkarte */
+  .textkarte {
+    position: relative;
+    background: var(--karte);
+    border: 1px solid var(--rand);
+    border-radius: 16px;
+    padding: clamp(20px, 4vw, 40px) clamp(18px, 5vw, 48px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .textkarte h2 {
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.7rem);
+    margin: 0 0 18px;
+    line-height: 1.3;
+  }
+
+  .text {
+    font-size: clamp(1.25rem, 1.05rem + 0.8vw, 1.5rem);
+    line-height: 2.1;
+    hyphens: manual;
+    -webkit-hyphens: manual;
+    overflow-wrap: break-word;
+    /* Kein Lupen-/Auswahlmenü bei langem Druck auf dem iPad */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .text p { margin: 0 0 1em; }
+  .text p:last-child { margin-bottom: 0; }
+
+  /* Ein antippbares Wort – sieht aus wie normaler Text */
+  .w {
+    cursor: pointer;
+    border-radius: 6px;
+    /* größere Tippfläche, ohne den Textfluss zu verschieben */
+    padding: 0.18em 0.12em;
+    margin: 0 -0.12em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .w:focus { outline: none; }
+  .w:focus-visible {
+    outline: 3px solid var(--akzent);
+    outline-offset: 1px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .uebung:not(.ausgewertet) .w:hover { background: #f1eee4; }
+  }
+
+  .w.markiert,
+  .uebung:not(.ausgewertet) .w.markiert:hover {
+    background: var(--markiert-bg);
+    box-shadow: inset 0 -3px 0 var(--markiert-linie);
+  }
+
+  /* Nach der Auswertung */
+  .ausgewertet .w { cursor: default; }
+  .ausgewertet .w.markiert { background: none; box-shadow: none; }
+
+  .ausgewertet .w.gefunden,
+  .ausgewertet .w.uebersehen,
+  .ausgewertet .w.falsch { cursor: pointer; }
+
+  .ausgewertet .w.gefunden {
+    background: var(--gefunden-bg);
+    box-shadow: inset 0 -3px 0 var(--gefunden-linie);
+  }
+  .ausgewertet .w.falsch {
+    background: var(--falsch-bg);
+    text-decoration: line-through;
+    text-decoration-color: var(--falsch-linie);
+    text-decoration-thickness: 2px;
+  }
+  .ausgewertet .w.uebersehen {
+    background: var(--uebersehen-bg);
+    box-shadow: inset 0 0 0 2px var(--uebersehen-linie);
+  }
+  .ausgewertet .w.offen {
+    outline: 3px solid var(--akzent);
+    outline-offset: 1px;
+  }
+
+  .probe.gefunden { background: var(--gefunden-bg); box-shadow: inset 0 -3px 0 var(--gefunden-linie); }
+  .probe.falsch { background: var(--falsch-bg); background-image: linear-gradient(transparent 45%, var(--falsch-linie) 45%, var(--falsch-linie) 58%, transparent 58%); }
+  .probe.uebersehen { background: var(--uebersehen-bg); box-shadow: inset 0 0 0 2px var(--uebersehen-linie); }
+
+  /* Einblendung mit der richtigen Schreibweise */
+  .blase {
+    position: absolute;
+    z-index: 10;
+    max-width: min(22rem, calc(100% - 16px));
+    background: #1f2430;
+    color: #fff;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 1.25rem;
+    line-height: 1.4;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  }
+  .blase[hidden] { display: none; }
+  .blase .alt { text-decoration: line-through; text-decoration-thickness: 2px; opacity: 0.85; }
+  .blase .neu { font-weight: 700; color: #b9f0c8; }
+  .blase .hinweis { display: block; font-size: 1rem; opacity: 0.85; margin-top: 2px; }
+  .blase::before {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: var(--pfeil, 50%);
+    margin-left: -8px;
+    border: 8px solid transparent;
+    border-top: 0;
+    border-bottom-color: #1f2430;
+  }
+
+  /* Knöpfe */
+  .knoepfe {
+    display: flex;
+    justify-content: center;
+    margin: 28px 0 0;
+  }
+
+  button.gross {
+    font: inherit;
+    font-size: 1.35rem;
+    font-weight: 700;
+    min-height: 60px;
+    min-width: min(100%, 18rem);
+    padding: 14px 32px;
+    border-radius: 14px;
+    border: 0;
+    background: var(--akzent);
+    color: #fff;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button.gross:active { background: var(--akzent-dunkel); }
+  button.gross:focus-visible { outline: 3px solid #f0b400; outline-offset: 3px; }
+  button.gross.zweit {
+    background: var(--karte);
+    color: var(--akzent);
+    border: 2px solid var(--akzent);
+  }
+  button.gross.zweit:active { background: #e9eff6; }
+  button[hidden] { display: none; }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  footer {
+    margin-top: 40px;
+    text-align: center;
+    color: var(--leise);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+<div class="seite uebung" id="uebung">
+
+  <header>
+    <h1>Fehlerdetektive <span class="lupe" aria-hidden="true">🔍</span> – Findest du alle Fehler?</h1>
+    <p class="auftrag">Im Text haben sich <strong>40 Rechtschreibfehler</strong> versteckt. Tippe auf jedes Wort, das deiner Meinung nach falsch geschrieben ist.</p>
+    <p class="auftrag achtung"><strong>Achtung:</strong> Viele schwierige Wörter sind vollkommen richtig geschrieben!</p>
+
+    <section class="ergebnis" id="ergebnis" hidden aria-live="polite" tabindex="-1"></section>
+  </header>
+
+  <div class="leiste" id="leiste" aria-live="polite">Markiert: <strong id="anzahl">0 Wörter</strong></div>
+
+  <main class="textkarte" id="textkarte">
+    <h2 id="titel"></h2>
+    <div class="text" id="text"></div>
+    <div class="blase" id="blase" role="status" hidden></div>
+  </main>
+
+  <div class="knoepfe">
+    <button type="button" class="gross" id="auswerten">Auswerten</button>
+    <button type="button" class="gross zweit" id="nochmal" hidden>Noch einmal versuchen</button>
+  </div>
+
+  <footer>Fehlerdetektive · Fassung 1.0.0</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /*
+   * ÜBUNGSTEXT
+   * ----------
+   * Absätze werden durch eine Leerzeile getrennt.
+   * Fehler stehen als [[TYP|falsche Form|richtige Form]]:
+   *   N = Nomen absichtlich kleingeschrieben
+   *   S = sonstiger Rechtschreibfehler
+   * Die Kinder sehen nur die falsche Form. Buchstaben direkt hinter einer
+   * Markierung gehören zum selben Wort: [[S|gelp|gelb]]es → „gelpes" (richtig: „gelbes").
+   */
+  var TITEL = "Ein besonderer Herbsttag";
+
+  var TEXT = [
+    "Am Freitag macht unsere Klasse 4a einen [[N|ausflug|Ausflug]] in ein Naturschutzgebiet. Schon früh warten die Kinder auf dem [[N|schulhof|Schulhof]]. Einige halten ihre [[S|Hende|Hände]] tief in den Jackentaschen, denn die Luft ist kühl. Frau Berger prüft noch einmal die Liste, während die [[N|rucksäcke|Rucksäcke]] neben der Tür stehen. Unsere [[N|lehrerin|Lehrerin]] [[S|tregt|trägt]] an diesem Morgen selbst einen besonders großen Rucksack.",
+    "",
+    "Kurz darauf kommt der [[N|bus|Bus]]. Die Fahrt dauert nicht lange. Am Parkplatz erklärt ein Förster, wie wir uns im [[N|wald|Wald]] verhalten sollen. Dann beginnt die Wanderung. Auf einem schmalen [[N|weg|Weg]] rascheln trockene [[N|blätter|Blätter]] unter unseren Schuhen. Wir müssen vorsichtig [[S|geen|gehen]], weil dicke Wurzeln aus dem Boden ragen. Neben uns [[S|leuft|läuft]] ein kleiner Bach durch das Gelände.",
+    "",
+    "Der Förster erzählt, dass viele [[S|Welder|Wälder]] für Tiere und Pflanzen wichtig sind. Die hohen [[S|Beume|Bäume]] bieten vielen Vögeln Schutz. Auf einer Lichtung können wir sogar zwei Rehe [[S|seen|sehen]]. Ein besonders großer Baum ist [[S|elter|älter]] als unsere Schule. An einem umgestürzten Stamm müssen wir kurz [[S|steen|stehen]] bleiben.",
+    "",
+    "Später machen wir eine [[N|pause|Pause]]. Die Kinder holen ihre [[N|brote|Brote]] und [[N|flaschen|Flaschen]] heraus. Im Gras liegt ein [[S|gelp|gelb]]es Blatt, das aussieht wie ein Stern. Mia legt es vorsichtig in einen [[S|Korp|Korb]], den der Förster für Fundstücke mitgebracht hat. Ein [[S|Zweik|Zweig]] mit roten Beeren bleibt dagegen liegen.",
+    "",
+    "Nach der Pause taucht [[S|plözlich|plötzlich]] ein [[N|hund|Hund]] auf. Der freundliche Hund gehört zu einem [[N|spaziergänger|Spaziergänger]] und will offenbar mit uns spielen. Er springt bis an den [[N|bach|Bach]], während einige Enten dort [[S|schwimen|schwimmen]]. Der Förster bittet uns, ruhig zu bleiben und nicht an Ästen zu [[S|zien|ziehen]].",
+    "",
+    "Bald führt der [[S|Wek|Weg]] zu einer alten [[N|brücke|Brücke]]. Dort soll jede [[N|gruppe|Gruppe]] eine kleine Aufgabe lösen. Wir haben eine [[N|karte|Karte]] bekommen und sollen darauf verschiedene Stellen einzeichnen. Mia hat die Karte aus einem Umschlag [[S|genomen|genommen]]. Danach sollen alle Teams wieder zum Treffpunkt [[S|komen|kommen]]. Bei einem Bewegungsspiel dürfen wir uns anschließend im Kreis [[S|dreen|drehen]].",
+    "",
+    "Für den [[N|rückweg|Rückweg]] wählen wir einen anderen Pfad. Der Förster zeigt noch einmal auf den [[S|Walt|Wald]] und erklärt, warum wir keinen Müll zurücklassen dürfen. Am Nachmittag erreichen wir die [[N|schule|Schule]]. Alle sind müde, aber zufrieden. Es ist ein schöner [[N|tag|Tag]], an den sich die Klasse bestimmt noch lange erinnern wird."
+  ].join("\n");
+
+  var SOLL = { N: 20, S: 20, gesamt: 40 };
+
+  /* ---------- Text zerlegen ---------- */
+
+  // Markierung | Wort | Leerraum | Satzzeichen
+  var MUSTER = /\[\[([NS])\|([^|\]]+)\|([^|\]]+)\]\]|([\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*)|(\s+)|([^\s\p{L}\p{N}\[]+)/gu;
+
+  function zerlegeAbsatz(absatz, probleme) {
+    var teile = [];
+    var gelesen = 0;
+    var m;
+    MUSTER.lastIndex = 0;
+    while ((m = MUSTER.exec(absatz)) !== null) {
+      if (m.index !== gelesen) {
+        probleme.push("Unlesbare Stelle im Text: „" + absatz.slice(gelesen, m.index) + "“");
+      }
+      gelesen = MUSTER.lastIndex;
+      if (m[1]) {
+        teile.push({ art: "wort", text: m[2], richtig: m[3], typ: m[1] });
+      } else if (m[4]) {
+        teile.push({ art: "wort", text: m[4], richtig: m[4], typ: null });
+      } else if (m[5]) {
+        teile.push({ art: "leer", text: " " });
+      } else {
+        teile.push({ art: "zeichen", text: m[6] });
+      }
+    }
+    if (gelesen !== absatz.length) {
+      probleme.push("Unlesbares Textende: „" + absatz.slice(gelesen) + "“");
+    }
+
+    // Direkt aneinanderstoßende Wortteile zu EINEM Wort verbinden
+    // (z. B. [[S|gelp|gelb]]es → „gelpes“ / „gelbes“).
+    var verbunden = [];
+    teile.forEach(function (t) {
+      var vorher = verbunden[verbunden.length - 1];
+      if (t.art === "wort" && vorher && vorher.art === "wort") {
+        if (vorher.typ && t.typ) {
+          probleme.push("Zwei Fehler in einem Wort: „" + vorher.text + t.text + "“");
+        }
+        vorher.text += t.text;
+        vorher.richtig += t.richtig;
+        vorher.typ = vorher.typ || t.typ;
+      } else {
+        verbunden.push(t);
+      }
+    });
+    return verbunden;
+  }
+
+  function zerlegeText(text) {
+    var probleme = [];
+    var absaetze = text.split(/\n\s*\n/).map(function (a) { return a.trim(); }).filter(Boolean);
+    var ergebnis = absaetze.map(function (a) { return zerlegeAbsatz(a, probleme); });
+    return { absaetze: ergebnis, probleme: probleme };
+  }
+
+  /* ---------- Selbstprüfung beim Laden ---------- */
+
+  function pruefe(woerter, probleme) {
+    var zahl = { N: 0, S: 0 };
+    woerter.forEach(function (w) {
+      if (!w.typ) return;
+      zahl[w.typ]++;
+      if (w.text === w.richtig) {
+        probleme.push("Fehler ohne Unterschied: „" + w.text + "“");
+      }
+      if (w.typ === "N") {
+        var gross = w.text.charAt(0).toUpperCase() + w.text.slice(1);
+        if (w.text.charAt(0) === w.text.charAt(0).toUpperCase() || gross !== w.richtig) {
+          probleme.push("N-Fehler ist keine reine Kleinschreibung: „" + w.text + "“ → „" + w.richtig + "“");
+        }
+      }
+    });
+    var gesamt = zahl.N + zahl.S;
+    if (zahl.N !== SOLL.N) probleme.push("Typ N: " + zahl.N + " statt " + SOLL.N + " Fehler.");
+    if (zahl.S !== SOLL.S) probleme.push("Typ S: " + zahl.S + " statt " + SOLL.S + " Fehler.");
+    if (gesamt !== SOLL.gesamt) probleme.push("Insgesamt: " + gesamt + " statt " + SOLL.gesamt + " Fehler.");
+
+    if (probleme.length) {
+      console.error(
+        "%c FEHLERDETEKTIVE – DER ÜBUNGSTEXT STIMMT NICHT! %c\n\n" + probleme.join("\n") +
+        "\n\nGezählt: N = " + zahl.N + ", S = " + zahl.S + ", gesamt = " + gesamt +
+        " (erwartet: N = " + SOLL.N + ", S = " + SOLL.S + ", gesamt = " + SOLL.gesamt + ").",
+        "background:#b3261e;color:#fff;font-size:16px;font-weight:bold;padding:4px 8px;",
+        ""
+      );
+    } else {
+      console.info("Fehlerdetektive: Text geprüft – " + zahl.N + " × N, " + zahl.S + " × S, insgesamt " + gesamt + " Fehler.");
+    }
+    return { N: zahl.N, S: zahl.S, gesamt: gesamt, ok: probleme.length === 0 };
+  }
+
+  /* ---------- Aufbau der Seite ---------- */
+
+  var uebung = document.getElementById("uebung");
+  var textEl = document.getElementById("text");
+  var anzahlEl = document.getElementById("anzahl");
+  var ergebnisEl = document.getElementById("ergebnis");
+  var blase = document.getElementById("blase");
+  var karte = document.getElementById("textkarte");
+  var knopfAuswerten = document.getElementById("auswerten");
+  var knopfNochmal = document.getElementById("nochmal");
+
+  document.getElementById("titel").textContent = TITEL;
+
+  var zerlegt = zerlegeText(TEXT);
+
+  // Die Lösung steht NUR hier im Skript – nicht an den Wort-Elementen.
+  var woerter = [];   // { text, richtig, typ }
+  var spans = [];     // passende Elemente, gleiche Reihenfolge
+  var markiert = [];  // true/false je Wort
+  var ausgewertet = false;
+  var offenesWort = -1;
+
+  zerlegt.absaetze.forEach(function (teile) {
+    var p = document.createElement("p");
+    teile.forEach(function (t) {
+      if (t.art === "wort") {
+        var i = woerter.length;
+        woerter.push({ text: t.text, richtig: t.richtig, typ: t.typ });
+        var s = document.createElement("span");
+        s.className = "w";
+        s.textContent = t.text;
+        s.setAttribute("role", "button");
+        s.setAttribute("tabindex", "0");
+        s.setAttribute("aria-pressed", "false");
+        s.dataset.i = String(i);
+        spans.push(s);
+        markiert.push(false);
+        p.appendChild(s);
+      } else {
+        p.appendChild(document.createTextNode(t.text));
+      }
+    });
+    textEl.appendChild(p);
+  });
+
+  var pruefung = pruefe(woerter, zerlegt.probleme);
+  var FEHLERZAHL = pruefung.gesamt;
+
+  /* ---------- Markieren ---------- */
+
+  function zaehleMarkierte() {
+    var n = 0;
+    for (var i = 0; i < markiert.length; i++) if (markiert[i]) n++;
+    return n;
+  }
+
+  function zeigeAnzahl() {
+    var n = zaehleMarkierte();
+    anzahlEl.textContent = n + (n === 1 ? " Wort" : " Wörter");
+  }
+
+  function umschalten(i) {
+    markiert[i] = !markiert[i];
+    spans[i].classList.toggle("markiert", markiert[i]);
+    spans[i].setAttribute("aria-pressed", markiert[i] ? "true" : "false");
+    zeigeAnzahl();
+  }
+
+  function wortAngetippt(i) {
+    if (ausgewertet) {
+      zeigeKorrektur(i);
+    } else {
+      umschalten(i);
+    }
+  }
+
+  textEl.addEventListener("click", function (e) {
+    var s = e.target.closest ? e.target.closest(".w") : null;
+    if (!s) return;
+    e.stopPropagation();
+    wortAngetippt(Number(s.dataset.i));
+  });
+
+  textEl.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var s = e.target.closest ? e.target.closest(".w") : null;
+    if (!s) return;
+    e.preventDefault();
+    wortAngetippt(Number(s.dataset.i));
+  });
+
+  /* ---------- Einblendung der richtigen Schreibweise ---------- */
+
+  function schliesseBlase() {
+    if (offenesWort >= 0) spans[offenesWort].classList.remove("offen");
+    offenesWort = -1;
+    blase.hidden = true;
+    blase.textContent = "";
+  }
+
+  function zeigeKorrektur(i) {
+    var w = woerter[i];
+    var istFehler = !!w.typ;
+    if (!istFehler && !markiert[i]) { schliesseBlase(); return; }
+    if (offenesWort === i) { schliesseBlase(); return; }
+    schliesseBlase();
+
+    blase.textContent = "";
+    if (istFehler) {
+      var alt = document.createElement("span");
+      alt.className = "alt";
+      alt.textContent = w.text;
+      var neu = document.createElement("span");
+      neu.className = "neu";
+      neu.textContent = w.richtig;
+      var hinweis = document.createElement("span");
+      hinweis.className = "hinweis";
+      hinweis.textContent = w.typ === "N"
+        ? "Nomen schreibt man groß."
+        : "So schreibt man das Wort richtig.";
+      blase.appendChild(alt);
+      blase.appendChild(document.createTextNode(" → "));
+      blase.appendChild(neu);
+      blase.appendChild(hinweis);
+    } else {
+      var richtig = document.createElement("strong");
+      richtig.textContent = "„" + w.text + "“";
+      blase.appendChild(richtig);
+      blase.appendChild(document.createTextNode(" ist richtig geschrieben."));
+    }
+
+    offenesWort = i;
+    spans[i].classList.add("offen");
+    blase.hidden = false;
+
+    // Unter das Wort setzen, innerhalb der Textkarte halten
+    var k = karte.getBoundingClientRect();
+    var rects = spans[i].getClientRects();
+    var r = rects[rects.length - 1] || spans[i].getBoundingClientRect();
+    var breite = blase.offsetWidth;
+    var mitte = r.left + r.width / 2 - k.left;
+    var links = Math.max(8, Math.min(mitte - breite / 2, k.width - breite - 8));
+    blase.style.left = links + "px";
+    blase.style.top = (r.bottom - k.top + 10) + "px";
+    blase.style.setProperty("--pfeil", Math.max(16, Math.min(mitte - links, breite - 16)) + "px");
+  }
+
+  document.addEventListener("click", function (e) {
+    if (offenesWort >= 0 && !blase.contains(e.target)) schliesseBlase();
+  });
+  window.addEventListener("resize", schliesseBlase);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") schliesseBlase();
+  });
+
+  /* ---------- Auswerten ---------- */
+
+  function absatz(text, klasse) {
+    var p = document.createElement("p");
+    if (klasse) p.className = klasse;
+    p.textContent = text;
+    return p;
+  }
+
+  function auswerten() {
+    var gefunden = 0, uebersehen = 0, falsch = 0;
+    woerter.forEach(function (w, i) {
+      var s = spans[i];
+      var klasse = null, beschreibung = "";
+      if (w.typ && markiert[i]) {
+        gefunden++; klasse = "gefunden";
+        beschreibung = "Fehler gefunden. Richtig: " + w.richtig;
+      } else if (w.typ) {
+        uebersehen++; klasse = "uebersehen";
+        beschreibung = "Fehler übersehen. Richtig: " + w.richtig;
+      } else if (markiert[i]) {
+        falsch++; klasse = "falsch";
+        beschreibung = "war richtig geschrieben";
+      }
+      if (klasse) {
+        s.classList.add(klasse);
+        s.setAttribute("aria-label", w.text + " – " + beschreibung);
+      } else {
+        s.removeAttribute("role");
+        s.setAttribute("tabindex", "-1");
+      }
+      s.removeAttribute("aria-pressed");
+    });
+
+    ausgewertet = true;
+    uebung.classList.add("ausgewertet");
+
+    ergebnisEl.textContent = "";
+    ergebnisEl.classList.remove("perfekt");
+
+    if (gefunden === FEHLERZAHL && falsch === 0) {
+      ergebnisEl.classList.add("perfekt");
+      ergebnisEl.appendChild(absatz("Fantastisch! Du hast alle " + FEHLERZAHL + " Fehler gefunden! 🎉", "haupt"));
+      ergebnisEl.appendChild(absatz("Und du hast kein einziges richtiges Wort markiert. Ein echter Fehlerdetektiv!"));
+    } else {
+      ergebnisEl.appendChild(absatz(
+        gefunden === FEHLERZAHL
+          ? "Super! Du hast alle " + FEHLERZAHL + " Fehler gefunden!"
+          : "Du hast " + gefunden + " von " + FEHLERZAHL + " Fehlern gefunden.",
+        "haupt"));
+      if (uebersehen > 0) {
+        ergebnisEl.appendChild(absatz(uebersehen === 1
+          ? "1 Fehler hast du übersehen."
+          : uebersehen + " Fehler hast du übersehen."));
+      }
+      if (falsch > 0) {
+        ergebnisEl.appendChild(absatz(falsch === 1
+          ? "1 richtiges Wort hast du versehentlich markiert."
+          : falsch + " richtige Wörter hast du versehentlich markiert."));
+      } else {
+        ergebnisEl.appendChild(absatz("Du hast kein richtiges Wort versehentlich markiert."));
+      }
+    }
+
+    var legende = document.createElement("ul");
+    legende.className = "legende";
+    [["gefunden", "gefunden"], ["uebersehen", "übersehen"], ["falsch", "war richtig"]].forEach(function (e) {
+      var li = document.createElement("li");
+      var probe = document.createElement("span");
+      probe.className = "probe " + e[0];
+      probe.setAttribute("aria-hidden", "true");
+      li.appendChild(probe);
+      li.appendChild(document.createTextNode(e[1]));
+      legende.appendChild(li);
+    });
+    ergebnisEl.appendChild(legende);
+    ergebnisEl.appendChild(absatz("Tippe auf ein farbiges Wort, um die richtige Schreibweise zu sehen.", "tipp"));
+
+    ergebnisEl.hidden = false;
+    knopfAuswerten.hidden = true;
+    knopfNochmal.hidden = false;
+
+    ergebnisEl.scrollIntoView({ block: "start" });
+    ergebnisEl.focus({ preventScroll: true });
+  }
+
+  /* ---------- Zurücksetzen ---------- */
+
+  function zuruecksetzen() {
+    schliesseBlase();
+    ausgewertet = false;
+    uebung.classList.remove("ausgewertet");
+    spans.forEach(function (s, i) {
+      markiert[i] = false;
+      s.className = "w";
+      s.setAttribute("role", "button");
+      s.setAttribute("tabindex", "0");
+      s.setAttribute("aria-pressed", "false");
+      s.removeAttribute("aria-label");
+    });
+    ergebnisEl.hidden = true;
+    ergebnisEl.textContent = "";
+    ergebnisEl.classList.remove("perfekt");
+    knopfAuswerten.hidden = false;
+    knopfNochmal.hidden = true;
+    zeigeAnzahl();
+    window.scrollTo(0, 0);
+  }
+
+  knopfAuswerten.addEventListener("click", auswerten);
+  knopfNochmal.addEventListener("click", zuruecksetzen);
+
+  zeigeAnzahl();
+})();
+</script>
+</body>
+</html>
