@@ -1438,6 +1438,221 @@ a.knopf { text-decoration: none; display: inline-flex; align-items: center; }
 body.is-ladend .kopf__rechts { visibility: hidden; }
 body.is-uebend .kopf { opacity: 0.55; }
 
+/* ---------- Fehlerdetektive ---------- */
+
+/* Die drei Auswertungsfarben sind die EINE Ausnahme von „kein Grün": Für
+   diese Übung hat der Nutzer grün/rot/orange ausdrücklich vorgegeben
+   (10/2026). Jede Farbe trägt zusätzlich ihre eigene Linienart — gefunden
+   unterstrichen, falsch markiert durchgestrichen, übersehen umrandet —, damit
+   es nicht an der Farbe allein hängt. */
+:root {
+  --detektiv-markiert: #fde68a;
+  --detektiv-markiert-linie: #a16207;
+  --detektiv-gefunden: #c9ecd3;
+  --detektiv-gefunden-linie: #15803d;
+  --detektiv-falsch: #fbd3d0;
+  --detektiv-falsch-linie: #b91c1c;
+  --detektiv-uebersehen: #ffdcb0;
+  --detektiv-uebersehen-linie: #b45309;
+  --detektiv-karte: #fff;
+}
+
+.detektivkarten { display: grid; gap: 12px; margin-bottom: 8px; }
+.detektivkarte {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--glas-kante);
+  border-radius: var(--rund-karte);
+  background: var(--glas);
+  backdrop-filter: blur(var(--glas-unscharf)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glas-unscharf)) saturate(150%);
+  box-shadow: var(--schatten);
+  text-align: left;
+  transition: transform 0.18s var(--feder);
+}
+.detektivkarte:hover { transform: translateY(-2px); }
+.detektivkarte__emoji { font-size: 30px; }
+.detektivkarte__text { flex: 1; display: grid; gap: 2px; }
+.detektivkarte__text strong { font-size: 18px; }
+.detektivkarte__text span { font-size: 14px; color: var(--tinte-zart); }
+
+.detektiv { max-width: 46rem; }
+.detektiv [hidden] { display: none !important; }
+.detektiv .seite__titel { font-size: clamp(24px, 4.2vw, 34px); }
+.detektiv__auftrag { margin: 0 0 6px; font-size: clamp(17px, 2.2vw, 19px); line-height: 1.45; }
+.detektiv__auftrag--leise { color: var(--tinte-zart); }
+.detektiv__auftrag--leise strong { color: var(--tinte); }
+
+.detektiv__melden {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--rund);
+  background: var(--akzent-zart);
+  font-size: 15px;
+}
+.detektiv__melden--ohne { background: rgba(249, 115, 22, 0.14); }
+.detektiv__melden .knopf { margin-top: 6px; }
+
+.detektiv__ergebnis {
+  margin: 18px 0 0;
+  padding: 16px 20px;
+  border-radius: var(--rund);
+  background: var(--detektiv-karte);
+  border: 2px solid var(--linie);
+  font-size: 18px;
+}
+.detektiv__ergebnis:focus { outline: none; }
+.detektiv__ergebnis p { margin: 0 0 4px; }
+.detektiv__ergebnis.is-perfekt { border-color: var(--detektiv-gefunden-linie); }
+.detektiv__haupt { font-weight: 800; font-size: 20px; }
+.detektiv__tipp { color: var(--tinte-zart); font-size: 15px; margin-top: 10px !important; }
+
+.detektiv__legende { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 12px 0 0; padding: 0; list-style: none; font-size: 15px; }
+.detektiv__legende li { display: flex; align-items: center; gap: 8px; }
+.detektiv__probe { display: inline-block; width: 2.2em; height: 1.2em; border-radius: 4px; }
+.detektiv__probe.is-gefunden { background: var(--detektiv-gefunden); box-shadow: inset 0 -3px 0 var(--detektiv-gefunden-linie); }
+.detektiv__probe.is-falsch { background: var(--detektiv-falsch) linear-gradient(transparent 44%, var(--detektiv-falsch-linie) 44%, var(--detektiv-falsch-linie) 58%, transparent 58%); }
+.detektiv__probe.is-uebersehen { background: var(--detektiv-uebersehen); box-shadow: inset 0 0 0 2px var(--detektiv-uebersehen-linie); }
+
+.detektiv__zaehler { margin: 18px 0 10px; font-size: 17px; font-weight: 600; color: var(--tinte-zart); }
+.detektiv__zaehler strong { color: var(--tinte); }
+
+.detektiv__karte {
+  position: relative;
+  padding: clamp(20px, 4vw, 40px) clamp(18px, 5vw, 46px);
+  border-radius: var(--rund-karte);
+  background: var(--detektiv-karte);
+  border: 1px solid var(--linie);
+  box-shadow: var(--schatten);
+}
+.detektiv__titel { margin: 0 0 16px; font-size: clamp(21px, 3vw, 26px); }
+
+/* Der Text: Fließtext in der Lernschrift, kein Knopfgitter. Kein Lupen- und
+   Auswahlmenü bei langem Druck — das Kind soll tippen, nicht markieren. */
+.detektiv__text {
+  font-family: var(--schrift-lern);
+  font-size: clamp(20px, 2.6vw, 24px);
+  line-height: 2.1;
+  hyphens: manual;
+  -webkit-hyphens: manual;
+  overflow-wrap: break-word;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.detektiv__text p { margin: 0 0 1em; }
+.detektiv__text p:last-child { margin-bottom: 0; }
+
+/* Die Polsterung macht die Tippfläche größer, der negative Rand nimmt sie
+   dem Textfluss wieder weg — die Wörter stehen, wo sie im Buch stünden. */
+.detektiv__wort {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0.18em 0.12em;
+  margin: 0 -0.12em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  touch-action: manipulation;
+}
+.detektiv__wort:focus { outline: none; }
+.detektiv__wort:focus-visible { outline: 3px solid var(--akzent); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .detektiv:not(.is-ausgewertet) .detektiv__wort:hover { background: var(--akzent-zart); }
+}
+.detektiv .detektiv__wort.is-markiert {
+  background: var(--detektiv-markiert);
+  box-shadow: inset 0 -3px 0 var(--detektiv-markiert-linie);
+  color: #1c1917;
+}
+.detektiv.is-ausgewertet .detektiv__wort { cursor: default; }
+.detektiv.is-ausgewertet .detektiv__wort.is-markiert { background: none; box-shadow: none; color: inherit; }
+.detektiv.is-ausgewertet .detektiv__wort.is-gefunden,
+.detektiv.is-ausgewertet .detektiv__wort.is-falsch,
+.detektiv.is-ausgewertet .detektiv__wort.is-uebersehen { cursor: pointer; color: #1c1917; }
+.detektiv.is-ausgewertet .detektiv__wort.is-gefunden {
+  background: var(--detektiv-gefunden);
+  box-shadow: inset 0 -3px 0 var(--detektiv-gefunden-linie);
+}
+.detektiv.is-ausgewertet .detektiv__wort.is-falsch {
+  background: var(--detektiv-falsch);
+  text-decoration: line-through;
+  text-decoration-color: var(--detektiv-falsch-linie);
+  text-decoration-thickness: 2px;
+}
+.detektiv.is-ausgewertet .detektiv__wort.is-uebersehen {
+  background: var(--detektiv-uebersehen);
+  box-shadow: inset 0 0 0 2px var(--detektiv-uebersehen-linie);
+}
+.detektiv.is-ausgewertet .detektiv__wort.is-offen { outline: 3px solid var(--akzent); outline-offset: 1px; }
+
+.detektiv__blase {
+  position: absolute;
+  z-index: 10;
+  max-width: min(22rem, calc(100% - 16px));
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1.4;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+}
+.detektiv__blase::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: var(--pfeil, 50%);
+  margin-left: -8px;
+  border: 8px solid transparent;
+  border-top: 0;
+  border-bottom-color: #0f172a;
+}
+.detektiv__alt { font-family: var(--schrift-lern); text-decoration: line-through; text-decoration-thickness: 2px; opacity: 0.85; }
+.detektiv__neu { font-family: var(--schrift-lern); font-weight: 700; color: #bbf7d0; }
+.detektiv__regel { display: block; font-size: 15px; opacity: 0.85; margin-top: 2px; }
+
+.detektiv__knoepfe { display: flex; justify-content: center; margin: 26px 0 10px; }
+.detektiv__knopf { min-height: 60px; min-width: min(100%, 18rem); font-size: 20px; justify-content: center; }
+
+/* Klassenansicht: je Kind eine Zeile */
+.detektivtext { margin-bottom: 18px; }
+.detektivtext__titel { margin: 0 0 4px; font-size: 17px; }
+.detektivliste { display: grid; gap: 6px; margin-top: 10px; }
+.detektivliste__kopf,
+.detektivliste__zeile {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) 2fr 2fr 70px;
+  gap: 10px;
+  align-items: center;
+}
+.detektivliste__kopf { font-size: 12px; font-weight: 700; color: var(--tinte-zart); padding: 0 12px; }
+.detektivliste__zeile {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--linie);
+  font-size: 14px;
+}
+.detektivliste__zeile.is-offen { color: var(--tinte-zart); }
+.detektivliste__zahl { text-align: center; font-weight: 700; }
+@media (max-width: 640px) {
+  .detektivliste__kopf { display: none; }
+  .detektivliste__zeile { grid-template-columns: 1fr; gap: 2px; }
+  .detektivliste__wert:not(:empty)::before { content: attr(data-titel) ": "; color: var(--tinte-zart); font-size: 12px; }
+  .detektivliste__zahl { text-align: left; }
+}
+.detektivbefund__zahlen { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; }
+.detektivbefund__richtig {
+  font-family: var(--schrift-lern);
+  font-size: 15px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--akzent-zart);
+}
+
 :focus-visible { outline: 3px solid var(--akzent); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1490,4 +1705,6 @@ body.is-uebend .kopf { opacity: 0.55; }
   .einrichthinweis { background: rgba(249, 115, 22, 0.12); border-color: rgba(249, 115, 22, 0.4); }
   .einrichthinweis__titel { color: #fdba74; }
   .einrichthinweis code { background: rgba(255, 255, 255, 0.12); }
+  :root { --detektiv-karte: rgba(17, 24, 39, 0.92); }
+  .detektivliste__zeile { background: rgba(30, 41, 59, 0.7); }
 }

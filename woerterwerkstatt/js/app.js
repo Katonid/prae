@@ -28,8 +28,10 @@ import { einstellungenZeigen } from './einstellungen.js';
 import { bereicheVerwalten } from './bereiche.js';
 import {
   lehrkraftAnmeldung, klassenVerwalten, beitreten, fortschrittHochladen, fortschrittAbholen,
-  anmeldenMitCode, klasseAuffrischen,
+  anmeldenMitCode, klasseAuffrischen, fehlersucheErgebnis, fehlersucheNachsenden,
 } from './klasse.js';
+import { FEHLERTEXTE, fehlertextNachId } from './fehlertexte.js';
+import { fehlersucheStarten } from './fehlersuche.js';
 import { angemeldet, wolkeStarten, abmelden, beiKontoWechsel, verwaltungPruefen } from './cloud.js';
 import { schulverwaltung } from './admin.js';
 import { alsApp } from './plattform.js';
@@ -95,6 +97,16 @@ function bereicheZeigen() {
       h('span', { class: 'bereichskarte__sterne' }, `${erreicht} / ${moeglich} ★`));
   };
 
+  const detektivkarten = FEHLERTEXTE.map((text) => h('button', {
+    class: 'detektivkarte', type: 'button',
+    onclick: () => { sfx.tipp(); gehZu(`#/fehlersuche/${text.id}`); },
+  },
+    h('span', { class: 'detektivkarte__emoji', 'aria-hidden': 'true' }, '🔍'),
+    h('span', { class: 'detektivkarte__text' },
+      h('strong', {}, `${text.emoji || ''} ${text.titel}`.trim()),
+      h('span', {}, 'Fehlerdetektive: Findest du alle versteckten Fehler im Text?')),
+    h('span', { class: 'auftrag__pfeil' }, '→')));
+
   const auftragskarte = auftragZeigen();
   const weiterkarte = weitermachenZeigen();
 
@@ -112,6 +124,8 @@ function bereicheZeigen() {
       h('p', { class: 'seite__untertitel' },
         'Such dir einen Bereich aus. Ein Trainingspäckchen hat höchstens '
         + `${PAKETGROESSE} Lernwörter und bis zu fünf Stufen.`)),
+    detektivkarten.length ? h('h2', { class: 'seite__abschnitt' }, 'Fehlerdetektive') : null,
+    detektivkarten.length ? h('div', { class: 'detektivkarten' }, ...detektivkarten) : null,
     eigene.length ? h('h2', { class: 'seite__abschnitt' }, 'Von deiner Lehrerin oder deinem Lehrer') : null,
     gitter,
     bloecke.length ? h('h2', { class: 'seite__abschnitt' }, 'Rechtschreibung') : null,
@@ -279,6 +293,38 @@ function uebenZeigen(bereichId, paketNummer, stufeId) {
   });
 }
 
+/* ---------- Fehlerdetektive ---------- */
+
+/**
+ * Der Text mit den versteckten Fehlern. Ob das Ergebnis bei der Lehrkraft
+ * ankommt, steht VOR dem Auswerten über dem Text: Ein Kind soll wissen, dass
+ * seine Zeit und sein Ergebnis mitgehen — und eines, das nicht angemeldet
+ * ist, soll es merken, bevor es sich zwanzig Minuten Mühe gegeben hat.
+ */
+function fehlersucheZeigen(textId) {
+  const text = fehlertextNachId(textId);
+  if (!text) { gehZu('#/'); return; }
+  const kind = nutzer();
+  const angemeldetesKind = kind && kind.art === 'kind' && kind.klasse;
+  const klasse = angemeldetesKind ? klassen().find((k) => k.code === kind.klasse) : null;
+  let hinweis = null;
+  if (angemeldetesKind && !(klasse && klasse.protokoll === false)) {
+    hinweis = h('p', { class: 'detektiv__melden' },
+      `👋 ${kind.name}, wenn du auswertest, sieht deine Lehrerin oder dein Lehrer dein Ergebnis und wie lange du gebraucht hast.`);
+  } else if (!angemeldetesKind && !angemeldet()) {
+    hinweis = h('p', { class: 'detektiv__melden detektiv__melden--ohne' },
+      'Du bist nicht angemeldet. Dein Ergebnis wird nicht an deine Lehrerin oder deinen Lehrer geschickt. ',
+      h('button', { class: 'knopf knopf--klein', type: 'button', onclick: () => anmeldenMitCode() }, '👋 Mitmachen'));
+  }
+  laufAbbrechen = fehlersucheStarten({
+    platz: buehne(),
+    text,
+    hinweis,
+    zurueck: () => gehZu('#/'),
+    beiErgebnis: (ergebnis) => { fehlersucheErgebnis(ergebnis); },
+  });
+}
+
 /* ---------- Wegweiser ---------- */
 
 function gehZu(adresse, erzwingen = false) {
@@ -324,6 +370,10 @@ function wegLesen() {
   offenerBeitritt = null;
   if (teile[0] === 'ueben' && teile[1] && teile[3]) {
     uebenZeigen(teile[1], Number(teile[2]) || 0, teile[3]);
+    return;
+  }
+  if (teile[0] === 'fehlersuche' && teile[1]) {
+    fehlersucheZeigen(teile[1]);
     return;
   }
   if (teile[0] === 'bereich' && teile[1]) {
@@ -486,6 +536,8 @@ async function start() {
   // gebraucht — scheitert sie, läuft alles andere weiter.
   wolkeStarten()
     .then(() => { kopfleisteZeichnen(); return klasseAuffrischen(); })
+    // Ergebnisse der Fehlerdetektive, die beim Auswerten kein Netz hatten
+    .then(() => { fehlersucheNachsenden(); })
     // Und dann die eigenen Sterne nachholen. Meistens kommt null zurück —
     // dann geschieht hier nichts. Etwas kommt zurück, wenn das Kind an einem
     // zweiten Gerät sitzt oder der Browser den Speicher geräumt hat; dann
