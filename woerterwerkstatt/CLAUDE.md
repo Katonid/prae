@@ -490,6 +490,25 @@
     diese Übung vom Nutzer so vorgegeben. Jede Farbe hat zusätzlich eine
     eigene Linienart.
   - Vor der Auswertung trägt kein Wort-Element die Lösung (nur `data-i`).
+  - **Die Lösung kommt in Stufen** (ab 1.9.2, Ansage des Nutzers 10/2026:
+    „liefert leider sofort auch die nicht gefundenen Wörter"). JEDES Prüfen
+    geht eine Stufe weiter (Wahl des Nutzers, kein eigener Tipp-Knopf),
+    dazwischen sucht das Kind weiter: 1 Anzahl der fehlenden (gefunden grün,
+    falsch markiert rot — Wahl des Nutzers), 2 davon Nomen/andere, 3 Bänder
+    über die ZEILEN mit fehlenden Fehlern, 4 Lösung (orange, antippbar).
+    Alles gefunden ohne Fehlgriff → sofort Schluss. Die Zeilen sind die
+    gerade umbrochenen; bei jeder Größenänderung neu gezeichnet. Ein Band geht
+    über die volle Breite — sonst verriete es das Wort.
+  - Gemeldet wird nach JEDEM Prüfen unter demselben Schlüssel; die Zahlen des
+    ERSTEN Prüfens bleiben (`gefunden`, `ue` …), `verlauf` wächst, `loesung`
+    sagt, ob die Lösung angesehen wurde. Die Warteschlange ersetzt den
+    älteren Stand desselben Schlüssels.
+  - **Testen nur mit `serviceWorkers: 'block'`.** Kontrolliert der Service
+    Worker die Seite, fängt Playwrights `route` die Anfragen an Firebase
+    nicht mehr ab — sie gingen 10/2026 an die ECHTE Datenbank (Testdaten unter
+    `protokoll/ABC234/anna`, wieder gelöscht). Und den Gerätezustand nie von
+    der App-Seite aus löschen: Die App hält ihre IndexedDB offen, das Löschen
+    wird blockiert und der alte Zustand bleibt.
   - **Zwei Texte** (ab 1.9.1): Übung 1 „Ein besonderer Herbsttag", Übung 2
     „Das Rätsel im Schulhaus" (`nummer` steht auf der Karte). Übung 1 bleibt
     inhaltlich unverändert (Vorgabe des Nutzers); ein Text mit eigenem

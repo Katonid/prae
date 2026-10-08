@@ -1560,7 +1560,7 @@ body.is-uebend .kopf { opacity: 0.55; }
 .detektiv__wort:focus { outline: none; }
 .detektiv__wort:focus-visible { outline: 3px solid var(--akzent); outline-offset: 1px; }
 @media (hover: hover) and (pointer: fine) {
-  .detektiv:not(.is-ausgewertet) .detektiv__wort:hover { background: var(--akzent-zart); }
+  .detektiv:not(.is-ausgewertet) .detektiv__wort:not(.is-gefunden):not(.is-falsch):hover { background: var(--akzent-zart); }
 }
 .detektiv .detektiv__wort.is-markiert {
   background: var(--detektiv-markiert);
@@ -1569,14 +1569,16 @@ body.is-uebend .kopf { opacity: 0.55; }
 }
 .detektiv.is-ausgewertet .detektiv__wort { cursor: default; }
 .detektiv.is-ausgewertet .detektiv__wort.is-markiert { background: none; box-shadow: none; color: inherit; }
-.detektiv.is-ausgewertet .detektiv__wort.is-gefunden,
-.detektiv.is-ausgewertet .detektiv__wort.is-falsch,
+/* Grün und Rot gelten schon beim Prüfen (Stufe 1–3), Orange erst mit der
+   Lösung — die Klasse `is-uebersehen` gibt es vorher gar nicht. */
+.detektiv .detektiv__wort.is-gefunden,
+.detektiv .detektiv__wort.is-falsch,
 .detektiv.is-ausgewertet .detektiv__wort.is-uebersehen { cursor: pointer; color: #1c1917; }
-.detektiv.is-ausgewertet .detektiv__wort.is-gefunden {
+.detektiv .detektiv__wort.is-gefunden {
   background: var(--detektiv-gefunden);
   box-shadow: inset 0 -3px 0 var(--detektiv-gefunden-linie);
 }
-.detektiv.is-ausgewertet .detektiv__wort.is-falsch {
+.detektiv .detektiv__wort.is-falsch {
   background: var(--detektiv-falsch);
   text-decoration: line-through;
   text-decoration-color: var(--detektiv-falsch-linie);
@@ -1587,6 +1589,20 @@ body.is-uebend .kopf { opacity: 0.55; }
   box-shadow: inset 0 0 0 2px var(--detektiv-uebersehen-linie);
 }
 .detektiv.is-ausgewertet .detektiv__wort.is-offen { outline: 3px solid var(--akzent); outline-offset: 1px; }
+
+/* Stufe 3: die Zeilen, in denen noch ein Fehler steckt. Die Bänder liegen
+   UNTER dem Text (eigene Ebene), über die ganze Breite — sie zeigen die
+   Zeile, nicht das Wort. */
+.detektiv__baender { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.detektiv__band {
+  position: absolute;
+  border-radius: 8px;
+  background: rgba(250, 204, 21, 0.28);
+  box-shadow: inset 4px 0 0 #ca8a04;
+}
+.detektiv__titel, .detektiv__text { position: relative; z-index: 1; }
+.detektiv__tipp-zeile { font-weight: 700; }
+.detektiv__naechstes { margin: 0 auto; max-width: 30rem; text-align: center; color: var(--tinte-zart); font-size: 15px; }
 
 .detektiv__blase {
   position: absolute;
@@ -1645,6 +1661,8 @@ body.is-uebend .kopf { opacity: 0.55; }
   .detektivliste__zahl { text-align: left; }
 }
 .detektivbefund__zahlen { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; }
+.detektivbefund__verlauf { margin: 0; padding-left: 22px; font-size: 14px; color: var(--tinte-zart); line-height: 1.6; }
+.detektivbefund__loesung { list-style: none; margin-left: -22px; font-style: italic; }
 .detektivbefund__richtig {
   font-family: var(--schrift-lern);
   font-size: 15px;

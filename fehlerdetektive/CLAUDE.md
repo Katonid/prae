@@ -27,6 +27,10 @@
   hängt an der laufenden Nummer des Wortes.
 - In Übung 2 steht „des [[N|hausmeisters|Hausmeisters]]" — die Fehlerliste
   des Nutzers nannte „hausmeister → Hausmeister", maßgeblich ist der Text.
+- **Lösung in Stufen** (ab 1.0.2, wie Wörterwerkstatt 1.9.2): jedes Prüfen
+  eine Stufe weiter — 1 Anzahl der fehlenden (grün/rot sichtbar), 2 davon
+  Nomen/andere, 3 Bänder über die Zeilen mit fehlenden Fehlern (bei
+  Größenänderung neu), 4 Lösung in Orange. Alles richtig → sofort Schluss.
 
 ## Übungstext
 

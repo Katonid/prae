@@ -594,9 +594,19 @@ function durchgaengeZu(kind, textId) {
     .sort((a, b) => (a.beginn || 0) - (b.beginn || 0));
 }
 
+/**
+ * Gezählt wird das ERSTE Prüfen — was das Kind ohne Hilfe fand. Seit 1.9.2
+ * prüft es danach in Stufen weiter; wie weit es damit kam, steht dahinter.
+ */
 function ergebnisKurz(d) {
-  return `${d.gefunden}/${d.fehler} gefunden · ${d.falsch || 0} falsch markiert · ${dauerText(d.dauer)}`;
+  const zuerst = `${d.gefunden}/${d.fehler} gefunden · ${d.falsch || 0} falsch markiert · ${dauerText(d.dauer)}`;
+  const v = d.verlauf || [];
+  if (v.length < 2) return zuerst;
+  const zuletzt = v[v.length - 1];
+  return `${zuerst} → mit Tipps ${zuletzt.g}/${d.fehler}${d.loesung ? ', dann Lösung angesehen' : ''}`;
 }
+
+const STUFENWISSEN = ['', 'ohne Tipp', 'wusste, wie viele fehlen', 'wusste: Nomen oder andere', 'wusste die Zeilen'];
 
 /** Der beste Durchgang: mehr gefunden, dann weniger falsch, dann schneller. */
 function besterDurchgang(liste) {
@@ -625,9 +635,15 @@ function detektivKind(name, text, liste) {
         (d.gefunden === d.fehler && !d.falsch)
           ? h('span', { class: 'wortbefund__lob' }, 'Alle gefunden, nichts falsch markiert.')
           : null,
+        (d.verlauf && d.verlauf.length > 1)
+          ? h('ol', { class: 'detektivbefund__verlauf' },
+            ...d.verlauf.map((p) => h('li', {},
+              `${p.g}/${d.fehler} gefunden · ${p.f} falsch · ${dauerText(p.d)} — ${STUFENWISSEN[p.stufe] || ''}`)),
+            d.loesung ? h('li', { class: 'detektivbefund__loesung' }, 'danach die Lösung angesehen') : null)
+          : null,
         (d.ue && d.ue.length)
           ? h('div', { class: 'wortbefund__eingaben' },
-            h('span', { class: 'wortbefund__marke' }, 'übersehen'),
+            h('span', { class: 'wortbefund__marke' }, 'beim 1. Prüfen übersehen'),
             ...d.ue.map((f) => h('span', { class: 'wortbefund__falsch' }, `${f.w} → ${f.r}`)))
           : null,
         (d.fa && d.fa.length)
