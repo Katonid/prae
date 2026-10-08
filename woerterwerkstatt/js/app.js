@@ -9,7 +9,7 @@
 // ein Beitrittslink (`#/beitreten/ABC234`) an derselben Stelle ankommt.
 
 import { h, leeren } from './util.js';
-import { sterne as sterneAnzeige, balken, blatt, frage } from './ui.js';
+import { sterne as sterneAnzeige, balken, blatt, frage, meldung } from './ui.js';
 import {
   ladeZustand, eigeneBereiche, fortschritt, sterneImBereich,
   nutzer, setzeNutzer, klassen, horch, schwereWoerter, protokollLeeren,
@@ -34,7 +34,7 @@ import { FEHLERTEXTE, fehlertextNachId } from './fehlertexte.js';
 import { fehlersucheStarten } from './fehlersuche.js';
 import { angemeldet, wolkeStarten, abmelden, beiKontoWechsel, verwaltungPruefen } from './cloud.js';
 import { schulverwaltung } from './admin.js';
-import { alsApp } from './plattform.js';
+import { alsApp, speicherBehalten } from './plattform.js';
 import * as sfx from './sfx.js';
 import { FASSUNG } from './version.js';
 
@@ -361,6 +361,21 @@ function wegLesen() {
 
   if (teile[0] === 'beitreten' && teile[1]) {
     const code = teile[1].toUpperCase();
+    // Schon angemeldet in GENAU dieser Klasse: kein Anmeldeblatt. Bis 1.9.2
+    // fragte der Beitrittslink jedes Mal nach Name und PIN — und genau diesen
+    // Link öffnen Kinder immer wieder: als QR-Code an der Tafel, als
+    // Lesezeichen, als Symbol auf dem Home-Bildschirm, das auf dem
+    // Beitrittslink abgelegt wurde (gemeldet 10/2026: „Kinder bleiben nicht
+    // angemeldet"). Die Adresse wird ersetzt, nicht neu gesetzt, damit die
+    // Zurück-Geste nicht wieder hierher führt.
+    const wer = nutzer();
+    if (wer && wer.art === 'kind' && String(wer.klasse).toUpperCase() === code) {
+      offenerBeitritt = null;
+      try { window.history.replaceState(null, '', '#/'); } catch (_) { window.location.hash = '#/'; }
+      bereicheZeigen();
+      meldung(`Du bist schon angemeldet, ${wer.name}.`, 'gut');
+      return;
+    }
     if (offenerBeitritt === code) return;
     offenerBeitritt = code;
     bereicheZeigen();
@@ -530,6 +545,8 @@ function hilfeZeigen() {
 async function start() {
   await ladeZustand();
   themaAnwenden();
+  // Wer angemeldet ist, soll es bleiben: dauerhaften Speicher erbitten.
+  if (nutzer()) speicherBehalten();
   document.body.classList.remove('is-ladend');
 
   // Die Wolke im Hintergrund wecken: Sie wird nur für Konten und Klassen

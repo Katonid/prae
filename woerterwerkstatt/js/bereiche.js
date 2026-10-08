@@ -24,7 +24,9 @@ import {
   eigeneBereiche, bereichSichern, bereichLoeschen,
   bereichSichtbar, setzeBereichSichtbar, sichtbareBereiche,
 } from './store.js';
-import { angemeldet, bereicheHochladen, bereicheHolen } from './cloud.js';
+import {
+  angemeldet, bereicheHochladen, bereicheHolen, klassenDerLehrkraft, klasseHolen, klasseAendern,
+} from './cloud.js';
 import { PAKETGROESSE } from './paket.js';
 import { BEREICHE } from './woerter.js';
 import { RECHTSCHREIBUNG } from './rechtschreibung.js';
@@ -285,10 +287,110 @@ export function bereichBearbeiten(bereich, beiFertig) {
       bereicheHochladen(eigeneBereiche())
         .then(() => meldung('Im Konto gesichert.', 'gut'))
         .catch(() => meldung('Gesichert — aber nicht ins Konto (kein Netz?).', 'warnung'));
+      inKlassenNachziehen(gesichert);
     }
   }
 
   listeZeichnen();
+  return dialog;
+}
+
+/**
+ * Einen gesicherten Satz zu den Klassen bringen.
+ *
+ * Eine Klasse trägt KOPIEN ihrer Sätze (`klassen/<CODE>/bereiche`). Bis 1.9.2
+ * kam ein Satz dorthin nur über „📒 Eigene Sätze mitgeben" in der
+ * Klassenansicht — wer das nicht wusste, schrieb einen Satz, und die Klasse
+ * sah ihn nie (gemeldet 10/2026: „Übung ‚2. Oktober' wird in der Klasse
+ * Kroko nicht angezeigt"). Und eine spätere Änderung erreichte die Kinder
+ * gar nicht, weil die Kopie in der Klasse die alte blieb.
+ *
+ * Deshalb jetzt nach jedem Sichern:
+ *  - Klassen, die den Satz schon haben, bekommen still die neue Fassung.
+ *  - Hat ihn noch KEINE Klasse, wird gefragt, welche ihn bekommen sollen.
+ *    (Nur dann — sonst käme die Frage bei jeder Änderung wieder.)
+ */
+async function inKlassenNachziehen(bereich) {
+  let verzeichnis = [];
+  try { verzeichnis = await klassenDerLehrkraft(); } catch (_) { return; }
+  if (!verzeichnis.length) return;
+  const mit = [];
+  const ohne = [];
+  for (const eintrag of verzeichnis) {
+    const klasse = await klasseHolen(eintrag.code).catch(() => null);
+    if (!klasse) continue;
+    if (klasse.bereiche && klasse.bereiche[bereich.id]) mit.push(klasse);
+    else ohne.push(klasse);
+  }
+  const fehlgeschlagen = [];
+  for (const klasse of mit) {
+    await klasseAendern(klasse.code, { [`bereiche/${bereich.id}`]: bereich })
+      .catch(() => fehlgeschlagen.push(klasse.name || klasse.code));
+  }
+  if (mit.length) {
+    const namen = mit.map((k) => k.name || k.code).join(', ');
+    meldung(fehlgeschlagen.length
+      ? `Nicht alle Klassen erreicht (${fehlgeschlagen.join(', ')}) — kein Netz?`
+      : `Auch in ${namen} geändert. Die Kinder bekommen es beim nächsten Öffnen.`,
+    fehlgeschlagen.length ? 'warnung' : 'gut', 5000);
+    return;
+  }
+  if (ohne.length) klassenWaehlen(bereich, ohne);
+}
+
+/** „Welche Klassen sollen den Satz bekommen?" — nach dem ersten Sichern. */
+function klassenWaehlen(bereich, klassen) {
+  // Bei nur EINER Klasse ist der Haken schon gesetzt: Das ist fast immer die
+  // gemeinte, und ein leeres Kästchen sähe aus wie „lieber nicht".
+  const gewaehlt = new Set(klassen.length === 1 ? [klassen[0].code] : []);
+  const liste = h('div', { class: 'mitgeben' },
+    ...klassen.map((klasse) => h('label', { class: 'mitgeben__eintrag' },
+      h('input', {
+        type: 'checkbox',
+        checked: gewaehlt.has(klasse.code),
+        onchange: (ereignis) => {
+          if (ereignis.target.checked) gewaehlt.add(klasse.code);
+          else gewaehlt.delete(klasse.code);
+        },
+      }),
+      h('span', {}, klasse.name || 'Klasse'),
+      h('span', { class: 'mitgeben__zahl' }, klasse.code))));
+  const fehler = h('p', { class: 'blatt__fehler', 'aria-live': 'polite' });
+  const mitgeben = h('button', { class: 'knopf knopf--voll', type: 'button' }, 'Mitgeben');
+  const dialog = blatt({
+    titel: `„${bereich.name}“ einer Klasse geben?`,
+    inhalt: h('div', {},
+      h('p', { class: 'blatt__text' },
+        'Noch sieht keine Klasse diesen Satz. Was du anhakst, bekommen die Kinder, sobald sie die App öffnen.'),
+      liste,
+      fehler,
+      h('p', { class: 'blatt__fussnote' },
+        'Später geht es auch über Klassen → Klasse → „📒 Eigene Sätze mitgeben".')),
+    fusszeile: [
+      h('button', { class: 'knopf knopf--still', type: 'button', onclick: () => dialog.schliessen() }, 'Später'),
+      mitgeben,
+    ],
+  });
+  mitgeben.addEventListener('click', async () => {
+    if (!gewaehlt.size) { dialog.schliessen(); return; }
+    mitgeben.disabled = true;
+    fehler.textContent = '';
+    const erreicht = [];
+    try {
+      for (const klasse of klassen) {
+        if (!gewaehlt.has(klasse.code)) continue;
+        await klasseAendern(klasse.code, { [`bereiche/${bereich.id}`]: bereich });
+        erreicht.push(klasse.name || klasse.code);
+      }
+      dialog.schliessen();
+      meldung(`„${bereich.name}“ ist jetzt in ${erreicht.join(', ')}. Die Kinder bekommen es beim nächsten Öffnen.`, 'gut', 6000);
+    } catch (_) {
+      fehler.textContent = erreicht.length
+        ? `Nur ${erreicht.join(', ')} erreicht — die anderen gerade nicht (kein Netz?).`
+        : 'Das ging gerade nicht (kein Netz?).';
+      mitgeben.disabled = false;
+    }
+  });
   return dialog;
 }
 

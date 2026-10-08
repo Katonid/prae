@@ -19,7 +19,7 @@
 import { h, leeren, datum } from './util.js';
 import { blatt, abschnitt, zeile, schalter, frage, eingabe, ladeplatz, meldung } from './ui.js';
 import { qrSvg } from './qr.js';
-import { inZwischenablage, kannScannen, qrScannen } from './plattform.js';
+import { inZwischenablage, kannScannen, qrScannen, speicherBehalten } from './plattform.js';
 import {
   kontenVerfuegbar, anmelden, kontoAnlegen, klartext, regelnPruefen, angemeldet, verwaltungPruefen,
   klasseAnlegen, klasseHolen, klasseLoeschen, klassenDerLehrkraft, klasseAendern,
@@ -1303,6 +1303,9 @@ export function beitreten(code, beiFertig, beimSchliessen = null) {
         }
       }
       setzeNutzer({ art: 'kind', name: kind.name, schluessel: kind.schluessel, klasse: gross });
+      // Gleich nach dem Anmelden: Sonst räumt Safari die Anmeldung womöglich
+      // mit dem übrigen Speicher wieder weg.
+      speicherBehalten();
       // Erst anmelden, dann die eigenen Sterne nachholen — an einem frischen
       // Gerät ist das Heft sonst leer, obwohl in der Klasse alles steht.
       const zurueck = await fortschrittAbholen();

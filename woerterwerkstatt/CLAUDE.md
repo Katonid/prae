@@ -518,3 +518,26 @@
     Versuch, Zahl der Versuche, auch wer noch nichts abgegeben hat; Name →
     alle Durchgänge mit Uhrzeit, Dauer, Übersehenem; „Am häufigsten
     übersehen" zählt den ERSTEN Versuch jedes Kindes.
+- **Ein angemeldetes Kind bleibt angemeldet** (ab 1.9.3, gemeldet 10/2026:
+  „Kinder bleiben auf ihrem Gerät nicht angemeldet"). Zwei Ursachen:
+  - Der Beitrittslink `#/beitreten/<CODE>` öffnete IMMER das Anmeldeblatt —
+    auch für ein Kind, das in genau dieser Klasse schon angemeldet war. Den
+    Link öffnen Kinder aber ständig (QR-Code an der Tafel, Lesezeichen,
+    Home-Bildschirm-Symbol, das auf dem Beitrittslink abgelegt wurde). Jetzt
+    führt er dann still zur Startseite (`replaceState`, Meldung „schon
+    angemeldet"); nur eine ANDERE Klasse fragt neu.
+  - `navigator.storage.persist()` wurde nie erbeten (`speicherBehalten` in
+    plattform.js; beim Start, wenn jemand angemeldet ist, und gleich nach der
+    Anmeldung). Safari entscheidet selbst — bei einer App vom
+    Home-Bildschirm eher ja.
+  - NICHT zu lösen aus der App: Safari-Tab und Home-Bildschirm-App haben auf
+    iOS GETRENNTE Speicher, ebenso GitHub Pages und ein eigener Webspace.
+    Wer mal hier, mal dort öffnet, ist auf der anderen Seite nicht angemeldet.
+- **Ein neuer Satz fragt nach seinen Klassen** (ab 1.9.3, gemeldet 10/2026:
+  „Übung ‚2. Oktober' wird in der Klasse Kroko nicht angezeigt"). Eine Klasse
+  trägt KOPIEN ihrer Sätze; bis dahin kam ein Satz nur über „📒 Eigene Sätze
+  mitgeben" hinein, und eine spätere Änderung erreichte die Kinder nie.
+  `inKlassenNachziehen` (bereiche.js) nach jedem Sichern: Klassen mit dem Satz
+  bekommen still die neue Fassung (PATCH `bereiche/<id>`); hat ihn noch keine
+  Klasse, fragt ein Blatt, welche ihn bekommen soll (bei nur einer Klasse ist
+  der Haken gesetzt). Nur dann — sonst käme die Frage bei jeder Änderung.
