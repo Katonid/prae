@@ -292,6 +292,46 @@
     border: 0;
   }
 
+  .seite[hidden] { display: none; }
+
+  /* Auswahl der Übungen */
+  .wahl { display: grid; gap: 16px; margin-top: 24px; }
+  .wahlknopf {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    min-height: 88px;
+    padding: 18px 22px;
+    font: inherit;
+    text-align: left;
+    color: var(--text);
+    background: var(--karte);
+    border: 2px solid var(--rand);
+    border-radius: 16px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .wahlknopf:active { border-color: var(--akzent); background: #f3f6fa; }
+  .wahlknopf:focus-visible { outline: 3px solid var(--akzent); outline-offset: 2px; }
+  .wahlknopf__nummer { font-size: 1.4rem; font-weight: 800; color: var(--akzent); white-space: nowrap; }
+  .wahlknopf__titel { flex: 1; font-size: 1.25rem; font-weight: 600; }
+  .wahlknopf__pfeil { font-size: 1.5rem; color: var(--leise); }
+
+  button.zurueck {
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--akzent);
+    background: none;
+    border: 0;
+    padding: 10px 0;
+    min-height: 44px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   footer {
     margin-top: 40px;
     text-align: center;
@@ -301,12 +341,20 @@
 </style>
 </head>
 <body>
-<div class="seite uebung" id="uebung">
+<div class="seite" id="auswahl">
+  <header>
+    <h1>Fehlerdetektive <span class="lupe" aria-hidden="true">🔍</span></h1>
+    <p class="auftrag">Such dir eine Übung aus.</p>
+  </header>
+  <nav class="wahl" id="wahl" aria-label="Übungen"></nav>
+  <footer>Fehlerdetektive · Fassung 1.0.1</footer>
+</div>
+
+<div class="seite uebung" id="uebung" hidden>
 
   <header>
-    <h1>Fehlerdetektive <span class="lupe" aria-hidden="true">🔍</span> – Findest du alle Fehler?</h1>
-    <p class="auftrag">Im Text haben sich <strong>40 Rechtschreibfehler</strong> versteckt. Tippe auf jedes Wort, das deiner Meinung nach falsch geschrieben ist.</p>
-    <p class="auftrag achtung"><strong>Achtung:</strong> Viele schwierige Wörter sind vollkommen richtig geschrieben!</p>
+    <button type="button" class="zurueck" id="zurueck">‹ Zur Auswahl</button>
+    <div id="kopf"></div>
 
     <section class="ergebnis" id="ergebnis" hidden aria-live="polite" tabindex="-1"></section>
   </header>
@@ -324,7 +372,7 @@
     <button type="button" class="gross zweit" id="nochmal" hidden>Noch einmal versuchen</button>
   </div>
 
-  <footer>Fehlerdetektive · Fassung 1.0.0</footer>
+  <footer>Fehlerdetektive · Fassung 1.0.1</footer>
 </div>
 
 <script>
@@ -341,9 +389,7 @@
    * Die Kinder sehen nur die falsche Form. Buchstaben direkt hinter einer
    * Markierung gehören zum selben Wort: [[S|gelp|gelb]]es → „gelpes" (richtig: „gelbes").
    */
-  var TITEL = "Ein besonderer Herbsttag";
-
-  var TEXT = [
+  var TEXT1 = [
     "Am Freitag macht unsere Klasse 4a einen [[N|ausflug|Ausflug]] in ein Naturschutzgebiet. Schon früh warten die Kinder auf dem [[N|schulhof|Schulhof]]. Einige halten ihre [[S|Hende|Hände]] tief in den Jackentaschen, denn die Luft ist kühl. Frau Berger prüft noch einmal die Liste, während die [[N|rucksäcke|Rucksäcke]] neben der Tür stehen. Unsere [[N|lehrerin|Lehrerin]] [[S|tregt|trägt]] an diesem Morgen selbst einen besonders großen Rucksack.",
     "",
     "Kurz darauf kommt der [[N|bus|Bus]]. Die Fahrt dauert nicht lange. Am Parkplatz erklärt ein Förster, wie wir uns im [[N|wald|Wald]] verhalten sollen. Dann beginnt die Wanderung. Auf einem schmalen [[N|weg|Weg]] rascheln trockene [[N|blätter|Blätter]] unter unseren Schuhen. Wir müssen vorsichtig [[S|geen|gehen]], weil dicke Wurzeln aus dem Boden ragen. Neben uns [[S|leuft|läuft]] ein kleiner Bach durch das Gelände.",
@@ -358,6 +404,33 @@
     "",
     "Für den [[N|rückweg|Rückweg]] wählen wir einen anderen Pfad. Der Förster zeigt noch einmal auf den [[S|Walt|Wald]] und erklärt, warum wir keinen Müll zurücklassen dürfen. Am Nachmittag erreichen wir die [[N|schule|Schule]]. Alle sind müde, aber zufrieden. Es ist ein schöner [[N|tag|Tag]], an den sich die Klasse bestimmt noch lange erinnern wird."
   ].join("\n");
+
+  var TEXT2 = "Am Dienstag beginnt der Unterricht wie immer. Als die Kinder das [[N|klassenzimmer|Klassenzimmer]] betreten, steht auf der Tafel ein rätselhafter Satz. Niemand weiß, wer ihn geschrieben hat. Frau König ist noch nicht da, und das [[N|fenster|Fenster]] neben ihrem Pult steht offen. Auf dem Boden liegt ein kleiner [[N|schlüssel|Schlüssel]]. Mia hebt ihn auf und ruft: „Vielleicht gehört er zu einer geheimen Tür!“ Ihr Freund Ben [[S|leuft|läuft]] sofort zur Garderobe.\n\nKurz darauf [[S|komt|kommt]] die [[N|lehrerin|Lehrerin]] herein. Sie betrachtet den Schlüssel und schüttelt den Kopf. „Der gehört mir nicht“, sagt sie. In diesem Moment entdeckt Ben in einer offenen [[N|schublade|Schublade]] einen gefalteten Zettel. Darauf steht: „Wer das Rätsel lösen will, muss den richtigen [[N|weg|Weg]] finden.“ Die Kinder werden neugierig. Frau König erlaubt der Klasse, in der ersten Stunde gemeinsam nachzuforschen.\n\nDer erste Hinweis führt sie in den Flur. Dort hängen bunte Bilder von Tieren, Häusern und [[S|Beumen|Bäumen]]. Unter einem Bild steckt ein zweiter Zettel. Lisa muss sich auf die Zehenspitzen stellen, um ihn zu [[S|seen|sehen]]. Auf dem Zettel ist eine kleine Karte gezeichnet. Ein roter Pfeil zeigt auf den [[N|schulhof|Schulhof]]. Also ziehen alle ihre Jacken an. Draußen ist es kühl, und viele Kinder stecken die [[S|Hende|Hände]] tief in die Taschen.\n\nAuf dem Schulhof führt die Spur zu einer Bank. Darunter steht ein alter [[N|rucksack|Rucksack]], den niemand aus der Klasse kennt. Frau König öffnet ihn vorsichtig. Darin liegen eine Lupe, ein Stück Schnur und ein [[N|brief|Brief]]. Ben will den Brief [[S|schnel|schnell]] öffnen, aber Mia hält ihn zurück. „Vielleicht sollten wir erst überlegen“, sagt sie. Schließlich liest Frau König die Nachricht vor. Sie sollen zum Büro des [[N|hausmeisters|Hausmeisters]] gehen.\n\nDer Hausmeister wartet bereits und grinst. „Ihr seid auf dem richtigen [[S|Wek|Weg]]“, sagt er. Neben ihm steht ein kleiner [[N|korb|Korb]] mit Kreidestücken. Eines davon ist [[S|gelp|gelb]], die anderen sind weiß. Auf dem gelben Stück steht winzig eine Zahl. Der Hausmeister erklärt, dass sie diese Zahl [[S|speter|später]] brauchen werden. Dann zeigt er zur [[N|treppe|Treppe]], die in den Keller führt.\n\nIm Keller ist es dunkel. Zum Glück liegt auf einem Regal eine [[N|taschenlampe|Taschenlampe]]. Mia schaltet sie ein. Ihr Licht fällt auf eine schwere [[N|tür|Tür]]. Daneben stehen alte Stühle, Kartons und Werkzeug. Ben entdeckt eine Holzkiste. „Die sieht wichtig aus!“, flüstert er. In der [[N|kiste|Kiste]] liegt wieder ein [[N|zettel|Zettel]]. Diesmal lautet die Aufgabe: „Ihr müsst fünf Schritte nach links gehen und dann ganz still [[S|steen|stehen]]. Danach sollt ihr euch dreimal im Kreis [[S|dreen|drehen]].“\n\nDie Kinder lachen, machen aber mit. [[S|Plözlich|Plötzlich]] bemerkt Lisa hinter einem Schrank einen schmalen Gang. „Den habe ich noch nie gesehen“, sagt sie. Frau König geht voran. Der Gang endet an einer zweiten Tür. Der Schlüssel vom Anfang passt tatsächlich. Dahinter befindet sich ein kleiner Raum, in dem alte Bücher, Spiele und Ordner lagern. Auf einem Tisch steht eine Schachtel mit der Aufschrift: „Nur für besonders gute Detektive“.\n\nIn der Schachtel liegen mehrere Karten. Auf jeder Karte steht eine Aufgabe. Eine [[N|gruppe|Gruppe]] muss Wörter verlängern, eine andere soll Wörter ableiten. Ben hat sofort eine Idee, aber er [[S|mus|muss]] warten, bis alle bereit sind. Eine Aufgabe lautet: „Welche Mehrzahl gehört zu Wald?“ Ben schreibt zunächst „[[S|Welder|Wälder]]“ auf sein Blatt. Bei einer anderen Aufgabe geht es um Menschen, die nachts [[S|treumen|träumen]].\n\nNachdem alle Aufgaben gelöst sind, finden die Kinder unter dem Tisch einen weiteren [[N|hinweis|Hinweis]]. Darauf steht, dass sie in ihre Klasse zurückkehren sollen. Auf dem Rückweg erzählt der Hausmeister, dass er die alte Kiste aus dem Fundraum [[S|genomen|genommen]] hat. Ben fragt ihn, ob er solche Rätsel [[S|imer|immer]] vorbereitet. Der Hausmeister lacht nur und sagt: „Heute war Frau König die Chefin.“\n\nVor der [[N|pause|Pause]] erklärt Frau König endlich alles. Sie hat das Rätsel gemeinsam mit dem Hausmeister vorbereitet, weil die Klasse in der [[S|nechsten|nächsten]] Zeit selbst Detektivgeschichten schreiben soll. Das [[N|geheimnis|Geheimnis]] ist also gelöst. Ben findet die Idee [[S|kluk|klug]] und möchte sofort zum nächsten Hinweis [[S|renen|rennen]]. Doch Frau König lacht: „Für heute reicht es. Jetzt beginnt erst einmal der normale Unterricht!“";
+
+  /*
+   * DIE ÜBUNGEN
+   * Übung 1 ist seit Fassung 1.0.0 unverändert (Text und Anleitung).
+   * Eine weitere Übung wird hier angehängt: Titel, Anleitung (HTML), Text.
+   */
+  var UEBUNGEN = [
+    {
+      titel: "Ein besonderer Herbsttag",
+      kopf:
+        '<h1>Fehlerdetektive <span class="lupe" aria-hidden="true">🔍</span> – Findest du alle Fehler?</h1>' +
+        '<p class="auftrag">Im Text haben sich <strong>40 Rechtschreibfehler</strong> versteckt. Tippe auf jedes Wort, das deiner Meinung nach falsch geschrieben ist.</p>' +
+        '<p class="auftrag achtung"><strong>Achtung:</strong> Viele schwierige Wörter sind vollkommen richtig geschrieben!</p>',
+      text: TEXT1
+    },
+    {
+      titel: "Das Rätsel im Schulhaus",
+      kopf:
+        '<h1>Fehlerdetektive aufgepasst! <span class="lupe" aria-hidden="true">🔍</span></h1>' +
+        '<p class="auftrag">In diesem Text haben sich <strong>40 Rechtschreibfehler</strong> versteckt.</p>' +
+        '<p class="auftrag">Tippe auf jedes Wort, das deiner Meinung nach falsch geschrieben ist.</p>' +
+        '<p class="auftrag achtung"><strong>Aber Vorsicht:</strong> Viele schwierige Wörter sind vollkommen richtig geschrieben!</p>',
+      text: TEXT2
+    }
+  ];
 
   var SOLL = { N: 20, S: 20, gesamt: 40 };
 
@@ -418,7 +491,7 @@
 
   /* ---------- Selbstprüfung beim Laden ---------- */
 
-  function pruefe(woerter, probleme) {
+  function pruefe(woerter, probleme, titel) {
     var zahl = { N: 0, S: 0 };
     woerter.forEach(function (w) {
       if (!w.typ) return;
@@ -440,14 +513,14 @@
 
     if (probleme.length) {
       console.error(
-        "%c FEHLERDETEKTIVE – DER ÜBUNGSTEXT STIMMT NICHT! %c\n\n" + probleme.join("\n") +
+        "%c FEHLERDETEKTIVE „" + titel + "“ – DER ÜBUNGSTEXT STIMMT NICHT! %c\n\n" + probleme.join("\n") +
         "\n\nGezählt: N = " + zahl.N + ", S = " + zahl.S + ", gesamt = " + gesamt +
         " (erwartet: N = " + SOLL.N + ", S = " + SOLL.S + ", gesamt = " + SOLL.gesamt + ").",
         "background:#b3261e;color:#fff;font-size:16px;font-weight:bold;padding:4px 8px;",
         ""
       );
     } else {
-      console.info("Fehlerdetektive: Text geprüft – " + zahl.N + " × N, " + zahl.S + " × S, insgesamt " + gesamt + " Fehler.");
+      console.info("Fehlerdetektive „" + titel + "“: Text geprüft – " + zahl.N + " × N, " + zahl.S + " × S, insgesamt " + gesamt + " Fehler.");
     }
     return { N: zahl.N, S: zahl.S, gesamt: gesamt, ok: probleme.length === 0 };
   }
@@ -463,42 +536,64 @@
   var knopfAuswerten = document.getElementById("auswerten");
   var knopfNochmal = document.getElementById("nochmal");
 
-  document.getElementById("titel").textContent = TITEL;
+  var auswahl = document.getElementById("auswahl");
+  var kopf = document.getElementById("kopf");
+  var titelEl = document.getElementById("titel");
 
-  var zerlegt = zerlegeText(TEXT);
+  // Jede Übung wird beim Laden der Seite zerlegt und geprüft – nicht erst,
+  // wenn ein Kind sie öffnet. Stimmt eine Fehlerzahl nicht, steht es sofort
+  // in der Konsole.
+  UEBUNGEN.forEach(function (u) {
+    var zerlegt = zerlegeText(u.text);
+    var liste = [];
+    zerlegt.absaetze.forEach(function (teile) {
+      teile.forEach(function (t) { if (t.art === "wort") liste.push(t); });
+    });
+    u.absaetze = zerlegt.absaetze;
+    u.pruefung = pruefe(liste, zerlegt.probleme, u.titel);
+  });
 
   // Die Lösung steht NUR hier im Skript – nicht an den Wort-Elementen.
+  // Jedes Wort hat seine eigene Stelle: „Weg“ kann an einer Stelle richtig
+  // und an einer anderen ein Fehler sein. Entschieden wird nach Position.
   var woerter = [];   // { text, richtig, typ }
   var spans = [];     // passende Elemente, gleiche Reihenfolge
   var markiert = [];  // true/false je Wort
   var ausgewertet = false;
   var offenesWort = -1;
+  var FEHLERZAHL = 0;
 
-  zerlegt.absaetze.forEach(function (teile) {
-    var p = document.createElement("p");
-    teile.forEach(function (t) {
-      if (t.art === "wort") {
-        var i = woerter.length;
-        woerter.push({ text: t.text, richtig: t.richtig, typ: t.typ });
-        var s = document.createElement("span");
-        s.className = "w";
-        s.textContent = t.text;
-        s.setAttribute("role", "button");
-        s.setAttribute("tabindex", "0");
-        s.setAttribute("aria-pressed", "false");
-        s.dataset.i = String(i);
-        spans.push(s);
-        markiert.push(false);
-        p.appendChild(s);
-      } else {
-        p.appendChild(document.createTextNode(t.text));
-      }
+  function textAufbauen(u) {
+    woerter = [];
+    spans = [];
+    markiert = [];
+    textEl.textContent = "";
+    titelEl.textContent = u.titel;
+    kopf.innerHTML = u.kopf;
+    FEHLERZAHL = u.pruefung.gesamt;
+    u.absaetze.forEach(function (teile) {
+      var p = document.createElement("p");
+      teile.forEach(function (t) {
+        if (t.art === "wort") {
+          var i = woerter.length;
+          woerter.push({ text: t.text, richtig: t.richtig, typ: t.typ });
+          var s = document.createElement("span");
+          s.className = "w";
+          s.textContent = t.text;
+          s.setAttribute("role", "button");
+          s.setAttribute("tabindex", "0");
+          s.setAttribute("aria-pressed", "false");
+          s.dataset.i = String(i);
+          spans.push(s);
+          markiert.push(false);
+          p.appendChild(s);
+        } else {
+          p.appendChild(document.createTextNode(t.text));
+        }
+      });
+      textEl.appendChild(p);
     });
-    textEl.appendChild(p);
-  });
-
-  var pruefung = pruefe(woerter, zerlegt.probleme);
-  var FEHLERZAHL = pruefung.gesamt;
+  }
 
   /* ---------- Markieren ---------- */
 
@@ -719,7 +814,54 @@
   knopfAuswerten.addEventListener("click", auswerten);
   knopfNochmal.addEventListener("click", zuruecksetzen);
 
-  zeigeAnzahl();
+  /* ---------- Auswahl der Übungen ---------- */
+
+  var wahl = document.getElementById("wahl");
+  UEBUNGEN.forEach(function (u, nr) {
+    var knopf = document.createElement("button");
+    knopf.type = "button";
+    knopf.className = "wahlknopf";
+    knopf.innerHTML = '<span class="wahlknopf__nummer"></span><span class="wahlknopf__titel"></span><span class="wahlknopf__pfeil" aria-hidden="true">›</span>';
+    knopf.children[0].textContent = "Übung " + (nr + 1);
+    knopf.children[1].textContent = u.titel;
+    knopf.addEventListener("click", function () { kamVonAuswahl = true; location.hash = "#uebung" + (nr + 1); });
+    wahl.appendChild(knopf);
+  });
+
+  // Kam das Kind über die Auswahl hierher, führt „Zur Auswahl“ denselben
+  // Schritt zurück wie die Zurück-Geste. Wurde die Übung direkt als Link
+  // geöffnet, gibt es diesen Schritt nicht – history.back() verließe dann
+  // die Seite.
+  var kamVonAuswahl = false;
+  document.getElementById("zurueck").addEventListener("click", function () {
+    if (kamVonAuswahl) { kamVonAuswahl = false; history.back(); }
+    else location.hash = "";
+  });
+
+  // Der Weg steht in der Adresse (#uebung1, #uebung2), damit die
+  // Zurück-Geste in Safari wieder zur Auswahl führt statt von der Seite weg.
+  var offeneUebung = -1;
+  function wegLesen() {
+    var m = /^#uebung(\d+)$/.exec(location.hash);
+    var nr = m ? Number(m[1]) - 1 : -1;
+    if (nr < 0 || nr >= UEBUNGEN.length) {
+      zuruecksetzen();
+      offeneUebung = -1;
+      uebung.hidden = true;
+      auswahl.hidden = false;
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (nr === offeneUebung) return;
+    offeneUebung = nr;
+    textAufbauen(UEBUNGEN[nr]);
+    zuruecksetzen();
+    auswahl.hidden = true;
+    uebung.hidden = false;
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", wegLesen);
+  wegLesen();
 })();
 </script>
 </body>

@@ -490,6 +490,11 @@
     diese Übung vom Nutzer so vorgegeben. Jede Farbe hat zusätzlich eine
     eigene Linienart.
   - Vor der Auswertung trägt kein Wort-Element die Lösung (nur `data-i`).
+  - **Zwei Texte** (ab 1.9.1): Übung 1 „Ein besonderer Herbsttag", Übung 2
+    „Das Rätsel im Schulhaus" (`nummer` steht auf der Karte). Übung 1 bleibt
+    inhaltlich unverändert (Vorgabe des Nutzers); ein Text mit eigenem
+    Wortlaut trägt `anleitung`, ohne das Feld gilt der von Übung 1. Ergebnisse
+    tragen `text` — die Klassenansicht zeigt je Text eine eigene Liste.
   - Klassenansicht, Abschnitt „🔍 Fehlerdetektive": je Kind 1. und bester
     Versuch, Zahl der Versuche, auch wer noch nichts abgegeben hat; Name →
     alle Durchgänge mit Uhrzeit, Dauer, Übersehenem; „Am häufigsten
