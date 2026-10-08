@@ -136,13 +136,22 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
   const knopfNochmal = h('button', { class: 'knopf knopf--still detektiv__knopf', type: 'button', hidden: true }, 'Noch einmal versuchen');
   const seite = h('div', { class: 'seite detektiv' },
     h('div', { class: 'seite__kopf' },
-      h('button', { class: 'zurueck', type: 'button', onclick: zurueck }, '‹ Alle Bereiche'),
-      h('h1', { class: 'seite__titel' }, 'Fehlerdetektive 🔍 – Findest du alle Fehler?'),
-      h('p', { class: 'detektiv__auftrag' },
-        'Im Text haben sich ', h('strong', {}, `${fehlerzahl} Rechtschreibfehler`),
-        ' versteckt. Tippe auf jedes Wort, das deiner Meinung nach falsch geschrieben ist.'),
-      h('p', { class: 'detektiv__auftrag detektiv__auftrag--leise' },
-        h('strong', {}, 'Achtung:'), ' Viele schwierige Wörter sind vollkommen richtig geschrieben!'),
+      h('button', { class: 'zurueck', type: 'button', onclick: zurueck }, '‹ Zur Auswahl'),
+      ...(text.anleitung ? [
+        // Eigener Wortlaut eines Textes (Übung 2 und folgende)
+        h('h1', { class: 'seite__titel' }, `${text.anleitung.titel} 🔍`),
+        ...text.anleitung.saetze.map((satz) => h('p', { class: 'detektiv__auftrag' }, satz)),
+        h('p', { class: 'detektiv__auftrag detektiv__auftrag--leise' },
+          h('strong', {}, text.anleitung.achtung[0]), text.anleitung.achtung[1]),
+      ] : [
+        // Übung 1 — Wortlaut unverändert seit 1.9.0
+        h('h1', { class: 'seite__titel' }, 'Fehlerdetektive 🔍 – Findest du alle Fehler?'),
+        h('p', { class: 'detektiv__auftrag' },
+          'Im Text haben sich ', h('strong', {}, `${fehlerzahl} Rechtschreibfehler`),
+          ' versteckt. Tippe auf jedes Wort, das deiner Meinung nach falsch geschrieben ist.'),
+        h('p', { class: 'detektiv__auftrag detektiv__auftrag--leise' },
+          h('strong', {}, 'Achtung:'), ' Viele schwierige Wörter sind vollkommen richtig geschrieben!'),
+      ]),
       hinweis,
       ergebnisplatz),
     h('p', { class: 'detektiv__zaehler', 'aria-live': 'polite' }, 'Markiert: ', anzahl),

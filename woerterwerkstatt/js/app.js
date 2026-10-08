@@ -103,7 +103,7 @@ function bereicheZeigen() {
   },
     h('span', { class: 'detektivkarte__emoji', 'aria-hidden': 'true' }, '🔍'),
     h('span', { class: 'detektivkarte__text' },
-      h('strong', {}, `${text.emoji || ''} ${text.titel}`.trim()),
+      h('strong', {}, `${text.nummer ? `Übung ${text.nummer}: ` : ''}${text.emoji || ''} ${text.titel}`.trim()),
       h('span', {}, 'Fehlerdetektive: Findest du alle versteckten Fehler im Text?')),
     h('span', { class: 'auftrag__pfeil' }, '→')));
 
