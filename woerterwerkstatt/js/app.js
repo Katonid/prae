@@ -29,6 +29,7 @@ import { bereicheVerwalten } from './bereiche.js';
 import {
   lehrkraftAnmeldung, klassenVerwalten, beitreten, fortschrittHochladen, fortschrittAbholen,
   anmeldenMitCode, klasseAuffrischen, fehlersucheErgebnis, fehlersucheNachsenden,
+  einladungOeffnen, detektivFreigeschaltet,
 } from './klasse.js';
 import { FEHLERTEXTE, fehlertextNachId } from './fehlertexte.js';
 import { fehlersucheStarten } from './fehlersuche.js';
@@ -98,8 +99,12 @@ function bereicheZeigen() {
   };
 
   // Eine Karte je Text aus `fehlertexte.js` — ein neuer Text erscheint hier
-  // von selbst. Die Nummer ist die Stelle in der Liste.
-  const detektivkarten = FEHLERTEXTE.map((text, stelle) => h('button', {
+  // von selbst. Die Nummer ist die Stelle in der Liste und bleibt dieselbe,
+  // auch wenn eine Klasse nur einen Teil sieht (ab 1.11.0: Auswahl je Klasse
+  // in `klasse.detektive`, gilt nur für angemeldete Kinder).
+  const wer = nutzer();
+  const meineKlasse = wer && wer.art === 'kind' ? klassen().find((k) => k.code === wer.klasse) : null;
+  const detektivkarten = FEHLERTEXTE.map((text, stelle) => (!detektivFreigeschaltet(meineKlasse, text.id) ? null : h('button', {
     class: 'detektivkarte', type: 'button',
     onclick: () => { sfx.tipp(); gehZu(`#/fehlersuche/${text.id}`); },
   },
@@ -107,7 +112,7 @@ function bereicheZeigen() {
     h('span', { class: 'detektivkarte__text' },
       h('span', { class: 'detektivkarte__nummer' }, `Übung ${stelle + 1}`),
       h('strong', {}, text.title)),
-    h('span', { class: 'auftrag__pfeil', 'aria-hidden': 'true' }, '→')));
+    h('span', { class: 'auftrag__pfeil', 'aria-hidden': 'true' }, '→')))).filter(Boolean);
 
   const auftragskarte = auftragZeigen();
   const weiterkarte = weitermachenZeigen();
@@ -389,6 +394,15 @@ function wegLesen() {
     uebenZeigen(teile[1], Number(teile[2]) || 0, teile[3]);
     return;
   }
+  if (teile[0] === 'einladung' && teile[1] && teile[2]) {
+    // Einladung für eine weitere Lehrkraft: einmal öffnen, dann die Adresse
+    // durch die Startseite ersetzen — sonst öffnete jeder Neustart sie neu.
+    const [, code, schluessel] = teile;
+    try { window.history.replaceState(null, '', '#/'); } catch (_) { /* egal */ }
+    bereicheZeigen();
+    einladungOeffnen(code.toUpperCase(), schluessel, () => kopfleisteZeichnen());
+    return;
+  }
   if (teile[0] === 'fehlersuche' && teile[1]) {
     fehlersucheZeigen(teile[1]);
     return;
@@ -555,6 +569,8 @@ async function start() {
   // gebraucht — scheitert sie, läuft alles andere weiter.
   wolkeStarten()
     .then(() => { kopfleisteZeichnen(); return klasseAuffrischen(); })
+    // Die Klasse kann eine neue Auswahl der Fehlerdetektive mitgebracht haben
+    .then(() => { if (!document.body.classList.contains('is-uebend') && zeigtBereiche()) bereicheZeigen(); })
     // Ergebnisse der Fehlerdetektive, die beim Auswerten kein Netz hatten
     .then(() => { fehlersucheNachsenden(); })
     // Und dann die eigenen Sterne nachholen. Meistens kommt null zurück —
