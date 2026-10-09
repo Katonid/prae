@@ -13,7 +13,7 @@ import { sterne as sterneAnzeige, balken, blatt, frage, meldung } from './ui.js'
 import {
   ladeZustand, eigeneBereiche, fortschritt, sterneImBereich,
   nutzer, setzeNutzer, klassen, horch, schwereWoerter, protokollLeeren,
-  bereichSichtbar, laufStand, letzterOffenerLauf,
+  bereichSichtbar, laufStand, letzterOffenerLauf, fehlersucheStand, fehlersucheStandMerken,
 } from './store.js';
 import { anwenden as themaAnwenden } from './theme.js';
 import { BEREICHE } from './woerter.js';
@@ -111,7 +111,10 @@ function bereicheZeigen() {
     h('span', { class: 'detektivkarte__emoji', 'aria-hidden': 'true' }, text.emoji || '🔍'),
     h('span', { class: 'detektivkarte__text' },
       h('span', { class: 'detektivkarte__nummer' }, `Übung ${stelle + 1}`),
-      h('strong', {}, text.title)),
+      h('strong', {}, text.title),
+      // Angefangen, aber nicht fertig: Das Kind soll sehen, wo es weitergeht.
+      ((stand) => (stand && !stand.fertig ? h('span', { class: 'detektivkarte__stand' }, '▸ angefangen') : null))(
+        fehlersucheStand(`${wer && wer.art === 'kind' && wer.klasse ? `${wer.klasse}/${wer.schluessel}` : 'geraet'}|${text.id}`))),
     h('span', { class: 'auftrag__pfeil', 'aria-hidden': 'true' }, '→')))).filter(Boolean);
 
   const auftragskarte = auftragZeigen();
@@ -323,12 +326,16 @@ function fehlersucheZeigen(textId) {
       'Du bist nicht angemeldet. Dein Ergebnis wird nicht an deine Lehrerin oder deinen Lehrer geschickt. ',
       h('button', { class: 'knopf knopf--klein', type: 'button', onclick: () => anmeldenMitCode() }, '👋 Mitmachen'));
   }
+  const standSchluessel = `${angemeldetesKind ? `${kind.klasse}/${kind.schluessel}` : 'geraet'}|${text.id}`;
   laufAbbrechen = fehlersucheStarten({
     platz: buehne(),
     text,
     hinweis,
     zurueck: () => gehZu('#/'),
     beiErgebnis: (ergebnis) => { fehlersucheErgebnis(ergebnis); },
+    // Der Durchgang überlebt das Neuladen — je Kind und Text auf dem Gerät
+    gemerkt: fehlersucheStand(standSchluessel),
+    merken: (stand) => fehlersucheStandMerken(standSchluessel, stand),
   });
 }
 

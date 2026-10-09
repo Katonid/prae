@@ -617,3 +617,21 @@
   Tipp: „war schon richtig geschrieben"). Ist nichts danebengegangen, geht es
   direkt zu Stufe 3. `'all'` und `'found'` gibt es weiter. Die Karte zählt
   „Wort x von y", nicht „Fehler" — ein rotes Wort ist keiner.
+- **Ein Fehlerdetektive-Durchgang überlebt das Neuladen** (ab 1.11.2,
+  gemeldet 10/2026: „Wenn Kinder die Seite aktualisieren, landen sie wieder
+  beim unbearbeiteten Text"). Nach JEDEM Schritt (Antippen, Auswerten, jeder
+  Prüfversuch, jedes Weiter, jede Strategiewahl) geht der Stand über
+  `merken` nach `store.fehlersucheStaende["<KLASSE>/<kind>|<textId>"]`
+  (`geraet|…` ohne Anmeldung) — je Kind, damit sich zwei Kinder an einem
+  iPad nicht in die Quere kommen; höchstens 30. Gemerkt werden Wortnummern;
+  `kennung` (Wortzahl + Fehlerstellen) verwirft einen Stand, der nicht mehr
+  zum Text passt. `fortsetzen()` springt über schon Erledigtes; ein fertiger
+  Durchgang zeigt den Abschluss, bis „Text noch einmal bearbeiten". Er
+  bleibt auf dem Gerät und reist NICHT in die Wolke (wie `store.laeufe`).
+  „‹ Zur Auswahl" fragt deshalb nicht mehr nach; die Startseite zeigt
+  „▸ angefangen".
+  - **Der Speicher gewinnt nach Zeit, nicht nach Art** (`gesichertAm`).
+    Gesichert wird 400 ms gebündelt; bei `pagehide`/`visibilitychange`
+    sofort. Dann ist localStorage aktuell, die IndexedDB aber womöglich
+    noch nicht — bis 1.11.1 gewann beim Laden IMMER die IndexedDB, und ein
+    Neuladen gleich nach dem Antippen verlor den letzten Schritt.

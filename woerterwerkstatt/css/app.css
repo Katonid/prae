@@ -1458,6 +1458,7 @@ body.is-uebend .kopf { opacity: 0.55; }
 }
 
 .detektivkarten { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 12px; margin-bottom: 8px; }
+.detektivkarte__text .detektivkarte__stand { font-size: 13px; font-weight: 700; color: var(--akzent-2); }
 .detektivkarte__text .detektivkarte__nummer { font-size: 13px; font-weight: 700; color: var(--akzent); letter-spacing: 0.02em; }
 .detektivkarte {
   display: flex;

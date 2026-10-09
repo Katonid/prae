@@ -109,6 +109,11 @@ function leererZustand() {
     // Ergebnisse der Fehlerdetektive, die noch nicht bei der Klasse sind —
     // siehe `fehlersucheMerken`.
     fehlersucheOffen: [],
+    // Angefangene Fehlerdetektive-Durchgänge — siehe `fehlersucheStandMerken`.
+    fehlersucheStaende: {},
+    // Wann zuletzt gesichert wurde — beim Laden gewinnt der neuere der beiden
+    // Speicher (siehe `ladeZustand`).
+    gesichertAm: 0,
     nutzer: null,
     klassen: [],
     zuletztBereich: '',
@@ -182,6 +187,8 @@ function zusammen(gelesen) {
     laeufe: (gelesen.laeufe && typeof gelesen.laeufe === 'object') ? gelesen.laeufe : {},
     protokoll: (gelesen.protokoll && typeof gelesen.protokoll === 'object') ? gelesen.protokoll : {},
     fehlersucheOffen: Array.isArray(gelesen.fehlersucheOffen) ? gelesen.fehlersucheOffen : [],
+    fehlersucheStaende: (gelesen.fehlersucheStaende && typeof gelesen.fehlersucheStaende === 'object') ? gelesen.fehlersucheStaende : {},
+    gesichertAm: Number(gelesen.gesichertAm) || 0,
     nutzer: gelesen.nutzer || null,
     klassen: Array.isArray(gelesen.klassen) ? gelesen.klassen : [],
     zuletztBereich: gelesen.zuletztBereich || '',
@@ -191,18 +198,41 @@ function zusammen(gelesen) {
 export async function ladeZustand() {
   let gelesen = null;
   try { gelesen = await ausDb(); } catch (_) { gelesen = null; }
-  if (!gelesen) gelesen = ausLokal();
+  // Der NEUERE Stand gewinnt. Beim Verlassen der Seite (Neu laden, Tab zu)
+  // wird der Speicher des Browsers sofort beschrieben, die IndexedDB aber
+  // nur angestoßen — sie kann dann einen Schritt zurückliegen. Bis 1.11.1
+  // gewann die IndexedDB immer, und ein Kind, das gleich nach dem Antippen
+  // neu lud, verlor das letzte Wort.
+  const lokal = ausLokal();
+  if (!gelesen || (lokal && (Number(lokal.gesichertAm) || 0) > (Number(gelesen.gesichertAm) || 0))) gelesen = lokal || gelesen;
   zustand = zusammen(gelesen);
   return zustand;
 }
 
-const sichereGleich = entprellt(() => {
+function jetztSichern() {
+  zustand.gesichertAm = Date.now();
   const kopie = JSON.parse(JSON.stringify(zustand));
   inDb(kopie).catch(() => {});
   inLokal(kopie);
-}, 400);
+}
+
+const sichereGleich = entprellt(jetztSichern, 400);
+let ungesichert = false;
+
+/*
+ * Gesichert wird gebündelt, 400 ms nach der letzten Änderung. Wer in diesen
+ * 400 ms neu lädt oder den Tab schließt, verlöre den letzten Schritt —
+ * deshalb beim Verlassen der Seite sofort. `pagehide` kommt auch in Safari
+ * zuverlässig, `visibilitychange` deckt den Wechsel in eine andere App ab.
+ */
+if (typeof window !== 'undefined') {
+  const nachholen = () => { if (ungesichert) { ungesichert = false; jetztSichern(); } };
+  window.addEventListener('pagehide', nachholen);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') nachholen(); });
+}
 
 export function sichere() {
+  ungesichert = true;
   sichereGleich();
 }
 
@@ -496,6 +526,32 @@ export function fehlersucheMerken(eintrag) {
   zustand.fehlersucheOffen = zustand.fehlersucheOffen.filter((e) => e.schluessel !== eintrag.schluessel);
   zustand.fehlersucheOffen.push(eintrag);
   if (zustand.fehlersucheOffen.length > 30) zustand.fehlersucheOffen.splice(0, zustand.fehlersucheOffen.length - 30);
+  sichere();
+}
+
+/*
+ * Der Stand eines angefangenen Fehlerdetektive-Durchgangs, je Kind und Text
+ * (ab 1.11.2, gemeldet 10/2026: „Wenn Kinder die Seite aktualisieren, landen
+ * sie wieder beim unbearbeiteten Text"). Der Schlüssel enthält das Kind:
+ * Teilen sich zwei Kinder ein iPad, findet keines den Text des anderen.
+ * Höchstens 30 Stände; die ältesten fallen weg.
+ */
+export function fehlersucheStand(schluessel) {
+  return zustand.fehlersucheStaende[schluessel] || null;
+}
+
+export function fehlersucheStandMerken(schluessel, stand) {
+  if (stand) {
+    zustand.fehlersucheStaende[schluessel] = Object.assign({}, stand, { aktualisiert: Date.now() });
+    const alle = Object.keys(zustand.fehlersucheStaende);
+    if (alle.length > 30) {
+      alle.sort((a, b) => (zustand.fehlersucheStaende[a].aktualisiert || 0) - (zustand.fehlersucheStaende[b].aktualisiert || 0))
+        .slice(0, alle.length - 30)
+        .forEach((weg) => delete zustand.fehlersucheStaende[weg]);
+    }
+  } else {
+    delete zustand.fehlersucheStaende[schluessel];
+  }
   sichere();
 }
 
