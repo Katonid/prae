@@ -1,37 +1,67 @@
-// Fehlerdetektive — einen Text nach versteckten Rechtschreibfehlern absuchen.
+// Fehlerdetektive — die Rechtschreibwerkstatt in drei Stufen.
 //
-// Jedes Wort ist antippbar; erst „Auswerten" verrät, was ein Fehler war.
-// Bis dahin trägt kein Element im Dokument die Lösung — keine Klasse, kein
-// `data-`, kein `title`, kein `aria-label`. Am Wort hängt nur seine laufende
-// Nummer, die Lösung steht in `woerter` hier im Modul.
+//   1  Fehler finden    Jedes Wort ist antippbar. Wie viele Fehler im Text
+//                       stecken, erfährt das Kind ERST nach dem endgültigen
+//                       Auswerten (Vorgabe des Nutzers, 10/2026). Danach:
+//                       gefunden grün, übersehen orange, falsch markiert
+//                       rot — aber noch KEINE richtige Schreibweise.
+//   2  Verbessern       Die Fehler einzeln nacheinander selbst richtig
+//                       schreiben (`CONFIG.correctionMode`: alle oder nur
+//                       die gefundenen). Tipp nach dem zweiten, „Lösung
+//                       zeigen" nach dem dritten Fehlversuch.
+//   3  Strategien       `CONFIG.strategyQuestions` S-Fehler, zufällig
+//                       gelost: Welche Strategie hilft?
+//   Abschluss           drei getrennte Bereiche, keine Note; erst jetzt die
+//                       Lösungsübersicht.
 //
-// Ausgewertet wird in drei Farben, und das bewusst gegen die Hausregel „kein
-// Grün" (Vorgabe des Nutzers für genau diese Übung, 10/2026): grün =
-// gefunden, rot = richtiges Wort markiert, orange = übersehen. Damit es nicht
-// an der Farbe allein hängt, hat jede ihre eigene Linienart (unterstrichen,
-// durchgestrichen, umrandet), und die Legende sagt es in Worten.
+// Die Logik ist für ALLE Texte dieselbe; die Texte und `CONFIG` stehen in
+// `fehlertexte.js`. Ein Fehler ist an seine POSITION im Text gebunden (die
+// laufende Nummer des Wortes), nie an seine Buchstabenfolge: „Weg" kann an
+// einer Stelle richtig und an einer anderen („Wek") ein Fehler sein.
 //
-// Die Lösung kommt in STUFEN (ab 1.9.2, Ansage des Nutzers 10/2026: „liefert
-// leider sofort auch die nicht gefundenen Wörter"). Jedes Prüfen geht eine
-// Stufe weiter, dazwischen sucht das Kind weiter:
-//   1. wie viele Fehler noch fehlen (gefunden grün, falsch markiert rot)
-//   2. wie viele davon kleingeschriebene Nomen sind, wie viele andere
-//   3. die ZEILEN, in denen noch Fehler stecken (Bänder über die ganze Breite)
-//   4. die Lösung: übersehene Fehler orange, richtige Schreibweise antippbar
-// Sind vorher alle gefunden und nichts falsch markiert, ist sofort Schluss.
+// Vor dem Auswerten trägt kein Wort-Element die Lösung — keine Klasse, kein
+// `data-`, kein `title`, kein `aria-label`; nur seine laufende Nummer.
 //
-// Ein Durchgang geht nach JEDEM Prüfen an `beiErgebnis`, immer unter
-// demselben Schlüssel (Beginn): die Zahlen des ersten Prüfens bleiben stehen,
-// `verlauf` kommt Prüfen für Prüfen dazu. Ob und wohin es gemeldet wird,
-// entscheidet der Aufrufer (app.js → klasse.js).
+// Grün/rot/orange ist hier die Ausnahme von „kein Grün" der Wörterwerkstatt —
+// für genau diese Übung vom Nutzer vorgegeben. Jede Farbe trägt zusätzlich
+// eine eigene Linienart (unterstrichen, durchgestrichen, umrandet).
+//
+// Nach jedem abgeschlossenen Schritt geht der Stand an `beiErgebnis` — immer
+// unter demselben Schlüssel (Beginn), damit die Lehrkraft auch einen nicht
+// ganz beendeten Durchgang sieht. Ob und wohin, entscheidet der Aufrufer.
 
-import { h, leeren } from './util.js';
-import * as sfx from './sfx.js';
+import { h, leeren, gemischt } from './util.js';
+import { frage } from './ui.js';
+import { CONFIG, FEHLERTEXTE, uebungsnummer } from './fehlertexte.js';
 
-/* ---------- Text zerlegen und prüfen ---------- */
+/* ---------- Strategien ---------- */
+
+export const STRATEGIEN = {
+  Ableiten: {
+    knopf: 'Ableiten',
+    erklaerung: (wort) => `„${wort}“ kannst du ableiten: Such ein verwandtes Wort mit a oder au — dann weißt du, dass es ä oder äu geschrieben wird.`,
+  },
+  'Verlängern': {
+    knopf: 'Verlängern',
+    erklaerung: (wort) => `Verlängere „${wort}“ (zum Beispiel in die Mehrzahl oder in eine andere Form) — dann hörst du am Ende deutlich, ob b oder p, d oder t, g oder k.`,
+  },
+  'Silben sprechen': {
+    knopf: 'Silben sprechen / Mitsprechen',
+    erklaerung: (wort) => `Sprich „${wort}“ langsam in Silben — dann hörst du jeden Laut: das h, das die Silben trennt, oder den doppelten Mitlaut nach einem kurzen Selbstlaut.`,
+  },
+  Merkwort: {
+    knopf: 'Merkwort',
+    erklaerung: (wort) => `„${wort}“ ist ein Merkwort. Hier hilft keine Regel — dieses Wort musst du dir einprägen.`,
+  },
+};
+
+const STRATEGIE_NAMEN = Object.keys(STRATEGIEN);
+const SOLL = { N: 20, S: 20 };
+
+/* ---------- Text zerlegen ---------- */
 
 // Markierung | Wort | Leerraum | Satzzeichen
-const MUSTER = /\[\[([NS])\|([^|\]]+)\|([^|\]]+)\]\]|([\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*)|(\s+)|([^\s\p{L}\p{N}[]+)/gu;
+const MUSTER = /\[\[([NS])\|([^|\]]+)\|([^|\]]+)(?:\|([^|\]]+))?\]\]|([\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*)|(\s+)|([^\s\p{L}\p{N}[]+)/gu;
 
 function absatzZerlegen(absatz, probleme) {
   const teile = [];
@@ -41,15 +71,20 @@ function absatzZerlegen(absatz, probleme) {
   while ((m = MUSTER.exec(absatz)) !== null) {
     if (m.index !== gelesen) probleme.push(`Unlesbare Stelle im Text: „${absatz.slice(gelesen, m.index)}“`);
     gelesen = MUSTER.lastIndex;
-    if (m[1]) teile.push({ art: 'wort', text: m[2], richtig: m[3], typ: m[1] });
-    else if (m[4]) teile.push({ art: 'wort', text: m[4], richtig: m[4], typ: null });
-    else if (m[5]) teile.push({ art: 'leer', text: ' ' });
-    else teile.push({ art: 'zeichen', text: m[6] });
+    if (m[1]) {
+      teile.push({ art: 'wort', text: m[2], richtig: m[3], typ: m[1], strategie: m[4] ? m[4].trim() : null });
+    } else if (m[5]) {
+      teile.push({ art: 'wort', text: m[5], richtig: m[5], typ: null, strategie: null });
+    } else if (m[6]) {
+      teile.push({ art: 'leer', text: ' ' });
+    } else {
+      teile.push({ art: 'zeichen', text: m[7] });
+    }
   }
   if (gelesen !== absatz.length) probleme.push(`Unlesbares Textende: „${absatz.slice(gelesen)}“`);
 
   // Direkt aneinanderstoßende Wortteile sind EIN Wort:
-  // [[S|gelp|gelb]]es → „gelpes“, richtig „gelbes“.
+  // [[S|gelp|gelb|Verlängern]]es → „gelpes“, richtig „gelbes“.
   const verbunden = [];
   for (const teil of teile) {
     const vorher = verbunden[verbunden.length - 1];
@@ -58,6 +93,7 @@ function absatzZerlegen(absatz, probleme) {
       vorher.text += teil.text;
       vorher.richtig += teil.richtig;
       vorher.typ = vorher.typ || teil.typ;
+      vorher.strategie = vorher.strategie || teil.strategie;
     } else {
       verbunden.push(teil);
     }
@@ -65,477 +101,635 @@ function absatzZerlegen(absatz, probleme) {
   return verbunden;
 }
 
+/**
+ * Den Satz um jedes Wort herum merken — für Stufe 2 („Im Text stand …").
+ * Ein Satz endet an einem Zeichen mit . ! oder ? (auch „!“", „.“").
+ */
+function saetzeMerken(teile) {
+  let start = 0;
+  const schliessen = (ende) => {
+    const satz = teile.slice(start, ende + 1);
+    for (const teil of satz) if (teil.art === 'wort') teil.satz = satz;
+    start = ende + 1;
+  };
+  teile.forEach((teil, i) => {
+    if (teil.art === 'zeichen' && /[.!?]/.test(teil.text)) schliessen(i);
+  });
+  if (start < teile.length) schliessen(teile.length - 1);
+}
+
 const zerlegt = new Map();
 
 /**
- * Den Text in Absätze und Wörter zerlegen — und dabei nachzählen.
- *
- * Stimmt die Zahl der Fehler nicht mit `soll` überein, steht das laut in der
- * Konsole. Die Übung läuft trotzdem; die Auswertung rechnet mit der
- * tatsächlichen Zahl, damit „40 von 39" nie vorkommt.
+ * Den Text in Absätze und Wörter zerlegen. Jedes Wort bekommt seine Nummer
+ * (`i`) — das ist seine ID. Geprüft wird hier nicht (siehe `uebungPruefen`).
  */
 export function textZerlegen(text) {
   if (zerlegt.has(text.id)) return zerlegt.get(text.id);
   const probleme = [];
-  const absaetze = text.text.split(/\n\s*\n/).map((a) => a.trim()).filter(Boolean)
+  const absaetze = String(text.text || '').split(/\n\s*\n/).map((a) => a.trim()).filter(Boolean)
     .map((a) => absatzZerlegen(a, probleme));
-
-  const zahl = { N: 0, S: 0 };
-  for (const teil of absaetze.flat()) {
-    if (teil.art !== 'wort' || !teil.typ) continue;
-    zahl[teil.typ] += 1;
-    if (teil.text === teil.richtig) probleme.push(`Fehler ohne Unterschied: „${teil.text}“`);
-    if (teil.typ === 'N') {
-      const gross = teil.text.charAt(0).toUpperCase() + teil.text.slice(1);
-      if (teil.text === gross || gross !== teil.richtig) {
-        probleme.push(`N-Fehler ist keine reine Kleinschreibung: „${teil.text}“ → „${teil.richtig}“`);
-      }
+  const woerter = [];
+  for (const teile of absaetze) {
+    saetzeMerken(teile);
+    for (const teil of teile) {
+      if (teil.art !== 'wort') continue;
+      teil.i = woerter.length;
+      woerter.push(teil);
     }
   }
-  const soll = text.soll || {};
-  const gesamt = zahl.N + zahl.S;
-  const sollGesamt = (soll.N || 0) + (soll.S || 0);
-  if (zahl.N !== soll.N) probleme.push(`Typ N: ${zahl.N} statt ${soll.N} Fehler.`);
-  if (zahl.S !== soll.S) probleme.push(`Typ S: ${zahl.S} statt ${soll.S} Fehler.`);
-  if (gesamt !== sollGesamt) probleme.push(`Insgesamt: ${gesamt} statt ${sollGesamt} Fehler.`);
-
-  if (probleme.length) {
-    console.error(
-      `%c FEHLERDETEKTIVE „${text.titel}“ – DER ÜBUNGSTEXT STIMMT NICHT! %c\n\n${probleme.join('\n')}`
-      + `\n\nGezählt: N = ${zahl.N}, S = ${zahl.S}, gesamt = ${gesamt}`
-      + ` (erwartet: N = ${soll.N}, S = ${soll.S}, gesamt = ${sollGesamt}).`,
-      'background:#b91c1c;color:#fff;font-size:16px;font-weight:bold;padding:4px 8px;', '');
-  } else {
-    console.info(`Fehlerdetektive „${text.titel}“: ${zahl.N} × N, ${zahl.S} × S, insgesamt ${gesamt} Fehler.`);
-  }
-  const ergebnis = { absaetze, zahl, gesamt, ok: !probleme.length };
+  const fehler = woerter.filter((w) => w.typ);
+  const ergebnis = { absaetze, woerter, fehler, gesamt: fehler.length, probleme };
   zerlegt.set(text.id, ergebnis);
   return ergebnis;
 }
 
-/* ---------- Die Übung ---------- */
+/* ---------- Prüfung beim Laden ---------- */
 
-const ZAHL_WORT = (n, eins, viele) => `${n} ${n === 1 ? eins : viele}`;
+/**
+ * Eine Übung prüfen: 20 × N, 20 × S, 40 insgesamt, jeder Fehler mit falscher
+ * und richtiger Form, jeder S-Fehler mit gültiger Strategie. Gibt die
+ * Liste der Probleme zurück (leer = in Ordnung).
+ */
+export function uebungPruefen(text, nummer) {
+  const name = `Übung ${nummer}${text.title ? ` („${text.title}“)` : ''}`;
+  const { fehler, probleme } = textZerlegen(text);
+  const meldungen = probleme.map((p) => `${name}: ${p}`);
+  if (!text.id) meldungen.push(`${name} hat keine id.`);
+  if (!text.title) meldungen.push(`${name} hat keinen Titel (title).`);
+  const zahl = { N: 0, S: 0 };
+  for (const f of fehler) {
+    zahl[f.typ] += 1;
+    if (!f.text || !f.richtig) meldungen.push(`${name}: Ein Fehler hat keine falsche oder keine richtige Form.`);
+    if (f.text === f.richtig) meldungen.push(`${name}: „${f.text}“ ist als Fehler markiert, aber falsche und richtige Form sind gleich.`);
+    if (f.typ === 'N') {
+      const gross = f.text.charAt(0).toUpperCase() + f.text.slice(1);
+      if (f.text === gross || gross !== f.richtig) {
+        meldungen.push(`${name}: „${f.text}“ → „${f.richtig}“ ist als Nomenfehler (N) markiert, aber kein reiner Kleinschreibfehler.`);
+      }
+    }
+    if (f.typ === 'S') {
+      if (!f.strategie) meldungen.push(`${name}: „${f.text}“ (S) hat keine Strategie.`);
+      else if (!STRATEGIE_NAMEN.includes(f.strategie)) {
+        meldungen.push(`${name}: „${f.text}“ hat keine gültige Strategie („${f.strategie}“). Erlaubt: ${STRATEGIE_NAMEN.join(', ')}.`);
+      }
+    }
+  }
+  const nur = (n, soll) => (n < soll ? 'nur ' : '');
+  if (zahl.N !== SOLL.N) meldungen.push(`${name} enthält ${nur(zahl.N, SOLL.N)}${zahl.N} Nomenfehler statt ${SOLL.N}.`);
+  if (zahl.S !== SOLL.S) meldungen.push(`${name} enthält ${nur(zahl.S, SOLL.S)}${zahl.S} andere Fehler (S) statt ${SOLL.S}.`);
+  if (zahl.N + zahl.S !== SOLL.N + SOLL.S) {
+    meldungen.push(`${name} enthält ${nur(zahl.N + zahl.S, SOLL.N + SOLL.S)}${zahl.N + zahl.S} Fehler statt ${SOLL.N + SOLL.S}.`);
+  }
+  return meldungen;
+}
+
+/** Alle Übungen prüfen — läuft einmal beim Laden dieses Moduls. */
+export function alleUebungenPruefen() {
+  const ids = new Set();
+  let ok = 0;
+  FEHLERTEXTE.forEach((text, stelle) => {
+    const meldungen = uebungPruefen(text, stelle + 1);
+    if (text.id && ids.has(text.id)) meldungen.push(`Übung ${stelle + 1}: Die id „${text.id}“ gibt es schon.`);
+    ids.add(text.id);
+    if (meldungen.length) {
+      for (const m of meldungen) {
+        console.error(`%c FEHLERDETEKTIVE %c ${m}`, 'background:#b91c1c;color:#fff;font-weight:bold;padding:2px 6px;', 'font-weight:bold;');
+      }
+    } else {
+      ok += 1;
+    }
+  });
+  console.info(`Fehlerdetektive: ${ok} von ${FEHLERTEXTE.length} Übungen geprüft und in Ordnung (je 20 × N, 20 × S).`);
+  return ok === FEHLERTEXTE.length;
+}
+
+alleUebungenPruefen();
+
+/* ---------- Kleine Helfer ---------- */
+
+const anzahlWoerter = (n) => `${n} ${n === 1 ? 'Wort' : 'Wörter'}`;
+const sekunden = (von, bis) => Math.max(0, Math.round((bis - von) / 1000));
+const gleich = (a, b) => String(a || '').normalize('NFC').trim() === String(b || '').normalize('NFC').trim();
+
+/** Das Eingabefeld, in dem iOS möglichst nichts vorsagt. */
+function schreibfeld() {
+  return h('input', {
+    class: 'feld feld--gross detektiv__eingabe',
+    type: 'text',
+    // Ein zufälliger Name hält auch das automatische Ausfüllen fern.
+    name: `w${Math.random().toString(36).slice(2, 8)}`,
+    autocomplete: 'off',
+    autocorrect: 'off',
+    autocapitalize: 'off',
+    spellcheck: 'false',
+    enterkeyhint: 'done',
+    'data-form-type': 'other',
+    'aria-label': 'Schreibe das Wort richtig',
+  });
+}
+
+/* ---------- Die Übung ---------- */
 
 /**
  * Baut die Übung in `platz` auf.
  *
  * `hinweis`  — ein Knoten über dem Text (ob das Ergebnis gemeldet wird)
- * `zurueck`  — wohin „‹ Zurück" führt
- * `beiErgebnis(ergebnis)` — nach jedem Tipp auf „Auswerten"
+ * `zurueck`  — zur Auswahl der Übungen
+ * `beiErgebnis(stand)` — nach jedem abgeschlossenen Schritt
  *
  * Gibt eine Funktion zum Aufräumen zurück.
  */
 export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiErgebnis }) {
-  const { absaetze, gesamt: fehlerzahl } = textZerlegen(text);
+  const zerlegung = textZerlegen(text);
+  const { absaetze, woerter, fehler: alleFehler } = zerlegung;
+  const fehlerzahl = alleFehler.length;
+  const nummer = uebungsnummer(text);
 
-  const woerter = [];
-  const spans = [];
-  let markiert = [];
-  let ausgewertet = false; // Stufe 4: die Lösung steht da
-  let stufe = 0;           // 0 = noch nicht geprüft, 1–3 Tipps, 4 Lösung
-  let offenesWort = -1;
-  let beginn = Date.now();
-  let erstesPruefen = null;
-  let verlauf = [];
-  let fehlendeZeilen = []; // Wortnummern, deren Zeilen Stufe 3 hervorhebt
+  let lauf = null; // der aktuelle Durchgang, siehe `neuerLauf`
 
-  const anzahl = h('strong', {}, '0 Wörter');
-  const ergebnisplatz = h('section', { class: 'detektiv__ergebnis', hidden: true, tabindex: '-1', 'aria-live': 'polite' });
-  const blase = h('div', { class: 'detektiv__blase', role: 'status', hidden: true });
-  const textplatz = h('div', { class: 'detektiv__text' });
-  const baender = h('div', { class: 'detektiv__baender', 'aria-hidden': 'true' });
-  const karte = h('div', { class: 'detektiv__karte' },
-    h('h2', { class: 'detektiv__titel' }, text.titel), baender, textplatz, blase);
-  const knopfAuswerten = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button' }, 'Auswerten');
-  const naechsterTipp = h('p', { class: 'detektiv__naechstes', hidden: true });
-  const knopfNochmal = h('button', { class: 'knopf knopf--still detektiv__knopf', type: 'button', hidden: true }, 'Noch einmal versuchen');
+  const fortschritt = h('ol', { class: 'detektiv__stufen', 'aria-label': 'Stufen' },
+    ...['Fehler finden', 'Verbessern', 'Strategien'].map((name, i) => h('li', { class: 'detektiv__stufe' },
+      h('span', { class: 'detektiv__stufennummer' }, String(i + 1)), name)));
+  const buehne = h('div', { class: 'detektiv__buehne' });
   const seite = h('div', { class: 'seite detektiv' },
-    h('div', { class: 'seite__kopf' },
-      h('button', { class: 'zurueck', type: 'button', onclick: zurueck }, '‹ Zur Auswahl'),
-      ...(text.anleitung ? [
-        // Eigener Wortlaut eines Textes (Übung 2 und folgende)
-        h('h1', { class: 'seite__titel' }, `${text.anleitung.titel} 🔍`),
-        ...text.anleitung.saetze.map((satz) => h('p', { class: 'detektiv__auftrag' }, satz)),
-        h('p', { class: 'detektiv__auftrag detektiv__auftrag--leise' },
-          h('strong', {}, text.anleitung.achtung[0]), text.anleitung.achtung[1]),
-      ] : [
-        // Übung 1 — Wortlaut unverändert seit 1.9.0
-        h('h1', { class: 'seite__titel' }, 'Fehlerdetektive 🔍 – Findest du alle Fehler?'),
-        h('p', { class: 'detektiv__auftrag' },
-          'Im Text haben sich ', h('strong', {}, `${fehlerzahl} Rechtschreibfehler`),
-          ' versteckt. Tippe auf jedes Wort, das deiner Meinung nach falsch geschrieben ist.'),
-        h('p', { class: 'detektiv__auftrag detektiv__auftrag--leise' },
-          h('strong', {}, 'Achtung:'), ' Viele schwierige Wörter sind vollkommen richtig geschrieben!'),
-      ]),
-      hinweis,
-      ergebnisplatz),
-    h('p', { class: 'detektiv__zaehler', 'aria-live': 'polite' }, 'Markiert: ', anzahl),
-    karte,
-    h('div', { class: 'detektiv__knoepfe' }, knopfAuswerten, knopfNochmal),
-    naechsterTipp);
+    h('div', { class: 'detektiv__oben' },
+      h('button', { class: 'zurueck', type: 'button', onclick: () => verlassen() }, '‹ Zur Auswahl'),
+      fortschritt),
+    buehne);
 
-  for (const teile of absaetze) {
-    const p = h('p', {});
-    for (const teil of teile) {
-      if (teil.art !== 'wort') { p.appendChild(document.createTextNode(teil.text)); continue; }
-      const i = woerter.length;
-      woerter.push({ text: teil.text, richtig: teil.richtig, typ: teil.typ });
-      const span = h('span', { class: 'detektiv__wort', role: 'button', tabindex: '0', 'aria-pressed': 'false', 'data-i': String(i) }, teil.text);
-      spans.push(span);
-      p.appendChild(span);
-    }
-    textplatz.appendChild(p);
-  }
-  markiert = woerter.map(() => false);
-
-  function anzahlZeigen() {
-    const n = markiert.filter(Boolean).length;
-    anzahl.textContent = ZAHL_WORT(n, 'Wort', 'Wörter');
-  }
-
-  function umschalten(i) {
-    markiert[i] = !markiert[i];
-    // Grün oder Rot vom letzten Prüfen gilt nach einer Änderung nicht mehr —
-    // was das Kind jetzt markiert, ist wieder gelb, bis es neu prüft.
-    spans[i].classList.remove('is-gefunden', 'is-falsch');
-    spans[i].removeAttribute('aria-label');
-    spans[i].classList.toggle('is-markiert', markiert[i]);
-    spans[i].setAttribute('aria-pressed', markiert[i] ? 'true' : 'false');
-    anzahlZeigen();
-  }
-
-  /* Die Einblendung mit der richtigen Schreibweise. */
-
-  function blaseZu() {
-    if (offenesWort >= 0) spans[offenesWort].classList.remove('is-offen');
-    offenesWort = -1;
-    blase.hidden = true;
-    leeren(blase);
-  }
-
-  function blaseAuf(i) {
-    const wort = woerter[i];
-    if (!wort.typ && !markiert[i]) { blaseZu(); return; }
-    if (offenesWort === i) { blaseZu(); return; }
-    blaseZu();
-    if (wort.typ) {
-      blase.append(
-        h('span', { class: 'detektiv__alt' }, wort.text), ' → ',
-        h('span', { class: 'detektiv__neu' }, wort.richtig),
-        h('span', { class: 'detektiv__regel' },
-          wort.typ === 'N' ? 'Nomen schreibt man groß.' : 'So schreibt man das Wort richtig.'));
-    } else {
-      blase.append(h('strong', {}, `„${wort.text}“`), ' ist richtig geschrieben.');
-    }
-    offenesWort = i;
-    spans[i].classList.add('is-offen');
-    blase.hidden = false;
-
-    // Unter das Wort, innerhalb der Karte
-    const k = karte.getBoundingClientRect();
-    const zeilen = spans[i].getClientRects();
-    const r = zeilen[zeilen.length - 1] || spans[i].getBoundingClientRect();
-    const breite = blase.offsetWidth;
-    const mitte = r.left + r.width / 2 - k.left;
-    const links = Math.max(8, Math.min(mitte - breite / 2, k.width - breite - 8));
-    blase.style.left = `${links}px`;
-    blase.style.top = `${r.bottom - k.top + 10}px`;
-    blase.style.setProperty('--pfeil', `${Math.max(16, Math.min(mitte - links, breite - 16))}px`);
-  }
-
-  function angetippt(i) {
-    if (ausgewertet) blaseAuf(i);
-    else umschalten(i);
-  }
-
-  textplatz.addEventListener('click', (ereignis) => {
-    const span = ereignis.target.closest('.detektiv__wort');
-    if (!span) return;
-    ereignis.stopPropagation();
-    angetippt(Number(span.dataset.i));
-  });
-  textplatz.addEventListener('keydown', (ereignis) => {
-    if (ereignis.key !== 'Enter' && ereignis.key !== ' ') return;
-    const span = ereignis.target.closest('.detektiv__wort');
-    if (!span) return;
-    ereignis.preventDefault();
-    angetippt(Number(span.dataset.i));
-  });
-  const beiKlick = (ereignis) => { if (offenesWort >= 0 && !blase.contains(ereignis.target)) blaseZu(); };
-  const beiTaste = (ereignis) => { if (ereignis.key === 'Escape') blaseZu(); };
-  document.addEventListener('click', beiKlick);
-  document.addEventListener('keydown', beiTaste);
-  // Drehen des iPads bricht die Zeilen neu um — die Bänder ziehen mit.
-  const beiGroesse = () => { blaseZu(); zeilenZeichnen(); };
-  window.addEventListener('resize', beiGroesse);
-
-  /* Prüfen — in Stufen */
-
-  function bewerten() {
-    const stand = { gefunden: 0, uebersehen: 0, falsch: 0, gefundenN: 0, gefundenS: 0, fehltN: 0, fehltS: 0 };
-    const uebersehen = [];
-    const falsch = [];
-    woerter.forEach((wort, i) => {
-      if (wort.typ && markiert[i]) {
-        stand.gefunden += 1; stand[`gefunden${wort.typ}`] += 1;
-      } else if (wort.typ) {
-        stand.uebersehen += 1; stand[`fehlt${wort.typ}`] += 1;
-        uebersehen.push({ w: wort.text, r: wort.richtig, t: wort.typ, i });
-      } else if (markiert[i]) {
-        stand.falsch += 1;
-        falsch.push(wort.text);
-      }
-    });
-    return { stand, uebersehen, falsch };
-  }
-
-  /** Gefunden grün, falsch markiert rot — die übersehenen bleiben verborgen. */
-  function farbenSetzen() {
-    woerter.forEach((wort, i) => {
-      const span = spans[i];
-      span.classList.remove('is-markiert', 'is-gefunden', 'is-falsch');
-      span.removeAttribute('aria-label');
-      if (!markiert[i]) return;
-      span.classList.add(wort.typ ? 'is-gefunden' : 'is-falsch');
-      span.setAttribute('aria-label', `${wort.text} – ${wort.typ ? 'Fehler gefunden' : 'war richtig geschrieben'}`);
+  function stufeZeigen(n) {
+    fortschritt.querySelectorAll('.detektiv__stufe').forEach((li, i) => {
+      li.classList.toggle('is-aktiv', i + 1 === n);
+      li.classList.toggle('is-fertig', i + 1 < n || n === 4);
+      if (i + 1 === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
     });
   }
 
-  /**
-   * Stufe 3: Bänder über die Zeilen, in denen noch ein Fehler steckt.
-   *
-   * Gemeint sind die Zeilen, wie sie auf DIESEM Bildschirm umbrechen — im
-   * Hoch- und im Querformat sind das andere. Deshalb wird bei jeder
-   * Größenänderung neu gezeichnet, aus den Wortnummern, nicht aus Pixeln.
-   * Ein Band geht über die ganze Breite des Textes, sonst verriete es das Wort.
-   */
-  function zeilenZeichnen() {
-    leeren(baender);
-    if (stufe !== 3 || ausgewertet || !fehlendeZeilen.length) return;
-    const k = karte.getBoundingClientRect();
-    const t = textplatz.getBoundingClientRect();
-    const zeilen = new Map();
-    for (const i of fehlendeZeilen) {
-      for (const r of spans[i].getClientRects()) {
-        const mitte = Math.round((r.top + r.bottom) / 2);
-        // Wörter derselben Zeile liegen auf derselben Höhe (±4 px)
-        const gleich = Array.from(zeilen.keys()).find((m) => Math.abs(m - mitte) <= 4);
-        if (gleich === undefined) zeilen.set(mitte, r);
-      }
-    }
-    for (const r of zeilen.values()) {
-      baender.appendChild(h('div', {
-        class: 'detektiv__band',
-        style: {
-          top: `${r.top - k.top - 2}px`,
-          height: `${r.height + 4}px`,
-          left: `${t.left - k.left - 10}px`,
-          width: `${t.width + 20}px`,
-        },
-      }));
-    }
-  }
-
-  function melden(bewertet, ende) {
-    if (!beiErgebnis) return;
-    const { stand, uebersehen, falsch } = bewertet;
-    verlauf.push({
-      stufe, g: stand.gefunden, f: stand.falsch, n: stand.gefundenN, s: stand.gefundenS,
-      d: Math.max(0, Math.round((ende - beginn) / 1000)),
-    });
-    if (!erstesPruefen) {
-      // Die Zahlen des ERSTEN Prüfens — das ist, was das Kind ohne Hilfe sah.
-      // Die Klassenansicht liest sie wie bisher (gefunden, ue, fa …).
-      erstesPruefen = {
-        ende,
-        dauer: Math.max(0, Math.round((ende - beginn) / 1000)),
-        gefunden: stand.gefunden,
-        gefundenN: stand.gefundenN,
-        gefundenS: stand.gefundenS,
-        uebersehen: stand.uebersehen,
-        falsch: stand.falsch,
-        // Die falsch markierten richtigen Wörter werden gedeckelt: Wer aus
-        // Trotz alles antippt, schickt sonst 300 Wörter mit.
-        ue: uebersehen.map(({ w, r, t }) => ({ w, r, t })),
-        fa: falsch.slice(0, 40),
+  function melden() {
+    if (!beiErgebnis || !lauf.auswertung) return;
+    const a = lauf.auswertung;
+    const stand = {
+      text: text.id,
+      titel: text.title,
+      beginn: lauf.beginn,
+      ende: a.ende,
+      dauer: sekunden(lauf.beginn, a.ende),
+      fehler: fehlerzahl,
+      gefunden: a.gefunden,
+      gefundenN: a.gefundenN,
+      gefundenS: a.gefundenS,
+      uebersehen: a.uebersehen,
+      falsch: a.falsch,
+      // Was übersehen wurde, ist die eigentliche Auskunft für die Lehrkraft.
+      // Falsch markierte richtige Wörter werden gedeckelt: Wer alles antippt,
+      // schickt sonst 300 Wörter mit.
+      ue: a.ueListe,
+      fa: a.faListe.slice(0, 40),
+    };
+    if (lauf.verbessern) {
+      const v = lauf.verbessern;
+      const erledigt = v.liste.filter((e) => e.fertig);
+      stand.verb = {
+        n: v.liste.length,
+        fertig: erledigt.length,
+        erster: erledigt.filter((e) => !e.loesung && e.versuche === 1).length,
+        selbst: erledigt.filter((e) => !e.loesung && e.versuche <= 2).length,
+        hinweis: erledigt.filter((e) => !e.loesung && e.versuche >= 3).length,
+        loesung: erledigt.filter((e) => e.loesung).length,
+        liste: erledigt.map((e) => ({
+          w: e.wort.text, r: e.wort.richtig, t: e.wort.typ, v: e.versuche, l: e.loesung, e: e.eingaben.slice(0, 4),
+        })),
       };
     }
-    beiErgebnis(Object.assign({
-      text: text.id,
-      titel: text.titel,
-      beginn,
-      fehler: fehlerzahl,
-    }, erstesPruefen, {
-      verlauf: verlauf.slice(),
-      loesung: ausgewertet && !(stand.gefunden === fehlerzahl && stand.falsch === 0),
-      geschafft: stand.gefunden === fehlerzahl && stand.falsch === 0,
-    }));
+    if (lauf.strategien) {
+      const s = lauf.strategien;
+      const erledigt = s.liste.filter((e) => e.fertig);
+      stand.strat = {
+        n: s.liste.length,
+        fertig: erledigt.length,
+        richtig: erledigt.filter((e) => e.gewaehlt[0] === e.wort.strategie).length,
+        zweiter: erledigt.filter((e) => e.gewaehlt[0] !== e.wort.strategie && e.gewaehlt[1] === e.wort.strategie).length,
+        liste: erledigt.map((e) => ({ w: e.wort.text, r: e.wort.richtig, s: e.wort.strategie, g: e.gewaehlt.slice(0, 2) })),
+      };
+    }
+    if (lauf.fertig) {
+      stand.abgeschlossen = true;
+      stand.gesamtDauer = sekunden(lauf.beginn, lauf.fertig);
+    }
+    beiErgebnis(stand);
   }
 
-  const zeile = (inhalt, klasse = '') => h('p', { class: klasse }, inhalt);
-
-  function pruefen() {
-    const ende = Date.now();
-    blaseZu();
-    const bewertet = bewerten();
-    const { stand } = bewertet;
-    stufe = Math.min(4, stufe + 1);
-    const perfekt = stand.gefunden === fehlerzahl && stand.falsch === 0;
-    if (perfekt || stufe === 4) {
-      loesungZeigen(bewertet, perfekt);
-      melden(bewertet, ende);
-      return;
+  async function verlassen() {
+    // Mitten in der Arbeit nicht aus Versehen alles wegwerfen
+    const mittendrin = lauf && !lauf.fertig && (lauf.auswertung || lauf.markiert.some(Boolean));
+    if (mittendrin) {
+      const ja = await frage({
+        titel: 'Übung verlassen?',
+        text: 'Was du in dieser Übung schon gemacht hast, geht dabei verloren.',
+        ja: 'Verlassen', nein: 'Weiterarbeiten',
+      });
+      if (!ja) return;
     }
-
-    farbenSetzen();
-    fehlendeZeilen = bewertet.uebersehen.map((f) => f.i);
-    leeren(ergebnisplatz);
-    ergebnisplatz.classList.remove('is-perfekt');
-    ergebnisplatz.append(zeile(stand.gefunden === fehlerzahl
-      ? `Super! Du hast alle ${fehlerzahl} Fehler gefunden!`
-      : `Du hast ${stand.gefunden} von ${fehlerzahl} Fehlern gefunden.`, 'detektiv__haupt'));
-    if (stand.uebersehen) {
-      ergebnisplatz.append(zeile(stand.uebersehen === 1
-        ? '1 Fehler hast du noch nicht gefunden.'
-        : `${stand.uebersehen} Fehler hast du noch nicht gefunden.`));
-    }
-    if (stufe >= 2 && stand.uebersehen) {
-      ergebnisplatz.append(zeile(
-        `Davon ${stand.fehltN === 1 ? 'ist 1 ein kleingeschriebenes Nomen' : `sind ${stand.fehltN} kleingeschriebene Nomen`}`
-        + ` und ${stand.fehltS === 1 ? '1 ein anderer Fehler' : `${stand.fehltS} andere Fehler`}.`, 'detektiv__tipp-zeile'));
-    }
-    if (stufe >= 3 && stand.uebersehen) {
-      ergebnisplatz.append(zeile('In den gelb hinterlegten Zeilen steckt noch mindestens ein Fehler.', 'detektiv__tipp-zeile'));
-    }
-    ergebnisplatz.append(zeile(stand.falsch
-      ? `${stand.falsch === 1 ? '1 richtiges Wort' : `${stand.falsch} richtige Wörter`} hast du versehentlich markiert (rot).`
-      : 'Du hast kein richtiges Wort versehentlich markiert.'));
-    ergebnisplatz.append(
-      h('ul', { class: 'detektiv__legende' },
-        ...[['gefunden', 'gefunden'], ['falsch', 'war richtig']].map(([art, wort]) => h('li', {},
-          h('span', { class: `detektiv__probe is-${art}`, 'aria-hidden': 'true' }), wort))),
-      zeile('Such weiter! Du kannst weiter Wörter antippen — auch rote, um sie abzuwählen.', 'detektiv__tipp'));
-    ergebnisplatz.hidden = false;
-
-    knopfAuswerten.textContent = 'Noch einmal prüfen';
-    naechsterTipp.textContent = [
-      '',
-      'Beim nächsten Prüfen erfährst du, wie viele davon kleingeschriebene Nomen sind und wie viele andere Fehler.',
-      'Beim nächsten Prüfen siehst du, in welchen Zeilen noch Fehler stecken.',
-      'Beim nächsten Prüfen siehst du die Lösung.',
-    ][stufe];
-    naechsterTipp.hidden = false;
-
-    zeilenZeichnen();
-    ergebnisplatz.scrollIntoView({ block: 'center' });
-    ergebnisplatz.focus({ preventScroll: true });
-    melden(bewertet, ende);
+    zurueck();
   }
 
-  /** Stufe 4 — oder vorher, wenn alles gefunden ist: die ganze Lösung. */
-  function loesungZeigen({ stand }, perfekt) {
-    woerter.forEach((wort, i) => {
-      const span = spans[i];
-      span.classList.remove('is-markiert', 'is-gefunden', 'is-falsch');
-      let art = null;
-      let beschreibung = '';
-      if (wort.typ && markiert[i]) {
-        art = 'gefunden';
-        beschreibung = `Fehler gefunden. Richtig: ${wort.richtig}`;
-      } else if (wort.typ) {
-        art = 'uebersehen';
-        beschreibung = `Fehler übersehen. Richtig: ${wort.richtig}`;
-      } else if (markiert[i]) {
-        art = 'falsch';
-        beschreibung = 'war richtig geschrieben';
+  function neuerLauf() {
+    lauf = {
+      beginn: Date.now(),
+      markiert: woerter.map(() => false),
+      auswertung: null,
+      verbessern: null,
+      strategien: null,
+      fertig: null,
+    };
+    findenZeigen();
+  }
+
+  /* ---------- Stufe 1: Fehler finden ---------- */
+
+  function findenZeigen() {
+    stufeZeigen(1);
+    const spans = [];
+    const zaehler = h('strong', {}, anzahlWoerter(0));
+    const ergebnisplatz = h('section', { class: 'detektiv__ergebnis', hidden: true, tabindex: '-1', 'aria-live': 'polite' });
+    const textplatz = h('div', { class: 'detektiv__text' });
+    const knopfFertig = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button' }, 'Ich bin fertig – auswerten');
+    const knopfWeiter = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', hidden: true }, 'Weiter: Fehler verbessern');
+
+    for (const teile of absaetze) {
+      const p = h('p', {});
+      for (const teil of teile) {
+        if (teil.art !== 'wort') { p.appendChild(document.createTextNode(teil.text)); continue; }
+        const span = h('span', { class: 'detektiv__wort', role: 'button', tabindex: '0', 'aria-pressed': 'false', 'data-i': String(teil.i) }, teil.text);
+        spans.push(span);
+        p.appendChild(span);
       }
-      span.removeAttribute('aria-pressed');
-      span.removeAttribute('aria-label');
-      if (art) {
-        span.classList.add(`is-${art}`);
-        span.setAttribute('aria-label', `${wort.text} – ${beschreibung}`);
-      } else {
-        span.removeAttribute('role');
-        span.setAttribute('tabindex', '-1');
-      }
+      textplatz.appendChild(p);
+    }
+
+    const zaehlerZeigen = () => { zaehler.textContent = anzahlWoerter(lauf.markiert.filter(Boolean).length); };
+
+    function umschalten(i) {
+      if (lauf.auswertung) return; // Nach dem Auswerten ist die Auswahl fest.
+      lauf.markiert[i] = !lauf.markiert[i];
+      spans[i].classList.toggle('is-markiert', lauf.markiert[i]);
+      spans[i].setAttribute('aria-pressed', lauf.markiert[i] ? 'true' : 'false');
+      zaehlerZeigen();
+    }
+    textplatz.addEventListener('click', (ereignis) => {
+      const span = ereignis.target.closest('.detektiv__wort');
+      if (span) umschalten(Number(span.dataset.i));
     });
-    ausgewertet = true;
-    stufe = 4;
-    seite.classList.add('is-ausgewertet');
-    fehlendeZeilen = [];
-    leeren(baender);
+    textplatz.addEventListener('keydown', (ereignis) => {
+      if (ereignis.key !== 'Enter' && ereignis.key !== ' ') return;
+      const span = ereignis.target.closest('.detektiv__wort');
+      if (!span) return;
+      ereignis.preventDefault();
+      umschalten(Number(span.dataset.i));
+    });
 
-    leeren(ergebnisplatz);
-    ergebnisplatz.classList.toggle('is-perfekt', perfekt);
-    if (perfekt) {
-      ergebnisplatz.append(
-        zeile(`Fantastisch! Du hast alle ${fehlerzahl} Fehler gefunden! 🎉`, 'detektiv__haupt'),
-        zeile('Und du hast kein einziges richtiges Wort markiert. Ein echter Fehlerdetektiv!'));
-      sfx.fertig(3);
-    } else {
-      ergebnisplatz.append(zeile(stand.gefunden === fehlerzahl
-        ? `Super! Du hast alle ${fehlerzahl} Fehler gefunden!`
-        : `Du hast ${stand.gefunden} von ${fehlerzahl} Fehlern gefunden.`, 'detektiv__haupt'));
-      if (stand.uebersehen) {
-        ergebnisplatz.append(zeile(`${ZAHL_WORT(stand.uebersehen, 'Fehler', 'Fehler')} hast du übersehen. Sie sind jetzt orange.`));
+    knopfFertig.addEventListener('click', async () => {
+      if (CONFIG.confirmBeforeEvaluation !== false) {
+        const ja = await frage({
+          titel: 'Bist du sicher?',
+          text: 'Danach kannst du deine Auswahl nicht mehr verändern.',
+          ja: 'Jetzt auswerten',
+          nein: 'Weiter suchen',
+        });
+        if (!ja) return;
       }
-      ergebnisplatz.append(zeile(stand.falsch
-        ? `${stand.falsch === 1 ? '1 richtiges Wort' : `${stand.falsch} richtige Wörter`} hast du versehentlich markiert.`
-        : 'Du hast kein richtiges Wort versehentlich markiert.'));
-    }
-    ergebnisplatz.append(
-      h('ul', { class: 'detektiv__legende' },
-        ...[['gefunden', 'gefunden'], ['uebersehen', 'übersehen'], ['falsch', 'war richtig']].map(([art, wort]) => h('li', {},
-          h('span', { class: `detektiv__probe is-${art}`, 'aria-hidden': 'true' }), wort))),
-      zeile('Tippe auf ein farbiges Wort, um die richtige Schreibweise zu sehen.', 'detektiv__tipp'));
-    ergebnisplatz.hidden = false;
-    knopfAuswerten.hidden = true;
-    knopfNochmal.hidden = false;
-    naechsterTipp.hidden = true;
-    ergebnisplatz.scrollIntoView({ block: 'center' });
-    ergebnisplatz.focus({ preventScroll: true });
-  }
+      auswerten();
+    });
+    knopfWeiter.addEventListener('click', () => verbessernStarten());
 
-  function zuruecksetzen() {
-    blaseZu();
-    ausgewertet = false;
-    stufe = 0;
-    erstesPruefen = null;
-    verlauf = [];
-    fehlendeZeilen = [];
-    leeren(baender);
-    knopfAuswerten.textContent = 'Auswerten';
-    naechsterTipp.hidden = true;
-    seite.classList.remove('is-ausgewertet');
-    markiert = woerter.map(() => false);
-    for (const span of spans) {
-      span.className = 'detektiv__wort';
-      span.setAttribute('role', 'button');
-      span.setAttribute('tabindex', '0');
-      span.setAttribute('aria-pressed', 'false');
-      span.removeAttribute('aria-label');
+    function auswerten() {
+      const a = { ende: Date.now(), gefunden: 0, gefundenN: 0, gefundenS: 0, uebersehen: 0, falsch: 0, ueListe: [], faListe: [] };
+      woerter.forEach((wort, i) => {
+        const span = spans[i];
+        span.classList.remove('is-markiert');
+        span.removeAttribute('aria-pressed');
+        let art = null;
+        if (wort.typ && lauf.markiert[i]) {
+          art = 'gefunden'; a.gefunden += 1; a[`gefunden${wort.typ}`] += 1;
+        } else if (wort.typ) {
+          art = 'uebersehen'; a.uebersehen += 1;
+          a.ueListe.push({ w: wort.text, r: wort.richtig, t: wort.typ });
+        } else if (lauf.markiert[i]) {
+          art = 'falsch'; a.falsch += 1; a.faListe.push(wort.text);
+        }
+        if (art) {
+          // Nur WAS es war — die richtige Schreibweise kommt erst in Stufe 2.
+          span.classList.add(`is-${art}`);
+          span.setAttribute('aria-label', `${wort.text} – ${{ gefunden: 'Fehler gefunden', uebersehen: 'Fehler übersehen', falsch: 'war richtig geschrieben' }[art]}`);
+        } else {
+          span.removeAttribute('role');
+          span.setAttribute('tabindex', '-1');
+        }
+      });
+      lauf.auswertung = a;
+      seite.classList.add('is-ausgewertet');
+
+      leeren(ergebnisplatz);
+      ergebnisplatz.append(
+        h('p', { class: 'detektiv__haupt' }, `Du hast ${a.gefunden} von ${fehlerzahl} Fehlern gefunden.`),
+        h('p', {}, a.uebersehen === 1 ? '1 Fehler hast du übersehen.' : `${a.uebersehen} Fehler hast du übersehen.`),
+        h('p', {}, a.falsch === 1
+          ? '1 richtiges Wort hast du versehentlich markiert.'
+          : `${a.falsch} richtige Wörter hast du versehentlich markiert.`),
+        h('ul', { class: 'detektiv__legende' },
+          ...[['gefunden', 'gefunden'], ['uebersehen', 'übersehen'], ['falsch', 'war richtig']].map(([art, wort]) => h('li', {},
+            h('span', { class: `detektiv__probe is-${art}`, 'aria-hidden': 'true' }), wort))),
+        h('p', { class: 'detektiv__tipp' }, 'Wie man die Wörter richtig schreibt, findest du jetzt selbst heraus.'),
+        h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', onclick: () => verbessernStarten() }, 'Weiter: Fehler verbessern'));
+      ergebnisplatz.hidden = false;
+      knopfFertig.hidden = true;
+      knopfWeiter.hidden = false;
+      ergebnisplatz.scrollIntoView({ block: 'start' });
+      ergebnisplatz.focus({ preventScroll: true });
+      melden();
     }
-    leeren(ergebnisplatz);
-    ergebnisplatz.hidden = true;
-    ergebnisplatz.classList.remove('is-perfekt');
-    knopfAuswerten.hidden = false;
-    knopfNochmal.hidden = true;
-    anzahlZeigen();
-    beginn = Date.now();
+
+    leeren(buehne).append(
+      h('div', { class: 'seite__kopf' },
+        h('h1', { class: 'seite__titel' }, 'Fehlerdetektive aufgepasst! 🔍'),
+        h('p', { class: 'detektiv__auftrag' }, 'Im Text haben sich viele Rechtschreibfehler versteckt.'),
+        h('p', { class: 'detektiv__auftrag' }, 'Tippe auf jedes Wort, das deiner Meinung nach falsch geschrieben ist.'),
+        h('p', { class: 'detektiv__auftrag detektiv__auftrag--leise' },
+          h('strong', {}, 'Aber Vorsicht:'), ' Viele schwierige Wörter sind vollkommen richtig geschrieben!'),
+        hinweis,
+        ergebnisplatz),
+      h('p', { class: 'detektiv__zaehler', 'aria-live': 'polite' }, 'Markiert: ', zaehler),
+      h('div', { class: 'detektiv__karte' },
+        h('h2', { class: 'detektiv__titel' }, `Übung ${nummer}: ${text.title}`),
+        textplatz),
+      h('div', { class: 'detektiv__knoepfe' }, knopfFertig, knopfWeiter));
+    seite.classList.remove('is-ausgewertet');
     window.scrollTo(0, 0);
   }
 
-  knopfAuswerten.addEventListener('click', pruefen);
-  knopfNochmal.addEventListener('click', zuruecksetzen);
+  /* ---------- Stufe 2: Verbessern ---------- */
 
-  anzahlZeigen();
+  function verbessernStarten() {
+    const welche = CONFIG.correctionMode === 'found'
+      ? alleFehler.filter((f) => lauf.markiert[f.i])
+      : alleFehler;
+    lauf.verbessern = {
+      liste: welche.map((wort) => ({ wort, versuche: 0, eingaben: [], loesung: false, fertig: false })),
+      stelle: 0,
+    };
+    if (!welche.length) { strategienStarten(); return; }
+    seite.classList.remove('is-ausgewertet');
+    stufeZeigen(2);
+    verbessernZeigen();
+  }
+
+  function satzZeigen(wort) {
+    const satz = wort.satz || [wort];
+    const p = h('p', { class: 'detektiv__satz' });
+    let begonnen = false;
+    for (const teil of satz) {
+      if (!begonnen && teil.art === 'leer') continue;
+      begonnen = true;
+      if (teil.art === 'wort' && teil.i === wort.i) p.appendChild(h('mark', { class: 'detektiv__satzwort' }, teil.text));
+      else p.appendChild(document.createTextNode(teil.text));
+    }
+    return p;
+  }
+
+  function verbessernZeigen() {
+    const v = lauf.verbessern;
+    const eintrag = v.liste[v.stelle];
+    const wort = eintrag.wort;
+    const feld = schreibfeld();
+    const rueckmeldung = h('p', { class: 'detektiv__rueckmeldung', 'aria-live': 'polite' });
+    const tipp = h('p', { class: 'detektiv__hilfe', hidden: true },
+      wort.typ === 'N'
+        ? 'Tipp: Überlege, ob dieses Wort großgeschrieben werden muss.'
+        : 'Tipp: Eine Rechtschreibstrategie kann dir helfen.');
+    const pruefen = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button' }, 'Prüfen');
+    const loesungKnopf = h('button', { class: 'knopf knopf--still', type: 'button', hidden: true }, 'Lösung zeigen');
+    const weiter = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', hidden: true },
+      v.stelle + 1 < v.liste.length ? 'Weiter' : 'Weiter: Strategien');
+    const karte = h('section', { class: 'detektiv__aufgabe' },
+      h('p', { class: 'detektiv__aufgabenzahl' }, `Fehler ${v.stelle + 1} von ${v.liste.length}`),
+      h('div', { class: 'detektiv__balken', 'aria-hidden': 'true' },
+        h('span', { style: { width: `${(v.stelle / v.liste.length) * 100}%` } })),
+      satzZeigen(wort),
+      h('p', { class: 'detektiv__marke' }, 'Im Text stand:'),
+      h('p', { class: 'detektiv__falschwort' }, wort.text),
+      h('label', { class: 'detektiv__marke' }, 'Schreibe das Wort richtig:'),
+      h('div', { class: 'detektiv__eingabezeile' }, feld, pruefen),
+      rueckmeldung,
+      tipp,
+      h('div', { class: 'detektiv__knoepfe detektiv__knoepfe--links' }, loesungKnopf, weiter));
+
+    function abschliessen() {
+      eintrag.fertig = true;
+      feld.disabled = true;
+      pruefen.hidden = true;
+      loesungKnopf.hidden = true;
+      weiter.hidden = false;
+      weiter.focus({ preventScroll: true });
+      melden();
+    }
+
+    function pruefenJetzt() {
+      if (eintrag.fertig) return;
+      const eingabe = feld.value;
+      if (!eingabe.trim()) { feld.focus(); return; }
+      eintrag.versuche += 1;
+      if (gleich(eingabe, wort.richtig)) {
+        rueckmeldung.className = 'detektiv__rueckmeldung is-richtig';
+        rueckmeldung.textContent = 'Richtig! ✓';
+        tipp.hidden = true;
+        abschliessen();
+        return;
+      }
+      eintrag.eingaben.push(eingabe.trim());
+      rueckmeldung.className = 'detektiv__rueckmeldung is-falsch';
+      rueckmeldung.textContent = 'Noch nicht richtig. Schau dir das Wort noch einmal genau an.';
+      if (eintrag.versuche >= 2) tipp.hidden = false;
+      if (eintrag.versuche >= 3) loesungKnopf.hidden = false;
+      feld.select();
+      feld.focus();
+    }
+
+    pruefen.addEventListener('click', pruefenJetzt);
+    feld.addEventListener('keydown', (ereignis) => {
+      if (ereignis.key === 'Enter') { ereignis.preventDefault(); pruefenJetzt(); }
+    });
+    loesungKnopf.addEventListener('click', () => {
+      eintrag.loesung = true;
+      rueckmeldung.className = 'detektiv__rueckmeldung is-loesung';
+      rueckmeldung.textContent = '';
+      rueckmeldung.append('Richtig geschrieben: ', h('strong', { class: 'detektiv__loesungswort' }, wort.richtig));
+      tipp.hidden = true;
+      abschliessen();
+    });
+    weiter.addEventListener('click', () => {
+      if (v.stelle + 1 < v.liste.length) {
+        v.stelle += 1;
+        verbessernZeigen();
+      } else {
+        strategienStarten();
+      }
+    });
+
+    leeren(buehne).append(
+      h('div', { class: 'seite__kopf' },
+        h('h1', { class: 'seite__titel' }, 'Fehler verbessern ✏️'),
+        h('p', { class: 'detektiv__auftrag' }, 'Schreibe jedes Wort so, wie es richtig heißt. Achte auch auf groß und klein.')),
+      karte);
+    // Im Klick des Kindes fokussieren — nur dann öffnet Safari die Tastatur.
+    // Die Karte rutscht nach oben, damit die Tastatur nichts verdeckt.
+    feld.focus({ preventScroll: true });
+    requestAnimationFrame(() => karte.scrollIntoView({ block: 'start' }));
+  }
+
+  /* ---------- Stufe 3: Strategien ---------- */
+
+  function strategienStarten() {
+    const sFehler = alleFehler.filter((f) => f.typ === 'S' && STRATEGIEN[f.strategie]);
+    const zahl = Math.max(0, Math.min(Number(CONFIG.strategyQuestions) || 0, sFehler.length));
+    // Bei jedem Durchgang neu gemischt
+    lauf.strategien = {
+      liste: gemischt(sFehler).slice(0, zahl).map((wort) => ({ wort, gewaehlt: [], fertig: false })),
+      stelle: 0,
+    };
+    if (!zahl) { abschlussZeigen(); return; }
+    stufeZeigen(3);
+    strategieZeigen(true);
+  }
+
+  function strategieZeigen(erste) {
+    const s = lauf.strategien;
+    const eintrag = s.liste[s.stelle];
+    const wort = eintrag.wort;
+    const rueckmeldung = h('p', { class: 'detektiv__rueckmeldung', 'aria-live': 'polite' });
+    const weiter = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', hidden: true },
+      s.stelle + 1 < s.liste.length ? 'Weiter' : 'Zum Abschluss');
+    const knoepfe = STRATEGIE_NAMEN.map((name) => h('button', {
+      class: 'detektiv__strategie', type: 'button', 'data-strategie': name,
+    }, STRATEGIEN[name].knopf));
+    const raster = h('div', { class: 'detektiv__strategien' }, ...knoepfe);
+
+    function beenden(text, art) {
+      eintrag.fertig = true;
+      rueckmeldung.className = `detektiv__rueckmeldung is-${art}`;
+      rueckmeldung.textContent = text;
+      for (const k of knoepfe) {
+        k.disabled = true;
+        if (k.dataset.strategie === wort.strategie) k.classList.add('is-richtig');
+      }
+      weiter.hidden = false;
+      weiter.focus({ preventScroll: true });
+      melden();
+    }
+
+    raster.addEventListener('click', (ereignis) => {
+      const knopf = ereignis.target.closest('.detektiv__strategie');
+      if (!knopf || knopf.disabled || eintrag.fertig) return;
+      const name = knopf.dataset.strategie;
+      eintrag.gewaehlt.push(name);
+      if (name === wort.strategie) {
+        knopf.classList.add('is-richtig');
+        beenden(`Richtig! ${STRATEGIEN[name].erklaerung(wort.richtig)}`, 'richtig');
+        return;
+      }
+      knopf.classList.add('is-daneben');
+      knopf.disabled = true;
+      if (eintrag.gewaehlt.length === 1) {
+        rueckmeldung.className = 'detektiv__rueckmeldung is-falsch';
+        rueckmeldung.textContent = 'Noch nicht. Versuche es noch einmal.';
+        return;
+      }
+      beenden(`Hier hilft „${STRATEGIEN[wort.strategie].knopf}“. ${STRATEGIEN[wort.strategie].erklaerung(wort.richtig)}`, 'loesung');
+    });
+    weiter.addEventListener('click', () => {
+      if (s.stelle + 1 < s.liste.length) { s.stelle += 1; strategieZeigen(false); } else abschlussZeigen();
+    });
+
+    leeren(buehne).append(
+      h('div', { class: 'seite__kopf' },
+        h('h1', { class: 'seite__titel' }, 'Jetzt wirst du Rechtschreibprofi! 🧠'),
+        erste ? h('p', { class: 'detektiv__auftrag' },
+          'Für jeden Fehler gibt es eine Strategie, mit der du ihn vermeiden kannst. Welche passt?') : null),
+      h('section', { class: 'detektiv__aufgabe' },
+        h('p', { class: 'detektiv__aufgabenzahl' }, `Aufgabe ${s.stelle + 1} von ${s.liste.length}`),
+        h('div', { class: 'detektiv__balken', 'aria-hidden': 'true' },
+          h('span', { style: { width: `${(s.stelle / s.liste.length) * 100}%` } })),
+        h('p', { class: 'detektiv__paar' },
+          h('span', { class: 'detektiv__paar-falsch' }, wort.text), ' → ',
+          h('span', { class: 'detektiv__paar-richtig' }, wort.richtig)),
+        h('p', { class: 'detektiv__frage' }, 'Welche Strategie hilft dir besonders?'),
+        raster,
+        rueckmeldung,
+        h('div', { class: 'detektiv__knoepfe detektiv__knoepfe--links' }, weiter)));
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Abschluss ---------- */
+
+  function abschlussZeigen() {
+    lauf.fertig = Date.now();
+    stufeZeigen(4);
+    melden();
+    const a = lauf.auswertung;
+    const v = lauf.verbessern ? lauf.verbessern.liste : [];
+    const selbst = v.filter((e) => !e.loesung && e.versuche <= 2).length;
+    const hinweisZahl = v.filter((e) => !e.loesung && e.versuche >= 3).length;
+    const loesungen = v.filter((e) => e.loesung).length;
+    const s = lauf.strategien ? lauf.strategien.liste : [];
+    const strategieRichtig = s.filter((e) => e.gewaehlt[0] === e.wort.strategie).length;
+
+    const block = (titel, ...zeilen) => h('section', { class: 'detektiv__bereich' },
+      h('h2', { class: 'detektiv__bereichstitel' }, titel),
+      ...zeilen.filter(Boolean).map((z) => h('p', {}, z)));
+
+    const uebersicht = h('div', { class: 'detektiv__loesungen', hidden: true });
+    const knopfLoesungen = h('button', { class: 'knopf knopf--still detektiv__knopf', type: 'button' }, 'Lösungen ansehen');
+    knopfLoesungen.addEventListener('click', () => {
+      if (!uebersicht.childNodes.length) {
+        uebersicht.append(
+          h('h2', { class: 'detektiv__bereichstitel' }, `Alle ${fehlerzahl} Fehler im Text`),
+          h('ol', { class: 'detektiv__loesungsliste' },
+            ...alleFehler.map((f) => h('li', {},
+              h('span', { class: 'detektiv__paar-falsch' }, f.text), ' → ',
+              h('strong', {}, f.richtig),
+              f.typ === 'S' && STRATEGIEN[f.strategie]
+                ? h('span', { class: 'detektiv__loesungsstrategie' }, ` – ${STRATEGIEN[f.strategie].knopf}`)
+                : h('span', { class: 'detektiv__loesungsstrategie' }, ' – Nomen schreibt man groß')))));
+      }
+      uebersicht.hidden = !uebersicht.hidden;
+      knopfLoesungen.textContent = uebersicht.hidden ? 'Lösungen ansehen' : 'Lösungen ausblenden';
+      if (!uebersicht.hidden) uebersicht.scrollIntoView({ block: 'start' });
+    });
+
+    leeren(buehne).append(
+      h('div', { class: 'seite__kopf' },
+        h('h1', { class: 'seite__titel' }, 'Geschafft! 🎉'),
+        h('p', { class: 'detektiv__auftrag' }, `Übung ${nummer}: ${text.title}`)),
+      h('div', { class: 'detektiv__bereiche' },
+        block('🔍 Fehlerdetektiv',
+          `${a.gefunden} von ${fehlerzahl} Fehlern gefunden`,
+          a.falsch === 1 ? '1 richtiges Wort versehentlich markiert' : `${a.falsch} richtige Wörter versehentlich markiert`),
+        v.length ? block('✏️ Verbesserungsprofi',
+          `${anzahlWoerter(selbst)} selbstständig verbessert`,
+          `${anzahlWoerter(hinweisZahl)} nach einem Hinweis verbessert`,
+          loesungen === 1 ? '1 Lösung benötigt' : `${loesungen} Lösungen benötigt`) : null,
+        s.length ? block('🧠 Strategieprofi',
+          `${strategieRichtig} von ${s.length} Strategien richtig erkannt`) : null),
+      h('div', { class: 'detektiv__knoepfe detektiv__knoepfe--reihe' },
+        knopfLoesungen,
+        h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', onclick: () => neuerLauf() }, 'Text noch einmal bearbeiten'),
+        h('button', { class: 'knopf knopf--still detektiv__knopf', type: 'button', onclick: () => zurueck() }, 'Andere Übung auswählen')),
+      uebersicht);
+    window.scrollTo(0, 0);
+  }
+
   leeren(platz).appendChild(seite);
-  window.scrollTo(0, 0);
+  neuerLauf();
 
-  return () => {
-    document.removeEventListener('click', beiKlick);
-    document.removeEventListener('keydown', beiTaste);
-    window.removeEventListener('resize', beiGroesse);
-  };
+  return () => {};
 }

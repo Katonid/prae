@@ -541,3 +541,41 @@
   bekommen still die neue Fassung (PATCH `bereiche/<id>`); hat ihn noch keine
   Klasse, fragt ein Blatt, welche ihn bekommen soll (bei nur einer Klasse ist
   der Haken gesetzt). Nur dann — sonst käme die Frage bei jeder Änderung.
+- **Rechtschreibwerkstatt in drei Stufen** (ab 1.10.0, Auftrag des Nutzers
+  10/2026 — ersetzt die gestufte Lösung aus 1.9.2). Sechs Texte; alles, was
+  eine Lehrkraft anfasst, steht in `js/fehlertexte.js`: oben `CONFIG`
+  (`correctionMode` "all"/"found", `strategyQuestions`,
+  `confirmBeforeEvaluation`), darunter `FEHLERTEXTE` mit dem Block
+  „NEUE ÜBUNGSTEXTE HIER EINFÜGEN". Ein neuer Text ist NUR ein Datensatz
+  (`id`, `title`, `emoji`, `text`); Karte, Klassenansicht und Prüfung
+  ziehen von selbst nach. Die Nummer ist die Stelle in der Liste.
+  - Markierungen: `[[N|falsch|richtig]]`, `[[S|falsch|richtig|Strategie]]`
+    mit Strategie aus Ableiten / Verlängern / Silben sprechen / Merkwort
+    (Knopf: „Silben sprechen / Mitsprechen"). `alleUebungenPruefen()` läuft
+    beim Laden des Moduls: je 20 N + 20 S, Formen vorhanden, Strategie
+    gültig, id eindeutig — sonst `console.error` („Übung 4 („…") enthält
+    nur 19 Nomenfehler statt 20."). Die Oberfläche läuft trotzdem.
+  - **Vor dem Auswerten nennt die App KEINE Zahl** (nicht 40, nicht „noch
+    fehlen", nicht „richtig markiert") — nur „Markiert: X Wörter". Das
+    Auswerten fragt nach („Bist du sicher? …"), danach ist die Auswahl fest.
+  - **Nach Stufe 1 keine richtige Schreibweise** — weder im Text noch durch
+    Antippen. Sie erscheint erst, wenn das Kind sie in Stufe 2 selbst
+    schreibt, nach drei Fehlversuchen über „Lösung zeigen", oder in der
+    Lösungsübersicht ganz am Ende.
+  - Stufe 2: Tipp nach dem 2., „Lösung zeigen" nach dem 3. Fehlversuch.
+    Gezählt: selbstständig (≤ 2 Versuche, also ohne Tipp), nach Hinweis
+    (≥ 3), Lösung. Groß/klein zählt. Das Feld trägt spellcheck/autocorrect/
+    autocapitalize/autocomplete aus und einen Zufallsnamen; fokussiert wird
+    IM Klick (sonst öffnet Safari die Tastatur nicht), die Karte hat
+    `scroll-margin-top` gegen die feste Kopfzeile.
+  - Stufe 3: aus den S-Fehlern gelost (`gemischt`), bei jedem Durchgang neu.
+    „Richtig erkannt" = beim ersten Tipp; nach dem zweiten Fehlgriff wird die
+    Strategie gezeigt und erklärt. Die Erklärungen sind ALLGEMEIN je
+    Strategie — ein Grundwort („Wald") steht nicht in den Daten und wird
+    nicht gerechnet (dieselbe Regel wie bei den Wortformen).
+  - Gemeldet wird nach Stufe 1, nach jedem verbesserten Wort und jeder
+    Strategiefrage (derselbe Schlüssel): `verb`, `strat`, `abgeschlossen`.
+    Die Klassenansicht zeigt die drei Bereiche und liest ältere Einträge
+    (mit `verlauf`) weiter.
+  - Die Einzeldatei `fehlerdetektive/index.html` bleibt bei ihren zwei
+    Übungen und der alten Auswertung (Wahl des Nutzers: nur hier umbauen).
