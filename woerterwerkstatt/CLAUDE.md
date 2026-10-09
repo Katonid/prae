@@ -635,3 +635,24 @@
     sofort. Dann ist localStorage aktuell, die IndexedDB aber womöglich
     noch nicht — bis 1.11.1 gewann beim Laden IMMER die IndexedDB, und ein
     Neuladen gleich nach dem Antippen verlor den letzten Schritt.
+- **Stufe 1: erst ALLE Fehler finden — mit Hinweisen** (ab 1.11.3, Ansage
+  des Nutzers 10/2026: „Wenn ein Kind kontrolliert, bekommt es direkt
+  angezeigt, welche Wörter fehlen. Das war nicht der Sinn der Sache"). Das
+  endgültige Auswerten mit Orange und die Rückfrage („Bist du sicher?",
+  `confirmBeforeEvaluation`) sind WEG. Stattdessen „Ich bin fertig –
+  prüfen", beliebig oft; jedes Prüfen mit Fehlenden gibt einen Hinweis mehr
+  (`lauf.tipp`): 1 Anzahl, 2 Nomen/andere, 3 Zeilenbänder, 4 gestrichelter
+  Rahmen um die fehlenden Wörter (antippen muss das Kind selbst). Grün und
+  Rot gibt es ab dem ersten Prüfen; rote Wörter wählt das Kind ab. Weiter
+  zu Stufe 2 erst, wenn alle Fehler markiert sind und kein richtiges Wort.
+  - Das ERSTE Prüfen bleibt der Maßstab (`auswertung`, an die Lehrkraft,
+    Abschluss „… beim ersten Prüfen gefunden"). Stufe 2 („mistakes") nimmt,
+    was beim ersten Prüfen fehlte (`ersteFehlend`) oder je rot war
+    (`jemalsFalsch`) — am Ende von Stufe 1 ist ja alles markiert.
+  - Gemeldet: `pruef` (Anzahl Prüfen), `verlauf` (je Prüfen Hinweisstufe,
+    gefunden, falsch, Zeit), `alleGefunden`. Klassenansicht: „alle nach 6×
+    Prüfen". Gemerkter Stand jetzt `v: 2`; ein Stand aus 1.11.2 (v1) wird
+    verworfen.
+  - Bänder nach dem Neuladen erst zeichnen, wenn Umbruch und Schriften
+    stehen (`requestAnimationFrame` + `document.fonts.ready`) — sonst
+    liegen sie neben den Zeilen.

@@ -1620,6 +1620,16 @@ body.is-uebend .kopf { opacity: 0.55; }
 .detektiv__stufe.is-aktiv .detektiv__stufennummer { background: var(--akzent); color: #fff; }
 .detektiv__stufe.is-fertig .detektiv__stufennummer { background: var(--akzent-zart); color: var(--akzent); }
 
+/* Hinweise beim Prüfen (Stufe 1). Die Bänder liegen UNTER dem Text und gehen
+   über die ganze Breite — sie zeigen die Zeile, nicht das Wort. */
+.detektiv__karte { position: relative; }
+.detektiv__baender { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.detektiv__band { position: absolute; border-radius: 8px; background: rgba(250, 204, 21, 0.28); box-shadow: inset 4px 0 0 #ca8a04; }
+.detektiv__karte .detektiv__titel, .detektiv__karte .detektiv__text { position: relative; z-index: 1; }
+.detektiv .detektiv__wort.is-hier { outline: 3px dashed var(--detektiv-uebersehen-linie); outline-offset: 2px; }
+.detektiv__tipp-zeile { font-weight: 700; }
+.detektiv__naechstes { margin: 0 auto; max-width: 30rem; text-align: center; color: var(--tinte-zart); font-size: 15px; }
+
 /* Eine Aufgabe (Verbessern, Strategie): eine ruhige Karte */
 .detektiv__aufgabe {
   scroll-margin-top: 90px; /* unter der festen Kopfzeile */
