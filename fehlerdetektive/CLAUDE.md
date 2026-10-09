@@ -51,7 +51,10 @@
 Seit Wörterwerkstatt 1.9.0 gibt es dieselbe Übung MIT Ergebnisprotokoll
 (Zeit, Fund, alle Versuche) in der Wörterwerkstatt — Einzelheiten in
 `woerterwerkstatt/CLAUDE.md`. Beide Texte stehen dort in `js/fehlertexte.js`
-noch einmal: Wer einen hier ändert, ändert ihn dort mit.
+noch einmal (dort mit Strategien): Wer einen hier ändert, ändert ihn dort mit.
+Die Rechtschreibwerkstatt mit sechs Texten und drei Stufen (ab
+Wörterwerkstatt 1.10.0) gibt es NUR dort — diese Einzeldatei bleibt bewusst
+bei zwei Übungen (Wahl des Nutzers, 10/2026).
 
 ## Versionierung
 

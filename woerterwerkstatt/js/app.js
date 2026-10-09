@@ -97,15 +97,17 @@ function bereicheZeigen() {
       h('span', { class: 'bereichskarte__sterne' }, `${erreicht} / ${moeglich} ★`));
   };
 
-  const detektivkarten = FEHLERTEXTE.map((text) => h('button', {
+  // Eine Karte je Text aus `fehlertexte.js` — ein neuer Text erscheint hier
+  // von selbst. Die Nummer ist die Stelle in der Liste.
+  const detektivkarten = FEHLERTEXTE.map((text, stelle) => h('button', {
     class: 'detektivkarte', type: 'button',
     onclick: () => { sfx.tipp(); gehZu(`#/fehlersuche/${text.id}`); },
   },
-    h('span', { class: 'detektivkarte__emoji', 'aria-hidden': 'true' }, '🔍'),
+    h('span', { class: 'detektivkarte__emoji', 'aria-hidden': 'true' }, text.emoji || '🔍'),
     h('span', { class: 'detektivkarte__text' },
-      h('strong', {}, `${text.nummer ? `Übung ${text.nummer}: ` : ''}${text.emoji || ''} ${text.titel}`.trim()),
-      h('span', {}, 'Fehlerdetektive: Findest du alle versteckten Fehler im Text?')),
-    h('span', { class: 'auftrag__pfeil' }, '→')));
+      h('span', { class: 'detektivkarte__nummer' }, `Übung ${stelle + 1}`),
+      h('strong', {}, text.title)),
+    h('span', { class: 'auftrag__pfeil', 'aria-hidden': 'true' }, '→')));
 
   const auftragskarte = auftragZeigen();
   const weiterkarte = weitermachenZeigen();
@@ -310,7 +312,7 @@ function fehlersucheZeigen(textId) {
   let hinweis = null;
   if (angemeldetesKind && !(klasse && klasse.protokoll === false)) {
     hinweis = h('p', { class: 'detektiv__melden' },
-      `👋 ${kind.name}, wenn du auswertest, sieht deine Lehrerin oder dein Lehrer dein Ergebnis und wie lange du gebraucht hast.`);
+      `👋 ${kind.name}, deine Lehrerin oder dein Lehrer sieht später, was du gefunden und verbessert hast und wie lange du gebraucht hast.`);
   } else if (!angemeldetesKind && !angemeldet()) {
     hinweis = h('p', { class: 'detektiv__melden detektiv__melden--ohne' },
       'Du bist nicht angemeldet. Dein Ergebnis wird nicht an deine Lehrerin oder deinen Lehrer geschickt. ',

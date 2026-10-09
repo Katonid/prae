@@ -600,6 +600,17 @@ function durchgaengeZu(kind, textId) {
  */
 function ergebnisKurz(d) {
   const zuerst = `${d.gefunden}/${d.fehler} gefunden · ${d.falsch || 0} falsch markiert · ${dauerText(d.dauer)}`;
+  // Ab 1.10.0: drei Stufen — Finden, Verbessern, Strategien
+  if (d.verb || d.strat) {
+    const teile = [zuerst];
+    if (d.verb) {
+      teile.push(`verbessert ${d.verb.selbst}${d.verb.hinweis ? ` + ${d.verb.hinweis} mit Tipp` : ''}`
+        + `${d.verb.loesung ? `, ${d.verb.loesung}× Lösung` : ''}${d.verb.fertig < d.verb.n ? ` (${d.verb.fertig}/${d.verb.n})` : ''}`);
+    }
+    if (d.strat) teile.push(`Strategien ${d.strat.richtig}/${d.strat.n}${d.strat.fertig < d.strat.n ? ` (${d.strat.fertig}/${d.strat.n} bearbeitet)` : ''}`);
+    if (!d.abgeschlossen) teile.push('nicht beendet');
+    return teile.join(' · ');
+  }
   const v = d.verlauf || [];
   if (v.length < 2) return zuerst;
   const zuletzt = v[v.length - 1];
@@ -617,7 +628,7 @@ function besterDurchgang(liste) {
 /** Alle Durchgänge EINES Kindes, mit dem, was übersehen und falsch markiert wurde. */
 function detektivKind(name, text, liste) {
   return blatt({
-    titel: `${name} · ${text.emoji || '🔍'} ${text.titel}`,
+    titel: `${name} · ${text.emoji || '🔍'} ${text.title}`,
     breit: true,
     inhalt: h('div', {},
       h('p', { class: 'blatt__text' },
@@ -635,6 +646,26 @@ function detektivKind(name, text, liste) {
         (d.gefunden === d.fehler && !d.falsch)
           ? h('span', { class: 'wortbefund__lob' }, 'Alle gefunden, nichts falsch markiert.')
           : null,
+        d.verb ? h('div', { class: 'detektivbefund__zahlen' },
+          h('span', {}, '✏️ ', h('strong', {}, `${d.verb.selbst}`), ' selbst verbessert'),
+          h('span', {}, h('strong', {}, `${d.verb.hinweis}`), ' nach Tipp'),
+          h('span', {}, h('strong', {}, `${d.verb.loesung}`), ' Lösung gezeigt'),
+          d.verb.fertig < d.verb.n ? h('span', {}, `(${d.verb.fertig} von ${d.verb.n} bearbeitet)`) : null) : null,
+        (d.verb && d.verb.liste.some((e) => e.v > 1 || e.l))
+          ? h('div', { class: 'wortbefund__eingaben' },
+            h('span', { class: 'wortbefund__marke' }, 'beim Verbessern schwer'),
+            ...d.verb.liste.filter((e) => e.v > 1 || e.l).map((e) => h('span', { class: 'wortbefund__falsch' },
+              `${e.r}${e.e && e.e.length ? ` (geschrieben: ${e.e.join(', ')})` : ''}${e.l ? ' – Lösung gezeigt' : ''}`)))
+          : null,
+        d.strat ? h('div', { class: 'detektivbefund__zahlen' },
+          h('span', {}, '🧠 ', h('strong', {}, `${d.strat.richtig} von ${d.strat.n}`), ' Strategien gleich erkannt'),
+          d.strat.zweiter ? h('span', {}, `${d.strat.zweiter} im zweiten Versuch`) : null) : null,
+        (d.strat && d.strat.liste.some((e) => e.g[0] !== e.s))
+          ? h('div', { class: 'wortbefund__eingaben' },
+            h('span', { class: 'wortbefund__marke' }, 'Strategie verwechselt'),
+            ...d.strat.liste.filter((e) => e.g[0] !== e.s).map((e) => h('span', { class: 'wortbefund__falsch' },
+              `${e.r}: ${e.s} (gewählt: ${e.g[0]})`)))
+          : null,
         (d.verlauf && d.verlauf.length > 1)
           ? h('ol', { class: 'detektivbefund__verlauf' },
             ...d.verlauf.map((p) => h('li', {},
@@ -643,7 +674,7 @@ function detektivKind(name, text, liste) {
           : null,
         (d.ue && d.ue.length)
           ? h('div', { class: 'wortbefund__eingaben' },
-            h('span', { class: 'wortbefund__marke' }, 'beim 1. Prüfen übersehen'),
+            h('span', { class: 'wortbefund__marke' }, 'übersehen'),
             ...d.ue.map((f) => h('span', { class: 'wortbefund__falsch' }, `${f.w} → ${f.r}`)))
           : null,
         (d.fa && d.fa.length)
@@ -675,7 +706,7 @@ function detektivKlasse(text, kinder) {
   }
   const liste = Array.from(zaehler.values()).sort((a, b) => b.kinder.length - a.kinder.length);
   return blatt({
-    titel: `Am häufigsten übersehen · ${text.titel}`,
+    titel: `Am häufigsten übersehen · ${text.title}`,
     breit: true,
     inhalt: h('div', {},
       h('p', { class: 'blatt__text' },
@@ -743,7 +774,7 @@ function detektivZeichnen(platz, kinder, protokolle, gesperrt) {
     }
 
     platz.appendChild(h('div', { class: 'detektivtext' },
-      h('h3', { class: 'detektivtext__titel' }, `${text.emoji || '🔍'} ${text.titel}`),
+      h('h3', { class: 'detektivtext__titel' }, `Übung ${FEHLERTEXTE.indexOf(text) + 1}: ${text.emoji || '🔍'} ${text.title}`),
       h('p', { class: 'abschnitt__notiz' },
         `${fertig.length} von ${zeilen.length} ${zeilen.length === 1 ? 'Kind hat' : 'Kindern haben'} den Text ausgewertet`
         + (fertig.length ? ` · ${alle40} ${alle40 === 1 ? 'hat' : 'haben'} alle Fehler ohne Fehlgriff gefunden` : '')
