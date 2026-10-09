@@ -21,9 +21,10 @@ import { blatt, abschnitt, zeile, schalter, frage, eingabe, ladeplatz, meldung }
 import { qrSvg } from './qr.js';
 import { inZwischenablage, kannScannen, qrScannen, speicherBehalten } from './plattform.js';
 import {
-  kontenVerfuegbar, anmelden, kontoAnlegen, klartext, regelnPruefen, angemeldet, verwaltungPruefen,
+  kontenVerfuegbar, anmelden, wolkeStarten, kontoAnlegen, klartext, regelnPruefen, angemeldet, verwaltungPruefen,
   klasseAnlegen, klasseHolen, klasseLoeschen, klassenDerLehrkraft, klasseAendern,
-  klasseWiederEintragen,
+  klasseWiederEintragen, verzeichnisEintragLoeschen,
+  einladungErstellen, einladungenZurueckziehen, einladungAnnehmen, mitlehrkraefteHolen, mitlehrkraftEntfernen,
   kindAnlegen, kindAnmelden, kindEntfernen, pinNeuSetzen, kindUmbenennen, namensschluessel,
   fortschrittDerKlasse, fortschrittMelden, fortschrittHolen,
   protokollMelden, protokollDerKlasse, protokollLoeschen, fehlersucheMelden,
@@ -42,6 +43,44 @@ import { UEBUNGEN, stufenFuer } from './uebungen/index.js';
 import { paketzahl } from './paket.js';
 import { bereichswahl } from './bereiche.js';
 import { FEHLERTEXTE } from './fehlertexte.js';
+
+/** Der Link einer Einladung für eine weitere Lehrkraft. */
+export function einladungsadresse(code, schluessel) {
+  const grund = `${window.location.origin}${window.location.pathname}`;
+  return `${grund}#/einladung/${String(code).toUpperCase()}/${schluessel}`;
+}
+
+/**
+ * Eine Einladung öffnen (`#/einladung/<CODE>/<Schlüssel>`). Ohne Anmeldung
+ * erst das Anmeldeblatt der Lehrkraft, dann weiter.
+ */
+export async function einladungOeffnen(code, schluessel, beiFertig) {
+  // Beim Öffnen des Links ist die gespeicherte Anmeldung womöglich noch nicht
+  // geladen (das tut `wolkeStarten`) — ohne dieses Warten bekäme eine längst
+  // angemeldete Lehrkraft das Anmeldeblatt.
+  await wolkeStarten().catch(() => {});
+  if (!angemeldet()) {
+    meldung('Melde dich mit deinem Lehrkraft-Konto an, um die Einladung anzunehmen.', 'info', 6000);
+    lehrkraftAnmeldung(() => einladungOeffnen(code, schluessel, beiFertig));
+    return;
+  }
+  einladungAnnehmen(code, schluessel)
+    .then(({ stand, klasse }) => {
+      klasseMerken({ code: klasse.code, name: klasse.name || 'Klasse', rolle: 'lehrkraft' });
+      meldung(stand === 'eigene'
+        ? `„${klasse.name || 'Klasse'}" ist deine eigene Klasse.`
+        : `Du betreust jetzt „${klasse.name || 'Klasse'}" mit.`, 'gut', 6000);
+      if (beiFertig) beiFertig();
+      klasseZeigen(klasse.code);
+    })
+    .catch((problem) => {
+      const grund = String(problem.message);
+      meldung(grund === 'EINLADUNG_UNGUELTIG'
+        ? 'Diese Einladung gilt nicht (mehr) — abgelaufen oder zurückgezogen. Bitte um einen neuen Link.'
+        : (grund === 'KLASSE_UNBEKANNT' ? 'Diese Klasse gibt es nicht mehr.' : klartext(problem)), 'warnung', 7000);
+      if (beiFertig) beiFertig();
+    });
+}
 
 /** Die Adresse, die im QR-Code steht. */
 export function beitrittsadresse(code) {
@@ -200,6 +239,20 @@ export function klassenVerwalten() {
       nachCode.set(k.code, Object.assign({}, nachCode.get(k.code), k, { nurHier: false }));
     }
 
+    // Klassen, in die man nur EINGELADEN ist: Gilt die Einladung noch? Hat
+    // die Besitzerin einen entfernt oder die Klasse gelöscht, verschwindet
+    // sie hier — den eigenen Verzeichniseintrag darf nur man selbst löschen.
+    for (const eintrag of Array.from(nachCode.values()).filter((k) => k.rolle === 'mitlehrkraft')) {
+      try {
+        const ergebnis = await klasseWiederEintragen(eintrag.code);
+        if (ergebnis.stand === 'fremd' || ergebnis.stand === 'unbekannt') {
+          await verzeichnisEintragLoeschen(eintrag.code).catch(() => {});
+          klasseVergessen(eintrag.code);
+          nachCode.delete(eintrag.code);
+        }
+      } catch (_) { /* kein Netz — dann bleibt sie stehen */ }
+    }
+
     // Fehlt ein Eintrag im Verzeichnis, wird er nachgetragen — dann taucht die
     // Klasse beim nächsten Öffnen auch auf dem anderen Gerät auf. Nur wenn das
     // Verzeichnis wirklich gelesen wurde; sonst wüsste man ja nicht, ob etwas
@@ -246,7 +299,9 @@ export function klassenVerwalten() {
           h('strong', {}, klasse.name || 'Klasse'),
           h('span', {}, klasse.nurHier
             ? 'nur auf diesem Gerät bekannt'
-            : (klasse.angelegtAm ? `angelegt am ${datum(klasse.angelegtAm)}` : ''))),
+            : (klasse.rolle === 'mitlehrkraft'
+              ? '👥 betreust du mit'
+              : (klasse.angelegtAm ? `angelegt am ${datum(klasse.angelegtAm)}` : '')))),
         h('span', { class: 'bereichsliste__pfeil' }, '›')));
     }
   }
@@ -729,7 +784,73 @@ function detektivKlasse(text, kinder) {
  * aller Kinder — auch derer, die noch nichts abgegeben haben, denn genau
  * nach denen sucht eine Lehrkraft.
  */
-function detektivZeichnen(platz, kinder, protokolle, gesperrt) {
+/**
+ * Ist dieser Fehlerdetektive-Text für die Klasse freigeschaltet?
+ * `klasse.detektive` ist { id: true|false } (ab 1.11.0). Fehlt das Feld —
+ * alte Klasse — oder fehlt ein Text darin — später dazugekommen —, gilt er
+ * als freigeschaltet. So ändert sich für niemanden etwas, der nie wählt.
+ */
+export function detektivFreigeschaltet(klasse, textId) {
+  const wahl = klasse && klasse.detektive;
+  if (!wahl || typeof wahl !== 'object') return true;
+  return wahl[textId] !== false;
+}
+
+/** „Welche Fehlerdetektive-Übungen sieht diese Klasse?" — je Übung ein Haken. */
+function detektiveWaehlen(code, klasse, beiFertig) {
+  const gewaehlt = new Map(FEHLERTEXTE.map((t) => [t.id, detektivFreigeschaltet(klasse, t.id)]));
+  const liste = h('div', { class: 'mitgeben' },
+    ...FEHLERTEXTE.map((text, stelle) => h('label', { class: 'mitgeben__eintrag' },
+      h('input', {
+        type: 'checkbox',
+        checked: gewaehlt.get(text.id),
+        onchange: (ereignis) => gewaehlt.set(text.id, ereignis.target.checked),
+      }),
+      h('span', {}, `${text.emoji || '🔍'} Übung ${stelle + 1}: ${text.title}`))));
+  const fehler = h('p', { class: 'blatt__fehler', 'aria-live': 'polite' });
+  const sichern = h('button', { class: 'knopf knopf--voll', type: 'button' }, 'Sichern');
+  const dialog = blatt({
+    titel: `Fehlerdetektive für ${klasse.name || 'die Klasse'}`,
+    inhalt: h('div', {},
+      h('p', { class: 'blatt__text' },
+        'Die angehakten Übungen sehen die Kinder dieser Klasse auf ihrer Startseite. '
+        + 'Dieselbe Übung kann in mehreren Klassen angehakt sein — jede Klasse hat ihre eigene Auswahl.'),
+      h('div', { class: 'blatt__knopfreihe' },
+        h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => alle(true) }, 'Alle an'),
+        h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => alle(false) }, 'Alle aus')),
+      liste,
+      fehler),
+    fusszeile: [
+      h('button', { class: 'knopf knopf--still', type: 'button', onclick: () => dialog.schliessen() }, 'Abbrechen'),
+      sichern,
+    ],
+  });
+  function alle(an) {
+    for (const text of FEHLERTEXTE) gewaehlt.set(text.id, an);
+    liste.querySelectorAll('input').forEach((feld) => { feld.checked = an; });
+  }
+  sichern.addEventListener('click', async () => {
+    sichern.disabled = true;
+    // ALLE Texte mit true/false — ein später dazukommender Text steht dann
+    // nicht darin und ist freigeschaltet (siehe `detektivFreigeschaltet`).
+    const wahl = {};
+    for (const [id, an] of gewaehlt) wahl[id] = an;
+    try {
+      await klasseAendern(code, { detektive: wahl });
+      klasse.detektive = wahl;
+      const an = Object.values(wahl).filter(Boolean).length;
+      meldung(`${an} von ${FEHLERTEXTE.length} Übungen für ${klasse.name || 'die Klasse'}. Die Kinder sehen das beim nächsten Öffnen.`, 'gut', 5000);
+      dialog.schliessen();
+      if (beiFertig) beiFertig();
+    } catch (problem) {
+      fehler.textContent = klartext(problem);
+      sichern.disabled = false;
+    }
+  });
+  return dialog;
+}
+
+function detektivZeichnen(platz, kinder, protokolle, gesperrt, klasse = null) {
   leeren(platz);
   if (gesperrt) {
     platz.appendChild(h('p', { class: 'abschnitt__notiz' },
@@ -738,6 +859,10 @@ function detektivZeichnen(platz, kinder, protokolle, gesperrt) {
   }
   const nach = new Map(protokolle.map((p) => [p.schluessel, p]));
   for (const text of FEHLERTEXTE) {
+    // Nicht freigeschaltete Übungen nur zeigen, wenn es Ergebnisse gibt —
+    // sonst steht eine lange Liste „noch nicht bearbeitet" für nichts da.
+    if (!detektivFreigeschaltet(klasse, text.id)
+      && !protokolle.some((p) => durchgaengeZu(p, text.id).length)) continue;
     const zeilen = kinder.map((kind) => ({
       name: kind.name,
       liste: durchgaengeZu(nach.get(kind.schluessel), text.id),
@@ -812,6 +937,105 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         : h('p', { class: 'blatt__fehler' }, klartext(problem)));
       return;
     }
+    // Wer bin ich in dieser Klasse? Besitzerin, eingeladene Lehrkraft oder
+    // Schulverwaltung. Löschen darf nur die Besitzerin (und die Verwaltung),
+    // einladen nur die Besitzerin.
+    const ich = angemeldet();
+    const istBesitzerin = Boolean(ich && klasse.besitzer === ich.uid);
+    const istVerwaltung = istBesitzerin ? false : await verwaltungPruefen().catch(() => false);
+    const lehrkraeftePlatz = h('div', {}, ladeplatz('Lehrkräfte werden geholt …'));
+
+    async function lehrkraefteZeichnen() {
+      let mit = [];
+      let gesperrt = false;
+      try { mit = await mitlehrkraefteHolen(code); } catch (_) { gesperrt = true; }
+      leeren(lehrkraeftePlatz);
+      lehrkraeftePlatz.appendChild(h('div', { class: 'kinderliste__eintrag' },
+        h('span', { class: 'kinderliste__name' }, `👑 ${klasse.besitzerName || 'Besitzerin der Klasse'}`),
+        h('span', { class: 'kinderliste__zeit' }, istBesitzerin ? 'du' : 'hat die Klasse angelegt')));
+      for (const l of mit) {
+        const selbst = Boolean(ich && l.uid === ich.uid);
+        lehrkraeftePlatz.appendChild(h('div', { class: 'kinderliste__eintrag' },
+          h('span', { class: 'kinderliste__name' }, `👩‍🏫 ${l.name || l.email || 'Lehrkraft'}${selbst ? ' (du)' : ''}`),
+          h('span', { class: 'kinderliste__zeit' }, l.seit ? `seit ${datum(l.seit)}` : ''),
+          (istBesitzerin || istVerwaltung || selbst) ? h('button', {
+            class: 'knopf knopf--flach knopf--klein', type: 'button',
+            onclick: async () => {
+              const ja = await frage({
+                titel: selbst ? 'Klasse verlassen?' : `${l.name || l.email || 'Lehrkraft'} entfernen?`,
+                text: selbst
+                  ? 'Du siehst diese Klasse und die Ergebnisse der Kinder danach nicht mehr. Wieder hinein geht es nur mit einer neuen Einladung.'
+                  : 'Sie sieht diese Klasse und die Ergebnisse der Kinder danach nicht mehr.',
+                ja: selbst ? 'Verlassen' : 'Entfernen', gefahr: true,
+              });
+              if (!ja) return;
+              try {
+                await mitlehrkraftEntfernen(code, l.uid);
+                if (selbst) {
+                  klasseVergessen(code);
+                  dialog.schliessen();
+                  if (beiAenderung) beiAenderung();
+                  return;
+                }
+                lehrkraefteZeichnen();
+              } catch (problem) {
+                meldung(klartext(problem), 'warnung', 5000);
+              }
+            },
+          }, selbst ? 'Verlassen' : 'Entfernen') : null));
+      }
+      if (gesperrt) {
+        lehrkraeftePlatz.appendChild(h('p', { class: 'abschnitt__notiz' },
+          'Weitere Lehrkräfte lassen sich erst einladen, wenn die neuen Datenbankregeln eingespielt sind (Fassung 1.11.0).'));
+      }
+      if (istBesitzerin || istVerwaltung) {
+        lehrkraeftePlatz.appendChild(h('div', { class: 'blatt__knopfreihe' },
+          h('button', {
+            class: 'knopf knopf--voll knopf--klein', type: 'button', onclick: () => einladen(),
+          }, '+ Lehrkraft einladen'),
+          h('button', {
+            class: 'knopf knopf--still knopf--klein', type: 'button',
+            onclick: async () => {
+              try {
+                await einladungenZurueckziehen(code);
+                meldung('Alle offenen Einladungen gelten nicht mehr. Wer schon dabei ist, bleibt.', 'gut', 5000);
+              } catch (problem) {
+                meldung(klartext(problem), 'warnung', 5000);
+              }
+            },
+          }, 'Offene Einladungen zurückziehen')));
+      }
+    }
+
+    async function einladen() {
+      let einladung;
+      try {
+        einladung = await einladungErstellen(code);
+      } catch (problem) {
+        meldung(String(problem.message) === 'NICHT_ERLAUBT'
+          ? 'Einladen geht erst, wenn die neuen Datenbankregeln eingespielt sind.'
+          : klartext(problem), 'warnung', 6000);
+        return;
+      }
+      const link = einladungsadresse(code, einladung.schluessel);
+      blatt({
+        titel: 'Lehrkraft einladen',
+        inhalt: h('div', {},
+          h('p', { class: 'blatt__text' },
+            `Schick diesen Link der Kollegin oder dem Kollegen. Wer ihn öffnet und sich mit einem Lehrkraft-Konto anmeldet, betreut „${klasse.name || 'die Klasse'}" mit: `
+            + 'Ergebnisse und Lernerfolg der Kinder sehen, PIN neu vergeben, Übungen und Auftrag festlegen. Die Klasse löschen kannst nur du.'),
+          h('p', { class: 'beitritt__adresse einladung__link' }, link),
+          h('div', { class: 'blatt__knopfreihe' },
+            h('button', {
+              class: 'knopf knopf--voll', type: 'button',
+              onclick: async () => meldung(await inZwischenablage(link) ? 'Link kopiert.' : 'Kopieren ging nicht — der Link steht oben.', 'info'),
+            }, 'Link kopieren')),
+          h('p', { class: 'blatt__fussnote' },
+            `Der Link gilt bis zum ${datum(einladung.ablauf)} und für jede Lehrkraft, die ihn bekommt — gib ihn nicht an Kinder weiter. `
+            + 'Zurückziehen geht jederzeit über „Offene Einladungen zurückziehen". Hat die Kollegin noch kein Lehrkraft-Konto, legt sie es beim Öffnen des Links im Anmeldeblatt an.')),
+      });
+    }
+
     const adresse = beitrittsadresse(code);
     const qr = h('div', { class: 'qr-kasten' });
     try {
@@ -821,6 +1045,16 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
     }
 
     const kinderplatz = h('div', { class: 'kinderliste' }, ladeplatz('Kinder werden geholt …'));
+    const detektivauswahl = h('p', { class: 'abschnitt__notiz' });
+    function auswahlZeigen() {
+      const an = FEHLERTEXTE.filter((t) => detektivFreigeschaltet(klasse, t.id));
+      detektivauswahl.textContent = an.length === FEHLERTEXTE.length
+        ? `Die Kinder sehen alle ${FEHLERTEXTE.length} Übungen.`
+        : (an.length
+          ? `Die Kinder sehen ${an.length} von ${FEHLERTEXTE.length} Übungen: ${an.map((t) => `Übung ${FEHLERTEXTE.indexOf(t) + 1}`).join(', ')}.`
+          : 'Für diese Klasse ist keine Übung freigeschaltet.');
+    }
+    auswahlZeigen();
     const detektivplatz = h('div', {}, ladeplatz('Ergebnisse werden geholt …'));
     let protokolle = [];
     let protokollsperre = null;
@@ -900,7 +1134,7 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         protokollsperre = problem;
       }
       protokollhinweisZeichnen();
-      detektivZeichnen(detektivplatz, stand, protokolle, Boolean(protokollsperre));
+      detektivZeichnen(detektivplatz, stand, protokolle, Boolean(protokollsperre), klasse);
       const protokollNach = new Map(protokolle.map((p) => [p.schluessel, p]));
 
       leeren(kinderplatz);
@@ -1100,9 +1334,16 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
               : meldung('Noch keine Wörter zum Nachsehen.', 'info')),
           }, '📋 Was der Klasse schwerfällt'),
           h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden'))),
-      abschnitt('🔍 Fehlerdetektive', detektivplatz,
+      abschnitt('🔍 Fehlerdetektive',
+        detektivauswahl,
         h('div', { class: 'blatt__knopfreihe' },
-          h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden'))),
+          h('button', {
+            class: 'knopf knopf--voll knopf--klein', type: 'button',
+            onclick: () => detektiveWaehlen(code, klasse, () => { auswahlZeigen(); kinderZeichnen(); }),
+          }, '🔍 Übungen für diese Klasse wählen'),
+          h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden')),
+        detektivplatz),
+      abschnitt('👥 Lehrkräfte dieser Klasse', lehrkraeftePlatz),
       abschnitt('Bereiche für die Klasse',
         h('p', { class: 'blatt__text' },
           'Welche Bereiche die Kinder sehen. Deine Auswahl wird auf ihre Geräte übernommen, '
@@ -1183,7 +1424,7 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
             }
           },
         }, 'Protokoll der Klasse löschen')),
-      abschnitt('Klasse',
+      (istBesitzerin || istVerwaltung) ? abschnitt('Klasse',
         h('button', {
           class: 'knopf knopf--gefahr', type: 'button',
           onclick: async () => {
@@ -1201,9 +1442,10 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
             dialog.schliessen();
             if (beiAenderung) beiAenderung();
           },
-        }, 'Klasse löschen')),
+        }, 'Klasse löschen')) : null,
     ));
     kinderZeichnen();
+    lehrkraefteZeichnen();
   })();
 
   return dialog;
@@ -1300,6 +1542,7 @@ export function beitreten(code, beiFertig, beimSchliessen = null) {
       auftrag: klasse.auftrag || null,
       protokoll: klasse.protokoll !== false,
       ohnePin: klasse.ohnePin === true,
+      detektive: klasse.detektive || null,
     });
   }
 
@@ -1489,6 +1732,7 @@ export async function klasseAuffrischen() {
     auftrag: klasse.auftrag || null,
     protokoll: klasse.protokoll !== false,
     ohnePin: klasse.ohnePin === true,
+    detektive: klasse.detektive || null,
   });
 }
 

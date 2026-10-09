@@ -417,7 +417,7 @@ export async function klasseAendern(code, teile) {
  */
 export async function klasseLoeschen(code, besitzer = null) {
   const gross = String(code).toUpperCase();
-  for (const zweig of ['geheim', 'anmeldung', 'protokoll']) {
+  for (const zweig of ['einladungen', 'mitlehrkraefte', 'geheim', 'anmeldung', 'protokoll']) {
     await anfrage(`${WURZEL}/${zweig}/${gross}`, { method: 'DELETE' }).catch(() => {});
   }
   await anfrage(`${WURZEL}/klassen/${gross}`, { method: 'DELETE' });
@@ -452,7 +452,18 @@ export async function klasseWiederEintragen(code) {
   if (!klasse) return { stand: 'unbekannt' };
   // Ohne Besitzer wird nichts angenommen. Den Code haben alle Kinder der
   // Klasse; er darf niemandem ein fremdes Klassenbuch in die Hand geben.
-  if (klasse.besitzer !== konto.uid) return { stand: 'fremd', klasse };
+  // Eine eingeladene Lehrkraft (ab 1.11.0) steht unter `mitlehrkraefte` —
+  // lesen darf sie den Eintrag nur, solange sie dazugehört.
+  if (klasse.besitzer !== konto.uid) {
+    const mit = await anfrage(`${WURZEL}/mitlehrkraefte/${gross}/${konto.uid}`).catch(() => null);
+    if (!mit) return { stand: 'fremd', klasse };
+    const drinMit = await anfrage(`${WURZEL}/users/${konto.uid}/klassen/${gross}`).catch(() => null);
+    if (drinMit) return { stand: 'stand-schon-drin', klasse, mit: true };
+    await schreiben(`${WURZEL}/users/${konto.uid}/klassen/${gross}`, {
+      name: klasse.name || 'Klasse', angelegtAm: klasse.angelegtAm || Date.now(), rolle: 'mitlehrkraft',
+    });
+    return { stand: 'eingetragen', klasse, mit: true };
+  }
   const drin = await anfrage(`${WURZEL}/users/${konto.uid}/klassen/${gross}`).catch(() => null);
   if (drin) return { stand: 'stand-schon-drin', klasse };
   await schreiben(`${WURZEL}/users/${konto.uid}/klassen/${gross}`, {
@@ -460,6 +471,107 @@ export async function klasseWiederEintragen(code) {
     angelegtAm: klasse.angelegtAm || Date.now(),
   });
   return { stand: 'eingetragen', klasse };
+}
+
+/* ---------- Weitere Lehrkräfte einer Klasse (ab 1.11.0) ---------- */
+
+/*
+ * Warum ein eigener Zweig und nicht `klassen/<CODE>/lehrkraefte`:
+ * `klassen/<CODE>` darf JEDER schreiben, der den Code hat — sonst könnten die
+ * Kinder nicht beitreten. Und in Firebase lässt sich ein Recht, das weiter
+ * oben gewährt ist, weiter unten nicht wieder nehmen. Eine Liste der
+ * Lehrkräfte dort könnte also jedes Kind um sich selbst ergänzen.
+ *
+ * Deshalb:
+ *   einladungen/<CODE>/<Schlüssel> = { ablauf, … }  — schreibt nur die
+ *       Besitzerin, LESEN DARF NIEMAND (wie die PIN-Abdrücke).
+ *   mitlehrkraefte/<CODE>/<uid> = { einladung: <Schlüssel>, name, … }
+ *       — eintragen darf sich eine Lehrkraft nur SELBST und nur mit einem
+ *       Schlüssel, der unter `einladungen` steht und nicht abgelaufen ist.
+ *       Die Regeln prüfen das, nicht die App.
+ * Wer dort steht, darf dasselbe wie die Besitzerin (Protokoll lesen, PIN neu
+ * vergeben) — nur die Klasse löschen nicht.
+ */
+
+const EINLADUNG_TAGE = 14;
+
+function einladungsschluessel() {
+  const zeichen = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const zufall = new Uint32Array(24);
+  window.crypto.getRandomValues(zufall);
+  return Array.from(zufall, (z) => zeichen[z % zeichen.length]).join('');
+}
+
+/** Eine Einladung anlegen. Gibt { schluessel, ablauf } zurück. */
+export async function einladungErstellen(code) {
+  if (!konto) throw new Error('Dafür braucht es das Konto der Lehrkraft.');
+  const gross = String(code).toUpperCase();
+  const schluessel = einladungsschluessel();
+  const ablauf = Date.now() + EINLADUNG_TAGE * 24 * 3600 * 1000;
+  await schreiben(`${WURZEL}/einladungen/${gross}/${schluessel}`, {
+    ablauf, von: konto.name || konto.email || '', angelegt: Date.now(),
+  });
+  return { schluessel, ablauf };
+}
+
+/** Alle offenen Einladungen einer Klasse zurückziehen. */
+export async function einladungenZurueckziehen(code) {
+  await anfrage(`${WURZEL}/einladungen/${String(code).toUpperCase()}`, { method: 'DELETE' });
+}
+
+/**
+ * Eine Einladung annehmen: sich selbst als Lehrkraft der Klasse eintragen
+ * und die Klasse ins eigene Verzeichnis schreiben.
+ * Rückgabe: { stand: 'eigene' | 'angenommen', klasse }
+ */
+export async function einladungAnnehmen(code, schluessel) {
+  if (!konto) throw new Error('Dafür braucht es das Konto der Lehrkraft.');
+  const gross = String(code).toUpperCase();
+  const klasse = await klasseHolen(gross);
+  if (klasse.besitzer === konto.uid) return { stand: 'eigene', klasse };
+  try {
+    await schreiben(`${WURZEL}/mitlehrkraefte/${gross}/${konto.uid}`, {
+      einladung: String(schluessel),
+      name: konto.name || '',
+      email: konto.email || '',
+      seit: Date.now(),
+    });
+  } catch (problem) {
+    // Die Regel weist ab: Schlüssel unbekannt, abgelaufen oder zurückgezogen.
+    if (String(problem.message) === 'NICHT_ERLAUBT') throw new Error('EINLADUNG_UNGUELTIG');
+    throw problem;
+  }
+  await schreiben(`${WURZEL}/users/${konto.uid}/klassen/${gross}`, {
+    name: klasse.name || 'Klasse', angelegtAm: klasse.angelegtAm || Date.now(), rolle: 'mitlehrkraft',
+  });
+  return { stand: 'angenommen', klasse };
+}
+
+/** Den eigenen Verzeichniseintrag einer Klasse entfernen (nicht die Klasse). */
+export async function verzeichnisEintragLoeschen(code) {
+  if (!konto) return;
+  await anfrage(`${WURZEL}/users/${konto.uid}/klassen/${String(code).toUpperCase()}`, { method: 'DELETE' });
+}
+
+/** Die eingeladenen Lehrkräfte einer Klasse (ohne die Besitzerin). */
+export async function mitlehrkraefteHolen(code) {
+  const gelesen = await anfrage(`${WURZEL}/mitlehrkraefte/${String(code).toUpperCase()}`);
+  if (!gelesen) return [];
+  return Object.entries(gelesen).map(([uid, eintrag]) => Object.assign({ uid }, eintrag));
+}
+
+/**
+ * Eine Lehrkraft aus der Klasse nehmen — durch die Besitzerin oder sich
+ * selbst („Klasse verlassen"). Den Verzeichniseintrag der anderen kann die
+ * Besitzerin nicht löschen; er fällt beim nächsten Öffnen von „Meine Klassen"
+ * dort weg, weil die Mitgliedschaft dann nicht mehr lesbar ist.
+ */
+export async function mitlehrkraftEntfernen(code, uid) {
+  const gross = String(code).toUpperCase();
+  await anfrage(`${WURZEL}/mitlehrkraefte/${gross}/${uid}`, { method: 'DELETE' });
+  if (konto && uid === konto.uid) {
+    await anfrage(`${WURZEL}/users/${konto.uid}/klassen/${gross}`, { method: 'DELETE' }).catch(() => {});
+  }
 }
 
 /* ---------- Kinder ---------- */
@@ -716,8 +828,12 @@ export async function alleLehrkraefte() {
   const verwaltungen = await anfrage(`${WURZEL}/admins`).catch(() => null);
   return Object.entries(gelesen).map(([uid, eintrag]) => {
     const profil = (eintrag && eintrag.profil) || {};
+    // Klassen, in die jemand nur EINGELADEN ist (ab 1.11.0), gehören nicht
+    // ihm — sonst stünden sie doppelt da, und „Lehrkraft löschen" nähme
+    // fremde Klassen mit.
     const klassen = Object.entries((eintrag && eintrag.klassen) || {})
-      .map(([code, k]) => Object.assign({ code }, k));
+      .map(([code, k]) => Object.assign({ code }, k))
+      .filter((k) => k.rolle !== 'mitlehrkraft');
     return {
       uid,
       email: profil.email || '',

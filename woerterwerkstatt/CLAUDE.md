@@ -579,3 +579,32 @@
     (mit `verlauf`) weiter.
   - Die Einzeldatei `fehlerdetektive/index.html` bleibt bei ihren zwei
     Übungen und der alten Auswertung (Wahl des Nutzers: nur hier umbauen).
+- **Fehlerdetektive je Klasse zuordnen** (ab 1.11.0, Ansage des Nutzers
+  10/2026). `klasse.detektive = { id: true|false }`, gesetzt über
+  „🔍 Übungen für diese Klasse wählen" in der Klassenansicht (immer ALLE ids
+  mit true/false). Fehlt das Feld oder eine id darin, gilt die Übung als
+  freigeschaltet (`detektivFreigeschaltet` in klasse.js) — alte Klassen und
+  später ergänzte Texte ändern sich also nicht. Wirkt nur bei angemeldeten
+  Kindern; reist mit `klasseMerken` aufs Gerät. Die Nummer „Übung 3" bleibt
+  die Stelle in `FEHLERTEXTE`, auch wenn eine Klasse nur einen Teil sieht.
+  Dieselbe Übung kann in beliebig vielen Klassen angehakt sein (Wahl des
+  Nutzers: keine eigenen Texte in der App — neue Texte nur über
+  `fehlertexte.js`).
+- **Weitere Lehrkräfte einladen** (ab 1.11.0). Besitzerin (oder Verwaltung)
+  erzeugt einen Link `#/einladung/<CODE>/<Schlüssel>` (14 Tage, mehrfach
+  nutzbar, jederzeit zurückziehbar). Wer ihn mit Lehrkraft-Konto öffnet,
+  trägt sich unter `mitlehrkraefte/<CODE>/<uid>` ein und „betreut mit"
+  (Wahl des Nutzers): Ergebnisse, PIN, Übungen, Auftrag — NICHT löschen,
+  NICHT weiter einladen. Ins eigene Verzeichnis kommt die Klasse mit
+  `rolle: 'mitlehrkraft'`; „Meine Klassen" prüft diese Einträge bei jedem
+  Öffnen und räumt sie weg, wenn die Mitgliedschaft nicht mehr lesbar ist
+  (entfernt, Klasse gelöscht). Die Schulverwaltung zählt sie nicht als
+  eigene Klassen der Lehrkraft (`alleLehrkraefte`).
+  - `einladungOeffnen` wartet auf `wolkeStarten()` — beim Öffnen des Links
+    ist die gespeicherte Anmeldung sonst noch nicht geladen, und eine
+    angemeldete Lehrkraft bekäme das Anmeldeblatt.
+  - **Die Regeln dafür stehen NICHT unter `klassen/`** (dort darf jeder
+    schreiben). Und `klassen/$code` ist seit 1.11.0 gegen Umschreiben von
+    `besitzer` und Löschen durch Fremde geschützt — vorher konnte jeder mit
+    Code und (frei anlegbarem) Konto die Protokolle einer Klasse übernehmen.
+    Einzelheiten und Emulator-Prüfung in `firebase-rules.md`.

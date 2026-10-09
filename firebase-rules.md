@@ -57,10 +57,12 @@ python3 woerterwerkstatt/scripts/regeln-pruefen.py
 
 | Zweig | Regel | Warum |
 |---|---|---|
-| `klassen/$code` | offen; **auflisten** nur die Verwaltung | Klasse samt Kindern und Sternen. Wer den Code hat (QR-Code), darf mitmachen — das ist der Sinn. PIN-Abdrücke liegen **nicht** hier. Die Liste ALLER Codes bekommt nur die Schulverwaltung; sie braucht sie, um Klassen ohne Lehrkraft zu finden. |
+| `klassen/$code` | offen; **auflisten** nur die Verwaltung; **ganz löschen** nur Besitzerin/Verwaltung; **`besitzer` unveränderlich** | Klasse samt Kindern und Sternen. Wer den Code hat (QR-Code), darf mitmachen — das ist der Sinn. PIN-Abdrücke liegen **nicht** hier. Seit Wörterwerkstatt 1.11.0: Weil jede und jeder ein Lehrkraft-Konto anlegen kann, hätte sonst jemand mit Code und Konto `besitzer` auf sich umschreiben (oder die Klasse löschen und unter eigenem Namen neu anlegen) und damit die Protokolle lesen können. `.write` lässt darum jede Änderung zu, AUSSER das Löschen der ganzen Klasse; `.validate` hält `besitzer` fest (beides im Emulator geprüft). |
 | `geheim/$code` | **nicht lesbar**, schreiben nur Besitzerin oder Verwaltung | Der SHA-256-Abdruck aus Code, Name und PIN. Am `$code` hängt die Erlaubnis, damit eine ganze Klasse in einem Zug wegzuräumen ist; darunter darf jedes Kind seinen eigenen Eintrag EINMAL anlegen (`!data.exists()`). `.validate` verlangt 64 Hexzeichen. |
 | `anmeldung/$code/$kind` | Schreiben nur bei Übereinstimmung | Der Kniff: Die App schickt den errechneten Abdruck. Die Regel nimmt den Schreibvorgang nur an, wenn er mit dem hinterlegten übereinstimmt. So lässt sich die PIN prüfen, **ohne** dass irgendwer den hinterlegten Abdruck lesen kann. |
 | `protokoll/$code/$kind` | **schreiben alle, lesen nur Lehrkraft oder Verwaltung** | Welche Wörter ein Kind bearbeitet hat und wie es sie geschrieben hat. Bewusst NICHT unter `klassen/` — dort darf lesen, wer den Code hat, und das sind alle Kinder der Klasse. Was ein Kind falsch geschrieben hat, geht seine Mitschüler nichts an. |
+| `mitlehrkraefte/$code/$uid` | **eintragen nur sich selbst mit gültiger Einladung**; lesen: Besitzerin, Eingetragene, Verwaltung; austragen: Besitzerin, Verwaltung oder man selbst | Eingeladene Lehrkräfte (ab 1.11.0). Wer hier steht, darf dasselbe wie die Besitzerin bei `geheim`, `anmeldung` und `protokoll` — die Klasse löschen nicht. Bewusst NICHT unter `klassen/$code`: Dort darf jeder schreiben, und ein dort gewährtes Recht lässt sich weiter unten nicht wieder nehmen. |
+| `einladungen/$code/$token` | **nicht lesbar**, schreiben nur Besitzerin oder Verwaltung | `{ ablauf }` — der Schlüssel im Pfad IST die Einladung (24 Zeichen, zufällig). Die Regel an `mitlehrkraefte/$code/$uid` prüft, dass er hier steht und `ablauf > now`. Zurückziehen = Zweig löschen. |
 | `users/$uid` | man selbst — oder die Verwaltung | Eigene Bereiche und Klassenliste einer Lehrkraft. |
 | `admins/$uid` | jeder liest den EIGENEN Eintrag, schreiben nur die Verwaltung | Wer die Schule verwalten darf. |
 
@@ -70,6 +72,9 @@ python3 woerterwerkstatt/scripts/regeln-pruefen.py
 gelöscht, gibt es keinen Besitzer mehr — und die PIN-Abdrücke bleiben für
 immer liegen, unlesbar und unlöschbar. Deshalb räumt `klasseLoeschen` erst
 `geheim`, `anmeldung` und `protokoll` weg und dann die Klasse.
+
+Seit 1.11.0 kommen `einladungen` und `mitlehrkraefte` davor — auch sie fragen
+nach `besitzer`.
 
 Bis 1.4.0 tat es das nicht: Beim Löschen einer Klasse blieben alle drei
 Nebenzweige stehen, und „Protokoll der ganzen Klasse löschen“ scheiterte
@@ -129,6 +134,23 @@ Zum Zweig `protokoll` gehört ein zweiter ehrlicher Satz: Das sind
 Datenbank, bis die Lehrkraft sie löscht (Knopf in der Klassenansicht), und das
 Mitschreiben lässt sich je Klasse abschalten. Wer eine Klasse löscht, sollte
 das Protokoll gleich mitlöschen.
+
+## Regeln im Emulator prüfen
+
+Seit 1.11.0 werden Regeländerungen im Firebase-Emulator geprüft — nie gegen
+die echte Datenbank. In einer Cloud-Sitzung muss der Proxy umgangen werden
+(die Firebase-CLI schickt sonst auch lokale Anfragen hindurch), daher die JAR
+direkt:
+
+```
+npm i firebase-tools && npx firebase setup:emulators:database
+java -jar ~/.cache/firebase/emulators/firebase-database-emulator-*.jar --host 127.0.0.1 --port 9123 &
+curl --noproxy '*' -X PUT -H 'Authorization: Bearer owner' --data-binary @firebase-rules.json \
+  'http://127.0.0.1:9123/.settings/rules.json?ns=demo-praet'
+```
+
+Anmeldungen nachspielen: `?auth=<JWT mit alg "none">` (der Emulator prüft
+keine Signatur), Ausgangsdaten mit `Authorization: Bearer owner`.
 
 ## Ist es eingespielt? Kurz nachsehen
 
