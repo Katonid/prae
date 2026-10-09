@@ -5,9 +5,10 @@
 //                       Auswerten (Vorgabe des Nutzers, 10/2026). Danach:
 //                       gefunden grün, übersehen orange, falsch markiert
 //                       rot — aber noch KEINE richtige Schreibweise.
-//   2  Verbessern       Die Fehler einzeln nacheinander selbst richtig
-//                       schreiben (`CONFIG.correctionMode`: alle oder nur
-//                       die gefundenen). Tipp nach dem zweiten, „Lösung
+//   2  Verbessern       Einzeln nacheinander selbst richtig schreiben —
+//                       von Haus aus nur, was danebenging: übersehene
+//                       Fehler und versehentlich markierte richtige Wörter
+//                       (`CONFIG.correctionMode`, Ansage des Nutzers 10/2026). Tipp nach dem zweiten, „Lösung
 //                       zeigen" nach dem dritten Fehlversuch.
 //   3  Strategien       `CONFIG.strategyQuestions` S-Fehler, zufällig
 //                       gelost: Welche Strategie hilft?
@@ -471,9 +472,17 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
   /* ---------- Stufe 2: Verbessern ---------- */
 
   function verbessernStarten() {
-    const welche = CONFIG.correctionMode === 'found'
-      ? alleFehler.filter((f) => lauf.markiert[f.i])
-      : alleFehler;
+    // Was in Stufe 2 drankommt (CONFIG.correctionMode, in Textreihenfolge):
+    //   'mistakes' (Vorgabe) — was danebenging: übersehene Fehler (orange)
+    //                          UND versehentlich markierte richtige Wörter (rot)
+    //   'all'                — alle Fehler des Textes
+    //   'found'              — nur die gefundenen Fehler
+    const modus = CONFIG.correctionMode || 'mistakes';
+    const welche = modus === 'all'
+      ? alleFehler
+      : (modus === 'found'
+        ? alleFehler.filter((f) => lauf.markiert[f.i])
+        : woerter.filter((w) => (w.typ ? !lauf.markiert[w.i] : lauf.markiert[w.i])));
     lauf.verbessern = {
       liste: welche.map((wort) => ({ wort, versuche: 0, eingaben: [], loesung: false, fertig: false })),
       stelle: 0,
@@ -491,7 +500,7 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     for (const teil of satz) {
       if (!begonnen && teil.art === 'leer') continue;
       begonnen = true;
-      if (teil.art === 'wort' && teil.i === wort.i) p.appendChild(h('mark', { class: 'detektiv__satzwort' }, teil.text));
+      if (teil.art === 'wort' && teil.i === wort.i) p.appendChild(h('mark', { class: `detektiv__satzwort${wort.typ ? '' : ' is-warrichtig'}` }, teil.text));
       else p.appendChild(document.createTextNode(teil.text));
     }
     return p;
@@ -503,21 +512,28 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     const wort = eintrag.wort;
     const feld = schreibfeld();
     const rueckmeldung = h('p', { class: 'detektiv__rueckmeldung', 'aria-live': 'polite' });
+    // Ein versehentlich markiertes Wort war richtig — das Kind schreibt es so,
+    // wie es im Text stand, und merkt sich dabei, dass es stimmte.
+    const warRichtig = !wort.typ;
     const tipp = h('p', { class: 'detektiv__hilfe', hidden: true },
-      wort.typ === 'N'
-        ? 'Tipp: Überlege, ob dieses Wort großgeschrieben werden muss.'
-        : 'Tipp: Eine Rechtschreibstrategie kann dir helfen.');
+      warRichtig
+        ? 'Tipp: Dieses Wort war schon richtig geschrieben. Schreibe es genau so, wie es im Text stand.'
+        : (wort.typ === 'N'
+          ? 'Tipp: Überlege, ob dieses Wort großgeschrieben werden muss.'
+          : 'Tipp: Eine Rechtschreibstrategie kann dir helfen.'));
     const pruefen = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button' }, 'Prüfen');
     const loesungKnopf = h('button', { class: 'knopf knopf--still', type: 'button', hidden: true }, 'Lösung zeigen');
     const weiter = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', hidden: true },
       v.stelle + 1 < v.liste.length ? 'Weiter' : 'Weiter: Strategien');
     const karte = h('section', { class: 'detektiv__aufgabe' },
-      h('p', { class: 'detektiv__aufgabenzahl' }, `Fehler ${v.stelle + 1} von ${v.liste.length}`),
+      h('p', { class: 'detektiv__aufgabenzahl' }, `Wort ${v.stelle + 1} von ${v.liste.length}`),
       h('div', { class: 'detektiv__balken', 'aria-hidden': 'true' },
         h('span', { style: { width: `${(v.stelle / v.liste.length) * 100}%` } })),
       satzZeigen(wort),
       h('p', { class: 'detektiv__marke' }, 'Im Text stand:'),
       h('p', { class: 'detektiv__falschwort' }, wort.text),
+      warRichtig ? h('p', { class: 'detektiv__warrichtig' },
+        'Dieses Wort hattest du markiert. Ist es wirklich falsch geschrieben?') : null,
       h('label', { class: 'detektiv__marke' }, 'Schreibe das Wort richtig:'),
       h('div', { class: 'detektiv__eingabezeile' }, feld, pruefen),
       rueckmeldung,

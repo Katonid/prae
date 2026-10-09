@@ -8,10 +8,12 @@
 // EINSTELLUNGEN
 // ======================================================
 export const CONFIG = {
-  // Welche Fehler in Stufe 2 („Verbessern") drankommen:
-  //   "all"   = alle 40 Fehler des Textes, auch die übersehenen
-  //   "found" = nur die Fehler, die das Kind in Stufe 1 gefunden hat
-  correctionMode: 'all',
+  // Welche Wörter in Stufe 2 („Verbessern") drankommen:
+  //   "mistakes" = nur, was danebenging: übersehene Fehler und richtige
+  //                Wörter, die das Kind versehentlich markiert hat
+  //   "all"      = alle 40 Fehler des Textes, auch die gefundenen
+  //   "found"    = nur die Fehler, die das Kind in Stufe 1 gefunden hat
+  correctionMode: 'mistakes',
 
   // Wie viele Strategiefragen Stufe 3 stellt (aus den S-Fehlern gelost).
   strategyQuestions: 10,

@@ -608,3 +608,12 @@
     `besitzer` und Löschen durch Fremde geschützt — vorher konnte jeder mit
     Code und (frei anlegbarem) Konto die Protokolle einer Klasse übernehmen.
     Einzelheiten und Emulator-Prüfung in `firebase-rules.md`.
+- **Stufe 2 verbessert nur, was danebenging** (ab 1.11.1, Ansage des Nutzers
+  10/2026: „nur die Wörter, die das Kind falsch angetippt oder vergessen
+  hat"). `correctionMode: 'mistakes'` ist die Vorgabe: übersehene Fehler
+  (orange) UND versehentlich markierte richtige Wörter (rot), in
+  Textreihenfolge. Ein rotes Wort schreibt das Kind so, wie es im Text stand
+  („Dieses Wort hattest du markiert. Ist es wirklich falsch geschrieben?",
+  Tipp: „war schon richtig geschrieben"). Ist nichts danebengegangen, geht es
+  direkt zu Stufe 3. `'all'` und `'found'` gibt es weiter. Die Karte zählt
+  „Wort x von y", nicht „Fehler" — ein rotes Wort ist keiner.
