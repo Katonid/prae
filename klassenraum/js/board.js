@@ -85,9 +85,41 @@ export function setMode(value) {
   mode = next;
   document.body.classList.toggle('is-using', mode === 'use');
   if (mode === 'use') select(null);
+  // Mit dem Modus ändert sich die Bühnenhöhe (die Elementleiste kommt und
+  // geht) — ohne Neueinpassen behielt die Tafel Maßstab und Lage des alten
+  // Modus: Im Unterricht klebte sie oben, und der gewonnene Platz lag als
+  // totes blaues Band über der unteren Leiste (gemeldet 10/2026: „Ich
+  // möchte Elemente bis an den unteren schwarzen Rand ziehen können.").
+  updateScale();
   refreshAll();
   layout();
   applyBackground();
+  if (mode === 'use') formatHinweisPruefen();
+}
+
+/**
+ * Verschenkte Höhe ANSPRECHEN, statt sie stumm blau zu färben: Der
+ * Hintergrund füllt die ganze Bühne, die Tafel endet aber an ihrer
+ * Formatgrenze — ein 4:3-iPad mit einer 16:10-Tafel zeigt also Bänder,
+ * die wie Tafel aussehen und keine sind. Wer dort hinziehen will, stößt
+ * an eine unsichtbare Wand (gemeldet 10/2026). Lässt die eingepasste
+ * Tafel im Unterricht ein deutliches Band frei, nennt ein Hinweis EINMAL
+ * je Tafel den Weg: Aussehen → „Format der Tafelfläche". Der Merker ist
+ * örtlich (wie hiddenWidgets) — auf dem Beamer passt dasselbe Format ja.
+ */
+function formatHinweisPruefen() {
+  const board = getActiveBoard();
+  if (!board || !stageEl || stackMode || zoom !== 1) return;
+  if (board.format === '4:3') return;
+  const rect = stageEl.getBoundingClientRect();
+  const fit = Math.min(rect.width / BOARD_WIDTH, rect.height / boardHeight());
+  if (rect.height - boardHeight() * fit < 80) return;
+  const settings = getState().settings;
+  if (!settings.formatHinweis || typeof settings.formatHinweis !== 'object') settings.formatHinweis = {};
+  if (settings.formatHinweis[board.id]) return;
+  settings.formatHinweis[board.id] = true;
+  touch({ board: false, reason: 'format-hinweis' });
+  toast('Über und unter der Tafel bleibt Platz frei. „Aussehen“ → „Format der Tafelfläche“ → „4:3 (iPad)“ füllt die volle Höhe.', 'info');
 }
 
 export function isStackMode() {
