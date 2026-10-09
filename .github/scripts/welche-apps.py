@@ -56,6 +56,7 @@ APPS = [
     ("FernwehiOS", "Fernweh"),
     ("FlightMateiOS", "FlightMate"),
     ("HimmelskompassiOS", "Himmelskompass"),
+    ("KalenderstudioiOS", "Kalenderstudio"),
     ("KartenwalletiOS", "Kartenwallet"),
     ("PhotoSpotRadariOS", "PhotoSpotRadar"),
     ("ReisekasseiOS", "Reisekasse"),
