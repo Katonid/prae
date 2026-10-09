@@ -1,10 +1,17 @@
 // Fehlerdetektive — die Rechtschreibwerkstatt in drei Stufen.
 //
-//   1  Fehler finden    Jedes Wort ist antippbar. Wie viele Fehler im Text
-//                       stecken, erfährt das Kind ERST nach dem endgültigen
-//                       Auswerten (Vorgabe des Nutzers, 10/2026). Danach:
-//                       gefunden grün, übersehen orange, falsch markiert
-//                       rot — aber noch KEINE richtige Schreibweise.
+//   1  Fehler finden    Jedes Wort ist antippbar. Weiter geht es erst, wenn
+//                       ALLE Fehler angetippt sind und kein richtiges Wort
+//                       (ab 1.11.3, Ansage des Nutzers 10/2026: „die sollen
+//                       mit kleinen Tipps und Hinweisen dazu geführt werden,
+//                       alle Wörter richtig anzutippen"). Jedes „Prüfen" gibt
+//                       einen Hinweis mehr — nie das Wort selbst, außer als
+//                       letzte Stufe einen Rahmen, antippen muss das Kind:
+//                         1 wie viele fehlen (gefunden grün, falsch rot)
+//                         2 davon Nomen / andere
+//                         3 Bänder über die Zeilen mit fehlenden Fehlern
+//                         4 ein gestrichelter Rahmen um das fehlende Wort
+//                       Keine richtige Schreibweise in dieser Stufe.
 //   2  Verbessern       Einzeln nacheinander selbst richtig schreiben —
 //                       von Haus aus nur, was danebenging: übersehene
 //                       Fehler und versehentlich markierte richtige Wörter
@@ -27,12 +34,17 @@
 // für genau diese Übung vom Nutzer vorgegeben. Jede Farbe trägt zusätzlich
 // eine eigene Linienart (unterstrichen, durchgestrichen, umrandet).
 //
+// Der Durchgang überlebt ein Neuladen (ab 1.11.2): Nach jedem Schritt geht
+// er als einfaches Objekt an `merken`, und `gemerkt` setzt ihn beim Öffnen
+// wieder ein — an der Stelle, an der das Kind war. Gemerkt werden nur
+// Wortnummern, keine Wörter; passt der Text nicht mehr dazu (`kennung`),
+// wird neu angefangen statt halb falsch fortgesetzt.
+//
 // Nach jedem abgeschlossenen Schritt geht der Stand an `beiErgebnis` — immer
 // unter demselben Schlüssel (Beginn), damit die Lehrkraft auch einen nicht
 // ganz beendeten Durchgang sieht. Ob und wohin, entscheidet der Aufrufer.
 
 import { h, leeren, gemischt } from './util.js';
-import { frage } from './ui.js';
 import { CONFIG, FEHLERTEXTE, uebungsnummer } from './fehlertexte.js';
 
 /* ---------- Strategien ---------- */
@@ -238,16 +250,109 @@ function schreibfeld() {
  * `hinweis`  — ein Knoten über dem Text (ob das Ergebnis gemeldet wird)
  * `zurueck`  — zur Auswahl der Übungen
  * `beiErgebnis(stand)` — nach jedem abgeschlossenen Schritt
+ * `gemerkt` / `merken(stand|null)` — der Durchgang auf dem Gerät (Neuladen)
  *
  * Gibt eine Funktion zum Aufräumen zurück.
  */
-export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiErgebnis }) {
+export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiErgebnis, gemerkt = null, merken = null }) {
   const zerlegung = textZerlegen(text);
   const { absaetze, woerter, fehler: alleFehler } = zerlegung;
   const fehlerzahl = alleFehler.length;
   const nummer = uebungsnummer(text);
+  // Passt ein gemerkter Durchgang noch zu diesem Text? Wortzahl und die
+  // Stellen der Fehler müssen gleich sein.
+  const kennung = `${woerter.length}:${alleFehler.map((f) => f.i).join(',')}`;
 
   let lauf = null; // der aktuelle Durchgang, siehe `neuerLauf`
+
+  /** Den Durchgang aufs Gerät — nach jedem Schritt. */
+  function speichern() {
+    if (!merken || !lauf) return;
+    merken({
+      v: 2,
+      kennung,
+      beginn: lauf.beginn,
+      markiert: lauf.markiert.reduce((liste, an, i) => (an ? liste.concat(i) : liste), []),
+      auswertung: lauf.auswertung,
+      tipp: lauf.tipp,
+      pruefungen: lauf.pruefungen,
+      ersteFehlend: Array.from(lauf.ersteFehlend),
+      jemalsFalsch: Array.from(lauf.jemalsFalsch),
+      alleGefunden: lauf.alleGefunden,
+      verbessern: lauf.verbessern && {
+        stelle: lauf.verbessern.stelle,
+        liste: lauf.verbessern.liste.map((e) => ({
+          i: e.wort.i, versuche: e.versuche, eingaben: e.eingaben, loesung: e.loesung, fertig: e.fertig,
+        })),
+      },
+      strategien: lauf.strategien && {
+        stelle: lauf.strategien.stelle,
+        liste: lauf.strategien.liste.map((e) => ({ i: e.wort.i, gewaehlt: e.gewaehlt, fertig: e.fertig })),
+      },
+      fertig: lauf.fertig,
+    });
+  }
+
+  /** Einen gemerkten Durchgang einlesen — oder null, wenn er nicht passt. */
+  function wiederherstellen(stand) {
+    try {
+      // v1 (1.11.2) kannte die Tipps nicht — dann lieber neu anfangen
+      if (!stand || stand.v !== 2 || stand.kennung !== kennung) return null;
+      const wortZu = (i) => {
+        const wort = woerter[i];
+        if (!wort) throw new Error('Wort fehlt');
+        return wort;
+      };
+      const markiert = woerter.map(() => false);
+      for (const i of stand.markiert || []) wortZu(i) && (markiert[i] = true);
+      return {
+        beginn: Number(stand.beginn) || Date.now(),
+        markiert,
+        auswertung: stand.auswertung || null,
+        tipp: Number(stand.tipp) || 0,
+        pruefungen: Array.isArray(stand.pruefungen) ? stand.pruefungen : [],
+        ersteFehlend: new Set((stand.ersteFehlend || []).filter((i) => wortZu(i))),
+        jemalsFalsch: new Set((stand.jemalsFalsch || []).filter((i) => wortZu(i))),
+        alleGefunden: stand.alleGefunden || null,
+        verbessern: stand.verbessern ? {
+          stelle: Number(stand.verbessern.stelle) || 0,
+          liste: stand.verbessern.liste.map((e) => ({
+            wort: wortZu(e.i), versuche: e.versuche || 0, eingaben: e.eingaben || [], loesung: !!e.loesung, fertig: !!e.fertig,
+          })),
+        } : null,
+        strategien: stand.strategien ? {
+          stelle: Number(stand.strategien.stelle) || 0,
+          liste: stand.strategien.liste.map((e) => ({ wort: wortZu(e.i), gewaehlt: e.gewaehlt || [], fertig: !!e.fertig })),
+        } : null,
+        fertig: stand.fertig || null,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** Dort weitermachen, wo der gemerkte Durchgang stand. */
+  function fortsetzen() {
+    if (lauf.fertig) { abschlussZeigen(true); return; }
+    if (lauf.strategien) {
+      const s = lauf.strategien;
+      // Eine schon beantwortete Frage nicht noch einmal stellen
+      while (s.stelle < s.liste.length && s.liste[s.stelle].fertig) s.stelle += 1;
+      if (s.stelle >= s.liste.length) { abschlussZeigen(); return; }
+      stufeZeigen(3);
+      strategieZeigen(s.stelle === 0);
+      return;
+    }
+    if (lauf.verbessern) {
+      const v = lauf.verbessern;
+      while (v.stelle < v.liste.length && v.liste[v.stelle].fertig) v.stelle += 1;
+      if (v.stelle >= v.liste.length) { strategienStarten(); return; }
+      stufeZeigen(2);
+      verbessernZeigen();
+      return;
+    }
+    findenZeigen();
+  }
 
   const fortschritt = h('ol', { class: 'detektiv__stufen', 'aria-label': 'Stufen' },
     ...['Fehler finden', 'Verbessern', 'Strategien'].map((name, i) => h('li', { class: 'detektiv__stufe' },
@@ -268,6 +373,7 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
   }
 
   function melden() {
+    speichern();
     if (!beiErgebnis || !lauf.auswertung) return;
     const a = lauf.auswertung;
     const stand = {
@@ -287,6 +393,10 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
       // schickt sonst 300 Wörter mit.
       ue: a.ueListe,
       fa: a.faListe.slice(0, 40),
+      // Wie das Kind mit den Hinweisen zu allen Fehlern kam (ab 1.11.3)
+      verlauf: lauf.pruefungen.slice(),
+      pruef: lauf.pruefungen.length,
+      alleGefunden: lauf.alleGefunden ? sekunden(lauf.beginn, lauf.alleGefunden) : null,
     };
     if (lauf.verbessern) {
       const v = lauf.verbessern;
@@ -321,17 +431,9 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     beiErgebnis(stand);
   }
 
-  async function verlassen() {
-    // Mitten in der Arbeit nicht aus Versehen alles wegwerfen
-    const mittendrin = lauf && !lauf.fertig && (lauf.auswertung || lauf.markiert.some(Boolean));
-    if (mittendrin) {
-      const ja = await frage({
-        titel: 'Übung verlassen?',
-        text: 'Was du in dieser Übung schon gemacht hast, geht dabei verloren.',
-        ja: 'Verlassen', nein: 'Weiterarbeiten',
-      });
-      if (!ja) return;
-    }
+  function verlassen() {
+    // Seit 1.11.2 bleibt der Durchgang auf dem Gerät — Verlassen kostet
+    // nichts mehr, eine Rückfrage wäre nur noch im Weg.
     zurueck();
   }
 
@@ -339,15 +441,33 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     lauf = {
       beginn: Date.now(),
       markiert: woerter.map(() => false),
-      auswertung: null,
+      auswertung: null,    // die Zahlen des ERSTEN Prüfens
+      tipp: 0,             // wie viele Hinweise schon gegeben wurden (0–4)
+      pruefungen: [],      // je Prüfen { stufe, g, f, d }
+      ersteFehlend: new Set(),
+      jemalsFalsch: new Set(),
+      alleGefunden: null,  // Zeitpunkt, an dem alles stimmte
       verbessern: null,
       strategien: null,
       fertig: null,
     };
+    speichern();
     findenZeigen();
   }
 
   /* ---------- Stufe 1: Fehler finden ---------- */
+
+  function bewerten() {
+    const z = { gefunden: 0, gefundenN: 0, gefundenS: 0, fehlend: [], falsch: [], fehltN: 0, fehltS: 0 };
+    woerter.forEach((wort, i) => {
+      if (wort.typ && lauf.markiert[i]) { z.gefunden += 1; z[`gefunden${wort.typ}`] += 1; }
+      else if (wort.typ) { z.fehlend.push(i); z[`fehlt${wort.typ}`] += 1; }
+      else if (lauf.markiert[i]) z.falsch.push(i);
+    });
+    return z;
+  }
+
+  let baenderZeichnen = () => {};
 
   function findenZeigen() {
     stufeZeigen(1);
@@ -355,8 +475,12 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     const zaehler = h('strong', {}, anzahlWoerter(0));
     const ergebnisplatz = h('section', { class: 'detektiv__ergebnis', hidden: true, tabindex: '-1', 'aria-live': 'polite' });
     const textplatz = h('div', { class: 'detektiv__text' });
-    const knopfFertig = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button' }, 'Ich bin fertig – auswerten');
-    const knopfWeiter = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', hidden: true }, 'Weiter: Fehler verbessern');
+    const baender = h('div', { class: 'detektiv__baender', 'aria-hidden': 'true' });
+    const karte = h('div', { class: 'detektiv__karte' },
+      h('h2', { class: 'detektiv__titel' }, `Übung ${nummer}: ${text.title}`),
+      baender, textplatz);
+    const knopfPruefen = h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button' }, 'Ich bin fertig – prüfen');
+    const naechstes = h('p', { class: 'detektiv__naechstes', hidden: true });
 
     for (const teile of absaetze) {
       const p = h('p', {});
@@ -372,11 +496,17 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     const zaehlerZeigen = () => { zaehler.textContent = anzahlWoerter(lauf.markiert.filter(Boolean).length); };
 
     function umschalten(i) {
-      if (lauf.auswertung) return; // Nach dem Auswerten ist die Auswahl fest.
+      if (lauf.alleGefunden) return; // Alles gefunden — jetzt ist die Auswahl fest.
       lauf.markiert[i] = !lauf.markiert[i];
+      // Grün/Rot vom letzten Prüfen gilt nach einer Änderung nicht mehr;
+      // der Rahmen der letzten Hinweisstufe bleibt, bis das Wort markiert ist.
+      spans[i].classList.remove('is-gefunden', 'is-falsch');
+      spans[i].removeAttribute('aria-label');
       spans[i].classList.toggle('is-markiert', lauf.markiert[i]);
+      spans[i].classList.toggle('is-hier', !lauf.markiert[i] && lauf.tipp >= 4 && !!woerter[i].typ);
       spans[i].setAttribute('aria-pressed', lauf.markiert[i] ? 'true' : 'false');
       zaehlerZeigen();
+      speichern();
     }
     textplatz.addEventListener('click', (ereignis) => {
       const span = ereignis.target.closest('.detektiv__wort');
@@ -390,66 +520,137 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
       umschalten(Number(span.dataset.i));
     });
 
-    knopfFertig.addEventListener('click', async () => {
-      if (CONFIG.confirmBeforeEvaluation !== false) {
-        const ja = await frage({
-          titel: 'Bist du sicher?',
-          text: 'Danach kannst du deine Auswahl nicht mehr verändern.',
-          ja: 'Jetzt auswerten',
-          nein: 'Weiter suchen',
-        });
-        if (!ja) return;
+    /*
+     * Die Zeilen, in denen noch ein Fehler steckt — so, wie sie auf DIESEM
+     * Bildschirm umbrechen (hoch und quer verschieden), deshalb bei jeder
+     * Größenänderung neu. Ein Band geht über die ganze Breite, sonst
+     * verriete es das Wort.
+     */
+    baenderZeichnen = () => {
+      leeren(baender);
+      if (lauf.alleGefunden || lauf.tipp !== 3 || !karte.isConnected) return;
+      const fehlend = woerter.filter((w) => w.typ && !lauf.markiert[w.i]);
+      const k = karte.getBoundingClientRect();
+      const t = textplatz.getBoundingClientRect();
+      const mitten = [];
+      for (const wort of fehlend) {
+        for (const r of spans[wort.i].getClientRects()) {
+          const m = (r.top + r.bottom) / 2;
+          if (mitten.some((x) => Math.abs(x - m) <= 4)) continue;
+          mitten.push(m);
+          baender.appendChild(h('div', {
+            class: 'detektiv__band',
+            style: { top: `${r.top - k.top - 2}px`, height: `${r.height + 4}px`, left: `${t.left - k.left - 10}px`, width: `${t.width + 20}px` },
+          }));
+        }
       }
-      auswerten();
-    });
-    knopfWeiter.addEventListener('click', () => verbessernStarten());
+    };
 
-    function auswerten() {
-      const a = { ende: Date.now(), gefunden: 0, gefundenN: 0, gefundenS: 0, uebersehen: 0, falsch: 0, ueListe: [], faListe: [] };
+    /** Was das letzte Prüfen ergab — Farben, Hinweise, Knöpfe. */
+    function standZeigen(z, neu) {
       woerter.forEach((wort, i) => {
         const span = spans[i];
-        span.classList.remove('is-markiert');
-        span.removeAttribute('aria-pressed');
-        let art = null;
-        if (wort.typ && lauf.markiert[i]) {
-          art = 'gefunden'; a.gefunden += 1; a[`gefunden${wort.typ}`] += 1;
-        } else if (wort.typ) {
-          art = 'uebersehen'; a.uebersehen += 1;
-          a.ueListe.push({ w: wort.text, r: wort.richtig, t: wort.typ });
-        } else if (lauf.markiert[i]) {
-          art = 'falsch'; a.falsch += 1; a.faListe.push(wort.text);
-        }
-        if (art) {
-          // Nur WAS es war — die richtige Schreibweise kommt erst in Stufe 2.
-          span.classList.add(`is-${art}`);
-          span.setAttribute('aria-label', `${wort.text} – ${{ gefunden: 'Fehler gefunden', uebersehen: 'Fehler übersehen', falsch: 'war richtig geschrieben' }[art]}`);
-        } else {
-          span.removeAttribute('role');
-          span.setAttribute('tabindex', '-1');
+        span.classList.remove('is-markiert', 'is-gefunden', 'is-falsch', 'is-hier');
+        span.removeAttribute('aria-label');
+        if (lauf.markiert[i]) {
+          span.classList.add(wort.typ ? 'is-gefunden' : 'is-falsch');
+          span.setAttribute('aria-label', `${wort.text} – ${wort.typ ? 'Fehler gefunden' : 'war richtig geschrieben'}`);
+        } else if (wort.typ && lauf.tipp >= 4 && !lauf.alleGefunden) {
+          span.classList.add('is-hier');
         }
       });
-      lauf.auswertung = a;
-      seite.classList.add('is-ausgewertet');
-
       leeren(ergebnisplatz);
-      ergebnisplatz.append(
-        h('p', { class: 'detektiv__haupt' }, `Du hast ${a.gefunden} von ${fehlerzahl} Fehlern gefunden.`),
-        h('p', {}, a.uebersehen === 1 ? '1 Fehler hast du übersehen.' : `${a.uebersehen} Fehler hast du übersehen.`),
-        h('p', {}, a.falsch === 1
-          ? '1 richtiges Wort hast du versehentlich markiert.'
-          : `${a.falsch} richtige Wörter hast du versehentlich markiert.`),
-        h('ul', { class: 'detektiv__legende' },
-          ...[['gefunden', 'gefunden'], ['uebersehen', 'übersehen'], ['falsch', 'war richtig']].map(([art, wort]) => h('li', {},
-            h('span', { class: `detektiv__probe is-${art}`, 'aria-hidden': 'true' }), wort))),
-        h('p', { class: 'detektiv__tipp' }, 'Wie man die Wörter richtig schreibt, findest du jetzt selbst heraus.'),
-        h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', onclick: () => verbessernStarten() }, 'Weiter: Fehler verbessern'));
+      const zeile = (inhalt, klasse = '') => h('p', { class: klasse }, inhalt);
+      const fehlt = z.fehlend.length;
+      const falsch = z.falsch.length;
+
+      if (lauf.alleGefunden) {
+        ergebnisplatz.append(
+          zeile(`Super! Du hast alle ${fehlerzahl} Fehler gefunden! 🎉`, 'detektiv__haupt'),
+          zeile(lauf.pruefungen.length === 1
+            ? 'Und das gleich beim ersten Prüfen — ohne einen einzigen Tipp!'
+            : `Du hast ${lauf.pruefungen.length}-mal geprüft.`),
+          zeile('Wie man die Wörter richtig schreibt, übst du jetzt.', 'detektiv__tipp'),
+          h('button', { class: 'knopf knopf--voll detektiv__knopf', type: 'button', onclick: () => verbessernStarten() }, 'Weiter: Fehler verbessern'));
+        knopfPruefen.hidden = true;
+        naechstes.hidden = true;
+        textplatz.querySelectorAll('.detektiv__wort').forEach((span) => {
+          if (!span.classList.contains('is-gefunden')) { span.removeAttribute('role'); span.setAttribute('tabindex', '-1'); }
+        });
+        seite.classList.add('is-ausgewertet');
+      } else {
+        seite.classList.remove('is-ausgewertet');
+        ergebnisplatz.append(zeile(fehlt
+          ? `Du hast schon ${z.gefunden} Fehler gefunden. ${fehlt === 1 ? '1 Fehler fehlt' : `${fehlt} Fehler fehlen`} noch.`
+          : `Du hast alle ${fehlerzahl} Fehler gefunden!`, 'detektiv__haupt'));
+        if (fehlt && lauf.tipp >= 2) {
+          ergebnisplatz.append(zeile(
+            `Davon ${z.fehltN === 1 ? 'ist 1 ein kleingeschriebenes Nomen' : `sind ${z.fehltN} kleingeschriebene Nomen`}`
+            + ` und ${z.fehltS === 1 ? '1 ein anderer Fehler' : `${z.fehltS} andere Fehler`}.`, 'detektiv__tipp-zeile'));
+        }
+        if (fehlt && lauf.tipp >= 3 && lauf.tipp < 4) {
+          ergebnisplatz.append(zeile('In den gelb hinterlegten Zeilen steckt noch mindestens ein Fehler.', 'detektiv__tipp-zeile'));
+        }
+        if (fehlt && lauf.tipp >= 4) {
+          ergebnisplatz.append(zeile('Die gestrichelt umrandeten Wörter sind falsch geschrieben. Tippe sie an!', 'detektiv__tipp-zeile'));
+        }
+        if (falsch) {
+          ergebnisplatz.append(zeile(falsch === 1
+            ? '1 richtiges Wort hast du markiert (rot). Tippe es an, um die Markierung zu entfernen.'
+            : `${falsch} richtige Wörter hast du markiert (rot). Tippe sie an, um die Markierung zu entfernen.`,
+          'detektiv__tipp-zeile'));
+        }
+        ergebnisplatz.append(
+          h('ul', { class: 'detektiv__legende' },
+            ...[['gefunden', 'gefunden'], ['falsch', 'war richtig']].map(([art, wort]) => h('li', {},
+              h('span', { class: `detektiv__probe is-${art}`, 'aria-hidden': 'true' }), wort))),
+          zeile('Such weiter! Wenn du meinst, dass du alles hast, prüfe noch einmal.', 'detektiv__tipp'));
+        knopfPruefen.textContent = 'Noch einmal prüfen';
+        knopfPruefen.hidden = false;
+        naechstes.textContent = fehlt ? [
+          '',
+          'Beim nächsten Prüfen erfährst du, wie viele davon kleingeschriebene Nomen sind und wie viele andere Fehler.',
+          'Beim nächsten Prüfen siehst du, in welchen Zeilen noch Fehler stecken.',
+          'Beim nächsten Prüfen werden die fehlenden Wörter umrandet.',
+          '',
+        ][Math.min(lauf.tipp, 4)] : '';
+        naechstes.hidden = !naechstes.textContent;
+      }
       ergebnisplatz.hidden = false;
-      knopfFertig.hidden = true;
-      knopfWeiter.hidden = false;
-      ergebnisplatz.scrollIntoView({ block: 'start' });
-      ergebnisplatz.focus({ preventScroll: true });
+      baenderZeichnen();
+      if (neu) {
+        ergebnisplatz.scrollIntoView({ block: 'start' });
+        ergebnisplatz.focus({ preventScroll: true });
+      }
+    }
+
+    function pruefen() {
+      const jetzt = Date.now();
+      const z = bewerten();
+      const erstes = !lauf.auswertung;
+      if (erstes) {
+        // Die Zahlen des ERSTEN Prüfens: Das sah das Kind ohne Hilfe. Sie
+        // gehen an die Lehrkraft und entscheiden, was in Stufe 2 drankommt.
+        lauf.auswertung = {
+          ende: jetzt,
+          gefunden: z.gefunden, gefundenN: z.gefundenN, gefundenS: z.gefundenS,
+          uebersehen: z.fehlend.length, falsch: z.falsch.length,
+          ueListe: z.fehlend.map((i) => ({ w: woerter[i].text, r: woerter[i].richtig, t: woerter[i].typ })),
+          faListe: z.falsch.map((i) => woerter[i].text),
+        };
+        lauf.ersteFehlend = new Set(z.fehlend);
+      }
+      for (const i of z.falsch) lauf.jemalsFalsch.add(i);
+      lauf.pruefungen.push({ stufe: lauf.tipp + 1, g: z.gefunden, f: z.falsch.length, d: sekunden(lauf.beginn, jetzt) });
+      if (!z.fehlend.length && !z.falsch.length) {
+        lauf.alleGefunden = jetzt;
+      } else if (z.fehlend.length) {
+        lauf.tipp = Math.min(4, lauf.tipp + 1);
+      }
+      standZeigen(z, true);
       melden();
     }
+    knopfPruefen.addEventListener('click', pruefen);
 
     leeren(buehne).append(
       h('div', { class: 'seite__kopf' },
@@ -461,12 +662,28 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
         hinweis,
         ergebnisplatz),
       h('p', { class: 'detektiv__zaehler', 'aria-live': 'polite' }, 'Markiert: ', zaehler),
-      h('div', { class: 'detektiv__karte' },
-        h('h2', { class: 'detektiv__titel' }, `Übung ${nummer}: ${text.title}`),
-        textplatz),
-      h('div', { class: 'detektiv__knoepfe' }, knopfFertig, knopfWeiter));
+      karte,
+      h('div', { class: 'detektiv__knoepfe' }, knopfPruefen),
+      naechstes);
     seite.classList.remove('is-ausgewertet');
     window.scrollTo(0, 0);
+
+    // Ein gemerkter Durchgang: Markierungen wieder setzen und, wenn schon
+    // geprüft wurde, den Stand des letzten Prüfens zeigen (ohne neu zu prüfen).
+    lauf.markiert.forEach((an, i) => {
+      if (!an) return;
+      spans[i].classList.add('is-markiert');
+      spans[i].setAttribute('aria-pressed', 'true');
+    });
+    zaehlerZeigen();
+    if (lauf.pruefungen.length) {
+      standZeigen(bewerten(), false);
+      // Gleich nach dem Neuladen stehen Schrift und Umbruch noch nicht fest —
+      // die Bänder würden an der falschen Stelle gezeichnet. Also noch einmal,
+      // wenn die Seite steht und die Schriften geladen sind.
+      requestAnimationFrame(() => baenderZeichnen());
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => baenderZeichnen()).catch(() => {});
+    }
   }
 
   /* ---------- Stufe 2: Verbessern ---------- */
@@ -478,16 +695,21 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     //   'all'                — alle Fehler des Textes
     //   'found'              — nur die gefundenen Fehler
     const modus = CONFIG.correctionMode || 'mistakes';
+    // Seit 1.11.3 sind am Ende von Stufe 1 immer ALLE Fehler markiert —
+    // „danebengegangen" heißt deshalb: beim ERSTEN Prüfen übersehen, oder
+    // irgendwann als richtiges Wort markiert (rot).
     const welche = modus === 'all'
       ? alleFehler
       : (modus === 'found'
-        ? alleFehler.filter((f) => lauf.markiert[f.i])
-        : woerter.filter((w) => (w.typ ? !lauf.markiert[w.i] : lauf.markiert[w.i])));
+        ? alleFehler.filter((f) => !lauf.ersteFehlend.has(f.i))
+        : woerter.filter((w) => (w.typ ? lauf.ersteFehlend.has(w.i) : lauf.jemalsFalsch.has(w.i))));
     lauf.verbessern = {
       liste: welche.map((wort) => ({ wort, versuche: 0, eingaben: [], loesung: false, fertig: false })),
       stelle: 0,
     };
+    speichern();
     if (!welche.length) { strategienStarten(); return; }
+    baenderZeichnen = () => {};
     seite.classList.remove('is-ausgewertet');
     stufeZeigen(2);
     verbessernZeigen();
@@ -555,6 +777,7 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
       const eingabe = feld.value;
       if (!eingabe.trim()) { feld.focus(); return; }
       eintrag.versuche += 1;
+      speichern();
       if (gleich(eingabe, wort.richtig)) {
         rueckmeldung.className = 'detektiv__rueckmeldung is-richtig';
         rueckmeldung.textContent = 'Richtig! ✓';
@@ -586,6 +809,7 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     weiter.addEventListener('click', () => {
       if (v.stelle + 1 < v.liste.length) {
         v.stelle += 1;
+        speichern();
         verbessernZeigen();
       } else {
         strategienStarten();
@@ -601,11 +825,16 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     // Die Karte rutscht nach oben, damit die Tastatur nichts verdeckt.
     feld.focus({ preventScroll: true });
     requestAnimationFrame(() => karte.scrollIntoView({ block: 'start' }));
+
+    // Nach dem Neuladen: Was bei diesem Wort schon war, gilt weiter.
+    if (eintrag.versuche >= 2) tipp.hidden = false;
+    if (eintrag.versuche >= 3) loesungKnopf.hidden = false;
   }
 
   /* ---------- Stufe 3: Strategien ---------- */
 
   function strategienStarten() {
+    baenderZeichnen = () => {};
     const sFehler = alleFehler.filter((f) => f.typ === 'S' && STRATEGIEN[f.strategie]);
     const zahl = Math.max(0, Math.min(Number(CONFIG.strategyQuestions) || 0, sFehler.length));
     // Bei jedem Durchgang neu gemischt
@@ -613,6 +842,7 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
       liste: gemischt(sFehler).slice(0, zahl).map((wort) => ({ wort, gewaehlt: [], fertig: false })),
       stelle: 0,
     };
+    speichern();
     if (!zahl) { abschlussZeigen(); return; }
     stufeZeigen(3);
     strategieZeigen(true);
@@ -655,6 +885,7 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
       }
       knopf.classList.add('is-daneben');
       knopf.disabled = true;
+      speichern();
       if (eintrag.gewaehlt.length === 1) {
         rueckmeldung.className = 'detektiv__rueckmeldung is-falsch';
         rueckmeldung.textContent = 'Noch nicht. Versuche es noch einmal.';
@@ -663,7 +894,7 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
       beenden(`Hier hilft „${STRATEGIEN[wort.strategie].knopf}“. ${STRATEGIEN[wort.strategie].erklaerung(wort.richtig)}`, 'loesung');
     });
     weiter.addEventListener('click', () => {
-      if (s.stelle + 1 < s.liste.length) { s.stelle += 1; strategieZeigen(false); } else abschlussZeigen();
+      if (s.stelle + 1 < s.liste.length) { s.stelle += 1; speichern(); strategieZeigen(false); } else abschlussZeigen();
     });
 
     leeren(buehne).append(
@@ -683,14 +914,26 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
         rueckmeldung,
         h('div', { class: 'detektiv__knoepfe detektiv__knoepfe--links' }, weiter)));
     window.scrollTo(0, 0);
+
+    // Nach dem Neuladen: ein schon versuchter Fehlgriff bleibt rot
+    for (const name of eintrag.gewaehlt) {
+      const knopf = knoepfe.find((k) => k.dataset.strategie === name);
+      if (knopf) { knopf.classList.add('is-daneben'); knopf.disabled = true; }
+    }
+    if (eintrag.gewaehlt.length === 1) {
+      rueckmeldung.className = 'detektiv__rueckmeldung is-falsch';
+      rueckmeldung.textContent = 'Noch nicht. Versuche es noch einmal.';
+    }
   }
 
   /* ---------- Abschluss ---------- */
 
-  function abschlussZeigen() {
-    lauf.fertig = Date.now();
+  function abschlussZeigen(wiederhergestellt = false) {
     stufeZeigen(4);
-    melden();
+    if (!wiederhergestellt) {
+      lauf.fertig = Date.now();
+      melden();
+    }
     const a = lauf.auswertung;
     const v = lauf.verbessern ? lauf.verbessern.liste : [];
     const selbst = v.filter((e) => !e.loesung && e.versuche <= 2).length;
@@ -728,8 +971,9 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
         h('p', { class: 'detektiv__auftrag' }, `Übung ${nummer}: ${text.title}`)),
       h('div', { class: 'detektiv__bereiche' },
         block('🔍 Fehlerdetektiv',
-          `${a.gefunden} von ${fehlerzahl} Fehlern gefunden`,
-          a.falsch === 1 ? '1 richtiges Wort versehentlich markiert' : `${a.falsch} richtige Wörter versehentlich markiert`),
+          `${a.gefunden} von ${fehlerzahl} Fehlern beim ersten Prüfen gefunden`,
+          lauf.pruefungen.length > 1 ? `Alle ${fehlerzahl} gefunden nach ${lauf.pruefungen.length}-mal Prüfen` : `Alle ${fehlerzahl} gleich beim ersten Prüfen gefunden`,
+          lauf.jemalsFalsch.size === 1 ? '1 richtiges Wort versehentlich markiert' : `${lauf.jemalsFalsch.size} richtige Wörter versehentlich markiert`),
         v.length ? block('✏️ Verbesserungsprofi',
           `${anzahlWoerter(selbst)} selbstständig verbessert`,
           `${anzahlWoerter(hinweisZahl)} nach einem Hinweis verbessert`,
@@ -744,8 +988,18 @@ export function fehlersucheStarten({ platz, text, hinweis = null, zurueck, beiEr
     window.scrollTo(0, 0);
   }
 
-  leeren(platz).appendChild(seite);
-  neuerLauf();
+  // Drehen des iPads bricht die Zeilen neu um — die Bänder ziehen mit.
+  const beiGroesse = () => baenderZeichnen();
+  window.addEventListener('resize', beiGroesse);
 
-  return () => {};
+  leeren(platz).appendChild(seite);
+  const gefunden = wiederherstellen(gemerkt);
+  if (gefunden) {
+    lauf = gefunden;
+    fortsetzen();
+  } else {
+    neuerLauf();
+  }
+
+  return () => { window.removeEventListener('resize', beiGroesse); };
 }

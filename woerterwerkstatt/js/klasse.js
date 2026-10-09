@@ -656,8 +656,14 @@ function durchgaengeZu(kind, textId) {
 function ergebnisKurz(d) {
   const zuerst = `${d.gefunden}/${d.fehler} gefunden · ${d.falsch || 0} falsch markiert · ${dauerText(d.dauer)}`;
   // Ab 1.10.0: drei Stufen — Finden, Verbessern, Strategien
-  if (d.verb || d.strat) {
+  if (d.verb || d.strat || d.pruef) {
     const teile = [zuerst];
+    // Ab 1.11.3 muss das Kind alle Fehler finden, mit Hinweisen
+    if (d.pruef) {
+      teile.push(d.alleGefunden != null
+        ? (d.pruef === 1 ? 'alle auf Anhieb' : `alle nach ${d.pruef}× Prüfen`)
+        : `${d.pruef}× geprüft, noch nicht alle`);
+    }
     if (d.verb) {
       teile.push(`verbessert ${d.verb.selbst}${d.verb.hinweis ? ` + ${d.verb.hinweis} mit Tipp` : ''}`
         + `${d.verb.loesung ? `, ${d.verb.loesung}× Lösung` : ''}${d.verb.fertig < d.verb.n ? ` (${d.verb.fertig}/${d.verb.n})` : ''}`);
@@ -672,7 +678,7 @@ function ergebnisKurz(d) {
   return `${zuerst} → mit Tipps ${zuletzt.g}/${d.fehler}${d.loesung ? ', dann Lösung angesehen' : ''}`;
 }
 
-const STUFENWISSEN = ['', 'ohne Tipp', 'wusste, wie viele fehlen', 'wusste: Nomen oder andere', 'wusste die Zeilen'];
+const STUFENWISSEN = ['', 'ohne Tipp', 'wusste, wie viele fehlen', 'wusste: Nomen oder andere', 'wusste die Zeilen', 'Wörter waren umrandet'];
 
 /** Der beste Durchgang: mehr gefunden, dann weniger falsch, dann schneller. */
 function besterDurchgang(liste) {

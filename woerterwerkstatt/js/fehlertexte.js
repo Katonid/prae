@@ -18,8 +18,6 @@ export const CONFIG = {
   // Wie viele Strategiefragen Stufe 3 stellt (aus den S-Fehlern gelost).
   strategyQuestions: 10,
 
-  // Vor dem Auswerten nachfragen: „Bist du sicher? …"
-  confirmBeforeEvaluation: true,
 };
 
 // ======================================================

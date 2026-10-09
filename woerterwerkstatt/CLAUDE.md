@@ -617,3 +617,42 @@
   Tipp: „war schon richtig geschrieben"). Ist nichts danebengegangen, geht es
   direkt zu Stufe 3. `'all'` und `'found'` gibt es weiter. Die Karte zählt
   „Wort x von y", nicht „Fehler" — ein rotes Wort ist keiner.
+- **Ein Fehlerdetektive-Durchgang überlebt das Neuladen** (ab 1.11.2,
+  gemeldet 10/2026: „Wenn Kinder die Seite aktualisieren, landen sie wieder
+  beim unbearbeiteten Text"). Nach JEDEM Schritt (Antippen, Auswerten, jeder
+  Prüfversuch, jedes Weiter, jede Strategiewahl) geht der Stand über
+  `merken` nach `store.fehlersucheStaende["<KLASSE>/<kind>|<textId>"]`
+  (`geraet|…` ohne Anmeldung) — je Kind, damit sich zwei Kinder an einem
+  iPad nicht in die Quere kommen; höchstens 30. Gemerkt werden Wortnummern;
+  `kennung` (Wortzahl + Fehlerstellen) verwirft einen Stand, der nicht mehr
+  zum Text passt. `fortsetzen()` springt über schon Erledigtes; ein fertiger
+  Durchgang zeigt den Abschluss, bis „Text noch einmal bearbeiten". Er
+  bleibt auf dem Gerät und reist NICHT in die Wolke (wie `store.laeufe`).
+  „‹ Zur Auswahl" fragt deshalb nicht mehr nach; die Startseite zeigt
+  „▸ angefangen".
+  - **Der Speicher gewinnt nach Zeit, nicht nach Art** (`gesichertAm`).
+    Gesichert wird 400 ms gebündelt; bei `pagehide`/`visibilitychange`
+    sofort. Dann ist localStorage aktuell, die IndexedDB aber womöglich
+    noch nicht — bis 1.11.1 gewann beim Laden IMMER die IndexedDB, und ein
+    Neuladen gleich nach dem Antippen verlor den letzten Schritt.
+- **Stufe 1: erst ALLE Fehler finden — mit Hinweisen** (ab 1.11.3, Ansage
+  des Nutzers 10/2026: „Wenn ein Kind kontrolliert, bekommt es direkt
+  angezeigt, welche Wörter fehlen. Das war nicht der Sinn der Sache"). Das
+  endgültige Auswerten mit Orange und die Rückfrage („Bist du sicher?",
+  `confirmBeforeEvaluation`) sind WEG. Stattdessen „Ich bin fertig –
+  prüfen", beliebig oft; jedes Prüfen mit Fehlenden gibt einen Hinweis mehr
+  (`lauf.tipp`): 1 Anzahl, 2 Nomen/andere, 3 Zeilenbänder, 4 gestrichelter
+  Rahmen um die fehlenden Wörter (antippen muss das Kind selbst). Grün und
+  Rot gibt es ab dem ersten Prüfen; rote Wörter wählt das Kind ab. Weiter
+  zu Stufe 2 erst, wenn alle Fehler markiert sind und kein richtiges Wort.
+  - Das ERSTE Prüfen bleibt der Maßstab (`auswertung`, an die Lehrkraft,
+    Abschluss „… beim ersten Prüfen gefunden"). Stufe 2 („mistakes") nimmt,
+    was beim ersten Prüfen fehlte (`ersteFehlend`) oder je rot war
+    (`jemalsFalsch`) — am Ende von Stufe 1 ist ja alles markiert.
+  - Gemeldet: `pruef` (Anzahl Prüfen), `verlauf` (je Prüfen Hinweisstufe,
+    gefunden, falsch, Zeit), `alleGefunden`. Klassenansicht: „alle nach 6×
+    Prüfen". Gemerkter Stand jetzt `v: 2`; ein Stand aus 1.11.2 (v1) wird
+    verworfen.
+  - Bänder nach dem Neuladen erst zeichnen, wenn Umbruch und Schriften
+    stehen (`requestAnimationFrame` + `document.fonts.ready`) — sonst
+    liegen sie neben den Zeilen.
