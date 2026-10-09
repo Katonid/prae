@@ -1638,6 +1638,8 @@ body.is-uebend .kopf { opacity: 0.55; }
   box-shadow: inset 0 0 0 2px var(--detektiv-uebersehen-linie);
   border-radius: 6px; padding: 0.05em 0.25em;
 }
+.detektiv__satzwort.is-warrichtig { background: var(--detektiv-falsch); box-shadow: inset 0 0 0 2px var(--detektiv-falsch-linie); }
+.detektiv__warrichtig { margin: -10px 0 18px; font-size: 16px; color: var(--tinte-zart); }
 .detektiv__marke { display: block; margin: 0 0 6px; font-size: 15px; font-weight: 700; color: var(--tinte-zart); }
 .detektiv__falschwort { margin: 0 0 18px; font-family: var(--schrift-lern); font-size: clamp(28px, 4vw, 34px); font-weight: 700; }
 .detektiv__eingabezeile { display: flex; gap: 10px; flex-wrap: wrap; }
