@@ -132,11 +132,13 @@ struct HomeView: View {
         guard let arg = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-probe=") }),
               path.isEmpty else { return }
         let parts = arg.dropFirst("-probe=".count).split(separator: ":").map(String.init)
-        guard let first = parts.first, let kind = CalendarKind(rawValue: first) else { return }
+        // „half“ = Jahreskalender als Halbmonat (beidseitig).
+        guard let first = parts.first, let kind = first == "half" ? CalendarKind.year : CalendarKind(rawValue: first) else { return }
         var p = CalendarProject(name: "Probe", kind: kind, year: 2027,
                                 format: kind == .doubleMonth ? PageFormat(widthMM: 297, heightMM: 210)
                                                              : PageFormat(widthMM: 297, heightMM: 420),
                                 design: .preset(parts.count > 2 ? parts[2] : "aquarell"))
+        if first == "half" { p.yearLayout = .halfMonth }
         if parts.count > 1, let layout = MonthGridLayout(rawValue: parts[1]) {
             p.gridLayout = layout
             p.hasCover = false
