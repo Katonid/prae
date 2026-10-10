@@ -8,8 +8,6 @@ name: Kalenderstudio ansehen
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/kalenderstudio-absturz]
 
 concurrency:
   group: kalenderstudio-ansicht-${{ github.ref }}
