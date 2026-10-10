@@ -24,12 +24,13 @@
   Druckauflösung; 1.0.3 (4) eigene Schriften (auf dem Gerät installierte
   und geladene Schriftdateien); 1.0.4 (5) iCloud-Abgleich (vorbereitet, Recht
   noch nicht eingehängt), richtiger Schriftschnitt, Einbettungsprüfung.
+  1.0.5 (6) iCloud-Recht eingehängt (ohne Schriftenrecht).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
   synchronisierten Ordners. **Entitlements: `Config/Kalenderstudio.entitlements`
-  liegt seit 1.0.4 bereit, ist aber NICHT eingehängt** (kein
-  `CODE_SIGN_ENTITLEMENTS`) — siehe „iCloud-Abgleich“ unten.
+  ist seit 1.0.5 eingehängt — NUR iCloud Documents**, das Schriftenrecht
+  noch nicht (siehe „iCloud-Abgleich“ unten).
 
 ## Aufbau
 
@@ -84,7 +85,16 @@
 - **Ohne Recht oder Anmeldung bleibt die App örtlich und sagt es**
   (Einstellungen › iCloud). „Einrichtung prüfen“ liest aus
   `embedded.mobileprovision`, was das Profil bewilligt (`ProfileRights`).
-- **Die Entitlements-Datei wird erst eingehängt, wenn dieser Befund iCloud
+- **Das Platzhalterprofil kann nichts messen** (Befund des Nutzers,
+  10.10.2026, Fassung 1.0.4): Solange die App kein Recht verlangt,
+  signiert Xcode mit „iOS Team Provisioning Profile: *“ — und das trägt nie
+  iCloud. „Einrichtung prüfen“ sagte deshalb „nicht bewilligt“, obwohl die
+  App-Id inzwischen iCloud und Fonts hatte (vom Nutzer in der
+  Entwicklerkonsole angelegt, samt Behälter). Das EIGENE Profil holt Xcode
+  erst, wenn ein Recht in der Datei steht. Deshalb 1.0.5: iCloud
+  eingehängt (bewährte Zeichenketten aus dem Reisebuch); das Schriftenrecht
+  wird aus dem dann echten Profil abgelesen und erst danach eingetragen.
+- **Die Entitlements-Datei wurde erst eingehängt, nachdem die App-Id iCloud
   UND das Schriftenrecht als bewilligt zeigt** — mit genau den dort
   gelesenen Zeichenketten. Vorher nicht: Ein Recht, das die App-Id nicht
   trägt, macht die App unsignierbar (Reisebuch 1.0.44).
