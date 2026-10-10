@@ -369,13 +369,18 @@ struct DateSettings: Codable, Equatable, Hashable {
     /// Ferien beim Namen nennen: Legende unten und Name am ersten Tag.
     /// Aus (ab 1.0.10): Der farbige Balken reicht.
     var nameSchoolHolidays = false
+    /// Stand des Feiertagskatalogs, mit dem die Auswahl zuletzt abgeglichen
+    /// wurde — neue Pflicht-Tage kommen so auch in alte Kalender.
+    var catalogRevision = DateSettings.currentCatalog
+    /// 2: Heiligabend als besonderer Tag immer an (1.0.11).
+    static let currentCatalog = 2
 
     init() {}
 
     enum CodingKeys: String, CodingKey {
         case state, showHolidays, showHolidayNames, disabledHolidays, specialDays,
              showSchoolHolidays, schoolStates, highlightSundays, highlightSaturdays, showWeekNumbers,
-             nameSchoolHolidays
+             nameSchoolHolidays, catalogRevision
     }
 
     init(from decoder: Decoder) throws {
@@ -398,6 +403,12 @@ struct DateSettings: Codable, Equatable, Hashable {
         highlightSaturdays = c.value(.highlightSaturdays, d.highlightSaturdays)
         showWeekNumbers = c.value(.showWeekNumbers, d.showWeekNumbers)
         nameSchoolHolidays = c.value(.nameSchoolHolidays, d.nameSchoolHolidays)
+        catalogRevision = c.value(.catalogRevision, 1)
+        if catalogRevision < 2 {
+            // Heiligabend gehört auf jeden Kalender (Ansage des Nutzers, 1.0.11).
+            specialDays.insert("heiligabend")
+        }
+        catalogRevision = DateSettings.currentCatalog
     }
 }
 
@@ -436,7 +447,8 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     /// sie kennt nicht alle Felder und würde sie still löschen.
     var formatVersion = CalendarProject.currentFormat
     /// 2: Fotodarstellung „ganz“, Fotoanteil, Monatsseiten-Schalter (1.0.8–1.0.10).
-    static let currentFormat = 2
+    /// 3: `DateSettings.catalogRevision` (1.0.11).
+    static let currentFormat = 3
 
     init(name: String, kind: CalendarKind, year: Int, format: PageFormat, design: Design) {
         self.name = name

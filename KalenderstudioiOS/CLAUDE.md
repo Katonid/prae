@@ -36,6 +36,8 @@
   Wochentage mit eigener Schriftgröße, Sicherungsdatei, Startseite auf dem
   iPhone, Beschnitt beim Anlegen, **Abgleich überschrieb neuere Arbeit
   (behoben)**.
+  1.0.11 (12) Oster- und Pfingstsonntag überall als Feiertag, Heiligabend
+  in jedem Kalender.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -230,7 +232,7 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
   geht die Arbeitskopie wieder hinauf. **Regel: Ein Abgleich darf eine
   Arbeitskopie nur durch etwas NEUERES ersetzen.** Verlorene Einstellungen
   ließen sich nicht zurückholen.
-- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 2): Eine ältere
+- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 3): Eine ältere
   App kennt neue Felder nicht und würde sie beim Zurückschreiben löschen
   (z. B. ein iPhone mit 1.0.8 die Fotodarstellung „ganz“). Kalender mit
   höherer `formatVersion` als `CalendarProject.currentFormat` schreibt
@@ -309,6 +311,15 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
   skaliert Dynamic Type die Druckseite mit.
 - Mecklenburg-Vorpommern führt bei den Schulferien allgemeinbildende und
   berufliche Schulen getrennt; übernommen werden nur `MV-ABS`.
+- **Oster- und Pfingstsonntag stehen in JEDEM Land als Feiertag**
+  (ab 1.0.11, Ansage des Nutzers: „Ostermontag und Pfingstmontag sind
+  eingetragen, aber nicht der Ostersonntag und der Pfingstsonntag“).
+  Gesetzlich sind sie es nur in Brandenburg — der Hinweis steht in der
+  Liste; sie fallen ohnehin auf einen Sonntag. Die doppelten besonderen
+  Tage „ostern“/„pfingsten“ sind dafür entfallen. **Heiligabend** (besonderer
+  Tag, kein Feiertag) wird in alten Kalendern einmalig eingeschaltet
+  (`DateSettings.catalogRevision` 2) — so kommen neue Pflicht-Tage auch in
+  bestehende Kalender; dafür die Revision heben.
 - Feiertagslisten (Stand 2026) wurden mit der OpenHolidays API
   abgeglichen. Bei Gesetzesänderungen (neuer Landesfeiertag)
   `HolidayCatalog.publicHolidays` anpassen.
