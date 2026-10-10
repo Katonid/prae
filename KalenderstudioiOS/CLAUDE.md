@@ -33,7 +33,8 @@
   1.0.9 (10) Fotoanteil am Monatsblatt einstellbar, Seite prüfen (Lupe),
   ganzes Foto mit weichem oder farbigem Hintergrund, Zoomen mit zwei Fingern.
   1.0.10 (11) Ferienbalken oben im Kästchen, Ferien nur auf Wunsch benannt,
-  Wochentage mit eigener Schriftgröße.
+  Wochentage mit eigener Schriftgröße, Sicherungsdatei, Startseite auf dem
+  iPhone, Beschnitt beim Anlegen.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -135,6 +136,29 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
   `fontWeekday`). Vorher hingen Wochentagsnamen und Einträge zusammen an
   `bodyScale` („Text“); der Regler heißt jetzt „Einträge in den Kästchen“.
   Neue Wochentagsanzeigen immer mit `fontWeekday`, nie mit `fontBody`.
+
+- **Sicherungsdatei „.kalenderstudio“ (ab 1.0.10,** Ansage des Nutzers:
+  „eine Exportdatei, die ich auf einem anderen Gerät oder nach einem Umzug
+  neu einladen kann“): `Model/Backup.swift`. Kennzeile, 8 Byte Länge,
+  JSON-Verzeichnis (Kalender vollständig + Dateiliste), dann die Dateien
+  roh hintereinander — kein ZIP (iOS packt keins aus), kein Base64 (bläht
+  große Originale auf). Enthalten: Kalender, Fotos (Original + Vorschau),
+  geladene Schriftdateien; selbst installierte Schriften gehören dem Gerät
+  und fehlen. Laden überschreibt NIE: gleicher Kalender mit anderem Stand
+  kommt als „(aus Sicherung)“ dazu, gleicher Stand wird übersprungen.
+  Fotos, die nur in iCloud liegen, fehlen in der Sicherung und werden
+  gezählt. Bedienung: Einstellungen › Sicherung (alle; laden) und langes
+  Drücken auf einen Kalender (einzeln). Probe: `…:sicherung` schreibt und
+  lädt im Simulator und meldet „Sicherungsprobe“ im Protokoll.
+- **Startseite auf dem iPhone** (Bildschirmfoto des Nutzers, 1.0.9): Das
+  Muster im Kopfband ist 900 pt breit gezeichnet und machte als Inhalt des
+  `ZStack` das ganze Band so breit — Text abgeschnitten, Karten links aus
+  dem Bild. Es liegt jetzt als `.background`. **Regel: Fest gezeichnete
+  Muster nie als bestimmenden Inhalt, immer als Hintergrund.** Der
+  Arbeitsablauf „Kalenderstudio ansehen“ kann seitdem auch den
+  iPhone-Simulator (Eingabe `geraet`) und eine Auswahl von Proben.
+- **Beschnitt** war immer unter Format › „Beschnitt je Seite“ einstellbar,
+  wurde dort aber nicht gefunden; seit 1.0.10 auch beim Anlegen.
 
 ## iCloud-Abgleich (ab 1.0.4)
 

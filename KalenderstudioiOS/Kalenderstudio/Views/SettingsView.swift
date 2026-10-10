@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject private var store: ProjectStore
@@ -9,6 +10,10 @@ struct SettingsView: View {
     @State private var photoCounts: (local: Int, cloud: Int, missing: Int)?
     @State private var copied = false
     @State private var copiedFonts = false
+    @State private var backupFile: URL?
+    @State private var backupMessage: String?
+    @State private var showRestore = false
+    @State private var working = false
 
     private var cloudBinding: Binding<Bool> {
         Binding(get: { CloudStore.shared.enabled }, set: { store.setCloudEnabled($0) })
@@ -115,6 +120,31 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button {
+                        makeBackup()
+                    } label: {
+                        HStack {
+                            Label("Alle Kalender als Datei sichern", systemImage: "externaldrive.badge.plus")
+                            if working { Spacer(); ProgressView() }
+                        }
+                    }
+                    .disabled(working || store.projects.isEmpty)
+                    Button {
+                        showRestore = true
+                    } label: {
+                        Label("Sicherung laden …", systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(working)
+                    if let backupMessage {
+                        Text(backupMessage).font(.footnote)
+                    }
+                } header: {
+                    Text("Sicherung")
+                } footer: {
+                    Text("Eine Datei „.kalenderstudio“ mit allen Kalendern, Fotos in voller Auflösung und geladenen Schriftdateien — zum Aufheben in „Dateien“, für ein anderes Gerät oder nach einem Umzug. Beim Laden wird nichts überschrieben: Gibt es einen Kalender schon mit anderem Stand, kommt der aus der Sicherung als Kopie dazu. Einzelne Kalender sichern: auf der Startseite lange auf den Kalender drücken.")
+                }
+
+                Section {
                     LabeledContent("Fassung", value: AppVersion.text)
                 }
             }
@@ -126,6 +156,42 @@ struct SettingsView: View {
                 }
             }
             .onAppear { countPhotos() }
+            .sheet(item: Binding(get: { backupFile.map(SharedFile.init) }, set: { if $0 == nil { backupFile = nil } })) { f in
+                ShareSheet(items: [f.url]).ignoresSafeArea()
+            }
+            .fileImporter(isPresented: $showRestore, allowedContentTypes: [.item]) { result in
+                guard case .success(let url) = result else { return }
+                working = true
+                Task { @MainActor in
+                    await Task.yield()
+                    do {
+                        backupMessage = try Backup.restore(from: url, into: store).text
+                    } catch {
+                        backupMessage = error.localizedDescription
+                    }
+                    working = false
+                }
+            }
+        }
+    }
+
+    private func makeBackup() {
+        working = true
+        backupMessage = nil
+        Task { @MainActor in
+            await Task.yield()
+            do {
+                let r = try Backup.write(store.projects, title: "Kalenderstudio")
+                var text = "\(r.projects) Kalender, \(r.photos) Fotos gesichert."
+                if r.missingPhotos > 0 {
+                    text += " \(r.missingPhotos) Foto(s) liegen noch nur in iCloud und fehlen — bitte mit Netz kurz warten und erneut sichern."
+                }
+                backupMessage = text
+                backupFile = r.url
+            } catch {
+                backupMessage = "Sichern fehlgeschlagen: \(error.localizedDescription)"
+            }
+            working = false
         }
     }
 
@@ -210,4 +276,10 @@ enum AppVersion {
         let b = info?["CFBundleVersion"] as? String ?? "?"
         return "\(v) (\(b))"
     }
+}
+
+/// Eine Datei, die ein Sheet zum Teilen anzeigt.
+struct SharedFile: Identifiable {
+    let url: URL
+    var id: String { url.path }
 }

@@ -9,6 +9,8 @@ struct HomeView: View {
     @State private var newName = ""
     @State private var deleting: CalendarProject?
     @State private var showSettings = false
+    @State private var backupFile: URL?
+    @State private var backupError: String?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -34,6 +36,13 @@ struct HomeView: View {
                                     Button {
                                         store.duplicate(project)
                                     } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
+                                    Button {
+                                        do {
+                                            backupFile = try Backup.write([project], title: project.name).url
+                                        } catch {
+                                            backupError = error.localizedDescription
+                                        }
+                                    } label: { Label("Als Datei sichern", systemImage: "externaldrive.badge.plus") }
                                     Button(role: .destructive) {
                                         deleting = project
                                     } label: { Label("Löschen", systemImage: "trash") }
@@ -72,6 +81,14 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .sheet(item: Binding(get: { backupFile.map(SharedFile.init) }, set: { if $0 == nil { backupFile = nil } })) { f in
+                ShareSheet(items: [f.url]).ignoresSafeArea()
+            }
+            .alert("Sichern fehlgeschlagen", isPresented: Binding(get: { backupError != nil }, set: { if !$0 { backupError = nil } })) {
+                Button("OK", role: .cancel) { backupError = nil }
+            } message: {
+                Text(backupError ?? "")
             }
             .sheet(isPresented: $showNew) {
                 NewCalendarView { project in
@@ -139,6 +156,17 @@ struct HomeView: View {
         }
         p.dates.schoolStates = [SchoolSelection(state: .BY, color: SchoolSelection.palette[0])]
         store.add(p)
+        // „…:sicherung“: sichern, wieder einladen, Ergebnis ins Protokoll.
+        if arg.hasSuffix(":sicherung") {
+            do {
+                let w = try Backup.write(store.projects, title: "Probe")
+                let size = (try? FileManager.default.attributesOfItem(atPath: w.url.path))?[.size] as? NSNumber
+                let r = try Backup.restore(from: w.url, into: store)
+                NSLog("Sicherungsprobe: \(w.projects) Kalender, \(w.photos) Fotos, \(size?.intValue ?? 0) Byte; geladen: \(r.text)")
+            } catch {
+                NSLog("Sicherungsprobe FEHLER: \(error.localizedDescription)")
+            }
+        }
         path.append(p.id)
         #endif
     }
@@ -173,12 +201,12 @@ struct HomeView: View {
     }
     #endif
 
+    /// Das Muster ist 900 pt breit gezeichnet; es liegt deshalb als
+    /// HINTERGRUND und bestimmt die Breite nicht mit — sonst ragte das Band
+    /// auf dem iPhone über den Rand und schob die Karten aus dem Bild.
     private var hero: some View {
-        ZStack(alignment: .bottomLeading) {
-            PatternLayer(design: .preset("nordlicht"), size: CGSize(width: 900, height: 220),
-                         safe: CGRect(x: 0, y: 0, width: 900, height: 220), unit: 4, seed: "start")
-                .frame(height: 170)
-                .clipped()
+        VStack(alignment: .leading, spacing: 6) {
+            Spacer(minLength: 0)
             VStack(alignment: .leading, spacing: 6) {
                 Text("Dein Kalender, druckfertig.")
                     .font(.system(.title, design: .rounded).weight(.heavy))
@@ -186,8 +214,15 @@ struct HomeView: View {
                 Text("Fotos, Feiertage, Schulferien und persönliche Termine — gestaltet und als PDF für deinen Druckdienst.")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)
+        }
+        .frame(maxWidth: .infinity, minHeight: 170, alignment: .bottomLeading)
+        .background {
+            PatternLayer(design: .preset("nordlicht"), size: CGSize(width: 900, height: 260),
+                         safe: CGRect(x: 0, y: 0, width: 900, height: 260), unit: 4, seed: "start")
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.2), radius: 12, y: 6)

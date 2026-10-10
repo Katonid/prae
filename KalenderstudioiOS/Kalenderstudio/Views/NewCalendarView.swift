@@ -78,7 +78,9 @@ struct NewCalendarView: View {
                                     }
                                 }
                             }
-                            Text("Größe, Beschnitt und Sicherheitsabstand lassen sich danach unter „Format“ frei eingeben.")
+                            MMField(title: "Beschnitt je Seite", value: $format.bleedMM, range: 0...20)
+                            MMField(title: "Sicherheitsabstand", value: $format.safetyMM, range: 0...40)
+                            Text("Den Beschnitt gibt der Druckdienst vor (meist 2–3 mm). Größe, Bindungsrand und alles andere lassen sich auch später unter „Format“ frei eingeben.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
