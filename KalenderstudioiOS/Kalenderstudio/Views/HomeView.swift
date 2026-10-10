@@ -53,6 +53,7 @@ struct HomeView: View {
                     }
                 }
             }
+            .task { probeIfRequested() }
             .navigationDestination(for: UUID.self) { id in
                 if let binding = store.binding(for: id) {
                     EditorView(project: binding)
@@ -89,6 +90,24 @@ struct HomeView: View {
                 Text("Der Kalender und seine Fotos werden aus der App entfernt. Die Originale in deiner Fotomediathek bleiben erhalten.")
             }
         }
+    }
+
+    /// Nur für den Simulator-Arbeitsablauf: `-probe=year|week|doubleMonth`
+    /// legt einen Kalender an und öffnet ihn sofort — so lässt sich der
+    /// Editor ohne Antippen prüfen.
+    private func probeIfRequested() {
+        #if DEBUG
+        guard let arg = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-probe=") }),
+              let kind = CalendarKind(rawValue: String(arg.dropFirst("-probe=".count))),
+              path.isEmpty else { return }
+        var p = CalendarProject(name: "Probe", kind: kind, year: 2027,
+                                format: kind == .doubleMonth ? PageFormat(widthMM: 297, heightMM: 210)
+                                                             : PageFormat(widthMM: 297, heightMM: 420),
+                                design: .preset("aquarell"))
+        p.dates.schoolStates = [SchoolSelection(state: .BY, color: SchoolSelection.palette[0])]
+        store.add(p)
+        path.append(p.id)
+        #endif
     }
 
     private var hero: some View {
