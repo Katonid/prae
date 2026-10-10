@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- EINGEHÄNGT SEIT 1.0.5 — nur iCloud Documents.
+	<!-- EINGEHÄNGT SEIT 1.0.5 (iCloud Documents), Schriftenrecht seit 1.0.6.
 
 	     Der Abgleich läuft über iCloud Drive, nicht über CloudKit; gebraucht
 	     wird deshalb „CloudDocuments“ und kein Datenbankrecht. Dieselben
@@ -18,10 +18,17 @@
 	     bewilligt“, obwohl die App-Id es kann. Das eigene Profil der App
 	     holt Xcode erst, wenn hier ein Recht steht.
 
-	     DAS SCHRIFTENRECHT (`com.apple.developer.user-fonts`) FEHLT
-	     ABSICHTLICH. Sein Wert wird aus dem dann echten Profil abgelesen
-	     („Einrichtung prüfen“) und erst danach eingetragen — geraten hat
-	     es das Reisebuch in 1.0.44 unsignierbar gemacht.
+	     DAS SCHRIFTENRECHT (seit 1.0.6) — GEMESSEN, NICHT GERATEN. Befund
+	     des Nutzers aus „Einrichtung prüfen“ (10.10.2026, Fassung 1.0.5,
+	     Profil „iOS Team Provisioning Profile: de.familie.kalenderstudio“):
+
+	         com.apple.developer.user-fonts: BEWILLIGT als
+	         [„app-usage“, „system-installation“]
+
+	     Genau das steht unten, Wort für Wort — derselbe Wert wie beim
+	     Reisebuch. `app-usage` ist „Use Installed Fonts“, das, was die App
+	     braucht; `system-installation` steht mit drin, weil eine TEILMENGE
+	     nicht gemessen ist (dieselbe Abwägung wie dort).
 
 	     Lässt sich die App mit dieser Datei NICHT signieren: Im pbxproj
 	     `CODE_SIGN_ENTITLEMENTS` wieder herausnehmen, dann ist der Stand von
@@ -38,6 +45,11 @@
 	<key>com.apple.developer.ubiquity-container-identifiers</key>
 	<array>
 		<string>iCloud.de.familie.kalenderstudio</string>
+	</array>
+	<key>com.apple.developer.user-fonts</key>
+	<array>
+		<string>app-usage</string>
+		<string>system-installation</string>
 	</array>
 </dict>
 </plist>
