@@ -25,12 +25,13 @@
   und geladene Schriftdateien); 1.0.4 (5) iCloud-Abgleich (vorbereitet, Recht
   noch nicht eingehängt), richtiger Schriftschnitt, Einbettungsprüfung.
   1.0.5 (6) iCloud-Recht eingehängt (ohne Schriftenrecht).
+  1.0.6 (7) Schriftenrecht eingetragen (gemessen).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
   synchronisierten Ordners. **Entitlements: `Config/Kalenderstudio.entitlements`
-  ist seit 1.0.5 eingehängt — NUR iCloud Documents**, das Schriftenrecht
-  noch nicht (siehe „iCloud-Abgleich“ unten).
+  ist seit 1.0.5 eingehängt** (iCloud Documents), seit 1.0.6 mit dem
+  Schriftenrecht (siehe „iCloud-Abgleich“ unten).
 
 ## Aufbau
 
@@ -94,6 +95,17 @@
   erst, wenn ein Recht in der Datei steht. Deshalb 1.0.5: iCloud
   eingehängt (bewährte Zeichenketten aus dem Reisebuch); das Schriftenrecht
   wird aus dem dann echten Profil abgelesen und erst danach eingetragen.
+- **Gemessen am 10.10.2026 (Fassung 1.0.5, iPad):** Profil „iOS Team
+  Provisioning Profile: de.familie.kalenderstudio“; iCloud-Dienste „*“,
+  beide Behälter `iCloud.de.familie.kalenderstudio`, Schriftenrecht
+  `["app-usage", "system-installation"]`; Abgleich „1 Kalender in iCloud“.
+  Das Schriftenrecht steht seit 1.0.6 wortgetreu so in der Datei.
+- **Installation auf dem iPhone scheiterte an Xcode, nicht an der App**
+  (`dyld_shared_cache_extract_dylibs failed`, Code 908): Xcode kopiert vor
+  dem ersten Debuggen die Systembibliotheken des Geräts und braucht dafür
+  viel freien Speicher und eine Xcode-Fassung, die das iOS des Geräts kennt.
+  Umgehung: im Schema „Debug executable“ abwählen, dann braucht Xcode die
+  Symbole nicht.
 - **Die Entitlements-Datei wurde erst eingehängt, nachdem die App-Id iCloud
   UND das Schriftenrecht als bewilligt zeigt** — mit genau den dort
   gelesenen Zeichenketten. Vorher nicht: Ein Recht, das die App-Id nicht
