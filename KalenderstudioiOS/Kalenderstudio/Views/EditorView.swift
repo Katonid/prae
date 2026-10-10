@@ -102,6 +102,12 @@ struct EditorView: View {
         .onAppear {
             PhotoInfo.register(project.photos)
             if sizeClass == .regular { showInspector = true }
+            #if DEBUG
+            // Simulator-Probe mit „…:lupe“: Seitenprüfung gleich öffnen.
+            if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("-probe=") && $0.hasSuffix(":lupe") }) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showZoom = true }
+            }
+            #endif
             let years = Array(project.yearRange)
             if years.contains(where: { !school.covers(year: $0) }) {
                 Task { await school.refresh(years: years) }
