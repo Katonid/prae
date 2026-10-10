@@ -98,7 +98,9 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
   0,56, quer 0,5, Zeitleiste 0,7/0,64), sonst 0,4…0,85 vom Endformat
   (Aufbau › „Foto und Kalender“, nur Jahreskalender mit Monatsblättern).
   Quer ist es die Breite des Fotos links. Die Kopfzeile ist auf 4…9 `unit`
-  begrenzt, damit dem Raster bei großem Foto Platz bleibt.
+  begrenzt, damit dem Raster bei großem Foto Platz bleibt. **Wird ein Raster
+  zu flach, schaltet `MonthGridView.effective` auf die Zeitleiste** — im
+  Simulator brach „Große Ziffern“ bei 85 % sonst unlesbar zusammen.
 
 ## iCloud-Abgleich (ab 1.0.4)
 

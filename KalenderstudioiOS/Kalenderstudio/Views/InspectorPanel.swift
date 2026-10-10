@@ -116,7 +116,7 @@ struct LayoutPanel: View {
                 } footer: {
                     Text(project.format.isLandscape && !project.gridLayout.isSlim
                          ? "Quer liegt das Foto links; eingestellt wird seine Breite. Gemessen am Endformat, der Beschnitt kommt beim Foto dazu."
-                         : "Eingestellt wird die Höhe des Fotos, gemessen am Endformat; der Beschnitt kommt dazu. Bei sehr großem Foto passt die „Zeitleiste“ am besten — das Raster wird dann eng.")
+                         : "Eingestellt wird die Höhe des Fotos, gemessen am Endformat; der Beschnitt kommt dazu. Bei sehr großem Foto passt die „Zeitleiste“ am besten. Wird ein Raster zu flach, zeigt die Seite von selbst die Zeitleiste.")
                 }
             }
 
