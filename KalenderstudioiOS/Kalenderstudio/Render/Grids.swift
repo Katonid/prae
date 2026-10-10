@@ -72,8 +72,8 @@ struct MonthGridView: View {
         let rows = CGFloat(CalendarMath.weeks(y, m).count)
         let needs: CGFloat
         switch layout {
-        case .classic, .notes, .split: needs = rc.unit * 3.2
-        case .bold: needs = rc.unit * 4.2
+        case .classic, .notes, .split: needs = rc.unit * 2.6
+        case .bold: needs = rc.unit * 3.6
         case .list: needs = rc.unit * 1.6
         case .strip, .ring: return layout
         }
