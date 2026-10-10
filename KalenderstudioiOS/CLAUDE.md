@@ -60,7 +60,6 @@
   `-probe=year|doubleMonth|week`; dann legt `HomeView` einen
   Probekalender an und öffnet ihn sofort. Bildschirmfotos, Protokoll und
   Absturzberichte liegen danach unter „Artifacts“.
-
 - Jahreszahlen nie als `Text("\(jahr)")` — das formatiert mit
   Tausenderpunkt („2.027“). Immer `Text(verbatim:)` oder `String(jahr)`.
 - Schriften mit `Font.custom(_, fixedSize:)`, nicht `size:` — sonst
