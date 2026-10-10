@@ -21,13 +21,18 @@ struct PageGeometry {
         bleed = b
         trimRect = CGRect(x: b, y: b, width: w, height: h)
         var safe = trimRect.insetBy(dx: min(s, w / 3), dy: min(s, h / 3))
+        // Der Bindungsrand zählt wie bei den Druckdiensten vom Endformatrand
+        // („2 cm von oben“) — er ersetzt dort den Sicherheitsabstand, wenn
+        // er größer ist, statt sich dazuzuaddieren.
         switch f.bindingEdge {
         case .top:
-            safe.origin.y += bind
-            safe.size.height -= bind
+            let extra = max(min(bind, h / 3) - (safe.minY - trimRect.minY), 0)
+            safe.origin.y += extra
+            safe.size.height -= extra
         case .left:
-            safe.origin.x += bind
-            safe.size.width -= bind
+            let extra = max(min(bind, w / 3) - (safe.minX - trimRect.minX), 0)
+            safe.origin.x += extra
+            safe.size.width -= extra
         case .none:
             break
         }

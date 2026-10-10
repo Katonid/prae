@@ -18,7 +18,10 @@
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release).
   Erste Fassung: 1.0.0 (1); 1.0.1 (2) behebt das Zurückspringen und den
-  Absturz beim Öffnen eines Kalenders.
+  Absturz beim Öffnen eines Kalenders; 1.0.2 (3) neue Symbolfarben
+  (Ozean & Abendrot: Petrol-Türkis, Abendhimmel, Gold), Bindungsrand vom
+  Endformatrand gemessen, Vorlage „A3 hoch, Wire-O oben“, PDF-Effekte in
+  Druckauflösung.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -47,6 +50,17 @@
   Vorschau (nicht per SwiftUI-`.blur`, das im Export unzuverlässig ist).
 
 ## Fallen
+
+- **Bindungsrand zählt vom Endformatrand** (seit 1.0.2), so wie
+  Druckdienste es angeben („Sicherheitsabstand zur Spiralbindung: 2 cm
+  von oben“). Er ersetzt an der Bindekante den Sicherheitsabstand, wenn
+  er größer ist — nicht addieren. Vorlage des Nutzers (viaprinto,
+  Wandkalender A3 hoch, Wire-O): 297 × 420 mm, 3 mm Beschnitt, 4 mm
+  Sicherheitsabstand, 20 mm oben, Daumenloch 1 cm oben mittig; ein
+  mehrseitiges PDF, Deckblatt zuerst.
+- **`ImageRenderer.render(rasterizationScale:)` immer setzen.** Ohne
+  Angabe werden Schatten, Masken (Foto in der Jahreszahl) und
+  Weichzeichner im PDF mit 72 dpi gerastert.
 
 - **Kein `NavigationStack` im Gestalten-Panel (`.inspector`).** Das
   Panel liegt im Stapel der Startseite; ein zweiter Stapel darin ließ

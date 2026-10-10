@@ -97,7 +97,9 @@ enum Exporter {
             renderer.scale = CGFloat(options.dpi / 72)
             renderer.proposedSize = ProposedViewSize(g.size)
             ctx.beginPDFPage(pageInfo as CFDictionary)
-            renderer.render { _, draw in
+            // Schatten, Masken und Weichzeichner werden gerastert — ohne
+            // diese Angabe mit 72 dpi, also sichtbar unscharf im Druck.
+            renderer.render(rasterizationScale: CGFloat(options.dpi / 72)) { _, draw in
                 ctx.saveGState()
                 ctx.translateBy(x: margin, y: margin)
                 draw(ctx)
