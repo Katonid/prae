@@ -1,0 +1,85 @@
+# Baut Kalenderstudio, startet es im iPad-Simulator direkt im Editor
+# (Debug-Startargument `-probe=…`, siehe HomeView) und legt
+# Bildschirmfotos, Protokoll und Absturzberichte als Anhang ab.
+#
+# Nur auf Knopfdruck: Reiter „Actions" → „Kalenderstudio ansehen" →
+# „Run workflow". Die Bilder liegen danach beim Lauf unter „Artifacts".
+name: Kalenderstudio ansehen
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: kalenderstudio-ansicht-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ansicht:
+    name: Editor im iPad-Simulator
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Simulator wählen
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | python3 -c "import sys,json;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d for x in d[rt] if 'iPad' in x['name']), ''))")
+          [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: App bauen
+        working-directory: KalenderstudioiOS
+        run: |
+          set -o pipefail
+          xcodebuild -project Kalenderstudio.xcodeproj -scheme Kalenderstudio \
+            -configuration Debug -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build-sim \
+            CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="" \
+            build | tail -20
+
+      - name: Starten und fotografieren
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          mkdir -p ansicht
+          mit_grenze() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+          shot() { mit_grenze 45 xcrun simctl io "$UDID" screenshot "$1" || true; }
+          mit_grenze 120 xcrun simctl boot "$UDID" || true
+          mit_grenze 240 xcrun simctl bootstatus "$UDID" -b || true
+          mit_grenze 150 xcrun simctl install "$UDID" \
+            KalenderstudioiOS/build-sim/Build/Products/Debug-iphonesimulator/Kalenderstudio.app
+          xcrun simctl spawn "$UDID" log stream --level debug \
+            --predicate 'processImagePath CONTAINS "Kalenderstudio"' > ansicht/protokoll.txt 2>&1 &
+          sleep 3
+          for art in year doubleMonth week; do
+            mit_grenze 60 xcrun simctl terminate "$UDID" de.familie.kalenderstudio || true
+            mit_grenze 90 xcrun simctl launch "$UDID" de.familie.kalenderstudio "-probe=$art" || true
+            sleep 6
+            shot "ansicht/$art-0.png"
+            sleep 9
+            shot "ansicht/$art-1.png"
+            sleep 10
+            shot "ansicht/$art-2.png"
+            echo "--- $art: läuft die App noch? ---" >> ansicht/diagnose.txt
+            xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -i kalenderstudio >> ansicht/diagnose.txt \
+              || echo "NICHT MEHR AKTIV" >> ansicht/diagnose.txt
+          done
+
+      - name: Absturzberichte einsammeln
+        if: always()
+        run: |
+          mkdir -p ansicht
+          for f in ~/Library/Logs/DiagnosticReports/Kalenderstudio*; do
+            [ -e "$f" ] && cp "$f" ansicht/ || true
+          done
+          cat ansicht/diagnose.txt || true
+          grep -iE "fault|error|fatal|crash|navigation" ansicht/protokoll.txt | head -60 || true
+
+      - name: Bilder ablegen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kalenderstudio-ansicht
+          path: ansicht/

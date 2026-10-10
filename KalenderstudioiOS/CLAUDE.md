@@ -17,7 +17,8 @@
   Beschnitt, Sicherheitsabstand und Bindungsrand frei in mm.
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release).
-  Erste Fassung: 1.0.0 (1).
+  Erste Fassung: 1.0.0 (1); 1.0.1 (2) behebt das Zurückspringen und den
+  Absturz beim Öffnen eines Kalenders.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -47,6 +48,18 @@
 
 ## Fallen
 
+- **Kein `NavigationStack` im Gestalten-Panel (`.inspector`).** Das
+  Panel liegt im Stapel der Startseite; ein zweiter Stapel darin ließ
+  den Editor auf dem iPad beim Öffnen sofort zur Startseite
+  zurückspringen und beim zweiten Öffnen abstürzen (1.0.0, im Simulator
+  nachgestellt). Unterseiten im Panel (z. B. die Schriftauswahl) als
+  `.sheet` mit eigenem Stapel öffnen — Sheets sind eigene Darstellungen
+  und dürfen das.
+- **Prüfen im Simulator ohne Mac:** Arbeitsablauf „Kalenderstudio
+  ansehen“ (nur auf Knopfdruck). Er startet die Debug-Fassung mit
+  `-probe=year|doubleMonth|week`; dann legt `HomeView` einen
+  Probekalender an und öffnet ihn sofort. Bildschirmfotos, Protokoll und
+  Absturzberichte liegen danach unter „Artifacts“.
 - Jahreszahlen nie als `Text("\(jahr)")` — das formatiert mit
   Tausenderpunkt („2.027“). Immer `Text(verbatim:)` oder `String(jahr)`.
 - Schriften mit `Font.custom(_, fixedSize:)`, nicht `size:` — sonst
