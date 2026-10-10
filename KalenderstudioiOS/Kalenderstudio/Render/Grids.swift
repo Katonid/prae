@@ -77,7 +77,8 @@ struct MonthGridView: View {
             let gap = rc.unit * 2.5
             let listW = (s.width - gap) * 0.38
             HStack(alignment: .top, spacing: gap) {
-                MonthEventsView(items: items, rc: rc, size: CGSize(width: listW, height: s.height), maxColumns: 1)
+                MonthEventsView(items: items, rc: rc, size: CGSize(width: listW, height: s.height),
+                                maxColumns: 1, idealLine: 3.6)
                     .overlay(alignment: .trailing) {
                         Rectangle().fill(rc.lineColor)
                             .frame(width: max(rc.unit * 0.06, 0.3))
@@ -344,11 +345,13 @@ struct MonthEventsView: View {
     let rc: RenderContext
     let size: CGSize
     var maxColumns = 3
+    /// Größte Zeilenhöhe in `unit` — wo die Liste viel Platz hat, darf sie größer werden.
+    var idealLine: CGFloat = 2.6
 
     var body: some View {
         let d = rc.design
         let u = rc.unit
-        let ideal = u * 2.6
+        let ideal = u * idealLine
         let minLine = u * 1.7
         let layout = Self.columns(count: items.count, height: size.height, ideal: ideal, minLine: minLine, max: maxColumns)
         let lineH = layout.lineH
@@ -516,7 +519,8 @@ struct MonthRingView: View {
             HStack(alignment: .center, spacing: gap) {
                 RingDial(y: y, m: m, rc: rc, diameter: dia)
                 MonthEventsView(items: items, rc: rc,
-                                size: CGSize(width: size.width - dia - gap, height: dia * 0.9), maxColumns: 2)
+                                size: CGSize(width: size.width - dia - gap, height: dia * 0.9),
+                                maxColumns: 2, idealLine: 3.2)
             }
             .frame(width: size.width, height: size.height)
         } else {
