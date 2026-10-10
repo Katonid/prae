@@ -271,16 +271,21 @@ struct PageLayout: View {
         let s = g.safeRect
         let legendH: CGFloat = hasLegend ? u * 3 : 0
         let slim = p.gridLayout.isSlim
-        if p.format.isLandscape && !slim {
+        // Wie viel vom Blatt das Foto bekommt — vom Nutzer eingestellt oder
+        // automatisch je nach Kalendarium.
+        let landscapeSplit = p.format.isLandscape && !slim
+        let share = CGFloat(p.photoShare > 0 ? min(max(p.photoShare, 0.3), 0.9)
+                                             : p.gridLayout.defaultPhotoShare(landscape: p.format.isLandscape))
+        if landscapeSplit {
             // Quer: Foto links, Kalender rechts.
-            let split: CGFloat = 0.5
+            let split: CGFloat = share
             photoRegion(key, bleedRect: bleedLeft(split),
                         safeRect: CGRect(x: s.minX, y: s.minY, width: s.width * split - u * 2, height: s.height),
                         fade: .trailing)
             let right = CGRect(x: g.trimRect.minX + g.trimRect.width * split + u * 3, y: s.minY,
                                width: s.maxX - (g.trimRect.minX + g.trimRect.width * split + u * 3), height: s.height)
             bigNumeral(mo.m, in: right)
-            let headH = right.height * 0.14
+            let headH = min(max(right.height * 0.14, u * 4), u * 9)
             monthHeader(mo.y, mo.m, height: headH)
                 .placed(CGRect(x: right.minX, y: right.minY, width: right.width, height: headH))
             MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
@@ -296,7 +301,7 @@ struct PageLayout: View {
         } else {
             // Hoch (und bei der Zeitleiste immer): Foto oben, Kalender unten.
             // Die Zeitleiste braucht wenig Höhe — das Foto bekommt sie.
-            let split: CGFloat = slim ? (p.format.isLandscape ? 0.64 : 0.7) : 0.56
+            let split: CGFloat = share
             photoRegion(key, bleedRect: bleedTop(split),
                         safeRect: CGRect(x: s.minX, y: s.minY, width: s.width,
                                          height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2),
@@ -304,7 +309,7 @@ struct PageLayout: View {
             let top = g.trimRect.minY + g.trimRect.height * split + u * 2.5
             let area = CGRect(x: s.minX, y: top, width: s.width, height: s.maxY - top)
             bigNumeral(mo.m, in: area)
-            let headH = area.height * (slim ? 0.22 : 0.15)
+            let headH = min(max(area.height * (slim ? 0.22 : 0.15), u * 4), u * 9)
             monthHeader(mo.y, mo.m, height: headH)
                 .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
             MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)

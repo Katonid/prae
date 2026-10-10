@@ -127,6 +127,12 @@ enum MonthGridLayout: String, Codable, CaseIterable, Identifiable {
     }
     /// Braucht das Kalendarium nur wenig Höhe? Dann bekommt das Foto mehr.
     var isSlim: Bool { self == .strip }
+
+    /// Fotoanteil am Monatsblatt, wenn der Nutzer nichts eingestellt hat.
+    func defaultPhotoShare(landscape: Bool) -> Double {
+        if isSlim { return landscape ? 0.64 : 0.7 }
+        return landscape ? 0.5 : 0.56
+    }
 }
 
 enum PhotoStyle: String, Codable, CaseIterable, Identifiable {
@@ -255,11 +261,49 @@ struct PhotoItem: Codable, Identifiable, Equatable, Hashable {
 /// Ein Foto auf einer Fläche, mit Ausschnitt.
 struct PhotoPlacement: Codable, Equatable, Hashable {
     var photoID: UUID
-    /// 1 = füllt die Fläche gerade eben.
+    /// 1 = füllt die Fläche gerade eben (bei `fit`: passt gerade hinein).
     var zoom: Double = 1
     /// −1 … 1, Anteil des möglichen Verschiebewegs.
     var offsetX: Double = 0
     var offsetY: Double = 0
+    /// Wie das Foto in der Fläche sitzt (ab 1.0.9).
+    var fit: PhotoFit = .fill
+
+    init(photoID: UUID) { self.photoID = photoID }
+
+    enum CodingKeys: String, CodingKey { case photoID, zoom, offsetX, offsetY, fit }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        photoID = try c.decode(UUID.self, forKey: .photoID)
+        zoom = c.value(.zoom, 1.0)
+        offsetX = c.value(.offsetX, 0.0)
+        offsetY = c.value(.offsetY, 0.0)
+        fit = c.value(.fit, PhotoFit.fill)
+    }
+}
+
+/// „Fläche füllen“ schneidet ab, was nicht passt. Die beiden anderen zeigen
+/// das ganze Foto — wie ein WhatsApp-Status: Dahinter liegt dasselbe Foto
+/// weichgezeichnet oder seine prägende Farbe.
+enum PhotoFit: String, Codable, CaseIterable, Identifiable {
+    case fill, blurBackdrop, colorBackdrop
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .fill: return "Füllen"
+        case .blurBackdrop: return "Ganz + weich"
+        case .colorBackdrop: return "Ganz + Farbe"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .fill: return "rectangle.fill"
+        case .blurBackdrop: return "rectangle.inset.filled"
+        case .colorBackdrop: return "rectangle.center.inset.filled"
+        }
+    }
+    var showsWhole: Bool { self != .fill }
 }
 
 // MARK: - Termine
@@ -366,6 +410,9 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     var weekLayout: WeekLayout = .photoTop
     var gridLayout: MonthGridLayout = .classic
     var photoStyle: PhotoStyle = .full
+    /// Anteil des Fotos an einem Monatsblatt (0,4…0,85, gemessen am
+    /// Endformat); 0 = automatisch je nach Kalendarium.
+    var photoShare: Double = 0
     var coverStyle: CoverStyle = .hero
     var hasCover = true
     var title: String = ""
@@ -391,7 +438,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, modified, kind, year, startMonth, yearLayout, weekLayout, gridLayout,
-             photoStyle, coverStyle, hasCover, title, subtitle, format, design, dates,
+             photoStyle, photoShare, coverStyle, hasCover, title, subtitle, format, design, dates,
              personalDates, photos, placements, captions
     }
 
@@ -409,6 +456,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
         p.weekLayout = c.value(.weekLayout, WeekLayout.photoTop)
         p.gridLayout = c.value(.gridLayout, MonthGridLayout.classic)
         p.photoStyle = c.value(.photoStyle, PhotoStyle.full)
+        p.photoShare = c.value(.photoShare, 0.0)
         p.coverStyle = c.value(.coverStyle, CoverStyle.hero)
         p.hasCover = c.value(.hasCover, true)
         p.title = c.value(.title, p.name)

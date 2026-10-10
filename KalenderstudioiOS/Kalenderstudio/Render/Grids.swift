@@ -49,7 +49,7 @@ struct MonthGridView: View {
 
     var body: some View {
         GeometryReader { geo in
-            switch layout {
+            switch effective(geo.size) {
             case .list:
                 MonthListView(y: y, m: m, rc: rc, size: geo.size)
             case .classic, .notes:
@@ -64,6 +64,21 @@ struct MonthGridView: View {
                 split(geo.size)
             }
         }
+    }
+
+    /// Wird ein Raster zu flach (sehr großes Foto), wäre es unlesbar — dann
+    /// zeigt die Seite die Zeitleiste, die mit wenig Höhe auskommt.
+    private func effective(_ s: CGSize) -> MonthGridLayout {
+        let rows = CGFloat(CalendarMath.weeks(y, m).count)
+        let needs: CGFloat
+        switch layout {
+        case .classic, .notes, .split: needs = rc.unit * 2.6
+        case .bold: needs = rc.unit * 3.6
+        case .list: needs = rc.unit * 1.6
+        case .strip, .ring: return layout
+        }
+        let perRow = layout == .list ? s.height / 16 : s.height * 0.9 / rows
+        return perRow < needs ? .strip : layout
     }
 
     /// „Geteilt“: Terminliste links, kompaktes Raster rechts. Ohne Termine

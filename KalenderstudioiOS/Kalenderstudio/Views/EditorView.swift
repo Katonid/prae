@@ -41,6 +41,7 @@ struct EditorView: View {
     @State private var showGuides = false
     @State private var photoTarget: PhotoTarget?
     @State private var showExport = false
+    @State private var showZoom = false
 
     var body: some View {
         let marks = CalendarMarks.build(for: project)
@@ -61,6 +62,12 @@ struct EditorView: View {
                     Label("Hilfslinien", systemImage: showGuides ? "viewfinder.circle.fill" : "viewfinder")
                 }
                 .help("Beschnitt und Sicherheitsabstand zeigen")
+                Button {
+                    showZoom = true
+                } label: {
+                    Label("Seite prüfen", systemImage: "plus.magnifyingglass")
+                }
+                .help("Seite in Druckqualität vergrößern")
                 Button {
                     showExport = true
                 } label: {
@@ -87,9 +94,20 @@ struct EditorView: View {
         .sheet(isPresented: $showExport) {
             ExportSheet(project: project)
         }
+        .fullScreenCover(isPresented: $showZoom) {
+            let all = groupedSpreads
+            PageZoomView(project: project, pages: all.indices.contains(spread) ? all[spread] : [],
+                         marks: CalendarMarks.build(for: project))
+        }
         .onAppear {
             PhotoInfo.register(project.photos)
             if sizeClass == .regular { showInspector = true }
+            #if DEBUG
+            // Simulator-Probe mit „…:lupe“: Seitenprüfung gleich öffnen.
+            if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("-probe=") && $0.hasSuffix(":lupe") }) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showZoom = true }
+            }
+            #endif
             let years = Array(project.yearRange)
             if years.contains(where: { !school.covers(year: $0) }) {
                 Task { await school.refresh(years: years) }

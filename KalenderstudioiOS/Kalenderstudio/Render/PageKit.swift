@@ -147,7 +147,10 @@ struct PhotoFill: View {
 
     @ViewBuilder
     private func content(_ s: CGSize) -> some View {
-        if let p = placement, let img = ImageStore.shared.image(p.photoID, mode: mode), img.size.height > 0, s.height > 0 {
+        if let p = placement, p.fit.showsWhole,
+           let img = ImageStore.shared.image(p.photoID, mode: mode), img.size.height > 0, s.height > 0 {
+            wholePhoto(img, p, s)
+        } else if let p = placement, let img = ImageStore.shared.image(p.photoID, mode: mode), img.size.height > 0, s.height > 0 {
             let aspect = img.size.width / img.size.height
             let fit = Self.fillSize(aspect: aspect, frame: s, zoom: p.zoom)
             let maxX = (fit.width - s.width) / 2
@@ -168,6 +171,60 @@ struct PhotoFill: View {
             PhotoPlaceholder(design: design, interactive: mode == .preview,
                              fromCloud: mode == .preview && placement.map { ImageStore.shared.state($0.photoID) == .downloading } == true)
         }
+    }
+
+    /// Das ganze Foto, mittig, mit weichem Schatten — dahinter dasselbe Foto
+    /// weichgezeichnet oder seine Farbe (wie ein WhatsApp-Status).
+    @ViewBuilder
+    private func wholePhoto(_ img: UIImage, _ p: PhotoPlacement, _ s: CGSize) -> some View {
+        let aspect = img.size.width / img.size.height
+        let fit = Self.fitSize(aspect: aspect, frame: s, zoom: p.zoom)
+        let maxX = abs(fit.width - s.width) / 2
+        let maxY = abs(fit.height - s.height) / 2
+        let m = min(s.width, s.height)
+        ZStack {
+            switch p.fit {
+            case .colorBackdrop:
+                let c = ImageStore.shared.dominantColor(p.photoID) ?? design.bg2
+                LinearGradient(colors: [c.mixed(with: .white, 0.15).color, c.mixed(with: .black, 0.2).color],
+                               startPoint: .top, endPoint: .bottom)
+            default:
+                if let blur = ImageStore.shared.blurred(p.photoID, amount: 1), blur.size.height > 0 {
+                    let cover = Self.fillSize(aspect: blur.size.width / blur.size.height, frame: s, zoom: 1.15)
+                    Image(uiImage: blur)
+                        .resizable()
+                        .frame(width: cover.width, height: cover.height)
+                        .frame(width: s.width, height: s.height)
+                        .clipped()
+                    Color.black.opacity(0.12)
+                } else {
+                    design.bg2.color
+                }
+            }
+            Image(uiImage: img)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: fit.width, height: fit.height)
+                .shadow(color: .black.opacity(0.35), radius: m * 0.025, y: m * 0.012)
+                .offset(x: CGFloat(p.offsetX) * maxX, y: CGFloat(p.offsetY) * maxY)
+            if mode == .preview {
+                ResolutionBadge(photoID: p.photoID, displayWidth: fit.width)
+            }
+        }
+        .frame(width: s.width, height: s.height)
+        .clipped()
+    }
+
+    /// Passt das ganze Foto hinein, mit etwas Luft rundum; `zoom` vergrößert.
+    static func fitSize(aspect: CGFloat, frame s: CGSize, zoom: Double) -> CGSize {
+        var w = s.width
+        var h = s.width / max(aspect, 0.01)
+        if h > s.height {
+            h = s.height
+            w = h * aspect
+        }
+        let z = CGFloat(min(max(zoom, 0.4), 4)) * 0.9
+        return CGSize(width: w * z, height: h * z)
     }
 
     static func fillSize(aspect: CGFloat, frame s: CGSize, zoom: Double) -> CGSize {

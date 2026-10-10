@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @EnvironmentObject private var store: ProjectStore
@@ -104,7 +105,8 @@ struct HomeView: View {
     }
 
     /// Nur für den Simulator-Arbeitsablauf: `-probe=year|week|doubleMonth`,
-    /// wahlweise mit Kalendarium und Stilvorlage (`-probe=year:strip:leinen`),
+    /// wahlweise mit Kalendarium, Stilvorlage und Fotoanteil
+    /// (`-probe=year:strip:leinen`, `-probe=year:classic:aquarell:0.78`),
     /// legt einen Kalender an und öffnet ihn sofort — so lässt sich der
     /// Editor ohne Antippen prüfen. Mit Kalendarium entfällt das Titelblatt,
     /// damit gleich ein Monat zu sehen ist.
@@ -123,11 +125,53 @@ struct HomeView: View {
             p.hasCover = false
             p.startMonth = 5
         }
+        if parts.count > 3, let share = Double(parts[3]), share > 0 { p.photoShare = share }
+        // Fünfter Teil: ein Testfoto (Panorama 3 : 1, passt absichtlich nicht
+        // in die Fläche) — „ganz“ zeigt es ganz mit weichem Hintergrund,
+        // „farbe“ mit Farbe, „fuellen“ füllend. Sechster Teil „lupe“ öffnet
+        // danach die Seitenprüfung (siehe EditorView).
+        if parts.count > 4, let item = Self.probePhoto() {
+            p.photos = [item]
+            var pl = PhotoPlacement(photoID: item.id)
+            pl.fit = parts[4] == "ganz" ? .blurBackdrop : (parts[4] == "farbe" ? .colorBackdrop : .fill)
+            for i in 0..<12 { p.placements["m\(i)"] = [pl] }
+            PhotoInfo.register(p.photos)
+        }
         p.dates.schoolStates = [SchoolSelection(state: .BY, color: SchoolSelection.palette[0])]
         store.add(p)
         path.append(p.id)
         #endif
     }
+
+    #if DEBUG
+    /// Ein gezeichnetes Panorama: Himmel, Sonne, Berge — bunt genug für
+    /// „Farbe des Monats“ und für den weichen Hintergrund.
+    static func probePhoto() -> PhotoItem? {
+        let size = CGSize(width: 3600, height: 1200)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let c = ctx.cgContext
+            let colors = [UIColor(red: 0.98, green: 0.62, blue: 0.35, alpha: 1).cgColor,
+                          UIColor(red: 0.35, green: 0.45, blue: 0.85, alpha: 1).cgColor] as CFArray
+            if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
+                c.drawLinearGradient(g, start: CGPoint(x: 0, y: size.height), end: .zero, options: [])
+            }
+            UIColor(red: 1, green: 0.9, blue: 0.5, alpha: 1).setFill()
+            c.fillEllipse(in: CGRect(x: 2500, y: 250, width: 360, height: 360))
+            UIColor(red: 0.18, green: 0.32, blue: 0.3, alpha: 1).setFill()
+            let m = UIBezierPath()
+            m.move(to: CGPoint(x: 0, y: size.height))
+            for (i, y) in [700.0, 420, 820, 360, 760, 520, 880, 600].enumerated() {
+                m.addLine(to: CGPoint(x: Double(i) * 520, y: y))
+            }
+            m.addLine(to: CGPoint(x: size.width, y: 700))
+            m.addLine(to: CGPoint(x: size.width, y: size.height))
+            m.close()
+            m.fill()
+        }
+        guard let data = img.jpegData(compressionQuality: 0.9) else { return nil }
+        return try? ImageStore.shared.importImage(data: data)
+    }
+    #endif
 
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {

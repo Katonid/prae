@@ -8,6 +8,7 @@ struct PhotoEditSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var dragStart: PhotoPlacement?
+    @State private var pinchStart: Double?
 
     private var current: PhotoPlacement? {
         project.placement(key: target.key, index: target.index)
@@ -25,6 +26,25 @@ struct PhotoEditSheet: View {
             get: { current?.zoom ?? 1 },
             set: { z in project.updatePlacement(key: target.key, index: target.index) { $0.zoom = z } }
         )
+    }
+
+    private var fitBinding: Binding<PhotoFit> {
+        Binding(
+            get: { current?.fit ?? .fill },
+            set: { f in
+                project.updatePlacement(key: target.key, index: target.index) {
+                    $0.fit = f
+                    $0.zoom = 1
+                    $0.offsetX = 0
+                    $0.offsetY = 0
+                }
+            }
+        )
+    }
+
+    /// Ganzes Foto darf kleiner werden als die Fläche, ein füllendes nicht.
+    private var zoomRange: ClosedRange<Double> {
+        (current?.fit.showsWhole ?? false) ? 0.4...3 : 1...4
     }
 
     var body: some View {
@@ -65,9 +85,10 @@ struct PhotoEditSheet: View {
                     .shadow(color: .black.opacity(0.5), radius: 14, y: 8)
                     .frame(width: geo.size.width, height: geo.size.height)
                     .contentShape(Rectangle())
-                    .gesture(dragGesture(scale: scale, pageWidth: size.width))
+                    .gesture(dragGesture(scale: scale, pageWidth: size.width)
+                        .simultaneously(with: pinchGesture))
                     .overlay(alignment: .top) {
-                        Text("Zum Verschieben ziehen")
+                        Text("Ziehen verschiebt · zwei Finger zoomen")
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -77,6 +98,18 @@ struct PhotoEditSheet: View {
                     }
             }
         }
+    }
+
+    private var pinchGesture: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                if pinchStart == nil { pinchStart = current?.zoom ?? 1 }
+                guard let start = pinchStart else { return }
+                let r = zoomRange
+                let z = min(max(start * Double(value.magnification), r.lowerBound), r.upperBound)
+                project.updatePlacement(key: target.key, index: target.index) { $0.zoom = z }
+            }
+            .onEnded { _ in pinchStart = nil }
     }
 
     private func dragGesture(scale: CGFloat, pageWidth: CGFloat) -> some Gesture {
@@ -116,9 +149,21 @@ struct PhotoEditSheet: View {
                 .padding(.horizontal)
             }
             VStack(alignment: .leading, spacing: 10) {
+                Picker("Darstellung", selection: fitBinding) {
+                    ForEach(PhotoFit.allCases) { f in
+                        Label(f.title, systemImage: f.symbol).tag(f)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(current == nil)
+                if current?.fit.showsWhole == true {
+                    Text("Das ganze Foto bleibt sichtbar, auch wenn es nicht zur Fläche passt — dahinter liegt es weichgezeichnet oder in seiner Farbe, wie bei einem WhatsApp-Status.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 HStack {
                     Image(systemName: "minus.magnifyingglass")
-                    Slider(value: zoomBinding, in: 1...4)
+                    Slider(value: zoomBinding, in: zoomRange)
                     Image(systemName: "plus.magnifyingglass")
                 }
                 .disabled(current == nil)
