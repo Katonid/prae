@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct InspectorPanel: View {
     @Binding var project: CalendarProject
@@ -315,33 +316,94 @@ struct FontListView: View {
     let title: String
     @Binding var selection: String
 
+    @ObservedObject private var fonts = FontStore.shared
+    @State private var showPicker = false
+    @State private var showImporter = false
+
     var body: some View {
         List {
-            ForEach(FontLibrary.families, id: \.self) { family in
+            Section {
                 Button {
-                    selection = family
+                    showPicker = true
                 } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Januar 2027 · 24")
-                                .font(FontLibrary.font(family, size: 24, weight: .regular))
-                                .lineLimit(1)
-                            Text(family)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if family == selection {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(Color.accentColor)
-                        }
-                    }
-                    .contentShape(Rectangle())
+                    Label("Installierte Schrift wählen …", systemImage: "textformat")
                 }
-                .buttonStyle(.plain)
+                Button {
+                    showImporter = true
+                } label: {
+                    Label("Schriftdatei laden (.ttf, .otf)", systemImage: "doc.badge.plus")
+                }
+                if let message = fonts.message {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                Text("„Installierte Schrift“ öffnet die Schriftauswahl von iOS — dort stehen auch Schriften, die du selbst auf dem Gerät installiert hast (z. B. über Adobe Fonts oder eine Schrift-App; zu sehen unter Einstellungen › Allgemein › Schriften). Erst nach der Auswahl dort darf die App sie verwenden.")
+            }
+
+            if !fonts.families.isEmpty {
+                Section("Eigene Schriften") {
+                    ForEach(fonts.families, id: \.self) { family in
+                        row(family, custom: true)
+                    }
+                    .onDelete { offsets in
+                        for i in offsets { fonts.remove(fonts.families[i]) }
+                    }
+                }
+            }
+
+            Section("Mitgelieferte Schriften") {
+                ForEach(FontLibrary.families, id: \.self) { family in
+                    row(family, custom: false)
+                }
             }
         }
         .navigationTitle(title)
+        .sheet(isPresented: $showPicker) {
+            SystemFontPicker { family in
+                if let family {
+                    fonts.add(family: family)
+                    selection = family
+                }
+                showPicker = false
+            }
+            .ignoresSafeArea()
+        }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: UTType.fontFiles,
+                      allowsMultipleSelection: true) { result in
+            guard case .success(let urls) = result else { return }
+            let before = Set(fonts.families)
+            for url in urls { fonts.importFile(url) }
+            if let neu = fonts.families.first(where: { !before.contains($0) }) {
+                selection = neu
+            }
+        }
+    }
+
+    private func row(_ family: String, custom: Bool) -> some View {
+        let available = !custom || fonts.isAvailable(family)
+        return Button {
+            selection = family
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Januar 2027 · 24")
+                        .font(FontLibrary.font(family, size: 24, weight: .regular))
+                        .lineLimit(1)
+                    Text(available ? family : "\(family) — derzeit nicht verfügbar")
+                        .font(.caption)
+                        .foregroundStyle(available ? Color.secondary : Color.orange)
+                }
+                Spacer()
+                if family == selection {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -11,6 +11,7 @@ struct KalenderstudioApp: App {
                 .environmentObject(store)
                 .onAppear {
                     PhotoInfo.register(store.projects.flatMap(\.photos))
+                    FontStore.shared.activate()
                 }
         }
         .onChange(of: scenePhase) { _, phase in
