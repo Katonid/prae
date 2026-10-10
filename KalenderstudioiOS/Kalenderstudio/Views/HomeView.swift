@@ -28,24 +28,21 @@ struct HomeView: View {
                                     ProjectCard(project: project)
                                 }
                                 .buttonStyle(.plain)
-                                .contextMenu {
-                                    Button {
-                                        newName = project.name
-                                        renaming = project
-                                    } label: { Label("Umbenennen", systemImage: "pencil") }
-                                    Button {
-                                        store.duplicate(project)
-                                    } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
-                                    Button {
-                                        do {
-                                            backupFile = try Backup.write([project], title: project.name).url
-                                        } catch {
-                                            backupError = error.localizedDescription
-                                        }
-                                    } label: { Label("Als Datei sichern", systemImage: "externaldrive.badge.plus") }
-                                    Button(role: .destructive) {
-                                        deleting = project
-                                    } label: { Label("Löschen", systemImage: "trash") }
+                                .contextMenu { cardActions(project) }
+                                // Sichtbar statt nur per langem Drücken (Ansage des
+                                // Nutzers, 1.0.13: „ein Projekt duplizieren“ wurde
+                                // nicht gefunden).
+                                .overlay(alignment: .topTrailing) {
+                                    Menu {
+                                        cardActions(project)
+                                    } label: {
+                                        Image(systemName: "ellipsis.circle.fill")
+                                            .font(.system(size: 28))
+                                            .symbolRenderingMode(.palette)
+                                            .foregroundStyle(.white, Color.black.opacity(0.45))
+                                            .padding(14)
+                                    }
+                                    .accessibilityLabel("Aktionen für \(project.name)")
                                 }
                             }
                         }
@@ -119,6 +116,27 @@ struct HomeView: View {
                 Text("Der Kalender und seine Fotos werden aus der App entfernt. Die Originale in deiner Fotomediathek bleiben erhalten.")
             }
         }
+    }
+
+    @ViewBuilder
+    private func cardActions(_ project: CalendarProject) -> some View {
+        Button {
+            newName = project.name
+            renaming = project
+        } label: { Label("Umbenennen", systemImage: "pencil") }
+        Button {
+            store.duplicate(project)
+        } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
+        Button {
+            do {
+                backupFile = try Backup.write([project], title: project.name).url
+            } catch {
+                backupError = error.localizedDescription
+            }
+        } label: { Label("Als Datei sichern", systemImage: "externaldrive.badge.plus") }
+        Button(role: .destructive) {
+            deleting = project
+        } label: { Label("Löschen", systemImage: "trash") }
     }
 
     /// Nur für den Simulator-Arbeitsablauf: `-probe=year|week|doubleMonth`,

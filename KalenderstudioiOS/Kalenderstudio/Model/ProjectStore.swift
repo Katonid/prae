@@ -122,6 +122,7 @@ final class ProjectStore: ObservableObject {
             : "Abgeglichen — \(snap.pending.count) Kalender werden noch aus iCloud geladen."
         ImageStore.shared.forgetMisses()
         revision += 1
+        TemplateStore.shared.sync()
     }
 
     private func merge(_ snap: CloudStore.Snapshot) {
