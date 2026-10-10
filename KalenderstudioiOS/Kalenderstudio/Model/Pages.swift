@@ -166,7 +166,10 @@ extension CalendarProject {
     mutating func setPhoto(_ photoID: UUID, key: String, index: Int) {
         let count = max(slotCount(forKey: key), index + 1)
         var list = placements(for: key, count: count)
-        list[index] = PhotoPlacement(photoID: photoID)
+        // Ein anderes Foto behält die gewählte Darstellung (ganz/füllen).
+        var neu = PhotoPlacement(photoID: photoID)
+        neu.fit = list[index]?.fit ?? .fill
+        list[index] = neu
         placements[key] = list.map { $0 ?? PhotoPlacement(photoID: photoID) }
     }
 

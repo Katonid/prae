@@ -261,11 +261,49 @@ struct PhotoItem: Codable, Identifiable, Equatable, Hashable {
 /// Ein Foto auf einer Fläche, mit Ausschnitt.
 struct PhotoPlacement: Codable, Equatable, Hashable {
     var photoID: UUID
-    /// 1 = füllt die Fläche gerade eben.
+    /// 1 = füllt die Fläche gerade eben (bei `fit`: passt gerade hinein).
     var zoom: Double = 1
     /// −1 … 1, Anteil des möglichen Verschiebewegs.
     var offsetX: Double = 0
     var offsetY: Double = 0
+    /// Wie das Foto in der Fläche sitzt (ab 1.0.9).
+    var fit: PhotoFit = .fill
+
+    init(photoID: UUID) { self.photoID = photoID }
+
+    enum CodingKeys: String, CodingKey { case photoID, zoom, offsetX, offsetY, fit }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        photoID = try c.decode(UUID.self, forKey: .photoID)
+        zoom = c.value(.zoom, 1.0)
+        offsetX = c.value(.offsetX, 0.0)
+        offsetY = c.value(.offsetY, 0.0)
+        fit = c.value(.fit, PhotoFit.fill)
+    }
+}
+
+/// „Fläche füllen“ schneidet ab, was nicht passt. Die beiden anderen zeigen
+/// das ganze Foto — wie ein WhatsApp-Status: Dahinter liegt dasselbe Foto
+/// weichgezeichnet oder seine prägende Farbe.
+enum PhotoFit: String, Codable, CaseIterable, Identifiable {
+    case fill, blurBackdrop, colorBackdrop
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .fill: return "Füllen"
+        case .blurBackdrop: return "Ganz + weich"
+        case .colorBackdrop: return "Ganz + Farbe"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .fill: return "rectangle.fill"
+        case .blurBackdrop: return "rectangle.inset.filled"
+        case .colorBackdrop: return "rectangle.center.inset.filled"
+        }
+    }
+    var showsWhole: Bool { self != .fill }
 }
 
 // MARK: - Termine

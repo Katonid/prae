@@ -30,7 +30,8 @@
   Wähler mit Schnitten, Schriftenprobe, Fassung in den Einstellungen).
   1.0.8 (9) Gestaltung nach Anregungen anderer Anbieter (siehe unten
   „Gestaltungsideen“).
-  1.0.9 (10) Fotoanteil am Monatsblatt einstellbar.
+  1.0.9 (10) Fotoanteil am Monatsblatt einstellbar, Seite prüfen (Lupe),
+  ganzes Foto mit weichem oder farbigem Hintergrund, Zoomen mit zwei Fingern.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -101,6 +102,26 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
   begrenzt, damit dem Raster bei großem Foto Platz bleibt. **Wird ein Raster
   zu flach, schaltet `MonthGridView.effective` auf die Zeitleiste** — im
   Simulator brach „Große Ziffern“ bei 85 % sonst unlesbar zusammen.
+
+- **Seite prüfen (Lupe, ab 1.0.9,** Ansage des Nutzers: „heranzoomen“):
+  `Views/PageZoomView.swift`. Die Arbeitsfläche blättert per Wischen
+  (`TabView .page`) und wird deshalb NICHT zoombar gemacht — Zoomen und
+  Blättern stritten sich um dieselbe Geste. Stattdessen rechnet die Lupe
+  die Seite über `Exporter.pageView` (Druckmodus, Originalfotos) mit rund
+  4000 px an der langen Seite (höchstens 300 dpi) und zeigt sie in einer
+  `UIScrollView` (zwei Finger, Doppeltippen). Ein vergrößertes
+  Vorschaubild wäre nur unscharf hochgezogen und sagte über den Druck
+  nichts. Ohne Hilfslinien wird aufs Endformat beschnitten.
+- **Ganzes Foto (`PhotoFit`, ab 1.0.9,** Ansage des Nutzers: Bilder, die
+  nicht in den Rahmen passen, „wie bei einem WhatsApp-Status“): In
+  `PhotoPlacement.fit` — „Füllen“ (wie bisher, schneidet ab), „Ganz +
+  weich“ (dasselbe Foto weichgezeichnet dahinter) und „Ganz + Farbe“
+  (`dominantColor` als Verlauf). Zoom dort 0,4…3 statt 1…4. Ein anderes
+  Foto in derselben Fläche behält die Darstellung. `PhotoPlacement` hat
+  seitdem ein eigenes `init(from:)` — der synthetisierte Decoder hätte
+  alte Kalender ohne `fit` nicht mehr geöffnet.
+- **Zwei-Finger-Zoom im Foto-Bearbeiten** (`MagnifyGesture`, gleichzeitig
+  mit dem Ziehen).
 
 ## iCloud-Abgleich (ab 1.0.4)
 
