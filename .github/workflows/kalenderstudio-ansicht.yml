@@ -20,7 +20,7 @@ on:
         default: ""
 
 concurrency:
-  group: kalenderstudio-ansicht-${{ github.ref }}
+  group: kalenderstudio-ansicht-${{ github.ref }}-${{ inputs.geraet }}
   cancel-in-progress: true
 
 jobs:
