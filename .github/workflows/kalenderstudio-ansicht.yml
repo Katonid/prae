@@ -58,7 +58,9 @@ jobs:
           for art in year doubleMonth week; do
             mit_grenze 60 xcrun simctl terminate "$UDID" de.familie.kalenderstudio || true
             mit_grenze 90 xcrun simctl launch "$UDID" de.familie.kalenderstudio "-probe=$art" || true
-            sleep 15
+            sleep 6
+            shot "ansicht/$art-0.png"
+            sleep 9
             shot "ansicht/$art-1.png"
             sleep 10
             shot "ansicht/$art-2.png"

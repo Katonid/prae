@@ -6,8 +6,10 @@ struct InspectorPanel: View {
     let onEditPhoto: (PhotoTarget) -> Void
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
+        // Bewusst KEIN eigener NavigationStack: Das Panel liegt im Stapel
+        // der Startseite, und ein zweiter Stapel darin ließ den Editor
+        // beim Öffnen zurückspringen und beim nächsten Mal abstürzen.
+        VStack(spacing: 0) {
                 Picker("Bereich", selection: $tab) {
                     ForEach(PanelTab.allCases) { t in
                         Label(t.title, systemImage: t.symbol).tag(t)
@@ -27,9 +29,6 @@ struct InspectorPanel: View {
                     }
                 }
                 .frame(maxHeight: .infinity)
-            }
-            .navigationTitle(tab.title)
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -141,6 +140,13 @@ struct StylePanel: View {
 
     private var d: Binding<Design> { $project.design }
 
+    private enum FontRole: String, Identifiable {
+        case title, body, number
+        var id: String { rawValue }
+    }
+
+    @State private var fontRole: FontRole?
+
     var body: some View {
         Form {
             Section("Stilvorlagen") {
@@ -201,8 +207,8 @@ struct StylePanel: View {
             }
 
             Section("Schriften") {
-                NavigationLink {
-                    FontListView(title: "Titelschrift", selection: d.titleFont)
+                Button {
+                    fontRole = .title
                 } label: {
                     LabeledContent("Titel") {
                         Text(project.design.titleFont)
@@ -216,8 +222,8 @@ struct StylePanel: View {
                 Toggle("Titel in Großbuchstaben", isOn: d.titleUppercase)
                 LabeledSlider(title: "Sperrung", value: d.titleTracking, range: 0...0.25)
 
-                NavigationLink {
-                    FontListView(title: "Textschrift", selection: d.bodyFont)
+                Button {
+                    fontRole = .body
                 } label: {
                     LabeledContent("Text") {
                         Text(project.design.bodyFont)
@@ -226,8 +232,8 @@ struct StylePanel: View {
                 }
                 LabeledSlider(title: "Textgröße", value: d.bodyScale, range: 0.5...1.8, percent: true)
 
-                NavigationLink {
-                    FontListView(title: "Zahlenschrift", selection: d.numberFont)
+                Button {
+                    fontRole = .number
                 } label: {
                     LabeledContent("Zahlen") {
                         Text(project.design.numberFont)
@@ -250,6 +256,28 @@ struct StylePanel: View {
                 LabeledSlider(title: "Fotorahmen", value: d.photoBorder, range: 0...1, percent: true)
             }
         }
+        .sheet(item: $fontRole) { role in
+            fontSheet(role)
+        }
+    }
+
+    private func fontSheet(_ role: FontRole) -> some View {
+        let title: String
+        let selection: Binding<String>
+        switch role {
+        case .title: title = "Titelschrift"; selection = d.titleFont
+        case .body: title = "Textschrift"; selection = d.bodyFont
+        case .number: title = "Zahlenschrift"; selection = d.numberFont
+        }
+        return NavigationStack {
+            FontListView(title: title, selection: selection)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Fertig") { fontRole = nil }
+                    }
+                }
+        }
+        .presentationDetents([.medium, .large])
     }
 
     private func apply(_ id: String) {
