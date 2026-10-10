@@ -12,6 +12,25 @@ struct ExportSheet: View {
     @State private var showShare = false
     @State private var errorText: String?
 
+    /// Schriften, die fehlen oder nicht eingebettet werden dürfen — die
+    /// Druckerei ersetzte sie stillschweigend.
+    private var fontProblems: [(family: String, problem: String)] {
+        let d = project.design
+        var seen = Set<String>()
+        var result: [(family: String, problem: String)] = []
+        for family in [d.titleFont, d.bodyFont, d.numberFont] where seen.insert(family).inserted {
+            switch FontLicense.check(family: family) {
+            case .restricted:
+                result.append((family: family, problem: "darf laut Lizenz nicht ins PDF eingebettet werden — die Druckerei würde sie ersetzen"))
+            case .unavailable:
+                result.append((family: family, problem: "ist auf diesem Gerät nicht verfügbar — gedruckt würde die Systemschrift"))
+            case .allowed, .unknown:
+                break
+            }
+        }
+        return result
+    }
+
     private var weakPhotos: [PhotoItem] {
         project.photos.filter { max($0.pixelWidth, $0.pixelHeight) < 2000 }
     }
@@ -46,10 +65,16 @@ struct ExportSheet: View {
                     Text("Jede Seite enthält den Beschnitt rundum. Im PDF sind Endformat (TrimBox) und Beschnitt (BleedBox) hinterlegt. Schnittmarken nur, wenn der Druckdienst sie verlangt — die meisten möchten keine.")
                 }
 
-                if project.photos.isEmpty || !weakPhotos.isEmpty {
+                if project.photos.isEmpty || !weakPhotos.isEmpty || !fontProblems.isEmpty {
                     Section("Hinweise") {
                         if project.photos.isEmpty {
                             Label("Noch keine Fotos — die Fotoflächen bleiben farbig.", systemImage: "photo")
+                                .foregroundStyle(.orange)
+                        }
+                        let problems = fontProblems
+                        ForEach(problems.indices, id: \.self) { i in
+                            let item = problems[i]
+                            Label("Schrift „\(item.family)“ \(item.problem).", systemImage: "textformat")
                                 .foregroundStyle(.orange)
                         }
                         if !weakPhotos.isEmpty {

@@ -13,6 +13,7 @@ struct KalenderstudioApp: App {
                     PhotoInfo.register(store.projects.flatMap(\.photos))
                     FontStore.shared.activate()
                 }
+                .task { store.startCloud() }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { store.saveNow() }

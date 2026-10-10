@@ -165,7 +165,8 @@ struct PhotoFill: View {
                 }
             }
         } else {
-            PhotoPlaceholder(design: design, interactive: mode == .preview)
+            PhotoPlaceholder(design: design, interactive: mode == .preview,
+                             fromCloud: mode == .preview && placement.map { ImageStore.shared.state($0.photoID) == .downloading } == true)
         }
     }
 
@@ -222,6 +223,8 @@ enum PhotoInfo {
 struct PhotoPlaceholder: View {
     let design: Design
     let interactive: Bool
+    /// Das Foto gibt es, es liegt nur noch in iCloud.
+    var fromCloud = false
 
     var body: some View {
         GeometryReader { geo in
@@ -231,9 +234,9 @@ struct PhotoPlaceholder: View {
                                startPoint: .topLeading, endPoint: .bottomTrailing)
                 if interactive {
                     VStack(spacing: m * 0.04) {
-                        Image(systemName: "photo.badge.plus")
+                        Image(systemName: fromCloud ? "icloud.and.arrow.down" : "photo.badge.plus")
                             .font(.system(size: m * 0.16, weight: .light))
-                        Text("Foto wählen")
+                        Text(fromCloud ? "Lädt aus iCloud …" : "Foto wählen")
                             .font(.system(size: max(m * 0.06, 6), weight: .semibold, design: .rounded))
                     }
                     .foregroundStyle(.white.opacity(0.9))

@@ -4,5 +4,22 @@
 <dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Macht den iCloud-Ordner in der App „Dateien" sichtbar (iCloud Drive ›
+	     Kalenderstudio). Ohne diese Schlüssel läge er versteckt im Behälter,
+	     und niemand käme ohne die App an seine Kalender und Fotos heran
+	     (Lehre aus dem Reisebuch). Wirkt erst, wenn das iCloud-Recht
+	     eingehängt ist; vorher schadet es nicht. -->
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.de.familie.kalenderstudio</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>Kalenderstudio</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

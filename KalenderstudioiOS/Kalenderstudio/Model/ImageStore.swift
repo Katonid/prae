@@ -9,24 +9,100 @@ enum RenderMode {
     case print
 }
 
-/// Legt Fotos im Dokumentordner ab: das Original (bis 7000 px, für den
-/// Druck) und eine Vorschau (1600 px, für den Bildschirm).
-final class ImageStore {
+extension Notification.Name {
+    /// Ein Foto, das eben noch fehlte, könnte jetzt da sein — neu zeichnen.
+    static let kalenderBilderGeaendert = Notification.Name("kalenderBilderGeaendert")
+}
+
+/// Legt Fotos ab: das Original (bis 7000 px, für den Druck) und eine
+/// Vorschau (1600 px, für den Bildschirm). Mit iCloud liegen sie im
+/// Behälter (`CloudStore.photosDir`), sonst im Dokumentordner; gelesen wird
+/// aus beiden.
+final class ImageStore: @unchecked Sendable {
     static let shared = ImageStore()
 
-    private let dir: URL
+    private let localDir: URL
     private let cache = NSCache<NSString, UIImage>()
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
+    /// Vergebliche Zugriffe mit Zeit. Ein `nil` wird gemerkt — sonst sucht
+    /// JEDE Neuzeichnung jedes fehlende Foto erneut auf dem Hauptfaden
+    /// (Reisebuch 1.0.71: „kein Arbeiten möglich“). Mit Ablauf, damit ein
+    /// ankommendes Foto von selbst erscheint.
+    private var misses: [String: Date] = [:]
+    private let missLock = NSLock()
+    private let missWait: TimeInterval = 3
+    private var refreshScheduled = false
+
     private init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        dir = docs.appendingPathComponent("Fotos", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        localDir = docs.appendingPathComponent("Fotos", isDirectory: true)
+        try? FileManager.default.createDirectory(at: localDir, withIntermediateDirectories: true)
         cache.totalCostLimit = 350 * 1024 * 1024
     }
 
-    private func fullURL(_ id: UUID) -> URL { dir.appendingPathComponent("\(id.uuidString).jpg") }
-    private func thumbURL(_ id: UUID) -> URL { dir.appendingPathComponent("\(id.uuidString)-v.jpg") }
+    var localFolder: URL { localDir }
+
+    private func fullName(_ id: UUID) -> String { "\(id.uuidString).jpg" }
+    private func thumbName(_ id: UUID) -> String { "\(id.uuidString)-v.jpg" }
+
+    /// Wo neue Fotos hingeschrieben werden.
+    private var writeDir: URL { CloudStore.shared.photosDir ?? localDir }
+
+    /// Findet eine Datei: erst in der Wolke, dann auf dem Gerät. Liegt sie
+    /// nur in der Wolke und ist noch nicht geladen, wird das Laden
+    /// angestoßen und `nil` zurückgegeben.
+    private func readableURL(_ name: String) -> URL? {
+        if let cloud = CloudStore.shared.photosDir {
+            let url = cloud.appendingPathComponent(name)
+            switch CloudStore.shared.state(of: url) {
+            case .local: return url
+            case .downloading, .missing: break
+            }
+        }
+        let local = localDir.appendingPathComponent(name)
+        return FileManager.default.fileExists(atPath: local.path) ? local : nil
+    }
+
+    /// Für Hinweise: Liegt das Foto hier, kommt es noch aus iCloud, oder fehlt es?
+    func state(_ id: UUID) -> CloudStore.ItemState {
+        if FileManager.default.fileExists(atPath: localDir.appendingPathComponent(fullName(id)).path) {
+            return .local
+        }
+        guard let cloud = CloudStore.shared.photosDir else { return .missing }
+        return CloudStore.shared.state(of: cloud.appendingPathComponent(fullName(id)))
+    }
+
+    /// Für den Druck: Ist das Original ganz da? Stößt sonst das Laden an.
+    func fullIsReady(_ id: UUID) -> Bool {
+        readableURL(fullName(id)) != nil
+    }
+
+    private func recentlyMissed(_ key: String) -> Bool {
+        missLock.lock(); defer { missLock.unlock() }
+        if let t = misses[key], Date().timeIntervalSince(t) < missWait { return true }
+        return false
+    }
+
+    private func noteMiss(_ key: String) {
+        missLock.lock()
+        misses[key] = Date()
+        let schedule = !refreshScheduled
+        refreshScheduled = true
+        missLock.unlock()
+        guard schedule else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + missWait + 0.2) { [weak self] in
+            self?.missLock.lock()
+            self?.refreshScheduled = false
+            self?.missLock.unlock()
+            NotificationCenter.default.post(name: .kalenderBilderGeaendert, object: nil)
+        }
+    }
+
+    /// „Jetzt nachsehen“ — räumt den Merker sofort weg.
+    func forgetMisses() {
+        missLock.lock(); misses.removeAll(); missLock.unlock()
+    }
 
     /// Übernimmt ein Foto (beliebiges Format, auch HEIC) und gibt seine
     /// Kenndaten zurück. Die Ausrichtung wird dabei fest eingerechnet.
@@ -39,14 +115,19 @@ final class ImageStore {
               let thumb = Self.downsample(source, maxPixel: 1600) else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        try Self.writeJPEG(full, to: fullURL(id), quality: 0.92)
-        try Self.writeJPEG(thumb, to: thumbURL(id), quality: 0.85)
+        let dir = writeDir
+        try Self.writeJPEG(full, to: dir.appendingPathComponent(fullName(id)), quality: 0.92)
+        try Self.writeJPEG(thumb, to: dir.appendingPathComponent(thumbName(id)), quality: 0.85)
         return PhotoItem(id: id, pixelWidth: full.width, pixelHeight: full.height)
     }
 
     func delete(_ id: UUID) {
-        try? FileManager.default.removeItem(at: fullURL(id))
-        try? FileManager.default.removeItem(at: thumbURL(id))
+        for name in [fullName(id), thumbName(id)] {
+            try? FileManager.default.removeItem(at: localDir.appendingPathComponent(name))
+            if let cloud = CloudStore.shared.photosDir {
+                CloudStore.shared.coordinatedDelete(cloud.appendingPathComponent(name))
+            }
+        }
         cache.removeObject(forKey: "\(id.uuidString)-p" as NSString)
         cache.removeObject(forKey: "\(id.uuidString)-d" as NSString)
     }
@@ -59,24 +140,28 @@ final class ImageStore {
     }
 
     func thumbnail(_ id: UUID) -> UIImage? {
-        let key = "\(id.uuidString)-p" as NSString
-        if let img = cache.object(forKey: key) { return img }
-        guard let img = UIImage(contentsOfFile: thumbURL(id).path) ?? UIImage(contentsOfFile: fullURL(id).path) else {
+        let key = "\(id.uuidString)-p"
+        if let img = cache.object(forKey: key as NSString) { return img }
+        if recentlyMissed(key) { return nil }
+        guard let url = readableURL(thumbName(id)) ?? readableURL(fullName(id)),
+              let img = UIImage(contentsOfFile: url.path) else {
+            noteMiss(key)
             return nil
         }
-        cache.setObject(img, forKey: key, cost: Int(img.size.width * img.size.height * 4))
+        cache.setObject(img, forKey: key as NSString, cost: Int(img.size.width * img.size.height * 4))
         return img
     }
 
     func full(_ id: UUID) -> UIImage? {
-        let key = "\(id.uuidString)-d" as NSString
-        if let img = cache.object(forKey: key) { return img }
+        let key = "\(id.uuidString)-d"
+        if let img = cache.object(forKey: key as NSString) { return img }
         // Bewusst aus den JPEG-Daten erzeugt: So kann der PDF-Export die
         // komprimierten Daten übernehmen, statt das Bild entpackt abzulegen.
-        guard let data = try? Data(contentsOf: fullURL(id)), let img = UIImage(data: data) else {
+        guard let url = readableURL(fullName(id)),
+              let data = try? Data(contentsOf: url), let img = UIImage(data: data) else {
             return thumbnail(id)
         }
-        cache.setObject(img, forKey: key, cost: Int(img.size.width * img.size.height * 4))
+        cache.setObject(img, forKey: key as NSString, cost: Int(img.size.width * img.size.height * 4))
         return img
     }
 

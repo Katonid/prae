@@ -22,11 +22,14 @@
   (Ozean & Abendrot: Petrol-Türkis, Abendhimmel, Gold), Bindungsrand vom
   Endformatrand gemessen, Vorlage „A3 hoch, Wire-O oben“, PDF-Effekte in
   Druckauflösung; 1.0.3 (4) eigene Schriften (auf dem Gerät installierte
-  und geladene Schriftdateien).
+  und geladene Schriftdateien); 1.0.4 (5) iCloud-Abgleich (vorbereitet, Recht
+  noch nicht eingehängt), richtiger Schriftschnitt, Einbettungsprüfung.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
-  synchronisierten Ordners. Keine Entitlements.
+  synchronisierten Ordners. **Entitlements: `Config/Kalenderstudio.entitlements`
+  liegt seit 1.0.4 bereit, ist aber NICHT eingehängt** (kein
+  `CODE_SIGN_ENTITLEMENTS`) — siehe „iCloud-Abgleich“ unten.
 
 ## Aufbau
 
@@ -50,8 +53,53 @@
   `Documents/Fotos`. Hintergrund-Weichzeichnung per Core Image aus der
   Vorschau (nicht per SwiftUI-`.blur`, das im Export unzuverlässig ist).
 
+## iCloud-Abgleich (ab 1.0.4)
+
+- **iCloud DRIVE, nicht CloudKit** (`Model/CloudStore.swift`) — dieselbe
+  Entscheidung und Begründung wie beim Reisebuch: kleine JSON-Datei, viele
+  große Fotos. Je Kalender eine Datei `Kalender/<Kennung>.json`, Fotos in
+  `Fotos/`, geladene Schriftdateien in `Schriften/`. `CloudStore` ist die
+  EINZIGE Stelle, die weiß, wo etwas liegt.
+- **Die Datei auf dem Gerät bleibt die Arbeitskopie** (`kalender.json`). Die
+  Wolke wird beim Start, auf Meldung von `NSMetadataQuery` (2 s Ruhe) und
+  mit „Jetzt abgleichen“ eingelesen und zusammengeführt; geschrieben wird
+  nach jedem Speichern, nur was sich geändert hat (`lastWritten`).
+- **Wer geändert hat, entscheidet `modified` IM Kalender** gegen den Stand
+  beim letzten Abgleich (`syncedStamps`, UserDefaults „abgleichStaende“) —
+  nicht die Dateizeit. Beide geändert: die neuere gewinnt, die ältere
+  bleibt als eigener Kalender „(ältere Fassung, …)“. Gelöscht wird über
+  einen Grabstein `<Kennung>.geloescht`, sonst käme der Kalender vom
+  anderen Gerät zurück.
+- **Umschalten und Einschalten KOPIEREN, löschen nichts** (Fotos und
+  Schriften vom Gerät in die Wolke).
+- **Ein Foto kann vor seinen Bildern ankommen** (Reisebuch 1.0.71): Geprüft
+  werden beide Gestalten eines nicht geladenen Elements (Platzhalter
+  `.<Name>.icloud` und Ladestatus), das Laden wird angestoßen, und ein
+  vergeblicher Zugriff wird 3 s gemerkt (`ImageStore.misses`) — sonst sucht
+  jede Neuzeichnung erneut auf dem Hauptfaden. Die Vorschau zeigt „Lädt aus
+  iCloud …“; der Export WARTET auf alle Originale und meldet getrennt, was
+  noch kommt und was ganz fehlt.
+- **`url(forUbiquityContainerIdentifier:)` blockiert** — nur in
+  `CloudStore.prepare()` abseits des Hauptfadens, nie in einem `init`.
+- **Ohne Recht oder Anmeldung bleibt die App örtlich und sagt es**
+  (Einstellungen › iCloud). „Einrichtung prüfen“ liest aus
+  `embedded.mobileprovision`, was das Profil bewilligt (`ProfileRights`).
+- **Die Entitlements-Datei wird erst eingehängt, wenn dieser Befund iCloud
+  UND das Schriftenrecht als bewilligt zeigt** — mit genau den dort
+  gelesenen Zeichenketten. Vorher nicht: Ein Recht, das die App-Id nicht
+  trägt, macht die App unsignierbar (Reisebuch 1.0.44).
+
 ## Fallen
 
+- **Schriftschnitt über den PostScript-Namen** (`FontFaces`, ab 1.0.4):
+  `Font.custom(Familie).weight(…)` lieferte nicht verlässlich den
+  passenden Schnitt (Reisebuch 1.0.29). Gesucht wird der nicht kursive
+  Schnitt mit der nächstliegenden Strichstärke; der Vorrat wird beim
+  Anmelden neuer Schriften geleert.
+- **Ob eine Schrift eingebettet werden darf, steht in ihr** (`FontLicense`,
+  OS/2-Feld `fsType`, ab 1.0.4). Gesperrte und fehlende Schriften nennt der
+  Export-Dialog. Ob CoreGraphics eine erlaubte Schrift dann wirklich
+  einbettet, zeigt erst ein Blick in die fertige Datei.
 - **Eigene Schriften (seit 1.0.3, `Model/CustomFonts.swift`).** Vom
   Nutzer installierte Schriften (Adobe Fonts, Schrift-Apps, Profile) gibt
   iOS einer App **nur über `UIFontPickerViewController`** frei — eine

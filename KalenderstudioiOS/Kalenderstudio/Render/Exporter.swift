@@ -23,6 +23,7 @@ enum Exporter {
 
     static func export(project: CalendarProject, options: ExportOptions,
                        progress: @escaping (Double, String) -> Void) async throws -> [URL] {
+        try await waitForPhotos(project, progress: progress)
         let marks = CalendarMarks.build(for: project)
         PhotoInfo.register(project.photos)
         let pages = project.pages
@@ -57,6 +58,31 @@ enum Exporter {
             }
             progress(1, "Fertig")
             return urls
+        }
+    }
+
+    /// Mit iCloud können Originale noch in der Wolke liegen. Gedruckt wird
+    /// erst, wenn alle da sind — sonst landete stillschweigend die
+    /// Vorschau-Auflösung im PDF.
+    private static func waitForPhotos(_ project: CalendarProject,
+                                      progress: @escaping (Double, String) -> Void) async throws {
+        let store = ImageStore.shared
+        store.forgetMisses()
+        var waiting = project.photos.map(\.id).filter { !store.fullIsReady($0) }
+        var rounds = 0
+        while !waiting.isEmpty && rounds < 180 {
+            let missing = waiting.filter { store.state($0) == .missing }
+            if missing.count == waiting.count { break }
+            progress(0, "Lade \(waiting.count) Foto(s) aus iCloud …")
+            try await Task.sleep(nanoseconds: 500_000_000)
+            waiting = waiting.filter { !store.fullIsReady($0) }
+            rounds += 1
+        }
+        guard waiting.isEmpty else {
+            let missing = waiting.filter { store.state($0) == .missing }.count
+            throw ExportError(message: missing > 0
+                ? "\(missing) Foto(s) fehlen auf diesem Gerät und in iCloud. Bitte auf dem Gerät öffnen, auf dem sie hinzugefügt wurden, und dort warten, bis iCloud sie hochgeladen hat."
+                : "\(waiting.count) Foto(s) kommen noch aus iCloud. Bitte mit Netz einen Moment warten und erneut exportieren.")
         }
     }
 
@@ -147,4 +173,9 @@ enum Exporter {
         let bad = CharacterSet(charactersIn: "/\\:?%*|\"<>")
         return s.components(separatedBy: bad).joined(separator: "-").trimmingCharacters(in: .whitespaces)
     }
+}
+
+struct ExportError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }
