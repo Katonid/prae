@@ -18,7 +18,8 @@
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release).
   Erste Fassung: 1.0.0 (1); 1.0.1 (2) behebt das Zurückspringen und den
-  Absturz beim Öffnen eines Kalenders.
+  Absturz beim Öffnen eines Kalenders; 1.0.2 (3) neue Symbolfarben
+  (Ozean & Abendrot: Petrol-Türkis, Abendhimmel, Gold).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
