@@ -35,11 +35,14 @@ enum CalendarKind: String, Codable, CaseIterable, Identifiable {
 }
 
 enum YearLayout: String, Codable, CaseIterable, Identifiable {
-    case monthly, poster, mosaic, planner
+    case monthly, halfMonth, poster, mosaic, planner
     var id: String { rawValue }
+    /// Blätter mit Monat und Foto (und Deckblatt).
+    var hasMonthSheets: Bool { self == .monthly || self == .halfMonth }
     var title: String {
         switch self {
         case .monthly: return "Monatsblätter"
+        case .halfMonth: return "Halbmonat (beidseitig)"
         case .poster: return "Poster"
         case .mosaic: return "Mosaik"
         case .planner: return "Jahresplaner"
@@ -48,6 +51,7 @@ enum YearLayout: String, Codable, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .monthly: return "Deckblatt + 12 Seiten, je Foto und Monat"
+        case .halfMonth: return "Deckblatt + 24 Seiten: je Monatshälfte ein Foto, der ganze Monat auf beiden"
         case .poster: return "Eine Seite: großes Foto und zwölf Monate"
         case .mosaic: return "Eine Seite: zwölf Kacheln mit je einem Foto"
         case .planner: return "Eine Seite: Monate als Spalten, Tage als Zeilen"
@@ -56,6 +60,7 @@ enum YearLayout: String, Codable, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .monthly: return "doc.on.doc"
+        case .halfMonth: return "doc.on.doc.fill"
         case .poster: return "photo.on.rectangle"
         case .mosaic: return "square.grid.3x3"
         case .planner: return "tablecells"
@@ -239,6 +244,11 @@ struct PageFormat: Codable, Equatable, Hashable {
         ("A3 hoch", PageFormat(widthMM: 297, heightMM: 420)),
         ("A3 hoch, Wire-O oben", PageFormat(widthMM: 297, heightMM: 420, bleedMM: 3, safetyMM: 4,
                                            bindingMM: 20, bindingEdge: .top)),
+        // Datenblatt Druckhaus Bochum (druckhaus-shop.de), Monatskalender
+        // A3 hoch 4/4-farbig: 303 × 426 mm Daten, 3 mm Beschnitt und
+        // Sicherheitsabstand, Spiralbindung 20 mm oben.
+        ("A3 hoch, Druckhaus Bochum", PageFormat(widthMM: 297, heightMM: 420, bleedMM: 3, safetyMM: 3,
+                                                bindingMM: 20, bindingEdge: .top)),
         ("A5 quer", PageFormat(widthMM: 210, heightMM: 148, safetyMM: 5)),
         ("A5 hoch", PageFormat(widthMM: 148, heightMM: 210, safetyMM: 5)),
         ("Quadrat 30 × 30 cm", PageFormat(widthMM: 300, heightMM: 300)),
@@ -448,7 +458,8 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     var formatVersion = CalendarProject.currentFormat
     /// 2: Fotodarstellung „ganz“, Fotoanteil, Monatsseiten-Schalter (1.0.8–1.0.10).
     /// 3: `DateSettings.catalogRevision` (1.0.11).
-    static let currentFormat = 3
+    /// 4: Jahresaufbau „Halbmonat (beidseitig)“ (1.0.12).
+    static let currentFormat = 4
 
     init(name: String, kind: CalendarKind, year: Int, format: PageFormat, design: Design) {
         self.name = name
@@ -503,7 +514,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
 
     var monthsInUse: Bool {
         switch kind {
-        case .year: return yearLayout == .monthly
+        case .year: return yearLayout.hasMonthSheets
         case .doubleMonth: return true
         case .week: return false
         }
