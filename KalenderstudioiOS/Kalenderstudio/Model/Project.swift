@@ -431,6 +431,12 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     var placements: [String: [PhotoPlacement]] = [:]
     /// Bildunterschriften je Fläche.
     var captions: [String: String] = [:]
+    /// Welche Fassung des Datenmodells den Kalender zuletzt geschrieben hat.
+    /// Eine ältere App schreibt einen neueren Kalender nicht in die Wolke —
+    /// sie kennt nicht alle Felder und würde sie still löschen.
+    var formatVersion = CalendarProject.currentFormat
+    /// 2: Fotodarstellung „ganz“, Fotoanteil, Monatsseiten-Schalter (1.0.8–1.0.10).
+    static let currentFormat = 2
 
     init(name: String, kind: CalendarKind, year: Int, format: PageFormat, design: Design) {
         self.name = name
@@ -444,7 +450,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, name, modified, kind, year, startMonth, yearLayout, weekLayout, gridLayout,
              photoStyle, photoShare, coverStyle, hasCover, title, subtitle, format, design, dates,
-             personalDates, photos, placements, captions
+             personalDates, photos, placements, captions, formatVersion
     }
 
     init(from decoder: Decoder) throws {
@@ -471,6 +477,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
         p.photos = c.value(.photos, [])
         p.placements = c.value(.placements, [:])
         p.captions = c.value(.captions, [:])
+        p.formatVersion = c.value(.formatVersion, 1)
         self = p
     }
 

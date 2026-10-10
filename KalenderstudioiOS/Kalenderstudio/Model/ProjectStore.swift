@@ -32,6 +32,13 @@ final class ProjectStore: ObservableObject {
     private let stampsKey = "abgleichStaende"
     /// Was zuletzt in die Wolke geschrieben wurde — nichts doppelt schreiben.
     private var lastWritten: [UUID: Data] = [:]
+    /// Stände, die DIESES Gerät selbst hinaufgeschrieben hat. Kommt einer
+    /// davon beim Lesen zurück, ist es das Echo eines eigenen, älteren
+    /// Schreibvorgangs — keine Änderung von einem anderen Gerät.
+    private var ownStamps: [UUID: [Double]] = [:]
+    /// Alle Zugriffe auf die Wolke hintereinander: Schreiben in der
+    /// Reihenfolge der Änderungen, Lesen erst nach den Schreibvorgängen.
+    private let cloudQueue = DispatchQueue(label: "kalenderstudio.wolke", qos: .utility)
 
     init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -102,7 +109,10 @@ final class ProjectStore: ObservableObject {
         guard CloudStore.shared.isActive, !syncing else { return }
         syncing = true
         defer { syncing = false }
-        let snap = await Task.detached(priority: .utility) { CloudStore.shared.readProjects() }.value
+        let queue = cloudQueue
+        let snap = await withCheckedContinuation { (cont: CheckedContinuation<CloudStore.Snapshot, Never>) in
+            queue.async { cont.resume(returning: CloudStore.shared.readProjects()) }
+        }
         merge(snap)
         FontStore.shared.activate()
         lastSync = Date()
@@ -143,6 +153,19 @@ final class ProjectStore: ObservableObject {
             let c = cloud.modified.timeIntervalSince1970
             if abs(l - c) < 0.001 {
                 took(cloud)
+                continue
+            }
+            // DER FEHLER VON 1.0.9 (gemeldet 10.10.2026: „jedes Kalenderbild
+            // eingepasst … alles wieder auf Füllen“): Ein älterer Stand, den
+            // dieses Gerät selbst geschrieben hatte, kam beim Lesen zurück und
+            // galt als Änderung von außen — und ersetzte die neuere Arbeit.
+            // Ein Stand aus der Wolke, der ÄLTER ist als die Arbeitskopie,
+            // ersetzt sie nie: Ist es ein eigenes Echo oder hat hier seit dem
+            // letzten Abgleich niemand etwas geändert, geht die Arbeitskopie
+            // wieder hinauf.
+            let ownEcho = ownStamps[id]?.contains { abs($0 - c) < 0.001 } ?? false
+            if c < l && (ownEcho || base.map { abs(l - $0) < 0.001 } ?? false) {
+                toWrite.append(local)
                 continue
             }
             let cloudChanged = base == nil || abs(c - base!) >= 0.001
@@ -189,15 +212,24 @@ final class ProjectStore: ObservableObject {
         let encoder = JSONEncoder()
         var changed: [CalendarProject] = []
         for p in list {
+            // Ein Kalender aus einer NEUEREN Fassung der App trägt Felder,
+            // die diese Fassung nicht kennt — hinaufgeschrieben gingen sie
+            // verloren. Also nicht schreiben.
+            guard p.formatVersion <= CalendarProject.currentFormat else { continue }
             guard let data = try? encoder.encode(p) else { continue }
             if !force, lastWritten[p.id] == data { continue }
             lastWritten[p.id] = data
-            syncedStamps[p.id] = p.modified.timeIntervalSince1970
+            let stamp = p.modified.timeIntervalSince1970
+            syncedStamps[p.id] = stamp
+            ownStamps[p.id, default: []].append(stamp)
+            if ownStamps[p.id]!.count > 200 { ownStamps[p.id]!.removeFirst(100) }
             changed.append(p)
         }
         guard !changed.isEmpty else { return }
         saveStamps()
-        Task.detached(priority: .utility) {
+        // Hintereinander, nicht gleichzeitig: Sonst kann ein älterer Stand
+        // NACH einem neueren in der Wolke landen.
+        cloudQueue.async {
             for p in changed { try? CloudStore.shared.write(p) }
         }
     }
@@ -252,6 +284,7 @@ final class ProjectStore: ObservableObject {
                 guard let self, let i = self.projects.firstIndex(where: { $0.id == id }) else { return }
                 var p = neu
                 p.modified = Date()
+                p.formatVersion = max(p.formatVersion, CalendarProject.currentFormat)
                 self.projects[i] = p
             }
         )
