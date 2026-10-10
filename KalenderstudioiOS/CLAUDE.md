@@ -21,7 +21,8 @@
   Absturz beim Öffnen eines Kalenders; 1.0.2 (3) neue Symbolfarben
   (Ozean & Abendrot: Petrol-Türkis, Abendhimmel, Gold), Bindungsrand vom
   Endformatrand gemessen, Vorlage „A3 hoch, Wire-O oben“, PDF-Effekte in
-  Druckauflösung.
+  Druckauflösung; 1.0.3 (4) eigene Schriften (auf dem Gerät installierte
+  und geladene Schriftdateien).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -50,6 +51,17 @@
   Vorschau (nicht per SwiftUI-`.blur`, das im Export unzuverlässig ist).
 
 ## Fallen
+
+- **Eigene Schriften (seit 1.0.3, `Model/CustomFonts.swift`).** Vom
+  Nutzer installierte Schriften (Adobe Fonts, Schrift-Apps, Profile) gibt
+  iOS einer App **nur über `UIFontPickerViewController`** frei — eine
+  eigene Liste per `UIFont.familyNames` zeigt sie nicht. Gewählte
+  Familien stehen in `UserDefaults` („eigeneSchriften“) und werden bei
+  jedem Start mit `CTFontManagerRequestFonts` erneut angefordert, sonst
+  fällt der Text still auf die Systemschrift zurück. Geladene Dateien
+  liegen in `Documents/Schriften` und werden beim Start mit Bereich
+  `.process` angemeldet. Fehlt eine Schrift, zeigt die Liste „derzeit
+  nicht verfügbar“.
 
 - **Bindungsrand zählt vom Endformatrand** (seit 1.0.2), so wie
   Druckdienste es angeben („Sicherheitsabstand zur Spiralbindung: 2 cm
