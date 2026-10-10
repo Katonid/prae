@@ -127,6 +127,12 @@ enum MonthGridLayout: String, Codable, CaseIterable, Identifiable {
     }
     /// Braucht das Kalendarium nur wenig Höhe? Dann bekommt das Foto mehr.
     var isSlim: Bool { self == .strip }
+
+    /// Fotoanteil am Monatsblatt, wenn der Nutzer nichts eingestellt hat.
+    func defaultPhotoShare(landscape: Bool) -> Double {
+        if isSlim { return landscape ? 0.64 : 0.7 }
+        return landscape ? 0.5 : 0.56
+    }
 }
 
 enum PhotoStyle: String, Codable, CaseIterable, Identifiable {
@@ -366,6 +372,9 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     var weekLayout: WeekLayout = .photoTop
     var gridLayout: MonthGridLayout = .classic
     var photoStyle: PhotoStyle = .full
+    /// Anteil des Fotos an einem Monatsblatt (0,4…0,85, gemessen am
+    /// Endformat); 0 = automatisch je nach Kalendarium.
+    var photoShare: Double = 0
     var coverStyle: CoverStyle = .hero
     var hasCover = true
     var title: String = ""
@@ -391,7 +400,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, modified, kind, year, startMonth, yearLayout, weekLayout, gridLayout,
-             photoStyle, coverStyle, hasCover, title, subtitle, format, design, dates,
+             photoStyle, photoShare, coverStyle, hasCover, title, subtitle, format, design, dates,
              personalDates, photos, placements, captions
     }
 
@@ -409,6 +418,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
         p.weekLayout = c.value(.weekLayout, WeekLayout.photoTop)
         p.gridLayout = c.value(.gridLayout, MonthGridLayout.classic)
         p.photoStyle = c.value(.photoStyle, PhotoStyle.full)
+        p.photoShare = c.value(.photoShare, 0.0)
         p.coverStyle = c.value(.coverStyle, CoverStyle.hero)
         p.hasCover = c.value(.hasCover, true)
         p.title = c.value(.title, p.name)

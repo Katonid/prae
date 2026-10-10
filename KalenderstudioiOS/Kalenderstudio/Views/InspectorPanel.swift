@@ -90,6 +90,36 @@ struct LayoutPanel: View {
                 EmptyView()
             }
 
+            if project.kind == .year && project.yearLayout == .monthly {
+                Section {
+                    Toggle("Automatisch", isOn: Binding(
+                        get: { project.photoShare == 0 },
+                        set: { auto in
+                            project.photoShare = auto ? 0
+                                : project.gridLayout.defaultPhotoShare(landscape: project.format.isLandscape)
+                        }))
+                    if project.photoShare > 0 {
+                        let foto = Int((project.photoShare * 100).rounded())
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Label("Foto \(foto) %", systemImage: "photo")
+                                Spacer()
+                                Label("Kalender \(100 - foto) %", systemImage: "calendar")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .font(.subheadline.monospacedDigit())
+                            Slider(value: $project.photoShare, in: 0.4...0.85, step: 0.01)
+                        }
+                    }
+                } header: {
+                    Text("Foto und Kalender")
+                } footer: {
+                    Text(project.format.isLandscape && !project.gridLayout.isSlim
+                         ? "Quer liegt das Foto links; eingestellt wird seine Breite. Gemessen am Endformat, der Beschnitt kommt beim Foto dazu."
+                         : "Eingestellt wird die Höhe des Fotos, gemessen am Endformat; der Beschnitt kommt dazu. Bei sehr großem Foto passt die „Zeitleiste“ am besten — das Raster wird dann eng.")
+                }
+            }
+
             if project.monthsInUse {
                 Section("Kalendarium") {
                     LazyVGrid(columns: columns, spacing: 10) {

@@ -104,7 +104,8 @@ struct HomeView: View {
     }
 
     /// Nur für den Simulator-Arbeitsablauf: `-probe=year|week|doubleMonth`,
-    /// wahlweise mit Kalendarium und Stilvorlage (`-probe=year:strip:leinen`),
+    /// wahlweise mit Kalendarium, Stilvorlage und Fotoanteil
+    /// (`-probe=year:strip:leinen`, `-probe=year:classic:aquarell:0.78`),
     /// legt einen Kalender an und öffnet ihn sofort — so lässt sich der
     /// Editor ohne Antippen prüfen. Mit Kalendarium entfällt das Titelblatt,
     /// damit gleich ein Monat zu sehen ist.
@@ -123,6 +124,7 @@ struct HomeView: View {
             p.hasCover = false
             p.startMonth = 5
         }
+        if parts.count > 3, let share = Double(parts[3]) { p.photoShare = share }
         p.dates.schoolStates = [SchoolSelection(state: .BY, color: SchoolSelection.palette[0])]
         store.add(p)
         path.append(p.id)

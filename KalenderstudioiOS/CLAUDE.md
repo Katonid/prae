@@ -30,6 +30,7 @@
   Wähler mit Schnitten, Schriftenprobe, Fassung in den Einstellungen).
   1.0.8 (9) Gestaltung nach Anregungen anderer Anbieter (siehe unten
   „Gestaltungsideen“).
+  1.0.9 (10) Fotoanteil am Monatsblatt einstellbar.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -90,6 +91,14 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
 - Wochenende im Raster etwas kräftiger getönt (0,055 statt 0,035).
 - Simulator-Probe: `-probe=<Art>:<Kalendarium>:<Vorlage>` ohne Titelblatt
   ab Mai; der Arbeitsablauf fotografiert die neuen Kalendarien mit.
+
+- **Fotoanteil am Monatsblatt** (ab 1.0.9, Ansage des Nutzers: „50 zu 50
+  ist mir zu viel Datum, das Bild möchte ich größer“): `photoShare` im
+  Kalender, 0 = automatisch (`MonthGridLayout.defaultPhotoShare`: hoch
+  0,56, quer 0,5, Zeitleiste 0,7/0,64), sonst 0,4…0,85 vom Endformat
+  (Aufbau › „Foto und Kalender“, nur Jahreskalender mit Monatsblättern).
+  Quer ist es die Breite des Fotos links. Die Kopfzeile ist auf 4…9 `unit`
+  begrenzt, damit dem Raster bei großem Foto Platz bleibt.
 
 ## iCloud-Abgleich (ab 1.0.4)
 
