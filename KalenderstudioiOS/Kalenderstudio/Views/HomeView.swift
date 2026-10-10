@@ -7,6 +7,7 @@ struct HomeView: View {
     @State private var renaming: CalendarProject?
     @State private var newName = ""
     @State private var deleting: CalendarProject?
+    @State private var showSettings = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -45,6 +46,13 @@ struct HomeView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Kalenderstudio")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Label("Einstellungen", systemImage: store.cloudActive ? "checkmark.icloud" : "gearshape")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showNew = true
@@ -60,6 +68,9 @@ struct HomeView: View {
                 } else {
                     ContentUnavailableView("Kalender nicht gefunden", systemImage: "calendar.badge.exclamationmark")
                 }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .sheet(isPresented: $showNew) {
                 NewCalendarView { project in

@@ -354,7 +354,7 @@ struct FontListView: View {
             }
 
             Section("Mitgelieferte Schriften") {
-                ForEach(FontLibrary.families, id: \.self) { family in
+                ForEach(FontLibrary.available, id: \.self) { family in
                     row(family, custom: false)
                 }
             }
@@ -382,7 +382,6 @@ struct FontListView: View {
     }
 
     private func row(_ family: String, custom: Bool) -> some View {
-        let available = !custom || fonts.isAvailable(family)
         return Button {
             selection = family
         } label: {
@@ -391,9 +390,14 @@ struct FontListView: View {
                     Text("Januar 2027 · 24")
                         .font(FontLibrary.font(family, size: 24, weight: .regular))
                         .lineLimit(1)
-                    Text(available ? family : "\(family) — derzeit nicht verfügbar")
-                        .font(.caption)
-                        .foregroundStyle(available ? Color.secondary : Color.orange)
+                    HStack(spacing: 6) {
+                        Text(family)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if custom {
+                            FontStatusBadge(family: family)
+                        }
+                    }
                 }
                 Spacer()
                 if family == selection {

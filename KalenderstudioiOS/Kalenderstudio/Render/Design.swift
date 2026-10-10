@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum BackgroundPattern: String, Codable, CaseIterable, Identifiable {
     case none, aurora, paper, watercolor, bauhaus, artDeco, chalk, waves, confetti, dots, bokeh
@@ -81,6 +82,16 @@ enum FontLibrary {
         "Chalkboard SE", "Marker Felt", "Party LET",
     ]
 
+    /// Nur, was das Gerät wirklich hat (Lehre aus dem Reisebuch: Eine
+    /// Schrift, die dann doch die Systemschrift zeichnet, wäre eine
+    /// Auskunft, die nicht stimmt).
+    static var available: [String] {
+        families.filter { f in
+            ["System", "System Rounded", "New York", "Monospaced"].contains(f)
+                || !UIFont.fontNames(forFamilyName: f).isEmpty
+        }
+    }
+
     static func font(_ family: String, size: CGFloat, weight: Font.Weight) -> Font {
         let size = max(size, 1)
         switch family {
@@ -88,7 +99,11 @@ enum FontLibrary {
         case "System Rounded": return .system(size: size, weight: weight, design: .rounded)
         case "New York": return .system(size: size, weight: weight, design: .serif)
         case "Monospaced": return .system(size: size, weight: weight, design: .monospaced)
-        default: return Font.custom(family, fixedSize: size).weight(weight)
+        default:
+            if let face = FontFaces.face(family: family, weight: weight) {
+                return Font.custom(face, fixedSize: size)
+            }
+            return Font.custom(family, fixedSize: size).weight(weight)
         }
     }
 }

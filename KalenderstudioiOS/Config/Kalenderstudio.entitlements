@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- VORBEREITET, ABER NOCH NICHT EINGEHÄNGT (1.0.4).
+
+	     Im pbxproj steht bewusst KEIN `CODE_SIGN_ENTITLEMENTS`. Ein Recht,
+	     das die App-Id `de.familie.kalenderstudio` noch nicht trägt, macht
+	     die App UNSIGNIERBAR — nicht nur die eine Funktion, sondern jede
+	     Fassung (Reisebuch 1.0.44, Schulalarm). Und ein grüner Bau in GitHub
+	     Actions sieht das nie (`CODE_SIGNING_ALLOWED=NO`).
+
+	     Reihenfolge:
+	     1. In der Entwicklerkonsole bekommt die App-Id iCloud (mit
+	        CloudKit-Unterstützung aus, iCloud Documents an) samt Behälter
+	        `iCloud.de.familie.kalenderstudio` und die Fähigkeit „Fonts“.
+	     2. Die App neu auf das Gerät bringen und unter Einstellungen ›
+	        „Einrichtung prüfen“ ablesen, was das Profil bewilligt.
+	     3. ERST DANN diese Datei mit genau diesen Werten einhängen.
+
+	     Die iCloud-Zeichenketten sind dieselben wie beim Reisebuch (dort
+	     signiert und im Einsatz). Beim Schriftenrecht steht der dort
+	     GEMESSENE Wert; ob das Profil dieser App-Id denselben bewilligt,
+	     sagt erst Schritt 2. -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.kalenderstudio</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.kalenderstudio</string>
+	</array>
+	<key>com.apple.developer.user-fonts</key>
+	<array>
+		<string>app-usage</string>
+		<string>system-installation</string>
+	</array>
+</dict>
+</plist>
