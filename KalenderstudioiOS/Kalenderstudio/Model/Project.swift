@@ -90,13 +90,17 @@ enum WeekLayout: String, Codable, CaseIterable, Identifiable {
 }
 
 enum MonthGridLayout: String, Codable, CaseIterable, Identifiable {
-    case classic, notes, list
+    case classic, notes, list, strip, ring, bold, split
     var id: String { rawValue }
     var title: String {
         switch self {
         case .classic: return "Raster"
         case .notes: return "Raster mit Linien"
         case .list: return "Tagesliste"
+        case .strip: return "Zeitleiste"
+        case .ring: return "Kreis"
+        case .bold: return "Große Ziffern"
+        case .split: return "Geteilt"
         }
     }
     var symbol: String {
@@ -104,8 +108,25 @@ enum MonthGridLayout: String, Codable, CaseIterable, Identifiable {
         case .classic: return "calendar"
         case .notes: return "square.grid.3x3.topleft.filled"
         case .list: return "list.bullet"
+        case .strip: return "ellipsis.rectangle"
+        case .ring: return "circle.dotted"
+        case .bold: return "textformat.123"
+        case .split: return "rectangle.split.2x1"
         }
     }
+    var detail: String {
+        switch self {
+        case .classic: return "Kästchen mit Terminen"
+        case .notes: return "Platz zum Eintragen"
+        case .list: return "Eine Zeile je Tag"
+        case .strip: return "Alle Tage in einer Leiste, das Foto wird größer"
+        case .ring: return "Die Tage im Kreis, Termine daneben"
+        case .bold: return "Große, eng gesetzte Zahlen ohne Linien"
+        case .split: return "Raster und Terminliste nebeneinander"
+        }
+    }
+    /// Braucht das Kalendarium nur wenig Höhe? Dann bekommt das Foto mehr.
+    var isSlim: Bool { self == .strip }
 }
 
 enum PhotoStyle: String, Codable, CaseIterable, Identifiable {

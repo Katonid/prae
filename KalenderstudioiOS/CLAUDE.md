@@ -28,6 +28,8 @@
   1.0.6 (7) Schriftenrecht eingetragen (gemessen).
   1.0.7 (8) selbst installierte Schriften wie im Reisebuch (Systemabfrage,
   Wähler mit Schnitten, Schriftenprobe, Fassung in den Einstellungen).
+  1.0.8 (9) Gestaltung nach Anregungen anderer Anbieter (siehe unten
+  „Gestaltungsideen“).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -56,6 +58,38 @@
 - Fotos: Original bis 7000 px (Druck) und Vorschau 1600 px im Ordner
   `Documents/Fotos`. Hintergrund-Weichzeichnung per Core Image aus der
   Vorschau (nicht per SwiftUI-`.blur`, das im Export unzuverlässig ist).
+
+## Gestaltungsideen (ab 1.0.8)
+
+Auf Wunsch des Nutzers (10/2026, „noch nicht ganz zufrieden mit dem
+Datumsbereich und dem Hintergrund“) im Netz gesammelt und eingebaut.
+Quellen: fotobuchexpress24 (Kalendarien „Kreis“, „Geteilt“, „Markant“),
+fotokalender.org (Kunstkalender mit „Zeitleiste“), Stendig/Vignelli
+(große, eng gesetzte Ziffern, Monate im Wechsel hell/dunkel), CEWE und
+my moments (Hintergrundfarbe aus dem Foto, auslaufende Fotos, riesiger
+blasser Buchstabe als Hintergrund), meinbildkalender (für Papier mehr
+Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
+„Farbe des Monats“).
+
+- **Kalendarien** (`MonthGridLayout`, `Render/Grids.swift`): neu
+  „Zeitleiste“ (`MonthStripView`, ein oder zwei Leisten, Termine darunter;
+  `isSlim` → das Monatsfoto bekommt 70 % der Höhe, quer ebenfalls Foto
+  oben), „Kreis“ (`MonthRingView`/`RingDial`, Schulferien als Bögen,
+  Strich vor jedem Montag), „Große Ziffern“ (`BoldDayCell`, keine Linien)
+  und „Geteilt“ (Terminliste links, kompaktes Raster rechts). Die
+  Terminliste (`MonthEvents`/`MonthEventsView`) teilen sich die drei.
+- **Monatsseiten** (`Design`, Schalter im Stil-Panel): „Farbe des Monats“
+  (`ImageStore.dominantColor` — Farbtonfächer nach Sättigung, nicht der
+  Mittelwert; `Design.tinted`), „Foto läuft aus“ (`fadeOut`, Maske NUR
+  wenn eingeschaltet, sonst bleibt das JPEG im PDF unangetastet), „Große
+  Monatszahl“, „Monat als Zahl“, „im Wechsel hell und dunkel“
+  (`Design.inverted`, jeder zweite Monat). Akzentfarben werden mit
+  `RGBA.readable` auf Kontrast 3 gezogen.
+- **Hintergründe:** „Risographie“ (Farbflächen + Korn) und „Leinen“.
+  **Vorlagen:** „Schweizer Raster“, „Risographie“, „Leinen & Foto“.
+- Wochenende im Raster etwas kräftiger getönt (0,055 statt 0,035).
+- Simulator-Probe: `-probe=<Art>:<Kalendarium>:<Vorlage>` ohne Titelblatt
+  ab Mai; der Arbeitsablauf fotografiert die neuen Kalendarien mit.
 
 ## iCloud-Abgleich (ab 1.0.4)
 

@@ -8,15 +8,35 @@ struct PageView: View {
 
     var body: some View {
         let g = PageGeometry(project.format)
-        let rc = RenderContext(project: project, marks: marks, geometry: g)
+        let pageProject = adjusted
+        let rc = RenderContext(project: pageProject, marks: marks, geometry: g)
         ZStack(alignment: .topLeading) {
-            PageBackground(design: project.design, geometry: g,
+            PageBackground(design: pageProject.design, geometry: g,
                            pagePhotoID: backgroundPhotoID, seed: page.id)
             PageLayout(page: page, rc: rc)
                 .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
         }
         .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
         .clipped()
+    }
+
+    /// Die Gestaltung dieser Seite: „Farbe des Monats“ aus ihrem Foto und
+    /// „im Wechsel hell und dunkel“ (jeder zweite Monat umgekehrt).
+    private var adjusted: CalendarProject {
+        var p = project
+        let monthIndex: Int?
+        switch page.content {
+        case .monthSheet(let i), .monthPhoto(let i), .monthGrid(let i): monthIndex = i
+        default: monthIndex = nil
+        }
+        if p.design.monthColorFromPhoto, page.content != .cover,
+           let id = backgroundPhotoID, let c = ImageStore.shared.dominantColor(id) {
+            p.design = p.design.tinted(with: c)
+        }
+        if p.design.alternateDark, let i = monthIndex, i % 2 == 1 {
+            p.design = p.design.inverted()
+        }
+        return p
     }
 
     /// Das Foto der Seite, für den Hintergrund „Seitenfoto“.
@@ -86,21 +106,54 @@ struct PageLayout: View {
             .textShadow(d, unit: u, onPhoto: onPhoto)
     }
 
+    @ViewBuilder
     private func monthHeader(_ y: Int, _ m: Int, height: CGFloat) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: u * 2) {
-            titleLine(CalendarMath.monthName(m), size: height * 0.82)
-            Spacer(minLength: 0)
-            yearLine(String(y), size: height * 0.5)
+        if d.monthAsNumber {
+            // Monat als Zahl: „03“ groß, Name und Jahr klein daneben.
+            HStack(alignment: .firstTextBaseline, spacing: u * 2) {
+                Text(verbatim: String(format: "%02d", m))
+                    .font(d.fontNumber(height * 0.95, weight: .light))
+                    .foregroundStyle(d.accent.color)
+                    .lineLimit(1)
+                    .textShadow(d, unit: u)
+                titleLine(CalendarMath.monthName(m), size: height * 0.38)
+                Spacer(minLength: 0)
+                yearLine(String(y), size: height * 0.38)
+            }
+            .frame(height: height)
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: u * 2) {
+                titleLine(CalendarMath.monthName(m), size: height * 0.82)
+                Spacer(minLength: 0)
+                yearLine(String(y), size: height * 0.5)
+            }
+            .frame(height: height)
         }
-        .frame(height: height)
+    }
+
+    /// Riesige, blasse Monatszahl hinter dem Kalendarium.
+    @ViewBuilder
+    private func bigNumeral(_ m: Int, in rect: CGRect) -> some View {
+        if d.bigNumeral {
+            Text(verbatim: String(format: "%02d", m))
+                .font(d.fontNumber(rect.height * 0.9, weight: .heavy))
+                .tracking(-rect.height * 0.04)
+                .foregroundStyle(d.accent.alpha(d.isDark ? 0.12 : 0.09))
+                .lineLimit(1)
+                .minimumScaleFactor(0.2)
+                .frame(width: rect.width, height: rect.height, alignment: .bottomTrailing)
+                .allowsHitTesting(false)
+                .placed(rect)
+        }
     }
 
     /// Fotofläche: randlos bis in den Beschnitt oder im gewählten Stil
     /// innerhalb des Sicherheitsbereichs.
     @ViewBuilder
-    private func photoRegion(_ key: String, bleedRect: CGRect, safeRect: CGRect) -> some View {
+    private func photoRegion(_ key: String, bleedRect: CGRect, safeRect: CGRect, fade: Edge? = nil) -> some View {
         if p.photoStyle == .full {
             PhotoFill(placement: p.placements(for: key, count: 1)[0], design: d, key: key)
+                .fadeOut(fade, enabled: d.photoFade)
                 .placed(bleedRect)
             let caption = p.captions[key]?.trimmingCharacters(in: .whitespaces) ?? ""
             if !caption.isEmpty {
@@ -217,13 +270,16 @@ struct PageLayout: View {
         let key = "m\(i)"
         let s = g.safeRect
         let legendH: CGFloat = hasLegend ? u * 3 : 0
-        if p.format.isLandscape {
+        let slim = p.gridLayout.isSlim
+        if p.format.isLandscape && !slim {
             // Quer: Foto links, Kalender rechts.
             let split: CGFloat = 0.5
             photoRegion(key, bleedRect: bleedLeft(split),
-                        safeRect: CGRect(x: s.minX, y: s.minY, width: s.width * split - u * 2, height: s.height))
+                        safeRect: CGRect(x: s.minX, y: s.minY, width: s.width * split - u * 2, height: s.height),
+                        fade: .trailing)
             let right = CGRect(x: g.trimRect.minX + g.trimRect.width * split + u * 3, y: s.minY,
                                width: s.maxX - (g.trimRect.minX + g.trimRect.width * split + u * 3), height: s.height)
+            bigNumeral(mo.m, in: right)
             let headH = right.height * 0.14
             monthHeader(mo.y, mo.m, height: headH)
                 .placed(CGRect(x: right.minX, y: right.minY, width: right.width, height: headH))
@@ -238,13 +294,17 @@ struct PageLayout: View {
                     .placed(CGRect(x: right.minX, y: right.maxY - legendH * 0.8, width: right.width, height: legendH * 0.8))
             }
         } else {
-            let split: CGFloat = 0.56
+            // Hoch (und bei der Zeitleiste immer): Foto oben, Kalender unten.
+            // Die Zeitleiste braucht wenig Höhe — das Foto bekommt sie.
+            let split: CGFloat = slim ? (p.format.isLandscape ? 0.64 : 0.7) : 0.56
             photoRegion(key, bleedRect: bleedTop(split),
                         safeRect: CGRect(x: s.minX, y: s.minY, width: s.width,
-                                         height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2))
+                                         height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2),
+                        fade: .bottom)
             let top = g.trimRect.minY + g.trimRect.height * split + u * 2.5
             let area = CGRect(x: s.minX, y: top, width: s.width, height: s.maxY - top)
-            let headH = area.height * 0.15
+            bigNumeral(mo.m, in: area)
+            let headH = area.height * (slim ? 0.22 : 0.15)
             monthHeader(mo.y, mo.m, height: headH)
                 .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
             MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
@@ -284,6 +344,7 @@ struct PageLayout: View {
         let s = g.safeRect
         let headH = s.height * 0.15
         let legendH: CGFloat = hasLegend ? u * 3 : 0
+        bigNumeral(mo.m, in: CGRect(x: s.minX, y: s.minY + s.height * 0.35, width: s.width, height: s.height * 0.65))
         monthHeader(mo.y, mo.m, height: headH)
             .placed(CGRect(x: s.minX, y: s.minY, width: s.width, height: headH))
         MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
@@ -346,7 +407,8 @@ struct PageLayout: View {
         let split: CGFloat = p.format.isLandscape ? 0.36 : 0.32
         photoRegion("year", bleedRect: bleedTop(split),
                     safeRect: CGRect(x: s.minX, y: s.minY, width: s.width,
-                                     height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2))
+                                     height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2),
+                    fade: .bottom)
         let top = g.trimRect.minY + g.trimRect.height * split + u * 2
         let headH = (s.maxY - top) * 0.14
         HStack(alignment: .firstTextBaseline) {
@@ -445,7 +507,8 @@ struct PageLayout: View {
             let split: CGFloat = p.format.isLandscape ? 0.42 : 0.36
             photoRegion(key, bleedRect: bleedTop(split),
                         safeRect: CGRect(x: s.minX, y: s.minY, width: s.width,
-                                         height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2))
+                                         height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2),
+                        fade: .bottom)
             let top = g.trimRect.minY + g.trimRect.height * split + u * 2
             let headH = (s.maxY - top) * 0.12
             weekHeader(start, height: headH)
@@ -626,5 +689,25 @@ struct WeekDayColumn: View {
         .padding(w * 0.08)
         .frame(width: w, height: size.height, alignment: .top)
         .background(day.isoWeekday >= 6 ? d.text.alpha(0.04) : Color.clear)
+    }
+}
+
+extension View {
+    /// „Foto läuft aus“: zur Kalenderseite hin weich in den Hintergrund.
+    /// Nur wenn eingeschaltet — ohne Maske bleibt das Foto im PDF, wie es ist.
+    @ViewBuilder
+    func fadeOut(_ edge: Edge?, enabled: Bool) -> some View {
+        if enabled, let edge {
+            let stops: [Gradient.Stop] = [.init(color: .black, location: 0), .init(color: .black, location: 0.72),
+                                          .init(color: .black.opacity(0.35), location: 0.9), .init(color: .clear, location: 1)]
+            switch edge {
+            case .bottom: mask { LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom) }
+            case .trailing: mask { LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing) }
+            case .top: mask { LinearGradient(stops: stops, startPoint: .bottom, endPoint: .top) }
+            case .leading: mask { LinearGradient(stops: stops, startPoint: .trailing, endPoint: .leading) }
+            }
+        } else {
+            self
+        }
     }
 }

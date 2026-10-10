@@ -2,10 +2,12 @@ import SwiftUI
 import UIKit
 
 enum BackgroundPattern: String, Codable, CaseIterable, Identifiable {
-    case none, aurora, paper, watercolor, bauhaus, artDeco, chalk, waves, confetti, dots, bokeh
+    case none, aurora, paper, watercolor, bauhaus, artDeco, chalk, waves, confetti, dots, bokeh, riso, linen
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .riso: return "Risographie"
+        case .linen: return "Leinen"
         case .none: return "Verlauf"
         case .aurora: return "Nordlicht"
         case .paper: return "Büttenpapier"
@@ -143,6 +145,18 @@ struct Design: Codable, Equatable, Hashable {
     /// Weißer Rand um Fotos (0 = kein Rand).
     var photoBorder: Double = 0
 
+    // Ab 1.0.8 (Anregungen anderer Anbieter, siehe CLAUDE.md).
+    /// „Farbe des Monats“: Hintergrund und Akzent aus dem Monatsfoto.
+    var monthColorFromPhoto = false
+    /// Randlose Fotos laufen weich in den Hintergrund aus.
+    var photoFade = false
+    /// Riesige, blasse Monatszahl hinter dem Kalendarium.
+    var bigNumeral = false
+    /// Monat als Zahl („03“) statt nur als Wort.
+    var monthAsNumber = false
+    /// Monate im Wechsel hell und dunkel (wie der Stendig-Kalender).
+    var alternateDark = false
+
     // MARK: Abgeleitet
 
     func fontTitle(_ size: CGFloat) -> Font {
@@ -159,6 +173,39 @@ struct Design: Codable, Equatable, Hashable {
 
     func titleText(_ s: String) -> String { titleUppercase ? s.uppercased() : s }
 
+    /// Dieselbe Gestaltung mit vertauschtem Hell und Dunkel — für „im Wechsel
+    /// hell und dunkel“. Hintergrund wird die Schriftfarbe und umgekehrt.
+    func inverted() -> Design {
+        var d = self
+        let darkBg = isDark
+        d.bg1 = darkBg ? text : text.mixed(with: .black, 0.1)
+        d.bg2 = darkBg ? text.mixed(with: bg1, 0.08) : text
+        d.bg3 = d.bg2
+        d.text = darkBg ? bg1 : bg1.mixed(with: .white, 0.4)
+        d.secondary = d.text.mixed(with: d.bg1, 0.4)
+        d.card = darkBg ? RGBA(1, 1, 1, 0.6) : RGBA(1, 1, 1, 0.07)
+        d.accent = accent.readable(on: d.bg1)
+        d.holiday = holiday.readable(on: d.bg1)
+        return d
+    }
+
+    /// „Farbe des Monats“: Hintergrund und Akzent aus einer Fotofarbe, Schrift
+    /// und Muster bleiben. Die Akzentfarbe wird so weit aufgehellt oder
+    /// abgedunkelt, dass sie auf dem Hintergrund lesbar bleibt.
+    func tinted(with c: RGBA) -> Design {
+        var d = self
+        if isDark {
+            d.bg1 = c.mixed(with: .black, 0.78)
+            d.bg2 = c.mixed(with: .black, 0.62)
+        } else {
+            d.bg1 = c.mixed(with: .white, 0.9)
+            d.bg2 = c.mixed(with: .white, 0.78)
+        }
+        d.bg3 = c
+        d.accent = c.readable(on: d.bg1)
+        return d
+    }
+
     /// Ist der Seitenhintergrund dunkel?
     var isDark: Bool { text.isLight }
 
@@ -169,7 +216,8 @@ struct Design: Codable, Equatable, Hashable {
              bg1, bg2, bg3, text, secondary, accent, holiday, card,
              titleFont, bodyFont, numberFont, titleWeight, numberWeight,
              titleScale, bodyScale, numberScale, titleUppercase, titleTracking,
-             shadow, cardStyle, corner, photoBorder
+             shadow, cardStyle, corner, photoBorder,
+             monthColorFromPhoto, photoFade, bigNumeral, monthAsNumber, alternateDark
     }
 
     init(presetID: String, pattern: BackgroundPattern,
@@ -221,6 +269,11 @@ struct Design: Codable, Equatable, Hashable {
         d.cardStyle = c.value(.cardStyle, d.cardStyle)
         d.corner = c.value(.corner, d.corner)
         d.photoBorder = c.value(.photoBorder, d.photoBorder)
+        d.monthColorFromPhoto = c.value(.monthColorFromPhoto, d.monthColorFromPhoto)
+        d.photoFade = c.value(.photoFade, d.photoFade)
+        d.bigNumeral = c.value(.bigNumeral, d.bigNumeral)
+        d.monthAsNumber = c.value(.monthAsNumber, d.monthAsNumber)
+        d.alternateDark = c.value(.alternateDark, d.alternateDark)
         self = d
     }
 }
@@ -229,7 +282,8 @@ struct Design: Codable, Equatable, Hashable {
 
 extension Design {
     static let presetIDs = ["nordlicht", "papeterie", "aquarell", "bauhaus", "gold",
-                            "kreide", "sommer", "ozean", "minimal", "konfetti", "lichter"]
+                            "kreide", "sommer", "ozean", "minimal", "konfetti", "lichter",
+                            "schweiz", "riso", "leinen"]
 
     static func presetName(_ id: String) -> String {
         switch id {
@@ -244,6 +298,9 @@ extension Design {
         case "minimal": return "Galerie"
         case "konfetti": return "Konfetti"
         case "lichter": return "Lichterglanz"
+        case "schweiz": return "Schweizer Raster"
+        case "riso": return "Risographie"
+        case "leinen": return "Leinen & Foto"
         default: return id.capitalized
         }
     }
@@ -392,6 +449,55 @@ extension Design {
             d.cardStyle = .glass
             d.corner = 0.6
             d.shadow = 0.7
+            return d
+        case "schweiz":
+            // Nach Vignellis Stendig-Kalender: Helvetica, Schwarz und Weiß im
+            // Wechsel, riesige Monatszahl, keine Karte.
+            var d = Design(presetID: id, pattern: .none,
+                           bg1: RGBA(hex: 0xFFFFFF), bg2: RGBA(hex: 0xFFFFFF), bg3: RGBA(hex: 0xFFFFFF),
+                           text: RGBA(hex: 0x111111), secondary: RGBA(hex: 0x6E6E6E),
+                           accent: RGBA(hex: 0x111111), holiday: RGBA(hex: 0xE32119),
+                           card: RGBA(hex: 0xFFFFFF, alpha: 0),
+                           titleFont: "Helvetica Neue", bodyFont: "Helvetica Neue", numberFont: "Helvetica Neue")
+            d.titleWeight = .bold
+            d.numberWeight = .bold
+            d.cardStyle = .none
+            d.corner = 0
+            d.shadow = 0
+            d.alternateDark = true
+            d.bigNumeral = true
+            d.monthAsNumber = true
+            return d
+        case "riso":
+            var d = Design(presetID: id, pattern: .riso,
+                           bg1: RGBA(hex: 0xF6F0E4), bg2: RGBA(hex: 0xF6F0E4), bg3: RGBA(hex: 0x2F5FD0),
+                           text: RGBA(hex: 0x1E1B2E), secondary: RGBA(hex: 0x6A6478),
+                           accent: RGBA(hex: 0xFF5A5F), holiday: RGBA(hex: 0xE0342F),
+                           card: RGBA(hex: 0xFFFFFF, alpha: 0.75),
+                           titleFont: "Futura", bodyFont: "Avenir Next", numberFont: "Futura")
+            d.titleWeight = .bold
+            d.numberWeight = .medium
+            d.cardStyle = .none
+            d.corner = 0.5
+            d.shadow = 0.15
+            d.photoBorder = 0.5
+            return d
+        case "leinen":
+            // Farbe des Monats aus dem Foto, Foto läuft weich aus.
+            var d = Design(presetID: id, pattern: .linen,
+                           bg1: RGBA(hex: 0xFAF7F2), bg2: RGBA(hex: 0xF1ECE3), bg3: RGBA(hex: 0xB5A58C),
+                           text: RGBA(hex: 0x262320), secondary: RGBA(hex: 0x7C746A),
+                           accent: RGBA(hex: 0x8A5A3B), holiday: RGBA(hex: 0xB23A2E),
+                           card: RGBA(hex: 0xFFFFFF, alpha: 0.55),
+                           titleFont: "Baskerville", bodyFont: "Avenir Next", numberFont: "Avenir Next")
+            d.titleWeight = .regular
+            d.numberWeight = .regular
+            d.titleScale = 1.1
+            d.cardStyle = .none
+            d.corner = 0.4
+            d.shadow = 0.2
+            d.monthColorFromPhoto = true
+            d.photoFade = true
             return d
         default:
             var d = Design(presetID: "nordlicht", pattern: .aurora,

@@ -103,18 +103,26 @@ struct HomeView: View {
         }
     }
 
-    /// Nur für den Simulator-Arbeitsablauf: `-probe=year|week|doubleMonth`
+    /// Nur für den Simulator-Arbeitsablauf: `-probe=year|week|doubleMonth`,
+    /// wahlweise mit Kalendarium und Stilvorlage (`-probe=year:strip:leinen`),
     /// legt einen Kalender an und öffnet ihn sofort — so lässt sich der
-    /// Editor ohne Antippen prüfen.
+    /// Editor ohne Antippen prüfen. Mit Kalendarium entfällt das Titelblatt,
+    /// damit gleich ein Monat zu sehen ist.
     private func probeIfRequested() {
         #if DEBUG
         guard let arg = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-probe=") }),
-              let kind = CalendarKind(rawValue: String(arg.dropFirst("-probe=".count))),
               path.isEmpty else { return }
+        let parts = arg.dropFirst("-probe=".count).split(separator: ":").map(String.init)
+        guard let first = parts.first, let kind = CalendarKind(rawValue: first) else { return }
         var p = CalendarProject(name: "Probe", kind: kind, year: 2027,
                                 format: kind == .doubleMonth ? PageFormat(widthMM: 297, heightMM: 210)
                                                              : PageFormat(widthMM: 297, heightMM: 420),
-                                design: .preset("aquarell"))
+                                design: .preset(parts.count > 2 ? parts[2] : "aquarell"))
+        if parts.count > 1, let layout = MonthGridLayout(rawValue: parts[1]) {
+            p.gridLayout = layout
+            p.hasCover = false
+            p.startMonth = 5
+        }
         p.dates.schoolStates = [SchoolSelection(state: .BY, color: SchoolSelection.palette[0])]
         store.add(p)
         path.append(p.id)

@@ -52,6 +52,31 @@ struct RGBA: Codable, Equatable, Hashable {
 
     static let white = RGBA(1, 1, 1)
     static let black = RGBA(0, 0, 0)
+
+    /// Mischt mit einer anderen Farbe; `amount` 0 = diese, 1 = die andere.
+    func mixed(with other: RGBA, _ amount: Double) -> RGBA {
+        let t = min(max(amount, 0), 1)
+        return RGBA(r + (other.r - r) * t, g + (other.g - g) * t, b + (other.b - b) * t, a)
+    }
+
+    /// Kontrast nach WCAG (1…21), mit der vereinfachten Helligkeit.
+    func contrast(to other: RGBA) -> Double {
+        let l1 = luminance, l2 = other.luminance
+        return (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05)
+    }
+
+    /// Hellt auf oder dunkelt ab, bis die Farbe auf `background` lesbar ist
+    /// (Kontrast 3 — Papier wirkt matter als der Bildschirm).
+    func readable(on background: RGBA) -> RGBA {
+        var c = self
+        let target: RGBA = background.isLight ? .black : .white
+        var step = 0
+        while c.contrast(to: background) < 3, step < 10 {
+            c = c.mixed(with: target, 0.15)
+            step += 1
+        }
+        return c
+    }
 }
 
 extension Binding where Value == RGBA {
