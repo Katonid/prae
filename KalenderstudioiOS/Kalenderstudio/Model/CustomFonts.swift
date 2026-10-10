@@ -6,10 +6,13 @@ import UniformTypeIdentifiers
 /// Eigene Schriften: auf dem Gerät installierte (über die Schriftauswahl
 /// von iOS freigegeben) und in die App geladene Schriftdateien.
 ///
-/// Installierte Schriften (Adobe Fonts, Schrift-Apps, Profile) gibt iOS
-/// einer App nur über `UIFontPickerViewController` frei. Bei späteren
-/// Starts holt `CTFontManagerRequestFonts` sie erneut — sonst fällt der
-/// Text still auf die Systemschrift zurück.
+/// Installierte Schriften (Adobe Fonts, Schrift-Apps, Profile) holt die App
+/// seit 1.0.7 wie das Reisebuch: beim Start über die Systemabfrage
+/// `CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` plus die
+/// im Wähler gewählten Schnitte, angemeldet mit
+/// `CTFontManagerRegisterFontDescriptors(.process)`. Beides braucht das
+/// Schriftenrecht (`com.apple.developer.user-fonts`, seit 1.0.6) — ohne es
+/// zeigt auch der Wähler von iOS nur die Systemschriften.
 @MainActor
 final class FontStore: ObservableObject {
     static let shared = FontStore()
@@ -30,9 +33,14 @@ final class FontStore: ObservableObject {
 
     private init() {
         families = UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []
+        faces = UserDefaults.standard.stringArray(forKey: facesKey) ?? []
     }
 
-    /// Beim Start: geladene Dateien anmelden, installierte Schriften anfordern.
+    /// Familien, die das System als dauerhaft installiert meldet
+    /// (`CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)`).
+    @Published private(set) var systemFamilies: [String] = []
+
+    /// Beim Start: geladene Dateien anmelden, installierte Schriften holen.
     func activate() {
         // Geladene Dateien: vom Gerät und — mit iCloud — aus dem Behälter.
         // Eine schon angemeldete Schrift meldet einen Fehler („steht
@@ -57,16 +65,132 @@ final class FontStore: ObservableObject {
         }
         save()
         FontFaces.reset()
-        let descriptors = families.map { family in
-            CTFontDescriptorCreateWithAttributes([kCTFontFamilyNameAttribute: family] as CFDictionary)
+
+        // Installierte Schriften — derselbe Weg wie im Reisebuch (1.0.43/
+        // 1.0.66): erst fragen, was das System als installiert meldet, dazu
+        // die über den Wähler gewählten Schnitte (PostScript-Namen) und
+        // Familien, die dieser Prozess noch nicht kennt. Alles für DIESEN
+        // Prozess anmelden (`.process`) — und das Ergebnis aus dem
+        // Rückrufblock lesen, nicht gleich danach nachsehen.
+        let fund = Self.systemFund()
+        systemFamilies = fund.families
+        let open = (faces + families).filter { UIFont(name: $0, size: 12) == nil && !isAvailable($0) }
+        var descriptors = fund.descriptors
+        descriptors += open.map { UIFontDescriptor(name: $0, size: 12) }
+        let before = UIFont.familyNames.count
+        let head = "Start: System meldet \(fund.raw) Einträge, lesbar \(fund.descriptors.count) "
+            + "in \(fund.families.count) Familien; \(open.count) gemerkte noch offen; "
+            + "Familien im Prozess: \(before)."
+        guard !descriptors.isEmpty else {
+            log(head + (faces.isEmpty && families.isEmpty
+                        ? " Nichts anzumelden."
+                        : " Nichts anzumelden — alle gemerkten sind auffindbar."))
+            return
         }
-        guard !descriptors.isEmpty else { return }
-        CTFontManagerRequestFonts(descriptors as CFArray) { _ in
-            Task { @MainActor in
-                FontFaces.reset()
-                FontStore.shared.objectWillChange.send()
+        Self.register(descriptors) { result in
+            FontFaces.reset()
+            let missing = FontStore.shared.families.filter { !FontStore.shared.isAvailable($0) }
+            FontStore.shared.log(head + " Angemeldet: \(descriptors.count), \(result). "
+                + "Familien danach: \(UIFont.familyNames.count); nicht auffindbar: "
+                + (missing.isEmpty ? "keine" : missing.joined(separator: ", ")) + ".")
+            FontStore.shared.objectWillChange.send()
+        }
+    }
+
+    // MARK: - Installierte Schriften (Weg aus dem Reisebuch)
+
+    struct SystemFund {
+        var raw: Int
+        var descriptors: [UIFontDescriptor]
+        var families: [String]
+    }
+
+    nonisolated static func systemFund() -> SystemFund {
+        let raw = CTFontManagerCopyRegisteredFontDescriptors(.persistent, true) as NSArray
+        let descriptors = raw.compactMap { $0 as? UIFontDescriptor }
+        var fams: [String] = []
+        for d in descriptors {
+            // Den Namen aus dem Deskriptor — nicht aus einer daraus gebauten
+            // Schrift; die wäre bei einer unbekannten Schrift ein Ersatz.
+            if let f = d.fontAttributes[.family] as? String, !fams.contains(f) { fams.append(f) }
+        }
+        return SystemFund(raw: raw.count, descriptors: descriptors, families: fams.sorted())
+    }
+
+    /// Asynchron; das Ergebnis steht im Rückrufblock (Reisebuch 1.0.43).
+    nonisolated static func register(_ descriptors: [UIFontDescriptor],
+                                     done: @escaping @MainActor (String) -> Void) {
+        guard !descriptors.isEmpty else {
+            Task { @MainActor in done("nichts anzumelden") }
+            return
+        }
+        var notes: [String] = []
+        CTFontManagerRegisterFontDescriptors(descriptors as CFArray, .process, true) { errors, finished in
+            for item in errors as NSArray {
+                if let e = item as? NSError { notes.append(errorText(e)) }
             }
+            if finished {
+                let unique = Array(Set(notes)).sorted()
+                let text = unique.isEmpty ? "ohne Fehlermeldung" : "Meldungen: " + unique.joined(separator: " / ")
+                Task { @MainActor in done(text) }
+            }
+            return true
         }
+    }
+
+    /// Die Zahl sagt, was ein Fehler heißt, nicht sein Satz (Reisebuch
+    /// 1.0.66). Unbekannte Zahlen werden nicht gedeutet.
+    private nonisolated static let errorNames: [Int: String] = [
+        101: "Datei nicht gefunden", 102: "zu wenig Rechte", 103: "Format nicht erkannt",
+        104: "Schriftdaten ungültig", 105: "steht schon — bereits angemeldet",
+        201: "nicht angemeldet", 202: "in Gebrauch", 203: "wird vom System gebraucht",
+    ]
+
+    private nonisolated static func errorText(_ e: NSError) -> String {
+        var t = "\(e.domain) \(e.code)"
+        if let n = errorNames[e.code] { t += " (\(n))" }
+        return t
+    }
+
+    /// Eine im Wähler von iOS gewählte Schrift übernehmen: Schnitt und
+    /// Familie merken, anmelden, danach melden, ob sie auffindbar ist.
+    func adopt(_ descriptor: UIFontDescriptor, done: @escaping (String?) -> Void) {
+        let face = descriptor.postscriptName
+        let family = (descriptor.fontAttributes[.family] as? String)
+            ?? UIFont(descriptor: descriptor, size: 12).familyName
+        if !face.isEmpty, !faces.contains(face) {
+            faces.append(face)
+            UserDefaults.standard.set(faces, forKey: facesKey)
+        }
+        add(family: family)
+        Self.register([descriptor]) { result in
+            FontFaces.reset()
+            let ok = FontStore.shared.isAvailable(family)
+            FontStore.shared.log("Wähler: \(family) (\(face)) — \(result); "
+                + (ok ? "auffindbar." : "NICHT auffindbar."))
+            FontStore.shared.message = ok ? "„\(family)“ ist bereit."
+                : "„\(family)“ ließ sich nicht anmelden — Einzelheiten unter Einstellungen › Schriften."
+            FontStore.shared.objectWillChange.send()
+            done(family)
+        }
+    }
+
+    // MARK: - Protokoll
+
+    private let facesKey = "eigeneSchnitte"
+    private let logKey = "schriftenProtokoll"
+    /// PostScript-Namen der im Wähler gewählten Schnitte.
+    private(set) var faces: [String] = []
+
+    var protocolLines: [String] { UserDefaults.standard.stringArray(forKey: logKey) ?? [] }
+
+    func log(_ line: String) {
+        let time = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
+        var lines = protocolLines
+        lines.append(time + "  " + line)
+        if lines.count > 40 { lines.removeFirst(lines.count - 40) }
+        UserDefaults.standard.set(lines, forKey: logKey)
+        objectWillChange.send()
     }
 
     func isAvailable(_ family: String) -> Bool {
@@ -122,16 +246,18 @@ final class FontStore: ObservableObject {
     }
 }
 
-/// Apples Schriftauswahl — zeigt auch die vom Nutzer installierten Schriften.
-/// `onFinish` bekommt den Familiennamen oder `nil` bei Abbruch.
+/// Apples Schriftauswahl — zeigt auch die vom Nutzer installierten Schriften,
+/// sofern der Bau das Schriftenrecht trägt. Sie läuft als eigener Prozess.
+/// Wie im Reisebuch mit Schnitten (`includeFaces`); `onFinish` bekommt den
+/// gewählten Deskriptor oder `nil` bei Abbruch.
 struct SystemFontPicker: UIViewControllerRepresentable {
-    let onFinish: (String?) -> Void
+    let onFinish: (UIFontDescriptor?) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
 
     func makeUIViewController(context: Context) -> UIFontPickerViewController {
         let config = UIFontPickerViewController.Configuration()
-        config.includeFaces = false
+        config.includeFaces = true
         config.displayUsingSystemFont = false
         let picker = UIFontPickerViewController(configuration: config)
         picker.delegate = context.coordinator
@@ -141,17 +267,11 @@ struct SystemFontPicker: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UIFontPickerViewController, context: Context) {}
 
     final class Coordinator: NSObject, UIFontPickerViewControllerDelegate {
-        let onFinish: (String?) -> Void
-        init(onFinish: @escaping (String?) -> Void) { self.onFinish = onFinish }
+        let onFinish: (UIFontDescriptor?) -> Void
+        init(onFinish: @escaping (UIFontDescriptor?) -> Void) { self.onFinish = onFinish }
 
         func fontPickerViewControllerDidPickFont(_ viewController: UIFontPickerViewController) {
-            guard let descriptor = viewController.selectedFontDescriptor else {
-                onFinish(nil)
-                return
-            }
-            let family = (descriptor.object(forKey: .family) as? String)
-                ?? UIFont(descriptor: descriptor, size: 17).familyName
-            onFinish(family)
+            onFinish(viewController.selectedFontDescriptor)
         }
 
         func fontPickerViewControllerDidCancel(_ viewController: UIFontPickerViewController) {

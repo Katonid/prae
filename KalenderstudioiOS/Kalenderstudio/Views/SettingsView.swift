@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var report = ProfileRights.read()
     @State private var photoCounts: (local: Int, cloud: Int, missing: Int)?
     @State private var copied = false
+    @State private var copiedFonts = false
 
     private var cloudBinding: Binding<Bool> {
         Binding(get: { CloudStore.shared.enabled }, set: { store.setCloudEnabled($0) })
@@ -82,6 +83,9 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    LabeledContent("Schriftenrecht in diesem Bau", value: fontRightText)
+                    LabeledContent("Vom System gemeldet",
+                                   value: "\(FontStore.systemFund().families.count) Familien")
                     LabeledContent("Eigene Schriften", value: "\(fonts.families.count)")
                     ForEach(fonts.families, id: \.self) { family in
                         HStack {
@@ -90,10 +94,28 @@ struct SettingsView: View {
                             FontStatusBadge(family: family)
                         }
                     }
+                    Button {
+                        FontStore.shared.activate()
+                    } label: {
+                        Label("Neu anmelden", systemImage: "arrow.clockwise")
+                    }
+                    Button {
+                        UIPasteboard.general.string = fontReportText
+                        copiedFonts = true
+                    } label: {
+                        Label(copiedFonts ? "Kopiert" : "Schriftbefund kopieren", systemImage: "doc.on.doc")
+                    }
+                    ForEach(Array(fonts.protocolLines.suffix(6).reversed().enumerated()), id: \.offset) { _, line in
+                        Text(line).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                    }
                 } header: {
                     Text("Schriften")
                 } footer: {
-                    Text("Selbst installierte Schriften gibt iOS jeder App einzeln frei — auf jedem Gerät einmal über „Installierte Schrift wählen …“. Geladene Schriftdateien kommen über iCloud von selbst mit.")
+                    Text("Selbst installierte Schriften holt die App beim Start vom System. Fehlen sie im Wähler von iOS, darf dieser Bau sie nicht sehen — dann steht oben beim Schriftenrecht „nicht bewilligt“ oder die installierte Fassung ist älter als 1.0.6. Geladene Schriftdateien kommen über iCloud von selbst mit.")
+                }
+
+                Section {
+                    LabeledContent("Fassung", value: AppVersion.text)
                 }
             }
             .navigationTitle("Einstellungen")
@@ -107,8 +129,29 @@ struct SettingsView: View {
         }
     }
 
+    private var fontRightText: String {
+        guard report.profileName != nil else { return "nicht messbar" }
+        return report.entries.first { $0.key == "com.apple.developer.user-fonts" }?.value ?? "nicht bewilligt"
+    }
+
+    private var fontReportText: String {
+        let fund = FontStore.systemFund()
+        var lines = ["Kalenderstudio \(AppVersion.text) — Schriften",
+                     "Schriftenrecht: \(fontRightText)",
+                     "System meldet \(fund.raw) Einträge, lesbar \(fund.descriptors.count), "
+                        + "Familien: \(fund.families.joined(separator: ", "))",
+                     "Eigene Schriften: \(fonts.families.joined(separator: ", "))",
+                     "Gewählte Schnitte: \(fonts.faces.joined(separator: ", "))"]
+        for f in fonts.families {
+            lines.append("  \(f): " + (fonts.isAvailable(f) ? "auffindbar" : "NICHT auffindbar"))
+        }
+        lines.append("Protokoll:")
+        lines += fonts.protocolLines.suffix(15)
+        return lines.joined(separator: "\n")
+    }
+
     private var reportText: String {
-        var lines = ["Kalenderstudio — Einrichtung prüfen",
+        var lines = ["Kalenderstudio \(AppVersion.text) — Einrichtung prüfen",
                      "Profil: \(report.profileName ?? "keines")"]
         for e in report.entries {
             lines.append("\(e.title) (\(e.key)): \(e.value.map { "BEWILLIGT als \($0)" } ?? "nicht bewilligt")")
@@ -155,5 +198,16 @@ struct FontStatusBadge: View {
                 .font(.caption)
                 .foregroundStyle(.orange)
         }
+    }
+}
+
+/// Die Fassung sichtbar in der App — sonst lässt sich ein Befund keinem
+/// Stand zuordnen (Lehre aus dem Reisebuch 1.0.101).
+enum AppVersion {
+    static var text: String {
+        let info = Bundle.main.infoDictionary
+        let v = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let b = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(v) (\(b))"
     }
 }
