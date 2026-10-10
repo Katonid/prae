@@ -134,6 +134,7 @@ struct DatesPanel: View {
         Section {
             Toggle("Schulferien zeigen", isOn: s.showSchoolHolidays)
             if project.dates.showSchoolHolidays {
+                Toggle("Ferien benennen", isOn: s.nameSchoolHolidays)
                 ForEach($project.dates.schoolStates) { $sel in
                     HStack {
                         ColorPicker(sel.state.name, selection: $sel.color.color, supportsOpacity: false)
@@ -178,7 +179,7 @@ struct DatesPanel: View {
         } header: {
             Text("Schulferien")
         } footer: {
-            Text("Eingebaut sind die Ferien aller 16 Länder für 2026 bis 2028 (Quelle: OpenHolidays). Bis zu fünf Länder lassen sich gleichzeitig zeigen — jedes mit eigener Farbe.")
+            Text("Eingebaut sind die Ferien aller 16 Länder für 2026 bis 2028 (Quelle: OpenHolidays). Bis zu fünf Länder lassen sich gleichzeitig zeigen — jedes mit eigener Farbe. Die Ferien erscheinen als Balken oben in den Kästchen; „Ferien benennen“ schreibt zusätzlich den Namen an den ersten Tag und eine Legende unten auf die Seite.")
         }
     }
 

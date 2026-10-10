@@ -366,12 +366,16 @@ struct DateSettings: Codable, Equatable, Hashable {
     var highlightSundays = true
     var highlightSaturdays = false
     var showWeekNumbers = true
+    /// Ferien beim Namen nennen: Legende unten und Name am ersten Tag.
+    /// Aus (ab 1.0.10): Der farbige Balken reicht.
+    var nameSchoolHolidays = false
 
     init() {}
 
     enum CodingKeys: String, CodingKey {
         case state, showHolidays, showHolidayNames, disabledHolidays, specialDays,
-             showSchoolHolidays, schoolStates, highlightSundays, highlightSaturdays, showWeekNumbers
+             showSchoolHolidays, schoolStates, highlightSundays, highlightSaturdays, showWeekNumbers,
+             nameSchoolHolidays
     }
 
     init(from decoder: Decoder) throws {
@@ -393,6 +397,7 @@ struct DateSettings: Codable, Equatable, Hashable {
         highlightSundays = c.value(.highlightSundays, d.highlightSundays)
         highlightSaturdays = c.value(.highlightSaturdays, d.highlightSaturdays)
         showWeekNumbers = c.value(.showWeekNumbers, d.showWeekNumbers)
+        nameSchoolHolidays = c.value(.nameSchoolHolidays, d.nameSchoolHolidays)
     }
 }
 

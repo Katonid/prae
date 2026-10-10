@@ -32,6 +32,8 @@
   „Gestaltungsideen“).
   1.0.9 (10) Fotoanteil am Monatsblatt einstellbar, Seite prüfen (Lupe),
   ganzes Foto mit weichem oder farbigem Hintergrund, Zoomen mit zwei Fingern.
+  1.0.10 (11) Ferienbalken oben im Kästchen, Ferien nur auf Wunsch benannt,
+  Wochentage mit eigener Schriftgröße.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -122,6 +124,17 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
   alte Kalender ohne `fit` nicht mehr geöffnet.
 - **Zwei-Finger-Zoom im Foto-Bearbeiten** (`MagnifyGesture`, gleichzeitig
   mit dem Ziehen).
+
+- **Ferien (ab 1.0.10,** Ansage des Nutzers): Der Balken liegt am
+  OBEREN Rand des Datumskästchens (Raster, Große Ziffern: über der Zahl,
+  Zeitleiste: oben). Legende unten auf der Seite, Name am ersten Tag und
+  Ferien in der Terminliste nur mit „Ferien benennen“
+  (`DateSettings.nameSchoolHolidays`, Vorgabe AUS — „es reicht, wenn der
+  Balken da ist“).
+- **Wochentage haben eine eigene Größe** (`Design.weekdayScale`,
+  `fontWeekday`). Vorher hingen Wochentagsnamen und Einträge zusammen an
+  `bodyScale` („Text“); der Regler heißt jetzt „Einträge in den Kästchen“.
+  Neue Wochentagsanzeigen immer mit `fontWeekday`, nie mit `fontBody`.
 
 ## iCloud-Abgleich (ab 1.0.4)
 
