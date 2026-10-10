@@ -221,9 +221,9 @@ struct HomeView: View {
     }
     #endif
 
-    /// Das Muster ist 900 pt breit gezeichnet; es liegt deshalb als
-    /// HINTERGRUND und bestimmt die Breite nicht mit — sonst ragte das Band
-    /// auf dem iPhone über den Rand und schob die Karten aus dem Bild.
+    /// Das Muster liegt als HINTERGRUND und bestimmt die Breite nicht mit —
+    /// sonst ragte das Band auf dem iPhone über den Rand und schob die
+    /// Karten aus dem Bild (1.0.9).
     private var hero: some View {
         VStack(alignment: .leading, spacing: 6) {
             Spacer(minLength: 0)
@@ -240,9 +240,12 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 170, alignment: .bottomLeading)
         .background {
-            PatternLayer(design: .preset("nordlicht"), size: CGSize(width: 900, height: 260),
-                         safe: CGRect(x: 0, y: 0, width: 900, height: 260), unit: 4, seed: "start")
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // Das Muster wird in der Größe des Bandes gezeichnet: Eine feste
+            // Breite machte das Band auf dem iPad nur 900 pt breit.
+            GeometryReader { geo in
+                PatternLayer(design: .preset("nordlicht"), size: geo.size,
+                             safe: CGRect(origin: .zero, size: geo.size), unit: 4, seed: "start")
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
