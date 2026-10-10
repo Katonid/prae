@@ -94,7 +94,8 @@ struct LayoutPanel: View {
                 Section("Kalendarium") {
                     LazyVGrid(columns: columns, spacing: 10) {
                         ForEach(MonthGridLayout.allCases) { l in
-                            ChoiceTile(title: l.title, symbol: l.symbol, selected: project.gridLayout == l) {
+                            ChoiceTile(title: l.title, symbol: l.symbol, detail: l.detail,
+                                       selected: project.gridLayout == l) {
                                 project.gridLayout = l
                             }
                         }
@@ -194,6 +195,18 @@ struct StylePanel: View {
                     LabeledSlider(title: "Weichzeichnen", value: d.backgroundBlur, range: 0...1)
                     LabeledSlider(title: project.design.isDark ? "Abdunkeln" : "Aufhellen", value: d.backgroundDim, range: 0...0.9)
                 }
+            }
+
+            Section {
+                Toggle("Farbe des Monats aus dem Foto", isOn: d.monthColorFromPhoto)
+                Toggle("Foto läuft weich aus", isOn: d.photoFade)
+                Toggle("Große Monatszahl im Hintergrund", isOn: d.bigNumeral)
+                Toggle("Monat als Zahl („03“)", isOn: d.monthAsNumber)
+                Toggle("Monate im Wechsel hell und dunkel", isOn: d.alternateDark)
+            } header: {
+                Text("Monatsseiten")
+            } footer: {
+                Text("„Farbe des Monats“ nimmt die prägende Farbe des Monatsfotos für Hintergrund und Akzent. „Läuft aus“ gilt für randlose Fotos und blendet zur Kalenderseite hin weich über.")
             }
 
             Section("Farben") {

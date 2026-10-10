@@ -89,6 +89,8 @@ struct PatternLayer: View {
             case .confetti: confetti
             case .dots: dots
             case .bokeh: bokeh
+            case .riso: riso
+            case .linen: linen
             }
         }
         .frame(width: w, height: h)
@@ -357,6 +359,75 @@ struct PatternLayer: View {
                     ctx.stroke(Path(ellipseIn: rect), with: .color(color.opacity(0.12)), lineWidth: Double(unit) * 0.1)
                 }
             }
+        }
+    }
+}
+
+extension PatternLayer {
+    /// Risographie: wenige große Farbflächen, leicht versetzt übereinander,
+    /// mit feinem Korn — wie die Drucke kleiner Studios (design-milk 2026).
+    var riso: some View {
+        ZStack {
+            design.bg1.color
+            Circle()
+                .fill(design.accent.alpha(0.82))
+                .frame(width: m * 0.42, height: m * 0.42)
+                .position(x: w * 0.9, y: h * 0.06)
+            Circle()
+                .fill(design.bg3.alpha(0.55))
+                .frame(width: m * 0.42, height: m * 0.42)
+                .position(x: w * 0.84, y: h * 0.1)
+            RoundedRectangle(cornerRadius: m * 0.1, style: .continuous)
+                .fill(design.holiday.alpha(0.35))
+                .frame(width: m * 0.3, height: m * 0.16)
+                .rotationEffect(.degrees(-12))
+                .position(x: w * 0.06, y: h * 0.97)
+            Circle()
+                .trim(from: 0, to: 0.5)
+                .fill(design.bg3.alpha(0.45))
+                .frame(width: m * 0.26, height: m * 0.26)
+                .position(x: w * 0.97, y: h * 0.9)
+            Canvas { ctx, sz in
+                var rng = SeededRandom(seed: (seed + "korn").stableSeed)
+                let r = Double(unit) * 0.07
+                let ink = design.isDark ? Color.white : design.text.color
+                for _ in 0..<1400 {
+                    let x = rng.unit() * Double(sz.width)
+                    let y = rng.unit() * Double(sz.height)
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)),
+                             with: .color(ink.opacity(rng.range(0.04, 0.12))))
+                }
+            }
+        }
+    }
+
+    /// Leinen: feines Gewebe aus waagerechten und senkrechten Fäden — eine
+    /// ruhige Papierstruktur, die hinter Fotos nicht stört.
+    var linen: some View {
+        ZStack {
+            LinearGradient(colors: [design.bg1.color, design.bg2.color], startPoint: .top, endPoint: .bottom)
+            Canvas { ctx, sz in
+                var rng = SeededRandom(seed: (seed + "leinen").stableSeed)
+                let step = Double(unit) * 0.55
+                let thread = design.isDark ? Color.white : design.text.color
+                var x = 0.0
+                while x < Double(sz.width) {
+                    var p = Path()
+                    p.move(to: CGPoint(x: x, y: 0))
+                    p.addLine(to: CGPoint(x: x, y: Double(sz.height)))
+                    ctx.stroke(p, with: .color(thread.opacity(rng.range(0.015, 0.045))), lineWidth: Double(unit) * 0.05)
+                    x += step * rng.range(0.7, 1.3)
+                }
+                var y = 0.0
+                while y < Double(sz.height) {
+                    var p = Path()
+                    p.move(to: CGPoint(x: 0, y: y))
+                    p.addLine(to: CGPoint(x: Double(sz.width), y: y))
+                    ctx.stroke(p, with: .color(thread.opacity(rng.range(0.015, 0.045))), lineWidth: Double(unit) * 0.05)
+                    y += step * rng.range(0.7, 1.3)
+                }
+            }
+            Blob(color: design.bg3.alpha(0.12), x: w * 0.8, y: h * 0.15, radius: m * 0.5)
         }
     }
 }

@@ -54,12 +54,43 @@ struct MonthGridView: View {
                 MonthListView(y: y, m: m, rc: rc, size: geo.size)
             case .classic, .notes:
                 grid(geo.size, lined: layout == .notes)
+            case .bold:
+                grid(geo.size, lined: false, bold: true)
+            case .strip:
+                MonthStripView(y: y, m: m, rc: rc, size: geo.size)
+            case .ring:
+                MonthRingView(y: y, m: m, rc: rc, size: geo.size)
+            case .split:
+                split(geo.size)
             }
         }
     }
 
+    /// „Geteilt“: Terminliste links, kompaktes Raster rechts. Ohne Termine
+    /// nimmt das Raster die ganze Breite.
     @ViewBuilder
-    private func grid(_ s: CGSize, lined: Bool) -> some View {
+    private func split(_ s: CGSize) -> some View {
+        let items = MonthEvents.items(y, m, rc)
+        if items.isEmpty {
+            grid(s, lined: false, compact: true)
+        } else {
+            let gap = rc.unit * 2.5
+            let listW = (s.width - gap) * 0.38
+            HStack(alignment: .top, spacing: gap) {
+                MonthEventsView(items: items, rc: rc, size: CGSize(width: listW, height: s.height), maxColumns: 1)
+                    .overlay(alignment: .trailing) {
+                        Rectangle().fill(rc.lineColor)
+                            .frame(width: max(rc.unit * 0.06, 0.3))
+                            .offset(x: gap / 2)
+                    }
+                grid(CGSize(width: s.width - listW - gap, height: s.height), lined: false, compact: true)
+            }
+            .frame(width: s.width, height: s.height, alignment: .topLeading)
+        }
+    }
+
+    @ViewBuilder
+    private func grid(_ s: CGSize, lined: Bool, bold: Bool = false, compact: Bool = false) -> some View {
         let weeks = CalendarMath.weeks(y, m)
         let showWK = rc.marks.settings.showWeekNumbers
         let wkW: CGFloat = showWK ? max(s.width * 0.04, rc.unit * 2.2) : 0
@@ -98,9 +129,13 @@ struct MonthGridView: View {
                             .frame(width: wkW, height: cellH, alignment: .top)
                     }
                     ForEach(0..<7, id: \.self) { c in
-                        DayCell(day: weeks[r][c], column: c,
-                                size: CGSize(width: cellW, height: cellH),
-                                lined: lined, rc: rc)
+                        if bold {
+                            BoldDayCell(day: weeks[r][c], size: CGSize(width: cellW, height: cellH), rc: rc)
+                        } else {
+                            DayCell(day: weeks[r][c], column: c,
+                                    size: CGSize(width: cellW, height: cellH),
+                                    lined: lined, rc: rc, compact: compact)
+                        }
                     }
                 }
             }
@@ -120,6 +155,8 @@ struct DayCell: View {
     let size: CGSize
     let lined: Bool
     let rc: RenderContext
+    /// Nur Punkte statt Termintexten (die Termine stehen daneben).
+    var compact = false
 
     var body: some View {
         let d = rc.design
@@ -140,7 +177,9 @@ struct DayCell: View {
     private var background: Color {
         guard let day else { return .clear }
         if rc.marks.isHoliday(day) { return rc.design.holiday.alpha(0.08) }
-        if column >= 5 { return rc.design.text.alpha(0.035) }
+        // Wochenende als zarte Fläche — kräftiger als zuvor, weil Papier
+        // matter wirkt als der Bildschirm.
+        if column >= 5 { return rc.design.text.alpha(0.055) }
         return .clear
     }
 
@@ -152,7 +191,7 @@ struct DayCell: View {
         let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
         let barH = max(size.height * 0.055, 1)
         let reserved = numSize * 1.15 + pad + CGFloat(hits.count) * barH + (lined ? size.height * 0.25 : 0)
-        let maxLines = max(Int((size.height - reserved) / (markSize * d.bodyScale * 1.25)), 0)
+        let maxLines = compact ? 0 : max(Int((size.height - reserved) / (markSize * d.bodyScale * 1.25)), 0)
         let entries = rc.visibleMarks(day)
         let labelHit: SchoolHit? = hits.first(where: { $0.isFirstDay }) ?? (day.d == 1 ? hits.first : nil)
 
@@ -188,7 +227,7 @@ struct DayCell: View {
             }
             if !hits.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
-                    if let label = labelHit {
+                    if let label = labelHit, !compact {
                         Text(label.name)
                             .font(d.fontBody(markSize * 0.8, weight: .medium))
                             .foregroundStyle(rc.schoolColor(label.slot))
@@ -209,6 +248,376 @@ struct DayCell: View {
         .padding([.top, .leading], pad)
         .padding(.trailing, pad * 0.5)
         .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+}
+
+/// „Große Ziffern“ (nach Vignellis Stendig-Kalender): keine Linien, keine
+/// Flächen — nur große, eng gesetzte Zahlen. Termine als Punkt und, wenn
+/// Platz ist, als eine kleine Zeile.
+struct BoldDayCell: View {
+    let day: DayKey?
+    let size: CGSize
+    let rc: RenderContext
+
+    var body: some View {
+        let d = rc.design
+        ZStack(alignment: .topLeading) {
+            Color.clear
+            if let day {
+                let num = min(size.height * 0.62, size.width * 0.6)
+                let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
+                let entries = rc.visibleMarks(day)
+                let small = max(min(size.height * 0.1, size.width * 0.11), 3)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(verbatim: "\(day.d)")
+                        .font(d.fontNumber(num))
+                        .tracking(-num * 0.07)
+                        .foregroundStyle(rc.dayColor(day))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .textShadow(d, unit: rc.unit)
+                        .frame(height: num * 1.02, alignment: .topLeading)
+                    ForEach(hits, id: \.self) { hit in
+                        Rectangle()
+                            .fill(rc.schoolColor(hit.slot).opacity(0.85))
+                            .frame(width: size.width * 0.7, height: max(size.height * 0.035, 0.8))
+                            .padding(.bottom, max(size.height * 0.015, 0.4))
+                    }
+                    if let mark = entries.first {
+                        HStack(spacing: small * 0.3) {
+                            Circle().fill(rc.markColor(mark)).frame(width: small * 0.5, height: small * 0.5)
+                            if size.height - num * 1.02 > small * 1.6 {
+                                Text(mark.title)
+                                    .font(d.fontBody(small, weight: .medium))
+                                    .foregroundStyle(rc.markColor(mark))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
+                            }
+                        }
+                    }
+                }
+                .padding(.leading, size.width * 0.06)
+            }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .clipped()
+    }
+}
+
+// MARK: - Termine eines Monats (für Zeitleiste, Kreis, Geteilt)
+
+struct MonthEvent {
+    let day: Int
+    let text: String
+    let color: Color
+    let strong: Bool
+}
+
+enum MonthEvents {
+    /// Feiertage, besondere und persönliche Tage, dazu der Beginn von
+    /// Schulferien — in Tagesfolge.
+    static func items(_ y: Int, _ m: Int, _ rc: RenderContext) -> [MonthEvent] {
+        var list: [MonthEvent] = []
+        let showSchool = rc.marks.settings.showSchoolHolidays
+        let multi = rc.marks.schoolStates.count > 1
+        for n in 1...CalendarMath.daysIn(y, m) {
+            let day = DayKey(y, m, n)
+            for mark in rc.visibleMarks(day) {
+                list.append(MonthEvent(day: n, text: rc.markText(mark), color: rc.markColor(mark),
+                                       strong: mark.kind == .holiday))
+            }
+            if showSchool {
+                for hit in rc.marks.schoolSlots(day) where hit.isFirstDay {
+                    let state = hit.slot < rc.marks.schoolStates.count ? rc.marks.schoolStates[hit.slot].state.rawValue : ""
+                    list.append(MonthEvent(day: n, text: multi ? "\(hit.name) \(state)" : hit.name,
+                                           color: rc.schoolColor(hit.slot), strong: false))
+                }
+            }
+        }
+        return list
+    }
+}
+
+/// Die Termine eines Monats als ruhige Liste, bei Bedarf in Spalten.
+struct MonthEventsView: View {
+    let items: [MonthEvent]
+    let rc: RenderContext
+    let size: CGSize
+    var maxColumns = 3
+
+    var body: some View {
+        let d = rc.design
+        let u = rc.unit
+        let ideal = u * 2.6
+        let minLine = u * 1.7
+        let layout = Self.columns(count: items.count, height: size.height, ideal: ideal, minLine: minLine, max: maxColumns)
+        let lineH = layout.lineH
+        let gap = u * 2
+        let colW = (size.width - gap * CGFloat(layout.cols - 1)) / CGFloat(layout.cols)
+        let font = lineH * 0.58
+        HStack(alignment: .top, spacing: gap) {
+            ForEach(0..<layout.cols, id: \.self) { c in
+                VStack(alignment: .leading, spacing: 0) {
+                    let idx = Array((c * layout.rows)..<min((c + 1) * layout.rows, max(items.count, c * layout.rows)))
+                    ForEach(idx, id: \.self) { i in
+                        let e = items[i]
+                        HStack(alignment: .firstTextBaseline, spacing: font * 0.5) {
+                            Text(verbatim: "\(e.day).")
+                                .font(d.fontNumber(font, weight: .semibold))
+                                .foregroundStyle(e.color)
+                                .frame(width: font * 1.7, alignment: .trailing)
+                            Text(e.text)
+                                .font(d.fontBody(font, weight: e.strong ? .semibold : .regular))
+                                .foregroundStyle(e.strong ? e.color : d.text.color)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                        }
+                        .frame(width: colW, height: lineH, alignment: .leading)
+                    }
+                }
+                .frame(width: colW, alignment: .topLeading)
+            }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+
+    /// So wenige Spalten wie möglich, so lange die Zeilen nicht zu eng
+    /// werden. Passt auch dann nicht alles, wird hinten gekürzt.
+    static func columns(count: Int, height: CGFloat, ideal: CGFloat, minLine: CGFloat,
+                        max maxCols: Int) -> (cols: Int, rows: Int, lineH: CGFloat) {
+        guard count > 0, height > 0 else { return (1, 1, ideal) }
+        let top = Swift.max(maxCols, 1)
+        for c in 1...top {
+            let rows = (count + c - 1) / c
+            let lineH = Swift.min(height / CGFloat(rows), ideal)
+            if lineH >= minLine { return (c, rows, lineH) }
+        }
+        let rows = Swift.max(Int(height / minLine), 1)
+        return (top, rows, height / CGFloat(rows))
+    }
+}
+
+// MARK: - Zeitleiste
+
+/// Alle Tage in einer (oder zwei) Leisten, darunter die Termine — wie bei
+/// Kunstkalendern: Das Kalendarium hält sich zurück, das Foto führt.
+struct MonthStripView: View {
+    let y: Int
+    let m: Int
+    let rc: RenderContext
+    let size: CGSize
+
+    var body: some View {
+        let n = CalendarMath.daysIn(y, m)
+        let items = MonthEvents.items(y, m, rc)
+        let rows = size.width / max(size.height, 1) > 3.2 ? 1 : 2
+        let perRow = Int((Double(n) / Double(rows)).rounded(.up))
+        let colW = size.width / CGFloat(perRow)
+        let gap = rc.unit * 1.2
+        let natural = colW * 2.3 * CGFloat(rows)
+        let stripH = items.isEmpty ? min(natural, size.height) : min(natural, size.height * 0.62)
+        let rowH = stripH / CGFloat(rows)
+        VStack(alignment: .leading, spacing: gap) {
+            VStack(spacing: rowH * 0.08) {
+                ForEach(0..<rows, id: \.self) { r in
+                    HStack(spacing: 0) {
+                        ForEach(0..<perRow, id: \.self) { k in
+                            let n0 = r * perRow + k + 1
+                            if n0 <= n {
+                                StripDay(day: DayKey(y, m, n0), first: k == 0, rc: rc,
+                                         size: CGSize(width: colW, height: rowH * 0.92))
+                            } else {
+                                Color.clear.frame(width: colW, height: rowH * 0.92)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(height: stripH)
+            if !items.isEmpty {
+                MonthEventsView(items: items, rc: rc,
+                                size: CGSize(width: size.width, height: max(size.height - stripH - gap, 1)))
+            }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+}
+
+struct StripDay: View {
+    let day: DayKey
+    let first: Bool
+    let rc: RenderContext
+    let size: CGSize
+
+    var body: some View {
+        let d = rc.design
+        let w = size.width
+        let h = size.height
+        let num = min(w * 0.52, h * 0.36)
+        let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
+        let mark = rc.marks.marks(day).first
+        let weekend = day.isoWeekday >= 6
+        VStack(spacing: h * 0.04) {
+            Text(CalendarMath.weekdayLetter[day.isoWeekday - 1])
+                .font(d.fontBody(num * 0.5, weight: .semibold))
+                .foregroundStyle(weekend ? rc.dayColor(day) : d.secondary.color)
+            Text(verbatim: "\(day.d)")
+                .font(d.fontNumber(num))
+                .foregroundStyle(rc.dayColor(day))
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .textShadow(d, unit: rc.unit)
+            Circle()
+                .fill(mark.map { rc.markColor($0) } ?? .clear)
+                .frame(width: num * 0.26, height: num * 0.26)
+            Spacer(minLength: 0)
+            VStack(spacing: max(h * 0.02, 0.5)) {
+                ForEach(hits, id: \.self) { hit in
+                    Rectangle()
+                        .fill(rc.schoolColor(hit.slot).opacity(0.85))
+                        .frame(width: w, height: max(h * 0.035, 0.8))
+                }
+            }
+        }
+        .padding(.top, h * 0.08)
+        .frame(width: w, height: h)
+        .background(
+            RoundedRectangle(cornerRadius: w * 0.25 * d.corner, style: .continuous)
+                .fill(rc.marks.isHoliday(day) ? d.holiday.alpha(0.1) : (weekend ? d.text.alpha(0.06) : .clear))
+                .padding(.horizontal, w * 0.06)
+        )
+        // Wochenbeginn: feine Linie vor jedem Montag.
+        .overlay(alignment: .leading) {
+            if day.isoWeekday == 1 && !first {
+                Rectangle().fill(rc.lineColor).frame(width: max(rc.unit * 0.08, 0.4), height: h * 0.7)
+            }
+        }
+    }
+}
+
+// MARK: - Kreis
+
+/// Die Tage im Ring um die Monatszahl, die Termine daneben.
+struct MonthRingView: View {
+    let y: Int
+    let m: Int
+    let rc: RenderContext
+    let size: CGSize
+
+    var body: some View {
+        let items = MonthEvents.items(y, m, rc)
+        let gap = rc.unit * 3
+        let wide = size.width >= size.height
+        if items.isEmpty {
+            RingDial(y: y, m: m, rc: rc, diameter: min(size.width, size.height))
+                .frame(width: size.width, height: size.height)
+        } else if wide {
+            let dia = min(size.height, size.width * 0.55)
+            HStack(alignment: .center, spacing: gap) {
+                RingDial(y: y, m: m, rc: rc, diameter: dia)
+                MonthEventsView(items: items, rc: rc,
+                                size: CGSize(width: size.width - dia - gap, height: dia * 0.9), maxColumns: 2)
+            }
+            .frame(width: size.width, height: size.height)
+        } else {
+            let dia = min(size.width, size.height * 0.62)
+            VStack(spacing: gap) {
+                RingDial(y: y, m: m, rc: rc, diameter: dia)
+                MonthEventsView(items: items, rc: rc,
+                                size: CGSize(width: size.width, height: max(size.height - dia - gap, 1)))
+            }
+            .frame(width: size.width, height: size.height, alignment: .top)
+        }
+    }
+}
+
+struct RingDial: View {
+    let y: Int
+    let m: Int
+    let rc: RenderContext
+    let diameter: CGFloat
+
+    var body: some View {
+        let d = rc.design
+        let n = CalendarMath.daysIn(y, m)
+        let r = diameter / 2
+        let c = CGPoint(x: r, y: r)
+        let step = 2 * Double.pi / Double(n)
+        let numR = r * 0.84
+        let num = min(r * 0.105, CGFloat(step) * numR * 0.62)
+        func angle(_ k: Int) -> Double { -Double.pi / 2 + step * Double(k - 1) }
+        func point(_ k: Int, _ radius: CGFloat) -> CGPoint {
+            CGPoint(x: c.x + CGFloat(cos(angle(k))) * radius, y: c.y + CGFloat(sin(angle(k))) * radius)
+        }
+        return ZStack {
+            Circle()
+                .stroke(rc.lineColor, lineWidth: max(rc.unit * 0.08, 0.4))
+                .frame(width: r * 1.42, height: r * 1.42)
+                .position(c)
+            // Schulferien als Bögen innen.
+            if rc.marks.settings.showSchoolHolidays {
+                ForEach(1...n, id: \.self) { k in
+                    let hits = rc.marks.schoolSlots(DayKey(y, m, k))
+                    ForEach(hits, id: \.self) { hit in
+                        let radius = r * (0.64 - 0.06 * CGFloat(hit.slot))
+                        Path { p in
+                            p.addArc(center: c, radius: radius,
+                                     startAngle: .radians(angle(k) - step / 2),
+                                     endAngle: .radians(angle(k) + step / 2), clockwise: false)
+                        }
+                        .stroke(rc.schoolColor(hit.slot).opacity(0.85),
+                                style: StrokeStyle(lineWidth: r * 0.045, lineCap: .butt))
+                    }
+                }
+            }
+            ForEach(1...n, id: \.self) { k in
+                let day = DayKey(y, m, k)
+                let weekend = day.isoWeekday >= 6
+                // Wochenbeginn: kleiner Strich vor jedem Montag.
+                if day.isoWeekday == 1 {
+                    Path { p in
+                        let a = angle(k) - step / 2
+                        p.move(to: CGPoint(x: c.x + CGFloat(cos(a)) * r * 0.74, y: c.y + CGFloat(sin(a)) * r * 0.74))
+                        p.addLine(to: CGPoint(x: c.x + CGFloat(cos(a)) * r * 0.95, y: c.y + CGFloat(sin(a)) * r * 0.95))
+                    }
+                    .stroke(rc.lineColor, lineWidth: max(rc.unit * 0.08, 0.4))
+                }
+                if weekend {
+                    Circle()
+                        .fill(d.text.alpha(0.06))
+                        .frame(width: num * 1.7, height: num * 1.7)
+                        .position(point(k, numR))
+                }
+                Text(verbatim: "\(k)")
+                    .font(d.fontNumber(num, weight: weekend ? .semibold : nil))
+                    .foregroundStyle(rc.dayColor(day))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .position(point(k, numR))
+                if let mark = rc.marks.marks(day).first {
+                    Circle()
+                        .fill(rc.markColor(mark))
+                        .frame(width: num * 0.32, height: num * 0.32)
+                        .position(point(k, r * 0.73))
+                }
+            }
+            VStack(spacing: 0) {
+                Text(verbatim: String(format: "%02d", m))
+                    .font(d.fontNumber(r * 0.42, weight: .light))
+                    .foregroundStyle(d.accent.color)
+                    .lineLimit(1)
+                    .textShadow(d, unit: rc.unit)
+                Text(d.titleText(CalendarMath.monthName(m)))
+                    .font(d.fontTitle(r * 0.1))
+                    .tracking(d.titleTracking * r * 0.1)
+                    .foregroundStyle(d.secondary.color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            }
+            .frame(width: r * 0.9)
+            .position(c)
+        }
+        .frame(width: diameter, height: diameter)
     }
 }
 

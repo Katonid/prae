@@ -165,6 +165,58 @@ final class ImageStore: @unchecked Sendable {
         return img
     }
 
+    /// Die prägende Farbe eines Fotos — für „Farbe des Monats“. Nicht der
+    /// Mittelwert (der wird bei bunten Bildern grau-braun), sondern die
+    /// Farbe der kräftigsten Farbgruppe: Pixel nach Farbton in zwölf Fächer,
+    /// gewichtet mit ihrer Sättigung; gewinnt das schwerste Fach.
+    func dominantColor(_ id: UUID) -> RGBA? {
+        let key = id.uuidString
+        colorLock.lock()
+        if let hit = colors[key] { colorLock.unlock(); return hit }
+        colorLock.unlock()
+        guard let cg = thumbnail(id)?.cgImage else { return nil }
+        let side = 32
+        var px = [UInt8](repeating: 0, count: side * side * 4)
+        guard let ctx = CGContext(data: &px, width: side, height: side, bitsPerComponent: 8,
+                                  bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .medium
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: side, height: side))
+        var weight = [Double](repeating: 0, count: 12)
+        var sum = [(r: Double, g: Double, b: Double)](repeating: (0, 0, 0), count: 12)
+        var all = (r: 0.0, g: 0.0, b: 0.0)
+        for i in stride(from: 0, to: px.count, by: 4) {
+            let r = Double(px[i]) / 255, g = Double(px[i + 1]) / 255, b = Double(px[i + 2]) / 255
+            all.r += r; all.g += g; all.b += b
+            let mx = max(r, g, b), mn = min(r, g, b)
+            let sat = mx > 0 ? (mx - mn) / mx : 0
+            // Fast Schwarzes, fast Weißes und Graues zählt nicht.
+            guard sat > 0.18, mx > 0.18, mx < 0.98 else { continue }
+            var hue: Double
+            let d = mx - mn
+            if mx == r { hue = (g - b) / d } else if mx == g { hue = 2 + (b - r) / d } else { hue = 4 + (r - g) / d }
+            hue = (hue / 6).truncatingRemainder(dividingBy: 1)
+            if hue < 0 { hue += 1 }
+            let bin = min(Int(hue * 12), 11)
+            let w = sat * mx
+            weight[bin] += w
+            sum[bin].r += r * w; sum[bin].g += g * w; sum[bin].b += b * w
+        }
+        let result: RGBA
+        if let best = weight.indices.max(by: { weight[$0] < weight[$1] }), weight[best] > 1.5 {
+            let w = weight[best]
+            result = RGBA(sum[best].r / w, sum[best].g / w, sum[best].b / w)
+        } else {
+            let n = Double(side * side)
+            result = RGBA(all.r / n, all.g / n, all.b / n)
+        }
+        colorLock.lock(); colors[key] = result; colorLock.unlock()
+        return result
+    }
+
+    private var colors: [String: RGBA] = [:]
+    private let colorLock = NSLock()
+
     /// Weichgezeichnete Fassung für Hintergründe. Grundlage ist die
     /// Vorschau — ein unscharfes Bild braucht keine Druckauflösung.
     func blurred(_ id: UUID, amount: Double) -> UIImage? {
