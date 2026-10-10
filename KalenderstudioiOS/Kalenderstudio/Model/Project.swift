@@ -167,7 +167,8 @@ struct PageFormat: Codable, Equatable, Hashable {
     var bleedMM: Double
     /// Sicherheitsabstand zum Endformatrand in mm.
     var safetyMM: Double
-    /// Zusätzlicher Rand für Spiral- oder Wire-O-Bindung in mm.
+    /// Abstand des Inhalts zur Bindekante (Spirale, Wire-O), gemessen vom
+    /// Endformatrand, in mm. Gilt statt des Sicherheitsabstands, wenn größer.
     var bindingMM: Double
     var bindingEdge: BindingEdge
 
@@ -209,13 +210,15 @@ struct PageFormat: Codable, Equatable, Hashable {
         ("A4 hoch", PageFormat(widthMM: 210, heightMM: 297)),
         ("A3 quer", PageFormat(widthMM: 420, heightMM: 297)),
         ("A3 hoch", PageFormat(widthMM: 297, heightMM: 420)),
+        ("A3 hoch, Wire-O oben", PageFormat(widthMM: 297, heightMM: 420, bleedMM: 3, safetyMM: 4,
+                                           bindingMM: 20, bindingEdge: .top)),
         ("A5 quer", PageFormat(widthMM: 210, heightMM: 148, safetyMM: 5)),
         ("A5 hoch", PageFormat(widthMM: 148, heightMM: 210, safetyMM: 5)),
         ("Quadrat 30 × 30 cm", PageFormat(widthMM: 300, heightMM: 300)),
         ("Quadrat 21 × 21 cm", PageFormat(widthMM: 210, heightMM: 210)),
         ("Panorama 42 × 21 cm", PageFormat(widthMM: 420, heightMM: 210)),
         ("Tischkalender 21 × 10 cm", PageFormat(widthMM: 210, heightMM: 100, safetyMM: 5,
-                                               bindingMM: 6, bindingEdge: .top)),
+                                               bindingMM: 11, bindingEdge: .top)),
         ("Küchenplaner 21 × 45 cm", PageFormat(widthMM: 210, heightMM: 450)),
     ]
 }

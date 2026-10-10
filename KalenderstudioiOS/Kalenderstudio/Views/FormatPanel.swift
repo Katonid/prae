@@ -63,12 +63,12 @@ struct FormatPanel: View {
                 }
                 .pickerStyle(.segmented)
                 if project.format.bindingEdge != .none {
-                    MMField(title: "Zusätzlicher Rand", value: f.bindingMM, range: 0...60)
+                    MMField(title: "Abstand zur Bindung", value: f.bindingMM, range: 0...80)
                 }
             } header: {
                 Text("Bindung")
             } footer: {
-                Text("Für Spiral- oder Wire-O-Bindung: Dieser Rand bleibt an der Bindekante zusätzlich frei von Text.")
+                Text("Für Spiral- oder Wire-O-Bindung, gemessen vom Rand des Endformats — so, wie Druckdienste es angeben (z. B. „2 cm von oben“). Texte und Kalendarium bleiben darunter, Hintergründe und randlose Fotos laufen weiter bis in den Beschnitt.")
             }
 
             Section("Druckdatei") {
@@ -190,13 +190,13 @@ struct FormatDiagram: View {
         case .top:
             Rectangle()
                 .fill(Color.orange.opacity(0.25))
-                .frame(width: t.width * scale, height: b)
-                .offset(x: t.minX * scale, y: (t.minY + Units.pt(format.safetyMM)) * scale)
+                .frame(width: t.width * scale, height: min(b, t.height * scale / 3))
+                .offset(x: t.minX * scale, y: t.minY * scale)
         case .left:
             Rectangle()
                 .fill(Color.orange.opacity(0.25))
-                .frame(width: b, height: t.height * scale)
-                .offset(x: (t.minX + Units.pt(format.safetyMM)) * scale, y: t.minY * scale)
+                .frame(width: min(b, t.width * scale / 3), height: t.height * scale)
+                .offset(x: t.minX * scale, y: t.minY * scale)
         case .none:
             EmptyView()
         }
