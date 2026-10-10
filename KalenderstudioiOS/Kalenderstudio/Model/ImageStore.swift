@@ -65,6 +65,24 @@ final class ImageStore: @unchecked Sendable {
     }
 
     /// Für Hinweise: Liegt das Foto hier, kommt es noch aus iCloud, oder fehlt es?
+    /// Für Sicherungen: die Dateien eines Fotos (Original und Vorschau),
+    /// soweit sie auf diesem Gerät gelesen werden können.
+    func backupFiles(_ id: UUID) -> [(name: String, url: URL)] {
+        [fullName(id), thumbName(id)].compactMap { n in readableURL(n).map { (name: n, url: $0) } }
+    }
+
+    /// Aus einer Sicherung: legt eine Fotodatei ab, wenn es sie noch nicht
+    /// gibt. Nur Namen der Form „<UUID>.jpg“ / „<UUID>-v.jpg“.
+    func restoreFile(name: String, data: Data) throws {
+        let base = name.replacingOccurrences(of: "-v.jpg", with: "").replacingOccurrences(of: ".jpg", with: "")
+        guard UUID(uuidString: base) != nil, !name.contains("/") else { return }
+        if readableURL(name) != nil { return }
+        try data.write(to: writeDir.appendingPathComponent(name), options: .atomic)
+        cache.removeObject(forKey: "\(base)-p" as NSString)
+        cache.removeObject(forKey: "\(base)-d" as NSString)
+        forgetMisses()
+    }
+
     func state(_ id: UUID) -> CloudStore.ItemState {
         if FileManager.default.fileExists(atPath: localDir.appendingPathComponent(fullName(id)).path) {
             return .local

@@ -1,4 +1,4 @@
-# Baut Kalenderstudio, startet es im iPad-Simulator direkt im Editor
+# Baut Kalenderstudio, startet es im iPad- oder iPhone-Simulator direkt im Editor
 # (Debug-Startargument `-probe=…`, siehe HomeView) und legt
 # Bildschirmfotos, Protokoll und Absturzberichte als Anhang ab.
 #
@@ -8,14 +8,24 @@ name: Kalenderstudio ansehen
 
 on:
   workflow_dispatch:
+    inputs:
+      geraet:
+        description: "Simulator"
+        type: choice
+        options: [iPad, iPhone]
+        default: iPad
+      proben:
+        description: "Nur diese Proben (leer = alle), z. B. „start year“"
+        type: string
+        default: ""
 
 concurrency:
-  group: kalenderstudio-ansicht-${{ github.ref }}
+  group: kalenderstudio-ansicht-${{ github.ref }}-${{ inputs.geraet }}
   cancel-in-progress: true
 
 jobs:
   ansicht:
-    name: Editor im iPad-Simulator
+    name: Editor im ${{ inputs.geraet || 'iPad' }}-Simulator
     runs-on: macos-latest
     timeout-minutes: 40
     steps:
@@ -25,8 +35,9 @@ jobs:
       - name: Simulator wählen
         id: sim
         run: |
+          GERAET="${{ inputs.geraet || 'iPad' }}"
           UDID=$(xcrun simctl list devices available -j \
-            | python3 -c "import sys,json;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d for x in d[rt] if 'iPad' in x['name']), ''))")
+            | GERAET="$GERAET" python3 -c "import os,sys,json;g=os.environ['GERAET'];d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d for x in d[rt] if x['name'].startswith(g)), ''))")
           [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
@@ -53,14 +64,21 @@ jobs:
           xcrun simctl spawn "$UDID" log stream --level debug \
             --predicate 'processImagePath CONTAINS "Kalenderstudio"' > ansicht/protokoll.txt 2>&1 &
           sleep 3
-          for art in year doubleMonth week year:strip:leinen year:ring:riso year:bold:schweiz \
+          PROBEN="${{ inputs.proben }}"
+          # „start“ = Startseite ohne Probe (am Ende, dann liegen schon Kalender da).
+          [ -n "$PROBEN" ] || PROBEN="year doubleMonth week year:strip:leinen year:ring:riso year:bold:schweiz \
                      doubleMonth:split:papeterie doubleMonth:bold:schweiz \
                      year:classic:aquarell:0.78 year:bold:schweiz:0.85 \
-                     year:classic:leinen:0.7:ganz year:strip:riso:0:farbe year:classic:aquarell:0.7:ganz:lupe; do
+                     year:classic:leinen:0.7:ganz year:strip:riso:0:farbe year:classic:aquarell:0.7:ganz:lupe year:classic:leinen:0.7:ganz:sicherung start"
+          for art in $PROBEN; do
             name="${art//:/-}"
             name="${name//./}"
             mit_grenze 60 xcrun simctl terminate "$UDID" de.familie.kalenderstudio || true
-            mit_grenze 90 xcrun simctl launch "$UDID" de.familie.kalenderstudio "-probe=$art" || true
+            if [ "$art" = start ]; then
+              mit_grenze 90 xcrun simctl launch "$UDID" de.familie.kalenderstudio || true
+            else
+              mit_grenze 90 xcrun simctl launch "$UDID" de.familie.kalenderstudio "-probe=$art" || true
+            fi
             sleep 6
             shot "ansicht/$name-0.png"
             sleep 9
@@ -81,6 +99,7 @@ jobs:
           done
           cat ansicht/diagnose.txt || true
           grep -iE "fault|error|fatal|crash|navigation" ansicht/protokoll.txt | head -60 || true
+          grep -i "Sicherungsprobe" ansicht/protokoll.txt || true
 
       - name: Bilder ablegen
         if: always()

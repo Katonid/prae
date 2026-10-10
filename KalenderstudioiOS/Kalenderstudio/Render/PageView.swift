@@ -173,8 +173,11 @@ struct PageLayout: View {
         (DayKey(y, m, 1), DayKey(y, m, CalendarMath.daysIn(y, m)))
     }
 
+    /// Die Ferienlegende unten auf der Seite nur auf Wunsch — der Balken in
+    /// den Kästchen reicht meist (Ansage des Nutzers, 1.0.10).
     private var hasLegend: Bool {
-        rc.marks.settings.showSchoolHolidays && !rc.marks.schoolStates.isEmpty
+        rc.marks.settings.showSchoolHolidays && rc.marks.settings.nameSchoolHolidays
+            && !rc.marks.schoolStates.isEmpty
     }
 
     // MARK: Titelblatt
@@ -606,7 +609,7 @@ struct WeekDayRow: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                 Text(d.titleText(CalendarMath.weekdayShort[day.isoWeekday - 1]))
-                    .font(d.fontBody(num * 0.36, weight: .semibold))
+                    .font(d.fontWeekday(num * 0.36))
                     .foregroundStyle(d.secondary.color)
             }
             .frame(width: num * 1.6)
@@ -614,7 +617,7 @@ struct WeekDayRow: View {
             VStack(alignment: .leading, spacing: h * 0.03) {
                 HStack(spacing: num * 0.3) {
                     Text(CalendarMath.weekdayNames[day.isoWeekday - 1])
-                        .font(d.fontBody(num * 0.38, weight: .medium))
+                        .font(d.fontWeekday(num * 0.38, weight: .medium))
                         .foregroundStyle(d.secondary.color)
                     ForEach(Array(entries.prefix(3).enumerated()), id: \.offset) { _, mark in
                         Text(rc.markText(mark))
@@ -663,7 +666,7 @@ struct WeekDayColumn: View {
         let entries = rc.visibleMarks(day)
         VStack(spacing: w * 0.04) {
             Text(d.titleText(CalendarMath.weekdayNames[day.isoWeekday - 1]))
-                .font(d.fontBody(w * 0.11, weight: .semibold))
+                .font(d.fontWeekday(w * 0.11))
                 .foregroundStyle(d.secondary.color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)

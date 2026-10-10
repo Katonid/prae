@@ -135,6 +135,8 @@ struct Design: Codable, Equatable, Hashable {
     var numberWeight: WeightChoice = .medium
     var titleScale: Double = 1
     var bodyScale: Double = 1
+    /// Größe der Wochentagsnamen, getrennt von den Einträgen (ab 1.0.10).
+    var weekdayScale: Double = 1
     var numberScale: Double = 1
     var titleUppercase = false
     var titleTracking: Double = 0
@@ -165,6 +167,12 @@ struct Design: Codable, Equatable, Hashable {
 
     func fontBody(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
         FontLibrary.font(bodyFont, size: size * bodyScale, weight: weight)
+    }
+
+    /// Wochentage („Montag“, „Mo“, „M“) — eigene Größe, unabhängig von den
+    /// Einträgen in den Datumskästchen.
+    func fontWeekday(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        FontLibrary.font(bodyFont, size: size * weekdayScale, weight: weight)
     }
 
     func fontNumber(_ size: CGFloat, weight: Font.Weight? = nil) -> Font {
@@ -215,7 +223,7 @@ struct Design: Codable, Equatable, Hashable {
         case presetID, pattern, backgroundSource, backgroundPhotoID, backgroundBlur, backgroundDim,
              bg1, bg2, bg3, text, secondary, accent, holiday, card,
              titleFont, bodyFont, numberFont, titleWeight, numberWeight,
-             titleScale, bodyScale, numberScale, titleUppercase, titleTracking,
+             titleScale, bodyScale, weekdayScale, numberScale, titleUppercase, titleTracking,
              shadow, cardStyle, corner, photoBorder,
              monthColorFromPhoto, photoFade, bigNumeral, monthAsNumber, alternateDark
     }
@@ -262,6 +270,7 @@ struct Design: Codable, Equatable, Hashable {
         d.numberWeight = c.value(.numberWeight, d.numberWeight)
         d.titleScale = c.value(.titleScale, d.titleScale)
         d.bodyScale = c.value(.bodyScale, d.bodyScale)
+        d.weekdayScale = c.value(.weekdayScale, d.weekdayScale)
         d.numberScale = c.value(.numberScale, d.numberScale)
         d.titleUppercase = c.value(.titleUppercase, d.titleUppercase)
         d.titleTracking = c.value(.titleTracking, d.titleTracking)

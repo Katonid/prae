@@ -274,7 +274,8 @@ struct StylePanel: View {
                             .font(FontLibrary.font(project.design.bodyFont, size: 17, weight: .regular))
                     }
                 }
-                LabeledSlider(title: "Textgröße", value: d.bodyScale, range: 0.5...1.8, percent: true)
+                LabeledSlider(title: "Einträge in den Kästchen", value: d.bodyScale, range: 0.5...1.8, percent: true)
+                LabeledSlider(title: "Wochentage", value: d.weekdayScale, range: 0.5...1.8, percent: true)
 
                 Button {
                     fontRole = .number

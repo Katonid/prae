@@ -126,7 +126,7 @@ struct MonthGridView: View {
                 }
                 ForEach(0..<7, id: \.self) { i in
                     Text(d.titleText(longNames ? CalendarMath.weekdayNames[i] : CalendarMath.weekdayShort[i]))
-                        .font(d.fontBody(headSize, weight: .semibold))
+                        .font(d.fontWeekday(headSize))
                         .tracking(d.titleUppercase ? headSize * 0.08 : 0)
                         .foregroundStyle(i >= 5 && rc.marks.settings.highlightSundays && i == 6 ? d.holiday.color : d.secondary.color)
                         .lineLimit(1)
@@ -183,12 +183,25 @@ struct DayCell: View {
                 .fill(rc.lineColor)
                 .frame(height: max(rc.unit * 0.06, 0.3))
             if let day {
+                // Ferienbalken am OBEREN Rand des Kästchens (ab 1.0.10).
+                let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
+                if !hits.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(hits, id: \.self) { hit in
+                            Rectangle()
+                                .fill(rc.schoolColor(hit.slot).opacity(0.85))
+                                .frame(width: size.width, height: barHeight)
+                        }
+                    }
+                }
                 content(day, d)
             }
         }
         .frame(width: size.width, height: size.height)
         .clipped()
     }
+
+    private var barHeight: CGFloat { max(size.height * 0.055, 1) }
 
     private var background: Color {
         guard let day else { return .clear }
@@ -205,8 +218,10 @@ struct DayCell: View {
         let markSize = max(min(size.height * 0.105, size.width * 0.115), 3)
         let pad = min(size.width, size.height) * 0.08
         let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
-        let barH = max(size.height * 0.055, 1)
-        let reserved = numSize * 1.15 + pad + CGFloat(hits.count) * barH + (lined ? size.height * 0.25 : 0)
+        let barsH = CGFloat(hits.count) * barHeight
+        let named = rc.marks.settings.nameSchoolHolidays && !compact
+        let reserved = numSize * 1.15 + pad + barsH + (lined ? size.height * 0.25 : 0)
+            + (named && !hits.isEmpty ? markSize : 0)
         let maxLines = compact ? 0 : max(Int((size.height - reserved) / (markSize * d.bodyScale * 1.25)), 0)
         let entries = rc.visibleMarks(day)
         let labelHit: SchoolHit? = hits.first(where: { $0.isFirstDay }) ?? (day.d == 1 ? hits.first : nil)
@@ -241,27 +256,19 @@ struct DayCell: View {
                 }
                 .padding(.bottom, size.height * 0.06)
             }
-            if !hits.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    if let label = labelHit, !compact {
-                        Text(label.name)
-                            .font(d.fontBody(markSize * 0.8, weight: .medium))
-                            .foregroundStyle(rc.schoolColor(label.slot))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .frame(width: size.width - pad, alignment: .leading)
-                    }
-                    ForEach(hits, id: \.self) { hit in
-                        Rectangle()
-                            .fill(rc.schoolColor(hit.slot).opacity(0.85))
-                            .frame(width: size.width, height: barH)
-                            .padding(.leading, -pad)
-                    }
-                }
+            if named, let label = labelHit {
+                Text(label.name)
+                    .font(d.fontBody(markSize * 0.8, weight: .medium))
+                    .foregroundStyle(rc.schoolColor(label.slot))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(width: size.width - pad, alignment: .leading)
+                    .padding(.bottom, pad * 0.5)
             }
         }
-        .padding([.top, .leading], pad)
+        .padding(.top, pad + barsH)
+        .padding(.leading, pad)
         .padding(.trailing, pad * 0.5)
         .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
@@ -285,6 +292,13 @@ struct BoldDayCell: View {
                 let entries = rc.visibleMarks(day)
                 let small = max(min(size.height * 0.1, size.width * 0.11), 3)
                 VStack(alignment: .leading, spacing: 0) {
+                    // Ferienbalken über der Zahl (ab 1.0.10).
+                    ForEach(hits, id: \.self) { hit in
+                        Rectangle()
+                            .fill(rc.schoolColor(hit.slot).opacity(0.85))
+                            .frame(width: size.width * 0.7, height: max(size.height * 0.035, 0.8))
+                            .padding(.bottom, max(size.height * 0.015, 0.4))
+                    }
                     Text(verbatim: "\(day.d)")
                         .font(d.fontNumber(num))
                         .tracking(-num * 0.07)
@@ -293,12 +307,6 @@ struct BoldDayCell: View {
                         .minimumScaleFactor(0.5)
                         .textShadow(d, unit: rc.unit)
                         .frame(height: num * 1.02, alignment: .topLeading)
-                    ForEach(hits, id: \.self) { hit in
-                        Rectangle()
-                            .fill(rc.schoolColor(hit.slot).opacity(0.85))
-                            .frame(width: size.width * 0.7, height: max(size.height * 0.035, 0.8))
-                            .padding(.bottom, max(size.height * 0.015, 0.4))
-                    }
                     if let mark = entries.first {
                         HStack(spacing: small * 0.3) {
                             Circle().fill(rc.markColor(mark)).frame(width: small * 0.5, height: small * 0.5)
@@ -334,7 +342,7 @@ enum MonthEvents {
     /// Schulferien — in Tagesfolge.
     static func items(_ y: Int, _ m: Int, _ rc: RenderContext) -> [MonthEvent] {
         var list: [MonthEvent] = []
-        let showSchool = rc.marks.settings.showSchoolHolidays
+        let showSchool = rc.marks.settings.showSchoolHolidays && rc.marks.settings.nameSchoolHolidays
         let multi = rc.marks.schoolStates.count > 1
         for n in 1...CalendarMath.daysIn(y, m) {
             let day = DayKey(y, m, n)
@@ -476,8 +484,17 @@ struct StripDay: View {
         let mark = rc.marks.marks(day).first
         let weekend = day.isoWeekday >= 6
         VStack(spacing: h * 0.04) {
+            // Ferienbalken oben (ab 1.0.10).
+            VStack(spacing: max(h * 0.02, 0.5)) {
+                ForEach(hits, id: \.self) { hit in
+                    Rectangle()
+                        .fill(rc.schoolColor(hit.slot).opacity(0.85))
+                        .frame(width: w, height: max(h * 0.035, 0.8))
+                }
+            }
+            .frame(height: max(h * 0.035, 0.8) * CGFloat(max(rc.marks.schoolStates.count, 1)), alignment: .top)
             Text(CalendarMath.weekdayLetter[day.isoWeekday - 1])
-                .font(d.fontBody(num * 0.5, weight: .semibold))
+                .font(d.fontWeekday(num * 0.5))
                 .foregroundStyle(weekend ? rc.dayColor(day) : d.secondary.color)
             Text(verbatim: "\(day.d)")
                 .font(d.fontNumber(num))
@@ -489,15 +506,7 @@ struct StripDay: View {
                 .fill(mark.map { rc.markColor($0) } ?? .clear)
                 .frame(width: num * 0.26, height: num * 0.26)
             Spacer(minLength: 0)
-            VStack(spacing: max(h * 0.02, 0.5)) {
-                ForEach(hits, id: \.self) { hit in
-                    Rectangle()
-                        .fill(rc.schoolColor(hit.slot).opacity(0.85))
-                        .frame(width: w, height: max(h * 0.035, 0.8))
-                }
-            }
         }
-        .padding(.top, h * 0.08)
         .frame(width: w, height: h)
         .background(
             RoundedRectangle(cornerRadius: w * 0.25 * d.corner, style: .continuous)
@@ -676,7 +685,7 @@ struct MonthListView: View {
         let entries = rc.visibleMarks(day)
         return HStack(spacing: height * 0.25) {
             Text(CalendarMath.weekdayShort[day.isoWeekday - 1])
-                .font(d.fontBody(numSize * 0.62, weight: .medium))
+                .font(d.fontWeekday(numSize * 0.62, weight: .medium))
                 .foregroundStyle(d.secondary.color)
                 .frame(width: numSize * 1.4, alignment: .leading)
             Text("\(day.d)")
@@ -745,7 +754,7 @@ struct MiniMonthView: View {
             HStack(spacing: 0) {
                 ForEach(0..<7, id: \.self) { i in
                     Text(CalendarMath.weekdayLetter[i])
-                        .font(d.fontBody(headH * 0.6, weight: .semibold))
+                        .font(d.fontWeekday(headH * 0.6))
                         .foregroundStyle(d.secondary.color)
                         .frame(width: cellW, height: headH)
                 }
@@ -848,7 +857,7 @@ struct YearPlannerView: View {
                         .frame(width: max(width * 0.025, 0.6), height: height)
                 }
                 Text(CalendarMath.weekdayLetter[day.isoWeekday - 1])
-                    .font(d.fontBody(size * 0.8, weight: .medium))
+                    .font(d.fontWeekday(size * 0.8, weight: .medium))
                     .foregroundStyle(d.secondary.color)
                     .frame(width: size * 0.9, alignment: .leading)
                 Text("\(n)")

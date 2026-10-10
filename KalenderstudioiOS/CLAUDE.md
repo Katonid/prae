@@ -32,6 +32,10 @@
   „Gestaltungsideen“).
   1.0.9 (10) Fotoanteil am Monatsblatt einstellbar, Seite prüfen (Lupe),
   ganzes Foto mit weichem oder farbigem Hintergrund, Zoomen mit zwei Fingern.
+  1.0.10 (11) Ferienbalken oben im Kästchen, Ferien nur auf Wunsch benannt,
+  Wochentage mit eigener Schriftgröße, Sicherungsdatei, Startseite auf dem
+  iPhone, Beschnitt beim Anlegen, **Abgleich überschrieb neuere Arbeit
+  (behoben)**.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -123,6 +127,40 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
 - **Zwei-Finger-Zoom im Foto-Bearbeiten** (`MagnifyGesture`, gleichzeitig
   mit dem Ziehen).
 
+- **Ferien (ab 1.0.10,** Ansage des Nutzers): Der Balken liegt am
+  OBEREN Rand des Datumskästchens (Raster, Große Ziffern: über der Zahl,
+  Zeitleiste: oben). Legende unten auf der Seite, Name am ersten Tag und
+  Ferien in der Terminliste nur mit „Ferien benennen“
+  (`DateSettings.nameSchoolHolidays`, Vorgabe AUS — „es reicht, wenn der
+  Balken da ist“).
+- **Wochentage haben eine eigene Größe** (`Design.weekdayScale`,
+  `fontWeekday`). Vorher hingen Wochentagsnamen und Einträge zusammen an
+  `bodyScale` („Text“); der Regler heißt jetzt „Einträge in den Kästchen“.
+  Neue Wochentagsanzeigen immer mit `fontWeekday`, nie mit `fontBody`.
+
+- **Sicherungsdatei „.kalenderstudio“ (ab 1.0.10,** Ansage des Nutzers:
+  „eine Exportdatei, die ich auf einem anderen Gerät oder nach einem Umzug
+  neu einladen kann“): `Model/Backup.swift`. Kennzeile, 8 Byte Länge,
+  JSON-Verzeichnis (Kalender vollständig + Dateiliste), dann die Dateien
+  roh hintereinander — kein ZIP (iOS packt keins aus), kein Base64 (bläht
+  große Originale auf). Enthalten: Kalender, Fotos (Original + Vorschau),
+  geladene Schriftdateien; selbst installierte Schriften gehören dem Gerät
+  und fehlen. Laden überschreibt NIE: gleicher Kalender mit anderem Stand
+  kommt als „(aus Sicherung)“ dazu, gleicher Stand wird übersprungen.
+  Fotos, die nur in iCloud liegen, fehlen in der Sicherung und werden
+  gezählt. Bedienung: Einstellungen › Sicherung (alle; laden) und langes
+  Drücken auf einen Kalender (einzeln). Probe: `…:sicherung` schreibt und
+  lädt im Simulator und meldet „Sicherungsprobe“ im Protokoll.
+- **Startseite auf dem iPhone** (Bildschirmfoto des Nutzers, 1.0.9): Das
+  Muster im Kopfband ist 900 pt breit gezeichnet und machte als Inhalt des
+  `ZStack` das ganze Band so breit — Text abgeschnitten, Karten links aus
+  dem Bild. Es liegt jetzt als `.background`. **Regel: Fest gezeichnete
+  Muster nie als bestimmenden Inhalt, immer als Hintergrund.** Der
+  Arbeitsablauf „Kalenderstudio ansehen“ kann seitdem auch den
+  iPhone-Simulator (Eingabe `geraet`) und eine Auswahl von Proben.
+- **Beschnitt** war immer unter Format › „Beschnitt je Seite“ einstellbar,
+  wurde dort aber nicht gefunden; seit 1.0.10 auch beim Anlegen.
+
 ## iCloud-Abgleich (ab 1.0.4)
 
 - **iCloud DRIVE, nicht CloudKit** (`Model/CloudStore.swift`) — dieselbe
@@ -174,6 +212,31 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
   viel freien Speicher und eine Xcode-Fassung, die das iOS des Geräts kennt.
   Umgehung: im Schema „Debug executable“ abwählen, dann braucht Xcode die
   Symbole nicht.
+- **DER ABGLEICH ÜBERSCHRIEB NEUERE ARBEIT MIT EINEM ÄLTEREN STAND
+  (bis 1.0.9, behoben in 1.0.10).** Gemeldet 10.10.2026: „jedes
+  Kalenderbild eingepasst … nicht gespeichert, alles wieder auf Füllen“ —
+  die Arbeit eines Abends war weg. Zwei Fehler zusammen:
+  1. Jedes Speichern startete einen EIGENEN `Task.detached` zum Schreiben;
+     mehrere liefen gleichzeitig, ein älterer Stand konnte nach einem
+     neueren in der Wolke landen.
+  2. `merge` hielt einen Wolkenstand, der vom letzten Abgleichstand
+     abwich, für eine Änderung von außen — auch wenn er ÄLTER war als die
+     Arbeitskopie und von diesem Gerät selbst stammte (Echo). Bei „nur die
+     Wolke hat geändert“ ersetzte er die Arbeitskopie still, ohne Kopie.
+  Seitdem: Alle Wolkenzugriffe laufen über EINE serielle Schlange
+  (`cloudQueue`, Lesen eingeschlossen). Ein Wolkenstand, der älter ist als
+  die Arbeitskopie, ersetzt sie nie, wenn er ein eigenes Echo ist
+  (`ownStamps`) oder hier seit dem Abgleich nichts geändert wurde — dann
+  geht die Arbeitskopie wieder hinauf. **Regel: Ein Abgleich darf eine
+  Arbeitskopie nur durch etwas NEUERES ersetzen.** Verlorene Einstellungen
+  ließen sich nicht zurückholen.
+- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 2): Eine ältere
+  App kennt neue Felder nicht und würde sie beim Zurückschreiben löschen
+  (z. B. ein iPhone mit 1.0.8 die Fotodarstellung „ganz“). Kalender mit
+  höherer `formatVersion` als `CalendarProject.currentFormat` schreibt
+  eine App deshalb nicht in die Wolke. **Bei jedem neuen Feld im Modell
+  `currentFormat` um eins heben.** Ältere, schon installierte Fassungen
+  schützt das nicht — beide Geräte auf denselben Stand bringen.
 - **Die Entitlements-Datei wurde erst eingehängt, nachdem die App-Id iCloud
   UND das Schriftenrecht als bewilligt zeigt** — mit genau den dort
   gelesenen Zeichenketten. Vorher nicht: Ein Recht, das die App-Id nicht
