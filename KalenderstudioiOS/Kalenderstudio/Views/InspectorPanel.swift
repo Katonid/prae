@@ -339,7 +339,7 @@ struct FontListView: View {
                         .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text("„Installierte Schrift“ öffnet die Schriftauswahl von iOS — dort stehen auch Schriften, die du selbst auf dem Gerät installiert hast (z. B. über Adobe Fonts oder eine Schrift-App; zu sehen unter Einstellungen › Allgemein › Schriften). Erst nach der Auswahl dort darf die App sie verwenden.")
+                Text("„Installierte Schrift“ öffnet die Schriftauswahl von iOS — dort stehen auch Schriften, die du selbst auf dem Gerät installiert hast (z. B. über Adobe Fonts oder eine Schrift-App; zu sehen unter Einstellungen › Allgemein › Schriften). Was dort fehlt, gibt iOS dieser App nicht heraus — Zahlen dazu unter Einstellungen › Schriften.")
             }
 
             if !fonts.families.isEmpty {
@@ -353,6 +353,21 @@ struct FontListView: View {
                 }
             }
 
+            let installed = fonts.systemFamilies.filter {
+                !fonts.families.contains($0) && !FontLibrary.families.contains($0)
+            }
+            if !installed.isEmpty {
+                Section {
+                    ForEach(installed, id: \.self) { family in
+                        row(family, custom: true)
+                    }
+                } header: {
+                    Text("Auf diesem Gerät installiert")
+                } footer: {
+                    Text("Diese Schriften meldet iOS als selbst installiert; die App meldet sie bei jedem Start für sich an.")
+                }
+            }
+
             Section("Mitgelieferte Schriften") {
                 ForEach(FontLibrary.available, id: \.self) { family in
                     row(family, custom: false)
@@ -361,12 +376,13 @@ struct FontListView: View {
         }
         .navigationTitle(title)
         .sheet(isPresented: $showPicker) {
-            SystemFontPicker { family in
-                if let family {
-                    fonts.add(family: family)
-                    selection = family
-                }
+            SystemFontPicker { descriptor in
                 showPicker = false
+                guard let descriptor else { return }
+                fonts.message = "Wird angemeldet …"
+                fonts.adopt(descriptor) { family in
+                    if let family { selection = family }
+                }
             }
             .ignoresSafeArea()
         }

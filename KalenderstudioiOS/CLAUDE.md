@@ -26,6 +26,8 @@
   noch nicht eingehängt), richtiger Schriftschnitt, Einbettungsprüfung.
   1.0.5 (6) iCloud-Recht eingehängt (ohne Schriftenrecht).
   1.0.6 (7) Schriftenrecht eingetragen (gemessen).
+  1.0.7 (8) selbst installierte Schriften wie im Reisebuch (Systemabfrage,
+  Wähler mit Schnitten, Schriftenprobe, Fassung in den Einstellungen).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -122,6 +124,22 @@
   OS/2-Feld `fsType`, ab 1.0.4). Gesperrte und fehlende Schriften nennt der
   Export-Dialog. Ob CoreGraphics eine erlaubte Schrift dann wirklich
   einbettet, zeigt erst ein Blick in die fertige Datei.
+- **Selbst installierte Schriften fehlten im Wähler (Befund des Nutzers,
+  10.10.2026, Bildschirmfotos Kalenderstudio gegen Reisebuch):** Der Wähler
+  von Kalenderstudio zeigte nur Systemschriften, der des Reisebuchs Poppins,
+  Quicksand usw. Ohne `com.apple.developer.user-fonts` im Bau zeigt auch
+  der Wähler von iOS nur Systemschriften (Reisebuch 1.0.44); das Recht kam
+  erst mit 1.0.6. Welche Fassung lief, ließ sich nicht sagen — **deshalb
+  steht die Fassung seit 1.0.7 in den Einstellungen.** Zusätzlich fehlten die
+  Wege des Reisebuchs, seit 1.0.7 nachgezogen: Wähler mit `includeFaces =
+  true` (Deskriptor statt Familienname, Schnitt per PostScript-Name gemerkt
+  in „eigeneSchnitte“), beim Start `CTFontManagerCopyRegisteredFontDescriptors
+  (.persistent, true)` und Anmeldung über `CTFontManagerRegisterFontDescriptors
+  (.process)` mit Ergebnis aus dem Rückrufblock; Fehler nach Code gedeutet;
+  Protokoll „schriftenProtokoll“ und „Schriftbefund kopieren“ unter
+  Einstellungen › Schriften. **Nicht gemessen:** Ob die Systemabfrage etwas
+  liefert, sagt erst der Befund vom Gerät (im Reisebuch blieb sie leer,
+  während der Wähler ging).
 - **Eigene Schriften (seit 1.0.3, `Model/CustomFonts.swift`).** Vom
   Nutzer installierte Schriften (Adobe Fonts, Schrift-Apps, Profile) gibt
   iOS einer App **nur über `UIFontPickerViewController`** frei — eine
