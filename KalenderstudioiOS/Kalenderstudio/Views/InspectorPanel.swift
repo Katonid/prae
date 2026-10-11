@@ -92,6 +92,11 @@ struct LayoutPanel: View {
 
             if project.kind == .year && project.yearLayout.hasMonthSheets {
                 Section {
+                    Toggle("Foto über die ganze Seite", isOn: $project.design.photoOverlay)
+                    if project.design.photoOverlay {
+                        LabeledSlider(title: "Deckkraft des Kalenderfelds", value: $project.design.overlayOpacity,
+                                      range: 0...1, percent: true)
+                    }
                     Toggle("Automatisch", isOn: Binding(
                         get: { project.photoShare == 0 },
                         set: { auto in
@@ -114,7 +119,9 @@ struct LayoutPanel: View {
                 } header: {
                     Text("Foto und Kalender")
                 } footer: {
-                    Text(project.format.isLandscape && !project.gridLayout.isSlim
+                    Text(project.design.photoOverlay
+                         ? "Das Foto füllt die ganze Seite bis in den Beschnitt; das Kalenderfeld liegt darüber. Der Fotoanteil bestimmt, wie viel vom Blatt frei bleibt — der Rest ist das Kalenderfeld. Bei geringer Deckkraft auf Lesbarkeit achten (Lupe)."
+                         : project.format.isLandscape && !project.gridLayout.isSlim
                          ? "Quer liegt das Foto links; eingestellt wird seine Breite. Gemessen am Endformat, der Beschnitt kommt beim Foto dazu."
                          : "Eingestellt wird die Höhe des Fotos, gemessen am Endformat; der Beschnitt kommt dazu. Bei sehr großem Foto passt die „Zeitleiste“ am besten. Wird ein Raster zu flach, zeigt die Seite von selbst die Zeitleiste.")
                 }
@@ -173,7 +180,7 @@ struct StylePanel: View {
     private var d: Binding<Design> { $project.design }
 
     private enum FontRole: String, Identifiable {
-        case title, body, number
+        case title, body, number, year
         var id: String { rawValue }
     }
 
@@ -356,6 +363,51 @@ struct StylePanel: View {
                 LabeledSlider(title: "Zahlengröße", value: d.numberScale, range: 0.5...1.8, percent: true)
             }
 
+            Section {
+                Picker("Tageszahl", selection: d.numberAlign) {
+                    ForEach(NumberAlign.allCases) { a in Text(a.title).tag(a) }
+                }
+                .pickerStyle(.segmented)
+                Picker("Feiertage und Termine", selection: d.entryPlacement) {
+                    ForEach(EntryPlacement.allCases) { e in Text(e.title).tag(e) }
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("Datumsfelder")
+            } footer: {
+                Text("„Tageszahl“: links oder rechts im Kästchen. „Feiertage und Termine“: unter, über oder neben der Tageszahl.")
+            }
+
+            Section("Jahreszahl") {
+                Toggle("Jahreszahl zeigen", isOn: d.showYear)
+                if project.design.showYear {
+                    Button {
+                        fontRole = .year
+                    } label: {
+                        LabeledContent("Schrift") {
+                            Text(project.design.yearFont.isEmpty ? "wie die Zahlen" : project.design.yearFont)
+                                .font(project.design.fontYear(17))
+                        }
+                    }
+                    Picker("Stärke", selection: d.yearWeight) {
+                        ForEach(WeightChoice.allCases) { w in Text(w.title).tag(w) }
+                    }
+                    LabeledSlider(title: "Größe", value: d.yearScale, range: 0.4...2, percent: true)
+                    Toggle("Eigene Farbe", isOn: Binding(
+                        get: { project.design.yearOwnColor },
+                        set: { on in
+                            if on && !project.design.yearOwnColor { project.design.yearColor = project.design.accent }
+                            project.design.yearOwnColor = on
+                        }))
+                    if project.design.yearOwnColor {
+                        ColorPicker("Farbe der Jahreszahl", selection: d.yearColor.color, supportsOpacity: false)
+                    }
+                    if !project.design.yearFont.isEmpty {
+                        Button("Schrift wie die Zahlen") { project.design.yearFont = "" }
+                    }
+                }
+            }
+
             Section("Effekte") {
                 LabeledSlider(title: "Schatten", value: d.shadow, range: 0...1, percent: true)
                 Picker("Kalenderfläche", selection: d.cardStyle) {
@@ -378,6 +430,10 @@ struct StylePanel: View {
         case .title: title = "Titelschrift"; selection = d.titleFont
         case .body: title = "Textschrift"; selection = d.bodyFont
         case .number: title = "Zahlenschrift"; selection = d.numberFont
+        case .year:
+            title = "Schrift der Jahreszahl"
+            selection = Binding(get: { project.design.yearFont.isEmpty ? project.design.numberFont : project.design.yearFont },
+                                set: { project.design.yearFont = $0 })
         }
         return NavigationStack {
             FontListView(title: title, selection: selection)

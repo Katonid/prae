@@ -41,6 +41,9 @@
   1.0.12 (13) Jahresaufbau „Halbmonat (beidseitig)“ für das Druckhaus Bochum.
   1.0.13 (14) Einträge auch in der nicht aktiven Monatshälfte, eigene
   Stilvorlagen, sichtbares Kartenmenü (Duplizieren).
+  1.0.14 (15) Jahreszahl eigens gestaltbar, Tageszahl links/rechts,
+  Einträge über/unter/neben der Zahl, Foto über die ganze Seite mit
+  durchscheinendem Kalenderfeld.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -166,6 +169,29 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
 - **Beschnitt** war immer unter Format › „Beschnitt je Seite“ einstellbar,
   wurde dort aber nicht gefunden; seit 1.0.10 auch beim Anlegen.
 
+## Datumsbereich (ab 1.0.14)
+
+Ansage des Nutzers: „Jahreszahl separat konfigurieren, Datumszahlen links
+oder rechts, Beschriftung des Feiertages über, unter oder neben der
+Datumszahl … Kalenderbild seitenfüllend, Datumsfeld mit einstellbarer
+Transparenz darüber.“ Alles in `Design` — damit auch in eigenen Vorlagen.
+
+- **Jahreszahl:** `showYear`, `yearFont` (leer = Zahlenschrift),
+  `yearWeight`, `yearScale`, `yearOwnColor`/`yearColor` (sonst Akzent);
+  `Design.fontYear`, `yearTint`. Bis 1.0.13 hing die Jahreszahl an der
+  Zahlenschrift samt `numberScale`. Das Titelblatt zeigt das Jahr immer.
+- **Tageszahl** `numberAlign` links/rechts (Raster und Große Ziffern),
+  **Einträge** `entryPlacement` unter/über/neben der Zahl (Raster;
+  `DayCell.content`, Bausteine `dayNumber`/`entryList`). Zeitleiste,
+  Kreis und Liste haben ihre eigene Ordnung und bleiben.
+- **Foto über die ganze Seite** (`photoOverlay`, `overlayOpacity`,
+  Aufbau › „Foto und Kalender“; Monatsblätter und Halbmonat): Foto bis in
+  den Beschnitt, darüber ein Feld in `bg1` mit der eingestellten Deckkraft;
+  seine Größe kommt aus dem Fotoanteil (hoch unten, quer rechts; mindestens
+  18 bzw. 30 `unit`). Kein Weichzeichner hinter dem Feld — der würde im PDF
+  gerastert.
+- Probe: weitere Teile `ueber`, `rechts`, `neben`, `oben`, `ohnejahr`.
+
 ## Halbmonat, beidseitig (ab 1.0.12)
 
 Ansage des Nutzers (11.10.2026): Monatskalender vom **Druckhaus Bochum**
@@ -287,7 +313,7 @@ möchte ich dieses als Vorlage speichern können.“ `Model/DesignTemplates.swif
   geht die Arbeitskopie wieder hinauf. **Regel: Ein Abgleich darf eine
   Arbeitskopie nur durch etwas NEUERES ersetzen.** Verlorene Einstellungen
   ließen sich nicht zurückholen.
-- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 4): Eine ältere
+- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 5): Eine ältere
   App kennt neue Felder nicht und würde sie beim Zurückschreiben löschen
   (z. B. ein iPhone mit 1.0.8 die Fotodarstellung „ganz“). Kalender mit
   höherer `formatVersion` als `CalendarProject.currentFormat` schreibt

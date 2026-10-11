@@ -252,33 +252,33 @@ struct DayCell: View {
         let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
         let barsH = CGFloat(hits.count) * barHeight
         let named = rc.marks.settings.nameSchoolHolidays && !compact
-        let reserved = numSize * 1.15 + pad + barsH + (lined ? size.height * 0.25 : 0)
+        // Lage von Zahl und Einträgen (ab 1.0.14, Ansage des Nutzers):
+        // Zahl links oder rechts, Einträge unter, über oder neben ihr.
+        let right = d.numberAlign == .right
+        let hAlign: HorizontalAlignment = right ? .trailing : .leading
+        let beside = d.entryPlacement == .beside
+        let reserved = (beside ? 0 : numSize * 1.15) + pad + barsH + (lined ? size.height * 0.25 : 0)
             + (named && !hits.isEmpty ? markSize : 0)
         let maxLines = compact ? 0
             : max(Int((size.height - reserved) / (markSize * d.bodyScale * 1.25)), 0)
         let entries = rc.visibleMarks(day)
         let labelHit: SchoolHit? = hits.first(where: { $0.isFirstDay }) ?? (day.d == 1 ? hits.first : nil)
 
-        VStack(alignment: .leading, spacing: 0) {
-            Text("\(day.d)")
-                .font(d.fontNumber(numSize))
-                .foregroundStyle(rc.dayColor(day))
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .textShadow(d, unit: rc.unit)
-            ForEach(Array(entries.prefix(maxLines).enumerated()), id: \.offset) { _, mark in
-                Text(rc.markText(mark))
-                    .font(d.fontBody(markSize, weight: mark.kind == .holiday ? .semibold : .regular))
-                    .italic(mark.kind == .special)
-                    .foregroundStyle(rc.markColor(mark))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            if entries.count > maxLines && maxLines == 0 && !entries.isEmpty {
-                Circle()
-                    .fill(rc.markColor(entries[0]))
-                    .frame(width: markSize * 0.6, height: markSize * 0.6)
-                    .padding(.top, 1)
+        VStack(alignment: hAlign, spacing: 0) {
+            if beside {
+                HStack(alignment: .top, spacing: pad * 0.6) {
+                    if !right { dayNumber(day, d, numSize) }
+                    entryList(entries, maxLines: maxLines, markSize: markSize, align: hAlign, d)
+                        .frame(maxWidth: .infinity, alignment: right ? .topTrailing : .topLeading)
+                        .padding(.top, numSize * 0.12)
+                    if right { dayNumber(day, d, numSize) }
+                }
+            } else if d.entryPlacement == .above {
+                entryList(entries, maxLines: maxLines, markSize: markSize, align: hAlign, d)
+                dayNumber(day, d, numSize)
+            } else {
+                dayNumber(day, d, numSize)
+                entryList(entries, maxLines: maxLines, markSize: markSize, align: hAlign, d)
             }
             Spacer(minLength: 0)
             if lined {
@@ -296,14 +296,45 @@ struct DayCell: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .fixedSize(horizontal: true, vertical: false)
-                    .frame(width: size.width - pad, alignment: .leading)
+                    .frame(width: size.width - pad, alignment: right ? .trailing : .leading)
                     .padding(.bottom, pad * 0.5)
             }
         }
         .padding(.top, pad + barsH)
-        .padding(.leading, pad)
-        .padding(.trailing, pad * 0.5)
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .padding(.leading, right ? pad * 0.5 : pad)
+        .padding(.trailing, right ? pad : pad * 0.5)
+        .frame(width: size.width, height: size.height, alignment: right ? .topTrailing : .topLeading)
+    }
+
+    private func dayNumber(_ day: DayKey, _ d: Design, _ numSize: CGFloat) -> some View {
+        Text(verbatim: "\(day.d)")
+            .font(d.fontNumber(numSize))
+            .foregroundStyle(rc.dayColor(day))
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .fixedSize(horizontal: true, vertical: false)
+            .textShadow(d, unit: rc.unit)
+    }
+
+    @ViewBuilder
+    private func entryList(_ entries: [DayMark], maxLines: Int, markSize: CGFloat,
+                           align: HorizontalAlignment, _ d: Design) -> some View {
+        VStack(alignment: align, spacing: 0) {
+            ForEach(Array(entries.prefix(maxLines).enumerated()), id: \.offset) { _, mark in
+                Text(rc.markText(mark))
+                    .font(d.fontBody(markSize, weight: mark.kind == .holiday ? .semibold : .regular))
+                    .italic(mark.kind == .special)
+                    .foregroundStyle(rc.markColor(mark))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            if entries.count > maxLines && maxLines == 0 && !entries.isEmpty {
+                Circle()
+                    .fill(rc.markColor(entries[0]))
+                    .frame(width: markSize * 0.6, height: markSize * 0.6)
+                    .padding(.vertical, 1)
+            }
+        }
     }
 }
 
@@ -317,14 +348,15 @@ struct BoldDayCell: View {
 
     var body: some View {
         let d = rc.design
-        ZStack(alignment: .topLeading) {
+        let right = d.numberAlign == .right
+        ZStack(alignment: right ? .topTrailing : .topLeading) {
             Color.clear
             if let day {
                 let num = min(size.height * 0.62, size.width * 0.6)
                 let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
                 let entries = rc.visibleMarks(day)
                 let small = max(min(size.height * 0.1, size.width * 0.11), 3)
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: right ? .trailing : .leading, spacing: 0) {
                     // Ferienbalken über der Zahl (ab 1.0.10).
                     ForEach(hits, id: \.self) { hit in
                         Rectangle()
@@ -339,7 +371,7 @@ struct BoldDayCell: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .textShadow(d, unit: rc.unit)
-                        .frame(height: num * 1.02, alignment: .topLeading)
+                        .frame(height: num * 1.02, alignment: right ? .topTrailing : .topLeading)
                     if let mark = entries.first {
                         HStack(spacing: small * 0.3) {
                             Circle().fill(rc.markColor(mark)).frame(width: small * 0.5, height: small * 0.5)
@@ -353,11 +385,11 @@ struct BoldDayCell: View {
                         }
                     }
                 }
-                .padding(.leading, size.width * 0.06)
+                .padding(right ? .trailing : .leading, size.width * 0.06)
                 .opacity(rc.outside(day) ? RenderContext.dimmed : 1)
             }
         }
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .frame(width: size.width, height: size.height, alignment: right ? .topTrailing : .topLeading)
         .clipped()
     }
 }
