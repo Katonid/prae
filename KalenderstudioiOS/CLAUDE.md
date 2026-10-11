@@ -38,6 +38,7 @@
   (behoben)**.
   1.0.11 (12) Oster- und Pfingstsonntag überall als Feiertag, Heiligabend
   in jedem Kalender.
+  1.0.12 (13) Jahresaufbau „Halbmonat (beidseitig)“ für das Druckhaus Bochum.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -163,6 +164,37 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
 - **Beschnitt** war immer unter Format › „Beschnitt je Seite“ einstellbar,
   wurde dort aber nicht gefunden; seit 1.0.10 auch beim Anlegen.
 
+## Halbmonat, beidseitig (ab 1.0.12)
+
+Ansage des Nutzers (11.10.2026): Monatskalender vom **Druckhaus Bochum**
+(druckhaus-shop.de, Datenblatt „Monatskalender DIN A3 Hoch, 12 Monate + 1
+Deckblatt, 4/4-farbig“), nach einem halben Monat umblättern, damit es ein
+neues Bild gibt. Auf beiden Seiten der ganze Monat, die „richtige“ Hälfte
+erkennbar.
+
+- **Datenblatt:** Datenformat 303 × 426 mm, Endformat 297 × 420, 3 mm
+  Beschnitt, 3 mm Sicherheitsabstand, Spiralbindung 20 mm oben, **26
+  Seiten chronologisch in EINER PDF** (1 Deckblatt vorn, 2 Deckblatt
+  Rückseite … 26). Vorlage „A3 hoch, Druckhaus Bochum“ in `PageFormat.presets`.
+- **Seitenfolge** (`YearLayout.halfMonth`, `PageContent.halfMonth(i, h)`):
+  Deckblatt, dann je Monat 1. und 2. Hälfte (die Rückseite des Deckblatts
+  ist die 1. Januarhälfte, Ansage des Nutzers), zuletzt
+  `.yearOverview` (Jahresübersicht) als Rückseite des 13. Blatts — 26 Seiten.
+  Ohne Deckblatt 24 Seiten, keine Übersicht.
+- **Teilung nach ganzen Wochen** (Ansage des Nutzers):
+  `CalendarMath.halfSplit` = der Montag, der der Monatsmitte am nächsten
+  liegt; zweite Hälfte ab diesem Montag. Keine Wochenzeile wird zerschnitten.
+- **Darstellung:** `RenderContext.focus` = Tage der Hälfte. Alles außerhalb
+  tritt zurück (`RenderContext.dimmed` 0,3, Einträge nur als Punkt, keine
+  Wochenendtönung); im Raster eine Akzentleiste vor den aktiven Wochen; in
+  der Kopfzeile „1.–16.“ und ●○ (`halfBadge`). Gilt in allen Kalendarien
+  (Raster, Große Ziffern, Zeitleiste, Kreis, Liste, Terminliste).
+- **Fotos:** 1. Hälfte Schlüssel `m<i>`, 2. Hälfte `m<i>b`.
+- **Rückseiten NICHT gedreht** (Datenblatt: chronologisch, aufrecht). Für
+  andere Druckereien gibt es im Export „Rückseiten auf den Kopf stellen“
+  (`ExportOptions.flipBacks`, dreht jede zweite PDF-Seite um 180°).
+- Probe: `-probe=half:<Kalendarium>:<Vorlage>:<Anteil>:ganz`.
+
 ## iCloud-Abgleich (ab 1.0.4)
 
 - **iCloud DRIVE, nicht CloudKit** (`Model/CloudStore.swift`) — dieselbe
@@ -232,7 +264,7 @@ Kontrast als am Bildschirm), design-milk/Chilli Printing (Risographie,
   geht die Arbeitskopie wieder hinauf. **Regel: Ein Abgleich darf eine
   Arbeitskopie nur durch etwas NEUERES ersetzen.** Verlorene Einstellungen
   ließen sich nicht zurückholen.
-- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 3): Eine ältere
+- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 4): Eine ältere
   App kennt neue Felder nicht und würde sie beim Zurückschreiben löschen
   (z. B. ein iPhone mit 1.0.8 die Fotodarstellung „ganz“). Kalender mit
   höherer `formatVersion` als `CalendarProject.currentFormat` schreibt

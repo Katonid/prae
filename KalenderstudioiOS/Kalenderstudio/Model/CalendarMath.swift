@@ -83,6 +83,22 @@ enum CalendarMath {
         return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<($0 + 7)]) }
     }
 
+    /// Halbmonat: der Tag, mit dem die zweite Hälfte beginnt — der Montag,
+    /// der der Monatsmitte am nächsten liegt. So wird nach ganzen Wochen
+    /// geteilt (Ansage des Nutzers) und keine Wochenzeile zerschnitten.
+    static func halfSplit(_ y: Int, _ m: Int) -> Int {
+        let n = daysIn(y, m)
+        let mondays = (2...n).filter { DayKey(y, m, $0).isoWeekday == 1 }
+        let middle = Double(n + 1) / 2
+        return mondays.min { abs(Double($0) - middle) < abs(Double($1) - middle) } ?? (n / 2 + 1)
+    }
+
+    /// Die Tage einer Monatshälfte (0 oder 1).
+    static func halfRange(_ y: Int, _ m: Int, _ half: Int) -> ClosedRange<DayKey> {
+        let s = halfSplit(y, m)
+        return half == 0 ? DayKey(y, m, 1)...DayKey(y, m, s - 1) : DayKey(y, m, s)...DayKey(y, m, daysIn(y, m))
+    }
+
     /// Montag der Woche, in der der Tag liegt.
     static func monday(of day: DayKey) -> DayKey {
         day.adding(days: -(day.isoWeekday - 1))

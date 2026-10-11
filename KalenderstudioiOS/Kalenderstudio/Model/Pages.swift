@@ -14,6 +14,11 @@ enum PageContent: Hashable {
     case monthGrid(Int)
     /// Wochenkalender (Index ab der ersten Woche).
     case week(Int)
+    /// Halbmonat (beidseitig): Monat `Int`, Hälfte 0 oder 1 — der ganze
+    /// Monat steht da, die Hälfte ist hervorgehoben.
+    case halfMonth(Int, Int)
+    /// Rückseite des letzten Blatts beim Halbmonat: Jahresübersicht.
+    case yearOverview
 }
 
 struct PageSpec: Identifiable, Hashable {
@@ -32,6 +37,8 @@ struct PageSpec: Identifiable, Hashable {
         case .monthPhoto(let i): return "photo\(i)"
         case .monthGrid(let i): return "grid\(i)"
         case .week(let i): return "week\(i)"
+        case .halfMonth(let i, let h): return "half\(i)-\(h)"
+        case .yearOverview: return "overview"
         }
     }
 }
@@ -44,7 +51,7 @@ extension CalendarProject {
         var spread = 0
         let hasCoverPage: Bool = {
             switch kind {
-            case .year: return hasCover && yearLayout == .monthly
+            case .year: return hasCover && yearLayout.hasMonthSheets
             default: return hasCover
             }
         }()
@@ -59,6 +66,22 @@ extension CalendarProject {
                 for (i, mo) in months.enumerated() {
                     list.append(PageSpec(content: .monthSheet(i), label: CalendarMath.monthName(mo.m), spread: spread))
                     spread += 1
+                }
+            case .halfMonth:
+                // Reihenfolge wie im Datenblatt des Druckhauses: chronologisch,
+                // Vorder- und Rückseiten im Wechsel. Mit Deckblatt sind es 26
+                // Seiten (13 Blätter); die letzte Rückseite trägt die
+                // Jahresübersicht.
+                for (i, mo) in months.enumerated() {
+                    let name = CalendarMath.monthName(mo.m)
+                    for h in 0..<2 {
+                        list.append(PageSpec(content: .halfMonth(i, h), label: "\(name) · \(h + 1). Hälfte",
+                                             spread: spread))
+                        spread += 1
+                    }
+                }
+                if hasCoverPage {
+                    list.append(PageSpec(content: .yearOverview, label: "Rückseite · Jahr", spread: spread))
                 }
             case .poster:
                 list.append(PageSpec(content: .yearPoster, label: "Jahr \(yearText)", spread: spread))
@@ -92,8 +115,9 @@ extension CalendarProject {
         case .yearPoster, .yearPlanner: return "year"
         case .yearMosaic: return nil
         case .monthSheet(let i), .monthPhoto(let i): return "m\(i)"
-        case .monthGrid: return nil
+        case .monthGrid, .yearOverview: return nil
         case .week(let i): return "w\(i)"
+        case .halfMonth(let i, let h): return h == 0 ? "m\(i)" : "m\(i)b"
         }
     }
 
@@ -112,6 +136,7 @@ extension CalendarProject {
             switch page.content {
             case .cover: label = "Titel"
             case .monthPhoto(let i), .monthSheet(let i): label = CalendarMath.monthName(months[i].m)
+            case .halfMonth: label = page.label
             default: label = page.label
             }
             slots.append((key: key, label: label, count: slotCount(for: page.content)))
@@ -125,7 +150,7 @@ extension CalendarProject {
             return photoStyle == .collage ? 3 : 1
         case .yearPlanner:
             return 1
-        case .monthSheet, .monthPhoto:
+        case .monthSheet, .monthPhoto, .halfMonth:
             return photoStyle.photoCount
         case .week:
             return weekLayout == .columns && photoStyle == .collage ? 3 : 1

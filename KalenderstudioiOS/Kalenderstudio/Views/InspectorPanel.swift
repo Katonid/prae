@@ -90,7 +90,7 @@ struct LayoutPanel: View {
                 EmptyView()
             }
 
-            if project.kind == .year && project.yearLayout == .monthly {
+            if project.kind == .year && project.yearLayout.hasMonthSheets {
                 Section {
                     Toggle("Automatisch", isOn: Binding(
                         get: { project.photoShare == 0 },
@@ -150,7 +150,7 @@ struct LayoutPanel: View {
             }
 
             Section("Titelblatt") {
-                if project.kind != .year || project.yearLayout == .monthly {
+                if project.kind != .year || project.yearLayout.hasMonthSheets {
                     Toggle("Titelblatt", isOn: $project.hasCover)
                 }
                 Picker("Gestaltung", selection: $project.coverStyle) {

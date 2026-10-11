@@ -58,11 +58,14 @@ struct ExportSheet: View {
                     }
                     if options.format == .pdf {
                         Toggle("Schnittmarken", isOn: $options.cropMarks)
+                        if project.kind == .year && project.yearLayout == .halfMonth {
+                            Toggle("Rückseiten auf den Kopf stellen", isOn: $options.flipBacks)
+                        }
                     }
                 } header: {
                     Text("Einstellungen")
                 } footer: {
-                    Text("Jede Seite enthält den Beschnitt rundum. Im PDF sind Endformat (TrimBox) und Beschnitt (BleedBox) hinterlegt. Schnittmarken nur, wenn der Druckdienst sie verlangt — die meisten möchten keine.")
+                    Text("Jede Seite enthält den Beschnitt rundum. Im PDF sind Endformat (TrimBox) und Beschnitt (BleedBox) hinterlegt. Schnittmarken nur, wenn der Druckdienst sie verlangt — die meisten möchten keine.\(project.kind == .year && project.yearLayout == .halfMonth ? " Beidseitig: Die Seiten stehen chronologisch und aufrecht im PDF (so verlangt es das Druckhaus Bochum). „Rückseiten auf den Kopf“ nur, wenn eine Druckerei „Kopf an Fuß“ verlangt." : "")")
                 }
 
                 if project.photos.isEmpty || !weakPhotos.isEmpty || !fontProblems.isEmpty {

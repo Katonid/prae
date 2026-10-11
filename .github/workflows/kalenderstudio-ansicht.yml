@@ -69,7 +69,8 @@ jobs:
           [ -n "$PROBEN" ] || PROBEN="year doubleMonth week year:strip:leinen year:ring:riso year:bold:schweiz \
                      doubleMonth:split:papeterie doubleMonth:bold:schweiz \
                      year:classic:aquarell:0.78 year:bold:schweiz:0.85 \
-                     year:classic:leinen:0.7:ganz year:strip:riso:0:farbe year:classic:aquarell:0.7:ganz:lupe year:classic:leinen:0.7:ganz:sicherung start"
+                     year:classic:leinen:0.7:ganz year:strip:riso:0:farbe year:classic:aquarell:0.7:ganz:lupe year:classic:leinen:0.7:ganz:sicherung half:classic:leinen:0.65:ganz \
+                     half:bold:schweiz:0.65:ganz:lupe start"
           for art in $PROBEN; do
             name="${art//:/-}"
             name="${name//./}"
