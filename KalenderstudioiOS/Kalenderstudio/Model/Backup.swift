@@ -30,6 +30,8 @@ enum Backup {
         var created: Date
         var projects: [CalendarProject]
         var files: [Entry]
+        /// Eigene Stilvorlagen (ab 1.0.13; ältere Sicherungen haben keine).
+        var templates: [DesignTemplate]? = nil
     }
 
     struct WriteResult {
@@ -95,7 +97,7 @@ enum Backup {
         }
 
         let manifest = Manifest(appVersion: AppVersion.text, created: Date(), projects: projects,
-                                files: files.map(\.0))
+                                files: files.map(\.0), templates: TemplateStore.shared.templates)
         let json = try JSONEncoder().encode(manifest)
 
         let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
@@ -169,6 +171,7 @@ enum Backup {
             }
         }
         if fonts { FontStore.shared.activate() }
+        for t in manifest.templates ?? [] { TemplateStore.shared.merge(t) }
 
         for project in manifest.projects.reversed() {
             if let existing = store.projects.first(where: { $0.id == project.id }) {

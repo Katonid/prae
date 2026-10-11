@@ -39,6 +39,8 @@
   1.0.11 (12) Oster- und Pfingstsonntag überall als Feiertag, Heiligabend
   in jedem Kalender.
   1.0.12 (13) Jahresaufbau „Halbmonat (beidseitig)“ für das Druckhaus Bochum.
+  1.0.13 (14) Einträge auch in der nicht aktiven Monatshälfte, eigene
+  Stilvorlagen, sichtbares Kartenmenü (Duplizieren).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -185,8 +187,9 @@ erkennbar.
   `CalendarMath.halfSplit` = der Montag, der der Monatsmitte am nächsten
   liegt; zweite Hälfte ab diesem Montag. Keine Wochenzeile wird zerschnitten.
 - **Darstellung:** `RenderContext.focus` = Tage der Hälfte. Alles außerhalb
-  tritt zurück (`RenderContext.dimmed` 0,3, Einträge nur als Punkt, keine
-  Wochenendtönung); im Raster eine Akzentleiste vor den aktiven Wochen; in
+  tritt zurück (`RenderContext.dimmed` 0,42, keine Wochenendtönung) — **mit
+  ALLEN Einträgen** (seit 1.0.13, Ansage des Nutzers: „auch in der nicht
+  aktiven Monatshälfte alle Einträge sehen“; 1.0.12 zeigte dort nur Punkte); im Raster eine Akzentleiste vor den aktiven Wochen; in
   der Kopfzeile „1.–16.“ und ●○ (`halfBadge`). Gilt in allen Kalendarien
   (Raster, Große Ziffern, Zeitleiste, Kreis, Liste, Terminliste).
 - **Fotos:** 1. Hälfte Schlüssel `m<i>`, 2. Hälfte `m<i>b`.
@@ -194,6 +197,26 @@ erkennbar.
   andere Druckereien gibt es im Export „Rückseiten auf den Kopf stellen“
   (`ExportOptions.flipBacks`, dreht jede zweite PDF-Seite um 180°).
 - Probe: `-probe=half:<Kalendarium>:<Vorlage>:<Anteil>:ganz`.
+
+## Eigene Stilvorlagen (ab 1.0.13)
+
+Ansage des Nutzers: „wenn ich das Design eines Kalenders eingestellt habe,
+möchte ich dieses als Vorlage speichern können.“ `Model/DesignTemplates.swift`.
+
+- Eine Vorlage hält `Design` (ohne Hintergrundfoto — das gehört zum
+  Kalender), Kalendarium, Fotodarstellung, Fotoanteil und Titelblattstil.
+  Nicht: Format, Termine, Fotos.
+- Stil-Panel › „Eigene Vorlagen“: sichern, antippen = übernehmen, langes
+  Drücken = überschreiben, umbenennen, löschen. Beim Anlegen eines
+  Kalenders stehen die eigenen Vorlagen vor den eingebauten.
+- Ablage: `Documents/vorlagen.json`, mit iCloud zusätzlich `Vorlagen.json`
+  im Behälter (`TemplateStore.sync`, nach jedem Abgleich und jeder
+  Änderung). Zusammengeführt je Vorlage nach `modified` — eine ältere
+  ersetzt nie eine neuere (Regel aus 1.0.10). Löschen = Grabstein
+  (`deleted`), sonst käme die Vorlage vom anderen Gerät zurück.
+- Sicherungsdatei enthält die Vorlagen (`Manifest.templates`, optional).
+- **Duplizieren** gab es seit 1.0.0 nur per langem Drücken und wurde nicht
+  gefunden; seit 1.0.13 hat jede Kalenderkarte ein sichtbares Menü (⋯).
 
 ## iCloud-Abgleich (ab 1.0.4)
 

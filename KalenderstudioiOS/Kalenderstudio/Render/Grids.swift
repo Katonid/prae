@@ -9,8 +9,9 @@ struct RenderContext {
     var focus: ClosedRange<DayKey>? = nil
 
     /// Wie stark Tage außerhalb der hervorgehobenen Hälfte zurücktreten —
-    /// lesbar bleiben sie, Einträge stehen dort nur als Punkt.
-    static let dimmed = 0.3
+    /// blasser, aber mit ALLEN Einträgen lesbar (Ansage des Nutzers, 1.0.13;
+    /// bis 1.0.12 standen dort nur Punkte).
+    static let dimmed = 0.42
 
     func outside(_ day: DayKey?) -> Bool {
         guard let focus, let day else { return false }
@@ -250,10 +251,10 @@ struct DayCell: View {
         let pad = min(size.width, size.height) * 0.08
         let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
         let barsH = CGFloat(hits.count) * barHeight
-        let named = rc.marks.settings.nameSchoolHolidays && !compact && !rc.outside(day)
+        let named = rc.marks.settings.nameSchoolHolidays && !compact
         let reserved = numSize * 1.15 + pad + barsH + (lined ? size.height * 0.25 : 0)
             + (named && !hits.isEmpty ? markSize : 0)
-        let maxLines = compact || rc.outside(day) ? 0
+        let maxLines = compact ? 0
             : max(Int((size.height - reserved) / (markSize * d.bodyScale * 1.25)), 0)
         let entries = rc.visibleMarks(day)
         let labelHit: SchoolHit? = hits.first(where: { $0.isFirstDay }) ?? (day.d == 1 ? hits.first : nil)
@@ -435,7 +436,7 @@ struct MonthEventsView: View {
                                 .minimumScaleFactor(0.6)
                         }
                         .frame(width: colW, height: lineH, alignment: .leading)
-                        .opacity(e.outside ? RenderContext.dimmed + 0.1 : 1)
+                        .opacity(e.outside ? RenderContext.dimmed + 0.08 : 1)
                     }
                 }
                 .frame(width: colW, alignment: .topLeading)
