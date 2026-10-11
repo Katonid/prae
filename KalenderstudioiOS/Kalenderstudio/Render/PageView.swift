@@ -101,8 +101,8 @@ struct PageLayout: View {
 
     private func yearLine(_ text: String, size: CGFloat, color: Color? = nil, onPhoto: Bool = false) -> some View {
         Text(verbatim: text)
-            .font(d.fontNumber(size, weight: .light))
-            .foregroundStyle(color ?? d.accent.color)
+            .font(d.fontYear(size))
+            .foregroundStyle(color ?? d.yearTint)
             .lineLimit(1)
             .minimumScaleFactor(0.3)
             .textShadow(d, unit: u, onPhoto: onPhoto)
@@ -144,7 +144,7 @@ struct PageLayout: View {
                 titleLine(CalendarMath.monthName(m), size: height * 0.38)
                 halfBadge(y, m, half, size: height * 0.3)
                 Spacer(minLength: 0)
-                yearLine(String(y), size: height * 0.38)
+                if d.showYear { yearLine(String(y), size: height * 0.38) }
             }
             .frame(height: height)
         } else {
@@ -152,7 +152,7 @@ struct PageLayout: View {
                 titleLine(CalendarMath.monthName(m), size: height * 0.82)
                 halfBadge(y, m, half, size: height * 0.3)
                 Spacer(minLength: 0)
-                yearLine(String(y), size: height * 0.5)
+                if d.showYear { yearLine(String(y), size: height * 0.5) }
             }
             .frame(height: height)
         }
@@ -309,7 +309,39 @@ struct PageLayout: View {
         let landscapeSplit = p.format.isLandscape && !slim
         let share = CGFloat(p.photoShare > 0 ? min(max(p.photoShare, 0.3), 0.9)
                                              : p.gridLayout.defaultPhotoShare(landscape: p.format.isLandscape))
-        if landscapeSplit {
+        if d.photoOverlay {
+            // Foto über die ganze Seite, das Kalenderfeld liegt darüber —
+            // mit einstellbarer Deckkraft (ab 1.0.14, Ansage des Nutzers).
+            // Der Fotoanteil bestimmt, wie viel Platz das Feld bekommt.
+            photoRegion(key, bleedRect: g.fullRect, safeRect: s)
+            let side = landscapeSplit
+            let panel: CGRect = side
+                ? CGRect(x: s.maxX - max(g.trimRect.width * (1 - share), u * 30), y: s.minY,
+                         width: max(g.trimRect.width * (1 - share), u * 30), height: s.height)
+                : CGRect(x: s.minX, y: s.maxY - max(g.trimRect.height * (1 - share), u * 18),
+                         width: s.width, height: max(g.trimRect.height * (1 - share), u * 18))
+            RoundedRectangle(cornerRadius: u * 3 * d.corner, style: .continuous)
+                .fill(d.bg1.alpha(d.overlayOpacity))
+                .allowsHitTesting(false)
+                .placed(panel)
+            let area = panel.insetBy(dx: u * 2, dy: u * 1.6)
+            bigNumeral(mo.m, in: area)
+            let headH = min(max(area.height * (slim ? 0.22 : 0.15), u * 4), u * 9)
+            monthHeader(mo.y, mo.m, height: headH, half: half)
+                .allowsHitTesting(false)
+                .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
+            MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
+                .padding(u * 1.2)
+                .card(d, unit: u)
+                .allowsHitTesting(false)
+                .placed(CGRect(x: area.minX, y: area.minY + headH + u * 0.5, width: area.width,
+                               height: area.height - headH - u * 0.5 - legendH))
+            if hasLegend {
+                let r = legendRange(mo.y, mo.m)
+                LegendView(rc: rc, from: r.0, to: r.1, height: legendH * 0.8)
+                    .placed(CGRect(x: area.minX, y: area.maxY - legendH * 0.8, width: area.width, height: legendH * 0.8))
+            }
+        } else if landscapeSplit {
             // Quer: Foto links, Kalender rechts.
             let split: CGFloat = share
             photoRegion(key, bleedRect: bleedLeft(split),

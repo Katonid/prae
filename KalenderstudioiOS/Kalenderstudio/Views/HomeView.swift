@@ -157,6 +157,14 @@ struct HomeView: View {
                                                              : PageFormat(widthMM: 297, heightMM: 420),
                                 design: .preset(parts.count > 2 ? parts[2] : "aquarell"))
         if first == "half" { p.yearLayout = .halfMonth }
+        // Weitere Schalter ab 1.0.14: „ueber“ (Foto über die ganze Seite),
+        // „rechts“ (Tageszahl rechts), „neben“/„oben“ (Einträge neben/über
+        // der Zahl), „ohnejahr“.
+        if parts.contains("ueber") { p.design.photoOverlay = true; p.design.overlayOpacity = 0.7 }
+        if parts.contains("rechts") { p.design.numberAlign = .right }
+        if parts.contains("neben") { p.design.entryPlacement = .beside }
+        if parts.contains("oben") { p.design.entryPlacement = .above }
+        if parts.contains("ohnejahr") { p.design.showYear = false }
         if parts.count > 1, let layout = MonthGridLayout(rawValue: parts[1]) {
             p.gridLayout = layout
             p.hasCover = false

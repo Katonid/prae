@@ -459,7 +459,8 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     /// 2: Fotodarstellung „ganz“, Fotoanteil, Monatsseiten-Schalter (1.0.8–1.0.10).
     /// 3: `DateSettings.catalogRevision` (1.0.11).
     /// 4: Jahresaufbau „Halbmonat (beidseitig)“ (1.0.12).
-    static let currentFormat = 4
+    /// 5: Jahreszahl, Zahlen-/Eintragslage, Foto über die ganze Seite (1.0.14).
+    static let currentFormat = 5
 
     init(name: String, kind: CalendarKind, year: Int, format: PageFormat, design: Design) {
         self.name = name

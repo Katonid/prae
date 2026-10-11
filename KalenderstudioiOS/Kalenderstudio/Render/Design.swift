@@ -48,6 +48,26 @@ enum CardStyle: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Wo die Tageszahl im Kästchen steht (ab 1.0.14).
+enum NumberAlign: String, Codable, CaseIterable, Identifiable {
+    case left, right
+    var id: String { rawValue }
+    var title: String { self == .left ? "Links" : "Rechts" }
+}
+
+/// Wo Feiertage und Termine zur Tageszahl stehen (ab 1.0.14).
+enum EntryPlacement: String, Codable, CaseIterable, Identifiable {
+    case below, above, beside
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .below: return "Unter"
+        case .above: return "Über"
+        case .beside: return "Neben"
+        }
+    }
+}
+
 enum WeightChoice: String, Codable, CaseIterable, Identifiable {
     case light, regular, medium, semibold, bold, heavy
     var id: String { rawValue }
@@ -159,6 +179,23 @@ struct Design: Codable, Equatable, Hashable {
     /// Monate im Wechsel hell und dunkel (wie der Stendig-Kalender).
     var alternateDark = false
 
+    // Ab 1.0.14 (Ansage des Nutzers: mehr Einstellungen im Datumsbereich).
+    /// Jahreszahl in der Monatskopfzeile zeigen.
+    var showYear = true
+    /// Schrift der Jahreszahl; leer = wie die Zahlen.
+    var yearFont = ""
+    var yearWeight: WeightChoice = .light
+    var yearScale: Double = 1
+    /// Eigene Farbe für die Jahreszahl statt der Akzentfarbe.
+    var yearOwnColor = false
+    var yearColor = RGBA(hex: 0x333333)
+    var numberAlign: NumberAlign = .left
+    var entryPlacement: EntryPlacement = .below
+    /// Foto über die ganze Seite, Kalenderfeld liegt darüber.
+    var photoOverlay = false
+    /// Deckkraft des Kalenderfelds über dem Foto (0 = durchsichtig).
+    var overlayOpacity: Double = 0.75
+
     // MARK: Abgeleitet
 
     func fontTitle(_ size: CGFloat) -> Font {
@@ -180,6 +217,14 @@ struct Design: Codable, Equatable, Hashable {
     }
 
     func titleText(_ s: String) -> String { titleUppercase ? s.uppercased() : s }
+
+    /// Jahreszahl — eigene Schrift, Stärke und Größe (ab 1.0.14).
+    func fontYear(_ size: CGFloat) -> Font {
+        FontLibrary.font(yearFont.isEmpty ? numberFont : yearFont, size: size * yearScale,
+                         weight: yearWeight.weight)
+    }
+
+    var yearTint: Color { (yearOwnColor ? yearColor : accent).color }
 
     /// Dieselbe Gestaltung mit vertauschtem Hell und Dunkel — für „im Wechsel
     /// hell und dunkel“. Hintergrund wird die Schriftfarbe und umgekehrt.
@@ -225,7 +270,9 @@ struct Design: Codable, Equatable, Hashable {
              titleFont, bodyFont, numberFont, titleWeight, numberWeight,
              titleScale, bodyScale, weekdayScale, numberScale, titleUppercase, titleTracking,
              shadow, cardStyle, corner, photoBorder,
-             monthColorFromPhoto, photoFade, bigNumeral, monthAsNumber, alternateDark
+             monthColorFromPhoto, photoFade, bigNumeral, monthAsNumber, alternateDark,
+             showYear, yearFont, yearWeight, yearScale, yearOwnColor, yearColor,
+             numberAlign, entryPlacement, photoOverlay, overlayOpacity
     }
 
     init(presetID: String, pattern: BackgroundPattern,
@@ -283,6 +330,16 @@ struct Design: Codable, Equatable, Hashable {
         d.bigNumeral = c.value(.bigNumeral, d.bigNumeral)
         d.monthAsNumber = c.value(.monthAsNumber, d.monthAsNumber)
         d.alternateDark = c.value(.alternateDark, d.alternateDark)
+        d.showYear = c.value(.showYear, d.showYear)
+        d.yearFont = c.value(.yearFont, d.yearFont)
+        d.yearWeight = c.value(.yearWeight, d.yearWeight)
+        d.yearScale = c.value(.yearScale, d.yearScale)
+        d.yearOwnColor = c.value(.yearOwnColor, d.yearOwnColor)
+        d.yearColor = c.value(.yearColor, d.yearColor)
+        d.numberAlign = c.value(.numberAlign, d.numberAlign)
+        d.entryPlacement = c.value(.entryPlacement, d.entryPlacement)
+        d.photoOverlay = c.value(.photoOverlay, d.photoOverlay)
+        d.overlayOpacity = c.value(.overlayOpacity, d.overlayOpacity)
         self = d
     }
 }
