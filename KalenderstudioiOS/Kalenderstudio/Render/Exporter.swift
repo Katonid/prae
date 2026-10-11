@@ -12,6 +12,10 @@ struct ExportOptions: Equatable {
     var cropMarks = false
     /// Auflösung für JPG und für weichgezeichnete Effekte im PDF.
     var dpi: Double = 300
+    /// Beidseitiger Druck: jede zweite Seite (Rückseite) auf den Kopf
+    /// stellen („Kopf an Fuß“) — nur, wenn die Druckerei es verlangt.
+    /// Das Druckhaus Bochum will die Seiten aufrecht und chronologisch.
+    var flipBacks = false
 }
 
 /// Erzeugt druckfertige Dateien: jede Seite in Endformat plus Beschnitt.
@@ -128,6 +132,10 @@ enum Exporter {
             renderer.render(rasterizationScale: CGFloat(options.dpi / 72)) { _, draw in
                 ctx.saveGState()
                 ctx.translateBy(x: margin, y: margin)
+                if options.flipBacks && n % 2 == 1 {
+                    ctx.translateBy(x: g.size.width, y: g.size.height)
+                    ctx.rotate(by: .pi)
+                }
                 draw(ctx)
                 ctx.restoreGState()
             }

@@ -5,6 +5,24 @@ struct RenderContext {
     let project: CalendarProject
     let marks: CalendarMarks
     let geometry: PageGeometry
+    /// Halbmonat: die hervorgehobenen Tage; alles andere tritt zurück.
+    var focus: ClosedRange<DayKey>? = nil
+
+    /// Wie stark Tage außerhalb der hervorgehobenen Hälfte zurücktreten —
+    /// blasser, aber mit ALLEN Einträgen lesbar (Ansage des Nutzers, 1.0.13;
+    /// bis 1.0.12 standen dort nur Punkte).
+    static let dimmed = 0.42
+
+    func outside(_ day: DayKey?) -> Bool {
+        guard let focus, let day else { return false }
+        return !focus.contains(day)
+    }
+
+    func focused(on range: ClosedRange<DayKey>) -> RenderContext {
+        var r = self
+        r.focus = range
+        return r
+    }
 
     var design: Design { project.design }
     var unit: CGFloat { geometry.unit }
@@ -110,14 +128,17 @@ struct MonthGridView: View {
         let weeks = CalendarMath.weeks(y, m)
         let showWK = rc.marks.settings.showWeekNumbers
         let wkW: CGFloat = showWK ? max(s.width * 0.04, rc.unit * 2.2) : 0
+        // Halbmonat: schmale Akzentleiste vor den Wochen der aktiven Hälfte.
+        let markW: CGFloat = rc.focus == nil ? 0 : rc.unit * 1.1
         let headerH = max(min(s.height * 0.075, rc.unit * 4.5), rc.unit * 2.2)
-        let cellW = (s.width - wkW) / 7
+        let cellW = (s.width - wkW - markW) / 7
         let cellH = (s.height - headerH) / CGFloat(max(weeks.count, 1))
         let headSize = min(headerH * 0.5, cellW * 0.16)
         let longNames = cellW > headSize * 6.5
         let d = rc.design
         VStack(spacing: 0) {
             HStack(spacing: 0) {
+                if markW > 0 { Color.clear.frame(width: markW, height: headerH) }
                 if showWK {
                     Text("KW")
                         .font(d.fontBody(headSize * 0.75, weight: .semibold))
@@ -136,10 +157,18 @@ struct MonthGridView: View {
             }
             ForEach(weeks.indices, id: \.self) { r in
                 HStack(spacing: 0) {
+                    if markW > 0 {
+                        let active = weeks[r].contains { $0 != nil && !rc.outside($0) }
+                        Capsule()
+                            .fill(active ? d.accent.color : Color.clear)
+                            .frame(width: markW * 0.35, height: cellH * 0.82)
+                            .frame(width: markW, height: cellH, alignment: .leading)
+                    }
                     if showWK {
                         Text(weekNumber(weeks[r]))
                             .font(d.fontNumber(min(cellH * 0.16, wkW * 0.45), weight: .regular))
                             .foregroundStyle(d.secondary.alpha(0.75))
+                            .opacity(weeks[r].allSatisfy { $0 == nil || rc.outside($0) } ? RenderContext.dimmed : 1)
                             .frame(width: wkW, height: cellH, alignment: .top)
                             .padding(.top, cellH * 0.06)
                             .frame(width: wkW, height: cellH, alignment: .top)
@@ -183,6 +212,7 @@ struct DayCell: View {
                 .fill(rc.lineColor)
                 .frame(height: max(rc.unit * 0.06, 0.3))
             if let day {
+                let off = rc.outside(day)
                 // Ferienbalken am OBEREN Rand des Kästchens (ab 1.0.10).
                 let hits = rc.marks.settings.showSchoolHolidays ? rc.marks.schoolSlots(day) : []
                 if !hits.isEmpty {
@@ -193,8 +223,10 @@ struct DayCell: View {
                                 .frame(width: size.width, height: barHeight)
                         }
                     }
+                    .opacity(off ? RenderContext.dimmed : 1)
                 }
                 content(day, d)
+                    .opacity(off ? RenderContext.dimmed : 1)
             }
         }
         .frame(width: size.width, height: size.height)
@@ -204,7 +236,7 @@ struct DayCell: View {
     private var barHeight: CGFloat { max(size.height * 0.055, 1) }
 
     private var background: Color {
-        guard let day else { return .clear }
+        guard let day, !rc.outside(day) else { return .clear }
         if rc.marks.isHoliday(day) { return rc.design.holiday.alpha(0.08) }
         // Wochenende als zarte Fläche — kräftiger als zuvor, weil Papier
         // matter wirkt als der Bildschirm.
@@ -222,7 +254,8 @@ struct DayCell: View {
         let named = rc.marks.settings.nameSchoolHolidays && !compact
         let reserved = numSize * 1.15 + pad + barsH + (lined ? size.height * 0.25 : 0)
             + (named && !hits.isEmpty ? markSize : 0)
-        let maxLines = compact ? 0 : max(Int((size.height - reserved) / (markSize * d.bodyScale * 1.25)), 0)
+        let maxLines = compact ? 0
+            : max(Int((size.height - reserved) / (markSize * d.bodyScale * 1.25)), 0)
         let entries = rc.visibleMarks(day)
         let labelHit: SchoolHit? = hits.first(where: { $0.isFirstDay }) ?? (day.d == 1 ? hits.first : nil)
 
@@ -321,6 +354,7 @@ struct BoldDayCell: View {
                     }
                 }
                 .padding(.leading, size.width * 0.06)
+                .opacity(rc.outside(day) ? RenderContext.dimmed : 1)
             }
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
@@ -335,6 +369,8 @@ struct MonthEvent {
     let text: String
     let color: Color
     let strong: Bool
+    /// Halbmonat: gehört zur anderen Hälfte.
+    var outside = false
 }
 
 enum MonthEvents {
@@ -348,13 +384,14 @@ enum MonthEvents {
             let day = DayKey(y, m, n)
             for mark in rc.visibleMarks(day) {
                 list.append(MonthEvent(day: n, text: rc.markText(mark), color: rc.markColor(mark),
-                                       strong: mark.kind == .holiday))
+                                       strong: mark.kind == .holiday, outside: rc.outside(day)))
             }
             if showSchool {
                 for hit in rc.marks.schoolSlots(day) where hit.isFirstDay {
                     let state = hit.slot < rc.marks.schoolStates.count ? rc.marks.schoolStates[hit.slot].state.rawValue : ""
                     list.append(MonthEvent(day: n, text: multi ? "\(hit.name) \(state)" : hit.name,
-                                           color: rc.schoolColor(hit.slot), strong: false))
+                                           color: rc.schoolColor(hit.slot), strong: false,
+                                           outside: rc.outside(day)))
                 }
             }
         }
@@ -399,6 +436,7 @@ struct MonthEventsView: View {
                                 .minimumScaleFactor(0.6)
                         }
                         .frame(width: colW, height: lineH, alignment: .leading)
+                        .opacity(e.outside ? RenderContext.dimmed + 0.08 : 1)
                     }
                 }
                 .frame(width: colW, alignment: .topLeading)
@@ -513,6 +551,7 @@ struct StripDay: View {
                 .fill(rc.marks.isHoliday(day) ? d.holiday.alpha(0.1) : (weekend ? d.text.alpha(0.06) : .clear))
                 .padding(.horizontal, w * 0.06)
         )
+        .opacity(rc.outside(day) ? RenderContext.dimmed : 1)
         // Wochenbeginn: feine Linie vor jedem Montag.
         .overlay(alignment: .leading) {
             if day.isoWeekday == 1 && !first {
@@ -621,6 +660,7 @@ struct RingDial: View {
                     .foregroundStyle(rc.dayColor(day))
                     .lineLimit(1)
                     .fixedSize()
+                    .opacity(rc.outside(day) ? RenderContext.dimmed : 1)
                     .position(point(k, numR))
                 if let mark = rc.marks.marks(day).first {
                     Circle()
@@ -711,6 +751,7 @@ struct MonthListView: View {
         }
         .padding(.horizontal, height * 0.2)
         .frame(width: width, height: height)
+        .opacity(rc.outside(day) ? RenderContext.dimmed : 1)
         .background(weekend ? d.text.alpha(0.05) : Color.clear)
         .overlay(alignment: .bottom) {
             Rectangle().fill(rc.lineColor).frame(height: max(rc.unit * 0.05, 0.3))

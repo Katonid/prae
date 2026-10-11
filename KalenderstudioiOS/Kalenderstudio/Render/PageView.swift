@@ -26,7 +26,7 @@ struct PageView: View {
         var p = project
         let monthIndex: Int?
         switch page.content {
-        case .monthSheet(let i), .monthPhoto(let i), .monthGrid(let i): monthIndex = i
+        case .monthSheet(let i), .monthPhoto(let i), .monthGrid(let i), .halfMonth(let i, _): monthIndex = i
         default: monthIndex = nil
         }
         if p.design.monthColorFromPhoto, page.content != .cover,
@@ -65,6 +65,8 @@ struct PageLayout: View {
             switch page.content {
             case .cover: cover
             case .monthSheet(let i): monthSheet(i)
+            case .halfMonth(let i, let h): monthSheet(i, half: h)
+            case .yearOverview: yearOverview
             case .monthPhoto(let i): monthPhoto(i)
             case .monthGrid(let i): monthGrid(i)
             case .yearPoster: yearPoster
@@ -106,8 +108,31 @@ struct PageLayout: View {
             .textShadow(d, unit: u, onPhoto: onPhoto)
     }
 
+    /// Halbmonat: „1.–16.“ und ●○ — welche Hälfte des Monats gerade gilt.
     @ViewBuilder
-    private func monthHeader(_ y: Int, _ m: Int, height: CGFloat) -> some View {
+    private func halfBadge(_ y: Int, _ m: Int, _ half: Int?, size: CGFloat) -> some View {
+        if let half {
+            let r = CalendarMath.halfRange(y, m, half)
+            HStack(alignment: .center, spacing: size * 0.4) {
+                Text(verbatim: "\(r.lowerBound.d).–\(r.upperBound.d).")
+                    .font(d.fontBody(size, weight: .semibold))
+                    .foregroundStyle(d.accent.color)
+                    .lineLimit(1)
+                    .fixedSize()
+                HStack(spacing: size * 0.25) {
+                    ForEach(0..<2, id: \.self) { k in
+                        Circle()
+                            .fill(k == half ? d.accent.color : Color.clear)
+                            .overlay(Circle().strokeBorder(d.accent.color, lineWidth: max(size * 0.08, 0.5)))
+                            .frame(width: size * 0.5, height: size * 0.5)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func monthHeader(_ y: Int, _ m: Int, height: CGFloat, half: Int? = nil) -> some View {
         if d.monthAsNumber {
             // Monat als Zahl: „03“ groß, Name und Jahr klein daneben.
             HStack(alignment: .firstTextBaseline, spacing: u * 2) {
@@ -117,6 +142,7 @@ struct PageLayout: View {
                     .lineLimit(1)
                     .textShadow(d, unit: u)
                 titleLine(CalendarMath.monthName(m), size: height * 0.38)
+                halfBadge(y, m, half, size: height * 0.3)
                 Spacer(minLength: 0)
                 yearLine(String(y), size: height * 0.38)
             }
@@ -124,6 +150,7 @@ struct PageLayout: View {
         } else {
             HStack(alignment: .firstTextBaseline, spacing: u * 2) {
                 titleLine(CalendarMath.monthName(m), size: height * 0.82)
+                halfBadge(y, m, half, size: height * 0.3)
                 Spacer(minLength: 0)
                 yearLine(String(y), size: height * 0.5)
             }
@@ -267,10 +294,13 @@ struct PageLayout: View {
 
     // MARK: Jahreskalender — Monatsblatt
 
+    /// Monatsblatt — beim Halbmonat (`half` 0/1) mit eigenem Foto je Hälfte
+    /// und hervorgehobener Hälfte im Kalendarium.
     @ViewBuilder
-    private func monthSheet(_ i: Int) -> some View {
+    private func monthSheet(_ i: Int, half: Int? = nil) -> some View {
         let mo = p.months[i]
-        let key = "m\(i)"
+        let key = half == 1 ? "m\(i)b" : "m\(i)"
+        let rc = half.map { self.rc.focused(on: CalendarMath.halfRange(mo.y, mo.m, $0)) } ?? self.rc
         let s = g.safeRect
         let legendH: CGFloat = hasLegend ? u * 3 : 0
         let slim = p.gridLayout.isSlim
@@ -289,7 +319,7 @@ struct PageLayout: View {
                                width: s.maxX - (g.trimRect.minX + g.trimRect.width * split + u * 3), height: s.height)
             bigNumeral(mo.m, in: right)
             let headH = min(max(right.height * 0.14, u * 4), u * 9)
-            monthHeader(mo.y, mo.m, height: headH)
+            monthHeader(mo.y, mo.m, height: headH, half: half)
                 .placed(CGRect(x: right.minX, y: right.minY, width: right.width, height: headH))
             MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
                 .padding(u * 1.2)
@@ -313,7 +343,7 @@ struct PageLayout: View {
             let area = CGRect(x: s.minX, y: top, width: s.width, height: s.maxY - top)
             bigNumeral(mo.m, in: area)
             let headH = min(max(area.height * (slim ? 0.22 : 0.15), u * 4), u * 9)
-            monthHeader(mo.y, mo.m, height: headH)
+            monthHeader(mo.y, mo.m, height: headH, half: half)
                 .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
             MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
                 .padding(u * 1.2)
@@ -450,6 +480,22 @@ struct PageLayout: View {
         .placed(CGRect(x: s.minX, y: s.minY, width: s.width, height: headH))
         monthTiles(in: CGRect(x: s.minX, y: s.minY + headH + u, width: s.width, height: s.height - headH - u),
                    withPhotos: true)
+    }
+
+    /// Rückseite des letzten Blatts beim Halbmonat: das ganze Jahr auf einen Blick.
+    @ViewBuilder
+    private var yearOverview: some View {
+        let s = g.safeRect
+        let headH = s.height * 0.1
+        HStack(alignment: .firstTextBaseline) {
+            titleLine(p.displayTitle, size: headH * 0.6)
+            Spacer(minLength: u * 2)
+            yearLine(p.yearText, size: headH * 0.8)
+        }
+        .frame(width: s.width, height: headH)
+        .placed(CGRect(x: s.minX, y: s.minY, width: s.width, height: headH))
+        monthTiles(in: CGRect(x: s.minX, y: s.minY + headH + u, width: s.width, height: s.height - headH - u),
+                   withPhotos: false)
     }
 
     @ViewBuilder

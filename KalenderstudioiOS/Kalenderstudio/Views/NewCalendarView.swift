@@ -15,6 +15,9 @@ struct NewCalendarView: View {
     @State private var presetName = "A4 quer"
     @State private var format = PageFormat(widthMM: 297, heightMM: 210)
     @State private var designID = "nordlicht"
+    /// Eigene Vorlage statt einer eingebauten (ab 1.0.13).
+    @State private var templateID: UUID?
+    @ObservedObject private var templates = TemplateStore.shared
     @State private var state: Bundesland = .BY
 
     var body: some View {
@@ -34,11 +37,23 @@ struct NewCalendarView: View {
                     section("Stilvorlage") {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 14) {
+                                ForEach(templates.templates) { t in
+                                    Button {
+                                        withAnimation(.snappy) { templateID = t.id }
+                                    } label: {
+                                        DesignSwatch(design: t.design, name: t.name, selected: templateID == t.id)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                                 ForEach(Design.presetIDs, id: \.self) { id in
                                     Button {
-                                        withAnimation(.snappy) { designID = id }
+                                        withAnimation(.snappy) {
+                                            designID = id
+                                            templateID = nil
+                                        }
                                     } label: {
-                                        DesignSwatch(design: .preset(id), name: Design.presetName(id), selected: id == designID)
+                                        DesignSwatch(design: .preset(id), name: Design.presetName(id),
+                                                     selected: templateID == nil && id == designID)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -160,6 +175,7 @@ struct NewCalendarView: View {
         p.dates.schoolStates = [SchoolSelection(state: state, color: SchoolSelection.palette[0])]
         if kind == .week { p.photoStyle = .full }
         if kind == .doubleMonth { p.photoStyle = .full }
+        if let id = templateID, let t = templates.template(id) { p.apply(t) }
         return p
     }
 

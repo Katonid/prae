@@ -90,7 +90,7 @@ struct LayoutPanel: View {
                 EmptyView()
             }
 
-            if project.kind == .year && project.yearLayout == .monthly {
+            if project.kind == .year && project.yearLayout.hasMonthSheets {
                 Section {
                     Toggle("Automatisch", isOn: Binding(
                         get: { project.photoShare == 0 },
@@ -150,7 +150,7 @@ struct LayoutPanel: View {
             }
 
             Section("Titelblatt") {
-                if project.kind != .year || project.yearLayout == .monthly {
+                if project.kind != .year || project.yearLayout.hasMonthSheets {
                     Toggle("Titelblatt", isOn: $project.hasCover)
                 }
                 Picker("Gestaltung", selection: $project.coverStyle) {
@@ -178,6 +178,11 @@ struct StylePanel: View {
     }
 
     @State private var fontRole: FontRole?
+    @ObservedObject private var templates = TemplateStore.shared
+    @State private var naming = false
+    @State private var templateName = ""
+    @State private var renaming: DesignTemplate?
+    @State private var savedNote: String?
 
     var body: some View {
         Form {
@@ -195,6 +200,66 @@ struct StylePanel: View {
                         }
                     }
                     .padding(.vertical, 6)
+                }
+            }
+
+            Section {
+                if !templates.templates.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(templates.templates) { t in
+                                Button {
+                                    withAnimation(.snappy) { project.apply(t) }
+                                } label: {
+                                    DesignSwatch(design: t.design, name: t.name, selected: false)
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button {
+                                        templates.update(t.id, from: project)
+                                        savedNote = "„\(t.name)“ mit der aktuellen Gestaltung überschrieben."
+                                    } label: { Label("Mit aktueller Gestaltung überschreiben", systemImage: "arrow.triangle.2.circlepath") }
+                                    Button {
+                                        templateName = t.name
+                                        renaming = t
+                                    } label: { Label("Umbenennen", systemImage: "pencil") }
+                                    Button(role: .destructive) {
+                                        templates.delete(t.id)
+                                    } label: { Label("Löschen", systemImage: "trash") }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 6)
+                    }
+                }
+                Button {
+                    templateName = ""
+                    naming = true
+                } label: {
+                    Label("Aktuelle Gestaltung als Vorlage sichern …", systemImage: "square.and.arrow.down.on.square")
+                }
+                if let savedNote {
+                    Text(savedNote).font(.footnote).foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Eigene Vorlagen")
+            } footer: {
+                Text("Eine Vorlage hält Farben, Schriften, Hintergrund, Effekte, Monatsseiten-Schalter, Kalendarium, Fotodarstellung und Fotoanteil — nicht Format, Termine und Fotos. Antippen übernimmt sie, langes Drücken zum Überschreiben, Umbenennen oder Löschen. Mit iCloud erscheinen die Vorlagen auf allen Geräten.")
+            }
+            .alert("Als Vorlage sichern", isPresented: $naming) {
+                TextField("Name der Vorlage", text: $templateName)
+                Button("Abbrechen", role: .cancel) {}
+                Button("Sichern") {
+                    templates.add(name: templateName, from: project)
+                    savedNote = "Vorlage „\(templateName.isEmpty ? "Meine Vorlage" : templateName)“ gesichert."
+                }
+            }
+            .alert("Vorlage umbenennen", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+                TextField("Name", text: $templateName)
+                Button("Abbrechen", role: .cancel) { renaming = nil }
+                Button("Sichern") {
+                    if let r = renaming { templates.rename(r.id, to: templateName) }
+                    renaming = nil
                 }
             }
 

@@ -28,24 +28,21 @@ struct HomeView: View {
                                     ProjectCard(project: project)
                                 }
                                 .buttonStyle(.plain)
-                                .contextMenu {
-                                    Button {
-                                        newName = project.name
-                                        renaming = project
-                                    } label: { Label("Umbenennen", systemImage: "pencil") }
-                                    Button {
-                                        store.duplicate(project)
-                                    } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
-                                    Button {
-                                        do {
-                                            backupFile = try Backup.write([project], title: project.name).url
-                                        } catch {
-                                            backupError = error.localizedDescription
-                                        }
-                                    } label: { Label("Als Datei sichern", systemImage: "externaldrive.badge.plus") }
-                                    Button(role: .destructive) {
-                                        deleting = project
-                                    } label: { Label("Löschen", systemImage: "trash") }
+                                .contextMenu { cardActions(project) }
+                                // Sichtbar statt nur per langem Drücken (Ansage des
+                                // Nutzers, 1.0.13: „ein Projekt duplizieren“ wurde
+                                // nicht gefunden).
+                                .overlay(alignment: .topTrailing) {
+                                    Menu {
+                                        cardActions(project)
+                                    } label: {
+                                        Image(systemName: "ellipsis.circle.fill")
+                                            .font(.system(size: 28))
+                                            .symbolRenderingMode(.palette)
+                                            .foregroundStyle(.white, Color.black.opacity(0.45))
+                                            .padding(14)
+                                    }
+                                    .accessibilityLabel("Aktionen für \(project.name)")
                                 }
                             }
                         }
@@ -121,6 +118,27 @@ struct HomeView: View {
         }
     }
 
+    @ViewBuilder
+    private func cardActions(_ project: CalendarProject) -> some View {
+        Button {
+            newName = project.name
+            renaming = project
+        } label: { Label("Umbenennen", systemImage: "pencil") }
+        Button {
+            store.duplicate(project)
+        } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
+        Button {
+            do {
+                backupFile = try Backup.write([project], title: project.name).url
+            } catch {
+                backupError = error.localizedDescription
+            }
+        } label: { Label("Als Datei sichern", systemImage: "externaldrive.badge.plus") }
+        Button(role: .destructive) {
+            deleting = project
+        } label: { Label("Löschen", systemImage: "trash") }
+    }
+
     /// Nur für den Simulator-Arbeitsablauf: `-probe=year|week|doubleMonth`,
     /// wahlweise mit Kalendarium, Stilvorlage und Fotoanteil
     /// (`-probe=year:strip:leinen`, `-probe=year:classic:aquarell:0.78`),
@@ -132,11 +150,13 @@ struct HomeView: View {
         guard let arg = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-probe=") }),
               path.isEmpty else { return }
         let parts = arg.dropFirst("-probe=".count).split(separator: ":").map(String.init)
-        guard let first = parts.first, let kind = CalendarKind(rawValue: first) else { return }
+        // „half“ = Jahreskalender als Halbmonat (beidseitig).
+        guard let first = parts.first, let kind = first == "half" ? CalendarKind.year : CalendarKind(rawValue: first) else { return }
         var p = CalendarProject(name: "Probe", kind: kind, year: 2027,
                                 format: kind == .doubleMonth ? PageFormat(widthMM: 297, heightMM: 210)
                                                              : PageFormat(widthMM: 297, heightMM: 420),
                                 design: .preset(parts.count > 2 ? parts[2] : "aquarell"))
+        if first == "half" { p.yearLayout = .halfMonth }
         if parts.count > 1, let layout = MonthGridLayout(rawValue: parts[1]) {
             p.gridLayout = layout
             p.hasCover = false
@@ -201,9 +221,9 @@ struct HomeView: View {
     }
     #endif
 
-    /// Das Muster ist 900 pt breit gezeichnet; es liegt deshalb als
-    /// HINTERGRUND und bestimmt die Breite nicht mit — sonst ragte das Band
-    /// auf dem iPhone über den Rand und schob die Karten aus dem Bild.
+    /// Das Muster liegt als HINTERGRUND und bestimmt die Breite nicht mit —
+    /// sonst ragte das Band auf dem iPhone über den Rand und schob die
+    /// Karten aus dem Bild (1.0.9).
     private var hero: some View {
         VStack(alignment: .leading, spacing: 6) {
             Spacer(minLength: 0)
@@ -220,9 +240,12 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 170, alignment: .bottomLeading)
         .background {
-            PatternLayer(design: .preset("nordlicht"), size: CGSize(width: 900, height: 260),
-                         safe: CGRect(x: 0, y: 0, width: 900, height: 260), unit: 4, seed: "start")
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // Das Muster wird in der Größe des Bandes gezeichnet: Eine feste
+            // Breite machte das Band auf dem iPad nur 900 pt breit.
+            GeometryReader { geo in
+                PatternLayer(design: .preset("nordlicht"), size: geo.size,
+                             safe: CGRect(origin: .zero, size: geo.size), unit: 4, seed: "start")
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
