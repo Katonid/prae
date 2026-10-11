@@ -89,6 +89,53 @@ struct PageLayout: View {
         CGRect(x: 0, y: 0, width: g.bleed + g.trimRect.width * fraction, height: g.size.height)
     }
 
+    /// Foto und Kalender auf einer Seite (ab 1.0.15): Wo liegt das
+    /// Kalenderfeld — unten, oben, links oder rechts? `auto` heißt wie bisher
+    /// hoch unten, quer rechts (Zeitleiste auch quer unten).
+    private func resolvedSide(slim: Bool = false) -> CalendarSide {
+        if p.calendarSide != .auto { return p.calendarSide }
+        return p.format.isLandscape && !slim ? .right : .bottom
+    }
+
+    /// Teilt die Seite: Foto (bis in den Beschnitt und sicher), Kalenderfläche
+    /// und die Kante, zu der das Foto ausläuft. `share` = Fotoanteil am
+    /// Endformat in der geteilten Richtung.
+    private func splitPage(_ side: CalendarSide, share: CGFloat)
+        -> (photoBleed: CGRect, photoSafe: CGRect, area: CGRect, fade: Edge) {
+        let t = g.trimRect, s = g.safeRect, full = g.size
+        switch side {
+        case .top:
+            let cut = t.minY + t.height * (1 - share)
+            return (CGRect(x: 0, y: cut, width: full.width, height: full.height - cut),
+                    CGRect(x: s.minX, y: cut + u * 2, width: s.width, height: max(s.maxY - cut - u * 2, 1)),
+                    CGRect(x: s.minX, y: s.minY, width: s.width, height: max(cut - u * 2.5 - s.minY, 1)),
+                    .top)
+        case .right:
+            let cut = t.minX + t.width * share
+            return (CGRect(x: 0, y: 0, width: cut, height: full.height),
+                    CGRect(x: s.minX, y: s.minY, width: max(cut - u * 2 - s.minX, 1), height: s.height),
+                    CGRect(x: cut + u * 3, y: s.minY, width: max(s.maxX - cut - u * 3, 1), height: s.height),
+                    .trailing)
+        case .left:
+            let cut = t.minX + t.width * (1 - share)
+            return (CGRect(x: cut, y: 0, width: full.width - cut, height: full.height),
+                    CGRect(x: cut + u * 2, y: s.minY, width: max(s.maxX - cut - u * 2, 1), height: s.height),
+                    CGRect(x: s.minX, y: s.minY, width: max(cut - u * 3 - s.minX, 1), height: s.height),
+                    .leading)
+        case .bottom, .auto:
+            let cut = t.minY + t.height * share
+            return (CGRect(x: 0, y: 0, width: full.width, height: cut),
+                    CGRect(x: s.minX, y: s.minY, width: s.width, height: max(cut - u * 2 - s.minY, 1)),
+                    CGRect(x: s.minX, y: cut + u * 2.5, width: s.width, height: max(s.maxY - cut - u * 2.5, 1)),
+                    .bottom)
+        }
+    }
+
+    /// Der eingestellte Fotoanteil oder der übliche Wert dieser Seite.
+    private func shareFor(default value: CGFloat) -> CGFloat {
+        p.photoShare > 0 ? CGFloat(min(max(p.photoShare, 0.3), 0.9)) : value
+    }
+
     private func titleLine(_ text: String, size: CGFloat, color: Color? = nil, onPhoto: Bool = false) -> some View {
         Text(d.titleText(text))
             .font(d.fontTitle(size))
@@ -304,89 +351,52 @@ struct PageLayout: View {
         let s = g.safeRect
         let legendH: CGFloat = hasLegend ? u * 3 : 0
         let slim = p.gridLayout.isSlim
-        // Wie viel vom Blatt das Foto bekommt — vom Nutzer eingestellt oder
-        // automatisch je nach Kalendarium.
-        let landscapeSplit = p.format.isLandscape && !slim
-        let share = CGFloat(p.photoShare > 0 ? min(max(p.photoShare, 0.3), 0.9)
-                                             : p.gridLayout.defaultPhotoShare(landscape: p.format.isLandscape))
+        // Wo der Kalender liegt und wie viel vom Blatt das Foto bekommt —
+        // vom Nutzer eingestellt oder automatisch.
+        let side = resolvedSide(slim: slim)
+        let share = shareFor(default: CGFloat(p.gridLayout.defaultPhotoShare(landscape: side.isHorizontal)))
+        let parts = splitPage(side, share: share)
+        let area: CGRect = {
+            guard d.photoOverlay else { return parts.area }
+            // Foto über die ganze Seite: das Kalenderfeld liegt an der
+            // gewählten Kante darüber (ab 1.0.14), mit Innenabstand.
+            let panel: CGRect
+            switch side {
+            case .right, .left:
+                let w = max(g.trimRect.width * (1 - share), u * 30)
+                panel = CGRect(x: side == .right ? s.maxX - w : s.minX, y: s.minY, width: w, height: s.height)
+            case .top:
+                panel = CGRect(x: s.minX, y: s.minY, width: s.width, height: max(g.trimRect.height * (1 - share), u * 18))
+            case .bottom, .auto:
+                let h = max(g.trimRect.height * (1 - share), u * 18)
+                panel = CGRect(x: s.minX, y: s.maxY - h, width: s.width, height: h)
+            }
+            return panel.insetBy(dx: u * 2, dy: u * 1.6)
+        }()
         if d.photoOverlay {
-            // Foto über die ganze Seite, das Kalenderfeld liegt darüber —
-            // mit einstellbarer Deckkraft (ab 1.0.14, Ansage des Nutzers).
-            // Der Fotoanteil bestimmt, wie viel Platz das Feld bekommt.
             photoRegion(key, bleedRect: g.fullRect, safeRect: s)
-            let side = landscapeSplit
-            let panel: CGRect = side
-                ? CGRect(x: s.maxX - max(g.trimRect.width * (1 - share), u * 30), y: s.minY,
-                         width: max(g.trimRect.width * (1 - share), u * 30), height: s.height)
-                : CGRect(x: s.minX, y: s.maxY - max(g.trimRect.height * (1 - share), u * 18),
-                         width: s.width, height: max(g.trimRect.height * (1 - share), u * 18))
             RoundedRectangle(cornerRadius: u * 3 * d.corner, style: .continuous)
                 .fill(d.bg1.alpha(d.overlayOpacity))
                 .allowsHitTesting(false)
-                .placed(panel)
-            let area = panel.insetBy(dx: u * 2, dy: u * 1.6)
-            bigNumeral(mo.m, in: area)
-            let headH = min(max(area.height * (slim ? 0.22 : 0.15), u * 4), u * 9)
-            monthHeader(mo.y, mo.m, height: headH, half: half)
-                .allowsHitTesting(false)
-                .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
-            MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
-                .padding(u * 1.2)
-                .card(d, unit: u)
-                .allowsHitTesting(false)
-                .placed(CGRect(x: area.minX, y: area.minY + headH + u * 0.5, width: area.width,
-                               height: area.height - headH - u * 0.5 - legendH))
-            if hasLegend {
-                let r = legendRange(mo.y, mo.m)
-                LegendView(rc: rc, from: r.0, to: r.1, height: legendH * 0.8)
-                    .placed(CGRect(x: area.minX, y: area.maxY - legendH * 0.8, width: area.width, height: legendH * 0.8))
-            }
-        } else if landscapeSplit {
-            // Quer: Foto links, Kalender rechts.
-            let split: CGFloat = share
-            photoRegion(key, bleedRect: bleedLeft(split),
-                        safeRect: CGRect(x: s.minX, y: s.minY, width: s.width * split - u * 2, height: s.height),
-                        fade: .trailing)
-            let right = CGRect(x: g.trimRect.minX + g.trimRect.width * split + u * 3, y: s.minY,
-                               width: s.maxX - (g.trimRect.minX + g.trimRect.width * split + u * 3), height: s.height)
-            bigNumeral(mo.m, in: right)
-            let headH = min(max(right.height * 0.14, u * 4), u * 9)
-            monthHeader(mo.y, mo.m, height: headH, half: half)
-                .placed(CGRect(x: right.minX, y: right.minY, width: right.width, height: headH))
-            MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
-                .padding(u * 1.2)
-                .card(d, unit: u)
-                .placed(CGRect(x: right.minX, y: right.minY + headH + u, width: right.width,
-                               height: right.height - headH - u - legendH))
-            if hasLegend {
-                let r = legendRange(mo.y, mo.m)
-                LegendView(rc: rc, from: r.0, to: r.1, height: legendH * 0.8)
-                    .placed(CGRect(x: right.minX, y: right.maxY - legendH * 0.8, width: right.width, height: legendH * 0.8))
-            }
+                .placed(area.insetBy(dx: -u * 2, dy: -u * 1.6))
         } else {
-            // Hoch (und bei der Zeitleiste immer): Foto oben, Kalender unten.
-            // Die Zeitleiste braucht wenig Höhe — das Foto bekommt sie.
-            let split: CGFloat = share
-            photoRegion(key, bleedRect: bleedTop(split),
-                        safeRect: CGRect(x: s.minX, y: s.minY, width: s.width,
-                                         height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2),
-                        fade: .bottom)
-            let top = g.trimRect.minY + g.trimRect.height * split + u * 2.5
-            let area = CGRect(x: s.minX, y: top, width: s.width, height: s.maxY - top)
-            bigNumeral(mo.m, in: area)
-            let headH = min(max(area.height * (slim ? 0.22 : 0.15), u * 4), u * 9)
-            monthHeader(mo.y, mo.m, height: headH, half: half)
-                .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
-            MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
-                .padding(u * 1.2)
-                .card(d, unit: u)
-                .placed(CGRect(x: area.minX, y: area.minY + headH + u * 0.5, width: area.width,
-                               height: area.height - headH - u * 0.5 - legendH))
-            if hasLegend {
-                let r = legendRange(mo.y, mo.m)
-                LegendView(rc: rc, from: r.0, to: r.1, height: legendH * 0.8)
-                    .placed(CGRect(x: area.minX, y: area.maxY - legendH * 0.8, width: area.width, height: legendH * 0.8))
-            }
+            photoRegion(key, bleedRect: parts.photoBleed, safeRect: parts.photoSafe, fade: parts.fade)
+        }
+        bigNumeral(mo.m, in: area)
+        let headH = min(max(area.height * (slim && !side.isHorizontal ? 0.22 : 0.15), u * 4), u * 9)
+        monthHeader(mo.y, mo.m, height: headH, half: half)
+            .allowsHitTesting(false)
+            .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
+        MonthGridView(y: mo.y, m: mo.m, layout: p.gridLayout, rc: rc)
+            .padding(u * 1.2)
+            .card(d, unit: u)
+            .allowsHitTesting(false)
+            .placed(CGRect(x: area.minX, y: area.minY + headH + u * 0.5, width: area.width,
+                           height: max(area.height - headH - u * 0.5 - legendH, 1)))
+        if hasLegend {
+            let r = legendRange(mo.y, mo.m)
+            LegendView(rc: rc, from: r.0, to: r.1, height: legendH * 0.8)
+                .placed(CGRect(x: area.minX, y: area.maxY - legendH * 0.8, width: area.width, height: legendH * 0.8))
         }
     }
 
@@ -473,29 +483,27 @@ struct PageLayout: View {
 
     @ViewBuilder
     private var yearPoster: some View {
-        let s = g.safeRect
-        let split: CGFloat = p.format.isLandscape ? 0.36 : 0.32
-        photoRegion("year", bleedRect: bleedTop(split),
-                    safeRect: CGRect(x: s.minX, y: s.minY, width: s.width,
-                                     height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2),
-                    fade: .bottom)
-        let top = g.trimRect.minY + g.trimRect.height * split + u * 2
-        let headH = (s.maxY - top) * 0.14
+        let side = resolvedSide()
+        let share = shareFor(default: side.isHorizontal ? 0.4 : (p.format.isLandscape ? 0.36 : 0.32))
+        let parts = splitPage(side, share: share)
+        photoRegion("year", bleedRect: parts.photoBleed, safeRect: parts.photoSafe, fade: parts.fade)
+        let area = parts.area
+        let headH = area.height * (side.isHorizontal ? 0.1 : 0.14)
         HStack(alignment: .firstTextBaseline) {
             titleLine(p.displayTitle, size: headH * 0.7)
             Spacer(minLength: u * 2)
             yearLine(p.yearText, size: headH * 0.85)
         }
-        .frame(width: s.width, height: headH)
-        .placed(CGRect(x: s.minX, y: top, width: s.width, height: headH))
+        .frame(width: area.width, height: headH)
+        .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
         let legendH: CGFloat = hasLegend ? u * 2.6 : 0
-        monthTiles(in: CGRect(x: s.minX, y: top + headH + u, width: s.width,
-                              height: s.maxY - top - headH - u - legendH),
+        monthTiles(in: CGRect(x: area.minX, y: area.minY + headH + u, width: area.width,
+                              height: max(area.height - headH - u - legendH, 1)),
                    withPhotos: false)
         if hasLegend {
             LegendView(rc: rc, from: DayKey(p.months[0].y, p.months[0].m, 1),
                        to: DayKey(p.months[11].y, p.months[11].m, 28), height: legendH * 0.8)
-                .placed(CGRect(x: s.minX, y: s.maxY - legendH * 0.8, width: s.width, height: legendH * 0.8))
+                .placed(CGRect(x: area.minX, y: area.maxY - legendH * 0.8, width: area.width, height: legendH * 0.8))
         }
     }
 
@@ -590,17 +598,16 @@ struct PageLayout: View {
         let legendH: CGFloat = hasLegend ? u * 2.6 : 0
         switch p.weekLayout {
         case .photoTop:
-            let split: CGFloat = p.format.isLandscape ? 0.42 : 0.36
-            photoRegion(key, bleedRect: bleedTop(split),
-                        safeRect: CGRect(x: s.minX, y: s.minY, width: s.width,
-                                         height: g.trimRect.height * split - (s.minY - g.trimRect.minY) - u * 2),
-                        fade: .bottom)
-            let top = g.trimRect.minY + g.trimRect.height * split + u * 2
-            let headH = (s.maxY - top) * 0.12
+            let side = resolvedSide()
+            let share = shareFor(default: side.isHorizontal ? 0.45 : (p.format.isLandscape ? 0.42 : 0.36))
+            let parts = splitPage(side, share: share)
+            photoRegion(key, bleedRect: parts.photoBleed, safeRect: parts.photoSafe, fade: parts.fade)
+            let area = parts.area
+            let headH = area.height * (side.isHorizontal ? 0.09 : 0.12)
             weekHeader(start, height: headH)
-                .placed(CGRect(x: s.minX, y: top, width: s.width, height: headH))
-            let listRect = CGRect(x: s.minX, y: top + headH + u * 0.5, width: s.width,
-                                  height: s.maxY - top - headH - u * 0.5 - legendH)
+                .placed(CGRect(x: area.minX, y: area.minY, width: area.width, height: headH))
+            let listRect = CGRect(x: area.minX, y: area.minY + headH + u * 0.5, width: area.width,
+                                  height: max(area.height - headH - u * 0.5 - legendH, 1))
             VStack(spacing: 0) {
                 ForEach(0..<7, id: \.self) { k in
                     WeekDayRow(day: start.adding(days: k), rc: rc,

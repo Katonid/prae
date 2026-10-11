@@ -68,6 +68,24 @@ enum YearLayout: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Wo das Kalenderfeld auf einer Seite mit Foto liegt (ab 1.0.15, Ansage
+/// des Nutzers: „für alle Formate oben, unten, links oder rechts“).
+enum CalendarSide: String, Codable, CaseIterable, Identifiable {
+    case auto, bottom, top, left, right
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .auto: return "Auto"
+        case .bottom: return "Unten"
+        case .top: return "Oben"
+        case .left: return "Links"
+        case .right: return "Rechts"
+        }
+    }
+    /// Kalender links oder rechts — das Foto teilt sich die Breite.
+    var isHorizontal: Bool { self == .left || self == .right }
+}
+
 enum WeekLayout: String, Codable, CaseIterable, Identifiable {
     case photoTop, columns, journal
     var id: String { rawValue }
@@ -439,6 +457,8 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     /// Anteil des Fotos an einem Monatsblatt (0,4…0,85, gemessen am
     /// Endformat); 0 = automatisch je nach Kalendarium.
     var photoShare: Double = 0
+    /// Lage des Kalenderfelds; `auto` = hoch unten, quer rechts (wie bisher).
+    var calendarSide: CalendarSide = .auto
     var coverStyle: CoverStyle = .hero
     var hasCover = true
     var title: String = ""
@@ -460,7 +480,8 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     /// 3: `DateSettings.catalogRevision` (1.0.11).
     /// 4: Jahresaufbau „Halbmonat (beidseitig)“ (1.0.12).
     /// 5: Jahreszahl, Zahlen-/Eintragslage, Foto über die ganze Seite (1.0.14).
-    static let currentFormat = 5
+    /// 6: Lage des Kalenderfelds `calendarSide` (1.0.15).
+    static let currentFormat = 6
 
     init(name: String, kind: CalendarKind, year: Int, format: PageFormat, design: Design) {
         self.name = name
@@ -473,7 +494,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, modified, kind, year, startMonth, yearLayout, weekLayout, gridLayout,
-             photoStyle, photoShare, coverStyle, hasCover, title, subtitle, format, design, dates,
+             photoStyle, photoShare, calendarSide, coverStyle, hasCover, title, subtitle, format, design, dates,
              personalDates, photos, placements, captions, formatVersion
     }
 
@@ -492,6 +513,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
         p.gridLayout = c.value(.gridLayout, MonthGridLayout.classic)
         p.photoStyle = c.value(.photoStyle, PhotoStyle.full)
         p.photoShare = c.value(.photoShare, 0.0)
+        p.calendarSide = c.value(.calendarSide, CalendarSide.auto)
         p.coverStyle = c.value(.coverStyle, CoverStyle.hero)
         p.hasCover = c.value(.hasCover, true)
         p.title = c.value(.title, p.name)

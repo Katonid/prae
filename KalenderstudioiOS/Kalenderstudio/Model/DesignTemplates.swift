@@ -17,6 +17,7 @@ struct DesignTemplate: Codable, Identifiable, Equatable {
     var photoStyle: PhotoStyle = .full
     var photoShare: Double = 0
     var coverStyle: CoverStyle = .hero
+    var calendarSide: CalendarSide = .auto
 
     init(name: String, from project: CalendarProject) {
         self.name = name
@@ -28,10 +29,11 @@ struct DesignTemplate: Codable, Identifiable, Equatable {
         photoStyle = project.photoStyle
         photoShare = project.photoShare
         coverStyle = project.coverStyle
+        calendarSide = project.calendarSide
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, modified, deleted, design, gridLayout, photoStyle, photoShare, coverStyle
+        case id, name, modified, deleted, design, gridLayout, photoStyle, photoShare, coverStyle, calendarSide
     }
 
     init(from decoder: Decoder) throws {
@@ -45,6 +47,7 @@ struct DesignTemplate: Codable, Identifiable, Equatable {
         photoStyle = c.value(.photoStyle, PhotoStyle.full)
         photoShare = c.value(.photoShare, 0.0)
         coverStyle = c.value(.coverStyle, CoverStyle.hero)
+        calendarSide = c.value(.calendarSide, CalendarSide.auto)
     }
 }
 
@@ -60,6 +63,7 @@ extension CalendarProject {
         photoStyle = t.photoStyle
         photoShare = t.photoShare
         coverStyle = t.coverStyle
+        calendarSide = t.calendarSide
     }
 }
 

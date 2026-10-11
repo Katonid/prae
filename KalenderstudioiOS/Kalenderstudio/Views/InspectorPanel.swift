@@ -39,6 +39,15 @@ struct InspectorPanel: View {
 struct LayoutPanel: View {
     @Binding var project: CalendarProject
 
+    /// Seiten, auf denen Foto und Kalender sich die Seite teilen.
+    private var hasPhotoAndCalendar: Bool {
+        switch project.kind {
+        case .year: return project.yearLayout.hasMonthSheets || project.yearLayout == .poster
+        case .week: return project.weekLayout == .photoTop
+        case .doubleMonth: return false
+        }
+    }
+
     private let columns = [GridItem(.adaptive(minimum: 100), spacing: 10)]
 
     var body: some View {
@@ -90,10 +99,18 @@ struct LayoutPanel: View {
                 EmptyView()
             }
 
-            if project.kind == .year && project.yearLayout.hasMonthSheets {
+            if hasPhotoAndCalendar {
                 Section {
-                    Toggle("Foto über die ganze Seite", isOn: $project.design.photoOverlay)
-                    if project.design.photoOverlay {
+                    // Lage des Kalenderfelds (ab 1.0.15) — für Hoch- und
+                    // Querformat, Monatsblätter, Halbmonat, Poster und Woche.
+                    Picker("Kalender", selection: $project.calendarSide) {
+                        ForEach(CalendarSide.allCases) { side in Text(side.title).tag(side) }
+                    }
+                    .pickerStyle(.segmented)
+                    if project.kind == .year && project.yearLayout.hasMonthSheets {
+                        Toggle("Foto über die ganze Seite", isOn: $project.design.photoOverlay)
+                    }
+                    if project.design.photoOverlay && project.kind == .year && project.yearLayout.hasMonthSheets {
                         LabeledSlider(title: "Deckkraft des Kalenderfelds", value: $project.design.overlayOpacity,
                                       range: 0...1, percent: true)
                     }
@@ -119,11 +136,12 @@ struct LayoutPanel: View {
                 } header: {
                     Text("Foto und Kalender")
                 } footer: {
-                    Text(project.design.photoOverlay
+                    Text("„Kalender“: wo das Kalenderfeld liegt — unten, oben, links oder rechts vom Foto; „Auto“ = hoch unten, quer rechts. " + (project.design.photoOverlay
                          ? "Das Foto füllt die ganze Seite bis in den Beschnitt; das Kalenderfeld liegt darüber. Der Fotoanteil bestimmt, wie viel vom Blatt frei bleibt — der Rest ist das Kalenderfeld. Bei geringer Deckkraft auf Lesbarkeit achten (Lupe)."
-                         : project.format.isLandscape && !project.gridLayout.isSlim
-                         ? "Quer liegt das Foto links; eingestellt wird seine Breite. Gemessen am Endformat, der Beschnitt kommt beim Foto dazu."
-                         : "Eingestellt wird die Höhe des Fotos, gemessen am Endformat; der Beschnitt kommt dazu. Bei sehr großem Foto passt die „Zeitleiste“ am besten. Wird ein Raster zu flach, zeigt die Seite von selbst die Zeitleiste.")
+                         : (project.calendarSide == .auto ? project.format.isLandscape && !project.gridLayout.isSlim
+                                                           : project.calendarSide.isHorizontal)
+                         ? "Liegt der Kalender links oder rechts, wird die Breite des Fotos eingestellt. Gemessen am Endformat, der Beschnitt kommt beim Foto dazu."
+                         : "Eingestellt wird die Höhe des Fotos, gemessen am Endformat; der Beschnitt kommt dazu. Bei sehr großem Foto passt die „Zeitleiste“ am besten. Wird ein Raster zu flach, zeigt die Seite von selbst die Zeitleiste."))
                 }
             }
 

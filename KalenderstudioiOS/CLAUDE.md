@@ -44,6 +44,7 @@
   1.0.14 (15) Jahreszahl eigens gestaltbar, Tageszahl links/rechts,
   Einträge über/unter/neben der Zahl, Foto über die ganze Seite mit
   durchscheinendem Kalenderfeld.
+  1.0.15 (16) Kalenderfeld oben, unten, links oder rechts — für alle Formate.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -191,6 +192,17 @@ Transparenz darüber.“ Alles in `Design` — damit auch in eigenen Vorlagen.
   18 bzw. 30 `unit`). Kein Weichzeichner hinter dem Feld — der würde im PDF
   gerastert.
 - Probe: weitere Teile `ueber`, `rechts`, `neben`, `oben`, `ohnejahr`.
+- **Lage des Kalenderfelds** (ab 1.0.15, Ansage des Nutzers: „für alle
+  Formate die Option, die Datumsfelder oben, unten, links oder rechts zu
+  platzieren“): `CalendarProject.calendarSide` (auto/unten/oben/links/
+  rechts; auto = hoch unten, quer rechts wie bisher), Aufbau › „Foto und
+  Kalender“. Eine Aufteilung für alle Seiten mit Foto + Kalender:
+  `PageLayout.splitPage` (Foto bis in den Beschnitt, sicherer Fotobereich,
+  Kalenderfläche, Auslaufkante) — Monatsblatt, Halbmonat, Jahresposter,
+  Woche „Foto & Tageszeilen“; beim Foto über die ganze Seite liegt das Feld
+  an der gewählten Kante. Der Fotoanteil gilt seitdem auch für Poster und
+  Woche. In eigenen Vorlagen enthalten. Probe: `k-oben`, `k-links`,
+  `k-rechts`, `k-unten`.
 
 ## Halbmonat, beidseitig (ab 1.0.12)
 
@@ -313,7 +325,7 @@ möchte ich dieses als Vorlage speichern können.“ `Model/DesignTemplates.swif
   geht die Arbeitskopie wieder hinauf. **Regel: Ein Abgleich darf eine
   Arbeitskopie nur durch etwas NEUERES ersetzen.** Verlorene Einstellungen
   ließen sich nicht zurückholen.
-- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 5): Eine ältere
+- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 6): Eine ältere
   App kennt neue Felder nicht und würde sie beim Zurückschreiben löschen
   (z. B. ein iPhone mit 1.0.8 die Fotodarstellung „ganz“). Kalender mit
   höherer `formatVersion` als `CalendarProject.currentFormat` schreibt
