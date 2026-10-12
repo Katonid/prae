@@ -45,6 +45,7 @@
   Einträge über/unter/neben der Zahl, Foto über die ganze Seite mit
   durchscheinendem Kalenderfeld.
   1.0.15 (16) Kalenderfeld oben, unten, links oder rechts — für alle Formate.
+  1.0.16 (17) Halbmonat ohne Akzentleiste vor den Wochen.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -227,8 +228,10 @@ erkennbar.
 - **Darstellung:** `RenderContext.focus` = Tage der Hälfte. Alles außerhalb
   tritt zurück (`RenderContext.dimmed` 0,42, keine Wochenendtönung) — **mit
   ALLEN Einträgen** (seit 1.0.13, Ansage des Nutzers: „auch in der nicht
-  aktiven Monatshälfte alle Einträge sehen“; 1.0.12 zeigte dort nur Punkte); im Raster eine Akzentleiste vor den aktiven Wochen; in
-  der Kopfzeile „1.–16.“ und ●○ (`halfBadge`). Gilt in allen Kalendarien
+  aktiven Monatshälfte alle Einträge sehen“; 1.0.12 zeigte dort nur Punkte); in
+  der Kopfzeile „1.–16.“ und ●○ (`halfBadge`). Die Akzentleiste vor den
+  aktiven Wochen (1.0.12–1.0.15) ist entfernt — Ansage des Nutzers: „nicht
+  nötig, der Rest spricht für sich“. Gilt in allen Kalendarien
   (Raster, Große Ziffern, Zeitleiste, Kreis, Liste, Terminliste).
 - **Fotos:** 1. Hälfte Schlüssel `m<i>`, 2. Hälfte `m<i>b`.
 - **Rückseiten NICHT gedreht** (Datenblatt: chronologisch, aufrecht). Für

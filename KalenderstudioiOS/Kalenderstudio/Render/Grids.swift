@@ -128,17 +128,14 @@ struct MonthGridView: View {
         let weeks = CalendarMath.weeks(y, m)
         let showWK = rc.marks.settings.showWeekNumbers
         let wkW: CGFloat = showWK ? max(s.width * 0.04, rc.unit * 2.2) : 0
-        // Halbmonat: schmale Akzentleiste vor den Wochen der aktiven Hälfte.
-        let markW: CGFloat = rc.focus == nil ? 0 : rc.unit * 1.1
         let headerH = max(min(s.height * 0.075, rc.unit * 4.5), rc.unit * 2.2)
-        let cellW = (s.width - wkW - markW) / 7
+        let cellW = (s.width - wkW) / 7
         let cellH = (s.height - headerH) / CGFloat(max(weeks.count, 1))
         let headSize = min(headerH * 0.5, cellW * 0.16)
         let longNames = cellW > headSize * 6.5
         let d = rc.design
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                if markW > 0 { Color.clear.frame(width: markW, height: headerH) }
                 if showWK {
                     Text("KW")
                         .font(d.fontBody(headSize * 0.75, weight: .semibold))
@@ -157,13 +154,6 @@ struct MonthGridView: View {
             }
             ForEach(weeks.indices, id: \.self) { r in
                 HStack(spacing: 0) {
-                    if markW > 0 {
-                        let active = weeks[r].contains { $0 != nil && !rc.outside($0) }
-                        Capsule()
-                            .fill(active ? d.accent.color : Color.clear)
-                            .frame(width: markW * 0.35, height: cellH * 0.82)
-                            .frame(width: markW, height: cellH, alignment: .leading)
-                    }
                     if showWK {
                         Text(weekNumber(weeks[r]))
                             .font(d.fontNumber(min(cellH * 0.16, wkW * 0.45), weight: .regular))
