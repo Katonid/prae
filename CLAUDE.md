@@ -124,6 +124,7 @@ gilt.
 | Wörterwerkstatt (Web) | `woerterwerkstatt/` | `js/version.js` + `FASSUNG` in `sw.js` |
 | Terminkonverter (Web) | `terminkonverter/` | `FASSUNG` in `sw.js`, `einzeldatei.html` neu bauen |
 | Textauszug (Web) | `textauszug/` | `FASSUNG` in `sw.js`, `einzeldatei.html` neu bauen |
+| Kontaktwandler (Web) | `kontaktwandler/` | `FASSUNG` in `sw.js`, `einzeldatei.html` neu bauen |
 | Klassenraum (Web) | `klassenraum/` | — |
 | Container-Finder (Web) | `container-finder/` | `FASSUNG` in `sw.js` + `js/app.js` |
 | Rufnummer-Detektiv (Web) | `rufnummer/` | `FASSUNG` in `sw.js` + `js/app.js` |

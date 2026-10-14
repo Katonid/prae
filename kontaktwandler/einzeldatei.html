@@ -1,0 +1,1505 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Kontaktwandler — Excel zu LDIF</title>
+    <meta name="description" content="Wandelt eine Excel-Tabelle mit Namen und E-Mail-Adressen in eine LDIF-Datei für Thunderbird und andere Adressbücher um. Läuft ganz im Browser." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#6d3fd1" />
+    <!-- iOS liest das Manifest für den Homescreen nicht zuverlässig; es nimmt
+         apple-touch-icon. Fehlt eines, zeigt es einen Schnappschuss der Seite. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Kontaktwandler" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='rgb(88, 46, 186)'/><stop offset='1' stop-color='rgb(139, 92, 246)'/></linearGradient><clipPath id='s'><rect x='0' y='0' width='512' height='336'/></clipPath></defs><rect width='512' height='512' rx='112' fill='url(%23g)'/><rect x='64' y='120' width='384' height='272' rx='36' fill='rgb(255, 255, 255)'/><circle cx='172' cy='214' r='44' fill='rgb(109, 63, 209)'/><circle cx='172' cy='352' r='78' fill='rgb(109, 63, 209)' clip-path='url(%23s)'/><rect x='266' y='190' width='138' height='32' rx='16' fill='rgb(245, 158, 11)'/><rect x='266' y='252' width='138' height='22' rx='11' fill='rgb(148, 140, 170)'/><rect x='266' y='300' width='94' height='22' rx='11' fill='rgb(148, 140, 170)'/></svg>" />
+    <style>
+:root {
+  color-scheme: light dark;
+  --grund: #f6f4fb;
+  --karte: #ffffff;
+  --schrift: #15243a;
+  --leise: #5a6b85;
+  --rand: #d9e0ee;
+  --blau: #6d3fd1;
+  --blau-hell: #f1ecff;
+  --warn: #8a5a00;
+  --warn-grund: #fff5e0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #10141d;
+    --karte: #171d29;
+    --schrift: #e8edf7;
+    --leise: #a2aec4;
+    --rand: #2a3346;
+    --blau: #b69cff;
+    --blau-hell: #251c40;
+    --warn: #ffcf7a;
+    --warn-grund: #2c2415;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1rem 3rem;
+  background: var(--grund);
+  color: var(--schrift);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+main, .kopf, .fusszeile { max-width: 52rem; margin: 0 auto; }
+
+.kopf { padding: 2.5rem 0 1.5rem; }
+.kopf h1 { margin: 0 0 .4rem; font-size: 1.9rem; letter-spacing: -.01em; }
+.kopf p { margin: 0; color: var(--leise); }
+
+h2 { margin: 0 0 .8rem; font-size: 1.1rem; }
+
+.karte, .feld {
+  background: var(--karte);
+  border: 1px solid var(--rand);
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.feld {
+  border-style: dashed;
+  border-width: 2px;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  transition: background .15s, border-color .15s;
+}
+.feld.bereit { border-color: var(--blau); background: var(--blau-hell); }
+.feld__zeichen { font-size: 2.2rem; margin: 0 0 .4rem; }
+.feld__text { margin: 0 0 .9rem; font-weight: 600; }
+.feld__klein { margin: .8rem 0 0; color: var(--leise); font-size: .85rem; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--rand);
+  background: var(--karte);
+  color: var(--schrift);
+  border-radius: 10px;
+  padding: .55rem 1.1rem;
+  cursor: pointer;
+}
+button:hover { border-color: var(--blau); }
+button.haupt {
+  background: var(--blau);
+  border-color: var(--blau);
+  color: #fff;
+  font-weight: 600;
+  padding: .7rem 1.4rem;
+}
+@media (prefers-color-scheme: dark) { button.haupt { color: #0f1626; } }
+button.still { padding: .35rem .8rem; font-size: .85rem; }
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid var(--blau); outline-offset: 2px;
+}
+
+.raster { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+label { display: flex; flex-direction: column; gap: .3rem; font-size: .9rem; color: var(--leise); }
+input[type="text"], input[type="number"], select {
+  font: inherit;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 9px;
+  padding: .5rem .6rem;
+}
+
+.karte__kopf { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.knopfreihe { display: flex; gap: .4rem; }
+.zaehler { color: var(--leise); font-weight: 400; }
+
+.tabelle-huelle { overflow-x: auto; border: 1px solid var(--rand); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rand); vertical-align: top; }
+th { background: var(--grund); font-size: .82rem; color: var(--leise); text-transform: uppercase; letter-spacing: .04em; }
+tbody tr:last-child td { border-bottom: 0; }
+td.wann { white-space: nowrap; }
+.schmal { width: 1%; white-space: nowrap; }
+tr.aus td { opacity: .45; text-decoration: line-through; }
+tr.aus td:first-child { text-decoration: none; opacity: 1; }
+
+.fuss { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+.fuss__text { color: var(--leise); font-size: .9rem; }
+
+.meldung { margin: 0 0 1rem; min-height: 1.2em; font-size: .95rem; }
+.meldung.fehler { color: #b3261e; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .meldung.fehler { color: #ffb4ab; } }
+
+.hinweise { background: var(--warn-grund); border-color: var(--warn); }
+.hinweise h2 { color: var(--warn); }
+.hinweise ul { margin: .6rem 0 0; padding-left: 1.2rem; font-size: .9rem; }
+.hinweise li { margin-bottom: .25rem; }
+
+.hilfe .beispiel { margin-bottom: 1rem; }
+.liste { padding-left: 1.2rem; margin: 0 0 .4rem; color: var(--leise); font-size: .92rem; }
+.liste li { margin-bottom: .3rem; }
+.liste em { color: var(--schrift); font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+
+.fusszeile { padding-top: 1rem; font-size: .85rem; }
+.fusszeile a { color: var(--leise); }
+
+textarea {
+  width: 100%;
+  font: .82rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  padding: .6rem;
+  resize: vertical;
+}
+
+.hinweise li button {
+  margin-left: .4rem;
+  padding: .15rem .5rem;
+  font-size: .8rem;
+  background: var(--karte);
+}
+
+.haken { flex-direction: row; align-items: center; gap: .5rem; margin: 0 0 1rem; color: var(--schrift); }
+.haken input { width: 1.1rem; height: 1.1rem; }
+.abstand { margin-top: 1.4rem; }
+#blattwahl-huelle { margin-bottom: 1rem; }
+td.mail { word-break: break-all; }
+td .zweit { display: block; color: var(--leise); font-size: .85em; }
+
+.einfuegen { margin-top: 1.2rem; text-align: left; }
+.einfuegen summary { cursor: pointer; color: var(--blau); font-size: .92rem; text-align: center; }
+.einfuegen textarea { margin: .8rem 0 .6rem; }
+
+    </style>
+  </head>
+  <body>
+    <header class="kopf">
+      <h1>Kontaktwandler</h1>
+      <p>Excel-Tabelle mit <strong>Namen</strong> und <strong>E-Mail-Adressen</strong> rein, LDIF-Datei fürs Adressbuch raus — etwa für Thunderbird.</p>
+    </header>
+
+    <main>
+      <section class="feld" id="ablage" aria-label="Datei auswählen">
+        <p class="feld__zeichen" aria-hidden="true">📇</p>
+        <p class="feld__text">Datei hierher ziehen — oder auswählen.</p>
+        <button type="button" id="waehlen">Datei auswählen</button>
+        <input type="file" id="datei" accept=".xlsx,.xlsm,.csv,.txt,.tsv" hidden />
+        <p class="feld__klein">.xlsx oder .csv · Die Datei bleibt auf diesem Gerät.</p>
+        <details class="einfuegen">
+          <summary>Oder Zellen aus Excel kopieren und hier einfügen</summary>
+          <textarea id="eingefuegt" rows="6" spellcheck="false" placeholder="Vorname&#9;Nachname&#9;E-Mail&#10;Anna&#9;Müller&#9;anna.mueller@example.org"></textarea>
+          <button type="button" id="uebernehmen">Eingefügte Zeilen übernehmen</button>
+        </details>
+      </section>
+
+      <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
+
+      <section class="karte" id="einstellungen" hidden>
+        <h2>Welche Spalte ist was?</h2>
+        <div class="raster" id="blattwahl-huelle" hidden>
+          <label>
+            <span>Tabellenblatt</span>
+            <select id="blatt"></select>
+          </label>
+        </div>
+        <label class="haken">
+          <input type="checkbox" id="kopf" />
+          <span>Die erste Zeile ist eine Überschrift</span>
+        </label>
+        <div class="raster" id="zuordnung"></div>
+        <h2 class="abstand">Ausgabe</h2>
+        <div class="raster">
+          <label>
+            <span>Anzeigename aus Vor- und Nachname</span>
+            <select id="reihenfolge">
+              <option value="vn" selected>Anna Müller</option>
+              <option value="nv">Müller, Anna</option>
+            </select>
+          </label>
+          <label>
+            <span>Zusätzlich als Verteilerliste (optional)</span>
+            <input type="text" id="liste" maxlength="80" placeholder="z. B. Eltern 7b" />
+          </label>
+        </div>
+      </section>
+
+      <section class="karte" id="vorschau" hidden>
+        <div class="karte__kopf">
+          <h2>Kontakte <span class="zaehler" id="zaehler"></span></h2>
+          <div class="knopfreihe">
+            <button type="button" id="alle" class="still">Alle</button>
+            <button type="button" id="keine" class="still">Keinen</button>
+          </div>
+        </div>
+        <div class="tabelle-huelle">
+          <table>
+            <thead>
+              <tr><th class="schmal">Mit</th><th>Name</th><th>E-Mail</th><th class="schmal">Zeile</th></tr>
+            </thead>
+            <tbody id="zeilen"></tbody>
+          </table>
+        </div>
+        <div class="fuss">
+          <button type="button" id="laden" class="haupt">LDIF-Datei sichern</button>
+          <button type="button" id="teilen" hidden>Teilen / In Dateien sichern</button>
+          <button type="button" id="zeigen" class="still">Text anzeigen</button>
+        </div>
+        <p id="ergebnis" class="fuss__text"></p>
+      </section>
+
+      <section class="karte" id="textkarte" hidden>
+        <div class="karte__kopf">
+          <h2>Der Inhalt der LDIF-Datei</h2>
+          <div class="knopfreihe">
+            <button type="button" id="kopieren" class="still">Text kopieren</button>
+          </div>
+        </div>
+        <p class="feld__klein">Namen mit Umlauten stehen hier verschlüsselt („cn:: …") — so verlangt es das LDIF-Format, und jedes Adressbuch liest sie richtig zurück.</p>
+        <textarea id="ldiftext" readonly rows="12" spellcheck="false"></textarea>
+        <p id="kopierstand" class="fuss__text"></p>
+      </section>
+
+      <section class="karte hinweise" id="hinweiskarte" hidden>
+        <h2>Nicht übernommen</h2>
+        <p class="feld__klein">Diese Zeilen ergeben keinen Kontakt — oder nicht ganz. Meist fehlt die Adresse, oder sie hat einen Tippfehler.</p>
+        <ul id="hinweisliste"></ul>
+      </section>
+
+      <section class="karte hilfe">
+        <h2>So sieht die Tabelle aus</h2>
+        <table class="beispiel">
+          <thead><tr><th>Vorname</th><th>Nachname</th><th>E-Mail</th></tr></thead>
+          <tbody>
+            <tr><td>Anna</td><td>Müller</td><td>anna.mueller@example.org</td></tr>
+            <tr><td>Jörg</td><td>Weiß</td><td>j.weiss@example.org</td></tr>
+          </tbody>
+        </table>
+        <ul class="liste">
+          <li>Die Spalten werden an der Überschrift erkannt — <em>Vorname</em>, <em>Nachname</em>, <em>Name</em>, <em>E-Mail</em>, <em>Telefon</em>, <em>Handy</em>, <em>Bemerkung</em> und Ähnliches. Was falsch zugeordnet ist, lässt sich oben umstellen.</li>
+          <li>Eine einzige Spalte <em>Name</em> mit <em>Müller, Anna</em> genügt auch — daraus werden Vor- und Nachname.</li>
+          <li>Zwei Adressen in einer Zelle (<em>a@x.de; b@y.de</em>) oder zwei E-Mail-Spalten ergeben einen Kontakt mit zweiter Adresse.</li>
+          <li>Zeilen ohne gültige Adresse und doppelte Adressen werden nicht übernommen und unten aufgelistet.</li>
+          <li>Hat die Datei mehrere Blätter, lässt sich das Blatt wählen. Die alten Formate <em>.xls</em>, <em>.ods</em> und <em>.numbers</em> bitte einmal als <em>.xlsx</em> oder <em>.csv</em> speichern.</li>
+        </ul>
+        <h2>Und dann ins Adressbuch</h2>
+        <ul class="liste">
+          <li><strong>Thunderbird:</strong> Adressbuch öffnen → Menü <em>Extras</em> → <em>Importieren</em> → <em>Adressbücher</em> → <em>Datei</em> → <em>LDIF</em> → die gesicherte Datei wählen. Die Kontakte landen in einem neuen Adressbuch mit dem Namen der Datei; eine Verteilerliste steht darin gleich mit.</li>
+          <li><strong>Mac (Kontakte):</strong> <em>Ablage</em> → <em>Importieren</em> → die LDIF-Datei wählen.</li>
+          <li><strong>Andere Programme</strong> (Univention, OpenLDAP, Zimbra und viele Schulserver) lesen LDIF ebenfalls; die Einträge haben die üblichen Klassen <em>inetOrgPerson</em> und <em>mozillaAbPersonAlpha</em>.</li>
+        </ul>
+        <h2>Auf dem Rechner — Windows und Mac</h2>
+        <ul class="liste">
+          <li><strong>Als Programm installieren:</strong> In <strong>Edge</strong> diese Seite öffnen → Menü „…" → <em>Apps</em> → <em>Diese Website als App installieren</em>. In Chrome heißt es Menü → <em>Streamen, speichern und teilen</em> → <em>Seite als App installieren</em>.</li>
+          <li><strong>Diese Datei ist die Einzeldatei</strong> — sie enthält die ganze App und braucht weder Netz noch Webserver. Kopieren, mitnehmen, per Doppelklick öffnen.</li>
+        </ul>
+        <p class="feld__klein">Die Umwandlung läuft vollständig im Browser: Es wird nichts hochgeladen, nichts gespeichert, nichts mitgezählt. Gerade bei Adresslisten von Eltern und Kollegen ist das kein Detail.</p>
+      </section>
+    </main>
+
+    <footer class="fusszeile">
+      Kontaktwandler · ohne Anmeldung, ohne Server, ohne fremde Bibliothek.
+    </footer>
+
+    <script>
+const TEILE = {};
+
+/* ---- xml.js ---- */
+(function () {
+// Kleinkram, den der xlsx- und der docx-Leser teilen.
+
+// Wandelt XML-Entitäten zurück in Zeichen.
+function entziffere(text) {
+  return text.replace(/&(#x?[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g, (ganz, kern) => {
+    if (kern === 'amp') return '&';
+    if (kern === 'lt') return '<';
+    if (kern === 'gt') return '>';
+    if (kern === 'quot') return '"';
+    if (kern === 'apos') return "'";
+    const nummer = kern[1] === 'x' || kern[1] === 'X'
+      ? parseInt(kern.slice(2), 16)
+      : parseInt(kern.slice(1), 10);
+    return Number.isFinite(nummer) ? String.fromCodePoint(nummer) : ganz;
+  });
+}
+
+function alsText(dateien, pfad) {
+  const daten = dateien.get(pfad);
+  return daten ? new TextDecoder('utf-8').decode(daten) : null;
+}
+
+  TEILE.entziffere = entziffere;
+  TEILE.alsText = alsText;
+})();
+
+/* ---- zip.js ---- */
+(function () {
+// Lesen von ZIP-Dateien (und damit von .xlsx) ohne fremde Bibliothek.
+//
+// Entpackt wird mit DecompressionStream('deflate-raw'), wo der Browser es
+// mitbringt; sonst mit dem eigenen Inflate weiter unten. Der Rückfall ist
+// kein Luxus: Ohne ihn bliebe die App auf älteren Geräten stumm, und ein
+// Tabellenblatt ist klein genug, dass die eigene Rechnung nicht auffällt.
+
+const LAENGE_BASIS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
+  35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+const LAENGE_EXTRA = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3,
+  3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+const ABSTAND_BASIS = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129,
+  193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289,
+  16385, 24577];
+const ABSTAND_EXTRA = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,
+  8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+const CODE_ORDNUNG = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+
+function huffman(laengen) {
+  const anzahl = new Array(16).fill(0);
+  for (const l of laengen) anzahl[l]++;
+  anzahl[0] = 0;
+  const versatz = new Array(16).fill(0);
+  for (let i = 1; i < 15; i++) versatz[i + 1] = versatz[i] + anzahl[i];
+  const symbole = new Array(laengen.length).fill(0);
+  for (let s = 0; s < laengen.length; s++) {
+    if (laengen[s]) symbole[versatz[laengen[s]]++] = s;
+  }
+  return { anzahl, symbole };
+}
+
+// Roher DEFLATE-Strom (ohne zlib-Kopf), wie er im ZIP steht.
+function inflateRoh(daten) {
+  let bitPos = 0;
+  let aus = new Uint8Array(Math.max(1024, daten.length * 4));
+  let ende = 0;
+
+  const platz = (n) => {
+    if (ende + n <= aus.length) return;
+    let groesse = aus.length * 2;
+    while (groesse < ende + n) groesse *= 2;
+    const neu = new Uint8Array(groesse);
+    neu.set(aus.subarray(0, ende));
+    aus = neu;
+  };
+  const bits = (n) => {
+    let wert = 0;
+    for (let i = 0; i < n; i++) {
+      const byte = daten[bitPos >> 3];
+      if (byte === undefined) throw new Error('Die Datei bricht mitten im Datenstrom ab.');
+      wert |= ((byte >> (bitPos & 7)) & 1) << i;
+      bitPos++;
+    }
+    return wert;
+  };
+  const symbol = (baum) => {
+    let code = 0, erster = 0, index = 0;
+    for (let laenge = 1; laenge <= 15; laenge++) {
+      code |= bits(1);
+      const anzahl = baum.anzahl[laenge];
+      if (code - erster < anzahl) return baum.symbole[index + (code - erster)];
+      index += anzahl;
+      erster = (erster + anzahl) << 1;
+      code <<= 1;
+    }
+    throw new Error('Der gepackte Datenstrom ist beschädigt.');
+  };
+
+  let festLiteral = null, festAbstand = null;
+  let letzter = 0;
+  do {
+    letzter = bits(1);
+    const art = bits(2);
+    if (art === 0) {
+      bitPos = (bitPos + 7) & ~7;
+      const p = bitPos >> 3;
+      const laenge = daten[p] | (daten[p + 1] << 8);
+      bitPos = (p + 4) << 3;
+      platz(laenge);
+      aus.set(daten.subarray(p + 4, p + 4 + laenge), ende);
+      ende += laenge;
+      bitPos += laenge << 3;
+      continue;
+    }
+    let literal, abstand;
+    if (art === 1) {
+      if (!festLiteral) {
+        const l = new Array(288);
+        for (let i = 0; i < 288; i++) l[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
+        festLiteral = huffman(l);
+        festAbstand = huffman(new Array(30).fill(5));
+      }
+      literal = festLiteral;
+      abstand = festAbstand;
+    } else if (art === 2) {
+      const anzLiteral = bits(5) + 257;
+      const anzAbstand = bits(5) + 1;
+      const anzCode = bits(4) + 4;
+      const codeLaengen = new Array(19).fill(0);
+      for (let i = 0; i < anzCode; i++) codeLaengen[CODE_ORDNUNG[i]] = bits(3);
+      const codeBaum = huffman(codeLaengen);
+      const laengen = new Array(anzLiteral + anzAbstand).fill(0);
+      let i = 0;
+      while (i < laengen.length) {
+        const s = symbol(codeBaum);
+        if (s < 16) laengen[i++] = s;
+        else if (s === 16) {
+          const vorher = laengen[i - 1];
+          let n = 3 + bits(2);
+          while (n--) laengen[i++] = vorher;
+        } else if (s === 17) {
+          let n = 3 + bits(3);
+          while (n--) laengen[i++] = 0;
+        } else {
+          let n = 11 + bits(7);
+          while (n--) laengen[i++] = 0;
+        }
+      }
+      literal = huffman(laengen.slice(0, anzLiteral));
+      abstand = huffman(laengen.slice(anzLiteral));
+    } else {
+      throw new Error('Unbekannte Blockart im gepackten Datenstrom.');
+    }
+
+    for (;;) {
+      const s = symbol(literal);
+      if (s < 256) {
+        platz(1);
+        aus[ende++] = s;
+      } else if (s === 256) {
+        break;
+      } else {
+        const li = s - 257;
+        const laenge = LAENGE_BASIS[li] + bits(LAENGE_EXTRA[li]);
+        const ai = symbol(abstand);
+        const weite = ABSTAND_BASIS[ai] + bits(ABSTAND_EXTRA[ai]);
+        platz(laenge);
+        let von = ende - weite;
+        for (let n = 0; n < laenge; n++) aus[ende++] = aus[von++];
+      }
+    }
+  } while (!letzter);
+
+  return aus.subarray(0, ende);
+}
+
+async function entpacke(daten) {
+  if (typeof DecompressionStream === 'function') {
+    try {
+      const strom = new Blob([daten]).stream()
+        .pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(strom).arrayBuffer());
+    } catch (fehler) {
+      // Weiter mit dem eigenen Inflate — lieber langsam als gar nicht.
+    }
+  }
+  return inflateRoh(daten);
+}
+
+// Liest ein ZIP-Archiv und gibt eine Map „Pfad → Uint8Array" zurück.
+async function zipLesen(puffer) {
+  const daten = new Uint8Array(puffer);
+  const sicht = new DataView(daten.buffer, daten.byteOffset, daten.byteLength);
+
+  let eocd = -1;
+  for (let i = daten.length - 22; i >= 0 && i > daten.length - 65558; i--) {
+    if (sicht.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('Das ist keine .xlsx-Datei (kein ZIP-Verzeichnis gefunden). Eine .xls, .ods oder .numbers bitte einmal als .xlsx oder .csv speichern.');
+
+  const anzahl = sicht.getUint16(eocd + 10, true);
+  let zeiger = sicht.getUint32(eocd + 16, true);
+  if (zeiger === 0xffffffff) throw new Error('Die Datei nutzt ZIP64 — bitte in Excel neu speichern.');
+
+  const dateien = new Map();
+  const text = new TextDecoder('utf-8');
+  for (let n = 0; n < anzahl; n++) {
+    if (sicht.getUint32(zeiger, true) !== 0x02014b50) break;
+    const methode = sicht.getUint16(zeiger + 10, true);
+    const gepackt = sicht.getUint32(zeiger + 20, true);
+    const nameLaenge = sicht.getUint16(zeiger + 28, true);
+    const extraLaenge = sicht.getUint16(zeiger + 30, true);
+    const kommentarLaenge = sicht.getUint16(zeiger + 32, true);
+    const versatz = sicht.getUint32(zeiger + 42, true);
+    const name = text.decode(daten.subarray(zeiger + 46, zeiger + 46 + nameLaenge));
+    zeiger += 46 + nameLaenge + extraLaenge + kommentarLaenge;
+
+    if (name.endsWith('/')) continue;
+    const lokalName = sicht.getUint16(versatz + 26, true);
+    const lokalExtra = sicht.getUint16(versatz + 28, true);
+    const start = versatz + 30 + lokalName + lokalExtra;
+    const roh = daten.subarray(start, start + gepackt);
+    if (methode === 0) dateien.set(name, roh.slice());
+    else if (methode === 8) dateien.set(name, await entpacke(roh));
+    else throw new Error(`Unbekanntes Packverfahren in „${name}".`);
+  }
+  return dateien;
+}
+
+  TEILE.inflateRoh = inflateRoh;
+  TEILE.zipLesen = zipLesen;
+})();
+
+/* ---- xlsx.js ---- */
+(function () {
+// Liest ein Excel-Blatt (.xlsx) zu Zeilen aus Zellen.
+//
+// Übernommen aus dem Terminkonverter (dort auch die Begründungen). Neu hier:
+// Es lassen sich ALLE Blätter wählen, nicht nur das erste — eine Klassenliste
+// je Blatt ist der Regelfall —, und lange Zahlen kommen ohne Exponent heraus:
+// Eine Telefonnummer, die Excel als Zahl führt, steht im XML gern als
+// „4.917612345678E+12".
+//
+// Eine Zelle kommt als { art, text, zahl } heraus. Ob eine Zahl ein Datum
+// meint, steht in .xlsx nicht am Wert, sondern am ZAHLENFORMAT — deshalb
+// wird styles.xml mitgelesen. Ohne das wäre der 31.08.2026 einfach 46265.
+
+const { zipLesen } = TEILE;
+const { entziffere, alsText } = TEILE;
+const DATUM_FORMATE = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29,
+  30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
+
+// Ein eigenes Zahlenformat gilt als Datum, wenn darin Tag, Monat oder Jahr
+// vorkommt — außerhalb von Anführungszeichen und eckigen Klammern ([rot],
+// [h]:mm) und ohne die Farb- und Bedingungsteile.
+function formatIstDatum(format) {
+  let inText = false, inKlammer = false;
+  for (let i = 0; i < format.length; i++) {
+    const z = format[i];
+    if (inText) { if (z === '"') inText = false; continue; }
+    if (inKlammer) { if (z === ']') inKlammer = false; continue; }
+    if (z === '"') { inText = true; continue; }
+    if (z === '[') { inKlammer = true; continue; }
+    if (z === '\\') { i++; continue; }
+    if ('dmyhsDMYHS'.includes(z)) return true;
+  }
+  return false;
+}
+
+function spalteZuIndex(bezug) {
+  let index = 0;
+  for (const z of bezug) {
+    const code = z.charCodeAt(0);
+    if (code >= 65 && code <= 90) index = index * 26 + (code - 64);
+    else if (code >= 97 && code <= 122) index = index * 26 + (code - 96);
+    else break;
+  }
+  return index - 1;
+}
+
+function sharedStrings(xml) {
+  if (!xml) return [];
+  const liste = [];
+  for (const treffer of xml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
+    let stueck = '';
+    for (const t of treffer[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) stueck += entziffere(t[1]);
+    liste.push(stueck);
+  }
+  return liste;
+}
+
+function stilFormate(xml) {
+  const formate = new Map();
+  if (!xml) return { stile: [], eigene: formate };
+  for (const t of xml.matchAll(/<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g)) {
+    formate.set(Number(t[1]), entziffere(t[2]));
+  }
+  const block = xml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/);
+  const stile = [];
+  if (block) {
+    for (const xf of block[1].matchAll(/<xf\b[^>]*>/g)) {
+      const id = xf[0].match(/numFmtId="(\d+)"/);
+      stile.push(id ? Number(id[1]) : 0);
+    }
+  }
+  return { stile, eigene: formate };
+}
+
+// Alle Blätter in der Reihenfolge der Reiter, je mit Namen und Pfad.
+function blaetterLesen(dateien) {
+  const workbook = alsText(dateien, 'xl/workbook.xml');
+  const rels = alsText(dateien, 'xl/_rels/workbook.xml.rels');
+  const liste = [];
+  if (workbook && rels) {
+    for (const blatt of workbook.matchAll(/<sheet\b[^>]*>/g)) {
+      const id = blatt[0].match(/r:id="([^"]+)"/);
+      const name = blatt[0].match(/\bname="([^"]*)"/);
+      if (!id) continue;
+      const bezug = rels.match(new RegExp(`<Relationship\\b[^>]*Id="${id[1]}"[^>]*>`));
+      const ziel = bezug && bezug[0].match(/Target="([^"]+)"/);
+      if (!ziel) continue;
+      const pfad = ziel[1].replace(/^\/xl\//, '').replace(/^\.\//, '');
+      const gefunden = dateien.has('xl/' + pfad) ? 'xl/' + pfad : dateien.has(pfad) ? pfad : null;
+      if (gefunden) liste.push({ name: name ? entziffere(name[1]) : `Blatt ${liste.length + 1}`, pfad: gefunden });
+    }
+  }
+  if (!liste.length) {
+    for (const name of dateien.keys()) {
+      if (/^xl\/worksheets\/[^/]+\.xml$/.test(name)) liste.push({ name: `Blatt ${liste.length + 1}`, pfad: name });
+    }
+  }
+  return liste;
+}
+
+// „4.917612345678E+12" → „4917612345678". Kleine Zahlen bleiben, wie sie sind.
+function zahlAlsText(roh) {
+  if (!/e/i.test(roh)) return roh;
+  const zahl = Number(roh);
+  if (!Number.isFinite(zahl)) return roh;
+  return zahl.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 20 });
+}
+
+// Excel zählt Tage ab dem 30.12.1899 (bzw. ab 1904 auf altem Mac-Excel).
+function serieZuDatum(serie, ab1904 = false) {
+  const tage = serie + (ab1904 ? 1462 : 0);
+  // Auf die Minute gerundet: 10:30 kommt in .xlsx gern als 10:29:59,9 an,
+  // und in einem Kalendereintrag zählen ohnehin nur Stunde und Minute.
+  const ms = Math.round((tage - 25569) * 1440) * 60000;
+  const d = new Date(ms);
+  return {
+    jahr: d.getUTCFullYear(),
+    monat: d.getUTCMonth() + 1,
+    tag: d.getUTCDate(),
+    stunde: d.getUTCHours(),
+    minute: d.getUTCMinutes(),
+    hatZeit: Math.abs(tage - Math.floor(tage)) > 1e-9,
+  };
+}
+
+// Gibt { zeilen, blaetter } zurück; `blaetter` sind die Namen aller Reiter,
+// `nummer` wählt, welcher gelesen wird.
+async function xlsxLesen(puffer, nummer = 0) {
+  const dateien = await zipLesen(puffer);
+  const blaetter = blaetterLesen(dateien);
+  if (!blaetter.length) throw new Error('In der Datei ist kein Tabellenblatt zu finden.');
+  const pfad = blaetter[Math.min(Math.max(nummer, 0), blaetter.length - 1)].pfad;
+
+  const workbook = alsText(dateien, 'xl/workbook.xml') || '';
+  const ab1904 = /date1904="(1|true)"/.test(workbook);
+  const texte = sharedStrings(alsText(dateien, 'xl/sharedStrings.xml'));
+  const { stile, eigene } = stilFormate(alsText(dateien, 'xl/styles.xml'));
+  const blatt = alsText(dateien, pfad);
+
+  const zeilen = [];
+  for (const zeile of blatt.matchAll(/<row\b([^>]*)\/>|<row\b([^>]*)>([\s\S]*?)<\/row>/g)) {
+    const kopf = zeile[1] || zeile[2] || '';
+    const inhalt = zeile[3] || '';
+    const nummer = Number((kopf.match(/\br="(\d+)"/) || [])[1] || zeilen.length + 1);
+    const zellen = [];
+    let spalte = 0;
+    for (const c of inhalt.matchAll(/<c\b([^>]*)\/>|<c\b([^>]*)>([\s\S]*?)<\/c>/g)) {
+      const merkmale = c[1] || c[2] || '';
+      const koerper = c[3] || '';
+      const bezug = (merkmale.match(/\br="([A-Za-z]+)\d+"/) || [])[1];
+      const index = bezug ? spalteZuIndex(bezug) : spalte;
+      spalte = index + 1;
+      const typ = (merkmale.match(/\bt="([^"]+)"/) || [])[1] || 'n';
+      const stil = Number((merkmale.match(/\bs="(\d+)"/) || [])[1] || -1);
+
+      let zelle = null;
+      if (typ === 'inlineStr') {
+        let stueck = '';
+        for (const t of koerper.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) stueck += entziffere(t[1]);
+        if (stueck.trim()) zelle = { art: 'text', text: stueck.trim() };
+      } else {
+        const wert = koerper.match(/<v\b[^>]*>([\s\S]*?)<\/v>/);
+        const roh = wert ? entziffere(wert[1]) : '';
+        if (roh !== '') {
+          if (typ === 's') {
+            const text = (texte[Number(roh)] || '').trim();
+            if (text) zelle = { art: 'text', text };
+          } else if (typ === 'str' || typ === 'e') {
+            if (roh.trim()) zelle = { art: 'text', text: roh.trim() };
+          } else if (typ === 'b') {
+            zelle = { art: 'text', text: roh === '1' ? 'WAHR' : 'FALSCH' };
+          } else {
+            const zahl = Number(roh);
+            if (Number.isFinite(zahl)) {
+              const formatId = stil >= 0 && stil < stile.length ? stile[stil] : 0;
+              const eigenes = eigene.get(formatId);
+              const istDatum = eigenes ? formatIstDatum(eigenes) : DATUM_FORMATE.has(formatId);
+              zelle = istDatum
+                ? { art: 'datum', zahl, text: roh, datum: serieZuDatum(zahl, ab1904) }
+                : { art: 'zahl', zahl, text: zahlAlsText(roh) };
+            }
+          }
+        }
+      }
+      if (zelle) zellen[index] = zelle;
+    }
+    if (zellen.some(Boolean)) {
+      zeilen.push({ nummer, zellen: Array.from(zellen, (z) => z || null) });
+    }
+  }
+  return { zeilen, blaetter: blaetter.map((b) => b.name) };
+}
+
+// CSV wird gleich mitgenommen — und dasselbe Lesen dient für Zeilen, die aus
+// Excel kopiert und eingefügt wurden: Das sind Tabulator-getrennte Zeilen.
+// Semikolon, Komma und Tabulator werden erkannt.
+function csvLesen(text) {
+  const inhalt = text.replace(/^﻿/, '');
+  const kopfzeile = inhalt.split(/\r?\n/)[0] || '';
+  const trenner = [';', '\t', ','].map((z) => [z, kopfzeile.split(z).length])
+    .sort((a, b) => b[1] - a[1])[0][0];
+
+  const zeilen = [];
+  let feld = '', zellen = [], inText = false;
+  const zeileFertig = () => {
+    zellen.push(feld);
+    const gefuellt = zellen.map((w) => {
+      const wert = w.trim();
+      return wert ? { art: 'text', text: wert } : null;
+    });
+    if (gefuellt.some(Boolean)) zeilen.push({ nummer: zeilen.length + 1, zellen: gefuellt });
+    feld = '';
+    zellen = [];
+  };
+  for (let i = 0; i < inhalt.length; i++) {
+    const z = inhalt[i];
+    if (inText) {
+      if (z === '"') {
+        if (inhalt[i + 1] === '"') { feld += '"'; i++; } else inText = false;
+      } else feld += z;
+    } else if (z === '"') inText = true;
+    else if (z === trenner) { zellen.push(feld); feld = ''; }
+    else if (z === '\n') zeileFertig();
+    else if (z !== '\r') feld += z;
+  }
+  if (feld || zellen.length) zeileFertig();
+  return zeilen;
+}
+
+  TEILE.serieZuDatum = serieZuDatum;
+  TEILE.xlsxLesen = xlsxLesen;
+  TEILE.csvLesen = csvLesen;
+})();
+
+/* ---- kontakte.js ---- */
+(function () {
+// Aus Tabellenzeilen werden Kontakte.
+//
+// Welche Spalte was enthält, wird aus der Überschrift geraten und lässt sich
+// danach in der Oberfläche umstellen. Die E-Mail-Spalte wird notfalls am
+// INHALT erkannt (die Spalte mit den meisten „@"): Eine Liste ohne
+// Überschrift ist häufig, und an der Adresse hängt alles.
+//
+// Nichts wird still verschluckt: Jede Zeile, aus der kein Kontakt wird, steht
+// mit Grund in den Hinweisen — eine fehlende Adresse fällt sonst erst auf,
+// wenn jemand die Rundmail nicht bekommen hat.
+
+const FELDER = [
+  { schluessel: 'vorname', name: 'Vorname' },
+  { schluessel: 'nachname', name: 'Nachname' },
+  { schluessel: 'anzeige', name: 'Anzeigename (ganzer Name)' },
+  { schluessel: 'mail', name: 'E-Mail' },
+  { schluessel: 'mail2', name: 'Zweite E-Mail' },
+  { schluessel: 'telefon', name: 'Telefon' },
+  { schluessel: 'mobil', name: 'Mobil' },
+  { schluessel: 'organisation', name: 'Organisation' },
+  { schluessel: 'notiz', name: 'Notiz' },
+];
+
+const zwei = (n) => String(n).padStart(2, '0');
+
+// Der Text einer Zelle. Ein Excel-Datum (ein Geburtstag in der Liste) kommt
+// als Datum heraus, nicht als Seriennummer.
+function zellText(zelle) {
+  if (!zelle) return '';
+  if (zelle.art === 'datum' && zelle.datum) {
+    const d = zelle.datum;
+    return `${zwei(d.tag)}.${zwei(d.monat)}.${d.jahr}`;
+  }
+  return String(zelle.text || '').trim();
+}
+
+const ADRESSE = /[^\s@<>()[\]{},;:"'´`]+@[^\s@<>()[\]{},;:"'´`]+\.[^\s@<>()[\]{},;:"'´`.]{2,}/gu;
+
+// Alle Adressen in einer Zelle — auch „Anna <anna@example.org>",
+// „mailto:anna@example.org" und zwei Adressen mit ; oder Zeilenumbruch.
+function adressenIn(text) {
+  return Array.from(String(text || '').matchAll(ADRESSE), (t) => t[0]
+    .replace(/^mailto:/i, '')
+    .replace(/[.]+$/, ''));
+}
+
+const einfach = (text) => String(text || '').toLowerCase().replace(/[^a-zäöüß0-9]/g, '');
+
+// Erkennung je Feld an der Überschrift. Die Reihenfolge zählt: „E-Mail 2"
+// muss vor „E-Mail" geprüft werden, „Vorname" vor „Name".
+const MERKMALE = [
+  ['mail2', (t) => /mail/.test(t) && /(2|zweit|weitere|alternativ)/.test(t)],
+  ['mail', (t) => /mail/.test(t)],
+  ['mobil', (t) => /(mobil|handy|cell)/.test(t)],
+  ['telefon', (t) => /^(tel|telefon|phone|festnetz|rufnummer|telefonnummer)/.test(t) || /telefon/.test(t)],
+  ['vorname', (t) => /(vorname|rufname|firstname|givenname)/.test(t)],
+  ['nachname', (t) => /(nachname|familienname|zuname|lastname|surname)/.test(t)],
+  ['anzeige', (t) => /^(anzeigename|displayname|fullname|vollständigername|kontakt|schüler|schülerin|schülername|person|teilnehmer|teilnehmerin|mitglied)$/.test(t)],
+  ['organisation', (t) => /^(firma|organisation|organization|schule|unternehmen|company|institution|verein)$/.test(t)],
+  ['notiz', (t) => /^(notiz|notizen|bemerkung|bemerkungen|anmerkung|kommentar|notes?|hinweis|klasse|gruppe|funktion)$/.test(t)],
+];
+
+function anzahlSpalten(zeilen) {
+  return zeilen.reduce((max, z) => Math.max(max, z.zellen.length), 0);
+}
+
+// Ist die erste Zeile eine Überschrift? Ja, wenn darin keine Adresse steht,
+// darunter aber schon.
+function hatKopfzeile(zeilen) {
+  if (zeilen.length < 2) return false;
+  const oben = zeilen[0].zellen.some((z) => adressenIn(zellText(z)).length);
+  if (oben) return false;
+  return zeilen.slice(1, 6).some((zeile) => zeile.zellen.some((z) => adressenIn(zellText(z)).length));
+}
+
+// Gibt { feld: spaltenIndex } zurück, -1 heißt „keine Spalte".
+function zuordnungRaten(zeilen, kopf) {
+  const zuordnung = Object.fromEntries(FELDER.map((f) => [f.schluessel, -1]));
+  const spalten = anzahlSpalten(zeilen);
+  const vergeben = new Set();
+
+  if (kopf && zeilen.length) {
+    const ueberschriften = Array.from({ length: spalten }, (_, i) => einfach(zellText(zeilen[0].zellen[i])));
+    for (const [feld, passt] of MERKMALE) {
+      const index = ueberschriften.findIndex((t, i) => t && !vergeben.has(i) && passt(t));
+      if (index >= 0) { zuordnung[feld] = index; vergeben.add(index); }
+    }
+    // „E-Mail Mutter" und „E-Mail Vater": die zweite Mailspalte ist die
+    // zweite Adresse.
+    if (zuordnung.mail2 < 0) {
+      const noch = ueberschriften.findIndex((t, i) => !vergeben.has(i) && /mail/.test(t));
+      if (noch >= 0) { zuordnung.mail2 = noch; vergeben.add(noch); }
+    }
+    // „Name" allein: neben einer Vornamen-Spalte ist es der Nachname, sonst
+    // der ganze Name.
+    const name = ueberschriften.findIndex((t, i) => !vergeben.has(i) && /^(name|namen)$/.test(t));
+    if (name >= 0) {
+      const feld = zuordnung.vorname >= 0 && zuordnung.nachname < 0 ? 'nachname'
+        : zuordnung.anzeige < 0 ? 'anzeige' : null;
+      if (feld) { zuordnung[feld] = name; vergeben.add(name); }
+    }
+  }
+
+  // Die Adresse notfalls am Inhalt erkennen.
+  const daten = kopf ? zeilen.slice(1) : zeilen;
+  if (zuordnung.mail < 0) {
+    let beste = -1, meiste = 0;
+    for (let i = 0; i < spalten; i++) {
+      if (vergeben.has(i)) continue;
+      const treffer = daten.filter((z) => adressenIn(zellText(z.zellen[i])).length).length;
+      if (treffer > meiste) { beste = i; meiste = treffer; }
+    }
+    if (beste >= 0) { zuordnung.mail = beste; vergeben.add(beste); }
+  }
+
+  // Ohne Überschrift: Die erste Textspalte, in der keine Adresse steht, wird
+  // der Name — besser als gar keiner, und die Auswahl darüber zeigt es an.
+  if (!kopf && zuordnung.anzeige < 0 && zuordnung.vorname < 0 && zuordnung.nachname < 0) {
+    for (let i = 0; i < spalten; i++) {
+      if (vergeben.has(i)) continue;
+      const texte = daten.map((z) => zellText(z.zellen[i])).filter(Boolean);
+      if (texte.length && texte.every((t) => !adressenIn(t).length && !/^[\d\s+/()-]+$/.test(t))) {
+        zuordnung.anzeige = i;
+        break;
+      }
+    }
+  }
+  return zuordnung;
+}
+
+// Beschriftung einer Spalte für die Auswahllisten: Buchstabe und
+// Überschrift — oder, ohne Überschrift, der erste Wert als Beispiel.
+function spaltenNamen(zeilen, kopf) {
+  const spalten = anzahlSpalten(zeilen);
+  return Array.from({ length: spalten }, (_, i) => {
+    let buchstabe = '';
+    for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) {
+      buchstabe = String.fromCharCode(65 + ((n - 1) % 26)) + buchstabe;
+    }
+    const daten = kopf ? zeilen.slice(1) : zeilen;
+    const titel = kopf ? zellText(zeilen[0].zellen[i]) : '';
+    const beispiel = (daten.find((z) => zellText(z.zellen[i])) || { zellen: [] }).zellen[i];
+    const zusatz = titel || (beispiel ? `z. B. „${zellText(beispiel).slice(0, 30)}"` : '(leer)');
+    return `Spalte ${buchstabe} · ${zusatz}`;
+  });
+}
+
+function namensform(vorname, nachname, reihenfolge) {
+  if (vorname && nachname) return reihenfolge === 'nv' ? `${nachname}, ${vorname}` : `${vorname} ${nachname}`;
+  return vorname || nachname || '';
+}
+
+function kontakteBauen(zeilen, { kopf, zuordnung, reihenfolge = 'vn' }) {
+  const kontakte = [];
+  const hinweise = [];
+  const gesehen = new Map();
+  const wert = (zeile, feld) => (zuordnung[feld] >= 0 ? zellText(zeile.zellen[zuordnung[feld]]) : '')
+    .replace(/\s+/g, ' ').trim();
+
+  if (zuordnung.mail < 0) {
+    return { kontakte, hinweise: [{ zeile: 0, text: 'Keine Spalte ist als „E-Mail" gewählt.' }] };
+  }
+
+  for (const zeile of kopf ? zeilen.slice(1) : zeilen) {
+    const rohMail = zellText(zeile.zellen[zuordnung.mail]);
+    const adressen = adressenIn(rohMail);
+    const zweite = zuordnung.mail2 >= 0 ? adressenIn(zellText(zeile.zellen[zuordnung.mail2])) : [];
+
+    let vorname = wert(zeile, 'vorname');
+    let nachname = wert(zeile, 'nachname');
+    let anzeige = wert(zeile, 'anzeige');
+    const wer = anzeige || namensform(vorname, nachname, 'vn') || '';
+
+    if (!adressen.length) {
+      hinweise.push({
+        zeile: zeile.nummer,
+        text: rohMail
+          ? `${wer || 'ohne Namen'}: „${rohMail}" ist keine gültige E-Mail-Adresse.`
+          : `${wer || zeile.zellen.map(zellText).filter(Boolean).join(' · ')}: keine E-Mail-Adresse.`,
+      });
+      continue;
+    }
+
+    const mail = adressen[0];
+    const schluessel = mail.toLowerCase();
+    if (gesehen.has(schluessel)) {
+      hinweise.push({ zeile: zeile.nummer, text: `${mail} steht schon in Zeile ${gesehen.get(schluessel)} — doppelt, nur einmal übernommen.` });
+      continue;
+    }
+    gesehen.set(schluessel, zeile.nummer);
+
+    // Zwei Adressen in einer Zelle (Eltern!) — die zweite wird zur zweiten
+    // Adresse desselben Kontakts. Eine dritte hat in Thunderbird keinen Platz.
+    const weitere = [...adressen.slice(1), ...zweite].filter((a) => a.toLowerCase() !== schluessel);
+    const mail2 = weitere[0] || '';
+    if (weitere.length > 1) {
+      hinweise.push({ zeile: zeile.nummer, text: `${mail}: mehr als zwei Adressen — nicht übernommen: ${weitere.slice(1).join(', ')}.` });
+    }
+
+    // „Müller, Anna" in einer einzigen Namensspalte ist eindeutig genug, um
+    // Vor- und Nachnamen auszufüllen. Ein Name mit Leerzeichen dagegen nicht
+    // („Anna Lena Müller", „Hans von Bergen") — da wird nichts geraten.
+    if (anzeige && !vorname && !nachname) {
+      const teile = anzeige.split(',').map((t) => t.trim());
+      if (teile.length === 2 && teile[0] && teile[1]) {
+        [nachname, vorname] = teile;
+        anzeige = namensform(vorname, nachname, reihenfolge);
+      }
+    }
+    if (!anzeige) anzeige = namensform(vorname, nachname, reihenfolge) || mail;
+
+    kontakte.push({
+      zeile: zeile.nummer,
+      vorname,
+      nachname,
+      anzeige,
+      mail,
+      mail2,
+      telefon: wert(zeile, 'telefon'),
+      mobil: wert(zeile, 'mobil'),
+      organisation: wert(zeile, 'organisation'),
+      notiz: wert(zeile, 'notiz'),
+    });
+  }
+  return { kontakte, hinweise };
+}
+
+  TEILE.FELDER = FELDER;
+  TEILE.zellText = zellText;
+  TEILE.adressenIn = adressenIn;
+  TEILE.hatKopfzeile = hatKopfzeile;
+  TEILE.zuordnungRaten = zuordnungRaten;
+  TEILE.spaltenNamen = spaltenNamen;
+  TEILE.kontakteBauen = kontakteBauen;
+})();
+
+/* ---- ldif.js ---- */
+(function () {
+// Schreibt Kontakte als LDIF (RFC 2849), so wie Thunderbird es selbst
+// ausgibt und wieder einliest.
+//
+// Drei Stellen, an denen ein LDIF still kaputtgeht:
+//
+// 1. Ein Wert mit Umlaut, ß oder Akzent darf NICHT einfach dastehen. Erlaubt
+//    ist dort nur ASCII; alles andere kommt als „attribut:: <Base64 von
+//    UTF-8>". Wer „Müller" roh hinschreibt, bekommt je nach Programm
+//    „MÃ¼ller" oder gar keinen Eintrag.
+// 2. Dasselbe gilt für Werte, die mit Leerzeichen, Doppelpunkt oder „<"
+//    anfangen oder mit einem Leerzeichen enden — sonst liest der Empfänger
+//    sie als etwas anderes (Base64-Marke, Dateiverweis) oder schneidet ab.
+// 3. Im DN („dn: cn=…,mail=…") trennen Kommas die Teile. Ein Komma im
+//    Namen („Müller, Anna") muss deshalb als „\," stehen (RFC 4514), sonst
+//    zerfällt der Name in zwei Teile.
+//
+// Zeilen werden nach 76 Zeichen gefaltet; die Fortsetzung beginnt mit EINEM
+// Leerzeichen. Weil nach Regel 1 nur ASCII übrig bleibt, ist ein Zeichen
+// hier immer genau ein Byte — anders als beim Falten der .ics im
+// Terminkonverter muss nicht nach Oktetten gezählt werden.
+
+const BREITE = 76;
+
+function base64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binaer = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binaer += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binaer);
+}
+
+// SAFE-STRING nach RFC 2849: nur ASCII ohne NUL, CR, LF; nicht beginnend mit
+// Leerzeichen, „:" oder „<". Das Leerzeichen am Ende ist erlaubt, wird aber
+// von zu vielen Programmen abgeschnitten — also lieber Base64.
+function istSicher(wert) {
+  if (wert === '') return true;
+  if (/[^\x01-\x09\x0b\x0c\x0e-\x7f]/.test(wert)) return false;
+  if (/^[ :<]/.test(wert)) return false;
+  if (/ $/.test(wert)) return false;
+  return true;
+}
+
+function falte(zeile) {
+  if (zeile.length <= BREITE) return zeile;
+  const teile = [zeile.slice(0, BREITE)];
+  for (let i = BREITE; i < zeile.length; i += BREITE - 1) {
+    teile.push(' ' + zeile.slice(i, i + BREITE - 1));
+  }
+  return teile.join('\n');
+}
+
+function attribut(name, wert) {
+  return falte(istSicher(wert) ? `${name}: ${wert}` : `${name}:: ${base64(wert)}`);
+}
+
+// Ein Wert im DN nach RFC 4514: , + " \ < > ; immer, # und Leerzeichen am
+// Anfang und das Leerzeichen am Ende ebenfalls.
+function dnWert(wert) {
+  return wert
+    .replace(/[,+"\\<>;]/g, (z) => '\\' + z)
+    .replace(/^([ #])/, '\\$1')
+    .replace(/ $/, '\\ ');
+}
+
+function kontaktDn(kontakt) {
+  return `cn=${dnWert(kontakt.anzeige)},mail=${dnWert(kontakt.mail)}`;
+}
+
+// Reihenfolge und Namen der Attribute wie in Thunderbirds eigener Ausgabe.
+const ATTRIBUTE = [
+  ['givenName', 'vorname'],
+  ['sn', 'nachname'],
+  ['cn', 'anzeige'],
+  ['mail', 'mail'],
+  ['mozillaSecondEmail', 'mail2'],
+  ['telephoneNumber', 'telefon'],
+  ['mobile', 'mobil'],
+  ['o', 'organisation'],
+  ['description', 'notiz'],
+];
+
+function eintrag(kontakt) {
+  const zeilen = [
+    attribut('dn', kontaktDn(kontakt)),
+    'objectclass: top',
+    'objectclass: person',
+    'objectclass: organizationalPerson',
+    'objectclass: inetOrgPerson',
+    'objectclass: mozillaAbPersonAlpha',
+  ];
+  for (const [name, feld] of ATTRIBUTE) {
+    const wert = (kontakt[feld] || '').trim();
+    if (wert) zeilen.push(attribut(name, wert));
+  }
+  return zeilen.join('\n');
+}
+
+// Eine Verteilerliste ist in LDIF ein „groupOfNames", dessen Mitglieder
+// über ihren DN genannt werden. Sie steht HINTER den Kontakten: Thunderbird
+// ordnet die Mitglieder beim Einlesen zu und findet nur, was schon da ist.
+function liste(name, kontakte) {
+  const zeilen = [
+    attribut('dn', `cn=${dnWert(name)}`),
+    'objectclass: top',
+    'objectclass: groupOfNames',
+    attribut('cn', name),
+  ];
+  for (const kontakt of kontakte) zeilen.push(attribut('member', kontaktDn(kontakt)));
+  return zeilen.join('\n');
+}
+
+function ldifBauen(kontakte, einstellungen = {}) {
+  const bloecke = kontakte.map(eintrag);
+  const listenname = (einstellungen.liste || '').trim();
+  if (listenname && kontakte.length) bloecke.push(liste(listenname, kontakte));
+  return bloecke.join('\n\n') + '\n';
+}
+
+  TEILE.attribut = attribut;
+  TEILE.dnWert = dnWert;
+  TEILE.kontaktDn = kontaktDn;
+  TEILE.ldifBauen = ldifBauen;
+})();
+
+/* ---- app.js ---- */
+(function () {
+// Die Oberfläche: Tabelle entgegennehmen, Spalten zuordnen, LDIF ausgeben.
+
+const { xlsxLesen, csvLesen } = TEILE;
+const { FELDER, hatKopfzeile, zuordnungRaten, spaltenNamen, kontakteBauen } = TEILE;
+const { ldifBauen } = TEILE;
+const teil = (id) => document.getElementById(id);
+const ablage = teil('ablage');
+const meldung = teil('meldung');
+
+let puffer = null;      // die .xlsx, damit ein anderes Blatt gelesen werden kann
+let quellname = '';
+let dateiname = 'kontakte';
+let zeilen = [];
+let zuordnung = {};
+let kontakte = [];
+// Abgewählt wird nach ADRESSE, nicht nach Platz in der Liste: Wer danach eine
+// Spalte umstellt, verschiebt die Liste — die Abwahl soll trotzdem bleiben.
+const abgewaehlt = new Set();
+let letzterText = '';
+
+function sage(text, fehler = false) {
+  meldung.textContent = text;
+  meldung.classList.toggle('fehler', fehler);
+}
+
+function zeigen(id, ja) {
+  teil(id).hidden = !ja;
+}
+
+const mehrzahl = (n, eins, viele) => `${n} ${n === 1 ? eins : viele}`;
+
+function zuordnungZeichnen() {
+  const namen = spaltenNamen(zeilen, teil('kopf').checked);
+  const huelle = teil('zuordnung');
+  huelle.replaceChildren();
+  for (const feld of FELDER) {
+    const beschriftung = document.createElement('label');
+    const titel = document.createElement('span');
+    titel.textContent = feld.name;
+    const auswahl = document.createElement('select');
+    auswahl.append(new Option('— keine —', '-1'));
+    namen.forEach((name, i) => auswahl.append(new Option(name, String(i))));
+    auswahl.value = String(zuordnung[feld.schluessel]);
+    auswahl.addEventListener('change', () => {
+      zuordnung[feld.schluessel] = Number(auswahl.value);
+      neuRechnen();
+    });
+    beschriftung.append(titel, auswahl);
+    huelle.append(beschriftung);
+  }
+}
+
+function tabelleZeichnen() {
+  const koerper = teil('zeilen');
+  koerper.replaceChildren();
+  for (const kontakt of kontakte) {
+    const schluessel = kontakt.mail.toLowerCase();
+    const zeile = document.createElement('tr');
+    zeile.classList.toggle('aus', abgewaehlt.has(schluessel));
+
+    const mit = document.createElement('td');
+    const haken = document.createElement('input');
+    haken.type = 'checkbox';
+    haken.checked = !abgewaehlt.has(schluessel);
+    haken.setAttribute('aria-label', `${kontakt.anzeige} übernehmen`);
+    haken.addEventListener('change', () => {
+      if (haken.checked) abgewaehlt.delete(schluessel); else abgewaehlt.add(schluessel);
+      zeile.classList.toggle('aus', !haken.checked);
+      zaehlerSetzen();
+    });
+    mit.append(haken);
+
+    const name = document.createElement('td');
+    name.textContent = kontakt.anzeige;
+    const mail = document.createElement('td');
+    mail.className = 'mail';
+    mail.textContent = kontakt.mail;
+    if (kontakt.mail2) {
+      const zweit = document.createElement('span');
+      zweit.className = 'zweit';
+      zweit.textContent = kontakt.mail2;
+      mail.append(zweit);
+    }
+    const nummer = document.createElement('td');
+    nummer.textContent = String(kontakt.zeile);
+
+    zeile.append(mit, name, mail, nummer);
+    koerper.append(zeile);
+  }
+  zaehlerSetzen();
+}
+
+function gewaehlte() {
+  return kontakte.filter((k) => !abgewaehlt.has(k.mail.toLowerCase()));
+}
+
+function zaehlerSetzen() {
+  const zahl = gewaehlte().length;
+  teil('zaehler').textContent = zahl === kontakte.length ? `(${kontakte.length})` : `(${zahl} von ${kontakte.length})`;
+  teil('laden').disabled = zahl === 0;
+  teil('teilen').disabled = zahl === 0;
+}
+
+function hinweiseZeichnen(hinweise) {
+  const liste = teil('hinweisliste');
+  liste.replaceChildren();
+  for (const hinweis of hinweise) {
+    const punkt = document.createElement('li');
+    punkt.textContent = hinweis.zeile ? `Zeile ${hinweis.zeile}: ${hinweis.text}` : hinweis.text;
+    liste.append(punkt);
+  }
+  zeigen('hinweiskarte', hinweise.length > 0);
+}
+
+function neuRechnen() {
+  const ergebnis = kontakteBauen(zeilen, {
+    kopf: teil('kopf').checked,
+    zuordnung,
+    reihenfolge: teil('reihenfolge').value,
+  });
+  kontakte = ergebnis.kontakte;
+  hinweiseZeichnen(ergebnis.hinweise);
+  zeigen('vorschau', kontakte.length > 0);
+  zeigen('textkarte', false);
+  teil('ergebnis').textContent = '';
+  tabelleZeichnen();
+
+  if (zuordnung.mail < 0) {
+    sage('In der Tabelle ist keine E-Mail-Adresse zu finden. Bitte oben die Spalte „E-Mail" wählen.', true);
+  } else if (!kontakte.length) {
+    sage('Aus keiner Zeile wurde ein Kontakt — ist oben die richtige Spalte als „E-Mail" gewählt?', true);
+  } else {
+    const teile = [`${quellname}: ${mehrzahl(kontakte.length, 'Kontakt', 'Kontakte')}`];
+    const ohne = ergebnis.hinweise.filter((h) => !/mehr als zwei/.test(h.text)).length;
+    if (ohne) teile.push(`${mehrzahl(ohne, 'Zeile', 'Zeilen')} nicht übernommen (siehe unten)`);
+    sage(teile.join(', ') + '.');
+  }
+}
+
+function tabelleAnnehmen(neueZeilen, name) {
+  zeilen = neueZeilen;
+  quellname = name;
+  abgewaehlt.clear();
+  if (!zeilen.length) throw new Error('Die Tabelle ist leer.');
+  teil('kopf').checked = hatKopfzeile(zeilen);
+  zuordnung = zuordnungRaten(zeilen, teil('kopf').checked);
+  zeigen('einstellungen', true);
+  zuordnungZeichnen();
+  neuRechnen();
+}
+
+function fehlerZeigen(fehler) {
+  kontakte = [];
+  zeigen('vorschau', false);
+  zeigen('hinweiskarte', false);
+  zeigen('textkarte', false);
+  sage(fehler.message || 'Die Datei ließ sich nicht lesen.', true);
+}
+
+// Eine CSV aus dem deutschen Excel ist meist NICHT UTF-8, sondern
+// Windows-1252 — ohne den Rückfall würde aus „Müller" „M�ller".
+async function textLesen(datei) {
+  const bytes = new Uint8Array(await datei.arrayBuffer());
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch (fehler) {
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
+async function verarbeiten(datei) {
+  if (!datei) return;
+  const name = datei.name.toLowerCase();
+  dateiname = datei.name.replace(/\.[^.]+$/, '') || 'kontakte';
+  puffer = null;
+  zeigen('blattwahl-huelle', false);
+  sage('Wird gelesen …');
+  try {
+    if (name.endsWith('.xls')) {
+      throw new Error('Das ist das alte .xls-Format. Bitte in Excel einmal als .xlsx speichern.');
+    }
+    if (name.endsWith('.ods') || name.endsWith('.numbers')) {
+      throw new Error('Dieses Format geht nicht direkt — bitte einmal als .xlsx oder .csv exportieren.');
+    }
+    if (name.endsWith('.csv') || name.endsWith('.txt') || name.endsWith('.tsv')) {
+      tabelleAnnehmen(csvLesen(await textLesen(datei)), datei.name);
+      return;
+    }
+    puffer = await datei.arrayBuffer();
+    const { zeilen: gelesen, blaetter } = await xlsxLesen(puffer, 0);
+    const auswahl = teil('blatt');
+    auswahl.replaceChildren(...blaetter.map((b, i) => new Option(b, String(i))));
+    zeigen('blattwahl-huelle', blaetter.length > 1);
+    tabelleAnnehmen(gelesen, datei.name);
+  } catch (fehler) {
+    fehlerZeigen(fehler);
+  }
+}
+
+async function blattWechseln() {
+  if (!puffer) return;
+  try {
+    const { zeilen: gelesen } = await xlsxLesen(puffer, Number(teil('blatt').value));
+    const blatt = teil('blatt').selectedOptions[0].textContent;
+    tabelleAnnehmen(gelesen, `${dateiname} · ${blatt}`);
+  } catch (fehler) {
+    fehlerZeigen(fehler);
+  }
+}
+
+function eingefuegtUebernehmen() {
+  const text = teil('eingefuegt').value;
+  if (!text.trim()) {
+    sage('Das Feld ist leer — erst in Excel Zellen markieren, kopieren und hier einfügen.', true);
+    return;
+  }
+  puffer = null;
+  dateiname = 'kontakte';
+  zeigen('blattwahl-huelle', false);
+  try {
+    tabelleAnnehmen(csvLesen(text), 'Eingefügte Zeilen');
+  } catch (fehler) {
+    fehlerZeigen(fehler);
+  }
+}
+
+function ausgabe() {
+  const auswahl = gewaehlte();
+  if (!auswahl.length) return null;
+  const liste = teil('liste').value.trim();
+  const text = ldifBauen(auswahl, { liste });
+  const name = `${(liste || dateiname).replace(/[\\/:*?"<>|]+/g, '-')}.ldif`;
+  return { text, anzahl: auswahl.length, name, liste };
+}
+
+function gemeldet(ergebnis, was) {
+  const liste = ergebnis.liste ? ` (mit Verteilerliste „${ergebnis.liste}")` : '';
+  teil('ergebnis').textContent = `${mehrzahl(ergebnis.anzahl, 'Kontakt', 'Kontakte')}${liste} ${was}`;
+}
+
+// Als „application/octet-stream", damit der Browser die Datei SICHERT und
+// nicht versucht, sie selbst zu öffnen — dieselbe Lehre wie beim
+// Terminkonverter. Was die Datei ist, sagt die Endung .ldif.
+function herunterladen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  const blob = new Blob([ergebnis.text], { type: 'application/octet-stream' });
+  const adresse = URL.createObjectURL(blob);
+  const verweis = document.createElement('a');
+  verweis.href = adresse;
+  verweis.download = ergebnis.name;
+  verweis.rel = 'noopener';
+  document.body.append(verweis);
+  verweis.click();
+  verweis.remove();
+  setTimeout(() => URL.revokeObjectURL(adresse), 10000);
+  gemeldet(ergebnis, `in ${ergebnis.name} gesichert — die Datei liegt bei den Downloads.`);
+}
+
+// Auf iPhone und iPad führt kein Weg an das Teilen-Blatt vorbei: Dort heißt
+// „speichern" „In Dateien sichern", und von dort geht die Datei auch per
+// Mail oder AirDrop an den Rechner mit Thunderbird.
+async function teilen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  const datei = new File([ergebnis.text], ergebnis.name, { type: 'text/plain' });
+  try {
+    await navigator.share({ files: [datei], title: ergebnis.name });
+    gemeldet(ergebnis, 'weitergegeben.');
+  } catch (fehler) {
+    if (fehler && fehler.name === 'AbortError') return;
+    herunterladen();
+  }
+}
+
+function textZeigen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  letzterText = ergebnis.text;
+  teil('ldiftext').value = ergebnis.text;
+  teil('kopierstand').textContent = '';
+  zeigen('textkarte', true);
+  teil('textkarte').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function kopieren() {
+  const text = letzterText || teil('ldiftext').value;
+  try {
+    await navigator.clipboard.writeText(text);
+    teil('kopierstand').textContent = 'Kopiert.';
+  } catch (fehler) {
+    teil('ldiftext').select();
+    teil('kopierstand').textContent = 'Bitte von Hand kopieren (der Text ist ausgewählt).';
+  }
+}
+
+teil('waehlen').addEventListener('click', () => teil('datei').click());
+teil('datei').addEventListener('change', (e) => {
+  verarbeiten(e.target.files[0]);
+  e.target.value = '';
+});
+teil('uebernehmen').addEventListener('click', eingefuegtUebernehmen);
+teil('blatt').addEventListener('change', blattWechseln);
+// Mit der Überschrift ändern sich die Spaltennamen — also neu raten.
+teil('kopf').addEventListener('change', () => {
+  zuordnung = zuordnungRaten(zeilen, teil('kopf').checked);
+  zuordnungZeichnen();
+  neuRechnen();
+});
+teil('reihenfolge').addEventListener('change', neuRechnen);
+teil('liste').addEventListener('input', () => {
+  teil('ergebnis').textContent = '';
+  if (!teil('textkarte').hidden) textZeigen();
+});
+teil('laden').addEventListener('click', herunterladen);
+teil('teilen').addEventListener('click', teilen);
+teil('zeigen').addEventListener('click', textZeigen);
+teil('kopieren').addEventListener('click', kopieren);
+teil('alle').addEventListener('click', () => { abgewaehlt.clear(); tabelleZeichnen(); });
+teil('keine').addEventListener('click', () => {
+  for (const k of kontakte) abgewaehlt.add(k.mail.toLowerCase());
+  tabelleZeichnen();
+});
+
+// Der Teilen-Knopf steht nur da, wo er auch etwas tut — auf dem Rechner
+// gibt es das Teilen-Blatt meist nicht.
+teil('teilen').hidden = !(navigator.canShare
+  && navigator.canShare({ files: [new File([''], 'probe.ldif', { type: 'text/plain' })] }));
+
+for (const art of ['dragenter', 'dragover']) {
+  ablage.addEventListener(art, (e) => { e.preventDefault(); ablage.classList.add('bereit'); });
+}
+for (const art of ['dragleave', 'drop']) {
+  ablage.addEventListener(art, () => ablage.classList.remove('bereit'));
+}
+ablage.addEventListener('drop', (e) => {
+  e.preventDefault();
+  verarbeiten(e.dataTransfer.files[0]);
+});
+// Ohne das öffnet der Browser eine daneben abgelegte Datei einfach als Seite.
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => e.preventDefault());
+
+// Ohne Netz weiterhin startklar — dafür braucht es den Service Worker; er ist
+// zugleich die Bedingung dafür, dass Android „Installieren" anbietet.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // Ohne ihn läuft die App genauso, nur eben nicht offline.
+    });
+  });
+}
+
+})();
+
+    </script>
+  </body>
+</html>
