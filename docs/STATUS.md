@@ -55,6 +55,7 @@ gemeinsame Bauweise:
 | `woerterwerkstatt/` | Web | Rechtschreibübungen, Firebase |
 | `terminkonverter/` | Web | Tabelle/Word → `.ics` |
 | `textauszug/` | Web | PDF → Text, Text → PDF/EPUB |
+| `kontaktwandler/` | Web | Excel-Adressliste → `.ldif` (Thunderbird) |
 | `himmelskompass/`, `soundboard/`, `heute-in-der-naehe/` | Web | ältere Web-Fassungen |
 | `docs/` | Pages | veröffentlichte Seiten (Datenschutz, Support, PRD) |
 | `scripts/`, `.github/` | Werkzeug | Quelltextprüfung, Bau-Abläufe |
