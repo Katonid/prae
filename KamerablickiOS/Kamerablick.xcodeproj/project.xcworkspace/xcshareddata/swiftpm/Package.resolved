@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "vlckit-spm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/koombea/vlckit-spm",
+      "state" : {
+        "revision" : "a581a7aa7b336208ebf54171a496a4f64cdbebfd",
+        "version" : "3.6.0"
+      }
+    }
+  ],
+  "version" : 2
+}
