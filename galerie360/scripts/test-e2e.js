@@ -110,6 +110,13 @@ const pruefe = (bedingung, text) => {
   await seite.setInputFiles('#dateiwahl', dateien);
   await seite.waitForFunction((n) => document.querySelectorAll('#medienliste .medium').length === n && !document.querySelector('#warteschlange li'), dateien.length, { timeout: 120000 });
   pruefe(true, dateien.length + ' Dateien importiert');
+  // Rohdateien der Kamera: werden erkannt und erklärt, nicht übernommen.
+  await seite.setInputFiles('#dateiwahl', ['IMG_20261028_123905_00_015.insp', 'VID_20261028_131700_00_017.insv', 'LRV_20261028_131700_01_017.lrv'].map((name) => ({ name, mimeType: 'application/octet-stream', buffer: Buffer.from('x') })));
+  await seite.waitForSelector('#dlg-frage[open]');
+  const roh = await seite.textContent('#frage-text');
+  pruefe(/INSP \(Foto\) und INSV/.test(roh) && /LRV/.test(roh) && /360°-Foto bzw. 360°-Video exportieren/.test(roh) && /3 Rohdateien/.test(await seite.textContent('#frage-titel')), 'Kamera-Rohdateien (INSP, INSV, LRV) werden erkannt und erklärt');
+  await seite.click('#frage-ja');
+  pruefe(await seite.$$eval('#medienliste .medium', (l) => l.length) === dateien.length, 'Rohdateien wurden nicht übernommen');
   await seite.fill('.medium:nth-child(1) .m-titel', 'Reine am Morgen');
   await seite.fill('.medium:nth-child(1) .m-beschreibung', 'Blick über den Hafen.\nZweite Zeile.');
   await seite.evaluate(() => window.G360.app.sofortSpeichern());

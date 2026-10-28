@@ -90,7 +90,22 @@
       <p class="leise">Grenzen am iPad: Fotos werden für die Handyfassung auf 4096 Pixel verkleinert; die 8192er-Fassung entfällt, weil iPadOS so große Zeichenflächen nicht erlaubt (die Originale bleiben trotzdem unverändert dabei). Sehr große Aufnahmen brauchen viel Arbeitsspeicher, ein älteres iPad kann dabei abbrechen. Dann die Aufnahme kleiner exportieren oder am Computer hinzufügen. Der Speicher des Generators zählt zum Speicher des iPads; Galerien, die schon hochgeladen und gesichert sind, lassen sich auf der Startseite mit × löschen.</p>
 
       <h2 id="insta360">2. Aus Insta360 Studio exportieren</h2>
-      <p>Der Generator verarbeitet fertige 360°-Aufnahmen im sogenannten <em>equirektangularen</em> Format (Seitenverhältnis 2:1). INSP- und INSV-Dateien direkt von der Kamera gehen nicht — sie werden zuerst in Insta360 Studio exportiert:</p>
+      <p>Der Generator verarbeitet fertige 360°-Aufnahmen im sogenannten <em>equirektangularen</em> Format (Seitenverhältnis 2:1). Die Dateien direkt von der Kamera sind das noch nicht:</p>
+      <table>
+        <tr><th>Kameradatei</th><th>Was das ist</th><th>Was tun</th></tr>
+        <tr><td><span class="pfad">.insp</span></td><td>Foto: die zwei Fischaugen-Bilder der beiden Objektive, noch nicht zusammengesetzt</td><td>als 360°-Foto exportieren → JPG</td></tr>
+        <tr><td><span class="pfad">.insv</span></td><td>Video: ebenfalls zwei Fischaugen-Bilder, ohne Stabilisierung</td><td>als 360°-Video exportieren → MP4</td></tr>
+        <tr><td><span class="pfad">.dng</span></td><td>RAW-Foto, auch noch nicht zusammengesetzt</td><td>entwickeln und als 360°-Foto exportieren</td></tr>
+        <tr><td><span class="pfad">.lrv</span></td><td>kleines Vorschauvideo, das die Kamera nebenher speichert</td><td>nicht nötig, ignorieren</td></tr>
+      </table>
+      <p>Wählt man solche Dateien trotzdem aus, erklärt der Generator das und übernimmt sie nicht. Warum nicht selbst zusammensetzen? Insta360 kennt die genauen Daten jedes Objektivs, gleicht die Naht zwischen beiden Hälften an, stabilisiert Videos mit den Bewegungsdaten der Kamera (FlowState) und richtet den Horizont aus. Ein Nachbau im Browser sähe sichtbar schlechter aus.</p>
+      <h3>Am iPhone oder iPad</h3>
+      <ol>
+        <li>In der <strong>Insta360-App</strong> die Aufnahme öffnen und exportieren, und zwar als <strong>360°-Foto bzw. 360°-Video</strong>, nicht als flaches, zugeschnittenes Bild.</li>
+        <li>Das exportierte Bild bzw. Video über <em>Teilen → In Dateien sichern</em> in einen Ordner der Dateien-App legen.</li>
+        <li>Im Generator „Dateien auswählen …“ → <em>Durchsuchen</em> → diesen Ordner. Nicht den Kameraordner <span class="pfad">DCIM/Camera01</span>: Dort liegen nur die Rohdateien.</li>
+      </ol>
+      <h3>Am Computer mit Insta360 Studio</h3>
       <table>
         <tr><th>Aufnahme</th><th>Exporteinstellung</th></tr>
         <tr><td>Foto</td><td>Als <strong>360°-Foto</strong> exportieren, Format JPG, volle Auflösung. Nicht „Reframe“/„Flach“ — das ergibt ein normales Foto ohne Rundumblick.</td></tr>

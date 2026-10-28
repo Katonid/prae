@@ -99,6 +99,14 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   auf jeder Seite, Ordner alter Links löscht `seitenSchreiben`. **Geheime
   Links gibt es nur mit Passwort** — sonst verriete sie gallery.json.
   Neue Dateien bekommen 8 Zufallszeichen im Namen. Test: `test-schutz.js`.
+- **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
+  (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
+  grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind
+  und wie man in der Insta360-App bzw. Studio als 360° exportiert. Eigenes
+  Stitchen bewusst nicht: Objektivdaten, Nahtausgleich, FlowState-
+  Stabilisierung und Horizont kann nur Insta360 gut. Auf iOS wird das
+  `accept` des Dateifelds entfernt — iOS graut sonst alles Unbekannte aus,
+  und der Hinweis käme nie.
 - **`file://` ist in Chrome ein sicherer Kontext**: `showDirectoryPicker`
   geht auch in der Einzeldatei (geprüft 10/2026). Den Betrachter-Quelltext
   kann sie dort aber nicht per `fetch` holen, deshalb liegt er als
