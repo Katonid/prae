@@ -1053,7 +1053,7 @@
       const png = symbol || /png|svg/.test(datei.type);
       const blob = await new Promise((ok, nein) => c.toBlob((b) => (b ? ok(b) : nein(new Error('Bild konnte nicht umgerechnet werden'))), png ? 'image/png' : 'image/jpeg', 0.86));
       const ordner = symbol ? 'media/symbole' : 'media/infobilder';
-      const ziel = await G.freierName(A().S.wurzel, ordner, G.sauberName(datei.name).basis, png ? 'png' : 'jpg');
+      const ziel = await G.freierName(A().S.wurzel, ordner, G.sauberName(datei.name).basis + '-' + G.zufall(8), png ? 'png' : 'jpg');
       await G.dateiSchreiben(A().S.wurzel, ziel.pfad, blob);
       return ziel.pfad;
     } catch (e) {

@@ -96,7 +96,18 @@
           <label class="feld">Fußzeile
             <input type="text" id="g-fuss" maxlength="200" placeholder="z. B. © 2026 Familie Muster" />
           </label>
+          <label class="feld">Adresse der Galerie im Netz (für die Links)
+            <input type="url" id="g-webadresse" maxlength="300" placeholder="https://deine-domain.de/360/" inputmode="url" />
+          </label>
         </details>
+        <section class="block" id="schutzblock">
+          <h2>Schutz</h2>
+          <p id="schutz-text" class="klein"></p>
+          <div class="knopfreihe">
+            <button type="button" id="k-passwort" class="zweit klein">Passwort festlegen …</button>
+            <button type="button" id="k-passwort-weg" class="still klein gefahr" hidden>Passwort entfernen</button>
+          </div>
+        </section>
         <section class="block">
           <div class="blockkopf">
             <h2>Alben</h2>
@@ -111,6 +122,21 @@
         <div class="albumkopf">
           <input type="text" id="a-titel" class="albumtitel" placeholder="Name des Albums" maxlength="120" aria-label="Name des Albums" />
           <textarea id="a-beschreibung" rows="2" placeholder="Beschreibung des Albums (optional)" aria-label="Beschreibung des Albums"></textarea>
+          <div class="freigabe">
+            <label class="freigabe-wahl">Veröffentlichen
+              <select id="a-freigabe">
+                <option value="oeffentlich">Öffentlich — auf der Startseite der Galerie</option>
+                <option value="link">Nur mit geheimem Link</option>
+                <option value="entwurf">Nicht veröffentlichen (Entwurf)</option>
+              </select>
+            </label>
+            <div id="a-link" class="freigabe-link" hidden>
+              <input type="text" id="a-link-text" readonly aria-label="Geheimer Link zu diesem Album" />
+              <button type="button" id="k-link-kopieren" class="zweit klein">Kopieren</button>
+              <button type="button" id="k-link-neu" class="still klein" title="Der bisherige Link funktioniert danach nicht mehr">Neuer Link …</button>
+            </div>
+            <p id="a-freigabe-text" class="klein"></p>
+          </div>
         </div>
 
         <div id="ablage" class="ablage">
@@ -224,6 +250,25 @@
 
     <dialog id="dlg-fertig" class="dialog">
       <div id="fertig-inhalt"></div>
+    </dialog>
+
+    <dialog id="dlg-passwort" class="dialog schmal">
+      <form method="dialog" id="pw-form">
+        <h2 id="pw-titel"></h2>
+        <p id="pw-text"></p>
+        <label class="feld">Passwort
+          <input type="password" id="pw-1" autocomplete="new-password" />
+        </label>
+        <label class="feld" id="pw-2-feld">Passwort wiederholen
+          <input type="password" id="pw-2" autocomplete="new-password" />
+        </label>
+        <p id="pw-fehler" class="klein fehler" aria-live="assertive"></p>
+        <div class="dialogfuss">
+          <span class="frei"></span>
+          <button type="button" id="pw-nein" class="zweit">Abbrechen</button>
+          <button type="submit" id="pw-ja" class="haupt">OK</button>
+        </div>
+      </form>
     </dialog>
 
     <dialog id="dlg-frage" class="dialog schmal">

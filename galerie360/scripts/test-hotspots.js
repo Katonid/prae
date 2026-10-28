@@ -84,6 +84,9 @@ const nah = (a, b, toleranz) => Math.abs(a - b) <= toleranz;
   await seite.fill('#frage-eingabe', 'Rundgang');
   await seite.click('#frage-ja');
   await seite.waitForSelector('#editor:not([hidden])');
+  // Rückfrage „Mit Passwort schützen?" — hier ohne; den Passwort-Weg prüft test-schutz.js.
+  await seite.waitForSelector('#dlg-frage[open]');
+  await seite.click('#frage-nein');
   const dateien = ['foto-a.jpg', 'foto-gross.jpg', 'video-a.mp4'].map((n) => path.join(medien, n));
   await seite.setInputFiles('#dateiwahl', dateien);
   await seite.waitForFunction(() => document.querySelectorAll('.medium').length === 3 && !document.querySelector('#warteschlange li'), null, { timeout: 120000 });
@@ -278,11 +281,11 @@ const nah = (a, b, toleranz) => Math.abs(a - b) <= toleranz;
     const aktuell = window.G360.app.S.wurzel;
     await window.G360.app.projektOeffnen(alt, 'browser');
     const q = window.G360.app.S.projekt;
-    const ergebnis = { version: q.version, hotspots: q.alben[0].medien.every((m) => Array.isArray(m.hotspots)), stil: !!q.einstellungen.hotspotStil };
+    const ergebnis = { version: q.version, hotspots: q.alben[0].medien.every((m) => Array.isArray(m.hotspots)), stil: !!q.einstellungen.hotspotStil, freigabe: q.alben.every((a) => a.freigabe.art === 'oeffentlich') };
     await window.G360.app.projektOeffnen(aktuell, 'browser');
     return ergebnis;
   });
-  pruefe(migriert.version === 2 && migriert.hotspots && migriert.stil, 'Projekt aus Fassung 1 öffnet und wird auf Fassung 2 gebracht');
+  pruefe(migriert.version === 3 && migriert.hotspots && migriert.stil && migriert.freigabe, 'Projekt aus Fassung 1 öffnet und wird auf die aktuelle Fassung 3 gebracht (Alben öffentlich)');
 
   console.log('Warnung beim Entfernen eines Ziels');
   await seite.click('.medium:nth-child(2) button:has-text("Entfernen")');
