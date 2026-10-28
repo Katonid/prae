@@ -36,6 +36,16 @@
   /** Freigabe eines Albums: 'oeffentlich' (Startseite), 'link' (nur geheimer Link), 'entwurf' (gar nicht). */
   G.freigabe = (a) => (a.freigabe && a.freigabe.art) || 'oeffentlich';
 
+  /** Ziel auf dem Webspace, wenn nichts anderes eingetragen ist (Ansage des Nutzers, 10/2026). */
+  G.WEBADRESSE_STANDARD = 'https://jerosch.net/apps/galerie360/360Grad/';
+  G.webadresse = (p) => ((p.einstellungen && p.einstellungen.webadresse) || G.WEBADRESSE_STANDARD).replace(/\/*$/, '/');
+
+  /** Ordnername des Albums; fehlt er (alte Daten), wird er jetzt vergeben. */
+  G.albumOrdner = function (a) {
+    if (!G.ORDNER_MUSTER.test(a.ordner || '')) a.ordner = G.albumOrdnerName(a.titel);
+    return a.ordner;
+  };
+
   /**
    * Daten für EINE Seite der Galerie.
    * @param {object} p  Projekt
@@ -58,15 +68,16 @@
       fusszeile: p.fusszeile,
       basis: seite.basis || '',
       privat: !!seite.privat,
+      startseite: seite.startseite || null,
       einstellungen: p.einstellungen,
-      alben: alben.map((a) => ({
+      alben: alben.map((a) => (a.uebersicht ? a.uebersicht : {
         id: a.id,
         titel: a.titel,
         beschreibung: a.beschreibung,
         titelbild: a.titelbild,
         medien: a.medien.map((m) => {
           const x = { id: m.id, typ: m.typ, titel: m.titel, beschreibung: m.beschreibung, datum: m.datum, vorschau: m.vorschau, blick: m.blick };
-          const hs = (m.hotspots || []).filter((h) => h.sichtbar !== false).map((h) => hotspotDaten(h, hier)).filter(Boolean);
+          const hs = (m.hotspots || []).filter((h) => h.sichtbar !== false).map((h) => hotspotDaten(h, hier, seite.fremd)).filter(Boolean);
           if (hs.length) x.hotspots = hs;
           if (m.typ === 'foto') {
             x.datei = m.datei;
@@ -84,10 +95,25 @@
     };
   };
 
+  /** Zahl der Fotos und Videos eines Albums (für Albumkarten ohne Aufnahmen-Daten). */
+  function zahl(a) {
+    const fotos = a.medien.filter((m) => m.typ === 'foto').length;
+    return { fotos, videos: a.medien.length - fotos };
+  }
+
   /** Ein Hotspot für die Galerie — ohne Notizen des Editors. */
-  function hotspotDaten(h, hier) {
+  /**
+   * @param fremd  Ziel in einem ANDEREN Album → relative Adresse der Seite dort, oder null,
+   *               wenn das Ziel von hier aus nicht verraten werden darf.
+   */
+  function hotspotDaten(h, hier, fremd) {
     const a = h.aktion || {};
-    const ziel = (z) => (z && z.medium && (!hier || hier.has(z.medium)) ? { medium: z.medium, blick: z.blick || null } : null);
+    const ziel = (z) => {
+      if (!z || !z.medium) return null;
+      if (!hier || hier.has(z.medium)) return { medium: z.medium, blick: z.blick || null };
+      const f = fremd && fremd(z.medium);
+      return f ? { medium: z.medium, blick: z.blick || null, seite: f.seite, typ: f.typ } : null;
+    };
     if (a.typ === 'medium' && !ziel(a.ziel)) return null;
     const aktion = { typ: a.typ };
     if (a.typ === 'info') {
@@ -115,6 +141,7 @@
     const daten = JSON.stringify(d).replace(/</g, '\\u003c');
     const e = p.einstellungen || {};
     const basis = d.basis;
+    const assets = seite.assets != null ? seite.assets : basis;
     const titel = d.privat ? 'Galerie' : (d.titel || 'Galerie');
     const symbol = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='none' stroke='%23" +
       (e.akzent || '#3b82f6').slice(1) + "' stroke-width='6'/%3E%3Cellipse cx='32' cy='32' rx='12' ry='28' fill='none' stroke='%23" +
@@ -132,12 +159,12 @@
       '<meta name="generator" content="Galerie 360">\n' +
       (nutztLucide({ alben: d.alben }) ? '<!-- Symbole: Lucide (https://lucide.dev), ISC-Lizenz, Copyright (c) Lucide Icons and Contributors -->\n' : '') +
       '<link rel="icon" href="' + symbol + '">\n' +
-      '<link rel="stylesheet" href="' + basis + 'assets/galerie.css?v=' + stempel + '">\n' +
+      '<link rel="stylesheet" href="' + assets + 'assets/galerie.css?v=' + stempel + '">\n' +
       '</head>\n<body class="g360-seite">\n' +
       '<div id="galerie" class="g360" data-thema="' + (e.design === 'hell' ? 'hell' : 'dunkel') + '">' +
       '<noscript><p style="padding:2em;font-family:sans-serif">Diese Galerie braucht JavaScript.</p></noscript></div>\n' +
       '<script type="application/json" id="galerie-daten">' + daten + '</script>\n' +
-      '<script src="' + basis + 'assets/galerie.js?v=' + stempel + '"></script>\n' +
+      '<script src="' + assets + 'assets/galerie.js?v=' + stempel + '"></script>\n' +
       '</body>\n</html>\n';
   };
 
@@ -180,24 +207,88 @@
       : { alben: oeffentlich }));
     const gewollt = new Set();
     for (const a of p.alben) {
-      if (G.freigabe(a) !== 'link' || !a.freigabe.name || !G.GEHEIM_MUSTER.test(a.freigabe.name)) continue;
-      gewollt.add(a.freigabe.name);
-      await G.dateiSchreiben(wurzel, a.freigabe.name + '/index.html', G.indexHtml(p, stempel, {
+      if (G.freigabe(a) !== 'link') continue;
+      const ordner = G.albumOrdner(a);
+      gewollt.add(ordner);
+      await G.dateiSchreiben(wurzel, ordner + '/index.html', G.indexHtml(p, stempel, {
         alben: [a], basis: '../', titel: a.titel || p.titel, beschreibung: a.beschreibung || '', geheim: true
       }));
     }
     for await (const [name, h] of wurzel.entries()) {
-      if (h.kind === 'directory' && G.GEHEIM_MUSTER.test(name) && !gewollt.has(name)) {
+      if (h.kind === 'directory' && G.ORDNER_MUSTER.test(name) && !gewollt.has(name)) {
         try { await wurzel.removeEntry(name, { recursive: true }); } catch (_) { /* später erneut */ }
       }
     }
   }
 
-  /** Die Adresse eines geheimen Albums: mit eingetragener Webadresse vollständig, sonst als Ordnername. */
+  /** Die Adresse eines veröffentlichten Albums auf dem Webspace (Entwürfe haben keine). */
   G.albumLink = function (p, a) {
-    if (G.freigabe(a) !== 'link' || !a.freigabe.name) return '';
-    const basis = (p.einstellungen && p.einstellungen.webadresse || '').trim();
-    return (basis ? basis.replace(/\/*$/, '/') : '') + a.freigabe.name + '/';
+    if (G.freigabe(a) === 'entwurf') return '';
+    return G.webadresse(p) + G.albumOrdner(a) + '/';
+  };
+
+  /**
+   * Dateien für den Webspace, als Liste für zipErstellen — ohne Kopie auf
+   * der Festplatte (die Einträge verweisen auf die Dateien im Projekt):
+   *
+   *   360Grad/index.html                Startseite mit den öffentlichen Alben
+   *   360Grad/assets/                   Betrachter (für alle Alben gemeinsam)
+   *   360Grad/<album>-<26 Zeichen>/     je Album: index.html, media/, thumbnails/
+   *
+   * gallery.json kommt NICHT mit: Auf dem Server braucht sie niemand, und
+   * sie verriete die Ordner aller Alben.
+   */
+  G.webspaceEintraege = async function (wurzel, p) {
+    const stempel = Date.now().toString(36);
+    const WURZEL = '360Grad/';
+    const eintraege = [];
+    const text = (pfad, inhalt, typ) => eintraege.push({ pfad: WURZEL + pfad, datei: new File([inhalt], pfad.split('/').pop(), { type: typ || 'text/html' }) });
+    const q = await G.betrachterQuelltext();
+    text('assets/galerie.js', q.js, 'text/javascript');
+    text('assets/galerie.css', q.css, 'text/css');
+    text('assets/index.html', LEER_INDEX);
+
+    const veroeffentlicht = p.alben.filter((a) => G.freigabe(a) !== 'entwurf' && a.medien.length);
+    const oeffentlich = veroeffentlicht.filter((a) => G.freigabe(a) === 'oeffentlich');
+    const albumVon = new Map();
+    veroeffentlicht.forEach((a) => a.medien.forEach((m) => albumVon.set(m.id, { a, m })));
+
+    // Startseite: nur Karten, die in die Albumordner führen — keine Aufnahmen.
+    text('index.html', oeffentlich.length
+      ? G.indexHtml(p, stempel, {
+        alben: oeffentlich.map((a) => {
+          const bild = a.medien.find((m) => m.id === a.titelbild) || a.medien[0];
+          return { medien: [], uebersicht: { id: a.id, titel: a.titel, beschreibung: a.beschreibung, adresse: G.albumOrdner(a) + '/', vorschau: bild && bild.vorschau ? G.albumOrdner(a) + '/' + bild.vorschau : null, zahl: zahl(a), medien: [] } };
+        })
+      })
+      : G.indexHtml(p, stempel, { alben: [], privat: true, titel: '', beschreibung: '' }));
+
+    for (const a of veroeffentlicht) {
+      const ordner = G.albumOrdner(a);
+      const geheim = G.freigabe(a) === 'link';
+      // Sprung in ein anderes Album: als Link auf dessen Seite — aber nie von einer
+      // öffentlichen Seite in ein geheimes Album, sonst stünde dessen Adresse offen da.
+      const fremd = (id) => {
+        const t = albumVon.get(id);
+        if (!t || t.a === a || (!geheim && G.freigabe(t.a) !== 'oeffentlich')) return null;
+        return { seite: '../' + G.albumOrdner(t.a) + '/#a/' + t.a.id + '/' + id, typ: t.m.typ };
+      };
+      text(ordner + '/index.html', G.indexHtml(p, stempel, {
+        alben: [a], basis: '', assets: '../', titel: a.titel || p.titel, beschreibung: a.beschreibung || '',
+        geheim, startseite: geheim ? null : '../', fremd
+      }));
+      const ordnerListe = new Set();
+      for (const pfad of G.verwiesenePfade({ alben: [a] })) {
+        try {
+          eintraege.push({ pfad: WURZEL + ordner + '/' + pfad, datei: await G.dateiLesen(wurzel, pfad) });
+        } catch (_) { /* fehlt — meldet G.pruefen */ }
+        const teile = pfad.split('/');
+        for (let i = 1; i < teile.length; i++) ordnerListe.add(teile.slice(0, i).join('/'));
+      }
+      // Kein Webserver soll die Dateien eines Albums auflisten.
+      ordnerListe.forEach((o) => text(ordner + '/' + o + '/index.html', LEER_INDEX));
+    }
+    return eintraege;
   };
 
   /** Alle Pfade, auf die die Galerie verweist. */
@@ -251,8 +342,12 @@
       for (const m of a.medien) {
         for (const h of m.hotspots || []) {
           const ziele = [h.aktion && h.aktion.typ === 'medium' && h.aktion.ziel].concat(((h.aktion && h.aktion.knoepfe) || []).map((k) => k.typ === 'medium' && k.ziel)).filter((z) => z && seiteVon.has(z.medium));
-          if (h.sichtbar !== false && ziele.some((z) => seiteVon.get(z.medium) !== seiteVon.get(m.id))) {
-            hinweise.push({ titel: (a.titel || 'Album') + ' › Hotspot „' + (h.titel || 'ohne Titel') + '"', text: 'Führt in ein Album mit anderer Freigabe (öffentlich / geheimer Link / Entwurf). Damit nichts Geheimes verraten wird, fehlt dieser Sprung in der veröffentlichten Galerie.' });
+          // Jedes Album ist eine eigene Seite; Sprünge dazwischen werden Links. Nicht erlaubt:
+          // in einen Entwurf, und von einer öffentlichen Seite in ein Album mit geheimem Link.
+          const quelle = seiteVon.get(m.id);
+          const verboten = (z) => { const ziel = seiteVon.get(z.medium); return ziel !== quelle && (ziel === 'entwurf' || (quelle === 'oeffentlich' && ziel !== 'oeffentlich')); };
+          if (h.sichtbar !== false && ziele.some(verboten)) {
+            hinweise.push({ titel: (a.titel || 'Album') + ' › Hotspot „' + (h.titel || 'ohne Titel') + '"', text: 'Führt in einen Entwurf oder von einem öffentlichen Album in eines, das nur mit Link erreichbar ist. Damit nichts Geheimes verraten wird, fehlt dieser Sprung in der veröffentlichten Galerie.' });
           }
         }
       }

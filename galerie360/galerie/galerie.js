@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.4';
+  const FASSUNG = '1.0.5';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -1031,7 +1031,12 @@
     const basis = typeof daten.basis === 'string' && /^(\.\.\/)*$/.test(daten.basis) ? daten.basis : '';
     const url = (p) => (opt.urls && opt.urls[p]) || basis + p;
     const einst = Object.assign({ design: 'dunkel', akzent: '#3b82f6', autoRotation: true, datumZeigen: true, downloads: false }, daten.einstellungen || {});
-    const alben = (daten.alben || []).filter((a) => a.medien && a.medien.length);
+    // Albumkarten mit „adresse" führen in den eigenen Ordner eines Albums (Webspace-Aufbau 360Grad/…).
+    const ORDNER_ADRESSE = /^[a-z0-9-]+\/$/;
+    const alben = (daten.alben || []).filter((a) => (a.medien && a.medien.length) || (a.adresse && ORDNER_ADRESSE.test(a.adresse)));
+    // Sprung auf eine andere Albumseite: nur „../<ordner>/#a/<album>/<aufnahme>".
+    const SEITE = /^\.\.\/[a-z0-9-]+\/#a\/[\w-]+\/[\w-]+$/;
+    const startseite = daten.startseite === '../' ? '../' : null;
     const abmelden = [];
     const an = (ziel, art, fn, o) => { ziel.addEventListener(art, fn, o); abmelden.push(() => ziel.removeEventListener(art, fn, o)); };
 
@@ -1061,7 +1066,7 @@
     // Alle Aufnahmen aller Alben nach Id — Ziel für Hotspots, auch albumübergreifend.
     const medienNachId = new Map();
     alben.forEach((a) => a.medien.forEach((m) => medienNachId.set(m.id, { album: a, m })));
-    const zielGueltig = (z) => !!(z && z.typ === 'link' ? sichereUrl(z.url) : z && z.ziel && medienNachId.has(z.ziel.medium));
+    const zielGueltig = (z) => !!(z && z.typ === 'link' ? sichereUrl(z.url) : z && z.ziel && (medienNachId.has(z.ziel.medium) || SEITE.test(z.ziel.seite || '')));
     function hotspotsFuer(m) {
       return (m.hotspots || []).filter((h) => {
         if (h.sichtbar === false) return false;
@@ -1094,7 +1099,7 @@
     function zeigeRoute() {
       const r = route();
       let album = alben.find((a) => a.id === r.album) || null;
-      if (!album && alben.length === 1) album = alben[0];
+      if (!album && alben.length === 1 && !alben[0].adresse) album = alben[0];
       if (album !== aktuellesAlbum || !seite.firstChild) {
         aktuellesAlbum = album;
         if (album) zeichneAlbum(album);
@@ -1117,9 +1122,14 @@
       const leiste = el('div', 'g-kopfleiste');
       if (zurueck) {
         const z = el('a', 'g-zurueck');
-        z.href = hashRouting ? '#' : 'javascript:void 0';
         z.innerHTML = symbol('zurueck') + '<span>Alle Alben</span>';
-        an(z, 'click', (e) => { e.preventDefault(); gehe('', false); });
+        if (typeof zurueck === 'string') {
+          // Eigene Albumseite (Webspace-Aufbau): ein echter Link zur Startseite im Ordner darüber.
+          z.href = zurueck;
+        } else {
+          z.href = hashRouting ? '#' : 'javascript:void 0';
+          an(z, 'click', (e) => { e.preventDefault(); gehe('', false); });
+        }
         leiste.append(z);
       } else {
         leiste.append(el('span', 'g-marke', daten.titel && zurueck ? daten.titel : ''));
@@ -1148,8 +1158,8 @@
     }
 
     function zaehler(album) {
-      const f = album.medien.filter((m) => m.typ === 'foto').length;
-      const v = album.medien.length - f;
+      const f = album.zahl ? +album.zahl.fotos || 0 : album.medien.filter((m) => m.typ === 'foto').length;
+      const v = album.zahl ? +album.zahl.videos || 0 : album.medien.length - f;
       const teile = [];
       if (f) teile.push(zahlText(f, 'Foto', 'Fotos'));
       if (v) teile.push(zahlText(v, 'Video', 'Videos'));
@@ -1167,9 +1177,15 @@
       const raster = el('div', 'g-alben');
       alben.forEach((a) => {
         const k = el('a', 'g-albumkarte');
-        k.href = hashRouting ? '#a/' + encodeURIComponent(a.id) : 'javascript:void 0';
-        an(k, 'click', (e) => { e.preventDefault(); gehe('a/' + a.id, false); });
-        const titelbild = a.medien.find((m) => m.id === a.titelbild) || a.medien[0];
+        if (a.adresse) {
+          k.href = a.adresse; // eigener Albumordner — normale Navigation
+        } else {
+          k.href = hashRouting ? '#a/' + encodeURIComponent(a.id) : 'javascript:void 0';
+          an(k, 'click', (e) => { e.preventDefault(); gehe('a/' + a.id, false); });
+        }
+        const titelbild = a.adresse
+          ? (/^[a-z0-9-]+\/thumbnails\/[\w.-]+$/.test(a.vorschau || '') ? { vorschau: a.vorschau } : null)
+          : a.medien.find((m) => m.id === a.titelbild) || a.medien[0];
         const bildrahmen = el('div', 'g-albumbild');
         if (titelbild && titelbild.vorschau) {
           const img = el('img');
@@ -1199,7 +1215,7 @@
       seite.innerHTML = '';
       const mehrere = alben.length > 1;
       seite.append(kopf(mehrere ? album.titel : (daten.titel || album.titel),
-        mehrere ? album.beschreibung : (daten.beschreibung || album.beschreibung), mehrere));
+        mehrere ? album.beschreibung : (daten.beschreibung || album.beschreibung), mehrere || startseite));
       const haupt = el('main', 'g-haupt');
       const info = el('p', 'g-albuminfo', zaehler(album));
       haupt.append(info);
@@ -1356,7 +1372,7 @@
           art: (k) => {
             if (k.typ === 'link') return 'link';
             const t = medienNachId.get(k.ziel && k.ziel.medium);
-            return t ? t.m.typ : 'foto';
+            return t ? t.m.typ : (k.ziel && k.ziel.typ === 'video' ? 'video' : 'foto');
           },
           beiAktion: (k) => {
             v.fenster.schliesse();
@@ -1611,7 +1627,14 @@
     function zuMedium(ziel, text) {
       const v = viewer;
       const t = ziel && medienNachId.get(ziel.medium);
-      if (!t) return;
+      if (!t) {
+        // Ziel liegt in einem anderen Albumordner: dorthin wechseln (der Browser kennt den Rückweg).
+        if (ziel && SEITE.test(ziel.seite || '')) {
+          hinweis(text);
+          location.href = ziel.seite;
+        }
+        return;
+      }
       v.verlauf.push({ album: v.album.id, id: v.medium.id, titel: v.medium.titel || (v.medium.typ === 'video' ? '360°-Video' : '360°-Foto'), blick: v.pano.blick() });
       if (v.verlauf.length > 50) v.verlauf.shift();
       v.zielBlick = ziel.blick || null;

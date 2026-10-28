@@ -203,6 +203,14 @@
   G.geheimerName = () => G.zufall(26);
   G.GEHEIM_MUSTER = /^[a-z2-7]{26}$/;
 
+  /** Ordnername eines Albums: lesbarer Titel + 26 Zufallszeichen, z. B. „sommer-am-see-k7f3…". */
+  G.ORDNER_MUSTER = /^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?[a-z2-7]{26}$/;
+  G.albumOrdnerName = function (titel, zufallsteil) {
+    const lesbar = G.sauberName(String(titel || 'album') + '.x').basis.slice(0, 40).replace(/-+$/, '');
+    return (lesbar ? lesbar + '-' : '') + (zufallsteil || G.geheimerName());
+  };
+  G.zufallsteil = (ordner) => String(ordner || '').slice(-26);
+
   const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
   const ausB64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
   const ITERATIONEN = 600000; // PBKDF2-SHA256, Empfehlung OWASP 2023

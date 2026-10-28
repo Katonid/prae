@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.4';
+  const FASSUNG = '1.0.5';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -168,7 +168,7 @@
   }
 
   function neuesAlbum(titel) {
-    return { id: G.neueId(), titel, beschreibung: '', titelbild: null, freigabe: { art: 'oeffentlich' }, medien: [] };
+    return { id: G.neueId(), titel, beschreibung: '', titelbild: null, freigabe: { art: 'oeffentlich' }, ordner: G.albumOrdnerName(titel), medien: [] };
   }
 
   /** Ältere oder von Hand bearbeitete gallery.json auf den erwarteten Stand bringen. */
@@ -180,8 +180,11 @@
       a.id = a.id || G.neueId();
       // Fassung 3: Freigabe je Album; ältere Alben waren alle öffentlich.
       const art = a.freigabe && a.freigabe.art;
-      a.freigabe = art === 'link' && G.GEHEIM_MUSTER.test(a.freigabe.name || '') ? { art, name: a.freigabe.name }
-        : { art: art === 'entwurf' ? 'entwurf' : 'oeffentlich' };
+      // Albumordner (1.0.5): lesbarer Titel + 26 Zufallszeichen. Ein früherer geheimer Ordnername bleibt gültig.
+      const alterName = art === 'link' && G.GEHEIM_MUSTER.test(a.freigabe.name || '') ? a.freigabe.name : null;
+      a.freigabe = { art: art === 'link' || art === 'entwurf' ? art : 'oeffentlich' };
+      if (!G.ORDNER_MUSTER.test(a.ordner || '')) a.ordner = alterName || G.albumOrdnerName(a.titel);
+      if (alterName) a.ordnerFest = true;
       a.medien = Array.isArray(a.medien) ? a.medien : [];
       for (const m of a.medien) {
         m.id = m.id || G.neueId();
@@ -561,32 +564,24 @@
   function zeigeFreigabe(a) {
     const art = G.freigabe(a);
     $('a-freigabe').value = art;
-    $('a-link').hidden = art !== 'link';
+    $('a-link').hidden = art === 'entwurf';
     const text = $('a-freigabe-text');
+    $('a-link-text').value = G.albumLink(S.projekt, a);
     if (art === 'link') {
-      $('a-link-text').value = G.albumLink(S.projekt, a);
-      text.textContent = 'Nur wer diesen Link kennt, sieht das Album: Er steht auf keiner anderen Seite, und der Ordnername besteht aus 26 Zufallszeichen — durch Probieren nicht zu finden. Gilt nach dem nächsten Hochladen.' +
-        (S.projekt.einstellungen.webadresse ? '' : ' Tipp: Links unter „Galerie" die Adresse der Galerie im Netz eintragen, dann steht hier der vollständige Link.');
-    } else if (art === 'entwurf') {
-      text.textContent = 'Das Album erscheint auf keiner Seite der Galerie. Seine Dateien liegen trotzdem im Ordner.';
+      text.textContent = 'Nur wer diesen Link kennt, sieht das Album: Es steht auf keiner anderen Seite, und der Ordnername endet auf 26 Zufallszeichen — durch Probieren nicht zu finden. Gilt nach dem Hochladen.';
+    } else if (art === 'oeffentlich') {
+      text.textContent = 'Das Album steht auf der Startseite (' + G.webadresse(S.projekt) + ') und ist direkt unter diesem Link erreichbar.';
     } else {
-      text.textContent = '';
+      text.textContent = 'Das Album erscheint auf keiner Seite und kommt nicht mit auf den Webspace.';
     }
   }
 
   async function freigabeAendern() {
     const a = aktuellesAlbum();
     const neu = $('a-freigabe').value;
-    if (neu === 'link' && !S.schluessel) {
-      const ok = await frage({ titel: 'Zuerst ein Passwort', text: 'Ein geheimer Link ist nur geheim, wenn ihn die Projektdatei gallery.json nicht verrät — sie liegt mit auf dem Webspace. Mit Passwort ist sie verschlüsselt. Jetzt ein Passwort festlegen?', ok: 'Passwort festlegen' });
-      if (!ok || !(await passwortSetzen())) {
-        zeigeFreigabe(a);
-        return;
-      }
-    }
-    a.freigabe = neu === 'link'
-      ? { art: 'link', name: G.freigabe(a) === 'link' && a.freigabe.name ? a.freigabe.name : G.geheimerName() }
-      : { art: neu };
+    // Kein Passwort nötig: Das ZIP für den Webspace enthält gallery.json nicht, die Links stehen also nirgends.
+    a.freigabe = { art: neu };
+    G.albumOrdner(a);
     zeigeFreigabe(a);
     zeigeAlben();
     speichern();
@@ -594,9 +589,10 @@
 
   async function neuerLink() {
     const a = aktuellesAlbum();
-    const ok = await frage({ titel: 'Neuen Link erzeugen?', text: 'Der bisherige Link funktioniert danach nicht mehr — sobald du die Galerie neu hochgeladen und den alten Ordner auf dem Webspace gelöscht hast. Alle, die das Album weiter sehen sollen, brauchen den neuen Link.', ok: 'Neuer Link' });
+    const ok = await frage({ titel: 'Neuen Link erzeugen?', text: 'Das Album bekommt einen neuen Ordner (mit dem jetzigen Titel und neuen Zufallszeichen). Der bisherige Link funktioniert nicht mehr, sobald du den alten Ordner auf dem Webspace gelöscht hast. Alle, die das Album weiter sehen sollen, brauchen den neuen Link.', ok: 'Neuer Link' });
     if (!ok) return;
-    a.freigabe = { art: 'link', name: G.geheimerName() };
+    a.ordner = G.albumOrdnerName(a.titel);
+    a.ordnerFest = false;
     zeigeFreigabe(a);
     speichern();
   }
@@ -615,7 +611,7 @@
     const an = !!S.schluessel;
     $('schutz-text').innerHTML = an
       ? '<strong>Mit Passwort geschützt.</strong> Öffnen und Bearbeiten nur mit Passwort; gallery.json ist verschlüsselt (AES-256), auch auf dem Webspace.'
-      : 'Ohne Passwort kann jeder, der diesen Ordner öffnet oder auf dem Webspace gallery.json aufruft, alle Alben samt Entwürfen sehen.';
+      : 'Ohne Passwort kann jeder, der diesen Galerieordner bzw. eine Sicherung (ZIP) öffnet, alle Alben samt Entwürfen sehen und bearbeiten. Auf den Webspace kommt die Projektdatei nicht.';
     $('k-passwort').textContent = an ? 'Passwort ändern …' : 'Passwort festlegen …';
     $('k-passwort-weg').hidden = !an;
   }
@@ -650,9 +646,6 @@
   }
 
   async function passwortEntfernen() {
-    if (S.projekt.alben.some((a) => G.freigabe(a) === 'link')) {
-      return melde('Geht gerade nicht', 'Mindestens ein Album hat einen geheimen Link. Ohne Passwort stünde er lesbar in gallery.json. Erst diese Alben auf „öffentlich" oder „nicht veröffentlichen" stellen.');
-    }
     const huelle = JSON.parse(await (await G.dateiLesen(S.wurzel, 'gallery.json')).text());
     const pw = await passwortDialog({
       titel: 'Passwort entfernen', text: 'Zur Bestätigung das Passwort eingeben. Danach ist gallery.json wieder unverschlüsselt.', ok: 'Entfernen',
@@ -1411,40 +1404,38 @@
       inhalt.append(el('h2', '', 'Noch keine Aufnahmen'), el('p', '', 'Füge zuerst Fotos oder Videos hinzu.'));
     } else {
       inhalt.append(el('h2', 'gut', 'Die Website ist fertig'));
+      const veroeffentlicht = S.projekt.alben.filter((a) => G.freigabe(a) !== 'entwurf' && a.medien.length);
       const p = el('p');
-      p.innerHTML = S.modus === 'browser'
-        ? 'Die Galerie mit <strong>' + anzahl + ' Aufnahmen</strong> (' + G.groesseText(bericht.groesse) + ') ist bereit. Speichere sie jetzt als ZIP-Archiv, entpacke es und lade den Inhalt per FTP hoch.'
-        : 'Der Ordner <strong>„' + escape(S.wurzel.name) + '"</strong> enthält jetzt die vollständige Website mit <strong>' + anzahl + ' Aufnahmen</strong> (' + G.groesseText(bericht.groesse) + ').';
+      p.innerHTML = '<strong>' + anzahl + ' Aufnahmen</strong> (' + G.groesseText(bericht.groesse) + ') in ' + veroeffentlicht.length + (veroeffentlicht.length === 1 ? ' veröffentlichtem Album' : ' veröffentlichten Alben') + '. Für den Webspace:';
       inhalt.append(p);
       const schritte = el('ol', 'anleitungsliste');
       [
-        'FTP-Programm öffnen (z. B. FileZilla) und mit dem Webspace verbinden.',
-        'Auf dem Webspace einen Ordner anlegen, z. B. „360".',
-        'Den gesamten INHALT des Galerieordners dorthin hochladen — index.html, gallery.json und die Ordner assets, media und thumbnails.',
-        'Fertig: Die Galerie ist dann unter https://deine-domain.de/360/ erreichbar. Diesen Link an Freunde und Familie schicken.'
+        '„ZIP für den Webspace" speichern und entpacken. Darin liegt der Ordner „360Grad" — mit einem Unterordner je Album.',
+        'Den Ordner „360Grad" per FTP in den Ordner des Generators laden (/apps/galerie360/). Vorhandene Dateien dürfen überschrieben werden.',
+        'Fertig. Jedes Album ist unter seinem eigenen Link erreichbar:'
       ].forEach((t) => schritte.append(el('li', '', t)));
       inhalt.append(schritte);
-      const geheim = S.projekt.alben.filter((a) => G.freigabe(a) === 'link' && a.medien.length);
-      if (geheim.length) {
-        inhalt.append(el('h3', '', 'Geheime Links'));
+      if (veroeffentlicht.length) {
         const ul = el('ul', 'geheimliste');
-        for (const a of geheim) {
+        for (const a of veroeffentlicht) {
+          G.albumOrdner(a);
           const li = el('li');
-          li.append(el('strong', '', a.titel || 'Ohne Namen'));
+          li.append(el('strong', '', (a.titel || 'Ohne Namen') + (G.freigabe(a) === 'link' ? ' 🔗 (nur mit Link)' : '')));
           const zeile = el('div', 'freigabe-link');
           const feldEl = el('input');
           feldEl.readOnly = true;
           feldEl.value = G.albumLink(S.projekt, a);
-          const k = knopf('Kopieren', 'zweit klein', () => linkKopieren(feldEl.value, k));
+          const k = knopf('Kopieren', 'zweit klein', () => { a.ordnerFest = true; speichern(); linkKopieren(feldEl.value, k); });
           zeile.append(feldEl, k);
           li.append(zeile);
           ul.append(li);
         }
         inhalt.append(ul);
-        if (!S.projekt.einstellungen.webadresse) inhalt.append(el('p', 'klein', 'Vor den Ordnernamen gehört die Adresse deiner Galerie, z. B. https://deine-domain.de/360/ — trage sie links unter „Galerie" ein, dann stehen hier fertige Links.'));
+        if (S.projekt.alben.some((a) => G.freigabe(a) === 'oeffentlich' && a.medien.length)) {
+          inhalt.append(el('p', 'klein', 'Startseite mit allen öffentlichen Alben: ' + G.webadresse(S.projekt)));
+        }
       }
-      if (!S.schluessel) inhalt.append(el('p', 'klein', 'Tipp: Mit einem Passwort (links unter „Schutz") ist auch die Projektdatei gallery.json auf dem Webspace verschlüsselt.'));
-      inhalt.append(el('p', 'klein', 'Später ergänzt? Einfach die Galerie wieder öffnen, Aufnahmen hinzufügen und erneut hochladen. Das FTP-Programm kann bereits vorhandene Dateien überspringen — neu sind dann nur index.html, gallery.json und die neuen Medien.'));
+      inhalt.append(el('p', 'klein', 'Später ergänzt? Galerie wieder öffnen, ändern, ZIP neu speichern und hochladen. Die Links bleiben gleich. „Sicherung" speichert das ganze Projekt (für ein anderes Gerät oder zur Wiederherstellung) — die gehört NICHT auf den Webspace.'));
     }
     if (bericht.hinweise.length) {
       const d = el('details', 'hinweisblock');
@@ -1462,9 +1453,10 @@
     inhalt.append(zipBereich);
     const knoepfe = [];
     if (anzahl && !bericht.fehlend.length) {
-      knoepfe.push(knopf('Als ZIP-Archiv speichern …', S.modus === 'browser' ? 'haupt' : 'zweit', () => zipSpeichern(zipBereich)));
+      knoepfe.push(knopf('Sicherung (ZIP) …', 'still', () => zipSpeichern(zipBereich, 'sicherung'), 'Das ganze Projekt — zum Übernehmen auf einem anderen Gerät'));
+      knoepfe.push(knopf('ZIP für den Webspace …', 'haupt', () => zipSpeichern(zipBereich, 'webspace')));
     }
-    knoepfe.push(knopf(S.modus === 'browser' ? 'Schließen' : 'Fertig', S.modus === 'browser' ? 'zweit' : 'haupt', () => dlg.close()));
+    knoepfe.push(knopf('Schließen', 'zweit', () => dlg.close()));
     inhalt.append(fuss(knoepfe));
   }
 
@@ -1478,8 +1470,10 @@
     return f;
   }
 
-  async function zipSpeichern(bereich) {
-    const name = G.sauberName(S.projekt.titel || S.wurzel.name).basis || 'galerie';
+  /** art 'webspace': Ordner 360Grad mit den Albumordnern; 'sicherung': das ganze Projekt. */
+  async function zipSpeichern(bereich, art) {
+    const webspace = art === 'webspace';
+    const name = webspace ? '360Grad' : (G.sauberName(S.projekt.titel || S.wurzel.name).basis || 'galerie') + '-sicherung';
     let ziel = null;
     try {
       if (window.showSaveFilePicker) {
@@ -1497,9 +1491,16 @@
     balken.value = 0;
     bereich.append(text, balken);
     try {
-      const dateien = await G.alleDateien(S.wurzel, '');
-      const eintraege = [];
-      for (const d of dateien) eintraege.push({ pfad: name + '/' + d.pfad, datei: await d.handle.getFile() });
+      let eintraege = [];
+      if (webspace) {
+        eintraege = await G.webspaceEintraege(S.wurzel, S.projekt);
+        // Ab jetzt sind die Links draußen: Ordnernamen nicht mehr dem Titel nachführen.
+        S.projekt.alben.forEach((a) => { if (G.freigabe(a) !== 'entwurf' && a.medien.length) a.ordnerFest = true; });
+        speichern();
+      } else {
+        const dateien = await G.alleDateien(S.wurzel, '');
+        for (const d of dateien) eintraege.push({ pfad: name + '/' + d.pfad, datei: await d.handle.getFile() });
+      }
       const blob = await G.zipErstellen(eintraege, ziel, (f, g) => {
         balken.value = g ? f / g : 1;
         text.textContent = 'ZIP-Archiv wird erstellt … ' + G.groesseText(f) + ' von ' + G.groesseText(g);
@@ -1512,7 +1513,9 @@
         const teilen = knopf('Teilen / In Dateien sichern …', 'haupt', async () => {
           try {
             await navigator.share({ files: [datei], title: name + '.zip' });
-            text.textContent = 'ZIP-Archiv weitergegeben. In der Dateien-App antippen, um es zu entpacken, dann den Ordner „' + name + '" mit einer FTP-App hochladen.';
+            text.textContent = webspace
+              ? 'ZIP weitergegeben. In der Dateien-App antippen, um es zu entpacken, dann den Ordner „360Grad" mit einer FTP-App nach /apps/galerie360/ hochladen.'
+              : 'Sicherung weitergegeben. Zum Wiederherstellen „Galerie aus ZIP-Archiv übernehmen …" — nicht hochladen.';
             text.className = 'gut';
           } catch (e) {
             if (!abgebrochen(e)) text.textContent = 'Teilen fehlgeschlagen: ' + fehlerText(e);
@@ -1531,7 +1534,9 @@
         setTimeout(() => URL.revokeObjectURL(a.href), 60000);
       }
       balken.remove();
-      text.textContent = 'ZIP-Archiv gespeichert: ' + name + '.zip (' + eintraege.length + ' Dateien). Entpacken und den Ordner „' + name + '" per FTP hochladen.';
+      text.textContent = webspace
+        ? 'ZIP gespeichert: 360Grad.zip (' + eintraege.length + ' Dateien). Entpacken und den Ordner „360Grad" per FTP nach /apps/galerie360/ hochladen.'
+        : 'Sicherung gespeichert: ' + name + '.zip. Wiederherstellen oder auf einem anderen Gerät weiterarbeiten mit „Galerie aus ZIP-Archiv übernehmen …" — nicht hochladen.';
       text.className = 'gut';
     } catch (e) {
       try { if (ziel) await ziel.abort(); } catch (_) { /* egal */ }
@@ -1665,7 +1670,13 @@
     $('g-downloads').addEventListener('change', () => { S.projekt.einstellungen.downloads = $('g-downloads').checked; speichern(); });
     $('g-index').addEventListener('change', () => { S.projekt.einstellungen.nichtIndexieren = $('g-index').checked; speichern(); });
     feld('a-titel', (e) => {
-      aktuellesAlbum().titel = e.value;
+      const a = aktuellesAlbum();
+      a.titel = e.value;
+      // Bis der Link einmal herausgegeben wurde, folgt der Ordnername dem Titel.
+      if (!a.ordnerFest) {
+        a.ordner = G.albumOrdnerName(e.value, G.zufallsteil(a.ordner));
+        zeigeFreigabe(a);
+      }
       const knopfText = document.querySelector('.album.gewaehlt strong');
       if (knopfText) knopfText.textContent = e.value || 'Ohne Namen';
     });

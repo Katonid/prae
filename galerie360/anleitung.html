@@ -223,23 +223,23 @@
       <p>Der Generator läuft nur auf deinem Gerät; im Internet liegt von ihm nichts. Über das Netz kann also niemand deine Galerie bearbeiten. Das Passwort schützt zwei Dinge:</p>
       <ul>
         <li><strong>Das Bearbeiten:</strong> Eine geschützte Galerie öffnet sich nur mit Passwort, auch auf dem iPad, aus „Zuletzt bearbeitet“ oder aus einem ZIP-Archiv. „Schließen“ sperrt sie wieder.</li>
-        <li><strong>Die Projektdatei <span class="pfad">gallery.json</span>:</strong> Sie liegt mit auf dem Webspace, und wer ihre Adresse kennt, könnte sie aufrufen. Mit Passwort ist sie verschlüsselt (AES-256, Schlüssel aus dem Passwort per PBKDF2 mit 600 000 Durchgängen) und für alle anderen wertlos. Ohne Passwort stünden darin alle Alben, auch Entwürfe und geheime Links.</li>
+        <li><strong>Die Projektdatei <span class="pfad">gallery.json</span>:</strong> Sie liegt im Galerieordner auf deinem Gerät und in jeder Sicherung (auf den Webspace kommt sie seit Fassung 1.0.5 nicht mehr). Mit Passwort ist sie verschlüsselt (AES-256, Schlüssel aus dem Passwort per PBKDF2 mit 600 000 Durchgängen) und für alle anderen wertlos. Ohne Passwort stünden darin alle Alben, auch Entwürfe und geheime Links.</li>
       </ul>
       <p>Festlegen, ändern oder entfernen: links unter <strong>„Schutz“</strong>. Beim Anlegen einer neuen Galerie fragt der Generator gleich danach.</p>
       <div class="kasten wichtig"><strong>Passwort gut aufbewahren</strong>, z. B. im Passwort-Manager oder auf Papier. Ohne Passwort lässt sich die Galerie nicht mehr bearbeiten, und niemand kann es wiederherstellen. Die veröffentlichte Website funktioniert trotzdem weiter, und die Fotos und Videos liegen weiter im Ordner.</div>
-      <p class="leise">Nach dem Festlegen die Galerie einmal hochladen, damit die verschlüsselte gallery.json die alte, lesbare auf dem Webspace ersetzt. Das Passwort schützt die Projektdatei, nicht die veröffentlichten Seiten und Bilder; die sehen alle, die den Link haben.</p>
+      <p class="leise">Liegt von früher noch eine gallery.json auf dem Webspace (vor Fassung 1.0.5 kam sie mit), diese dort löschen. Das Passwort schützt die Projektdatei, nicht die veröffentlichten Seiten und Bilder; die sehen alle, die den Link haben.</p>
 
       <h3>Wer welches Album sieht</h3>
       <p>Für jedes Album gibt es oben unter <strong>„Veröffentlichen“</strong> drei Möglichkeiten:</p>
       <table>
         <tr><th>Einstellung</th><th>Wirkung</th></tr>
-        <tr><td>Öffentlich</td><td>Steht auf der Startseite der Galerie (<span class="pfad">…/360/</span>).</td></tr>
-        <tr><td>Nur mit geheimem Link</td><td>Bekommt eine eigene Seite in einem Ordner mit 26 Zufallszeichen, z. B. <span class="pfad">…/360/wbohgfizxbnxdhennmce7s4o6m/</span>. Diese Adresse steht auf keiner anderen Seite und nicht in der Startseite. Die Galerie verrät sie nicht, Suchmaschinen sind ausgesperrt, und sie wird nicht an verlinkte Seiten weitergegeben. Mit 26 Zeichen gibt es über 10<sup>39</sup> Möglichkeiten, durch Zufall oder Probieren findet sie niemand.</td></tr>
+        <tr><td>Öffentlich</td><td>Steht auf der Startseite (<span class="pfad">…/360Grad/</span>) und hat seinen eigenen Link.</td></tr>
+        <tr><td>Nur mit geheimem Link</td><td>Hat wie jedes Album einen eigenen Ordner aus Albumname und 26 Zufallszeichen, z. B. <span class="pfad">…/360Grad/geheimer-ausflug-wbohgfizxbnxdhennmce7s4o6m/</span>, steht aber nicht auf der Startseite. Diese Adresse steht auf keiner anderen Seite und nicht in der Startseite. Die Galerie verrät sie nicht, Suchmaschinen sind ausgesperrt, und sie wird nicht an verlinkte Seiten weitergegeben. Mit 26 Zeichen gibt es über 10<sup>39</sup> Möglichkeiten, durch Zufall oder Probieren findet sie niemand.</td></tr>
         <tr><td>Nicht veröffentlichen</td><td>Entwurf: erscheint auf keiner Seite.</td></tr>
       </table>
       <ol>
-        <li>Links unter „Galerie“ die <strong>Adresse der Galerie im Netz</strong> eintragen, z. B. <span class="pfad">https://deine-domain.de/360/</span>. Dann zeigt der Generator fertige Links.</li>
-        <li>Beim Album „Nur mit geheimem Link“ wählen. Ohne Passwort fragt der Generator zuerst danach, denn sonst stünde der Link lesbar in gallery.json.</li>
+        <li>Die Links setzt der Generator automatisch zusammen: <span class="pfad">https://jerosch.net/apps/galerie360/360Grad/</span> + Albumordner. Für einen anderen Ort links unter „Galerie“ die Adresse des Ordners 360Grad eintragen.</li>
+        <li>Beim Album „Nur mit geheimem Link“ wählen. Ein Passwort ist dafür nicht nötig: Die Projektdatei gallery.json kommt nicht auf den Webspace. Empfehlenswert ist es trotzdem, damit niemand die Galerie auf deinem Gerät oder aus einer Sicherung öffnen kann.</li>
         <li>„Website fertigstellen“ zeigt alle geheimen Links mit <strong>Kopieren</strong>-Knopf. Hochladen, dann den Link per Nachricht an die Familie schicken.</li>
       </ol>
       <p><strong>Neuer Link:</strong> Wurde ein Link zu weit herumgereicht, erzeugt „Neuer Link …“ einen anderen. Der Generator löscht den alten Ordner in deinem Galerieordner. <strong>Auf dem Webspace löscht ein FTP-Programm ihn nicht von selbst</strong>: Dort den alten Ordner mit den 26 Zeichen von Hand löschen, sonst funktioniert der alte Link weiter.</p>
@@ -251,31 +251,43 @@
       <p class="leise">Die Datei <span class="pfad">index.html</span> im Galerieordner per Doppelklick zu öffnen, funktioniert dagegen <em>nicht</em>: Browser verbieten 360°-Grafik aus lokalen Dateien. Auf dem Webspace oder in der Vorschau geht es.</p>
 
       <h2 id="export">7. Website fertigstellen</h2>
-      <p><strong>„Website fertigstellen“</strong> schreibt die Programmdateien neu und prüft, ob alle Fotos, Videos und Vorschaubilder vorhanden sind. Zum Schluss nennt es die Gesamtgröße.</p>
-      <p>Dort lässt sich die Galerie auch <strong>als ZIP-Archiv speichern</strong>, etwa zum Weitergeben, als Sicherung oder für Webhoster, die ZIP-Dateien selbst entpacken. Das Archiv ist nicht komprimiert, denn Fotos und Videos sind es schon. Es funktioniert auch mit sehr großen Videos (ZIP64).</p>
+      <p><strong>„Website fertigstellen“</strong> prüft, ob alle Fotos, Videos und Vorschaubilder vorhanden sind, und zeigt die <strong>Links aller veröffentlichten Alben</strong> mit Kopieren-Knopf. Darunter gibt es zwei ZIP-Archive:</p>
+      <table>
+        <tr><th>Knopf</th><th>Inhalt</th><th>Wofür</th></tr>
+        <tr><td><strong>ZIP für den Webspace</strong></td><td>Ordner <span class="pfad">360Grad</span>: Startseite, Betrachter und je veröffentlichtem Album ein Unterordner mit genau dessen Fotos, Videos und Vorschaubildern. Ohne Entwürfe und ohne die Projektdatei gallery.json.</td><td>hochladen (Abschnitt 8)</td></tr>
+        <tr><td>Sicherung (ZIP)</td><td>das ganze Projekt mit gallery.json</td><td>aufheben, auf einem anderen Gerät mit „Galerie aus ZIP-Archiv übernehmen …“ weiterarbeiten. <strong>Nicht hochladen.</strong></td></tr>
+      </table>
+      <p>Aufbau auf dem Webspace:</p>
+<pre>apps/galerie360/                 der Generator (falls du ihn dort installiert hast)
+└── 360Grad/
+    ├── index.html               Startseite mit den öffentlichen Alben
+    ├── assets/                  Betrachter, für alle Alben gemeinsam
+    ├── sommer-am-see-k7f3…/     ein Album: index.html, media/, thumbnails/
+    └── geheimer-ausflug-x2p…/   ein Album nur mit Link</pre>
+      <p>Jeder Albumordner heißt wie das Album, gefolgt von 26 Zufallszeichen. Der Link lautet also z. B. <span class="pfad">https://jerosch.net/apps/galerie360/360Grad/sommer-am-see-k7f3…/</span>. Der Generator setzt ihn automatisch zusammen. Für einen anderen Ort links unter „Galerie“ die Adresse des Ordners 360Grad eintragen. Solange ein Album noch nicht veröffentlicht ist, passt sich der Ordnername an, wenn du den Titel änderst. Nach dem ersten „ZIP für den Webspace“ (oder „Kopieren“) bleibt er fest, damit verschickte Links gültig bleiben.</p>
+      <p>Die Archive sind nicht komprimiert, denn Fotos und Videos sind es schon. Sie funktionieren auch mit sehr großen Videos (ZIP64).</p>
 
       <h2 id="ftp">8. Hochladen per FTP</h2>
-      <p>Beispiel mit dem kostenlosen Programm <a href="https://filezilla-project.org/">FileZilla</a>; andere FTP-Programme funktionieren genauso.</p>
+      <p>Beispiel mit dem kostenlosen Programm <a href="https://filezilla-project.org/">FileZilla</a>, am iPhone/iPad mit einer FTP-App (Abschnitt 1a); andere Programme funktionieren genauso.</p>
       <ol>
-        <li>Zugangsdaten deines Webhosters bereithalten: Server, Benutzername, Passwort (stehen im Kundenmenü des Hosters, oft unter „FTP-Zugänge“). Nach Möglichkeit <strong>SFTP</strong> oder <strong>FTPS</strong> wählen.</li>
-        <li>In FileZilla oben eintragen und „Verbinden“.</li>
-        <li>Rechts (Webspace) einen Ordner anlegen, z. B. <span class="pfad">360</span>, und hineinwechseln.</li>
-        <li>Links (dein Rechner) den Galerieordner öffnen, <strong>alles darin markieren</strong> (Strg+A bzw. ⌘+A) und nach rechts ziehen.</li>
-        <li>Warten, bis die Warteschlange leer ist.</li>
-        <li>Die Galerie ist jetzt unter <span class="pfad">https://deine-domain.de/360/</span> erreichbar. Diesen Link verschicken.</li>
+        <li>„ZIP für den Webspace“ speichern und entpacken. Es entsteht der Ordner <span class="pfad">360Grad</span>.</li>
+        <li>Mit dem Webspace verbinden: Server, Benutzername, Passwort stehen im Kundenmenü des Hosters, oft unter „FTP-Zugänge“. Nach Möglichkeit <strong>SFTP</strong> oder <strong>FTPS</strong> wählen.</li>
+        <li>Auf dem Webspace in den Ordner <span class="pfad">apps/galerie360</span> wechseln.</li>
+        <li>Den Ordner <span class="pfad">360Grad</span> dorthin ziehen. Vorhandene Dateien dürfen überschrieben werden.</li>
+        <li>Fertig: Die Links aus „Website fertigstellen“ verschicken. Die Startseite mit allen öffentlichen Alben ist <span class="pfad">https://jerosch.net/apps/galerie360/360Grad/</span>.</li>
       </ol>
-      <div class="kasten">Auf dem Server muss nichts eingerichtet werden: keine Datenbank, kein PHP, keine Konfiguration. Jeder gewöhnliche Webspace (Apache, nginx, Shared Hosting) genügt. Alle Pfade sind relativ, die Galerie funktioniert deshalb in jedem Unterordner.</div>
-      <p><strong>Nur für bestimmte Personen?</strong> Ist „Vor Suchmaschinen verbergen“ eingeschaltet, findet niemand die Galerie zufällig. Wer den Link kennt, kann sie aber ansehen. Für einen echten Passwortschutz bieten fast alle Webhoster im Kundenmenü einen <em>Verzeichnisschutz</em> an („geschützter Ordner“, „.htaccess-Schutz“). Dort den Ordner <span class="pfad">360</span> auswählen und Benutzername und Passwort festlegen.</p>
+      <div class="kasten">Auf dem Server muss nichts eingerichtet werden: keine Datenbank, kein PHP, keine Konfiguration. Jeder gewöhnliche Webspace (Apache, nginx, Shared Hosting) genügt. Alle Pfade sind relativ; der Ordner 360Grad funktioniert deshalb auch an jedem anderen Ort.</div>
+      <p><strong>Nur für bestimmte Personen?</strong> Alben „nur mit geheimem Link“ findet niemand zufällig (Abschnitt 5b). Wer den Link hat, kann ihn aber weitergeben. Für einen echten Passwortschutz bieten fast alle Webhoster im Kundenmenü einen <em>Verzeichnisschutz</em> an („geschützter Ordner“, „.htaccess-Schutz“), etwa für <span class="pfad">360Grad</span> oder einen einzelnen Albumordner.</p>
 
       <h2 id="erweitern">9. Galerie später erweitern</h2>
       <ol>
-        <li>Generator öffnen, die Galerie unter „Zuletzt bearbeitet“ anklicken (oder „Vorhandene Galerie öffnen“ und den Ordner wählen).</li>
+        <li>Generator öffnen, die Galerie unter „Zuletzt bearbeitet“ anklicken (oder „Vorhandene Galerie öffnen“ bzw. „Galerie aus ZIP-Archiv übernehmen …“).</li>
         <li>Neue Aufnahmen hinzufügen, Texte ändern, Alben anlegen …</li>
-        <li>„Website fertigstellen“.</li>
-        <li>Den Ordnerinhalt erneut hochladen. FileZilla fragt bei vorhandenen Dateien nach. Wähle die Option zum Überschreiben, <em>wenn die Quelle neuer ist</em>, und lass sie für alle Dateien gelten. Dann werden nur neue und geänderte Dateien übertragen.</li>
+        <li>„Website fertigstellen“ → „ZIP für den Webspace“.</li>
+        <li>Den Ordner <span class="pfad">360Grad</span> erneut hochladen. FileZilla fragt bei vorhandenen Dateien nach: die Option zum Überschreiben wählen, <em>wenn die Quelle neuer ist</em>, und für alle Dateien gelten lassen. Dann werden nur neue und geänderte Dateien übertragen.</li>
       </ol>
-      <p>Wichtig sind dabei vor allem <span class="pfad">index.html</span> (enthält Texte und Reihenfolge) sowie die neuen Dateien in <span class="pfad">media</span> und <span class="pfad">thumbnails</span>. Gelöschte Aufnahmen verschwinden aus der Galerie, sobald die neue <span class="pfad">index.html</span> oben ist. Ihre alten Dateien auf dem Webspace kannst du bei Bedarf von Hand löschen.</p>
-      <p>Eine Galerie lässt sich mit dem ganzen Ordner sichern oder auf einen anderen Rechner mitnehmen. Dort mit „Vorhandene Galerie öffnen“ weiterbearbeiten.</p>
+      <p>Die Links bleiben gleich. Gelöschte Aufnahmen verschwinden aus einem Album, sobald dessen neue <span class="pfad">index.html</span> oben ist; ihre alten Dateien auf dem Webspace kannst du bei Bedarf von Hand löschen. Gleiches gilt für den Ordner eines Albums, das du zum Entwurf gemacht oder mit „Neuer Link …“ umgezogen hast: Den alten Ordner auf dem Webspace von Hand löschen.</p>
+      <p><strong>Hotspots zwischen Alben:</strong> Jedes Album ist eine eigene Seite. Ein Hotspot, der in ein anderes veröffentlichtes Album führt, wird zu einem Link auf dessen Seite. Von einem öffentlichen Album in eines „nur mit Link“ führt keiner, und in Entwürfe führt nie einer. So verrät keine Seite einen geheimen Link.</p>
 
       <h2 id="betrachter">10. Was Betrachter sehen</h2>
       <ul>
