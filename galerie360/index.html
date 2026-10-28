@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Galerie 360 — 360°-Fotos und -Videos als eigene Webgalerie</title>
+    <meta name="description" content="Erstellt aus 360°-Fotos und -Videos eine eigenständige Webgalerie für den eigenen Webspace. Läuft ganz im Browser, nichts wird hochgeladen." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <link rel="stylesheet" href="./galerie/galerie.css" />
+    <link rel="stylesheet" href="./css/generator.css" />
+  </head>
+  <body>
+    <header class="leiste">
+      <a class="marke" href="./" id="marke">
+        <img src="./icons/icon.svg" alt="" width="28" height="28" />
+        <span>Galerie 360</span>
+      </a>
+      <div class="leiste-projekt" id="leiste-projekt" hidden>
+        <span class="projektname" id="projektname"></span>
+        <span class="status" id="status" aria-live="polite"></span>
+      </div>
+      <div class="leiste-rechts">
+        <span id="editor-knoepfe" class="knopfreihe" hidden>
+          <button type="button" id="k-vorschau" class="zweit">Vorschau</button>
+          <button type="button" id="k-fertig" class="haupt">Website fertigstellen</button>
+          <button type="button" id="k-schliessen" class="still" title="Projekt schließen und zur Übersicht">Schließen</button>
+        </span>
+        <a class="still knopf" href="./anleitung.html" target="_blank" rel="noopener">Anleitung</a>
+      </div>
+    </header>
+
+    <!-- ===================== Start ===================== -->
+    <main id="start" class="start">
+      <section class="held">
+        <h1>360°-Fotos und -Videos als eigene Webgalerie</h1>
+        <p class="unterzeile">Fotos und Videos aus Insta360 Studio hineinziehen, beschriften, sortieren — fertig ist eine
+          Website, die du per FTP auf deinen eigenen Webspace lädst. Betrachter brauchen nur einen Browser:
+          keine App, kein Konto, keine Cloud.</p>
+        <div class="knopfreihe">
+          <button type="button" id="k-neu" class="haupt gross">Neue Galerie anlegen</button>
+          <button type="button" id="k-oeffnen" class="zweit gross">Vorhandene Galerie öffnen</button>
+        </div>
+        <p class="hinweis" id="browserhinweis" hidden></p>
+      </section>
+
+      <section id="zuletzt" class="zuletzt" hidden>
+        <h2>Zuletzt bearbeitet</h2>
+        <ul id="zuletzt-liste" class="projektliste"></ul>
+      </section>
+
+      <section class="schritte" aria-label="So funktioniert es">
+        <div class="schritt"><span class="nr">1</span><h3>Ordner wählen</h3><p>Jede Galerie ist ein eigener Ordner auf deinem Rechner. Darin entsteht die fertige Website.</p></div>
+        <div class="schritt"><span class="nr">2</span><h3>Aufnahmen hinzufügen</h3><p>360°-Fotos (JPG) und -Videos (MP4) hineinziehen, Alben anlegen, Titel und Beschreibungen vergeben.</p></div>
+        <div class="schritt"><span class="nr">3</span><h3>Vorschau ansehen</h3><p>Die Galerie genau so ansehen, wie Freunde und Familie sie später sehen.</p></div>
+        <div class="schritt"><span class="nr">4</span><h3>Hochladen</h3><p>„Website fertigstellen" prüft alles. Dann den Ordner per FTP hochladen — oder als ZIP speichern.</p></div>
+      </section>
+
+      <p class="datenschutz">Alles läuft auf diesem Rechner. Deine Fotos und Videos werden nirgendwohin übertragen.</p>
+    </main>
+
+    <!-- ===================== Editor ===================== -->
+    <div id="editor" class="editor" hidden>
+      <aside class="seitenleiste">
+        <section class="block">
+          <h2>Galerie</h2>
+          <label class="feld">Titel
+            <input type="text" id="g-titel" maxlength="120" />
+          </label>
+          <label class="feld">Beschreibung
+            <textarea id="g-beschreibung" rows="3" placeholder="Ein paar Worte zur Startseite (optional)"></textarea>
+          </label>
+          <label class="feld">Design
+            <select id="g-design">
+              <option value="dunkel">Dunkel</option>
+              <option value="hell">Hell</option>
+              <option value="auto">Wie beim Betrachter eingestellt</option>
+            </select>
+          </label>
+          <div class="feld">Akzentfarbe
+            <div id="g-akzent" class="farben" role="radiogroup" aria-label="Akzentfarbe"></div>
+          </div>
+          <label class="haken"><input type="checkbox" id="g-auto" /> Fotos langsam von selbst drehen</label>
+          <label class="haken"><input type="checkbox" id="g-datum" /> Aufnahmedatum anzeigen</label>
+          <label class="haken"><input type="checkbox" id="g-downloads" /> Herunterladen der Originale erlauben</label>
+          <label class="haken"><input type="checkbox" id="g-index" /> Vor Suchmaschinen verbergen</label>
+          <label class="feld">Fußzeile
+            <input type="text" id="g-fuss" maxlength="200" placeholder="z. B. © 2026 Familie Muster" />
+          </label>
+        </section>
+        <section class="block">
+          <div class="blockkopf">
+            <h2>Alben</h2>
+            <button type="button" id="k-album-neu" class="klein zweit">+ Neues Album</button>
+          </div>
+          <ul id="albenliste" class="albenliste"></ul>
+        </section>
+        <section class="block klein" id="speicherhinweis" hidden></section>
+      </aside>
+
+      <section class="arbeitsflaeche" id="arbeitsflaeche">
+        <div class="albumkopf">
+          <input type="text" id="a-titel" class="albumtitel" placeholder="Name des Albums" maxlength="120" aria-label="Name des Albums" />
+          <textarea id="a-beschreibung" rows="2" placeholder="Beschreibung des Albums (optional)" aria-label="Beschreibung des Albums"></textarea>
+        </div>
+
+        <div id="ablage" class="ablage">
+          <p><strong>Fotos und Videos hierher ziehen</strong> — oder</p>
+          <button type="button" id="k-dateien" class="haupt">Dateien auswählen …</button>
+          <p class="klein">360°-Fotos (JPG, PNG, WebP) und 360°-Videos (MP4, MOV), equirektangular aus Insta360 Studio
+            exportiert. Mehrere auf einmal gehen. Die Originale werden in den Galerieordner <em>kopiert</em> und nie verändert.</p>
+          <input type="file" id="dateiwahl" multiple hidden
+            accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/quicktime,video/webm,.jpg,.jpeg,.png,.webp,.avif,.mp4,.m4v,.mov,.webm" />
+        </div>
+
+        <ul id="warteschlange" class="warteschlange"></ul>
+        <p id="leerhinweis" class="leerhinweis" hidden>Dieses Album ist noch leer.</p>
+        <ul id="medienliste" class="medienliste"></ul>
+
+        <div class="albumfuss">
+          <button type="button" id="k-album-loeschen" class="still gefahr">Dieses Album löschen</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== Vorschau ===================== -->
+    <div id="vorschau" class="vorschau" hidden>
+      <div class="vorschauleiste">
+        <strong>Vorschau</strong>
+        <span>So sehen Besucher deine Galerie.</span>
+        <button type="button" id="k-vorschau-zu" class="haupt">Vorschau schließen</button>
+      </div>
+      <div id="vorschau-galerie" class="vorschauflaeche"></div>
+    </div>
+
+    <!-- ===================== Dialoge ===================== -->
+    <dialog id="dlg-blick" class="dialog breit">
+      <div class="dialogkopf">
+        <h2>Startansicht und Vorschaubild</h2>
+        <p>Ziehe das Bild in die gewünschte Richtung und zoome mit dem Mausrad oder zwei Fingern. So öffnet sich die Aufnahme in der Galerie, und genau dieser Ausschnitt wird zum Vorschaubild.</p>
+      </div>
+      <div class="blickrahmen"><canvas id="blick-leinwand"></canvas><span class="blickrahmen-hinweis">Vorschaubild-Ausschnitt</span></div>
+      <div class="dialogfuss">
+        <button type="button" id="k-blick-reset" class="still">Zurücksetzen</button>
+        <span class="frei"></span>
+        <button type="button" id="k-blick-abbrechen" class="zweit">Abbrechen</button>
+        <button type="button" id="k-blick-ok" class="haupt">Übernehmen</button>
+      </div>
+    </dialog>
+
+    <dialog id="dlg-fertig" class="dialog">
+      <div id="fertig-inhalt"></div>
+    </dialog>
+
+    <dialog id="dlg-frage" class="dialog schmal">
+      <form method="dialog" id="frage-form">
+        <h2 id="frage-titel"></h2>
+        <p id="frage-text"></p>
+        <input type="text" id="frage-eingabe" hidden />
+        <div class="dialogfuss">
+          <span class="frei"></span>
+          <button type="button" value="nein" id="frage-nein" class="zweit">Abbrechen</button>
+          <button type="submit" value="ja" id="frage-ja" class="haupt">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <input type="file" id="dateiwahl-einzeln" hidden />
+
+    <script src="./galerie/galerie.js"></script>
+    <script src="./js/medien.js"></script>
+    <script src="./js/speicher.js"></script>
+    <script src="./js/export.js"></script>
+    <script src="./js/app.js"></script>
+  </body>
+</html>

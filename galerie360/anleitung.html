@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Anleitung — Galerie 360</title>
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <style>
+      :root { --grund: #f6f5f2; --text: #1c1e22; --leise: #5f656e; --linie: #e1e0db; --akzent: #1d4ed8; --kasten: #fff; color-scheme: light; }
+      @media (prefers-color-scheme: dark) {
+        :root { --grund: #121316; --text: #e9ebee; --leise: #a0a6af; --linie: #2e3137; --akzent: #7aa2ff; --kasten: #1b1d21; color-scheme: dark; }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--grund); color: var(--text); font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+      main { max-width: 780px; margin: 0 auto; padding: 48px 20px 80px; }
+      h1 { font-size: 38px; line-height: 1.15; margin: 0 0 8px; letter-spacing: -0.02em; }
+      h2 { font-size: 24px; margin: 52px 0 10px; padding-top: 8px; border-top: 1px solid var(--linie); }
+      h3 { font-size: 18px; margin: 28px 0 6px; }
+      p, li { color: var(--text); }
+      .leise { color: var(--leise); }
+      a { color: var(--akzent); }
+      code, .pfad { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.88em; background: var(--kasten); border: 1px solid var(--linie); border-radius: 5px; padding: 1px 5px; }
+      pre { background: var(--kasten); border: 1px solid var(--linie); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-size: 14px; line-height: 1.5; }
+      .kasten { background: var(--kasten); border: 1px solid var(--linie); border-radius: 12px; padding: 14px 18px; margin: 16px 0; }
+      .kasten.wichtig { border-left: 4px solid #f59e0b; }
+      table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; }
+      th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--linie); vertical-align: top; }
+      th { color: var(--leise); font-weight: 600; }
+      nav ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+      @media (max-width: 600px) { nav ol { columns: 1; } h1 { font-size: 30px; } }
+      .zurueck { display: inline-block; margin-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="zurueck" href="./">← Zum Generator</a>
+      <h1>Galerie 360 — Anleitung</h1>
+      <p class="leise">Aus 360°-Fotos und -Videos eine eigene Webgalerie machen und auf den eigenen Webspace laden.</p>
+
+      <nav>
+        <ol>
+          <li><a href="#start">Installation und Start</a></li>
+          <li><a href="#insta360">Aus Insta360 Studio exportieren</a></li>
+          <li><a href="#anlegen">Galerie anlegen</a></li>
+          <li><a href="#import">Fotos und Videos hinzufügen</a></li>
+          <li><a href="#gestalten">Beschriften, sortieren, gestalten</a></li>
+          <li><a href="#vorschau">Vorschau</a></li>
+          <li><a href="#export">Website fertigstellen</a></li>
+          <li><a href="#ftp">Hochladen per FTP</a></li>
+          <li><a href="#erweitern">Galerie später erweitern</a></li>
+          <li><a href="#betrachter">Was Betrachter sehen</a></li>
+          <li><a href="#grenzen">Bekannte Grenzen</a></li>
+          <li><a href="#technik">Aufbau des Galerieordners</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="start">1. Installation und Start</h2>
+      <p>Galerie 360 muss nicht installiert werden. Der Generator ist eine Webseite, die <strong>vollständig auf deinem Rechner</strong> läuft. Fotos und Videos werden dabei nirgendwohin hochgeladen; sie werden nur von einem Ordner deines Rechners in einen anderen kopiert.</p>
+      <h3>Weg A: online öffnen (empfohlen)</h3>
+      <ol>
+        <li><strong>Google Chrome</strong> oder <strong>Microsoft Edge</strong> öffnen (Windows oder macOS, beide kostenlos).</li>
+        <li>Die Adresse <a href="https://katonid.github.io/prae/galerie360/">katonid.github.io/prae/galerie360</a> aufrufen.</li>
+        <li>Tipp: die Seite als Lesezeichen speichern.</li>
+      </ol>
+      <h3>Weg B: ganz ohne Internet</h3>
+      <ol>
+        <li>Die Datei <a href="./galerie360-generator.html" download>galerie360-generator.html</a> herunterladen und irgendwo ablegen, z. B. auf dem Schreibtisch.</li>
+        <li>Rechtsklick → <em>Öffnen mit</em> → Chrome oder Edge.</li>
+      </ol>
+      <p>Diese eine Datei enthält den ganzen Generator samt Galerie-Programm.</p>
+      <h3>Und Safari oder Firefox?</h3>
+      <p>Safari und Firefox dürfen nicht direkt in einen Ordner auf der Festplatte schreiben. Dort speichert der Generator die Galerie im Speicher des Browsers und gibt sie am Ende als ZIP-Archiv aus. Das funktioniert, ist aber umständlicher. Außerdem geht die Galerie verloren, wenn jemand die Browserdaten löscht. <strong>Mit Chrome oder Edge ist jede Galerie ein normaler Ordner auf deinem Rechner</strong>, und das ist der empfohlene Weg.</p>
+
+      <h2 id="insta360">2. Aus Insta360 Studio exportieren</h2>
+      <p>Der Generator verarbeitet fertige 360°-Aufnahmen im sogenannten <em>equirektangularen</em> Format (Seitenverhältnis 2:1). INSP- und INSV-Dateien direkt von der Kamera gehen nicht — sie werden zuerst in Insta360 Studio exportiert:</p>
+      <table>
+        <tr><th>Aufnahme</th><th>Exporteinstellung</th></tr>
+        <tr><td>Foto</td><td>Als <strong>360°-Foto</strong> exportieren, Format JPG, volle Auflösung. Nicht „Reframe“/„Flach“ — das ergibt ein normales Foto ohne Rundumblick.</td></tr>
+        <tr><td>Video (empfohlen)</td><td>Als <strong>360°-Video</strong>, Kodierung <strong>H.264</strong>, Auflösung <strong>3840 × 1920</strong> (4K). Diese Fassung spielt praktisch jedes Gerät ab, auch ältere iPhones und Android-Handys.</td></tr>
+        <tr><td>Video (beste Qualität)</td><td>Zusätzlich eine Fassung in <strong>5,7K mit H.265</strong> exportieren und im Generator als <em>„Weitere Fassung“</em> zum selben Video hinzufügen. Jeder Browser nimmt dann automatisch die beste Fassung, die er abspielen kann.</td></tr>
+      </table>
+      <div class="kasten wichtig">
+        <strong>Dateigröße:</strong> Jeder Betrachter lädt ein Video vollständig über deinen Webspace. Für das Internet reicht eine Bitrate von etwa 30–50 Mbit/s. Das sind rund 4–6 MB je Sekunde, also 250–350 MB für eine Minute. Wähle in Insta360 Studio deshalb keine Höchstbitrate, wenn du nicht musst.
+      </div>
+
+      <h2 id="anlegen">3. Galerie anlegen</h2>
+      <ol>
+        <li>Im Generator auf <strong>„Neue Galerie anlegen“</strong> klicken und einen Namen eingeben, z. B. <em>Sommer in Norwegen</em>.</li>
+        <li>Einen Ordner wählen, z. B. <em>Dokumente</em>. Ist er nicht leer, legt der Generator darin einen Unterordner mit dem Namen der Galerie an (<span class="pfad">sommer-in-norwegen</span>).</li>
+        <li>Der Browser fragt, ob die Seite diesen Ordner bearbeiten darf. Mit <em>„Bearbeiten zulassen“</em> bestätigen.</li>
+      </ol>
+      <p><strong>Dieser Ordner ist die fertige Website.</strong> Alles, was du im Generator tust, wird sofort darin gespeichert. Einen „Speichern“-Knopf gibt es nicht; oben links steht „Alle Änderungen gespeichert“.</p>
+      <p>Zuletzt bearbeitete Galerien stehen auf der Startseite des Generators. Wurde ein Ordner verschoben, mit <strong>„Vorhandene Galerie öffnen“</strong> neu wählen.</p>
+
+      <h2 id="import">4. Fotos und Videos hinzufügen</h2>
+      <ul>
+        <li>Dateien aus dem Explorer bzw. Finder <strong>in das Fenster ziehen</strong>, gern viele auf einmal, oder</li>
+        <li><strong>„Dateien auswählen …“</strong> klicken (mit Strg bzw. ⌘ mehrere markieren).</li>
+      </ul>
+      <p>Für jede Datei passiert Folgendes, nacheinander und mit Fortschrittsanzeige:</p>
+      <ol>
+        <li>Die Datei wird <strong>unverändert</strong> in den Galerieordner kopiert. Dein Original bleibt, wo es ist.</li>
+        <li>Bei Fotos über 4096 Pixel Breite entstehen zusätzlich verkleinerte Fassungen (4096 und ggf. 8192 Pixel) für Handys und schwächere Grafikkarten. Am Computer zeigt die Galerie, wenn möglich, das Original.</li>
+        <li>Bei Videos wird ein Standbild herausgeholt; es ist zu sehen, bevor jemand auf „Abspielen“ tippt.</li>
+        <li>Ein Vorschaubild für die Kachelansicht entsteht. Es ist ein echter Bildausschnitt, kein verzerrtes Rundumbild.</li>
+        <li>Das Aufnahmedatum wird aus der Datei gelesen (EXIF bzw. MP4, sonst aus dem Insta360-Dateinamen).</li>
+      </ol>
+      <p>Große Videos brauchen zum Kopieren so lange wie im Explorer. Das Fenster dabei bitte offen lassen.</p>
+
+      <h2 id="gestalten">5. Beschriften, sortieren, gestalten</h2>
+      <h3>Aufnahmen</h3>
+      <ul>
+        <li><strong>Titel und Beschreibung</strong> direkt in die Felder neben dem Vorschaubild schreiben. Die Beschreibung darf mehrere Zeilen haben.</li>
+        <li><strong>Reihenfolge:</strong> am Griff (⋮⋮) links ziehen oder mit den Pfeilen ↑ ↓.</li>
+        <li><strong>Startansicht:</strong> aufs Vorschaubild klicken, das Bild in die gewünschte Richtung ziehen, zoomen, „Übernehmen“. So öffnet sich die Aufnahme später, und dieser Ausschnitt wird das Vorschaubild.</li>
+        <li><strong>Als Albumbild:</strong> dieses Vorschaubild auf der Startseite für das Album zeigen (sonst das erste).</li>
+        <li><strong>Verschieben nach …:</strong> in ein anderes Album verschieben.</li>
+        <li><strong>Entfernen:</strong> löscht die Kopie im Galerieordner, nicht dein Original.</li>
+        <li>Bei Videos: <strong>„Weitere Fassung …“</strong> (siehe oben) und <strong>„Anderes Standbild …“</strong>. Das Standbild kommt entweder aus einer bestimmten Sekunde des Videos oder aus einem eigenen 360°-Foto.</li>
+      </ul>
+      <p>Gelb hinterlegte Hinweise warnen vor möglichen Problemen, etwa wenn ein Video im Format H.265 vorliegt, das Firefox nicht abspielt.</p>
+      <h3>Alben</h3>
+      <p>Links unter <em>Alben</em> neue Alben anlegen, auswählen und mit ↑ ↓ sortieren. Name und Beschreibung des gewählten Albums stehen oben über den Aufnahmen. Hat die Galerie nur ein Album, springt sie gleich zu dessen Aufnahmen.</p>
+      <h3>Galerie</h3>
+      <table>
+        <tr><th>Einstellung</th><th>Wirkung</th></tr>
+        <tr><td>Titel, Beschreibung</td><td>Überschrift und Text der Startseite.</td></tr>
+        <tr><td>Design</td><td>Dunkel, hell oder wie beim Betrachter eingestellt. Betrachter können oben rechts umschalten.</td></tr>
+        <tr><td>Akzentfarbe</td><td>Farbe für Knöpfe und Fortschrittsbalken.</td></tr>
+        <tr><td>Von selbst drehen</td><td>Fotos drehen sich langsam, bis jemand sie anfasst.</td></tr>
+        <tr><td>Aufnahmedatum anzeigen</td><td>Datum unter den Kacheln und im Betrachter.</td></tr>
+        <tr><td>Herunterladen erlauben</td><td>Im Betrachter erscheint „Original herunterladen“.</td></tr>
+        <tr><td>Vor Suchmaschinen verbergen</td><td>Google &amp; Co. nehmen die Galerie nicht auf (empfohlen für private Galerien).</td></tr>
+        <tr><td>Fußzeile</td><td>Kleiner Text unten, z. B. „© 2026 Familie Muster“.</td></tr>
+      </table>
+
+      <h2 id="vorschau">6. Vorschau</h2>
+      <p><strong>„Vorschau“</strong> oben rechts zeigt die Galerie genau so, wie Besucher sie sehen, mit allen Alben, dem 360°-Betrachter und den Videos. „Vorschau schließen“ führt zurück.</p>
+      <p class="leise">Die Datei <span class="pfad">index.html</span> im Galerieordner per Doppelklick zu öffnen, funktioniert dagegen <em>nicht</em>: Browser verbieten 360°-Grafik aus lokalen Dateien. Auf dem Webspace oder in der Vorschau geht es.</p>
+
+      <h2 id="export">7. Website fertigstellen</h2>
+      <p><strong>„Website fertigstellen“</strong> schreibt die Programmdateien neu und prüft, ob alle Fotos, Videos und Vorschaubilder vorhanden sind. Zum Schluss nennt es die Gesamtgröße.</p>
+      <p>Dort lässt sich die Galerie auch <strong>als ZIP-Archiv speichern</strong>, etwa zum Weitergeben, als Sicherung oder für Webhoster, die ZIP-Dateien selbst entpacken. Das Archiv ist nicht komprimiert, denn Fotos und Videos sind es schon. Es funktioniert auch mit sehr großen Videos (ZIP64).</p>
+
+      <h2 id="ftp">8. Hochladen per FTP</h2>
+      <p>Beispiel mit dem kostenlosen Programm <a href="https://filezilla-project.org/">FileZilla</a>; andere FTP-Programme funktionieren genauso.</p>
+      <ol>
+        <li>Zugangsdaten deines Webhosters bereithalten: Server, Benutzername, Passwort (stehen im Kundenmenü des Hosters, oft unter „FTP-Zugänge“). Nach Möglichkeit <strong>SFTP</strong> oder <strong>FTPS</strong> wählen.</li>
+        <li>In FileZilla oben eintragen und „Verbinden“.</li>
+        <li>Rechts (Webspace) einen Ordner anlegen, z. B. <span class="pfad">360</span>, und hineinwechseln.</li>
+        <li>Links (dein Rechner) den Galerieordner öffnen, <strong>alles darin markieren</strong> (Strg+A bzw. ⌘+A) und nach rechts ziehen.</li>
+        <li>Warten, bis die Warteschlange leer ist.</li>
+        <li>Die Galerie ist jetzt unter <span class="pfad">https://deine-domain.de/360/</span> erreichbar. Diesen Link verschicken.</li>
+      </ol>
+      <div class="kasten">Auf dem Server muss nichts eingerichtet werden: keine Datenbank, kein PHP, keine Konfiguration. Jeder gewöhnliche Webspace (Apache, nginx, Shared Hosting) genügt. Alle Pfade sind relativ, die Galerie funktioniert deshalb in jedem Unterordner.</div>
+      <p><strong>Nur für bestimmte Personen?</strong> Ist „Vor Suchmaschinen verbergen“ eingeschaltet, findet niemand die Galerie zufällig. Wer den Link kennt, kann sie aber ansehen. Für einen echten Passwortschutz bieten fast alle Webhoster im Kundenmenü einen <em>Verzeichnisschutz</em> an („geschützter Ordner“, „.htaccess-Schutz“). Dort den Ordner <span class="pfad">360</span> auswählen und Benutzername und Passwort festlegen.</p>
+
+      <h2 id="erweitern">9. Galerie später erweitern</h2>
+      <ol>
+        <li>Generator öffnen, die Galerie unter „Zuletzt bearbeitet“ anklicken (oder „Vorhandene Galerie öffnen“ und den Ordner wählen).</li>
+        <li>Neue Aufnahmen hinzufügen, Texte ändern, Alben anlegen …</li>
+        <li>„Website fertigstellen“.</li>
+        <li>Den Ordnerinhalt erneut hochladen. FileZilla fragt bei vorhandenen Dateien nach. Wähle die Option zum Überschreiben, <em>wenn die Quelle neuer ist</em>, und lass sie für alle Dateien gelten. Dann werden nur neue und geänderte Dateien übertragen.</li>
+      </ol>
+      <p>Wichtig sind dabei vor allem <span class="pfad">index.html</span> (enthält Texte und Reihenfolge) sowie die neuen Dateien in <span class="pfad">media</span> und <span class="pfad">thumbnails</span>. Gelöschte Aufnahmen verschwinden aus der Galerie, sobald die neue <span class="pfad">index.html</span> oben ist. Ihre alten Dateien auf dem Webspace kannst du bei Bedarf von Hand löschen.</p>
+      <p>Eine Galerie lässt sich mit dem ganzen Ordner sichern oder auf einen anderen Rechner mitnehmen. Dort mit „Vorhandene Galerie öffnen“ weiterbearbeiten.</p>
+
+      <h2 id="betrachter">10. Was Betrachter sehen</h2>
+      <ul>
+        <li>Startseite mit Titel und Alben, darin Kacheln mit Symbol für Foto oder Video (mit Dauer).</li>
+        <li>Ein Klick öffnet den 360°-Betrachter: <strong>Ziehen</strong> mit Maus oder Finger dreht den Blick, <strong>Mausrad, Trackpad oder zwei Finger</strong> zoomen, Doppelklick zoomt schnell.</li>
+        <li>Pfeile bzw. Tasten ← → blättern, Esc schließt, Leertaste startet und stoppt Videos, F schaltet das Vollbild um.</li>
+        <li>Einmal aufs Bild tippen blendet alle Bedienelemente aus und wieder ein.</li>
+        <li>Videos starten erst nach einem Tipp auf „Video abspielen“, mit Ton. Der Blick lässt sich während der Wiedergabe frei drehen; spulen, pausieren und die Lautstärke regeln geht über die Leiste unten.</li>
+        <li>Jede Aufnahme hat eine eigene Adresse: Wer im Betrachter die Adresszeile kopiert, verschickt einen Link direkt auf diese Aufnahme.</li>
+      </ul>
+
+      <h2 id="grenzen">11. Bekannte Grenzen</h2>
+      <table>
+        <tr><th>Thema</th><th>Was gilt</th></tr>
+        <tr><td>H.265 (HEVC)</td><td>Firefox spielt H.265 nicht ab, Chrome und Edge unter Windows nur mit passender Hardware. Safari (iPhone, iPad, Mac) kann es. Abhilfe: zusätzlich eine H.264-Fassung in 4K hinzufügen. Kann ein Browser gar keine Fassung abspielen, erklärt die Galerie das und bietet das Video zum Herunterladen an.</td></tr>
+        <tr><td>Videos über 4K</td><td>iPhones, iPads und viele Android-Geräte spielen H.264 über 3840 Pixel Breite oft nicht ab. Mit einer 4K-Fassung nehmen Handys automatisch diese.</td></tr>
+        <tr><td>Lautstärke auf iPhone/iPad</td><td>iOS erlaubt Webseiten nur „Ton an/aus“. Die Lautstärke regelt man mit den Tasten am Gerät; der Lautstärkeregler ist dort ausgeblendet.</td></tr>
+        <tr><td>Vollbild auf dem iPhone</td><td>Safari auf dem iPhone kennt kein Vollbild für Webseiten (nur für flache Videos, und das zerstört die 360°-Ansicht). Der Betrachter füllt das Fenster trotzdem ganz; der Vollbild-Knopf blendet dort alle Bedienelemente aus. Auf dem iPad und am Computer gibt es echtes Vollbild.</td></tr>
+        <tr><td>Fotoauflösung</td><td>Am Handy werden Fotos mit 4096 Pixeln Breite gezeigt; das schont den Speicher, sonst bräche Safari ab. Am Computer bis zur Grenze der Grafikkarte, meist 16384 Pixel, also in der Regel das Original.</td></tr>
+        <tr><td>Ladezeit</td><td>Videos werden erst geladen, wenn jemand auf „Abspielen“ tippt, und ab dann gestreamt. Wie flüssig das läuft, hängt von der Leitung des Betrachters und deines Webhosters ab.</td></tr>
+        <tr><td>Lokales Öffnen</td><td>Die <span class="pfad">index.html</span> per Doppelklick öffnen zeigt kein 360°-Bild (Sicherheitsregel der Browser). Zum Ansehen vor dem Hochladen gibt es die Vorschau im Generator.</td></tr>
+        <tr><td>Generator-Browser</td><td>Voller Funktionsumfang nur in Chrome und Edge am Computer. Safari und Firefox: Browser-Speicher und ZIP (siehe oben).</td></tr>
+        <tr><td>Speicherplatz</td><td>Der Galerieordner enthält Kopien aller Originale plus kleine Zusatzbilder. Plane auf der Festplatte und auf dem Webspace etwa die Größe aller Aufnahmen ein, plus 10 %.</td></tr>
+        <tr><td>Konvertieren</td><td>Der Generator wandelt Videos nicht um; das kann Insta360 Studio besser und schneller. Fotos werden nur zusätzlich verkleinert, die Originale bleiben unverändert.</td></tr>
+      </table>
+
+      <h2 id="technik">12. Aufbau des Galerieordners</h2>
+<pre>sommer-in-norwegen/
+├── index.html          die Galerie (mit allen Texten und der Reihenfolge)
+├── gallery.json        Projektdatei für den Generator
+├── assets/
+│   ├── galerie.js      360°-Betrachter und Galerie, ohne fremde Bibliothek
+│   └── galerie.css
+├── media/
+│   ├── fotos/          Originalfotos (unverändert)
+│   │   └── web/        verkleinerte Fassungen (4096 / 8192 Pixel)
+│   ├── videos/         Originalvideos (unverändert)
+│   └── poster/         Standbilder der Videos
+└── thumbnails/         Vorschaubilder der Kacheln</pre>
+      <p>Die Galerie lädt nichts von fremden Servern: keine Schriften, keine Bibliotheken, kein Tracking, keine Cookies. Nur die Wahl hell/dunkel merkt sie sich im Browser des Betrachters. Der 360°-Betrachter ist mit WebGL selbst geschrieben und läuft in Safari, Chrome, Firefox und Edge.</p>
+    </main>
+  </body>
+</html>
