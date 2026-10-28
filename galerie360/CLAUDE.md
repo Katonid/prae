@@ -126,7 +126,7 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   `G.webspaceEintraege` baut das „ZIP für den Webspace" OHNE Kopie auf der
   Platte: `360Grad/index.html` (nur Karten mit `adresse`, keine Aufnahmen),
   `360Grad/assets/`, je veröffentlichtem Album `index.html` (Medien
-  relativ, `assets: '../'`) und genau seine Dateien. **Keine gallery.json
+  relativ, eigener Betrachter in `assets/`) und genau seine Dateien. **Keine gallery.json
   im Webspace-ZIP** — damit braucht ein geheimer Link kein Passwort mehr
   (früher Pflicht). Die „Sicherung" ist das ganze Projekt (für
   ZIP-Übernahme), nicht zum Hochladen. Der Projektordner selbst behält den
@@ -146,6 +146,13 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   ZIP": `360Grad.zip` + `<albumordner>.zip` (Ordner obenauf, kommt IN
   360Grad/). Test: `test-grosses-zip.js` (JS-Speicher wächst nicht mit der
   Dateigröße, Python-CRC stimmt), iPad-Teil in `test-albumordner.js`.
+- **Jeder Albumordner bringt seinen Betrachter mit** (10/2026: weiße Seite
+  am iPad — hochgeladen war nur `360Grad/<albumordner>/`, die Seite suchte
+  `../assets/galerie.js`). Seitdem `<albumordner>/assets/` im Webspace-ZIP
+  (knapp 100 KB je Album), `360Grad/assets/` nur noch für die Startseite.
+  Fehlt der Betrachter trotzdem, ersetzt `onerror` am Skript den Text
+  „Galerie wird geladen …" durch eine Erklärung. Test: Teil „Nur ein
+  Albumordner" in `test-albumordner.js`.
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind
