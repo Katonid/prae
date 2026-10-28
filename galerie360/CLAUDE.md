@@ -16,6 +16,26 @@
   kein Chatverlauf.
 - Ausführlich: `README.md`, Bedienung: `anleitung.html`.
 
+## Webspace-ZIP — zu JEDER Arbeitseinheit, ohne Nachfrage
+
+Ansage des Nutzers (10/2026): **„Gib immer ein ZIP mit an, in dem die
+Dateien für den Webspace sind!"** Am Ende jeder Arbeitseinheit an
+Galerie 360, zusammen mit dem PR-Link:
+
+1. `python3 scripts/webspace-zip.py <scratchpad> <stand>` — `<stand>` ist
+   der gepushte Zweig des PRs (oder `origin/main`, wenn nichts offen ist).
+   Das Skript baut aus Git, nicht aus dem Arbeitsordner, prüft FASSUNG und
+   die Dateiliste von `sw.js` und legt `LIESMICH.txt` bei.
+2. Das ZIP entpacken und `test-e2e.js` (mindestens `ordner` und
+   `browser`) gegen die ENTPACKTEN Dateien laufen lassen: Testskript nach
+   `<entpackt>/galerie360/scripts/` kopieren und von dort starten.
+3. Mit `SendUserFile` übergeben (`display: attach`) und in einem Satz
+   sagen, was es ist: der Generator für den eigenen Webspace. Die
+   Galerien selbst (Fotos, Alben) baut der Generator; die stecken nie in
+   diesem ZIP.
+
+Das ZIP wird NICHT ins Repo eingecheckt.
+
 ## Versionierung
 
 Bei jeder neuen Fassung, ohne Nachfrage:
