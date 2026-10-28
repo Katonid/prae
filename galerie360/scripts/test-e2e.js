@@ -186,11 +186,11 @@ const pruefe = (bedingung, text) => {
   await seite.screenshot({ path: path.join(aus, '6-fertig.png') });
   const zipPfad = path.join(aus, 'galerie.zip');
   if (BROWSERMODUS) {
-    const [download] = await Promise.all([seite.waitForEvent('download', { timeout: 60000 }), seite.click('#fertig-inhalt button:has-text("ZIP")')]);
+    const [download] = await Promise.all([seite.waitForEvent('download', { timeout: 60000 }), seite.click('#fertig-inhalt button:has-text("Sicherung")')]);
     await download.saveAs(zipPfad);
     await seite.waitForSelector('.zipbereich p.gut', { timeout: 60000 });
   } else {
-    await seite.click('#fertig-inhalt button:has-text("ZIP")');
+    await seite.click('#fertig-inhalt button:has-text("Sicherung")');
     await seite.waitForSelector('.zipbereich p.gut', { timeout: 60000 });
     const zip = await seite.evaluate(async () => {
       const f = await (await (await navigator.storage.getDirectory()).getFileHandle('export.zip')).getFile();
@@ -229,7 +229,8 @@ const pruefe = (bedingung, text) => {
   // Zweiter Schritt: Website „hochladen" (in ein Unterverzeichnis) und ansehen.
   console.log('Veröffentlichte Galerie');
   const web = await server(entpackt);
-  const webUrl = `http://127.0.0.1:${web.address().port}/sommer-in-norwegen/`;
+  // Die Sicherung ist zugleich der Projektordner als Website (klassischer Aufbau).
+  const webUrl = `http://127.0.0.1:${web.address().port}/sommer-in-norwegen-sicherung/`;
   for (const [name, vp] of [['desktop', { width: 1280, height: 800 }], ['handy', { width: 390, height: 844 }]]) {
     const c = await browser.newContext({ viewport: vp, deviceScaleFactor: name === 'handy' ? 3 : 1, isMobile: name === 'handy', hasTouch: name === 'handy' });
     const s = await c.newPage();

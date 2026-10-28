@@ -9,14 +9,16 @@ ausgeführt: kein PHP, keine Datenbank, keine Einrichtung.
 
 WAS ES NICHT IST
 Deine Galerien (Fotos, Videos, Alben). Die erzeugt der Generator selbst:
-„Website fertigstellen“ → Ordner bzw. „Als ZIP-Archiv speichern“. Dieses
-ZIP (oder den Ordner) lädst du in ein EIGENES Verzeichnis hoch, z. B. /360/.
+„Website fertigstellen“ → „ZIP für den Webspace“. Darin liegt der Ordner
+„360Grad“ mit einem Unterordner je Album. Diesen Ordner 360Grad in den
+Ordner des Generators hochladen:  /apps/galerie360/360Grad/
+Die Links lauten dann  https://jerosch.net/apps/galerie360/360Grad/<album>/
 
 INSTALLIEREN
 1. ZIP entpacken. Es entsteht der Ordner „galerie360“.
-2. Den Ordner per FTP auf den Webspace laden, z. B. nach /galerie360/
-   (oder umbenennen, z. B. /werkstatt-x7k2/ – der Name ist frei).
-3. Im Browser öffnen:  https://deine-domain.de/galerie360/
+2. Den Ordner per FTP nach /apps/ auf den Webspace laden, so dass
+   /apps/galerie360/ entsteht (vorhandene Dateien überschreiben).
+3. Im Browser öffnen:  https://jerosch.net/apps/galerie360/
    Am iPad danach: Teilen → „Zum Home-Bildschirm“.
 
 WICHTIG
@@ -28,7 +30,8 @@ WICHTIG
   Domain anlegst, liegt nur dort – nicht unter katonid.github.io und nicht
   auf dem Server. Wechseln oder sichern: „Website fertigstellen“ → ZIP,
   anderswo „Galerie aus ZIP-Archiv übernehmen …“.
-- Den Generator und die Galerien in GETRENNTE Ordner laden.
+- Beim Aktualisieren des Generators den Ordner 360Grad auf dem Server
+  NICHT löschen – darin liegen deine veröffentlichten Alben.
 - Wer die Adresse des Generators kennt, kann ihn ebenfalls benutzen – an
   deine Galerien kommt er damit aber nicht, die liegen nur auf deinen
   Geräten (und mit Passwort verschlüsselt).

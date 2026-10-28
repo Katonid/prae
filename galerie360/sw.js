@@ -4,7 +4,7 @@
  * bleibt auf den Geräten die alte Fassung im Zwischenspeicher.
  * Die Galerien selbst (Blob-Adressen, Browser-Speicher) laufen nicht hier durch.
  */
-const FASSUNG = 'v4';
+const FASSUNG = 'v5';
 const DATEIEN = [
   './',
   './index.html',
@@ -38,7 +38,10 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const r = e.request;
-  if (r.method !== 'GET' || new URL(r.url).origin !== location.origin) return;
+  const u = new URL(r.url);
+  if (r.method !== 'GET' || u.origin !== location.origin) return;
+  // Die Galerien im Unterordner 360Grad/ gehören nicht zum Generator — nie aus dessen Zwischenspeicher.
+  if (u.pathname.includes('/360Grad/')) return;
   // Zuerst aus dem Zwischenspeicher (offline), sonst übers Netz.
   e.respondWith(caches.match(r, { ignoreSearch: true }).then((t) => t || fetch(r)));
 });

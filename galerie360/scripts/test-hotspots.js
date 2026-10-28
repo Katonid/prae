@@ -297,12 +297,12 @@ const nah = (a, b, toleranz) => Math.abs(a - b) <= toleranz;
   await seite.click('#k-fertig');
   await seite.waitForSelector('#fertig-inhalt h2.gut', { timeout: 30000 });
   const zipPfad = path.join(aus, 'rundgang.zip');
-  const [download] = await Promise.all([seite.waitForEvent('download', { timeout: 60000 }), seite.click('#fertig-inhalt button:has-text("ZIP")')]);
+  const [download] = await Promise.all([seite.waitForEvent('download', { timeout: 60000 }), seite.click('#fertig-inhalt button:has-text("Sicherung")')]);
   await download.saveAs(zipPfad);
   const web = path.join(aus, 'webspace');
   fs.rmSync(web, { recursive: true, force: true });
   execFileSync('python3', ['-c', 'import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; z.extractall(sys.argv[2])', zipPfad, web]);
-  const index = fs.readFileSync(path.join(web, 'rundgang', 'index.html'), 'utf8');
+  const index = fs.readFileSync(path.join(web, 'rundgang-sicherung', 'index.html'), 'utf8');
   pruefe(/"hotspots":\[/.test(index) && /Lucide/.test(index), 'Hotspots und Lizenzhinweis stehen in der exportierten index.html');
   pruefe(!/<script>window\.boese/.test(index), 'Eingegebenes <script> steht nicht als HTML in der Seite');
   await ctx.close();
@@ -312,13 +312,13 @@ const nah = (a, b, toleranz) => Math.abs(a - b) <= toleranz;
   const pyPort = await new Promise((ok) => py.stderr.on('data', () => {}) && py.stdout.on('data', (d) => { const m = /port (\d+)/.exec(String(d)); if (m) ok(+m[1]); }));
   // … und unser Server mit Range-Anfragen (wie Apache/nginx) für das Video.
   const rs = await server(web);
-  for (const [name, basis] of [['python', `http://127.0.0.1:${pyPort}/rundgang/`], ['range', `http://127.0.0.1:${rs.address().port}/rundgang/`]]) {
+  for (const [name, basis] of [['python', `http://127.0.0.1:${pyPort}/rundgang-sicherung/`], ['range', `http://127.0.0.1:${rs.address().port}/rundgang-sicherung/`]]) {
     console.log('Galerie (' + name + '-Server)');
     const c = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const s = await c.newPage();
     s.on('pageerror', (e) => konsole.push(name + ': ' + e.message));
     s.on('dialog', (d) => { konsole.push('Dialog: ' + d.message()); d.dismiss(); });
-    await s.goto(basis + '#a/' + (await (async () => { const p = JSON.parse(fs.readFileSync(path.join(web, 'rundgang', 'gallery.json'))); return p.alben[0].id + '/' + fotoA; })()));
+    await s.goto(basis + '#a/' + (await (async () => { const p = JSON.parse(fs.readFileSync(path.join(web, 'rundgang-sicherung', 'gallery.json'))); return p.alben[0].id + '/' + fotoA; })()));
     await s.waitForSelector('.g-viewer.g-offen');
     await s.waitForFunction(() => document.querySelector('.g-laden').hidden, null, { timeout: 20000 });
     await s.waitForTimeout(600);
@@ -385,8 +385,8 @@ const nah = (a, b, toleranz) => Math.abs(a - b) <= toleranz;
   const handy = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const s = await handy.newPage();
   s.on('pageerror', (e) => konsole.push('handy: ' + e.message));
-  const p = JSON.parse(fs.readFileSync(path.join(web, 'rundgang', 'gallery.json')));
-  await s.goto(`http://127.0.0.1:${rs.address().port}/rundgang/#a/${p.alben[0].id}/${fotoA}`);
+  const p = JSON.parse(fs.readFileSync(path.join(web, 'rundgang-sicherung', 'gallery.json')));
+  await s.goto(`http://127.0.0.1:${rs.address().port}/rundgang-sicherung/#a/${p.alben[0].id}/${fotoA}`);
   await s.waitForFunction(() => document.querySelector('.g-laden').hidden, null, { timeout: 20000 });
   await s.waitForTimeout(600);
   const ziel = await s.evaluate(() => {

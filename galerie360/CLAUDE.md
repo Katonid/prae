@@ -117,8 +117,24 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   nur öffentliche Alben, Hotspots über Seitengrenzen werden weggelassen
   (sonst stünden Ids geheimer Aufnahmen darin), `referrer: no-referrer`
   auf jeder Seite, Ordner alter Links löscht `seitenSchreiben`. **Geheime
-  Links gibt es nur mit Passwort** — sonst verriete sie gallery.json.
-  Neue Dateien bekommen 8 Zufallszeichen im Namen. Test: `test-schutz.js`.
+  Links gab es bis 1.0.4 nur mit Passwort** — gallery.json lag damals mit
+  auf dem Webspace; seit 1.0.5 nicht mehr (siehe Albumordner). Neue Dateien bekommen 8 Zufallszeichen im Namen. Test: `test-schutz.js`.
+- **Webspace-Aufbau mit Albumordnern (Wunsch des Nutzers, 10/2026):**
+  Alben liegen in `apps/galerie360/360Grad/<albumtitel>-<26 Zeichen>/`,
+  Link automatisch `https://jerosch.net/apps/galerie360/360Grad/…`
+  (`G.WEBADRESSE_STANDARD`; eigene Adresse in `einstellungen.webadresse`).
+  `G.webspaceEintraege` baut das „ZIP für den Webspace" OHNE Kopie auf der
+  Platte: `360Grad/index.html` (nur Karten mit `adresse`, keine Aufnahmen),
+  `360Grad/assets/`, je veröffentlichtem Album `index.html` (Medien
+  relativ, `assets: '../'`) und genau seine Dateien. **Keine gallery.json
+  im Webspace-ZIP** — damit braucht ein geheimer Link kein Passwort mehr
+  (früher Pflicht). Die „Sicherung" ist das ganze Projekt (für
+  ZIP-Übernahme), nicht zum Hochladen. Der Projektordner selbst behält den
+  klassischen Aufbau (Vorschau, Sicherung). Ordnername `a.ordner` folgt dem
+  Titel, bis `a.ordnerFest` (nach Webspace-ZIP oder Kopieren). Hotspots über
+  Albumgrenzen werden Links `../<ordner>/#a/<album>/<aufnahme>` — nie von
+  öffentlich nach „nur mit Link", nie in Entwürfe. `sw.js` lässt `/360Grad/`
+  in Ruhe (liegt im Geltungsbereich des Generators). Test: `test-albumordner.js`.
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind
@@ -164,7 +180,8 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 ## Prüfen
 
 `scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`),
-`scripts/test-hotspots.js`, `scripts/test-schutz.js` und `scripts/test-zip64.js`;
+`scripts/test-hotspots.js`, `scripts/test-schutz.js`, `scripts/test-albumordner.js` und
+`scripts/test-zip64.js`;
 Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,
