@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.5';
+  const FASSUNG = '1.0.6';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -1454,6 +1454,7 @@
     const knoepfe = [];
     if (anzahl && !bericht.fehlend.length) {
       knoepfe.push(knopf('Sicherung (ZIP) …', 'still', () => zipSpeichern(zipBereich, 'sicherung'), 'Das ganze Projekt — zum Übernehmen auf einem anderen Gerät'));
+      knoepfe.push(knopf('Je Album ein ZIP …', 'still', () => zipSpeichern(zipBereich, 'alben'), 'Mehrere kleinere Archive statt eines großen'));
       knoepfe.push(knopf('ZIP für den Webspace …', 'haupt', () => zipSpeichern(zipBereich, 'webspace')));
     }
     knoepfe.push(knopf('Schließen', 'zweit', () => dlg.close()));
@@ -1470,13 +1471,77 @@
     return f;
   }
 
-  /** art 'webspace': Ordner 360Grad mit den Albumordnern; 'sicherung': das ganze Projekt. */
+  // Bis zu dieser Größe bietet der Generator am iPhone/iPad „Teilen" an. Safari liest geteilte Dateien
+  // ganz in den Arbeitsspeicher — ein 1-GB-ZIP brachte es zum Absturz (10/2026). Größeres: „Herunterladen".
+  const TEILEN_BIS = 200 * 1024 * 1024;
+
+  /** Einträge des ZIPs: 'webspace' (360Grad/…), 'sicherung' (ganzes Projekt). */
+  async function zipEintraege(art, name) {
+    if (art === 'webspace') {
+      const eintraege = await G.webspaceEintraege(S.wurzel, S.projekt);
+      // Ab jetzt sind die Links draußen: Ordnernamen nicht mehr dem Titel nachführen.
+      S.projekt.alben.forEach((a) => { if (G.freigabe(a) !== 'entwurf' && a.medien.length) a.ordnerFest = true; });
+      speichern();
+      return eintraege;
+    }
+    const eintraege = [];
+    for (const d of await G.alleDateien(S.wurzel, '')) eintraege.push({ pfad: name + '/' + d.pfad, datei: await d.handle.getFile() });
+    return eintraege;
+  }
+
+  /**
+   * Webspace-ZIP in Teile zerlegen: „360Grad.zip" (Startseite und Betrachter)
+   * und je Album „<albumordner>.zip" mit dem Ordner des Albums obenauf —
+   * der kommt auf dem Webspace IN den Ordner 360Grad.
+   */
+  function jeAlbum(eintraege) {
+    const teile = new Map();
+    const muster = /^360Grad\/([a-z0-9-]+)\/(.+)$/;
+    for (const e of eintraege) {
+      const m = muster.exec(e.pfad);
+      const ordner = m && G.ORDNER_MUSTER.test(m[1]) ? m[1] : null;
+      const name = ordner || '360Grad';
+      if (!teile.has(name)) teile.set(name, []);
+      teile.get(name).push(ordner ? { pfad: m[1] + '/' + m[2], datei: e.datei } : e);
+    }
+    return [...teile.entries()].map(([name, liste]) => ({ name: name + '.zip', eintraege: liste }));
+  }
+
+  function herunterladen(datei, name) {
+    const a = el('a');
+    a.href = URL.createObjectURL(datei);
+    a.download = name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10 * 60000);
+  }
+
+  /** Zeile mit „Herunterladen" und (bei kleinen Dateien am iPhone/iPad) „Teilen". */
+  function ergebnisZeile(datei, name) {
+    const zeile = el('div', 'zipzeile');
+    zeile.append(el('span', 'zipname', name + ' · ' + G.groesseText(datei.size)));
+    zeile.append(knopf(IOS ? 'Herunterladen (in Dateien)' : 'Herunterladen', 'haupt klein', () => herunterladen(datei, name)));
+    if (IOS && navigator.share) {
+      const klein = datei.size <= TEILEN_BIS && (!navigator.canShare || navigator.canShare({ files: [datei] }));
+      const t = knopf('Teilen …', 'zweit klein', async () => {
+        try { await navigator.share({ files: [datei], title: name }); } catch (e) { if (!abgebrochen(e)) melde('Teilen fehlgeschlagen', fehlerText(e)); }
+      }, klein ? 'An eine App weitergeben, z. B. eine FTP-App' : 'Zu groß zum Teilen — bitte „Herunterladen"');
+      t.disabled = !klein;
+      zeile.append(t);
+    }
+    return zeile;
+  }
+
+  /** art 'webspace': Ordner 360Grad mit den Albumordnern; 'sicherung': das ganze Projekt; 'alben': Webspace je Album. */
   async function zipSpeichern(bereich, art) {
-    const webspace = art === 'webspace';
+    const webspace = art !== 'sicherung';
     const name = webspace ? '360Grad' : (G.sauberName(S.projekt.titel || S.wurzel.name).basis || 'galerie') + '-sicherung';
     let ziel = null;
+    // Chrome/Edge am Rechner: Speichern-Dialog, ZIP direkt an den gewählten Ort. Sonst: in den Browser-Speicher.
+    const dialog = window.showSaveFilePicker && art !== 'alben';
     try {
-      if (window.showSaveFilePicker) {
+      if (dialog) {
         const h = await window.showSaveFilePicker({ suggestedName: name + '.zip', types: [{ description: 'ZIP-Archiv', accept: { 'application/zip': ['.zip'] } }] });
         ziel = await h.createWritable();
       }
@@ -1490,58 +1555,45 @@
     balken.max = 1;
     balken.value = 0;
     bereich.append(text, balken);
+    const zeigeFortschritt = (vor) => (f, g) => {
+      balken.value = g ? f / g : 1;
+      text.textContent = vor + G.groesseText(f) + ' von ' + G.groesseText(g);
+    };
+    const hinweisWebspace = 'Entpacken und den Ordner „360Grad" per FTP nach /apps/galerie360/ hochladen.';
     try {
-      let eintraege = [];
-      if (webspace) {
-        eintraege = await G.webspaceEintraege(S.wurzel, S.projekt);
-        // Ab jetzt sind die Links draußen: Ordnernamen nicht mehr dem Titel nachführen.
-        S.projekt.alben.forEach((a) => { if (G.freigabe(a) !== 'entwurf' && a.medien.length) a.ordnerFest = true; });
-        speichern();
-      } else {
-        const dateien = await G.alleDateien(S.wurzel, '');
-        for (const d of dateien) eintraege.push({ pfad: name + '/' + d.pfad, datei: await d.handle.getFile() });
-      }
-      const blob = await G.zipErstellen(eintraege, ziel, (f, g) => {
-        balken.value = g ? f / g : 1;
-        text.textContent = 'ZIP-Archiv wird erstellt … ' + G.groesseText(f) + ' von ' + G.groesseText(g);
-      });
-      const datei = blob && IOS && window.File ? new File([blob], name + '.zip', { type: 'application/zip' }) : null;
-      if (datei && navigator.canShare && navigator.canShare({ files: [datei] })) {
-        // iPad/iPhone: über „Teilen" in die Dateien-App oder direkt an eine FTP-App.
+      const eintraege = await zipEintraege(webspace ? 'webspace' : 'sicherung', name);
+      if (dialog) {
+        await G.zipErstellen(eintraege, ziel, zeigeFortschritt('ZIP-Archiv wird erstellt … '));
         balken.remove();
-        text.textContent = 'ZIP-Archiv ist bereit (' + G.groesseText(blob.size) + ').';
-        const teilen = knopf('Teilen / In Dateien sichern …', 'haupt', async () => {
-          try {
-            await navigator.share({ files: [datei], title: name + '.zip' });
-            text.textContent = webspace
-              ? 'ZIP weitergegeben. In der Dateien-App antippen, um es zu entpacken, dann den Ordner „360Grad" mit einer FTP-App nach /apps/galerie360/ hochladen.'
-              : 'Sicherung weitergegeben. Zum Wiederherstellen „Galerie aus ZIP-Archiv übernehmen …" — nicht hochladen.';
-            text.className = 'gut';
-          } catch (e) {
-            if (!abgebrochen(e)) text.textContent = 'Teilen fehlgeschlagen: ' + fehlerText(e);
-          }
-        });
-        bereich.append(teilen);
+        text.textContent = webspace
+          ? 'ZIP gespeichert: 360Grad.zip (' + eintraege.length + ' Dateien). ' + hinweisWebspace
+          : 'Sicherung gespeichert: ' + name + '.zip. Wiederherstellen oder auf einem anderen Gerät weiterarbeiten mit „Galerie aus ZIP-Archiv übernehmen …" — nicht hochladen.';
+        text.className = 'gut';
         return;
       }
-      if (blob) {
-        const a = el('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = name + '.zip';
-        document.body.append(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      await G.exportAufraeumen();
+      const auftraege = art === 'alben' ? jeAlbum(eintraege) : [{ name: name + '.zip', eintraege }];
+      const fertig = [];
+      for (const [i, a] of auftraege.entries()) {
+        const vor = (auftraege.length > 1 ? 'Teil ' + (i + 1) + ' von ' + auftraege.length + ': ' : '') + 'ZIP-Archiv wird erstellt … ';
+        fertig.push({ name: a.name, datei: await G.zipInDatei(a.eintraege, a.name, zeigeFortschritt(vor)) });
       }
       balken.remove();
-      text.textContent = webspace
-        ? 'ZIP gespeichert: 360Grad.zip (' + eintraege.length + ' Dateien). Entpacken und den Ordner „360Grad" per FTP nach /apps/galerie360/ hochladen.'
-        : 'Sicherung gespeichert: ' + name + '.zip. Wiederherstellen oder auf einem anderen Gerät weiterarbeiten mit „Galerie aus ZIP-Archiv übernehmen …" — nicht hochladen.';
+      if (!IOS && fertig.length === 1) {
+        // Rechner ohne Speichern-Dialog (Firefox, Safari am Mac): gleich herunterladen.
+        herunterladen(fertig[0].datei, fertig[0].name);
+      }
       text.className = 'gut';
+      text.textContent = art === 'alben'
+        ? fertig.length + ' ZIP-Archive sind bereit. „360Grad.zip" entpacken und den Ordner 360Grad nach /apps/galerie360/ hochladen; jedes Album-ZIP entpacken und seinen Ordner IN den Ordner 360Grad auf dem Webspace hochladen.'
+        : webspace ? 'ZIP-Archiv ist bereit. ' + hinweisWebspace
+          : 'Sicherung ist bereit. Wiederherstellen mit „Galerie aus ZIP-Archiv übernehmen …" — nicht hochladen.';
+      if (IOS) bereich.append(el('p', 'klein', '„Herunterladen" legt das ZIP in der Dateien-App unter „Downloads" ab — auch sehr große Dateien. Dort antippen, um es zu entpacken.'));
+      for (const f of fertig) bereich.append(ergebnisZeile(f.datei, f.name));
     } catch (e) {
       try { if (ziel) await ziel.abort(); } catch (_) { /* egal */ }
       balken.remove();
-      text.textContent = 'ZIP fehlgeschlagen: ' + fehlerText(e);
+      text.textContent = 'ZIP fehlgeschlagen: ' + fehlerText(e) + (e && e.name === 'QuotaExceededError' ? ' Das ZIP braucht so viel freien Platz wie die Galerie selbst. Tipp: „Je Album ein ZIP" braucht dieselbe Menge, aber in kleineren Teilen.' : '');
       text.className = 'fehler';
     }
   }

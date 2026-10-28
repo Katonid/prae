@@ -83,7 +83,7 @@
         <li><strong>Aufnahmen bereitlegen:</strong> In der Insta360-App die Aufnahme als 360°-Foto bzw. 360°-Video exportieren. Am besten über <em>Teilen → In Dateien sichern</em> in einen Ordner der Dateien-App. Aus der Fotomediathek geht es auch, iPadOS kann Videos beim Auswählen aber neu umwandeln, und das kostet Qualität.</li>
         <li>„Neue Galerie anlegen“, dann <strong>„Dateien auswählen …“</strong> → <em>Durchsuchen</em> (bzw. <em>Fotomediathek</em>), mehrere Aufnahmen antippen, <em>Öffnen</em>. Ziehen geht auch: mit Split View aus der Dateien-App ins Generatorfenster.</li>
         <li>Beschriften, sortieren und gestalten wie am Computer. Die Startansicht legst du mit dem Finger fest.</li>
-        <li><strong>„Website fertigstellen“ → „Als ZIP-Archiv speichern“ → „Teilen / In Dateien sichern …“.</strong> Das ZIP kommt in die Dateien-App, oder direkt an eine FTP-App.</li>
+        <li><strong>„Website fertigstellen“ → „ZIP für den Webspace …“ → „Herunterladen (in Dateien)“.</strong> Safari legt das ZIP in der Dateien-App unter <em>Downloads</em> ab, auch bei mehreren Gigabyte. „Teilen …“ gibt es nur für Dateien bis 200 MB: Beim Teilen liest Safari die ganze Datei in den Arbeitsspeicher, und bei großen Archiven bricht es dann ab. Klappt auch das Herunterladen nicht, „Je Album ein ZIP …“ wählen, dann entstehen mehrere kleinere Archive.</li>
         <li><strong>Hochladen:</strong> In der Dateien-App das ZIP antippen, dann wird es entpackt. Den entstandenen Ordner mit einer FTP-App aus dem App Store auf den Webspace laden. Viele Dateimanager-Apps können FTP bzw. SFTP, zum Beispiel <em>Documents</em> von Readdle oder <em>FE File Explorer</em>. Auf den Webspace gehört der <em>Inhalt</em> des Ordners, wie in Abschnitt 8.</li>
       </ol>
       <div class="kasten wichtig"><strong>Das ZIP ist auch die Sicherung.</strong> Hebe es in der Dateien-App oder in iCloud Drive auf. Mit <em>„Galerie aus ZIP-Archiv übernehmen …“</em> auf der Startseite holst du die Galerie zurück, auf dem iPad genauso wie am Mac oder PC. So lässt sich auch am iPad anfangen und am Computer weiterarbeiten, und umgekehrt.</div>
@@ -270,7 +270,7 @@
       <h2 id="ftp">8. Hochladen per FTP</h2>
       <p>Beispiel mit dem kostenlosen Programm <a href="https://filezilla-project.org/">FileZilla</a>, am iPhone/iPad mit einer FTP-App (Abschnitt 1a); andere Programme funktionieren genauso.</p>
       <ol>
-        <li>„ZIP für den Webspace“ speichern und entpacken. Es entsteht der Ordner <span class="pfad">360Grad</span>.</li>
+        <li>„ZIP für den Webspace“ speichern und entpacken. Es entsteht der Ordner <span class="pfad">360Grad</span>. (Hast du „Je Album ein ZIP“ gewählt: <span class="pfad">360Grad.zip</span> wie hier beschrieben hochladen, dann jedes Album-ZIP entpacken und seinen Ordner <em>in</em> den Ordner <span class="pfad">360Grad</span> auf dem Webspace laden.)</li>
         <li>Mit dem Webspace verbinden: Server, Benutzername, Passwort stehen im Kundenmenü des Hosters, oft unter „FTP-Zugänge“. Nach Möglichkeit <strong>SFTP</strong> oder <strong>FTPS</strong> wählen.</li>
         <li>Auf dem Webspace in den Ordner <span class="pfad">apps/galerie360</span> wechseln.</li>
         <li>Den Ordner <span class="pfad">360Grad</span> dorthin ziehen. Vorhandene Dateien dürfen überschrieben werden.</li>

@@ -29,6 +29,7 @@ Datenbank, CDN oder Konto.
 | `scripts/test-hotspots.js` | Hotspots: Editor, Rundgang, Zeitfenster, Touch, XSS, Export |
 | `scripts/test-schutz.js` | Passwort (verschlüsselte gallery.json) und geheime Album-Links |
 | `scripts/test-albumordner.js` | Webspace-Aufbau `360Grad/<album>/`, Links auf jerosch.net, Sprünge zwischen Albumseiten |
+| `scripts/test-grosses-zip.js` | großes ZIP im Safari-Weg: Datei statt Arbeitsspeicher, CRC fehlerfrei |
 
 ## Prüfen
 
@@ -39,6 +40,7 @@ for m in ordner einzeldatei browser safari; do node scripts/test-e2e.js /tmp/m /
 node scripts/test-hotspots.js /tmp/m /tmp/aus-hs
 node scripts/test-schutz.js /tmp/m /tmp/aus-schutz
 node scripts/test-albumordner.js /tmp/m /tmp/aus-ao
+node scripts/test-grosses-zip.js /tmp/aus-gross 1100   # MB
 node scripts/test-zip64.js /tmp/aus && python3 -c "import zipfile; zipfile.ZipFile('/tmp/aus/z64-true.zip').testzip()"
 ```
 
