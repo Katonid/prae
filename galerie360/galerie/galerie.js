@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.1';
+  const FASSUNG = '1.0.2';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -219,6 +219,52 @@
       return { yaw: r(this.yaw), pitch: r(this.pitch), fov: r(this.fov) };
     }
 
+    /** Spalten der Drehmatrix R = Ry(yaw)·Rx(pitch) — dieselbe wie im Shader. */
+    _achsen() {
+      const y = this.yaw * Math.PI / 180, p = this.pitch * Math.PI / 180;
+      const cy = Math.cos(y), sy = Math.sin(y), cp = Math.cos(p), sp = Math.sin(p);
+      return [[cy, 0, sy], [-sy * sp, cp, cy * sp], [-sy * cp, -sp, cy * cp]];
+    }
+
+    /**
+     * Wo eine Richtung (Grad) auf dem Bildschirm liegt, in CSS-Pixeln der
+     * Leinwand — null, wenn sie hinter dem Betrachter liegt. Hotspots hängen
+     * so an der Kugel, nicht am Bildschirm.
+     */
+    projiziere(yaw, pitch) {
+      const y = yaw * Math.PI / 180, p = pitch * Math.PI / 180;
+      const d = [Math.cos(p) * Math.sin(y), Math.sin(p), -Math.cos(p) * Math.cos(y)];
+      const [a0, a1, a2] = this._achsen();
+      const vx = a0[0] * d[0] + a0[1] * d[1] + a0[2] * d[2];
+      const vy = a1[0] * d[0] + a1[1] * d[1] + a1[2] * d[2];
+      const vz = a2[0] * d[0] + a2[1] * d[1] + a2[2] * d[2];
+      if (vz > -0.02) return null;
+      const { t, a } = this._vfov();
+      const nx = vx / -vz / (t * a), ny = vy / -vz / t;
+      const w = this.canvas.clientWidth || this.canvas.width, h = this.canvas.clientHeight || this.canvas.height;
+      return { x: (nx + 1) / 2 * w, y: (1 - ny) / 2 * h };
+    }
+
+    /** Umkehrung: Bildschirmpunkt (CSS-Pixel der Leinwand) → Richtung in Grad. */
+    richtung(px, py) {
+      const w = this.canvas.clientWidth || this.canvas.width, h = this.canvas.clientHeight || this.canvas.height;
+      const { t, a } = this._vfov();
+      const c = [(px / w * 2 - 1) * t * a, (1 - py / h * 2) * t, -1];
+      const [a0, a1, a2] = this._achsen();
+      const d = [0, 1, 2].map((i) => a0[i] * c[0] + a1[i] * c[1] + a2[i] * c[2]);
+      const l = Math.hypot(d[0], d[1], d[2]);
+      const r = (x) => Math.round(x * 100) / 100;
+      return { yaw: r(Math.atan2(d[0], -d[2]) * 180 / Math.PI), pitch: r(Math.asin(d[1] / l) * 180 / Math.PI) };
+    }
+
+    /** Ein Finger, der auf einem Hotspot landete und dann zieht, dreht ab hier das Panorama. */
+    uebernimm(e) {
+      try { this.canvas.setPointerCapture(e.pointerId); } catch (_) { /* egal */ }
+      this._zeiger.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.vx = this.vy = 0;
+      this._benutzt();
+    }
+
     zoom(faktor) {
       this.fov *= faktor;
       this._begrenzen();
@@ -395,7 +441,10 @@
             this.vx = frisch.reduce((s, x) => s + x.dx, 0) / dauer;
             this.vy = frisch.reduce((s, x) => s + x.dy, 0) / dauer;
           }
-          if (tipp && e.type === 'pointerup' && t - tipp.t < 350 && this.opt.beiTippen) this.opt.beiTippen();
+          if (tipp && e.type === 'pointerup' && t - tipp.t < 350 && this.opt.beiTippen) {
+            const r = c.getBoundingClientRect();
+            this.opt.beiTippen(e.clientX - r.left, e.clientY - r.top);
+          }
           tipp = null;
         } else {
           // Ein Finger bleibt liegen: weiterdrehen ohne Sprung.
@@ -461,7 +510,9 @@
     laden: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
     sonne: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
     mond: '<path d="M20 14.5A8 8 0 119.5 4a6.5 6.5 0 0010.5 10.5z"/>',
-    album: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 16l5-5 4 4 3-3 6 6"/>'
+    album: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 16l5-5 4 4 3-3 6 6"/>',
+    weiter: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/>',
+    marke: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>'
   };
 
   function symbol(name, klasse) {
@@ -537,6 +588,440 @@
   }
 
   /* ================================================================
+   * Hotspots — Markierungen an festen Richtungen der Kugel
+   * ================================================================
+   * Alles, was aus der Galerie-Datei kommt (Texte, Adressen, Farben,
+   * Symbole), wird hier als DATEN behandelt: Text per textContent, Formate
+   * als selbst gebaute Elemente, Adressen nur nach Prüfung, Icons nur aus
+   * erlaubten SVG-Grundformen. Kein innerHTML mit Fremdinhalt.
+   */
+  const STIL_STANDARD = {
+    groesse: 44, farbe: '#ffffff', form: 'kreis', hintergrund: true, hgFarbe: '#1d4ed8',
+    rahmen: true, rahmenFarbe: '#ffffff', deckkraft: 1, schatten: true, beschriftung: false
+  };
+  const FARBMUSTER = /^#[0-9a-f]{3,8}$/i;
+  const farbe = (w, ersatz) => (typeof w === 'string' && FARBMUSTER.test(w) ? w : ersatz);
+  const zahl = (w, min, max, ersatz) => (typeof w === 'number' && isFinite(w) ? Math.min(max, Math.max(min, w)) : ersatz);
+
+  function stilVon(h, einst) {
+    return Object.assign({}, STIL_STANDARD, (einst && einst.hotspotStil) || {}, h.stil || {});
+  }
+
+  /** Erlaubt: http(s), mailto, tel und schlichte relative Pfade. Alles andere (javascript:, data: …) nicht. */
+  function sichereUrl(u) {
+    if (typeof u !== 'string') return null;
+    u = u.trim();
+    if (!u) return null;
+    if (/^(https?:\/\/|mailto:|tel:)[^\s<>"]*$/i.test(u)) return u;
+    if (/^www\.[^\s<>"]+$/i.test(u)) return 'https://' + u;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(u) || u.startsWith('//')) return null;
+    return /^[\w\-./?#=&%~+]+$/.test(u) ? u : null;
+  }
+
+  /** Nur Dateien der Galerie selbst (media/…), ohne Ausbruch aus dem Ordner. */
+  function sichererPfad(p) {
+    return typeof p === 'string' && /^media\/[\w\-./]+$/.test(p) && p.indexOf('..') < 0;
+  }
+
+  /**
+   * Kleine Auszeichnung für Hotspot-Texte:
+   *   **fett**   *kursiv*   [Linktext](https://…)
+   *   Leerzeile = neuer Absatz, „# " am Anfang = Zwischenüberschrift,
+   *   Zeilen mit „- " = Aufzählung.
+   */
+  function formatiere(text) {
+    const frag = document.createDocumentFragment();
+    const bloecke = String(text || '').replace(/\r\n?/g, '\n').split(/\n\s*\n/);
+    for (const block of bloecke) {
+      const zeilen = block.split('\n').filter((z) => z.trim() !== '');
+      if (!zeilen.length) continue;
+      if (/^#{1,3}\s+/.test(zeilen[0])) {
+        const h = el('h3', 'g-ifenster-zwischen');
+        zeileEin(h, zeilen.shift().replace(/^#{1,3}\s+/, ''));
+        frag.append(h);
+        if (!zeilen.length) continue;
+      }
+      if (zeilen.every((z) => /^\s*[-•]\s+/.test(z))) {
+        const ul = el('ul');
+        zeilen.forEach((z) => { const li = el('li'); zeileEin(li, z.replace(/^\s*[-•]\s+/, '')); ul.append(li); });
+        frag.append(ul);
+        continue;
+      }
+      const p = el('p');
+      zeilen.forEach((z, i) => { if (i) p.append(el('br')); zeileEin(p, z); });
+      frag.append(p);
+    }
+    return frag;
+  }
+
+  function zeileEin(ziel, text) {
+    const muster = /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*/g;
+    let pos = 0, m;
+    while ((m = muster.exec(text))) {
+      if (m.index > pos) ziel.append(text.slice(pos, m.index));
+      if (m[1] != null) {
+        const u = sichereUrl(m[2]);
+        if (u) {
+          const a = el('a');
+          a.href = u;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          zeileEin(a, m[1]);
+          ziel.append(a);
+        } else {
+          ziel.append(m[1]);
+        }
+      } else if (m[3] != null) {
+        const b = el('strong');
+        zeileEin(b, m[3]);
+        ziel.append(b);
+      } else {
+        const i = el('em');
+        zeileEin(i, m[4]);
+        ziel.append(i);
+      }
+      pos = muster.lastIndex;
+    }
+    if (pos < text.length) ziel.append(text.slice(pos));
+  }
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const SVG_FORMEN = { path: 1, circle: 1, line: 1, polyline: 1, polygon: 1, rect: 1, ellipse: 1 };
+  const SVG_MERKMAL = /^(d|cx|cy|r|rx|ry|x|y|x1|x2|y1|y2|width|height|points|fill)$/;
+
+  /** Icon aus einer Knotenliste [[form, {merkmal: wert}], …] — nur Grundformen, nur Geometrie. */
+  function iconSvg(knoten) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    for (const k of Array.isArray(knoten) ? knoten : []) {
+      if (!Array.isArray(k) || !SVG_FORMEN[k[0]]) continue;
+      const f = document.createElementNS(SVG_NS, k[0]);
+      const m = k[1] || {};
+      for (const n of Object.keys(m)) {
+        const w = String(m[n]);
+        if (SVG_MERKMAL.test(n) && /^[\w\s.,\-#]*$/.test(w)) f.setAttribute(n, w);
+      }
+      svg.append(f);
+    }
+    return svg;
+  }
+
+  /** Inhalt eines Symbols: Zeichen/Emoji, Icon oder eigenes Bild. */
+  function symbolInhalt(sym, url) {
+    if (sym && sym.art === 'icon') return iconSvg(sym.knoten);
+    if (sym && sym.art === 'bild' && sichererPfad(sym.src)) {
+      const img = el('img');
+      img.alt = '';
+      img.draggable = false;
+      img.src = url ? url(sym.src) : sym.src;
+      return img;
+    }
+    return el('span', 'g-hs-zeichen', (sym && sym.text) || 'i');
+  }
+
+  function hotspotName(h) {
+    if (h.titel) return h.titel;
+    const a = h.aktion || {};
+    return { info: 'Information', medium: 'Weiter zur nächsten Aufnahme', link: 'Weblink' }[a.typ] || 'Markierung';
+  }
+
+  /** Das Symbol als Knopf. Die Trefferfläche ist mindestens 44 Pixel groß (Finger). */
+  function hotspotKnopf(h, einst, url) {
+    const st = stilVon(h, einst);
+    const g = zahl(st.groesse, 16, 160, 44);
+    const b = el('button', 'g-hs g-hs-' + (st.form === 'quadrat' || st.form === 'frei' ? st.form : 'kreis'));
+    b.type = 'button';
+    b.dataset.id = h.id;
+    b.style.setProperty('--hs-g', g + 'px');
+    b.style.setProperty('--hs-farbe', farbe(st.farbe, '#ffffff'));
+    b.style.setProperty('--hs-hg', st.hintergrund ? farbe(st.hgFarbe, '#1d4ed8') : 'transparent');
+    b.style.setProperty('--hs-rahmen', st.rahmen ? farbe(st.rahmenFarbe, '#ffffff') : 'transparent');
+    b.style.setProperty('--hs-deck', String(zahl(st.deckkraft, 0.15, 1, 1)));
+    if (st.schatten) b.classList.add('g-hs-schatten');
+    if (!st.hintergrund) b.classList.add('g-hs-ohnehg');
+    const name = hotspotName(h);
+    b.setAttribute('aria-label', name);
+    const sym = el('span', 'g-hs-symbol');
+    sym.append(symbolInhalt(h.symbol, url));
+    b.append(sym);
+    if (st.beschriftung && h.titel) b.append(el('span', 'g-hs-text', h.titel));
+    else if ((einst && einst.hotspotTooltip) !== false) b.append(el('span', 'g-hs-tip', name));
+    return b;
+  }
+
+  class HotspotEbene {
+    /**
+     * @param {HTMLElement} host  liegt deckungsgleich über der Leinwand
+     * @param {Panorama} pano
+     * @param {{url?: Function, editor?: boolean, ziehbar?: () => boolean, beiAktivieren?: Function,
+     *          beiAuswahl?: Function, beiZiehen?: Function, beiZiehEnde?: Function, beiBewegung?: Function}} o
+     */
+    constructor(host, pano, o) {
+      this.host = host;
+      this.pano = pano;
+      this.o = o || {};
+      this.ebene = el('div', 'g-hs-ebene');
+      host.append(this.ebene);
+      this.liste = [];
+      this.an = true;
+      this.zeit = 0;
+    }
+
+    setze(hotspots, einst) {
+      this.ebene.textContent = '';
+      this.liste = [];
+      this.einst = einst || {};
+      (hotspots || []).forEach((h, i) => {
+        if (!this.o.editor && h.sichtbar === false) return;
+        const b = hotspotKnopf(h, this.einst, this.o.url);
+        if (h.sichtbar === false) b.classList.add('g-hs-versteckt');
+        if (!this.o.editor && this.einst.hotspotAnimation !== false) {
+          b.classList.add('g-hs-neu');
+          b.style.animationDelay = Math.min(i, 12) * 70 + 'ms';
+        }
+        this._bedienung(b, h);
+        this.ebene.append(b);
+        this.liste.push({ h, b, g: zahl(stilVon(h, this.einst).groesse, 16, 160, 44), zu: null });
+      });
+      this.aktualisiere();
+    }
+
+    imZeitraum(h) {
+      const z = h.zeit;
+      if (!z) return true;
+      const von = typeof z.von === 'number' ? z.von : 0;
+      const bis = typeof z.bis === 'number' ? z.bis : Infinity;
+      return this.zeit >= von && this.zeit <= bis;
+    }
+
+    aktualisiere(zeit) {
+      if (zeit != null) this.zeit = zeit;
+      const w = this.pano.canvas.clientWidth, hoehe = this.pano.canvas.clientHeight;
+      for (const e of this.liste) {
+        const zeitOk = this.imZeitraum(e.h);
+        const p = this.an && (zeitOk || this.o.editor) ? this.pano.projiziere(e.h.yaw, e.h.pitch) : null;
+        const da = !!p && p.x > -e.g && p.x < w + e.g && p.y > -e.g && p.y < hoehe + e.g;
+        e.p = da ? p : null;
+        if (da) e.b.style.transform = 'translate3d(' + (p.x - e.g / 2).toFixed(1) + 'px,' + (p.y - e.g / 2).toFixed(1) + 'px,0)';
+        if (da !== e.zu) {
+          e.zu = da;
+          e.b.classList.toggle('g-hs-weg', !da);
+          e.b.tabIndex = da ? 0 : -1;
+          if (da) e.b.removeAttribute('aria-hidden');
+          else e.b.setAttribute('aria-hidden', 'true');
+        }
+        if (this.o.editor) e.b.classList.toggle('g-hs-ausserhalb', !zeitOk);
+      }
+      if (this.o.beiBewegung) this.o.beiBewegung();
+    }
+
+    /** Bildschirmposition eines Hotspots (CSS-Pixel), null wenn nicht zu sehen. */
+    position(id) {
+      const e = this.liste.find((x) => x.h.id === id);
+      return e && e.p ? e.p : null;
+    }
+
+    knopf(id) {
+      const e = this.liste.find((x) => x.h.id === id);
+      return e ? e.b : null;
+    }
+
+    sichtbar(an) {
+      this.an = !!an;
+      this.ebene.classList.toggle('g-hs-alleaus', !an);
+      this.aktualisiere();
+    }
+
+    _bedienung(b, h) {
+      let start = null;
+      let gezogen = false;
+      const ziehbar = () => this.o.editor && this.o.ziehbar && this.o.ziehbar();
+      b.addEventListener('pointerdown', (e) => {
+        if (e.button > 0) return;
+        start = { x: e.clientX, y: e.clientY };
+        gezogen = false;
+        if (ziehbar()) {
+          try { b.setPointerCapture(e.pointerId); } catch (_) { /* egal */ }
+          if (this.o.beiAuswahl) this.o.beiAuswahl(h);
+        }
+      });
+      b.addEventListener('pointermove', (e) => {
+        if (!start) return;
+        if (!gezogen) {
+          // Erst ab ein paar Pixeln ist es ein Ziehen — ein zitternder Finger ist noch ein Tippen.
+          if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < (ziehbar() ? 4 : 8)) return;
+          gezogen = true;
+          if (!ziehbar()) {
+            // In der Galerie dreht ein Ziehen auf dem Symbol das Panorama — nichts wird ausgelöst.
+            this.pano.uebernimm(e);
+            start = null;
+            return;
+          }
+          if (this.o.beiZiehStart) this.o.beiZiehStart(h);
+        }
+        const r = this.pano.canvas.getBoundingClientRect();
+        const ziel = this.pano.richtung(e.clientX - r.left, e.clientY - r.top);
+        h.yaw = ziel.yaw;
+        h.pitch = ziel.pitch;
+        this.aktualisiere();
+        if (this.o.beiZiehen) this.o.beiZiehen(h);
+      });
+      const ende = () => {
+        if (start && gezogen && this.o.beiZiehEnde) this.o.beiZiehEnde(h);
+        start = null;
+      };
+      b.addEventListener('pointerup', ende);
+      b.addEventListener('pointercancel', ende);
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (gezogen) { gezogen = false; return; }
+        if (this.o.beiAktivieren) this.o.beiAktivieren(h, b);
+      });
+    }
+
+    zerstoere() {
+      this.ebene.remove();
+      this.liste = [];
+    }
+  }
+
+  /** Das Fenster mit Titel, Text, Bild und Schaltflächen — am Rechner seitlich mit Linie, am Handy als Blatt von unten. */
+  class InfoFenster {
+    constructor(host, o) {
+      this.host = host;
+      this.o = o || {};
+      this.h = null;
+      this.box = el('div', 'g-ifenster');
+      this.box.setAttribute('role', 'dialog');
+      this.box.tabIndex = -1;
+      this.box.hidden = true;
+      this.linieSvg = document.createElementNS(SVG_NS, 'svg');
+      this.linieSvg.setAttribute('class', 'g-ilinie');
+      this.linieSvg.setAttribute('aria-hidden', 'true');
+      this.linie = document.createElementNS(SVG_NS, 'line');
+      this.punkt = document.createElementNS(SVG_NS, 'circle');
+      this.punkt.setAttribute('r', '4');
+      this.linieSvg.append(this.linie, this.punkt);
+      this.linieSvg.style.display = 'none';
+      host.append(this.linieSvg, this.box);
+    }
+
+    get offen() { return !!this.h; }
+
+    zeige(h) {
+      const neu = this.h !== h;
+      this.h = h;
+      const a = h.aktion || {};
+      const url = this.o.url || ((p) => p);
+      const box = this.box;
+      box.textContent = '';
+      box.classList.toggle('g-halb', !!a.transparent);
+      const zu = el('button', 'g-knopf g-ifenster-zu');
+      zu.type = 'button';
+      zu.innerHTML = symbol('zu');
+      zu.setAttribute('aria-label', 'Fenster schließen');
+      zu.title = 'Schließen (Esc)';
+      zu.addEventListener('click', () => this.schliesse());
+      const titel = el('h2', 'g-ifenster-titel', h.titel || '');
+      titel.id = 'g-ifenster-' + h.id;
+      box.setAttribute('aria-labelledby', titel.id);
+      const rumpf = el('div', 'g-ifenster-rumpf');
+      if (a.bild && sichererPfad(a.bild)) {
+        const fig = el('figure', 'g-ifenster-bild');
+        const img = el('img');
+        img.src = url(a.bild);
+        img.alt = a.bildText || '';
+        img.decoding = 'async';
+        fig.append(img);
+        if (a.bildText) fig.append(el('figcaption', '', a.bildText));
+        rumpf.append(fig);
+      }
+      if (a.text) {
+        const t = el('div', 'g-ifenster-text');
+        t.append(formatiere(a.text));
+        rumpf.append(t);
+      }
+      const knoepfe = (a.knoepfe || []).filter((k) => (this.o.gueltig ? this.o.gueltig(k) : true));
+      if (knoepfe.length) {
+        const reihe = el('div', 'g-ifenster-knoepfe');
+        for (const k of knoepfe) {
+          const b = el('button', 'g-ifenster-aktion');
+          b.type = 'button';
+          const art = this.o.art ? this.o.art(k) : (k.typ === 'link' ? 'link' : 'foto');
+          b.innerHTML = symbol(art === 'video' ? 'video' : art === 'link' ? 'weiter' : 'foto');
+          b.append(el('span', '', k.text || (art === 'link' ? 'Weitere Informationen' : 'Ansehen')));
+          b.addEventListener('click', () => { if (this.o.beiAktion) this.o.beiAktion(k, h); });
+          reihe.append(b);
+        }
+        rumpf.append(reihe);
+      }
+      box.append(zu, titel, rumpf);
+      box.hidden = false;
+      if (neu) {
+        // Seite beim Öffnen festlegen — sonst spränge das Fenster beim Drehen hin und her.
+        const p = this.o.position ? this.o.position(h.id) : null;
+        this.links = !!p && p.x > this.host.clientWidth / 2;
+        box.classList.remove('g-ein');
+        void box.offsetWidth;
+        box.classList.add('g-ein');
+        try { box.focus({ preventScroll: true }); } catch (_) { box.focus(); }
+      }
+      this.aktualisiere();
+    }
+
+    schliesse() {
+      if (!this.h) return;
+      const h = this.h;
+      this.h = null;
+      this.box.hidden = true;
+      this.linieSvg.style.display = 'none';
+      if (this.o.beiSchliessen) this.o.beiSchliessen(h);
+    }
+
+    aktualisiere() {
+      if (!this.h) return;
+      const w = this.host.clientWidth;
+      const schmal = w < 720 || this.host.clientHeight < 460;
+      this.box.classList.toggle('g-blatt', schmal);
+      this.box.classList.toggle('g-links', !schmal && this.links);
+      const a = this.h.aktion || {};
+      const p = this.o.position ? this.o.position(this.h.id) : null;
+      if (schmal || a.linie === false || !p) {
+        this.linieSvg.style.display = 'none';
+        return;
+      }
+      const hr = this.host.getBoundingClientRect();
+      const br = this.box.getBoundingClientRect();
+      const x2 = (this.links ? br.right : br.left) - hr.left;
+      const y2 = Math.min(Math.max(p.y, br.top - hr.top + 24), br.bottom - hr.top - 24);
+      // Nicht durch das Fenster hindurch: liegt der Punkt hinter dem Fenster, keine Linie.
+      if (this.links ? p.x < x2 : p.x > x2) {
+        this.linieSvg.style.display = 'none';
+        return;
+      }
+      this.linie.setAttribute('x1', p.x.toFixed(1));
+      this.linie.setAttribute('y1', p.y.toFixed(1));
+      this.linie.setAttribute('x2', x2.toFixed(1));
+      this.linie.setAttribute('y2', y2.toFixed(1));
+      this.punkt.setAttribute('cx', x2.toFixed(1));
+      this.punkt.setAttribute('cy', y2.toFixed(1));
+      this.linieSvg.style.display = '';
+    }
+
+    zerstoere() {
+      this.box.remove();
+      this.linieSvg.remove();
+      this.h = null;
+    }
+  }
+
+  /* ================================================================
    * Galerie
    * ================================================================ */
   function starte(wurzel, daten, opt) {
@@ -569,7 +1054,21 @@
     let aktuellesAlbum = null;
     let viewer = null;
     let selbstGeoeffnet = false;
-    let interneRoute = '';
+    let interneRoute = opt.start || '';
+
+    // Alle Aufnahmen aller Alben nach Id — Ziel für Hotspots, auch albumübergreifend.
+    const medienNachId = new Map();
+    alben.forEach((a) => a.medien.forEach((m) => medienNachId.set(m.id, { album: a, m })));
+    const zielGueltig = (z) => !!(z && z.typ === 'link' ? sichereUrl(z.url) : z && z.ziel && medienNachId.has(z.ziel.medium));
+    function hotspotsFuer(m) {
+      return (m.hotspots || []).filter((h) => {
+        if (h.sichtbar === false) return false;
+        const a = h.aktion || {};
+        if (a.typ === 'medium') return zielGueltig(a);
+        if (a.typ === 'link') return !!sichereUrl(a.url);
+        return true;
+      });
+    }
 
     /* ---------- Routing ---------- */
     function route() {
@@ -772,7 +1271,17 @@
       v.infoKnopf = knopf('', 'info', 'Beschreibung ein/aus');
       v.drehKnopf = knopf('', 'drehen', 'Automatisch drehen');
       v.vollKnopf = knopf('', 'vollbild', 'Vollbild');
-      v.oben.append(v.zu, v.titelBox, v.infoKnopf, v.drehKnopf, v.vollKnopf);
+      v.tourKnopf = el('button', 'g-tour');
+      v.tourKnopf.type = 'button';
+      v.tourKnopf.hidden = true;
+      v.hsKnopf = knopf('g-an', 'marke', 'Hotspots ein/aus (H)');
+      v.oben.append(v.zu, v.titelBox, v.tourKnopf, v.hsKnopf, v.infoKnopf, v.drehKnopf, v.vollKnopf);
+      v.verlauf = [];
+      v.hsAn = true;
+      v.toast = el('div', 'g-toast');
+      v.toast.setAttribute('role', 'status');
+      v.hsHost = el('div', 'g-hs-host');
+      v.ifHost = el('div', 'g-if-host');
 
       v.zurueck = knopf('g-pfeil g-pfeil-links', 'links', 'Vorherige Aufnahme');
       v.vor = knopf('g-pfeil g-pfeil-rechts', 'rechts', 'Nächste Aufnahme');
@@ -808,17 +1317,65 @@
       v.steuer.append(v.playKnopf, v.zeit, v.spur, v.dauer, v.tonKnopf, v.lautstaerke);
       v.unten.append(v.info, v.steuer);
 
-      v.wurzel.append(v.canvas, v.video, v.laden, v.start, v.meldung, v.oben, v.zurueck, v.vor, v.unten);
+      v.wurzel.append(v.canvas, v.video, v.hsHost, v.laden, v.start, v.meldung, v.oben, v.zurueck, v.vor, v.unten, v.ifHost, v.toast);
       viewerHost.append(v.wurzel);
 
       try {
         v.pano = new Panorama(v.canvas, {
           maxBreite: istMobil ? 4096 : 0,
-          beiTippen: () => v.wurzel.classList.toggle('g-ruhig')
+          beiTippen: () => {
+            // Erstes Tippen daneben schließt ein offenes Fenster, erst das nächste blendet die Bedienung aus.
+            if (v.fenster && v.fenster.offen) v.fenster.schliesse();
+            else v.wurzel.classList.toggle('g-ruhig');
+          },
+          beiAenderung: () => {
+            if (!v.ebene) return;
+            v.ebene.aktualisiere(v.videoBereit ? v.video.currentTime : 0);
+          }
         });
       } catch (e) {
         v.pano = null;
       }
+      if (v.pano) {
+        v.ebene = new HotspotEbene(v.hsHost, v.pano, {
+          url,
+          beiAktivieren: hotspotAusloesen,
+          beiBewegung: () => { if (v.fenster) v.fenster.aktualisiere(); }
+        });
+        v.fenster = new InfoFenster(v.ifHost, {
+          url,
+          position: (id) => {
+            const p = v.ebene.position(id);
+            if (!p) return null;
+            // Position ist auf die Leinwand bezogen; Leinwand und Fensterebene sind deckungsgleich.
+            return p;
+          },
+          gueltig: zielGueltig,
+          art: (k) => {
+            if (k.typ === 'link') return 'link';
+            const t = medienNachId.get(k.ziel && k.ziel.medium);
+            return t ? t.m.typ : 'foto';
+          },
+          beiAktion: (k) => {
+            v.fenster.schliesse();
+            if (k.typ === 'link') linkOeffnen(k.url, k.neuerTab !== false);
+            else zuMedium(k.ziel, k.text);
+          },
+          beiSchliessen: (h) => {
+            if (v.hsPausiert) {
+              v.hsPausiert = false;
+              v.video.play().catch(() => {});
+            }
+            const b = v.ebene.knopf(h.id);
+            if (b && document.activeElement && v.wurzel.contains(document.activeElement)) b.focus({ preventScroll: true });
+          }
+        });
+      }
+      an(v.tourKnopf, 'click', () => {
+        const z = v.verlauf[v.verlauf.length - 1];
+        if (z) gehe('a/' + z.album + '/' + z.id, false);
+      });
+      an(v.hsKnopf, 'click', hotspotsUmschalten);
 
       an(v.zu, 'click', () => schliesseViewer(false));
       an(v.zurueck, 'click', () => blaettern(-1));
@@ -923,6 +1480,7 @@
       const v = viewer;
       switch (e.key) {
         case 'Escape':
+          if (v.fenster && v.fenster.offen) { v.fenster.schliesse(); break; }
           if (v.wurzel.classList.contains('g-pseudovoll')) { vollbild(); break; }
           schliesseViewer(false);
           break;
@@ -931,6 +1489,7 @@
         case '+': case '=': if (v.pano) v.pano.zoom(0.85); break;
         case '-': if (v.pano) v.pano.zoom(1.18); break;
         case 'f': case 'F': vollbild(); break;
+        case 'h': case 'H': if (!v.hsKnopf.hidden) hotspotsUmschalten(); break;
         case ' ':
           if (v.medium && v.medium.typ === 'video') {
             e.preventDefault();
@@ -1008,6 +1567,9 @@
       }
       v.wurzel.classList.remove('g-offen', 'g-pseudovoll', 'g-ruhig');
       document.documentElement.classList.remove('g360-gesperrt');
+      v.verlauf = [];
+      if (v.fenster) v.fenster.schliesse();
+      if (v.ebene) v.ebene.setze([], einst);
       videoStoppen();
       if (v.pano) {
         v.pano.halte();
@@ -1017,6 +1579,57 @@
       v.album = null;
       v.index = -1;
       v.medium = null;
+    }
+
+    function hotspotsUmschalten() {
+      const v = viewer;
+      v.hsAn = !v.hsAn;
+      v.hsKnopf.classList.toggle('g-an', v.hsAn);
+      if (!v.hsAn && v.fenster) v.fenster.schliesse();
+      v.ebene.sichtbar(v.hsAn);
+    }
+
+    function hinweis(text) {
+      const v = viewer;
+      if (!text) return;
+      v.toast.textContent = text;
+      v.toast.classList.remove('g-zeigen');
+      void v.toast.offsetWidth;
+      v.toast.classList.add('g-zeigen');
+    }
+
+    function linkOeffnen(u, neuerTab) {
+      const sicher = sichereUrl(u);
+      if (!sicher) return;
+      if (neuerTab) window.open(sicher, '_blank', 'noopener,noreferrer');
+      else location.href = sicher;
+    }
+
+    /** Weiter im Rundgang: die jetzige Aufnahme merken, damit „Zurück" hierher führt. */
+    function zuMedium(ziel, text) {
+      const v = viewer;
+      const t = ziel && medienNachId.get(ziel.medium);
+      if (!t) return;
+      v.verlauf.push({ album: v.album.id, id: v.medium.id, titel: v.medium.titel || (v.medium.typ === 'video' ? '360°-Video' : '360°-Foto'), blick: v.pano.blick() });
+      if (v.verlauf.length > 50) v.verlauf.shift();
+      v.zielBlick = ziel.blick || null;
+      hinweis(text);
+      gehe('a/' + t.album.id + '/' + t.m.id, false);
+    }
+
+    function hotspotAusloesen(h) {
+      const v = viewer;
+      const a = h.aktion || {};
+      if (a.typ === 'medium') return zuMedium(a.ziel, h.titel);
+      if (a.typ === 'link') return linkOeffnen(a.url, a.neuerTab !== false);
+      if (a.typ === 'keine') return hinweis(h.titel);
+      if (v.fenster.offen && v.fenster.h === h) return v.fenster.schliesse();
+      if (h.pausieren !== false && v.videoBereit && !v.video.paused) {
+        v.video.pause();
+        v.hsPausiert = true;
+      }
+      v.pano.autoPause = performance.now() + 600000;
+      v.fenster.zeige(h);
     }
 
     function videoStoppen() {
@@ -1085,8 +1698,32 @@
           original ? { href: url(original), text: 'Datei herunterladen' } : null);
         return;
       }
-      v.pano.setzeBlick(m.blick);
-      v.pano.auto = !!einst.autoRotation && m.typ === 'foto';
+      // Blickrichtung: zurück im Rundgang → wie verlassen; per Hotspot → wie im Hotspot festgelegt.
+      let blick = m.blick;
+      const oben = v.verlauf[v.verlauf.length - 1];
+      if (oben && oben.id === m.id && oben.album === album.id) {
+        blick = oben.blick;
+        v.verlauf.pop();
+      } else if (v.zielBlick) {
+        blick = v.zielBlick;
+      }
+      v.zielBlick = null;
+      v.pano.setzeBlick(blick);
+      if (v.fenster) v.fenster.schliesse();
+      v.hsPausiert = false;
+      const hs = hotspotsFuer(m);
+      v.ebene.setze(hs, einst);
+      v.ebene.sichtbar(v.hsAn);
+      v.hsKnopf.hidden = !hs.length || einst.hotspotUmschalter === false;
+      const zurueckZu = v.verlauf[v.verlauf.length - 1];
+      v.tourKnopf.hidden = !zurueckZu;
+      if (zurueckZu) {
+        v.tourKnopf.innerHTML = symbol('links');
+        v.tourKnopf.append(el('span', '', zurueckZu.titel || 'Zurück'));
+        v.tourKnopf.title = 'Zurück zu „' + (zurueckZu.titel || 'vorige Aufnahme') + '"';
+      }
+      // Mit Hotspots dreht das Bild nicht von selbst — man soll sie antippen können.
+      v.pano.auto = !!einst.autoRotation && m.typ === 'foto' && !hs.length;
       v.pano.autoPause = performance.now() + 2500;
       v.drehKnopf.classList.toggle('g-an', v.pano.auto);
       v.pano.setzeQuelle(null);
@@ -1266,7 +1903,10 @@
     };
   }
 
-  window.Galerie360 = { Panorama, starte, FASSUNG, istMobil, istIOS, CODEC_NAMEN };
+  window.Galerie360 = {
+    Panorama, starte, FASSUNG, istMobil, istIOS, CODEC_NAMEN,
+    HotspotEbene, InfoFenster, hotspotKnopf, symbolInhalt, iconSvg, formatiere, sichereUrl, sichererPfad, STIL_STANDARD, stilVon
+  };
 
   const datenEl = document.getElementById('galerie-daten');
   const ziel = document.getElementById('galerie');

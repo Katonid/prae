@@ -48,6 +48,8 @@
         titelbild: a.titelbild,
         medien: a.medien.map((m) => {
           const x = { id: m.id, typ: m.typ, titel: m.titel, beschreibung: m.beschreibung, datum: m.datum, vorschau: m.vorschau, blick: m.blick };
+          const hs = (m.hotspots || []).filter((h) => h.sichtbar !== false).map(hotspotDaten);
+          if (hs.length) x.hotspots = hs;
           if (m.typ === 'foto') {
             x.datei = m.datei;
             x.breite = m.breite;
@@ -63,6 +65,30 @@
       }))
     };
   };
+
+  /** Ein Hotspot für die Galerie — ohne Notizen des Editors. */
+  function hotspotDaten(h) {
+    const a = h.aktion || {};
+    const ziel = (z) => (z && z.medium ? { medium: z.medium, blick: z.blick || null } : null);
+    const aktion = { typ: a.typ };
+    if (a.typ === 'info') {
+      Object.assign(aktion, { text: a.text || '', bild: a.bild || null, bildText: a.bildText || '', transparent: !!a.transparent, linie: a.linie !== false });
+      aktion.knoepfe = (a.knoepfe || []).map((k) => (k.typ === 'link'
+        ? { typ: 'link', text: k.text || '', url: k.url || '', neuerTab: k.neuerTab !== false }
+        : { typ: 'medium', text: k.text || '', ziel: ziel(k.ziel) }));
+    } else if (a.typ === 'medium') {
+      aktion.ziel = ziel(a.ziel);
+    } else if (a.typ === 'link') {
+      aktion.url = a.url || '';
+      aktion.neuerTab = a.neuerTab !== false;
+    }
+    const symbol = h.symbol && h.symbol.art === 'icon' ? { art: 'icon', name: h.symbol.name, knoten: h.symbol.knoten } : h.symbol;
+    return { id: h.id, yaw: h.yaw, pitch: h.pitch, titel: h.titel || '', symbol, stil: h.stil || null, aktion, zeit: h.zeit || null, pausieren: h.pausieren !== false };
+  }
+
+  function nutztLucide(p) {
+    return p.alben.some((a) => a.medien.some((m) => (m.hotspots || []).some((h) => h.symbol && h.symbol.art === 'icon')));
+  }
 
   G.indexHtml = function (p, stempel) {
     const daten = JSON.stringify(G.galerieDaten(p)).replace(/</g, '\\u003c');
@@ -80,6 +106,7 @@
       (e.nichtIndexieren === false ? '' : '<meta name="robots" content="noindex, nofollow">\n') +
       '<meta name="theme-color" content="' + (e.design === 'hell' ? '#f6f5f2' : '#0e0f12') + '">\n' +
       '<meta name="generator" content="Galerie 360">\n' +
+      (nutztLucide(p) ? '<!-- Symbole: Lucide (https://lucide.dev), ISC-Lizenz, Copyright (c) Lucide Icons and Contributors -->\n' : '') +
       '<link rel="icon" href="' + symbol + '">\n' +
       '<link rel="stylesheet" href="assets/galerie.css?v=' + stempel + '">\n' +
       '</head>\n<body class="g360-seite">\n' +
@@ -106,7 +133,7 @@
           if (!(await G.existiert(wurzel, o + '/index.html'))) await G.dateiSchreiben(wurzel, o + '/index.html', LEER_INDEX);
         } catch (_) { /* egal */ }
       }
-      for (const o of ['media/fotos', 'media/videos', 'media/poster', 'media/fotos/web']) {
+      for (const o of ['media/fotos', 'media/videos', 'media/poster', 'media/fotos/web', 'media/symbole', 'media/infobilder']) {
         try {
           await G.ordnerHolen(wurzel, o, false);
           if (!(await G.existiert(wurzel, o + '/index.html'))) await G.dateiSchreiben(wurzel, o + '/index.html', LEER_INDEX);
@@ -126,6 +153,10 @@
         if (m.poster) s.add(m.poster);
         (m.bilder || []).forEach((b) => s.add(b.src));
         (m.quellen || []).forEach((q) => s.add(q.src));
+        for (const h of m.hotspots || []) {
+          if (h.symbol && h.symbol.art === 'bild' && h.symbol.src) s.add(h.symbol.src);
+          if (h.aktion && h.aktion.bild) s.add(h.aktion.bild);
+        }
       }
     }
     return [...s];
@@ -155,6 +186,7 @@
         h.forEach((text) => hinweise.push({ titel: (a.titel || 'Album') + ' › ' + (m.titel || m.datei || 'Video'), text }));
       }
     }
+    if (G.hsProbleme) hinweise.push(...G.hsProbleme(p));
     const leer = p.alben.filter((a) => !a.medien.length).map((a) => a.titel || 'Album');
     if (leer.length) hinweise.push({ titel: 'Leere Alben', text: leer.join(', ') + ' — leere Alben erscheinen in der Galerie nicht.' });
     return { fehlend, groesse, dateien: pfade.length, hinweise };
@@ -169,5 +201,20 @@
       } catch (_) { /* fehlt — die Galerie zeigt dann eine Meldung */ }
     }
     return urls;
+  };
+  /** Hochgeladene Symbol- und Fensterbilder, auf die kein Hotspot mehr zeigt, löschen. */
+  G.verwaisteBilderLoeschen = async function (wurzel, p) {
+    const benutzt = new Set(G.verwiesenePfade(p));
+    let n = 0;
+    for (const o of ['media/symbole', 'media/infobilder']) {
+      let d;
+      try { d = await G.ordnerHolen(wurzel, o, false); } catch (_) { continue; }
+      for (const { pfad } of await G.alleDateien(d, o)) {
+        if (pfad.endsWith('/index.html') || benutzt.has(pfad)) continue;
+        await G.dateiLoeschen(wurzel, pfad);
+        n++;
+      }
+    }
+    return n;
   };
 })();

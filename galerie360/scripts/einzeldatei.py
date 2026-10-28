@@ -16,7 +16,7 @@ from pathlib import Path
 
 WURZEL = Path(__file__).resolve().parent.parent
 ZIEL = WURZEL / 'galerie360-generator.html'
-SKRIPTE = ['galerie/galerie.js', 'js/medien.js', 'js/speicher.js', 'js/export.js', 'js/app.js']
+SKRIPTE = ['galerie/galerie.js', 'vendor/lucide.js', 'vendor/emoji.js', 'js/medien.js', 'js/speicher.js', 'js/export.js', 'js/app.js', 'js/hotspots.js']
 
 
 def lies(pfad):
