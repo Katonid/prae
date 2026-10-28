@@ -551,3 +551,6 @@ p.warnung, .klein.warnung { color: var(--gefahr); }
 .geheimliste li { display: flex; flex-direction: column; gap: 4px; }
 .geheimliste .freigabe-link input { min-width: 0; }
 #schutz-text strong { color: var(--text); }
+
+/* Längere Hinweise (z. B. zu Kamera-Rohdateien) mit Absätzen */
+#frage-text { white-space: pre-line; }

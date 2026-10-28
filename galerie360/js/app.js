@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.3';
+  const FASSUNG = '1.0.4';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -940,9 +940,12 @@
     if (!S.projekt) return;
     const album = aktuellesAlbum();
     const liste = [...dateien];
-    const unbekannt = liste.filter((d) => !G.medienArt(d));
-    if (unbekannt.length) {
-      melde('Nicht unterstützte Dateien', unbekannt.map((d) => d.name).join(', ') + ' — übernommen werden 360°-Fotos (JPG, PNG, WebP) und -Videos (MP4, MOV, WebM). INSP- und INSV-Dateien bitte zuerst in Insta360 Studio als 360°-Foto bzw. -Video exportieren.');
+    const kamera = liste.filter((d) => G.kameraDatei(d));
+    const unbekannt = liste.filter((d) => !G.medienArt(d) && !G.kameraDatei(d));
+    if (kamera.length) {
+      melde(kamera.length === 1 ? 'Rohdatei der Kamera' : kamera.length + ' Rohdateien der Kamera', kameraHinweis(kamera));
+    } else if (unbekannt.length) {
+      melde('Nicht unterstützte Dateien', namenListe(unbekannt) + ' — übernommen werden 360°-Fotos (JPG, PNG, WebP) und -Videos (MP4, MOV, WebM).');
     }
     const auftraege = liste.filter((d) => G.medienArt(d)).map((d) => ({ datei: d, eintrag: warteEintrag(d) }));
     S.importLaeuft += auftraege.length;
@@ -968,6 +971,26 @@
         S.importLaeuft--;
       }
     }
+  }
+
+  function namenListe(dateien) {
+    const n = dateien.map((d) => d.name);
+    return n.length > 4 ? n.slice(0, 4).join(', ') + ' und ' + (n.length - 4) + ' weitere' : n.join(', ');
+  }
+
+  /** Erklärt, was INSP/INSV/LRV/DNG sind und wie daraus ein fertiges 360°-Bild wird. */
+  function kameraHinweis(dateien) {
+    const arten = new Set(dateien.map((d) => G.kameraDatei(d)));
+    const zeilen = ['Diese Dateien kommen direkt von der Insta360-Kamera und sind noch kein fertiges 360°-Bild. Sie wurden nicht übernommen:', ''];
+    if (arten.has('insp') || arten.has('insv')) zeilen.push('• INSP (Foto) und INSV (Video): die beiden Fischaugen-Bilder der zwei Objektive, noch nicht zu einer Kugel zusammengesetzt.');
+    if (arten.has('dng')) zeilen.push('• DNG: RAW-Foto der Kamera, ebenfalls noch nicht zusammengesetzt.');
+    if (arten.has('lrv')) zeilen.push('• LRV: kleine Vorschauvideos, die die Kamera nebenher aufnimmt — für die Galerie nicht nötig.');
+    zeilen.push('',
+      'So geht es: Die Aufnahme in der Insta360-App (iPhone, iPad) oder in Insta360 Studio (Computer) öffnen und als 360°-Foto bzw. 360°-Video exportieren — nicht als flaches, zugeschnittenes Bild. Dabei setzt Insta360 die beiden Hälften nahtlos zusammen, stabilisiert das Video und richtet den Horizont aus. Das Ergebnis (JPG bzw. MP4) hier hinzufügen.',
+      '',
+      'Am iPhone/iPad am einfachsten nach dem Export „Teilen → In Dateien sichern" und dann hier über „Durchsuchen" wählen.');
+    if (dateien.length > 1) zeilen.push('', 'Übersprungen: ' + namenListe(dateien));
+    return zeilen.join('\n');
   }
 
   function warteEintrag(datei) {
@@ -1693,6 +1716,9 @@
   }
 
   verdrahten();
+  // iOS graut im Dateidialog alles aus, was nicht zur Liste passt — auch INSP/INSV, zu denen der
+  // Generator etwas erklären soll. Ohne Liste ist alles wählbar; geprüft wird ohnehin danach.
+  if (IOS) $('dateiwahl').removeAttribute('accept');
   zeigeStart();
   // Offline-Betrieb und „Zum Home-Bildschirm" (nicht in der Einzeldatei über file://).
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

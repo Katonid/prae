@@ -18,6 +18,17 @@
     return null;
   };
 
+  /**
+   * Rohdateien der Insta360-Kamera — kein fertiges 360°-Bild, sondern die
+   * zwei Fischaugen-Bilder beider Objektive (INSP/INSV), Vorschauvideos (LRV)
+   * oder RAW (DNG). Sie werden erkannt, damit der Generator erklären kann,
+   * was zu tun ist, statt sie stumm abzuweisen.
+   */
+  G.kameraDatei = function (datei) {
+    const m = /\.(insp|insv|lrv|dng)$/i.exec(datei.name || '');
+    return m ? m[1].toLowerCase() : null;
+  };
+
   /** Dateiname ohne Sonderzeichen, Umlaute ausgeschrieben, klein. */
   G.sauberName = function (name) {
     const punkt = name.lastIndexOf('.');
