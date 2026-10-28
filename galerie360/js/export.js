@@ -162,13 +162,19 @@
       '<link rel="stylesheet" href="' + assets + 'assets/galerie.css?v=' + stempel + '">\n' +
       '</head>\n<body class="g360-seite">\n' +
       '<div id="galerie" class="g360" data-thema="' + (e.design === 'hell' ? 'hell' : 'dunkel') + '">' +
+      // Bleibt stehen, bis der Betrachter startet. Fehlt er auf dem Server, sagt die
+      // Seite das, statt weiß zu bleiben (10/2026: nur der Albumordner hochgeladen).
+      '<p style="padding:2em;font-family:sans-serif">Galerie wird geladen …</p>' +
       '<noscript><p style="padding:2em;font-family:sans-serif">Diese Galerie braucht JavaScript.</p></noscript></div>\n' +
       '<script type="application/json" id="galerie-daten">' + daten + '</script>\n' +
-      '<script src="' + assets + 'assets/galerie.js?v=' + stempel + '"></script>\n' +
+      '<script src="' + assets + 'assets/galerie.js?v=' + stempel + '" onerror="' + html(BETRACHTER_FEHLT) + '"></script>\n' +
       '</body>\n</html>\n';
   };
 
   const LEER_INDEX = '<!doctype html><meta charset="utf-8"><title></title>\n';
+  const BETRACHTER_FEHLT = "document.getElementById('galerie').firstChild.textContent=" +
+    "'Der Betrachter fehlt auf dem Server: Die Datei assets/galerie.js wurde nicht gefunden. " +
+    "Bitte den Albumordner vollständig hochladen, mit seinem Unterordner assets.'";
 
   /** Schreibt index.html, assets/ und gallery.json. Klein und schnell — läuft bei jedem Speichern. */
   G.websiteSchreiben = async function (wurzel, projekt, mitAssets) {
@@ -233,7 +239,10 @@
    *
    *   360Grad/index.html                Startseite mit den öffentlichen Alben
    *   360Grad/assets/                   Betrachter (für alle Alben gemeinsam)
-   *   360Grad/<album>-<26 Zeichen>/     je Album: index.html, media/, thumbnails/
+   *   360Grad/<album>-<26 Zeichen>/     je Album: index.html, assets/, media/, thumbnails/
+   *
+   * Jedes Album bringt seinen Betrachter selbst mit (knapp 100 KB): Wer nur
+   * den Albumordner hochlädt, bekäme sonst eine weiße Seite (10/2026).
    *
    * gallery.json kommt NICHT mit: Auf dem Server braucht sie niemand, und
    * sie verriete die Ordner aller Alben.
@@ -273,8 +282,11 @@
         if (!t || t.a === a || (!geheim && G.freigabe(t.a) !== 'oeffentlich')) return null;
         return { seite: '../' + G.albumOrdner(t.a) + '/#a/' + t.a.id + '/' + id, typ: t.m.typ };
       };
+      text(ordner + '/assets/galerie.js', q.js, 'text/javascript');
+      text(ordner + '/assets/galerie.css', q.css, 'text/css');
+      text(ordner + '/assets/index.html', LEER_INDEX);
       text(ordner + '/index.html', G.indexHtml(p, stempel, {
-        alben: [a], basis: '', assets: '../', titel: a.titel || p.titel, beschreibung: a.beschreibung || '',
+        alben: [a], basis: '', titel: a.titel || p.titel, beschreibung: a.beschreibung || '',
         geheim, startseite: geheim ? null : '../', fremd
       }));
       const ordnerListe = new Set();

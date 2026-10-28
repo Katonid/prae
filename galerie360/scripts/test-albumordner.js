@@ -108,6 +108,7 @@ const zipNamen = (zip) => execFileSync('python3', ['-c', 'import zipfile,sys; z=
   pruefe(namen.some((n) => n.startsWith(`360Grad/${o2}/media/fotos/foto-gross`)) && !namen.some((n) => n.startsWith(`360Grad/${o1}/media/fotos/foto-gross`)), 'Jede Aufnahme liegt nur im Ordner ihres Albums');
   pruefe(!namen.some((n) => /video-a/.test(n)), 'Entwurf (Video) kommt nicht mit');
   pruefe(namen.includes(`360Grad/${o1}/media/fotos/index.html`), 'Leere index.html verhindert Ordnerlisten');
+  pruefe(namen.includes(`360Grad/${o1}/assets/galerie.js`) && namen.includes(`360Grad/${o2}/assets/galerie.css`), 'Jedes Album bringt seinen Betrachter mit');
 
   // Nach dem ZIP ist der Ordnername fest — ein neuer Titel ändert den Link nicht mehr.
   await seite.click('#fertig-inhalt button:has-text("Schließen")');
@@ -216,6 +217,29 @@ const zipNamen = (zip) => execFileSync('python3', ['-c', 'import zipfile,sys; z=
   pruefe(true, 'Hotspot im geheimen Album öffnet die Aufnahme auf der öffentlichen Albumseite');
   await b.screenshot({ path: path.join(aus, 'a1-sprung.png') });
   await c.close();
+
+  // Nur der Albumordner hochgeladen (10/2026: weiße Seite am iPad).
+  console.log('Nur ein Albumordner auf dem Webspace');
+  const allein = path.join(aus, 'allein');
+  fs.rmSync(allein, { recursive: true, force: true });
+  const zielAllein = path.join(allein, 'apps', 'galerie360', '360Grad');
+  fs.mkdirSync(zielAllein, { recursive: true });
+  execFileSync('python3', ['-c', 'import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])', path.join(aus, 'teil-' + o2 + '.zip'), zielAllein]);
+  const ws2 = await server(allein);
+  const c2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const b2 = await c2.newPage();
+  b2.on('pageerror', (e) => konsole.push('allein: ' + e.message));
+  await b2.goto(`http://127.0.0.1:${ws2.address().port}/apps/galerie360/360Grad/${o2}/`);
+  await b2.waitForSelector('.g-kachel', { timeout: 15000 });
+  await b2.click('.g-kachel');
+  await b2.waitForFunction(() => document.querySelector('.g-laden').hidden, null, { timeout: 20000 });
+  pruefe(await b2.evaluate(() => document.querySelector('.g-meldung').hidden), 'Albumordner allein (ohne 360Grad.zip): Galerie und Foto laden');
+  fs.rmSync(path.join(zielAllein, o2, 'assets'), { recursive: true });
+  await b2.goto(`http://127.0.0.1:${ws2.address().port}/apps/galerie360/360Grad/${o2}/?x`);
+  await b2.waitForFunction(() => /Betrachter fehlt/.test(document.body.textContent), null, { timeout: 15000 });
+  pruefe(true, 'Fehlt der Betrachter, steht eine Erklärung da statt einer weißen Seite');
+  await c2.close();
+  ws2.close();
 
   await browser.close();
   gen.close();
