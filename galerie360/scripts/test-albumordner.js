@@ -123,7 +123,54 @@ const zipNamen = (zip) => execFileSync('python3', ['-c', 'import zipfile,sys; z=
   const sicherung = path.join(aus, 'sicherung.zip');
   await download.saveAs(sicherung);
   pruefe(zipNamen(sicherung).some((n) => /\/gallery\.json$/.test(n)), 'Sicherung enthält das Projekt (gallery.json)');
+
+  console.log('Je Album ein ZIP');
+  await seite.click('#fertig-inhalt button:has-text("Je Album ein ZIP")');
+  await seite.waitForFunction(() => document.querySelectorAll('.zipzeile').length === 3, null, { timeout: 60000 });
+  const teile = {};
+  for (let i = 0; i < 3; i++) {
+    const [d] = await Promise.all([seite.waitForEvent('download'), seite.click(`.zipzeile >> nth=${i} >> button:has-text("Herunterladen")`)]);
+    const ziel2 = path.join(aus, 'teil-' + d.suggestedFilename());
+    await d.saveAs(ziel2);
+    teile[d.suggestedFilename()] = zipNamen(ziel2);
+  }
+  const ordner1 = link1.split('/').slice(-2)[0];
+  pruefe(teile['360Grad.zip'] && teile['360Grad.zip'].every((n) => n.startsWith('360Grad/') && !n.includes(ordner1)), '360Grad.zip: Startseite und Betrachter, ohne Alben');
+  pruefe(teile[ordner1 + '.zip'] && teile[ordner1 + '.zip'].every((n) => n.startsWith(ordner1 + '/')) && teile[ordner1 + '.zip'].includes(ordner1 + '/index.html'), 'Album-ZIP: der Albumordner obenauf (kommt in 360Grad/)');
   await ctx.close();
+
+  console.log('iPad: Herunterladen statt Teilen');
+  const ipad = await browser.newContext({ viewport: { width: 1180, height: 820 }, hasTouch: true });
+  const ip = await ipad.newPage();
+  ip.on('pageerror', (e) => konsole.push('ipad: ' + e.message));
+  await ip.addInitScript(() => {
+    delete window.showDirectoryPicker; delete window.showSaveFilePicker;
+    delete FileSystemFileHandle.prototype.createWritable;
+    Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' });
+    Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 });
+    navigator.share = async () => {}; navigator.canShare = () => true;
+  });
+  await ip.goto(genUrl);
+  await ip.click('#k-zip');
+  await ip.setInputFiles('#dateiwahl-einzeln', sicherung);
+  await ip.waitForSelector('#editor:not([hidden])', { timeout: 60000 });
+  let autoDownload = false;
+  ip.on('download', () => { autoDownload = true; });
+  await ip.click('#k-fertig');
+  await ip.waitForSelector('#fertig-inhalt h2.gut', { timeout: 30000 });
+  await ip.click('#fertig-inhalt button:has-text("ZIP für den Webspace")');
+  await ip.waitForSelector('.zipzeile', { timeout: 60000 });
+  await ip.waitForTimeout(500);
+  pruefe(!autoDownload, 'iPad: kein automatischer Download, sondern Knöpfe');
+  pruefe(await ip.isVisible('.zipzeile button:has-text("Herunterladen (in Dateien)")') && await ip.isEnabled('.zipzeile button:has-text("Teilen")'), 'iPad: „Herunterladen (in Dateien)" und — bei kleiner Datei — „Teilen"');
+  const [d2] = await Promise.all([ip.waitForEvent('download'), ip.click('.zipzeile button:has-text("Herunterladen")')]);
+  const ipadZip = path.join(aus, 'ipad-360Grad.zip');
+  await d2.saveAs(ipadZip);
+  pruefe(zipNamen(ipadZip).includes('360Grad/index.html'), 'iPad: ZIP über den Worker geschrieben und heruntergeladen');
+  // Großes ZIP: Teilen gesperrt (Schwelle 200 MB) — hier mit verkleinerter Schwelle nachgestellt.
+  const gesperrt = await ip.evaluate(() => { const b = [...document.querySelectorAll('.zipzeile button')].find((x) => x.textContent.startsWith('Teilen')); return b ? b.title : ''; });
+  pruefe(/An eine App/.test(gesperrt), 'iPad: Teilen-Knopf erklärt sich');
+  await ipad.close();
 
   console.log('Auf dem Webspace (/apps/galerie360/360Grad/)');
   const web = path.join(aus, 'web');

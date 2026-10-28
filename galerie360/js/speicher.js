@@ -531,12 +531,20 @@
         const kopf = lokalerKopf(e);
         await ziel.write(kopf);
         let crc = 0;
-        await stueckweise(datei, async (stueck) => {
-          crc = crcWeiter(crc, stueck);
-          await ziel.write(stueck);
-          fertig += stueck.byteLength;
+        if (ziel.kopiere) {
+          // Worker-Ziel: Er liest die Datei selbst, rechnet die Prüfsumme und schreibt — kein Stück wandert hierher.
+          const start = fertig;
+          crc = await ziel.kopiere(datei, (n) => fortschritt(start + n, gesamt));
+          fertig = start + datei.size;
           fortschritt(fertig, gesamt);
-        });
+        } else {
+          await stueckweise(datei, async (stueck) => {
+            crc = crcWeiter(crc, stueck);
+            await ziel.write(stueck);
+            fertig += stueck.byteLength;
+            fortschritt(fertig, gesamt);
+          });
+        }
         e.crc = crc;
         pos += kopf.length + datei.size;
         // Prüfsumme an ihren Platz im Kopf (Byte 14) nachtragen.
@@ -568,5 +576,119 @@
       return null;
     }
     return new Blob([...teile, ...ende], { type: 'application/zip' });
+  };
+  /* ================================================================
+   * ZIP direkt in eine Datei im Browser-Speicher
+   * ================================================================
+   * Gefunden 10/2026: Am iPhone stürzte Safari beim Teilen eines 1-GB-ZIPs
+   * ab. Das ZIP entstand als Blob aus vielen Teilen, und Safari las es zum
+   * Teilen ganz in den Arbeitsspeicher. Jetzt steht es als EINE Datei im
+   * Browser-Speicher (OPFS) auf der Festplatte; „Herunterladen" reicht sie
+   * von dort an die Dateien-App weiter. Ohne createWritable (Safari)
+   * schreibt ein Worker mit SyncAccessHandle — auch die Prüfsumme rechnet er.
+   */
+  const ZIP_SCHREIBER = [
+    'const T = new Uint32Array(256);',
+    'for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; T[n] = c >>> 0; }',
+    'let ah = null, pos = 0;',
+    'async function alles(daten, at) { let rest = daten; let p = at; while (rest.byteLength) { const n = await ah.write(rest, { at: p }); if (!n) throw new Error("Schreiben fehlgeschlagen"); p += n; rest = rest.subarray(n); } return p; }',
+    'let kette = Promise.resolve();',
+    'self.onmessage = (e) => { kette = kette.then(() => arbeite(e.data)); };',
+    'async function arbeite(m) {',
+    '  try {',
+    '    let antwort = {};',
+    '    if (m.op === "oeffnen") {',
+    '      let d = await navigator.storage.getDirectory();',
+    '      for (const t of m.pfad.slice(0, -1)) d = await d.getDirectoryHandle(t, { create: true });',
+    '      const fh = await d.getFileHandle(m.pfad[m.pfad.length - 1], { create: true });',
+    '      ah = await fh.createSyncAccessHandle();',
+    '      await ah.truncate(0);',
+    '      pos = 0;',
+    '    } else if (m.op === "schreiben") {',
+    '      const ende = await alles(new Uint8Array(m.daten), m.at != null ? m.at : pos);',
+    '      if (m.at == null) pos = ende;',
+    '    } else if (m.op === "seek") {',
+    '      pos = m.at;',
+    '    } else if (m.op === "kopieren") {',
+    '      const leser = m.datei.stream().getReader();',
+    '      let c = 0xFFFFFFFF, gelesen = 0, gemeldet = 0;',
+    '      for (;;) {',
+    '        const { done, value } = await leser.read();',
+    '        if (done) break;',
+    '        for (let i = 0; i < value.length; i++) c = T[(c ^ value[i]) & 0xFF] ^ (c >>> 8);',
+    '        pos = await alles(value, pos);',
+    '        gelesen += value.byteLength;',
+    '        if (gelesen - gemeldet > 8388608) { gemeldet = gelesen; self.postMessage({ id: m.id, fortschritt: gelesen }); }',
+    '      }',
+    '      antwort.crc = (c ^ 0xFFFFFFFF) >>> 0;',
+    '    } else if (m.op === "schliessen") {',
+    '      await ah.flush();',
+    '      await ah.close();',
+    '      ah = null;',
+    '    }',
+    '    self.postMessage(Object.assign({ id: m.id, fertig: true }, antwort));',
+    '  } catch (err) {',
+    '    try { if (ah) { await ah.close(); ah = null; } } catch (_) {}',
+    '    self.postMessage({ id: m.id, fehler: (err && err.name === "QuotaExceededError") ? "QuotaExceededError" : String(err && err.message || err) });',
+    '  }',
+    '}'
+  ].join('\n');
+
+  /** Ziel mit derselben Schnittstelle wie FileSystemWritableFileStream (write/close), dazu kopiere(datei). */
+  function workerZiel(pfad) {
+    const w = new Worker(URL.createObjectURL(new Blob([ZIP_SCHREIBER], { type: 'text/javascript' })));
+    let nr = 0;
+    const offen = new Map();
+    w.onmessage = (e) => {
+      const a = offen.get(e.data.id);
+      if (!a) return;
+      if (e.data.fortschritt != null) { if (a.fortschritt) a.fortschritt(e.data.fortschritt); return; }
+      offen.delete(e.data.id);
+      if (e.data.fehler === 'QuotaExceededError') a.nein(Object.assign(new Error('Speicher voll'), { name: 'QuotaExceededError' }));
+      else if (e.data.fehler) a.nein(new Error(e.data.fehler));
+      else a.ok(e.data);
+    };
+    const auftrag = (m, fortschritt, uebergabe) => new Promise((ok, nein) => {
+      m.id = ++nr;
+      offen.set(m.id, { ok, nein, fortschritt });
+      w.postMessage(m, uebergabe || []);
+    });
+    const kopie = (b) => { const u = new Uint8Array(b.byteLength); u.set(b); return u.buffer; };
+    const ziel = {
+      bereit: auftrag({ op: 'oeffnen', pfad }),
+      write(x) {
+        if (x instanceof Uint8Array) { const buf = kopie(x); return auftrag({ op: 'schreiben', daten: buf }, null, [buf]); }
+        if (x.type === 'seek') return auftrag({ op: 'seek', at: x.position });
+        const buf = kopie(x.data);
+        return auftrag({ op: 'schreiben', daten: buf, at: x.position }, null, [buf]);
+      },
+      async kopiere(datei, fortschritt) { return (await auftrag({ op: 'kopieren', datei }, fortschritt)).crc; },
+      async close() { await auftrag({ op: 'schliessen' }); w.terminate(); },
+      async abort() { try { await auftrag({ op: 'schliessen' }); } catch (_) { /* egal */ } w.terminate(); }
+    };
+    return ziel;
+  }
+
+  /**
+   * ZIP als Datei im Browser-Speicher (Ordner „export"). Gibt die Datei
+   * zurück — sie liegt auf der Festplatte, nicht im Arbeitsspeicher.
+   */
+  G.zipInDatei = async function (eintraege, name, fortschritt) {
+    const root = await navigator.storage.getDirectory();
+    const ordner = await root.getDirectoryHandle('export', { create: true });
+    let ziel;
+    if (mitWritable) {
+      ziel = await (await ordner.getFileHandle(name, { create: true })).createWritable();
+    } else {
+      ziel = workerZiel(['export', name]);
+      await ziel.bereit;
+    }
+    await G.zipErstellen(eintraege, ziel, fortschritt);
+    return (await ordner.getFileHandle(name)).getFile();
+  };
+
+  /** Frühere ZIPs aus dem Browser-Speicher löschen (sie belegen so viel Platz wie die Galerie). */
+  G.exportAufraeumen = async function () {
+    try { await (await navigator.storage.getDirectory()).removeEntry('export', { recursive: true }); } catch (_) { /* gab keine */ }
   };
 })();

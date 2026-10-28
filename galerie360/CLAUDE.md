@@ -135,6 +135,17 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   Albumgrenzen werden Links `../<ordner>/#a/<album>/<aufnahme>` — nie von
   öffentlich nach „nur mit Link", nie in Entwürfe. `sw.js` lässt `/360Grad/`
   in Ruhe (liegt im Geltungsbereich des Generators). Test: `test-albumordner.js`.
+- **Große ZIPs am iPhone/iPad (gefunden 10/2026: Absturz beim Teilen eines
+  1-GB-Album-ZIPs).** Früher entstand das ZIP ohne Speichern-Dialog als Blob
+  aus vielen Teilen, und `navigator.share` liest Dateien in Safari ganz in
+  den Arbeitsspeicher. Jetzt: `G.zipInDatei` schreibt das ZIP als EINE
+  Datei in den Browser-Speicher (`export/`), ohne `createWritable` über den
+  ZIP-Worker (kopiert und rechnet CRC selbst, trägt sie per Position nach).
+  Am iPhone/iPad danach „Herunterladen (in Dateien)" — streamt von der
+  Platte; „Teilen" nur bis `TEILEN_BIS` (200 MB). Notlösung „Je Album ein
+  ZIP": `360Grad.zip` + `<albumordner>.zip` (Ordner obenauf, kommt IN
+  360Grad/). Test: `test-grosses-zip.js` (JS-Speicher wächst nicht mit der
+  Dateigröße, Python-CRC stimmt), iPad-Teil in `test-albumordner.js`.
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind
@@ -180,8 +191,8 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 ## Prüfen
 
 `scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`),
-`scripts/test-hotspots.js`, `scripts/test-schutz.js`, `scripts/test-albumordner.js` und
-`scripts/test-zip64.js`;
+`scripts/test-hotspots.js`, `scripts/test-schutz.js`, `scripts/test-albumordner.js`,
+`scripts/test-grosses-zip.js` und `scripts/test-zip64.js`;
 Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,
