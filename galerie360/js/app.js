@@ -7,7 +7,10 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.0';
+  const FASSUNG = '1.0.1';
+  const IOS = window.Galerie360.istIOS;
+  // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
+  const MAX_FLAECHE = IOS ? 16777216 : Infinity;
   const AKZENTE = ['#3b82f6', '#0ea5a4', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#94a3b8'];
   const BLICK_START = { yaw: 0, pitch: 0, fov: 75 };
 
@@ -321,17 +324,30 @@
     $('leiste-projekt').hidden = true;
     document.title = 'Galerie 360 — 360°-Fotos und -Videos als eigene Webgalerie';
     const hinweis = $('browserhinweis');
-    if (!G.kannOrdner && G.kannBrowserSpeicher) {
+    if (!G.kannOrdner && G.kannBrowserSpeicher && IOS) {
+      hinweis.hidden = false;
+      hinweis.innerHTML = navigator.standalone
+        ? '<strong>iPad/iPhone:</strong> Galerien liegen im Speicher dieser App. Fertige Galerien als ZIP in der Dateien-App sichern — das ist zugleich die Datensicherung.'
+        : '<strong>Auf dem iPad bitte zuerst installieren:</strong> auf <em>Teilen</em> (□↑) tippen (iPad: oben rechts, iPhone: unten) → <em>Zum Home-Bildschirm</em>, dann den Generator von dort starten. ' +
+          'Galerien liegen im Speicher von Safari; als Webseite darf Safari diesen Speicher nach einigen Wochen ohne Besuch löschen, als App vom Home-Bildschirm nicht.';
+      $('k-oeffnen').hidden = true;
+    } else if (!G.kannOrdner && G.kannBrowserSpeicher) {
       hinweis.hidden = false;
       hinweis.innerHTML = '<strong>Hinweis:</strong> Dieser Browser kann nicht direkt in einen Ordner auf der Festplatte schreiben. ' +
         'Galerien werden deshalb im Speicher des Browsers abgelegt und am Ende als ZIP-Archiv gespeichert. ' +
-        'Bequemer geht es mit <strong>Google Chrome</strong> oder <strong>Microsoft Edge</strong> — dort liegt jede Galerie als normaler Ordner auf deinem Rechner.';
+        'Bequemer geht es am Computer mit <strong>Google Chrome</strong> oder <strong>Microsoft Edge</strong> — dort liegt jede Galerie als normaler Ordner auf der Festplatte.';
       $('k-oeffnen').hidden = true;
     } else if (!G.kannOrdner) {
       hinweis.hidden = false;
-      hinweis.innerHTML = '<strong>Dieser Browser kann keine Galerien speichern.</strong> Bitte <strong>Google Chrome</strong> oder <strong>Microsoft Edge</strong> verwenden (Windows und macOS, beide kostenlos).';
+      hinweis.innerHTML = '<strong>Dieser Browser kann keine Galerien speichern.</strong> Bitte <strong>Google Chrome</strong> oder <strong>Microsoft Edge</strong> verwenden (Windows und macOS, beide kostenlos) oder auf dem iPad <strong>Safari</strong>.';
       $('k-neu').disabled = true;
       $('k-oeffnen').disabled = true;
+      $('k-zip').disabled = true;
+    }
+    if (!G.kannOrdner && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    if (!G.kannOrdner && G.kannBrowserSpeicher) {
+      $('schritt1-titel').textContent = 'Galerie anlegen';
+      $('schritt1-text').textContent = 'Die Galerie entsteht im Speicher dieses Geräts. Am Ende wird sie als ZIP-Archiv zur fertigen Website.';
     }
     const liste = $('zuletzt-liste');
     liste.innerHTML = '';
@@ -391,7 +407,11 @@
     status('Alle Änderungen gespeichert', 'gut');
     const sh = $('speicherhinweis');
     sh.hidden = S.modus !== 'browser';
-    sh.textContent = 'Diese Galerie liegt im Speicher des Browsers. Zum Hochladen „Website fertigstellen" wählen und das ZIP-Archiv speichern. Wer die Browserdaten löscht, löscht auch die Galerie.';
+    sh.textContent = IOS
+      ? 'Diese Galerie liegt im Speicher von Safari auf diesem Gerät. Zum Hochladen und als Sicherung „Website fertigstellen" → ZIP-Archiv in der Dateien-App sichern.'
+      : 'Diese Galerie liegt im Speicher des Browsers. Zum Hochladen „Website fertigstellen" wählen und das ZIP-Archiv speichern. Wer die Browserdaten löscht, löscht auch die Galerie.';
+    // Auf schmalen Bildschirmen (iPad hochkant) zuerst die Aufnahmen, die Einstellungen eingeklappt.
+    $('galerieblock').open = !window.matchMedia('(max-width: 820px)').matches;
     zeigeGalerieFelder();
     zeigeAlben();
     zeigeAlbum();
@@ -781,7 +801,7 @@
       // Verkleinerte Fassungen für Handys (4096) und Grafikkarten mit
       // kleinerer Texturgrenze (8192). Das Original bleibt daneben liegen.
       let gross = null, klein = bild;
-      if (B > 8192) {
+      if (B > 8192 && 8192 * Math.round(H * 8192 / B) <= MAX_FLAECHE) {
         gross = G.skaliere(bild, 8192);
         const p = 'media/fotos/web/' + ziel.basis + '-8192.jpg';
         await G.dateiSchreiben(S.wurzel, p, await G.alsJpeg(gross, 0.9));
@@ -1186,6 +1206,23 @@
         balken.value = g ? f / g : 1;
         text.textContent = 'ZIP-Archiv wird erstellt … ' + G.groesseText(f) + ' von ' + G.groesseText(g);
       });
+      const datei = blob && IOS && window.File ? new File([blob], name + '.zip', { type: 'application/zip' }) : null;
+      if (datei && navigator.canShare && navigator.canShare({ files: [datei] })) {
+        // iPad/iPhone: über „Teilen" in die Dateien-App oder direkt an eine FTP-App.
+        balken.remove();
+        text.textContent = 'ZIP-Archiv ist bereit (' + G.groesseText(blob.size) + ').';
+        const teilen = knopf('Teilen / In Dateien sichern …', 'haupt', async () => {
+          try {
+            await navigator.share({ files: [datei], title: name + '.zip' });
+            text.textContent = 'ZIP-Archiv weitergegeben. In der Dateien-App antippen, um es zu entpacken, dann den Ordner „' + name + '" mit einer FTP-App hochladen.';
+            text.className = 'gut';
+          } catch (e) {
+            if (!abgebrochen(e)) text.textContent = 'Teilen fehlgeschlagen: ' + fehlerText(e);
+          }
+        });
+        bereich.append(teilen);
+        return;
+      }
       if (blob) {
         const a = el('a');
         a.href = URL.createObjectURL(blob);
@@ -1207,6 +1244,77 @@
   }
 
   /* ================================================================
+   * Galerie aus einem ZIP-Archiv übernehmen (Sicherung, anderes Gerät)
+   * ================================================================ */
+  async function zipUebernehmen() {
+    const datei = await einzelneDatei('application/zip,.zip');
+    if (!datei) return;
+    const dlg = $('dlg-fertig');
+    const inhalt = $('fertig-inhalt');
+    inhalt.innerHTML = '';
+    const text = el('p', '', 'Archiv wird gelesen …');
+    const balken = el('progress');
+    balken.max = 1;
+    balken.value = 0;
+    balken.className = 'voll';
+    inhalt.append(el('h2', '', 'Galerie übernehmen'), text, balken);
+    dlg.showModal();
+    const schliessen = (titel, meldung) => {
+      inhalt.innerHTML = '';
+      inhalt.append(el('h2', '', titel), el('p', '', meldung), fuss([knopf('Schließen', 'haupt', () => dlg.close())]));
+    };
+    try {
+      const liste = await G.zipLesen(datei);
+      const projektEintrag = liste.filter((e) => /(^|\/)gallery\.json$/.test(e.name)).sort((a, b) => a.name.length - b.name.length)[0];
+      if (!projektEintrag) return schliessen('Keine Galerie', 'In diesem Archiv steckt keine gallery.json — es stammt nicht aus Galerie 360.');
+      const praefix = projektEintrag.name.slice(0, -'gallery.json'.length);
+      const dateien = liste.filter((e) => e.name.startsWith(praefix) && !e.name.endsWith('/') && !/(^|\/)(\.|__MACOSX)/.test(e.name.slice(praefix.length)));
+      if (dateien.some((e) => e.methode !== 0)) {
+        return schliessen('Archiv nachträglich gepackt', 'Dieses ZIP wurde komprimiert (z. B. von „Komprimieren" in Finder oder Dateien-App neu erstellt). Bitte das ZIP verwenden, das „Website fertigstellen" erzeugt hat.');
+      }
+      const p = JSON.parse(await datei.slice(projektEintrag.daten, projektEintrag.daten + projektEintrag.groesse).text());
+      if (p.format !== 'galerie360') return schliessen('Keine Galerie', 'Die gallery.json in diesem Archiv stammt nicht aus Galerie 360.');
+      const name = G.sauberName(praefix.replace(/\/$/, '').split('/').pop() || p.titel || 'galerie').basis;
+      let wurzel;
+      let modus = 'ordner';
+      if (G.kannOrdner) {
+        text.textContent = 'Wähle den Ordner, in dem die Galerie „' + (p.titel || name) + '" angelegt werden soll.';
+        const eltern = await window.showDirectoryPicker({ id: 'galerie360', mode: 'readwrite', startIn: 'documents' });
+        wurzel = await freierOrdner(eltern, name);
+      } else {
+        modus = 'browser';
+        wurzel = await freierOrdner(await G.browserSpeicher(), name);
+      }
+      const gesamt = dateien.reduce((s, e) => s + e.groesse, 0) || 1;
+      let fertig = 0;
+      for (const e of dateien) {
+        text.textContent = 'Wird übernommen: ' + e.name.slice(praefix.length) + ' (' + G.groesseText(fertig) + ' von ' + G.groesseText(gesamt) + ')';
+        await G.dateiSchreiben(wurzel, e.name.slice(praefix.length), datei.slice(e.daten, e.daten + e.groesse), (f) => { balken.value = (fertig + f * e.groesse) / gesamt; });
+        fertig += e.groesse;
+        balken.value = fertig / gesamt;
+      }
+      dlg.close();
+      await projektOeffnen(wurzel, modus);
+    } catch (e) {
+      if (abgebrochen(e)) return dlg.close();
+      schliessen('Übernehmen fehlgeschlagen', fehlerText(e));
+    }
+  }
+
+  async function freierOrdner(eltern, name) {
+    let frei = name;
+    for (let i = 2; ; i++) {
+      try {
+        const d = await eltern.getDirectoryHandle(frei);
+        if (await G.istLeer(d)) return d;
+        frei = name + '-' + i;
+      } catch (_) {
+        return eltern.getDirectoryHandle(frei, { create: true });
+      }
+    }
+  }
+
+  /* ================================================================
    * Verdrahtung
    * ================================================================ */
   function feld(id, fn) {
@@ -1216,6 +1324,7 @@
   function verdrahten() {
     $('k-neu').addEventListener('click', neueGalerie);
     $('k-oeffnen').addEventListener('click', galerieWaehlen);
+    $('k-zip').addEventListener('click', zipUebernehmen);
     $('k-schliessen').addEventListener('click', projektSchliessen);
     $('marke').addEventListener('click', (e) => { if (S.projekt) { e.preventDefault(); projektSchliessen(); } });
     $('k-vorschau').addEventListener('click', vorschauOeffnen);
@@ -1300,5 +1409,9 @@
 
   verdrahten();
   zeigeStart();
+  // Offline-Betrieb und „Zum Home-Bildschirm" (nicht in der Einzeldatei über file://).
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
   window.G360.app = { S, importieren, projektOeffnen, fertigstellen, sofortSpeichern, vorschauOeffnen, vorschauSchliessen };
 })();

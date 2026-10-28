@@ -22,6 +22,13 @@ const fs = require('fs');
         await window.G360.zipErstellen(e, await h.createWritable(), () => {});
         blob = await h.getFile();
       } else blob = await window.G360.zipErstellen(e, null, () => {});
+      // Zurücklesen wie „Galerie aus ZIP übernehmen": Namen, Größen und Inhalte müssen stimmen.
+      const liste = await window.G360.zipLesen(blob);
+      for (let i = 0; i < e.length; i++) {
+        const inhalt = new Uint8Array(await blob.slice(liste[i].daten, liste[i].daten + liste[i].groesse).arrayBuffer());
+        const soll = new Uint8Array(await e[i].datei.arrayBuffer());
+        if (liste[i].name !== e[i].pfad || inhalt.length !== soll.length || inhalt.some((x, j) => x !== soll[j])) throw new Error('zipLesen: ' + e[i].pfad);
+      }
       const a = new Uint8Array(await blob.arrayBuffer()); let s = ''; a.forEach((x) => s += String.fromCharCode(x)); return btoa(s);
     }, mitZiel);
     if (b64 === 'kein-opfs') { console.log('OPFS nicht verfügbar auf dieser Seite'); continue; }

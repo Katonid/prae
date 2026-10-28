@@ -20,6 +20,8 @@
 
 Bei jeder neuen Fassung, ohne Nachfrage:
 - `FASSUNG` in `galerie/galerie.js` UND in `js/app.js`, Patch +1 (beide gleich).
+- `FASSUNG` in `sw.js` hochzählen (`v1` → `v2` …), neue Dateien in `DATEIEN`
+  eintragen — sonst behält das iPad (App vom Home-Bildschirm) die alte Fassung.
 - `python3 scripts/einzeldatei.py` laufen lassen und
   `galerie360-generator.html` mit einchecken, sonst bleibt die Einzeldatei alt.
 
@@ -36,6 +38,28 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   Safari/Firefox bekommen den Browser-Speicher (OPFS) und ein ZIP. Beides
   ist dieselbe Schnittstelle (`FileSystemDirectoryHandle`), deshalb
   ersetzt der Test den Ordnerdialog durch OPFS.
+- **iPad (Wunsch des Nutzers, 10/2026: „auch auf dem iPad erstellen“).**
+  Safari schreibt nicht in die Dateien-App und kannte lange kein
+  `createWritable`: Ohne `createWritable` schreibt `dateiSchreiben` über
+  einen Worker mit `createSyncAccessHandle` (Pfad per `resolve()` aus dem
+  OPFS-Wurzelordner; Aufträge im Worker hintereinander, sonst Sperrfehler).
+  Testmodus `safari` löscht `createWritable` und prüft genau diesen Weg.
+  Weitere iPad-Regeln: keine Zeichenfläche über 16,7 Megapixel (die
+  8192er-Fassung entfällt, iOS liefert sonst stumm ein leeres Bild);
+  ZIP per `navigator.share` in die Dateien-App; **als Webseite darf
+  Safari den Speicher nach Wochen ohne Besuch löschen, als App vom
+  Home-Bildschirm nicht** — deshalb Manifest, PNG-Symbole
+  (`scripts/generate-icons.py`), `sw.js` und der Hinweis auf der
+  Startseite. Das ZIP ist zugleich Sicherung: „Galerie aus ZIP-Archiv
+  übernehmen“ liest Verzeichnis und Köpfe (`zipLesen`, auch ZIP64) und
+  reicht die Inhalte als `slice` weiter; nur ungepackte Archive (Methode 0),
+  also die vom Generator selbst.
+- **Vergleich mit dem Entwurf aus claude.ai (10/2026, als ZIP vom Nutzer
+  gezeigt):** Node.js-Server + TypeScript, läuft nur auf Rechnern, nie auf
+  dem iPad — deshalb bleibt es bei dieser Browserlösung. Brauchbare Ideen
+  daraus für später: WebGL 2 mit Mipmaps und nahtkorrigiertem
+  `textureGrad` (schärfer beim Herauszoomen), H.264-Webfassung per ffmpeg
+  (geht nur am Rechner).
 - **`file://` ist in Chrome ein sicherer Kontext**: `showDirectoryPicker`
   geht auch in der Einzeldatei (geprüft 10/2026). Den Betrachter-Quelltext
   kann sie dort aber nicht per `fetch` holen, deshalb liegt er als
@@ -72,11 +96,12 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 
 ## Prüfen
 
-`scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`) und
+`scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`) und
 `scripts/test-zip64.js`; Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,
-Vorschau, fertigstellen, ZIP prüfen, entpacken, über HTTP mit
+Vorschau, fertigstellen, ZIP prüfen, ZIP in frischem Browser wieder
+übernehmen, entpacken, über HTTP mit
 Range-Anfragen ausliefern, am Desktop und am Handy Foto zeichnen, Video
 abspielen und pausieren, Freigabe beim Schließen. Safari und echte
 iPhones testet das NICHT.

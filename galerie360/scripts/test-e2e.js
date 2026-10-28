@@ -5,7 +5,10 @@
  *
  * modus: „ordner" (Vorgabe, wie Chrome/Edge), „einzeldatei" (dasselbe mit
  * galerie360-generator.html) oder „browser" (wie Firefox/Safari: kein
- * Ordnerzugriff, Galerie im Browser-Speicher, ZIP als Download).
+ * Ordnerzugriff, Galerie im Browser-Speicher, ZIP als Download) oder
+ * „safari" (wie „browser", zusätzlich ohne createWritable — so wie Safari
+ * auf iPad/iPhone: geschrieben wird über den Worker mit SyncAccessHandle).
+ * Am Ende wird das ZIP in einem frischen Browser wieder als Galerie übernommen.
  *
  * Der Ordnerdialog lässt sich nicht fernsteuern; er wird durch den privaten
  * Browser-Speicher (OPFS) ersetzt — dieselbe Schnittstelle
@@ -23,6 +26,7 @@ const { execFileSync } = require('child_process');
 const WURZEL = path.resolve(__dirname, '..');
 const [medien, aus] = process.argv.slice(2, 4).map((p) => path.resolve(p));
 const MODUS = process.argv[4] || 'ordner';
+const BROWSERMODUS = MODUS === 'browser' || MODUS === 'safari';
 fs.mkdirSync(aus, { recursive: true });
 
 const TYPEN = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.webm': 'video/webm' };
@@ -65,10 +69,11 @@ const pruefe = (bedingung, text) => {
   const fehler = [];
   seite.on('pageerror', (e) => fehler.push(e.message));
   seite.on('console', (m) => { if (m.type() === 'error') fehler.push(m.text()); });
-  await seite.addInitScript((modus) => {
-    if (modus === 'browser') {
+  seite._initSkript = (modus) => {
+    if (modus === 'browser' || modus === 'safari') {
       delete window.showDirectoryPicker;
       delete window.showSaveFilePicker;
+      if (modus === 'safari' && self.FileSystemFileHandle) delete FileSystemFileHandle.prototype.createWritable;
       return;
     }
     window.showDirectoryPicker = async () => {
@@ -79,7 +84,8 @@ const pruefe = (bedingung, text) => {
       const w = await navigator.storage.getDirectory();
       return w.getFileHandle('export.zip', { create: true });
     };
-  }, MODUS);
+  };
+  await seite.addInitScript(seite._initSkript, MODUS);
   console.log('Generator');
   await seite.goto(genUrl + (MODUS === 'einzeldatei' ? 'galerie360-generator.html' : ''));
   await seite.evaluate(async () => {
@@ -89,10 +95,10 @@ const pruefe = (bedingung, text) => {
   await seite.click('#k-neu');
   await seite.fill('#frage-eingabe', 'Sommer in Norwegen');
   await seite.click('#frage-ja');
-  if (MODUS !== 'browser') await seite.click('#frage-ja'); // Hinweis „Ordner wählen"
+  if (!BROWSERMODUS) await seite.click('#frage-ja'); // Hinweis „Ordner wählen"
   await seite.waitForSelector('#editor:not([hidden])');
-  const ORDNER = MODUS === 'browser' ? ['galerien', 'sommer-in-norwegen'] : ['testprojekte'];
-  pruefe(await seite.textContent('#projektname') === (MODUS === 'browser' ? 'Browser-Speicher › sommer-in-norwegen' : 'Ordner › testprojekte'), 'Projekt angelegt: ' + await seite.textContent('#projektname'));
+  const ORDNER = BROWSERMODUS ? ['galerien', 'sommer-in-norwegen'] : ['testprojekte'];
+  pruefe(await seite.textContent('#projektname') === (BROWSERMODUS ? 'Browser-Speicher › sommer-in-norwegen' : 'Ordner › testprojekte'), 'Projekt angelegt: ' + await seite.textContent('#projektname'));
   await seite.screenshot({ path: path.join(aus, '1-editor-leer.png') });
 
   await seite.fill('#g-beschreibung', 'Fjorde, Berge und Mitternachtssonne.');
@@ -169,7 +175,7 @@ const pruefe = (bedingung, text) => {
   pruefe(true, 'Website fertiggestellt: ' + await seite.textContent('#fertig-inhalt h2'));
   await seite.screenshot({ path: path.join(aus, '6-fertig.png') });
   const zipPfad = path.join(aus, 'galerie.zip');
-  if (MODUS === 'browser') {
+  if (BROWSERMODUS) {
     const [download] = await Promise.all([seite.waitForEvent('download', { timeout: 60000 }), seite.click('#fertig-inhalt button:has-text("ZIP")')]);
     await download.saveAs(zipPfad);
     await seite.waitForSelector('.zipbereich p.gut', { timeout: 60000 });
@@ -189,6 +195,26 @@ const pruefe = (bedingung, text) => {
   fs.rmSync(entpackt, { recursive: true, force: true });
   execFileSync('python3', ['-c', 'import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None, "CRC"; z.extractall(sys.argv[2]); print(len(z.namelist()))', zipPfad, entpackt], { stdio: 'inherit' });
   pruefe(true, 'ZIP ist gültig (Prüfsummen stimmen) und entpackt');
+
+  // Rückweg: das ZIP in einem frischen Browser (leerer Speicher) wieder übernehmen.
+  {
+    const c = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const s = await c.newPage();
+    s.on('pageerror', (e) => fehler.push('zip: ' + e.message));
+    await s.addInitScript(seite._initSkript, MODUS);
+    await s.goto(genUrl + (MODUS === 'einzeldatei' ? 'galerie360-generator.html' : ''));
+    await s.click('#k-zip');
+    await s.setInputFiles('#dateiwahl-einzeln', zipPfad);
+    await s.waitForSelector('#editor:not([hidden])', { timeout: 60000 });
+    const p2 = await s.evaluate(() => window.G360.app.S.projekt);
+    pruefe(p2.alben.length === 2 && p2.alben[0].medien.length + p2.alben[1].medien.length === dateien.length, 'ZIP wieder als Galerie übernommen (' + await s.textContent('#projektname') + ')');
+    await s.click('#k-vorschau');
+    await s.click('#vorschau .g-albumkarte');
+    await s.click('#vorschau .g-kachel');
+    await s.waitForFunction(() => document.querySelector('#vorschau .g-laden').hidden, null, { timeout: 30000 });
+    pruefe(true, 'übernommene Galerie lässt sich ansehen');
+    await c.close();
+  }
 
   // Zweiter Schritt: Website „hochladen" (in ein Unterverzeichnis) und ansehen.
   console.log('Veröffentlichte Galerie');
