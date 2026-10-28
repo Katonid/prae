@@ -1,0 +1,468 @@
+/* Galerie 360 — Gestaltung der veröffentlichten Galerie.
+ * Alles hängt an .g360, damit der Generator die Galerie in seiner eigenen
+ * Seite als Vorschau zeigen kann, ohne dass sich die Stile beißen. */
+
+.g360 {
+  --g-akzent: #3b82f6;
+  --g-grund: #0e0f12;
+  --g-flaeche: #17191e;
+  --g-flaeche2: #20232a;
+  --g-text: #eceef2;
+  --g-leise: #9aa1ad;
+  --g-linie: rgba(255, 255, 255, 0.08);
+  --g-schatten: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --g-rund: 14px;
+  --g-schrift: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--g-grund);
+  color: var(--g-text);
+  font-family: var(--g-schrift);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  color-scheme: dark;
+}
+
+.g360[data-thema="hell"] {
+  --g-grund: #f6f5f2;
+  --g-flaeche: #ffffff;
+  --g-flaeche2: #efeee9;
+  --g-text: #1d1f23;
+  --g-leise: #676c75;
+  --g-linie: rgba(0, 0, 0, 0.08);
+  --g-schatten: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.07);
+  color-scheme: light;
+}
+
+.g360 *, .g360 *::before, .g360 *::after { box-sizing: border-box; }
+.g360 h1, .g360 h2, .g360 h3, .g360 p { margin: 0; }
+.g360 a { color: inherit; text-decoration: none; }
+.g360 [hidden] { display: none !important; }
+
+html.g360-gesperrt, html.g360-gesperrt body { overflow: hidden; }
+body.g360-seite { margin: 0; background: #0e0f12; }
+
+.g360 .g-sym { width: 22px; height: 22px; flex: none; display: block; }
+
+/* ---------- Seite ---------- */
+.g360 .g-seite {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 max(20px, env(safe-area-inset-right)) 40px max(20px, env(safe-area-inset-left));
+}
+
+.g360 .g-kopf { padding: 18px 0 28px; }
+.g360 .g-kopfleiste {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  margin-bottom: 18px;
+}
+.g360 .g-zurueck {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 10px;
+  margin-left: -10px;
+  border-radius: 999px;
+  color: var(--g-leise);
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+.g360 .g-zurueck:hover { background: var(--g-flaeche2); color: var(--g-text); }
+.g360 .g-oberzeile {
+  color: var(--g-leise);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.g360 .g-titel {
+  font-size: clamp(30px, 5vw, 52px);
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.g360 .g-beschreibung {
+  margin-top: 14px;
+  max-width: 70ch;
+  color: var(--g-leise);
+  font-size: 17px;
+  white-space: pre-line;
+}
+
+.g360 .g-knopf {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  margin: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  font: inherit;
+}
+.g360 .g-knopf:hover { background: var(--g-flaeche2); }
+.g360 .g-knopf:focus-visible, .g360 a:focus-visible, .g360 .g-startknopf:focus-visible {
+  outline: 2px solid var(--g-akzent);
+  outline-offset: 2px;
+}
+.g360 .g-themaknopf { color: var(--g-leise); margin-right: -10px; }
+
+.g360 .g-leer { color: var(--g-leise); padding: 40px 0; }
+
+/* ---------- Albenübersicht ---------- */
+.g360 .g-alben {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 24px;
+}
+.g360 .g-albumkarte {
+  display: block;
+  background: var(--g-flaeche);
+  border-radius: var(--g-rund);
+  overflow: hidden;
+  box-shadow: var(--g-schatten);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.g360 .g-albumkarte:hover { transform: translateY(-3px); }
+.g360 .g-albumbild, .g360 .g-kachelbild {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: var(--g-flaeche2);
+  overflow: hidden;
+}
+.g360 .g-albumbild img, .g360 .g-kachelbild img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+.g360 .g-albumkarte:hover img, .g360 .g-kachel:hover img { transform: scale(1.04); }
+.g360 .g-marke360 {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.g360 .g-albumtext { padding: 18px 20px 20px; }
+.g360 .g-albumtext h2 { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+.g360 .g-albumzahl { color: var(--g-leise); font-size: 14px; margin-top: 2px; }
+.g360 .g-albumbeschreibung {
+  margin-top: 10px;
+  color: var(--g-leise);
+  font-size: 15px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---------- Kacheln ---------- */
+.g360 .g-albuminfo { color: var(--g-leise); font-size: 14px; margin: -12px 0 18px; }
+.g360 .g-kacheln {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 18px;
+}
+@media (max-width: 560px) {
+  .g360 .g-kacheln { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .g360 .g-kacheltext h3 { font-size: 14px; }
+  .g360 .g-seite { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+}
+.g360 .g-kachel { display: block; border-radius: var(--g-rund); }
+.g360 .g-kachelbild { border-radius: var(--g-rund); box-shadow: var(--g-schatten); }
+.g360 .g-typ {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  font-variant-numeric: tabular-nums;
+}
+.g360 .g-typ .g-sym { width: 16px; height: 16px; }
+.g360 .g-kachelplay {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.38);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s, background 0.2s;
+}
+.g360 .g-kachelplay .g-sym { margin-left: 3px; }
+.g360 .g-kachel:hover .g-kachelplay { transform: scale(1.08); background: var(--g-akzent); }
+.g360 .g-kacheltext { padding: 10px 4px 0; }
+.g360 .g-kacheltext h3 { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.g360 .g-kacheltext p { color: var(--g-leise); font-size: 13px; margin-top: 1px; }
+
+.g360 .g-fuss { margin-top: 48px; color: var(--g-leise); font-size: 13px; text-align: center; }
+
+/* ---------- Betrachter ---------- */
+.g360 .g-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #000;
+  color: #fff;
+  display: none;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.g360 .g-viewer.g-offen { display: block; }
+.g360 .g-leinwand {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+}
+.g360 .g-leinwand:active { cursor: grabbing; }
+/* Das Video selbst bleibt unsichtbar; es liefert nur die Bilder für WebGL.
+   Es muss trotzdem im Dokument stehen — iOS dekodiert sonst keine Bilder. */
+.g360 .g-videoquelle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 2px;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
+.g360 .g-viewer .g-knopf { color: #fff; }
+.g360 .g-viewer .g-knopf:hover { background: rgba(255, 255, 255, 0.14); }
+.g360 .g-viewer .g-knopf.g-an { background: rgba(255, 255, 255, 0.22); }
+
+.g360 .g-oben, .g360 .g-unten, .g360 .g-pfeil {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.g360 .g-oben {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 28px max(8px, env(safe-area-inset-left));
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+.g360 .g-oben > * { pointer-events: auto; }
+.g360 .g-vtitel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 6px;
+}
+.g360 .g-vtitel strong {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.g360 .g-nummer { color: rgba(255, 255, 255, 0.7); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.g360 .g-pfeil {
+  position: absolute;
+  top: 50%;
+  margin-top: -26px;
+  width: 52px;
+  height: 52px;
+  background: rgba(0, 0, 0, 0.32) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.g360 .g-pfeil:hover { background: rgba(0, 0, 0, 0.55) !important; }
+.g360 .g-pfeil-links { left: max(10px, env(safe-area-inset-left)); }
+.g360 .g-pfeil-rechts { right: max(10px, env(safe-area-inset-right)); }
+
+.g360 .g-unten {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 40px max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.65));
+  pointer-events: none;
+}
+.g360 .g-unten > * { pointer-events: auto; }
+.g360 .g-info { max-width: 720px; margin: 0 auto 6px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+.g360 .g-infotext { font-size: 15px; white-space: pre-line; max-height: 30vh; overflow: auto; }
+.g360 .g-infodatum { font-size: 13px; color: rgba(255, 255, 255, 0.72); margin-top: 4px; }
+.g360 .g-infoladen, .g360 .g-meldungslink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+  padding: 6px 12px 6px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.g360 .g-infoladen .g-sym, .g360 .g-meldungslink .g-sym { width: 17px; height: 17px; }
+.g360 .g-viewer.g-ohneinfo .g-info { display: none; }
+
+.g360 .g-steuer {
+  max-width: 900px;
+  margin: 6px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(20, 20, 24, 0.55);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.g360 .g-zeit { font-size: 13px; font-variant-numeric: tabular-nums; min-width: 40px; text-align: center; color: rgba(255, 255, 255, 0.85); }
+
+.g360 .g-spur, .g360 .g-laut {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  --g-spur: 0%;
+  --g-puffer: 0%;
+}
+.g360 .g-spur { flex: 1; min-width: 60px; }
+.g360 .g-laut { width: 90px; --g-spur: 100%; }
+.g360 .g-spur::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--g-akzent) var(--g-spur), rgba(255, 255, 255, 0.45) var(--g-spur), rgba(255, 255, 255, 0.45) var(--g-puffer), rgba(255, 255, 255, 0.2) var(--g-puffer));
+}
+.g360 .g-laut::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.35); }
+.g360 .g-spur::-moz-range-track { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.25); }
+.g360 .g-laut::-moz-range-track { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.35); }
+.g360 .g-spur::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--g-akzent); }
+.g360 .g-spur::-webkit-slider-thumb, .g360 .g-laut::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.g360 .g-spur::-moz-range-thumb, .g360 .g-laut::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+}
+@media (max-width: 560px) {
+  .g360 .g-laut { display: none; }
+  .g360 .g-pfeil { top: auto; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 120px); width: 44px; height: 44px; margin-top: 0; }
+  .g360 .g-viewer:not(.g-istvideo) .g-pfeil { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 70px); }
+}
+
+.g360 .g-laden {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.g360 .g-kreisel {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  animation: g-dreh 0.9s linear infinite;
+}
+@keyframes g-dreh { to { transform: rotate(360deg); } }
+
+.g360 .g-startknopf {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px 14px 18px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+  color: #fff;
+  background: var(--g-akzent);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.g360 .g-startknopf .g-sym { width: 24px; height: 24px; }
+
+.g360 .g-meldung {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 460px);
+  padding: 20px 22px;
+  border-radius: 16px;
+  background: rgba(20, 20, 24, 0.88);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  font-size: 15px;
+  text-align: center;
+}
+
+/* Ruhige Ansicht: Tippen auf das Bild blendet die Bedienung aus. */
+.g360 .g-viewer.g-ruhig .g-oben { opacity: 0; transform: translateY(-12px); pointer-events: none; }
+.g360 .g-viewer.g-ruhig .g-oben > * { pointer-events: none; }
+.g360 .g-viewer.g-ruhig .g-unten, .g360 .g-viewer.g-ruhig .g-pfeil { opacity: 0; pointer-events: none; }
+.g360 .g-viewer.g-ruhig .g-unten > * { pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .g360 *, .g360 *::before, .g360 *::after { transition: none !important; animation-duration: 2s !important; }
+}

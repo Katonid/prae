@@ -130,6 +130,7 @@ gilt.
 | Container-Finder (Web) | `container-finder/` | `FASSUNG` in `sw.js` + `js/app.js` |
 | Rufnummer-Detektiv (Web) | `rufnummer/` | `FASSUNG` in `sw.js` + `js/app.js` |
 | Fehlerdetektive (Web) | `fehlerdetektive/` | Fassung in der Fußzeile von `index.html` |
+| Galerie 360 (Web) | `galerie360/` | `FASSUNG` in `galerie/galerie.js` + `js/app.js`, `galerie360-generator.html` neu bauen |
 
 Bei Querverweisen („dieselbe Lehre wie bei Schulalarm", „Lehre aus
 Tafelbild 1.4.5") steht die Stelle in der `CLAUDE.md` des genannten
