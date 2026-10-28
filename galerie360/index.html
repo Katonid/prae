@@ -7,6 +7,12 @@
     <meta name="description" content="Erstellt aus 360°-Fotos und -Videos eine eigenständige Webgalerie für den eigenen Webspace. Läuft ganz im Browser, nichts wird hochgeladen." />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Galerie 360" />
+    <meta name="theme-color" content="#1d4ed8" />
     <link rel="stylesheet" href="./galerie/galerie.css" />
     <link rel="stylesheet" href="./css/generator.css" />
   </head>
@@ -41,6 +47,8 @@
           <button type="button" id="k-neu" class="haupt gross">Neue Galerie anlegen</button>
           <button type="button" id="k-oeffnen" class="zweit gross">Vorhandene Galerie öffnen</button>
         </div>
+        <p class="nebenweg"><button type="button" id="k-zip" class="still">Galerie aus ZIP-Archiv übernehmen …</button>
+          <span>— z. B. vom iPad auf den Mac mitnehmen oder eine Sicherung zurückholen.</span></p>
         <p class="hinweis" id="browserhinweis" hidden></p>
       </section>
 
@@ -50,7 +58,7 @@
       </section>
 
       <section class="schritte" aria-label="So funktioniert es">
-        <div class="schritt"><span class="nr">1</span><h3>Ordner wählen</h3><p>Jede Galerie ist ein eigener Ordner auf deinem Rechner. Darin entsteht die fertige Website.</p></div>
+        <div class="schritt"><span class="nr">1</span><h3 id="schritt1-titel">Ordner wählen</h3><p id="schritt1-text">Jede Galerie ist ein eigener Ordner auf deinem Rechner. Darin entsteht die fertige Website.</p></div>
         <div class="schritt"><span class="nr">2</span><h3>Aufnahmen hinzufügen</h3><p>360°-Fotos (JPG) und -Videos (MP4) hineinziehen, Alben anlegen, Titel und Beschreibungen vergeben.</p></div>
         <div class="schritt"><span class="nr">3</span><h3>Vorschau ansehen</h3><p>Die Galerie genau so ansehen, wie Freunde und Familie sie später sehen.</p></div>
         <div class="schritt"><span class="nr">4</span><h3>Hochladen</h3><p>„Website fertigstellen" prüft alles. Dann den Ordner per FTP hochladen — oder als ZIP speichern.</p></div>
@@ -62,8 +70,8 @@
     <!-- ===================== Editor ===================== -->
     <div id="editor" class="editor" hidden>
       <aside class="seitenleiste">
-        <section class="block">
-          <h2>Galerie</h2>
+        <details class="block" id="galerieblock" open>
+          <summary><h2>Galerie</h2><span class="klappzeichen" aria-hidden="true"></span></summary>
           <label class="feld">Titel
             <input type="text" id="g-titel" maxlength="120" />
           </label>
@@ -87,7 +95,7 @@
           <label class="feld">Fußzeile
             <input type="text" id="g-fuss" maxlength="200" placeholder="z. B. © 2026 Familie Muster" />
           </label>
-        </section>
+        </details>
         <section class="block">
           <div class="blockkopf">
             <h2>Alben</h2>
@@ -108,7 +116,7 @@
           <p><strong>Fotos und Videos hierher ziehen</strong> — oder</p>
           <button type="button" id="k-dateien" class="haupt">Dateien auswählen …</button>
           <p class="klein">360°-Fotos (JPG, PNG, WebP) und 360°-Videos (MP4, MOV), equirektangular aus Insta360 Studio
-            exportiert. Mehrere auf einmal gehen. Die Originale werden in den Galerieordner <em>kopiert</em> und nie verändert.</p>
+            oder der Insta360-App exportiert. Mehrere auf einmal gehen. Die Originale werden in den Galerieordner <em>kopiert</em> und nie verändert.</p>
           <input type="file" id="dateiwahl" multiple hidden
             accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/quicktime,video/webm,.jpg,.jpeg,.png,.webp,.avif,.mp4,.m4v,.mov,.webm" />
         </div>

@@ -41,6 +41,7 @@
       <nav>
         <ol>
           <li><a href="#start">Installation und Start</a></li>
+          <li><a href="#ipad">Auf dem iPad</a></li>
           <li><a href="#insta360">Aus Insta360 Studio exportieren</a></li>
           <li><a href="#anlegen">Galerie anlegen</a></li>
           <li><a href="#import">Fotos und Videos hinzufügen</a></li>
@@ -69,8 +70,22 @@
         <li>Rechtsklick → <em>Öffnen mit</em> → Chrome oder Edge.</li>
       </ol>
       <p>Diese eine Datei enthält den ganzen Generator samt Galerie-Programm.</p>
-      <h3>Und Safari oder Firefox?</h3>
-      <p>Safari und Firefox dürfen nicht direkt in einen Ordner auf der Festplatte schreiben. Dort speichert der Generator die Galerie im Speicher des Browsers und gibt sie am Ende als ZIP-Archiv aus. Das funktioniert, ist aber umständlicher. Außerdem geht die Galerie verloren, wenn jemand die Browserdaten löscht. <strong>Mit Chrome oder Edge ist jede Galerie ein normaler Ordner auf deinem Rechner</strong>, und das ist der empfohlene Weg.</p>
+      <h3>Und Safari oder Firefox am Computer?</h3>
+      <p>Dort speichert der Generator die Galerie im Speicher des Browsers und gibt sie am Ende als ZIP-Archiv aus, genau wie auf dem iPad (nächster Abschnitt). <strong>Mit Chrome oder Edge ist jede Galerie dagegen ein normaler Ordner auf deinem Rechner</strong> — am Computer der bequemste Weg.</p>
+
+      <h2 id="ipad">1a. Auf dem iPad (und iPhone)</h2>
+      <p>Der Generator läuft auch in <strong>Safari auf dem iPad</strong>. Weil Safari nicht in Ordner der Dateien-App schreiben darf, liegt die Galerie dort im Speicher des Generators, und zum Hochladen entsteht ein ZIP-Archiv.</p>
+      <ol>
+        <li>In Safari <a href="https://katonid.github.io/prae/galerie360/">katonid.github.io/prae/galerie360</a> öffnen.</li>
+        <li><strong>Einmalig installieren:</strong> auf <em>Teilen</em> (□↑, beim iPad oben rechts) tippen → <em>Zum Home-Bildschirm</em> → <em>Hinzufügen</em>. Ab jetzt den Generator über das neue Symbol starten. <strong>Wichtig:</strong> Als normale Webseite darf Safari gespeicherte Daten nach einigen Wochen ohne Besuch löschen — als App vom Home-Bildschirm nicht. Danach läuft der Generator auch ohne Internet.</li>
+        <li><strong>Aufnahmen bereitlegen:</strong> In der Insta360-App die Aufnahme als 360°-Foto bzw. 360°-Video exportieren. Am besten über <em>Teilen → In Dateien sichern</em> in einen Ordner der Dateien-App. Aus der Fotomediathek geht es auch, iPadOS kann Videos beim Auswählen aber neu umwandeln, und das kostet Qualität.</li>
+        <li>„Neue Galerie anlegen“, dann <strong>„Dateien auswählen …“</strong> → <em>Durchsuchen</em> (bzw. <em>Fotomediathek</em>), mehrere Aufnahmen antippen, <em>Öffnen</em>. Ziehen geht auch: mit Split View aus der Dateien-App ins Generatorfenster.</li>
+        <li>Beschriften, sortieren und gestalten wie am Computer. Die Startansicht legst du mit dem Finger fest.</li>
+        <li><strong>„Website fertigstellen“ → „Als ZIP-Archiv speichern“ → „Teilen / In Dateien sichern …“.</strong> Das ZIP kommt in die Dateien-App, oder direkt an eine FTP-App.</li>
+        <li><strong>Hochladen:</strong> In der Dateien-App das ZIP antippen, dann wird es entpackt. Den entstandenen Ordner mit einer FTP-App aus dem App Store auf den Webspace laden. Viele Dateimanager-Apps können FTP bzw. SFTP, zum Beispiel <em>Documents</em> von Readdle oder <em>FE File Explorer</em>. Auf den Webspace gehört der <em>Inhalt</em> des Ordners, wie in Abschnitt 8.</li>
+      </ol>
+      <div class="kasten wichtig"><strong>Das ZIP ist auch die Sicherung.</strong> Hebe es in der Dateien-App oder in iCloud Drive auf. Mit <em>„Galerie aus ZIP-Archiv übernehmen …“</em> auf der Startseite holst du die Galerie zurück, auf dem iPad genauso wie am Mac oder PC. So lässt sich auch am iPad anfangen und am Computer weiterarbeiten, und umgekehrt.</div>
+      <p class="leise">Grenzen am iPad: Fotos werden für die Handyfassung auf 4096 Pixel verkleinert; die 8192er-Fassung entfällt, weil iPadOS so große Zeichenflächen nicht erlaubt (die Originale bleiben trotzdem unverändert dabei). Sehr große Aufnahmen brauchen viel Arbeitsspeicher, ein älteres iPad kann dabei abbrechen. Dann die Aufnahme kleiner exportieren oder am Computer hinzufügen. Der Speicher des Generators zählt zum Speicher des iPads; Galerien, die schon hochgeladen und gesichert sind, lassen sich auf der Startseite mit × löschen.</p>
 
       <h2 id="insta360">2. Aus Insta360 Studio exportieren</h2>
       <p>Der Generator verarbeitet fertige 360°-Aufnahmen im sogenannten <em>equirektangularen</em> Format (Seitenverhältnis 2:1). INSP- und INSV-Dateien direkt von der Kamera gehen nicht — sie werden zuerst in Insta360 Studio exportiert:</p>
@@ -186,7 +201,7 @@
         <tr><td>Fotoauflösung</td><td>Am Handy werden Fotos mit 4096 Pixeln Breite gezeigt; das schont den Speicher, sonst bräche Safari ab. Am Computer bis zur Grenze der Grafikkarte, meist 16384 Pixel, also in der Regel das Original.</td></tr>
         <tr><td>Ladezeit</td><td>Videos werden erst geladen, wenn jemand auf „Abspielen“ tippt, und ab dann gestreamt. Wie flüssig das läuft, hängt von der Leitung des Betrachters und deines Webhosters ab.</td></tr>
         <tr><td>Lokales Öffnen</td><td>Die <span class="pfad">index.html</span> per Doppelklick öffnen zeigt kein 360°-Bild (Sicherheitsregel der Browser). Zum Ansehen vor dem Hochladen gibt es die Vorschau im Generator.</td></tr>
-        <tr><td>Generator-Browser</td><td>Voller Funktionsumfang nur in Chrome und Edge am Computer. Safari und Firefox: Browser-Speicher und ZIP (siehe oben).</td></tr>
+        <tr><td>Generator-Browser</td><td>Direkt in einen Ordner schreiben nur Chrome und Edge am Computer. Safari (auch iPad/iPhone) und Firefox: Browser-Speicher und ZIP (Abschnitt 1a).</td></tr>
         <tr><td>Speicherplatz</td><td>Der Galerieordner enthält Kopien aller Originale plus kleine Zusatzbilder. Plane auf der Festplatte und auf dem Webspace etwa die Größe aller Aufnahmen ein, plus 10 %.</td></tr>
         <tr><td>Konvertieren</td><td>Der Generator wandelt Videos nicht um; das kann Insta360 Studio besser und schneller. Fotos werden nur zusätzlich verkleinert, die Originale bleiben unverändert.</td></tr>
       </table>

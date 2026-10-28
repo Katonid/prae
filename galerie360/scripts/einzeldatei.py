@@ -40,6 +40,8 @@ def main():
     html = html.replace('<img src="./icons/icon.svg"',
                         '<img src="data:image/svg+xml,' + zeichen.replace('#', '%23').replace('"', "'") + '"')
     html = html.replace('    <link rel="stylesheet" href="./galerie/galerie.css" />\n', '')
+    # Manifest und Home-Bildschirm-Symbol brauchen Dateien daneben — über file:// sinnlos.
+    html = re.sub(r'\n *<link rel="(manifest|apple-touch-icon)"[^>]*>', '', html)
     html = html.replace('<link rel="stylesheet" href="./css/generator.css" />', '<style>\n' + css + '\n    </style>')
     html = re.sub(r'\n *<script src="\./[^"]+"></script>', '', html)
     teile = ['window.G360_QUELLTEXT = ' + quelltext.replace('</', '<\\/') + ';']

@@ -12,8 +12,11 @@
   const G = window.G360 = window.G360 || {};
 
   G.kannOrdner = typeof window.showDirectoryPicker === 'function';
-  G.kannBrowserSpeicher = !!(navigator.storage && navigator.storage.getDirectory) &&
-    typeof FileSystemFileHandle !== 'undefined' && 'createWritable' in FileSystemFileHandle.prototype;
+  // Safari (iPad, iPhone, Mac) kennt den privaten Browser-Speicher, konnte
+  // aber lange nur in einem Worker hineinschreiben (createSyncAccessHandle).
+  // Deshalb reicht getDirectory — geschrieben wird dann über den Worker.
+  G.kannBrowserSpeicher = !!(navigator.storage && navigator.storage.getDirectory) && typeof Worker === 'function';
+  const mitWritable = typeof FileSystemFileHandle !== 'undefined' && typeof FileSystemFileHandle.prototype.createWritable === 'function';
 
   function teile(pfad) {
     return pfad.split('/').filter(Boolean);
@@ -47,8 +50,80 @@
     }
   };
 
+  /* ---------- Schreiben ohne createWritable: Worker mit SyncAccessHandle ---------- */
+  const SCHREIBER = [
+    'let kette = Promise.resolve();',
+    'self.onmessage = (e) => { kette = kette.then(() => arbeite(e.data)); };',
+    'async function arbeite({ id, pfad, daten }) {',
+    '  try {',
+    '    let d = await navigator.storage.getDirectory();',
+    '    for (const t of pfad.slice(0, -1)) d = await d.getDirectoryHandle(t, { create: true });',
+    '    const fh = await d.getFileHandle(pfad[pfad.length - 1], { create: true });',
+    '    const ah = await fh.createSyncAccessHandle();',
+    '    try {',
+    // ältere Safari-Fassungen liefern hier Versprechen statt Werten — await schadet bei beidem nicht
+    '      await ah.truncate(0);',
+    '      const blob = daten instanceof Blob ? daten : new Blob([daten]);',
+    '      const leser = blob.stream().getReader();',
+    '      let pos = 0, gemeldet = 0;',
+    '      for (;;) {',
+    '        const { done, value } = await leser.read();',
+    '        if (done) break;',
+    '        let rest = value;',
+    '        while (rest.byteLength) {',
+    '          const n = await ah.write(rest, { at: pos });',
+    '          if (!n) throw new Error("Schreiben fehlgeschlagen");',
+    '          pos += n;',
+    '          rest = rest.subarray(n);',
+    '        }',
+    '        if (pos - gemeldet > 4194304) { gemeldet = pos; self.postMessage({ id, fortschritt: pos / blob.size }); }',
+    '      }',
+    '      await ah.flush();',
+    '    } finally {',
+    '      await ah.close();',
+    '    }',
+    '    self.postMessage({ id, fertig: true });',
+    '  } catch (err) {',
+    '    self.postMessage({ id, fehler: (err && err.name === "QuotaExceededError") ? "QuotaExceededError" : String(err && err.message || err) });',
+    '  }',
+    '}'
+  ].join('\n');
+  let schreiber = null;
+  let auftragNr = 0;
+  const auftraege = new Map();
+
+  function schreiberHolen() {
+    if (schreiber) return schreiber;
+    schreiber = new Worker(URL.createObjectURL(new Blob([SCHREIBER], { type: 'text/javascript' })));
+    schreiber.onmessage = (e) => {
+      const a = auftraege.get(e.data.id);
+      if (!a) return;
+      if (e.data.fortschritt != null) {
+        if (a.fortschritt) a.fortschritt(e.data.fortschritt);
+        return;
+      }
+      auftraege.delete(e.data.id);
+      if (e.data.fehler === 'QuotaExceededError') a.nein(Object.assign(new Error('Speicher voll'), { name: 'QuotaExceededError' }));
+      else if (e.data.fehler) a.nein(new Error(e.data.fehler));
+      else a.ok();
+    };
+    return schreiber;
+  }
+
+  async function perWorker(wurzel, pfad, inhalt, fortschritt) {
+    const basis = await (await navigator.storage.getDirectory()).resolve(wurzel);
+    if (!basis) throw new Error('Dieser Ordner liegt nicht im Browser-Speicher.');
+    const id = ++auftragNr;
+    await new Promise((ok, nein) => {
+      auftraege.set(id, { ok, nein, fortschritt });
+      schreiberHolen().postMessage({ id, pfad: basis.concat(teile(pfad)), daten: inhalt });
+    });
+    if (fortschritt) fortschritt(1);
+  }
+
   /** Schreibt Text, Blob oder (mit Fortschritt) eine große Datei stückweise. */
   G.dateiSchreiben = async function (wurzel, pfad, inhalt, fortschritt) {
+    if (!mitWritable) return perWorker(wurzel, pfad, inhalt, fortschritt);
     const h = await G.dateiHandle(wurzel, pfad, true);
     const w = await h.createWritable();
     try {
@@ -307,6 +382,70 @@
       await fn(value);
     }
   }
+
+  function lies64(v, o) {
+    return v.getUint32(o, true) + v.getUint32(o + 4, true) * 4294967296;
+  }
+
+  /**
+   * Inhaltsverzeichnis eines ZIP-Archivs: [{name, methode, groesse, daten}]
+   * (daten = Byte, an dem der Inhalt beginnt). Liest nur Verzeichnis und
+   * Köpfe — die Dateien selbst bleiben, wo sie sind, und werden später als
+   * Ausschnitt (slice) weitergereicht.
+   */
+  G.zipLesen = async function (datei) {
+    const anfang = Math.max(0, datei.size - 65557);
+    const ende = new DataView(await datei.slice(anfang).arrayBuffer());
+    let p = ende.byteLength - 22;
+    while (p >= 0 && ende.getUint32(p, true) !== 0x06054b50) p--;
+    if (p < 0) throw new Error('Das ist kein ZIP-Archiv (oder es ist unvollständig).');
+    let anzahl = ende.getUint16(p + 10, true);
+    let cdGroesse = ende.getUint32(p + 12, true);
+    let cdOrt = ende.getUint32(p + 16, true);
+    if (cdOrt === VOLL || cdGroesse === VOLL || anzahl === 0xFFFF) {
+      const l = p - 20;
+      if (l < 0 || ende.getUint32(l, true) !== 0x07064b50) throw new Error('ZIP64-Verzeichnis nicht gefunden.');
+      const ort = lies64(ende, l + 8);
+      const z = new DataView(await datei.slice(ort, ort + 56).arrayBuffer());
+      if (z.getUint32(0, true) !== 0x06064b50) throw new Error('ZIP64-Verzeichnis beschädigt.');
+      anzahl = lies64(z, 32);
+      cdGroesse = lies64(z, 40);
+      cdOrt = lies64(z, 48);
+    }
+    const cd = new DataView(await datei.slice(cdOrt, cdOrt + cdGroesse).arrayBuffer());
+    const dec = new TextDecoder();
+    const liste = [];
+    let o = 0;
+    for (let i = 0; i < anzahl; i++) {
+      if (o + 46 > cd.byteLength || cd.getUint32(o, true) !== 0x02014b50) throw new Error('ZIP-Verzeichnis beschädigt.');
+      const methode = cd.getUint16(o + 10, true);
+      let komp = cd.getUint32(o + 20, true);
+      let groesse = cd.getUint32(o + 24, true);
+      const nl = cd.getUint16(o + 28, true), xl = cd.getUint16(o + 30, true), kl = cd.getUint16(o + 32, true);
+      let ort = cd.getUint32(o + 42, true);
+      const name = dec.decode(new Uint8Array(cd.buffer, o + 46, nl));
+      let x = o + 46 + nl;
+      const xe = x + xl;
+      while (x + 4 <= xe) {
+        const id = cd.getUint16(x, true), len = cd.getUint16(x + 2, true);
+        if (id === 1) {
+          let q = x + 4;
+          if (groesse === VOLL) { groesse = lies64(cd, q); q += 8; }
+          if (komp === VOLL) { komp = lies64(cd, q); q += 8; }
+          if (ort === VOLL) { ort = lies64(cd, q); q += 8; }
+        }
+        x += 4 + len;
+      }
+      liste.push({ name, methode, groesse, komp, ort });
+      o = xe + kl;
+    }
+    for (const e of liste) {
+      const k = new DataView(await datei.slice(e.ort, e.ort + 30).arrayBuffer());
+      if (k.getUint32(0, true) !== 0x04034b50) throw new Error('ZIP-Eintrag „' + e.name + '" beschädigt.');
+      e.daten = e.ort + 30 + k.getUint16(26, true) + k.getUint16(28, true);
+    }
+    return liste;
+  };
 
   /**
    * @param {{pfad: string, datei: File}[]} eintraege
