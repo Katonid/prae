@@ -186,6 +186,64 @@
     return true;
   };
 
+  /* ================================================================
+   * Zufall und Verschlüsselung
+   * ================================================================ */
+  const BASE32 = 'abcdefghijklmnopqrstuvwxyz234567';
+
+  /** Zufallszeichen (a–z, 2–7) aus dem Kryptozufall des Browsers — je Zeichen 5 Bit. */
+  G.zufall = function (laenge) {
+    const b = crypto.getRandomValues(new Uint8Array(laenge));
+    let s = '';
+    for (let i = 0; i < laenge; i++) s += BASE32[b[i] & 31];
+    return s;
+  };
+
+  /** Geheimer Ordnername für ein Album: 26 Zeichen = 130 Bit — nicht zu erraten. */
+  G.geheimerName = () => G.zufall(26);
+  G.GEHEIM_MUSTER = /^[a-z2-7]{26}$/;
+
+  const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  const ausB64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
+  const ITERATIONEN = 600000; // PBKDF2-SHA256, Empfehlung OWASP 2023
+
+  G.kannVerschluesseln = !!(window.crypto && crypto.subtle);
+
+  /** Schlüssel aus Passwort. Das Passwort selbst wird nirgends gespeichert. */
+  G.schluesselAus = async function (passwort, salz, iterationen) {
+    const roh = await crypto.subtle.importKey('raw', new TextEncoder().encode(passwort), 'PBKDF2', false, ['deriveKey']);
+    const schluessel = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: salz, iterations: iterationen },
+      roh, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    return { schluessel, salz, iterationen };
+  };
+
+  G.neuerSchluessel = (passwort) => G.schluesselAus(passwort, crypto.getRandomValues(new Uint8Array(16)), ITERATIONEN);
+
+  /** Text → verschlüsselte Hülle (AES-256-GCM, bei jedem Speichern frischer IV). */
+  G.verschluesseln = async function (text, s) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const daten = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, s.schluessel, new TextEncoder().encode(text)));
+    return JSON.stringify({
+      format: 'galerie360',
+      verschluesselt: { v: 1, kdf: 'PBKDF2-SHA256', iterationen: s.iterationen, salz: b64(s.salz), iv: b64(iv), daten: b64(daten) }
+    });
+  };
+
+  G.istVerschluesselt = (obj) => !!(obj && obj.format === 'galerie360' && obj.verschluesselt);
+
+  /** Hülle + Passwort → {text, schluessel}; falsches Passwort → Fehler mit name 'FalschesPasswort'. */
+  G.entschluesseln = async function (huelle, passwort) {
+    const v = huelle.verschluesselt;
+    const s = await G.schluesselAus(passwort, ausB64(v.salz), v.iterationen);
+    try {
+      const klar = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ausB64(v.iv) }, s.schluessel, ausB64(v.daten));
+      return { text: new TextDecoder().decode(klar), schluessel: s };
+    } catch (_) {
+      throw Object.assign(new Error('Das Passwort stimmt nicht.'), { name: 'FalschesPasswort' });
+    }
+  };
+
   /* ---------- Browser-Speicher (OPFS) ---------- */
   G.browserSpeicher = async function () {
     const w = await navigator.storage.getDirectory();

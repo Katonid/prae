@@ -97,6 +97,9 @@ const pruefe = (bedingung, text) => {
   await seite.click('#frage-ja');
   if (!BROWSERMODUS) await seite.click('#frage-ja'); // Hinweis „Ordner wählen"
   await seite.waitForSelector('#editor:not([hidden])');
+  // Rückfrage „Mit Passwort schützen?" — hier ohne; den Passwort-Weg prüft test-schutz.js.
+  await seite.waitForSelector('#dlg-frage[open]');
+  await seite.click('#frage-nein');
   const ORDNER = BROWSERMODUS ? ['galerien', 'sommer-in-norwegen'] : ['testprojekte'];
   pruefe(await seite.textContent('#projektname') === (BROWSERMODUS ? 'Browser-Speicher › sommer-in-norwegen' : 'Ordner › testprojekte'), 'Projekt angelegt: ' + await seite.textContent('#projektname'));
   await seite.screenshot({ path: path.join(aus, '1-editor-leer.png') });

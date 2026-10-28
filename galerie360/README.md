@@ -26,6 +26,7 @@ Datenbank, CDN oder Konto.
 | `sw.js`, `manifest.webmanifest` | offline und „Zum Home-Bildschirm“ (iPad) |
 | `scripts/test-e2e.js` | Ende-zu-Ende-Test mit Playwright |
 | `scripts/test-hotspots.js` | Hotspots: Editor, Rundgang, Zeitfenster, Touch, XSS, Export |
+| `scripts/test-schutz.js` | Passwort (verschlüsselte gallery.json) und geheime Album-Links |
 
 ## Prüfen
 
@@ -34,10 +35,16 @@ python3 scripts/testmedien.py 4000:/tmp/m/foto-a.jpg 9000:/tmp/m/foto-gross.jpg:
 ffmpeg -loop 1 -i /tmp/m/foto-a.jpg -t 6 -vf "scale=1920:960,format=yuv420p" -c:v libx264 /tmp/m/video-a.mp4
 for m in ordner einzeldatei browser safari; do node scripts/test-e2e.js /tmp/m /tmp/aus-$m $m; done
 node scripts/test-hotspots.js /tmp/m /tmp/aus-hs
+node scripts/test-schutz.js /tmp/m /tmp/aus-schutz
 node scripts/test-zip64.js /tmp/aus && python3 -c "import zipfile; zipfile.ZipFile('/tmp/aus/z64-true.zip').testzip()"
 ```
 
-## Datenmodell (gallery.json, Datenfassung 2)
+## Datenmodell (gallery.json, Datenfassung 3)
+
+Mit Passwort steht in gallery.json nur die verschlüsselte Hülle:
+`{"format":"galerie360","verschluesselt":{"v":1,"kdf":"PBKDF2-SHA256","iterationen":600000,"salz":…,"iv":…,"daten":…}}`
+(AES-256-GCM). Fassung 3 ergänzt je Album `"freigabe": {"art": "oeffentlich" | "entwurf"}` bzw.
+`{"art": "link", "name": "<26 Zeichen a–z, 2–7>"}` und `einstellungen.webadresse`.
 
 Fassung 1 (ohne Hotspots) wird beim Öffnen ergänzt (`ergaenzen` in `js/app.js`,
 `G360.hsErgaenzen` in `js/hotspots.js`); nichts wird verworfen.

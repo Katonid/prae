@@ -83,6 +83,22 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   Handle nur für echte Ordner gemerkt; den Browser-Speicher liest die
   Startseite ohnehin selbst. `test-hotspots.js` läuft deshalb im
   Browser-Speicher (= iPad-Weg); den Ordner-Weg deckt `test-e2e.js`.
+- **Passwort und geheime Links (Wunsch des Nutzers, 10/2026: „meinen
+  Bereich als Autor mit Passwort schützen", Album-Links „so lang, dass sie
+  nicht durch Zufall aufgerufen werden").** Der Generator ist nie online —
+  die Schwachstelle war `gallery.json` auf dem Webspace (alle Alben, auch
+  Entwürfe und Links). Deshalb: mit Passwort ist sie VERSCHLÜSSELT
+  (AES-256-GCM, PBKDF2-SHA256 600 000, frischer IV je Speichern; Hülle
+  `{format, verschluesselt:{…}}`), Öffnen nur mit Passwort, „Schließen"
+  vergisst den Schlüssel. Passwort wird nie gespeichert; ändern verlangt
+  das alte. Freigabe je Album (`a.freigabe.art`: oeffentlich / link /
+  entwurf, Datenfassung 3): geheime Alben bekommen `<26 Zeichen a–z2–7>/index.html`
+  (130 Bit, `G.geheimerName`) mit `basis: '../'`; die Startseite enthält
+  nur öffentliche Alben, Hotspots über Seitengrenzen werden weggelassen
+  (sonst stünden Ids geheimer Aufnahmen darin), `referrer: no-referrer`
+  auf jeder Seite, Ordner alter Links löscht `seitenSchreiben`. **Geheime
+  Links gibt es nur mit Passwort** — sonst verriete sie gallery.json.
+  Neue Dateien bekommen 8 Zufallszeichen im Namen. Test: `test-schutz.js`.
 - **`file://` ist in Chrome ein sicherer Kontext**: `showDirectoryPicker`
   geht auch in der Einzeldatei (geprüft 10/2026). Den Betrachter-Quelltext
   kann sie dort aber nicht per `fetch` holen, deshalb liegt er als
@@ -120,7 +136,8 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 ## Prüfen
 
 `scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`),
-`scripts/test-hotspots.js` und `scripts/test-zip64.js`; Aufrufe im README. Chromium und ffmpeg sind im
+`scripts/test-hotspots.js`, `scripts/test-schutz.js` und `scripts/test-zip64.js`;
+Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,
 Vorschau, fertigstellen, ZIP prüfen, ZIP in frischem Browser wieder

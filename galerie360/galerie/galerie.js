@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.2';
+  const FASSUNG = '1.0.3';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -1027,7 +1027,9 @@
   function starte(wurzel, daten, opt) {
     opt = opt || {};
     const hashRouting = opt.hashRouting !== false;
-    const url = (p) => (opt.urls && opt.urls[p]) || p;
+    // basis: Weg von dieser Seite zum Galerieordner — '../' bei Albumseiten mit geheimem Link.
+    const basis = typeof daten.basis === 'string' && /^(\.\.\/)*$/.test(daten.basis) ? daten.basis : '';
+    const url = (p) => (opt.urls && opt.urls[p]) || basis + p;
     const einst = Object.assign({ design: 'dunkel', akzent: '#3b82f6', autoRotation: true, datumZeigen: true, downloads: false }, daten.einstellungen || {});
     const alben = (daten.alben || []).filter((a) => a.medien && a.medien.length);
     const abmelden = [];
@@ -1160,7 +1162,7 @@
       seite.append(kopf(daten.titel, daten.beschreibung, false));
       const haupt = el('main', 'g-haupt');
       if (!alben.length) {
-        haupt.append(el('p', 'g-leer', 'Diese Galerie enthält noch keine Aufnahmen.'));
+        haupt.append(el('p', 'g-leer', daten.privat ? 'Hier gibt es nichts zu sehen.' : 'Diese Galerie enthält noch keine Aufnahmen.'));
       }
       const raster = el('div', 'g-alben');
       alben.forEach((a) => {

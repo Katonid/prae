@@ -77,7 +77,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .mini-text { padding: 0 6px; font-size: 12px; text-decoration: underline; }
 select { border-color: var(--linie); background: var(--flaeche); }
 
-input[type="text"], input[type="date"], textarea, select {
+input[type="text"], input[type="date"], input[type="url"], input[type="password"], input[type="number"], input[type="search"], textarea, select {
   width: 100%;
   font: inherit;
   color: inherit;
@@ -539,3 +539,15 @@ p.warnung, .klein.warnung { color: var(--gefahr); }
 .hs-symbolvorschau.g360 { background: repeating-conic-gradient(#8884 0 25%, #fff2 0 50%) 0 0 / 16px 16px; }
 .hs-muster.g360 { background: linear-gradient(90deg, #f5f5f5 50%, #222 50%); }
 .g360-klein .g-hs-tip { display: none; }
+
+/* ---------- Schutz und Freigabe ---------- */
+.freigabe { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.freigabe-wahl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--leise); }
+.freigabe-wahl select { width: auto; max-width: 100%; color: var(--text); }
+.freigabe-link { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.freigabe-link input { flex: 1; min-width: 240px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+.album .album-zeichen { font-size: 12px; margin-left: 4px; }
+.geheimliste { list-style: none; padding: 0; margin: 8px 0 12px; display: flex; flex-direction: column; gap: 8px; }
+.geheimliste li { display: flex; flex-direction: column; gap: 4px; }
+.geheimliste .freigabe-link input { min-width: 0; }
+#schutz-text strong { color: var(--text); }

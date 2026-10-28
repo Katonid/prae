@@ -47,6 +47,7 @@
           <li><a href="#import">Fotos und Videos hinzufügen</a></li>
           <li><a href="#gestalten">Beschriften, sortieren, gestalten</a></li>
           <li><a href="#hotspots">Hotspots und Rundgänge</a></li>
+          <li><a href="#schutz">Passwort und geheime Links</a></li>
           <li><a href="#vorschau">Vorschau</a></li>
           <li><a href="#export">Website fertigstellen</a></li>
           <li><a href="#ftp">Hochladen per FTP</a></li>
@@ -202,6 +203,34 @@
       <p><strong>„Testen“</strong> öffnet die aktuelle Aufnahme in der Vorschau. Dort verhält sich alles wie in der fertigen Galerie, einschließlich Navigation und Zurück-Knopf. Im Editor selbst führen die Schaltflächen eines Fensters ebenfalls zur Zielaufnahme.</p>
       <p>Wird eine Aufnahme entfernt, auf die Hotspots zeigen, warnt der Generator. „Website fertigstellen“ listet Hotspots mit fehlendem Ziel oder ungültiger Adresse auf; in der Galerie werden sie ausgeblendet.</p>
 
+      <h2 id="schutz">5b. Passwort und geheime Links</h2>
+      <h3>Passwort für die Galerie</h3>
+      <p>Der Generator läuft nur auf deinem Gerät; im Internet liegt von ihm nichts. Über das Netz kann also niemand deine Galerie bearbeiten. Das Passwort schützt zwei Dinge:</p>
+      <ul>
+        <li><strong>Das Bearbeiten:</strong> Eine geschützte Galerie öffnet sich nur mit Passwort, auch auf dem iPad, aus „Zuletzt bearbeitet“ oder aus einem ZIP-Archiv. „Schließen“ sperrt sie wieder.</li>
+        <li><strong>Die Projektdatei <span class="pfad">gallery.json</span>:</strong> Sie liegt mit auf dem Webspace, und wer ihre Adresse kennt, könnte sie aufrufen. Mit Passwort ist sie verschlüsselt (AES-256, Schlüssel aus dem Passwort per PBKDF2 mit 600 000 Durchgängen) und für alle anderen wertlos. Ohne Passwort stünden darin alle Alben, auch Entwürfe und geheime Links.</li>
+      </ul>
+      <p>Festlegen, ändern oder entfernen: links unter <strong>„Schutz“</strong>. Beim Anlegen einer neuen Galerie fragt der Generator gleich danach.</p>
+      <div class="kasten wichtig"><strong>Passwort gut aufbewahren</strong>, z. B. im Passwort-Manager oder auf Papier. Ohne Passwort lässt sich die Galerie nicht mehr bearbeiten, und niemand kann es wiederherstellen. Die veröffentlichte Website funktioniert trotzdem weiter, und die Fotos und Videos liegen weiter im Ordner.</div>
+      <p class="leise">Nach dem Festlegen die Galerie einmal hochladen, damit die verschlüsselte gallery.json die alte, lesbare auf dem Webspace ersetzt. Das Passwort schützt die Projektdatei, nicht die veröffentlichten Seiten und Bilder; die sehen alle, die den Link haben.</p>
+
+      <h3>Wer welches Album sieht</h3>
+      <p>Für jedes Album gibt es oben unter <strong>„Veröffentlichen“</strong> drei Möglichkeiten:</p>
+      <table>
+        <tr><th>Einstellung</th><th>Wirkung</th></tr>
+        <tr><td>Öffentlich</td><td>Steht auf der Startseite der Galerie (<span class="pfad">…/360/</span>).</td></tr>
+        <tr><td>Nur mit geheimem Link</td><td>Bekommt eine eigene Seite in einem Ordner mit 26 Zufallszeichen, z. B. <span class="pfad">…/360/wbohgfizxbnxdhennmce7s4o6m/</span>. Diese Adresse steht auf keiner anderen Seite und nicht in der Startseite. Die Galerie verrät sie nicht, Suchmaschinen sind ausgesperrt, und sie wird nicht an verlinkte Seiten weitergegeben. Mit 26 Zeichen gibt es über 10<sup>39</sup> Möglichkeiten, durch Zufall oder Probieren findet sie niemand.</td></tr>
+        <tr><td>Nicht veröffentlichen</td><td>Entwurf: erscheint auf keiner Seite.</td></tr>
+      </table>
+      <ol>
+        <li>Links unter „Galerie“ die <strong>Adresse der Galerie im Netz</strong> eintragen, z. B. <span class="pfad">https://deine-domain.de/360/</span>. Dann zeigt der Generator fertige Links.</li>
+        <li>Beim Album „Nur mit geheimem Link“ wählen. Ohne Passwort fragt der Generator zuerst danach, denn sonst stünde der Link lesbar in gallery.json.</li>
+        <li>„Website fertigstellen“ zeigt alle geheimen Links mit <strong>Kopieren</strong>-Knopf. Hochladen, dann den Link per Nachricht an die Familie schicken.</li>
+      </ol>
+      <p><strong>Neuer Link:</strong> Wurde ein Link zu weit herumgereicht, erzeugt „Neuer Link …“ einen anderen. Der Generator löscht den alten Ordner in deinem Galerieordner. <strong>Auf dem Webspace löscht ein FTP-Programm ihn nicht von selbst</strong>: Dort den alten Ordner mit den 26 Zeichen von Hand löschen, sonst funktioniert der alte Link weiter.</p>
+      <p>Sind alle Alben geheim oder Entwürfe, zeigt die Startseite nur „Hier gibt es nichts zu sehen“, ohne Titel. Hotspots, die von einem Album in eines mit anderer Freigabe führen, fehlen in der veröffentlichten Galerie, damit nichts verraten wird; „Fertigstellen“ weist darauf hin.</p>
+      <p class="leise">Grenzen: Wer einen geheimen Link hat, kann ihn weitergeben. Seit Fassung 1.0.3 tragen neu hinzugefügte Fotos und Videos eine Zufallsendung im Dateinamen, damit niemand aus Kameranamen wie <span class="pfad">IMG_20240812_…</span> Bildadressen erraten kann. Früher hinzugefügte Dateien heißen weiter wie zuvor. Wer mehr will, nutzt zusätzlich den <em>Verzeichnisschutz</em> des Webhosters (Abschnitt 8): Dann fragt der Server selbst nach einem Passwort.</p>
+
       <h2 id="vorschau">6. Vorschau</h2>
       <p><strong>„Vorschau“</strong> oben rechts zeigt die Galerie genau so, wie Besucher sie sehen, mit allen Alben, dem 360°-Betrachter und den Videos. „Vorschau schließen“ führt zurück.</p>
       <p class="leise">Die Datei <span class="pfad">index.html</span> im Galerieordner per Doppelklick zu öffnen, funktioniert dagegen <em>nicht</em>: Browser verbieten 360°-Grafik aus lokalen Dateien. Auf dem Webspace oder in der Vorschau geht es.</p>
@@ -265,7 +294,8 @@
       <h2 id="technik">12. Aufbau des Galerieordners</h2>
 <pre>sommer-in-norwegen/
 ├── index.html          die Galerie (mit allen Texten und der Reihenfolge)
-├── gallery.json        Projektdatei für den Generator
+├── gallery.json        Projektdatei für den Generator (mit Passwort verschlüsselt)
+├── wbohgfizx…/         je Album mit geheimem Link eine Seite (26 Zufallszeichen)
 ├── assets/
 │   ├── galerie.js      360°-Betrachter und Galerie, ohne fremde Bibliothek
 │   └── galerie.css

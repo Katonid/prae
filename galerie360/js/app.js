@@ -7,8 +7,8 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.2';
-  const DATENFASSUNG = 2; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots
+  const FASSUNG = '1.0.3';
+  const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
   const MAX_FLAECHE = IOS ? 16777216 : Infinity;
@@ -17,6 +17,7 @@
 
   const S = {
     wurzel: null,       // FileSystemDirectoryHandle des Projekts
+    schluessel: null,   // nur bei Galerien mit Passwort: abgeleiteter AES-Schlüssel (das Passwort selbst nie)
     modus: 'ordner',    // 'ordner' (Festplatte) oder 'browser' (OPFS)
     projekt: null,
     albumId: null,
@@ -167,7 +168,7 @@
   }
 
   function neuesAlbum(titel) {
-    return { id: G.neueId(), titel, beschreibung: '', titelbild: null, medien: [] };
+    return { id: G.neueId(), titel, beschreibung: '', titelbild: null, freigabe: { art: 'oeffentlich' }, medien: [] };
   }
 
   /** Ältere oder von Hand bearbeitete gallery.json auf den erwarteten Stand bringen. */
@@ -177,6 +178,10 @@
     if (!p.alben.length) p.alben.push(neuesAlbum('Erstes Album'));
     for (const a of p.alben) {
       a.id = a.id || G.neueId();
+      // Fassung 3: Freigabe je Album; ältere Alben waren alle öffentlich.
+      const art = a.freigabe && a.freigabe.art;
+      a.freigabe = art === 'link' && G.GEHEIM_MUSTER.test(a.freigabe.name || '') ? { art, name: a.freigabe.name }
+        : { art: art === 'entwurf' ? 'entwurf' : 'oeffentlich' };
       a.medien = Array.isArray(a.medien) ? a.medien : [];
       for (const m of a.medien) {
         m.id = m.id || G.neueId();
@@ -193,6 +198,53 @@
     p.hotspotVorlagen = Array.isArray(p.hotspotVorlagen) ? p.hotspotVorlagen : [];
     p.version = DATENFASSUNG;
     return p;
+  }
+
+  /**
+   * Passwort abfragen. pruefe(pw) darf einen Fehlertext liefern (dann bleibt
+   * der Dialog offen) oder ein Versprechen darauf.
+   * @returns {Promise<string|false>}
+   */
+  function passwortDialog(o) {
+    const dlg = $('dlg-passwort');
+    $('pw-titel').textContent = o.titel;
+    $('pw-text').textContent = o.text || '';
+    $('pw-2-feld').hidden = !o.doppelt;
+    $('pw-1').value = $('pw-2').value = '';
+    $('pw-1').autocomplete = o.doppelt ? 'new-password' : 'current-password';
+    $('pw-fehler').textContent = '';
+    $('pw-ja').textContent = o.ok || 'OK';
+    return new Promise((ok) => {
+      let fertig = false;
+      const ende = (wert) => {
+        if (fertig) return;
+        fertig = true;
+        $('pw-form').onsubmit = $('pw-nein').onclick = dlg.onclose = null;
+        if (dlg.open) dlg.close();
+        $('pw-1').value = $('pw-2').value = '';
+        ok(wert);
+      };
+      dlg.onclose = () => { if (!dlg.open) ende(false); };
+      $('pw-nein').onclick = () => ende(false);
+      $('pw-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const pw = $('pw-1').value;
+        let fehler = '';
+        if (o.doppelt && pw.length < 8) fehler = 'Bitte mindestens 8 Zeichen — besser ein ganzer Satz.';
+        else if (o.doppelt && pw !== $('pw-2').value) fehler = 'Die beiden Eingaben stimmen nicht überein.';
+        else if (!pw) fehler = 'Bitte das Passwort eingeben.';
+        if (!fehler && o.pruefe) {
+          $('pw-ja').disabled = true;
+          $('pw-fehler').textContent = 'Wird geprüft …';
+          try { fehler = (await o.pruefe(pw)) || ''; } finally { $('pw-ja').disabled = false; }
+        }
+        $('pw-fehler').textContent = fehler;
+        if (fehler) { $('pw-1').select(); return; }
+        ende(pw);
+      };
+      dlg.showModal();
+      $('pw-1').focus();
+    });
   }
 
   async function neueGalerie() {
@@ -241,6 +293,9 @@
       const p = neuesProjekt(titel);
       await G.dateiSchreiben(wurzel, 'gallery.json', JSON.stringify(p, null, 2));
       await projektOeffnen(wurzel, modus);
+      if (G.kannVerschluesseln && await frage({ titel: 'Galerie mit Passwort schützen?', text: 'Dann lässt sich die Galerie nur mit Passwort bearbeiten, und die Projektdatei (gallery.json) ist verschlüsselt — auch auf dem Webspace. Für Alben mit geheimem Link ist das nötig. Geht auch später unter „Schutz".', ok: 'Passwort festlegen' })) {
+        await passwortSetzen();
+      }
     } catch (e) {
       if (!abgebrochen(e)) melde('Anlegen fehlgeschlagen', fehlerText(e));
     }
@@ -267,15 +322,37 @@
       return melde('Galerie beschädigt', 'Die Datei gallery.json konnte nicht gelesen werden: ' + fehlerText(e));
     }
     if (p.format !== 'galerie360') return melde('Keine Galerie', 'Die gallery.json in diesem Ordner stammt nicht aus Galerie 360.');
+    let schluessel = null;
+    if (G.istVerschluesselt(p)) {
+      if (!G.kannVerschluesseln) return melde('Geschützte Galerie', 'Dieser Browser kann die verschlüsselte Galerie nicht öffnen (sicherer Kontext nötig: https oder die Einzeldatei).');
+      const huelle = p;
+      let klar = null;
+      const pw = await passwortDialog({
+        titel: 'Geschützte Galerie', text: 'Die Galerie „' + wurzel.name + '" ist mit einem Passwort geschützt.', ok: 'Öffnen',
+        pruefe: async (versuch) => {
+          try {
+            const r = await G.entschluesseln(huelle, versuch);
+            klar = r;
+            return '';
+          } catch (e) {
+            return e.name === 'FalschesPasswort' ? 'Das Passwort stimmt nicht.' : fehlerText(e);
+          }
+        }
+      });
+      if (!pw || !klar) return;
+      p = JSON.parse(klar.text);
+      schluessel = klar.schluessel;
+    }
     if (p.version > DATENFASSUNG) await melde('Neuere Galerie', 'Diese Galerie wurde mit einer neueren Fassung des Generators gespeichert. Einige Einstellungen könnten verloren gehen.');
     S.wurzel = wurzel;
     S.modus = modus;
+    S.schluessel = schluessel;
     S.projekt = ergaenzen(p);
     S.albumId = S.projekt.alben[0].id;
     alleAdressenVergessen();
     // Den Handle nur für echte Ordner merken. Im Browser-Speicher findet die Startseite die
     // Galerien selbst — und ein OPFS-Handle in IndexedDB brachte Chromium beim Verlassen der Seite zum Absturz.
-    G.projekteMerken({ schluessel: modus + ':' + wurzel.name, name: wurzel.name, titel: p.titel, modus, handle: modus === 'ordner' ? wurzel : null, zuletzt: Date.now() });
+    G.projekteMerken({ schluessel: modus + ':' + wurzel.name, name: wurzel.name, titel: schluessel ? '' : p.titel, geschuetzt: !!schluessel, modus, handle: modus === 'ordner' ? wurzel : null, zuletzt: Date.now() });
     zeigeEditor();
     try {
       await G.websiteSchreiben(S.wurzel, S.projekt, true);
@@ -299,7 +376,9 @@
     // Hintereinander — zwei gleichzeitige Schreibvorgänge auf dieselbe Datei vertragen sich nicht.
     S.kette = S.kette.then(async () => {
       try {
-        await G.dateiSchreiben(w, 'gallery.json', JSON.stringify(p, null, 2));
+        const text = JSON.stringify(p, null, 2);
+        // Mit Passwort steht in gallery.json nur Verschlüsseltes — auch auf dem Webspace.
+        await G.dateiSchreiben(w, 'gallery.json', S.schluessel && p === S.projekt ? await G.verschluesseln(text, S.schluessel) : text);
         await G.websiteSchreiben(w, p, false);
         if (p === S.projekt) {
           S.speichernOffen = false;
@@ -321,6 +400,7 @@
     alleAdressenVergessen();
     S.projekt = null;
     S.wurzel = null;
+    S.schluessel = null; // „Schließen" sperrt: ohne Passwort kein erneutes Öffnen
     zeigeStart();
   }
 
@@ -371,7 +451,7 @@
         for await (const [name, h] of speicher.entries()) {
           if (h.kind !== 'directory') continue;
           const alt = bekannt.get(name);
-          eintraege.push({ schluessel: 'browser:' + name, name, titel: alt ? alt.titel : name, modus: 'browser', handle: h, zuletzt: alt ? alt.zuletzt : 0 });
+          eintraege.push({ schluessel: 'browser:' + name, name, titel: alt && alt.titel ? alt.titel : name, geschuetzt: !!(alt && alt.geschuetzt), modus: 'browser', handle: h, zuletzt: alt ? alt.zuletzt : 0 });
         }
         eintraege.sort((a, b) => b.zuletzt - a.zuletzt);
       } catch (_) { /* leer */ }
@@ -381,7 +461,7 @@
       const li = el('li', 'projekt');
       const auf = el('button', 'projekt-oeffnen');
       auf.type = 'button';
-      auf.append(el('strong', '', e.titel || e.name), el('span', '', (e.modus === 'browser' ? 'Im Browser-Speicher' : 'Ordner „' + e.name + '"') +
+      auf.append(el('strong', '', (e.geschuetzt ? '🔒 ' : '') + (e.titel || e.name)), el('span', '', (e.modus === 'browser' ? 'Im Browser-Speicher' : 'Ordner „' + e.name + '"') +
         (e.zuletzt ? ' · ' + new Date(e.zuletzt).toLocaleDateString('de-DE') : '')));
       auf.addEventListener('click', async () => {
         try {
@@ -433,6 +513,8 @@
     $('g-titel').value = p.titel || '';
     $('g-beschreibung').value = p.beschreibung || '';
     $('g-fuss').value = p.fusszeile || '';
+    $('g-webadresse').value = e.webadresse || '';
+    zeigeSchutz();
     $('g-design').value = e.design;
     $('g-auto').checked = !!e.autoRotation;
     $('g-datum').checked = !!e.datumZeigen;
@@ -463,7 +545,8 @@
       wahl.type = 'button';
       const fotos = a.medien.filter((m) => m.typ === 'foto').length;
       const videos = a.medien.length - fotos;
-      wahl.append(el('strong', '', a.titel || 'Ohne Namen'), el('span', '', a.medien.length ? [fotos ? fotos + (fotos === 1 ? ' Foto' : ' Fotos') : '', videos ? videos + (videos === 1 ? ' Video' : ' Videos') : ''].filter(Boolean).join(' · ') : 'leer'));
+      const zeichen = { link: ' 🔗', entwurf: ' ✎' }[G.freigabe(a)] || '';
+      wahl.append(el('strong', '', (a.titel || 'Ohne Namen') + zeichen), el('span', '', a.medien.length ? [fotos ? fotos + (fotos === 1 ? ' Foto' : ' Fotos') : '', videos ? videos + (videos === 1 ? ' Video' : ' Videos') : ''].filter(Boolean).join(' · ') : 'leer'));
       wahl.addEventListener('click', () => { S.albumId = a.id; zeigeAlben(); zeigeAlbum(); });
       const hoch = knopf('↑', 'still mini', () => verschiebeAlbum(i, -1), 'Nach oben');
       const runter = knopf('↓', 'still mini', () => verschiebeAlbum(i, 1), 'Nach unten');
@@ -472,6 +555,114 @@
       li.append(wahl, hoch, runter);
       liste.append(li);
     });
+  }
+
+  /* ---------- Freigabe je Album ---------- */
+  function zeigeFreigabe(a) {
+    const art = G.freigabe(a);
+    $('a-freigabe').value = art;
+    $('a-link').hidden = art !== 'link';
+    const text = $('a-freigabe-text');
+    if (art === 'link') {
+      $('a-link-text').value = G.albumLink(S.projekt, a);
+      text.textContent = 'Nur wer diesen Link kennt, sieht das Album: Er steht auf keiner anderen Seite, und der Ordnername besteht aus 26 Zufallszeichen — durch Probieren nicht zu finden. Gilt nach dem nächsten Hochladen.' +
+        (S.projekt.einstellungen.webadresse ? '' : ' Tipp: Links unter „Galerie" die Adresse der Galerie im Netz eintragen, dann steht hier der vollständige Link.');
+    } else if (art === 'entwurf') {
+      text.textContent = 'Das Album erscheint auf keiner Seite der Galerie. Seine Dateien liegen trotzdem im Ordner.';
+    } else {
+      text.textContent = '';
+    }
+  }
+
+  async function freigabeAendern() {
+    const a = aktuellesAlbum();
+    const neu = $('a-freigabe').value;
+    if (neu === 'link' && !S.schluessel) {
+      const ok = await frage({ titel: 'Zuerst ein Passwort', text: 'Ein geheimer Link ist nur geheim, wenn ihn die Projektdatei gallery.json nicht verrät — sie liegt mit auf dem Webspace. Mit Passwort ist sie verschlüsselt. Jetzt ein Passwort festlegen?', ok: 'Passwort festlegen' });
+      if (!ok || !(await passwortSetzen())) {
+        zeigeFreigabe(a);
+        return;
+      }
+    }
+    a.freigabe = neu === 'link'
+      ? { art: 'link', name: G.freigabe(a) === 'link' && a.freigabe.name ? a.freigabe.name : G.geheimerName() }
+      : { art: neu };
+    zeigeFreigabe(a);
+    zeigeAlben();
+    speichern();
+  }
+
+  async function neuerLink() {
+    const a = aktuellesAlbum();
+    const ok = await frage({ titel: 'Neuen Link erzeugen?', text: 'Der bisherige Link funktioniert danach nicht mehr — sobald du die Galerie neu hochgeladen und den alten Ordner auf dem Webspace gelöscht hast. Alle, die das Album weiter sehen sollen, brauchen den neuen Link.', ok: 'Neuer Link' });
+    if (!ok) return;
+    a.freigabe = { art: 'link', name: G.geheimerName() };
+    zeigeFreigabe(a);
+    speichern();
+  }
+
+  async function linkKopieren(text, knopfEl) {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (knopfEl) { knopfEl.textContent = 'Kopiert ✓'; setTimeout(() => { knopfEl.textContent = 'Kopieren'; }, 1800); }
+    } catch (_) {
+      melde('Bitte von Hand kopieren', text);
+    }
+  }
+
+  /* ---------- Passwort ---------- */
+  function zeigeSchutz() {
+    const an = !!S.schluessel;
+    $('schutz-text').innerHTML = an
+      ? '<strong>Mit Passwort geschützt.</strong> Öffnen und Bearbeiten nur mit Passwort; gallery.json ist verschlüsselt (AES-256), auch auf dem Webspace.'
+      : 'Ohne Passwort kann jeder, der diesen Ordner öffnet oder auf dem Webspace gallery.json aufruft, alle Alben samt Entwürfen sehen.';
+    $('k-passwort').textContent = an ? 'Passwort ändern …' : 'Passwort festlegen …';
+    $('k-passwort-weg').hidden = !an;
+  }
+
+  /** @returns {Promise<boolean>} ob jetzt ein Passwort gilt */
+  async function passwortSetzen() {
+    if (!G.kannVerschluesseln) {
+      await melde('Nicht möglich', 'Dieser Browser bietet hier keine Verschlüsselung an (sicherer Kontext nötig: https oder die Einzeldatei).');
+      return false;
+    }
+    if (S.schluessel) {
+      // Ändern nur, wer das bisherige kennt — eine offen gelassene Sitzung reicht nicht.
+      const huelle = JSON.parse(await (await G.dateiLesen(S.wurzel, 'gallery.json')).text());
+      const alt = await passwortDialog({
+        titel: 'Passwort ändern', text: 'Zuerst das bisherige Passwort:', ok: 'Weiter',
+        pruefe: async (v) => { try { await G.entschluesseln(huelle, v); return ''; } catch (e) { return 'Das Passwort stimmt nicht.'; } }
+      });
+      if (!alt) return true;
+    }
+    const pw = await passwortDialog({
+      titel: S.schluessel ? 'Neues Passwort' : 'Passwort festlegen', doppelt: true, ok: 'Festlegen',
+      text: 'Mindestens 8 Zeichen. Wichtig: Ohne dieses Passwort lässt sich die Galerie nicht mehr bearbeiten — es gibt keinen Weg zurück. Am besten im Passwort-Manager oder auf Papier aufbewahren.'
+    });
+    if (!pw) return !!S.schluessel;
+    status('Wird verschlüsselt …', 'laeuft');
+    S.schluessel = await G.neuerSchluessel(pw);
+    await sofortSpeichern();
+    G.projekteMerken({ schluessel: S.modus + ':' + S.wurzel.name, name: S.wurzel.name, titel: '', geschuetzt: true, modus: S.modus, handle: S.modus === 'ordner' ? S.wurzel : null, zuletzt: Date.now() });
+    zeigeSchutz();
+    melde('Passwort gilt', 'Die Galerie ist jetzt geschützt. Beim nächsten Hochladen die gallery.json auf dem Webspace mit ersetzen — die alte, unverschlüsselte darf dort nicht liegen bleiben.');
+    return true;
+  }
+
+  async function passwortEntfernen() {
+    if (S.projekt.alben.some((a) => G.freigabe(a) === 'link')) {
+      return melde('Geht gerade nicht', 'Mindestens ein Album hat einen geheimen Link. Ohne Passwort stünde er lesbar in gallery.json. Erst diese Alben auf „öffentlich" oder „nicht veröffentlichen" stellen.');
+    }
+    const huelle = JSON.parse(await (await G.dateiLesen(S.wurzel, 'gallery.json')).text());
+    const pw = await passwortDialog({
+      titel: 'Passwort entfernen', text: 'Zur Bestätigung das Passwort eingeben. Danach ist gallery.json wieder unverschlüsselt.', ok: 'Entfernen',
+      pruefe: async (v) => { try { await G.entschluesseln(huelle, v); return ''; } catch (e) { return 'Das Passwort stimmt nicht.'; } }
+    });
+    if (!pw) return;
+    S.schluessel = null;
+    await sofortSpeichern();
+    G.projekteMerken({ schluessel: S.modus + ':' + S.wurzel.name, name: S.wurzel.name, titel: S.projekt.titel, geschuetzt: false, modus: S.modus, handle: S.modus === 'ordner' ? S.wurzel : null, zuletzt: Date.now() });
+    zeigeSchutz();
   }
 
   function verschiebeAlbum(i, r) {
@@ -488,6 +679,7 @@
     S.albumId = a.id;
     $('a-titel').value = a.titel || '';
     $('a-beschreibung').value = a.beschreibung || '';
+    zeigeFreigabe(a);
     const liste = $('medienliste');
     liste.innerHTML = '';
     a.medien.forEach((m, i) => liste.append(medienKarte(a, m, i)));
@@ -802,7 +994,8 @@
 
   async function kopieren(datei, ordner, eintrag, anteil) {
     const { basis, endung } = G.sauberName(datei.name);
-    const ziel = await G.freierName(S.wurzel, ordner, basis, endung, S.belegt);
+    // Zufallsendung: Wer den Kameranamen (IMG_2024…) kennt, kann die Adresse trotzdem nicht erraten.
+    const ziel = await G.freierName(S.wurzel, ordner, basis + '-' + G.zufall(8), endung, S.belegt);
     S.belegt.add(ziel.pfad);
     try {
       eintrag.zustand('Wird kopiert (' + G.groesseText(datei.size) + ') …');
@@ -828,7 +1021,7 @@
       id: G.neueId(), typ: 'foto', titel: titelAusName(datei.name), beschreibung: '',
       datum: (await G.exifDatum(datei)) || datumAusName(datei.name),
       datei: ziel.pfad, original: datei.name, groesse: datei.size, breite: B, hoehe: H,
-      bilder: [], vorschau: null, blick: Object.assign({}, BLICK_START), hinweise: []
+      bilder: [], vorschau: null, blick: Object.assign({}, BLICK_START), hinweise: [], hotspots: []
     };
     const erzeugt = [];
     try {
@@ -909,7 +1102,7 @@
       id: G.neueId(), typ: 'video', titel: titelAusName(datei.name), beschreibung: '',
       datum: (info && info.datum) || datumAusName(datei.name),
       datei: ziel.pfad, original: datei.name, dauer: info && info.dauer || 0,
-      quellen: [quelle], poster: null, vorschau: null, blick: Object.assign({}, BLICK_START), hinweise: []
+      quellen: [quelle], poster: null, vorschau: null, blick: Object.assign({}, BLICK_START), hinweise: [], hotspots: []
     };
     let bild = null;
     try {
@@ -1208,6 +1401,26 @@
         'Fertig: Die Galerie ist dann unter https://deine-domain.de/360/ erreichbar. Diesen Link an Freunde und Familie schicken.'
       ].forEach((t) => schritte.append(el('li', '', t)));
       inhalt.append(schritte);
+      const geheim = S.projekt.alben.filter((a) => G.freigabe(a) === 'link' && a.medien.length);
+      if (geheim.length) {
+        inhalt.append(el('h3', '', 'Geheime Links'));
+        const ul = el('ul', 'geheimliste');
+        for (const a of geheim) {
+          const li = el('li');
+          li.append(el('strong', '', a.titel || 'Ohne Namen'));
+          const zeile = el('div', 'freigabe-link');
+          const feldEl = el('input');
+          feldEl.readOnly = true;
+          feldEl.value = G.albumLink(S.projekt, a);
+          const k = knopf('Kopieren', 'zweit klein', () => linkKopieren(feldEl.value, k));
+          zeile.append(feldEl, k);
+          li.append(zeile);
+          ul.append(li);
+        }
+        inhalt.append(ul);
+        if (!S.projekt.einstellungen.webadresse) inhalt.append(el('p', 'klein', 'Vor den Ordnernamen gehört die Adresse deiner Galerie, z. B. https://deine-domain.de/360/ — trage sie links unter „Galerie" ein, dann stehen hier fertige Links.'));
+      }
+      if (!S.schluessel) inhalt.append(el('p', 'klein', 'Tipp: Mit einem Passwort (links unter „Schutz") ist auch die Projektdatei gallery.json auf dem Webspace verschlüsselt.'));
       inhalt.append(el('p', 'klein', 'Später ergänzt? Einfach die Galerie wieder öffnen, Aufnahmen hinzufügen und erneut hochladen. Das FTP-Programm kann bereits vorhandene Dateien überspringen — neu sind dann nur index.html, gallery.json und die neuen Medien.'));
     }
     if (bericht.hinweise.length) {
@@ -1413,6 +1626,16 @@
     feld('g-titel', (e) => { S.projekt.titel = e.value; document.title = (e.value || 'Galerie') + ' — Galerie 360'; });
     feld('g-beschreibung', (e) => { S.projekt.beschreibung = e.value; });
     feld('g-fuss', (e) => { S.projekt.fusszeile = e.value; });
+    feld('g-webadresse', (e) => {
+      const w = e.value.trim();
+      S.projekt.einstellungen.webadresse = /^https?:\/\/[^\s<>"]+$/i.test(w) ? w : '';
+      zeigeFreigabe(aktuellesAlbum());
+    });
+    $('a-freigabe').addEventListener('change', freigabeAendern);
+    $('k-link-neu').addEventListener('click', neuerLink);
+    $('k-link-kopieren').addEventListener('click', (e) => linkKopieren($('a-link-text').value, e.currentTarget));
+    $('k-passwort').addEventListener('click', passwortSetzen);
+    $('k-passwort-weg').addEventListener('click', passwortEntfernen);
     $('g-design').addEventListener('change', () => { S.projekt.einstellungen.design = $('g-design').value; speichern(); });
     $('g-auto').addEventListener('change', () => { S.projekt.einstellungen.autoRotation = $('g-auto').checked; speichern(); });
     $('g-datum').addEventListener('change', () => { S.projekt.einstellungen.datumZeigen = $('g-datum').checked; speichern(); });
