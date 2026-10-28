@@ -28,6 +28,7 @@
       </div>
       <div class="leiste-rechts">
         <span id="editor-knoepfe" class="knopfreihe" hidden>
+          <button type="button" id="k-hotspots" class="still" title="Symbole und Informationspunkte in den Aufnahmen setzen">Hotspots</button>
           <button type="button" id="k-vorschau" class="zweit">Vorschau</button>
           <button type="button" id="k-fertig" class="haupt">Website fertigstellen</button>
           <button type="button" id="k-schliessen" class="still" title="Projekt schließen und zur Übersicht">Schließen</button>
@@ -141,6 +142,71 @@
       <div id="vorschau-galerie" class="vorschauflaeche"></div>
     </div>
 
+    <!-- ===================== Hotspot-Editor ===================== -->
+    <div id="hs-editor" class="hs-editor" hidden>
+      <div class="hs-kopf">
+        <strong class="hs-titel">Hotspots bearbeiten</strong>
+        <select id="hs-medium" aria-label="Aufnahme wählen"></select>
+        <span class="frei"></span>
+        <button type="button" id="hs-undo" class="still" title="Rückgängig (Strg+Z)" aria-label="Rückgängig">↶ <span>Rückgängig</span></button>
+        <button type="button" id="hs-redo" class="still" title="Wiederholen (Strg+Umschalt+Z)" aria-label="Wiederholen">↷ <span>Wiederholen</span></button>
+        <button type="button" id="hs-standard" class="still" title="Größe und Aussehen aller Hotspots, eigene Vorlagen">Galerie-Standard …</button>
+        <button type="button" id="hs-testen" class="zweit" title="Diese Aufnahme in der Vorschau öffnen und die Hotspots wie ein Besucher ausprobieren">Testen</button>
+        <button type="button" id="hs-fertig" class="haupt">Fertig</button>
+      </div>
+      <div class="hs-rumpf">
+        <div class="hs-buehne">
+          <div id="hs-pano" class="hs-pano g360" data-thema="dunkel"><canvas id="hs-leinwand"></canvas></div>
+          <div class="hs-werkzeuge">
+            <button type="button" id="hs-setzen" class="haupt" aria-pressed="false" title="Danach auf die Stelle im Panorama tippen (Taste N)">＋ Hotspot setzen</button>
+            <label class="hs-vorlage">Vorlage <select id="hs-vorlage"></select></label>
+            <label class="haken"><input type="checkbox" id="hs-fenstervorschau" checked /> Fenster-Vorschau</label>
+            <label class="haken"><input type="checkbox" id="hs-alle" checked /> Hotspots zeigen</label>
+            <span id="hs-hinweis" class="hs-hinweis" aria-live="polite"></span>
+          </div>
+          <div id="hs-zeitleiste" class="hs-zeitleiste" hidden>
+            <button type="button" id="hs-play" class="zweit mini" aria-label="Abspielen/Pause">▶</button>
+            <span id="hs-zeit" class="hs-zeittext">0:00</span>
+            <div id="hs-spur" class="hs-spur" role="slider" aria-label="Zeit im Video" tabindex="0"><div id="hs-balken" class="hs-balken"></div><div id="hs-kopfpos" class="hs-kopfpos"></div></div>
+            <span id="hs-dauer" class="hs-zeittext">0:00</span>
+          </div>
+          <p id="hs-videohinweis" class="hs-videohinweis" hidden></p>
+        </div>
+        <aside class="hs-seite">
+          <section class="hs-block">
+            <div class="blockkopf"><h2>Hotspots dieser Aufnahme</h2><span id="hs-anzahl" class="hs-anzahl"></span></div>
+            <ul id="hs-liste" class="hs-liste"></ul>
+            <p id="hs-leer" class="hs-leer">Noch keine Hotspots. Auf <strong>„＋ Hotspot setzen“</strong> tippen und dann auf die Stelle im Panorama — zum Beispiel einen Berggipfel oder ein Gebäude.</p>
+          </section>
+          <section id="hs-form" class="hs-block hs-form" hidden></section>
+        </aside>
+      </div>
+    </div>
+
+    <dialog id="dlg-symbol" class="dialog breit symbolwahl">
+      <div class="dialogkopf">
+        <h2>Symbol wählen</h2>
+        <input type="search" id="sym-suche" placeholder="Suchen, z. B. Berg, Kirche, Parkplatz, Pfeil, Kamera …" aria-label="Symbole suchen" />
+        <div class="reiter" role="tablist" id="sym-reiter">
+          <button type="button" role="tab" data-reiter="haeufig">Häufig</button>
+          <button type="button" role="tab" data-reiter="icons">Icons</button>
+          <button type="button" role="tab" data-reiter="emoji">Emoji</button>
+          <button type="button" role="tab" data-reiter="zeichen">Zeichen &amp; Text</button>
+          <button type="button" role="tab" data-reiter="datei">Eigene Datei</button>
+        </div>
+      </div>
+      <div id="sym-inhalt" class="sym-inhalt"></div>
+      <div class="dialogfuss">
+        <span class="klein" id="sym-quelle">Icons: Lucide (ISC-Lizenz) · Emoji-Namen: emojibase (MIT-Lizenz)</span>
+        <span class="frei"></span>
+        <button type="button" id="sym-abbrechen" class="zweit">Abbrechen</button>
+      </div>
+    </dialog>
+
+    <dialog id="dlg-standard" class="dialog">
+      <div id="standard-inhalt"></div>
+    </dialog>
+
     <!-- ===================== Dialoge ===================== -->
     <dialog id="dlg-blick" class="dialog breit">
       <div class="dialogkopf">
@@ -180,5 +246,6 @@
     <script src="./js/speicher.js"></script>
     <script src="./js/export.js"></script>
     <script src="./js/app.js"></script>
+    <script src="./js/hotspots.js"></script>
   </body>
 </html>

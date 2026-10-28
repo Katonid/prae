@@ -4,7 +4,7 @@
  * bleibt auf den Geräten die alte Fassung im Zwischenspeicher.
  * Die Galerien selbst (Blob-Adressen, Browser-Speicher) laufen nicht hier durch.
  */
-const FASSUNG = 'v1';
+const FASSUNG = 'v2';
 const DATEIEN = [
   './',
   './index.html',
@@ -17,6 +17,9 @@ const DATEIEN = [
   './js/speicher.js',
   './js/export.js',
   './js/app.js',
+  './js/hotspots.js',
+  './vendor/lucide.js',
+  './vendor/emoji.js',
   './icons/icon.svg',
   './icons/icon-180.png',
   './icons/icon-192.png',

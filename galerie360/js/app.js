@@ -7,7 +7,8 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.1';
+  const FASSUNG = '1.0.2';
+  const DATENFASSUNG = 2; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
   const MAX_FLAECHE = IOS ? 16777216 : Infinity;
@@ -154,12 +155,13 @@
   function neuesProjekt(titel) {
     return {
       format: 'galerie360',
-      version: 1,
+      version: DATENFASSUNG,
       generator: { fassung: FASSUNG, angelegt: new Date().toISOString() },
       titel,
       beschreibung: '',
       fusszeile: '',
       einstellungen: { design: 'dunkel', akzent: AKZENTE[0], autoRotation: true, datumZeigen: true, downloads: false, nichtIndexieren: true },
+      hotspotVorlagen: [],
       alben: [neuesAlbum('Erstes Album')]
     };
   }
@@ -182,8 +184,14 @@
         m.hinweise = m.hinweise || [];
         if (m.typ === 'video') m.quellen = m.quellen || [];
         if (m.typ === 'foto') m.bilder = m.bilder || [{ src: m.datei, breite: m.breite || 0, hoehe: m.hoehe || 0 }];
+        // Fassung 1 kannte keine Hotspots — fehlende Felder ergänzen, nichts verwerfen.
+        m.hotspots = (Array.isArray(m.hotspots) ? m.hotspots : []).map(G.hsErgaenzen);
       }
     }
+    p.einstellungen = Object.assign({ hotspotTooltip: true, hotspotUmschalter: true, hotspotAnimation: true }, p.einstellungen);
+    p.einstellungen.hotspotStil = Object.assign({}, window.Galerie360.STIL_STANDARD, p.einstellungen.hotspotStil || {});
+    p.hotspotVorlagen = Array.isArray(p.hotspotVorlagen) ? p.hotspotVorlagen : [];
+    p.version = DATENFASSUNG;
     return p;
   }
 
@@ -259,13 +267,15 @@
       return melde('Galerie beschädigt', 'Die Datei gallery.json konnte nicht gelesen werden: ' + fehlerText(e));
     }
     if (p.format !== 'galerie360') return melde('Keine Galerie', 'Die gallery.json in diesem Ordner stammt nicht aus Galerie 360.');
-    if (p.version > 1) await melde('Neuere Galerie', 'Diese Galerie wurde mit einer neueren Fassung des Generators gespeichert. Einige Einstellungen könnten verloren gehen.');
+    if (p.version > DATENFASSUNG) await melde('Neuere Galerie', 'Diese Galerie wurde mit einer neueren Fassung des Generators gespeichert. Einige Einstellungen könnten verloren gehen.');
     S.wurzel = wurzel;
     S.modus = modus;
     S.projekt = ergaenzen(p);
     S.albumId = S.projekt.alben[0].id;
     alleAdressenVergessen();
-    G.projekteMerken({ schluessel: modus + ':' + wurzel.name, name: wurzel.name, titel: p.titel, modus, handle: wurzel, zuletzt: Date.now() });
+    // Den Handle nur für echte Ordner merken. Im Browser-Speicher findet die Startseite die
+    // Galerien selbst — und ein OPFS-Handle in IndexedDB brachte Chromium beim Verlassen der Seite zum Absturz.
+    G.projekteMerken({ schluessel: modus + ':' + wurzel.name, name: wurzel.name, titel: p.titel, modus, handle: modus === 'ordner' ? wurzel : null, zuletzt: Date.now() });
     zeigeEditor();
     try {
       await G.websiteSchreiben(S.wurzel, S.projekt, true);
@@ -610,6 +620,8 @@
       aktionen.append(knopf('Weitere Fassung …', 'still klein', () => fassungHinzufuegen(m), 'Dasselbe Video in einem anderen Format oder einer kleineren Auflösung, z. B. H.264 mit 3840 × 1920 für ältere Geräte'));
       aktionen.append(knopf('Anderes Standbild …', 'still klein', () => standbildWaehlen(m), 'Das Bild, das vor dem Abspielen zu sehen ist'));
     }
+    const anzahlHs = (m.hotspots || []).length;
+    aktionen.append(knopf(anzahlHs ? 'Hotspots (' + anzahlHs + ') …' : 'Hotspots …', 'still klein', () => G.hsEditor.oeffne(m.id), 'Symbole und Informationspunkte in dieser Aufnahme setzen'));
     aktionen.append(knopf('Entfernen', 'still klein gefahr', () => mediumEntfernen(m)));
 
     li.append(griff, bild, felder, aktionen);
@@ -674,8 +686,30 @@
     }
   }
 
+  /** Hotspots anderer Aufnahmen, die auf eine dieser Aufnahmen zeigen. */
+  function verweiseAuf(ids) {
+    const menge = new Set(ids);
+    const treffer = [];
+    for (const a of S.projekt.alben) {
+      for (const m of a.medien) {
+        if (menge.has(m.id)) continue;
+        for (const h of m.hotspots || []) {
+          const ziele = [h.aktion && h.aktion.ziel].concat(((h.aktion && h.aktion.knoepfe) || []).map((k) => k.ziel));
+          if (ziele.some((z) => z && menge.has(z.medium))) treffer.push({ m, h });
+        }
+      }
+    }
+    return treffer;
+  }
+
+  function verweisText(treffer) {
+    if (!treffer.length) return '';
+    const namen = [...new Set(treffer.map((t) => t.m.titel || t.m.original || 'ohne Titel'))].slice(0, 4).join(', ');
+    return ' Achtung: ' + treffer.length + (treffer.length === 1 ? ' Hotspot verweist' : ' Hotspots verweisen') + ' hierauf (in: ' + namen + '). Sie führen danach ins Leere und werden in der Galerie ausgeblendet, bis du ein neues Ziel wählst.';
+  }
+
   async function mediumEntfernen(m) {
-    const ok = await frage({ titel: 'Aufnahme entfernen?', text: (m.titel ? '„' + m.titel + '"' : 'Die Aufnahme') + ' wird aus der Galerie entfernt und ihre Kopie im Galerieordner gelöscht. Deine Originaldatei an ihrem ursprünglichen Ort bleibt erhalten.', ok: 'Entfernen', gefahr: true });
+    const ok = await frage({ titel: 'Aufnahme entfernen?', text: (m.titel ? '„' + m.titel + '"' : 'Die Aufnahme') + ' wird aus der Galerie entfernt und ihre Kopie im Galerieordner gelöscht. Deine Originaldatei an ihrem ursprünglichen Ort bleibt erhalten.' + verweisText(verweiseAuf([m.id])), ok: 'Entfernen', gefahr: true });
     if (!ok) return;
     const f = mediumFinden(m.id);
     if (!f) return;
@@ -692,7 +726,7 @@
     const n = a.medien.length;
     const ok = await frage({
       titel: 'Album löschen?',
-      text: n ? '„' + (a.titel || 'Ohne Namen') + '" und seine ' + n + ' Aufnahmen werden aus der Galerie entfernt und die Kopien im Galerieordner gelöscht. Deine Originaldateien bleiben erhalten.' : '„' + (a.titel || 'Ohne Namen') + '" wird gelöscht.',
+      text: (n ? '„' + (a.titel || 'Ohne Namen') + '" und seine ' + n + ' Aufnahmen werden aus der Galerie entfernt und die Kopien im Galerieordner gelöscht. Deine Originaldateien bleiben erhalten.' : '„' + (a.titel || 'Ohne Namen') + '" wird gelöscht.') + verweisText(verweiseAuf(a.medien.map((m) => m.id))),
       ok: 'Album löschen',
       gefahr: true
     });
@@ -1025,15 +1059,27 @@
     return G.bildLaden(await G.dateiLesen(S.wurzel, pfad));
   }
 
-  async function blickDialog(m) {
+  /**
+   * Blickrichtung in einer Aufnahme wählen (Dialog mit Panorama).
+   * @returns {Promise<{yaw, pitch, fov}|null>} null = abgebrochen
+   */
+  async function blickWaehlen(m, start, texte) {
     let bild;
     try {
       bild = await blickQuelle(m);
     } catch (e) {
-      return melde('Bild nicht lesbar', fehlerText(e));
+      melde('Bild nicht lesbar', fehlerText(e));
+      return null;
     }
-    if (!bild) return melde('Kein Standbild', 'Für dieses Video gibt es noch kein Standbild. Bitte zuerst „Anderes Standbild …" wählen.');
+    if (!bild) {
+      melde('Kein Standbild', 'Für dieses Video gibt es noch kein Standbild. Bitte zuerst „Anderes Standbild …" wählen.');
+      return null;
+    }
     const dlg = $('dlg-blick');
+    const kopf = dlg.querySelector('.dialogkopf');
+    kopf.querySelector('h2').textContent = (texte && texte.titel) || 'Startansicht und Vorschaubild';
+    kopf.querySelector('p').textContent = (texte && texte.text) || 'Ziehe das Bild in die gewünschte Richtung und zoome mit dem Mausrad oder zwei Fingern. So öffnet sich die Aufnahme in der Galerie, und genau dieser Ausschnitt wird zum Vorschaubild.';
+    dlg.querySelector('.blickrahmen-hinweis').hidden = !!(texte && texte.titel);
     const alt = $('blick-leinwand');
     const canvas = alt.cloneNode(); // frische Leinwand, frischer WebGL-Kontext
     alt.replaceWith(canvas);
@@ -1044,50 +1090,65 @@
     } catch (e) {
       dlg.close();
       G.freigeben(bild);
-      return melde('Keine 3D-Grafik', 'Dieser Browser stellt kein WebGL bereit.');
+      melde('Keine 3D-Grafik', 'Dieser Browser stellt kein WebGL bereit.');
+      return null;
     }
     pano.setzeQuelle(bild);
-    pano.setzeBlick(m.blick || BLICK_START);
+    pano.setzeBlick(start || m.blick || BLICK_START);
     pano.starte();
-    const ende = async (uebernehmen) => {
-      $('k-blick-ok').onclick = $('k-blick-abbrechen').onclick = $('k-blick-reset').onclick = null;
-      dlg.onclose = null;
-      if (dlg.open) dlg.close();
-      const blick = pano.blick();
-      pano.zerstoere();
-      if (uebernehmen) {
-        m.blick = blick;
-        try {
-          const ziel = m.vorschau && !m.vorschauPlatzhalter ? m.vorschau : 'thumbnails/' + (m.datei || 'video').split('/').pop().replace(/\.[^.]+$/, '') + '.jpg';
-          await G.dateiSchreiben(S.wurzel, ziel, await G.vorschauBild(bild, blick));
-          m.vorschau = ziel;
-          adresseVergessen(ziel);
-          aktualisiereKarte(m);
-        } catch (e) {
-          melde('Vorschaubild fehlgeschlagen', fehlerText(e));
-        }
-        speichern();
-      }
-      G.freigeben(bild);
-    };
-    $('k-blick-ok').onclick = () => ende(true);
-    $('k-blick-abbrechen').onclick = () => ende(false);
-    $('k-blick-reset').onclick = () => pano.setzeBlick(BLICK_START);
-    dlg.onclose = () => { if (!dlg.open) ende(false); };
+    return new Promise((ok) => {
+      const ende = (uebernehmen) => {
+        $('k-blick-ok').onclick = $('k-blick-abbrechen').onclick = $('k-blick-reset').onclick = null;
+        dlg.onclose = null;
+        if (dlg.open) dlg.close();
+        const blick = pano.blick();
+        pano.zerstoere();
+        ok(uebernehmen ? { blick, bild } : (G.freigeben(bild), null));
+      };
+      $('k-blick-ok').onclick = () => ende(true);
+      $('k-blick-abbrechen').onclick = () => ende(false);
+      $('k-blick-reset').onclick = () => pano.setzeBlick(BLICK_START);
+      dlg.onclose = () => { if (!dlg.open) ende(false); };
+    });
+  }
+
+  async function blickDialog(m) {
+    const r = await blickWaehlen(m, m.blick);
+    if (!r) return;
+    m.blick = r.blick;
+    try {
+      const ziel = m.vorschau && !m.vorschauPlatzhalter ? m.vorschau : 'thumbnails/' + (m.datei || 'video').split('/').pop().replace(/\.[^.]+$/, '') + '.jpg';
+      await G.dateiSchreiben(S.wurzel, ziel, await G.vorschauBild(r.bild, r.blick));
+      m.vorschau = ziel;
+      adresseVergessen(ziel);
+      aktualisiereKarte(m);
+    } catch (e) {
+      melde('Vorschaubild fehlgeschlagen', fehlerText(e));
+    }
+    G.freigeben(r.bild);
+    speichern();
+  }
+
+  /** Nur die Richtung, ohne Vorschaubild — z. B. Startblick für das Ziel eines Hotspots. */
+  async function nurBlickWaehlen(m, start, texte) {
+    const r = await blickWaehlen(m, start, texte);
+    if (!r) return null;
+    G.freigeben(r.bild);
+    return r.blick;
   }
 
   /* ================================================================
    * Vorschau
    * ================================================================ */
   let vorschau = null;
-  async function vorschauOeffnen() {
+  async function vorschauOeffnen(start) {
     await sofortSpeichern();
     const urls = await G.vorschauAdressen(S.wurzel, S.projekt);
     const flaeche = $('vorschau-galerie');
     $('vorschau').hidden = false;
     document.documentElement.classList.add('vorschau-offen');
     const daten = G.galerieDaten(S.projekt);
-    vorschau = { urls, galerie: window.Galerie360.starte(flaeche, daten, { urls, hashRouting: false }) };
+    vorschau = { urls, galerie: window.Galerie360.starte(flaeche, daten, { urls, hashRouting: false, start: typeof start === 'string' ? start : '' }) };
     flaeche.scrollTop = 0;
   }
 
@@ -1114,6 +1175,7 @@
       await sofortSpeichern();
       await S.kette;
       await G.websiteSchreiben(S.wurzel, S.projekt, true);
+      await G.verwaisteBilderLoeschen(S.wurzel, S.projekt);
       bericht = await G.pruefen(S.wurzel, S.projekt);
     } catch (e) {
       inhalt.innerHTML = '';
@@ -1150,7 +1212,7 @@
     }
     if (bericht.hinweise.length) {
       const d = el('details', 'hinweisblock');
-      d.append(el('summary', '', bericht.hinweise.length + (bericht.hinweise.length === 1 ? ' Hinweis' : ' Hinweise') + ' zur Abspielbarkeit'));
+      d.append(el('summary', '', bericht.hinweise.length + (bericht.hinweise.length === 1 ? ' Hinweis' : ' Hinweise') + ' vor dem Hochladen'));
       const ul = el('ul');
       bericht.hinweise.forEach((h) => {
         const li = el('li');
@@ -1413,5 +1475,8 @@
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-  window.G360.app = { S, importieren, projektOeffnen, fertigstellen, sofortSpeichern, vorschauOeffnen, vorschauSchliessen };
+  window.G360.app = {
+    S, importieren, projektOeffnen, fertigstellen, sofortSpeichern, vorschauOeffnen, vorschauSchliessen,
+    speichern, frage, melde, fehlerText, adresse, adresseVergessen, mediumFinden, aktualisiereKarte, nurBlickWaehlen, einzelneDatei, zeigeAlbum
+  };
 })();

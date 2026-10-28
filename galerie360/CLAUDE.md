@@ -60,6 +60,29 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   daraus für später: WebGL 2 mit Mipmaps und nahtkorrigiertem
   `textureGrad` (schärfer beim Herauszoomen), H.264-Webfassung per ffmpeg
   (geht nur am Rechner).
+- **Hotspots (Wunsch des Nutzers, 10/2026; Vorbild: Panorama vom Berggasthof
+  Gerstreit — der dort erwähnte Screenshot lag dem Auftrag nicht bei).**
+  Darstellung in `galerie/galerie.js` (`HotspotEbene`, `InfoFenster`),
+  gemeinsam für Galerie UND Editor — nie zweimal bauen. Position in
+  Kugelkoordinaten; `Panorama.projiziere`/`richtung` rechnen mit
+  derselben Matrix wie der Shader (Test: Hin- und Rückweg < 1 px).
+  Ein Ziehen, das auf einem Symbol beginnt, übergibt die Galerie per
+  `uebernimm()` ans Panorama — sonst löste Wischen am Handy Hotspots aus.
+  **Sicherheit:** Texte nur per `textContent`, Auszeichnung (`formatiere`)
+  baut Elemente selbst, Adressen nur über `sichereUrl`, Icons nur aus
+  erlaubten SVG-Grundformen, eigene Bilder (auch SVG) werden als PNG/JPEG
+  NEU gerechnet. Nie `innerHTML` mit Inhalt aus der Galerie-Datei.
+  **Videos: keine Objektverfolgung** — feste Richtung, so dokumentiert.
+  Symbolbibliothek (`vendor/`, Lucide ISC + emojibase MIT) erzeugt
+  `scripts/symbolbibliothek.py`; sie lädt erst beim Öffnen des Editors
+  und kommt NIE in die Galerie (nur die benutzten Icon-Knoten). Deutsche
+  Suchwörter: `DEUTSCH` in `js/hotspots.js`; Suche nach Wortanfängen
+  („berg" fand sonst „übergeben").
+- **Ein OPFS-Handle in IndexedDB ließ Chromium beim Verlassen der Seite
+  abstürzen** (gefunden 10/2026 im Test, `trap int3`). Deshalb wird der
+  Handle nur für echte Ordner gemerkt; den Browser-Speicher liest die
+  Startseite ohnehin selbst. `test-hotspots.js` läuft deshalb im
+  Browser-Speicher (= iPad-Weg); den Ordner-Weg deckt `test-e2e.js`.
 - **`file://` ist in Chrome ein sicherer Kontext**: `showDirectoryPicker`
   geht auch in der Einzeldatei (geprüft 10/2026). Den Betrachter-Quelltext
   kann sie dort aber nicht per `fetch` holen, deshalb liegt er als
@@ -96,8 +119,8 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 
 ## Prüfen
 
-`scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`) und
-`scripts/test-zip64.js`; Aufrufe im README. Chromium und ffmpeg sind im
+`scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`),
+`scripts/test-hotspots.js` und `scripts/test-zip64.js`; Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,
 Vorschau, fertigstellen, ZIP prüfen, ZIP in frischem Browser wieder
