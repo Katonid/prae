@@ -23,6 +23,7 @@ Datenbank, CDN oder Konto.
 | `js/hotspots.js` | Hotspot-Editor: setzen, ziehen, Formular, Zeitleiste, Symbolwahl, Rückgängig, Vorlagen |
 | `vendor/lucide.js`, `vendor/emoji.js` | Symbolbibliothek (erzeugt von `scripts/symbolbibliothek.py`), nur im Generator |
 | `scripts/einzeldatei.py` | baut `galerie360-generator.html` |
+| `scripts/webspace-zip.py` | baut das ZIP für den eigenen Webspace (Generator + LIESMICH.txt) |
 | `sw.js`, `manifest.webmanifest` | offline und „Zum Home-Bildschirm“ (iPad) |
 | `scripts/test-e2e.js` | Ende-zu-Ende-Test mit Playwright |
 | `scripts/test-hotspots.js` | Hotspots: Editor, Rundgang, Zeitfenster, Touch, XSS, Export |

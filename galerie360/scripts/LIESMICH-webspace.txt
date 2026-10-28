@@ -1,0 +1,41 @@
+Galerie 360 – Generator für den eigenen Webspace  (Fassung {FASSUNG})
+=================================================================
+
+WAS DIESES PAKET IST
+Der Generator, mit dem du 360°-Galerien erstellst – zum Aufrufen über deine
+eigene Domain statt über katonid.github.io. Er läuft komplett im Browser
+dessen, der ihn öffnet. Auf dem Server wird nichts gespeichert und nichts
+ausgeführt: kein PHP, keine Datenbank, keine Einrichtung.
+
+WAS ES NICHT IST
+Deine Galerien (Fotos, Videos, Alben). Die erzeugt der Generator selbst:
+„Website fertigstellen“ → Ordner bzw. „Als ZIP-Archiv speichern“. Dieses
+ZIP (oder den Ordner) lädst du in ein EIGENES Verzeichnis hoch, z. B. /360/.
+
+INSTALLIEREN
+1. ZIP entpacken. Es entsteht der Ordner „galerie360“.
+2. Den Ordner per FTP auf den Webspace laden, z. B. nach /galerie360/
+   (oder umbenennen, z. B. /werkstatt-x7k2/ – der Name ist frei).
+3. Im Browser öffnen:  https://deine-domain.de/galerie360/
+   Am iPad danach: Teilen → „Zum Home-Bildschirm“.
+
+WICHTIG
+- Die Adresse muss mit https:// beginnen. Ohne HTTPS sperren die Browser
+  Verschlüsselung (Passwortschutz), Browser-Speicher und Offline-Betrieb.
+  Bei fast allen Hostern ist ein kostenloses Zertifikat (Let's Encrypt)
+  im Kundenmenü mit einem Klick einschaltbar.
+- Jeder Browser hat seinen EIGENEN Speicher. Was du am iPad unter deiner
+  Domain anlegst, liegt nur dort – nicht unter katonid.github.io und nicht
+  auf dem Server. Wechseln oder sichern: „Website fertigstellen“ → ZIP,
+  anderswo „Galerie aus ZIP-Archiv übernehmen …“.
+- Den Generator und die Galerien in GETRENNTE Ordner laden.
+- Wer die Adresse des Generators kennt, kann ihn ebenfalls benutzen – an
+  deine Galerien kommt er damit aber nicht, die liegen nur auf deinen
+  Geräten (und mit Passwort verschlüsselt).
+
+OHNE INTERNET
+galerie360-generator.html ist der ganze Generator in einer Datei:
+am Computer per Doppelklick in Chrome oder Edge öffnen.
+
+Bedienung: anleitung.html (im Generator oben rechts „Anleitung“).
+Symbole: Lucide (ISC-Lizenz), Emoji-Namen: emojibase (MIT-Lizenz).
