@@ -103,6 +103,16 @@
             <input type="url" id="g-webadresse" maxlength="300" placeholder="https://jerosch.net/apps/galerie360/360Grad/" inputmode="url" />
           </label>
         </details>
+        <section class="block" id="teilenblock">
+          <h2>Ganze Galerie teilen</h2>
+          <div class="freigabe-link">
+            <input type="text" id="g-link-text" readonly aria-label="Link zur ganzen Galerie" />
+            <button type="button" id="k-glink-kopieren" class="zweit klein">Kopieren</button>
+            <button type="button" id="k-glink-teilen" class="zweit klein" hidden>Teilen …</button>
+          </div>
+          <p class="klein" id="g-link-text-info">Eine Seite mit allen veröffentlichten Alben dieser Galerie, auch denen „nur mit Link“, aber ohne Entwürfe. Der Link ist so lang, dass ihn niemand errät. Er gilt, sobald das „ZIP für den Webspace“ hochgeladen ist.</p>
+          <button type="button" id="k-glink-neu" class="still klein" title="Der bisherige Link funktioniert danach nicht mehr">Neuer Link …</button>
+        </section>
         <section class="block" id="schutzblock">
           <h2>Schutz</h2>
           <p id="schutz-text" class="klein"></p>
@@ -139,6 +149,7 @@
             <div id="a-link" class="freigabe-link" hidden>
               <input type="text" id="a-link-text" readonly aria-label="Geheimer Link zu diesem Album" />
               <button type="button" id="k-link-kopieren" class="zweit klein">Kopieren</button>
+              <button type="button" id="k-link-teilen" class="zweit klein" hidden>Teilen …</button>
               <button type="button" id="k-link-neu" class="still klein" title="Der bisherige Link funktioniert danach nicht mehr">Neuer Link …</button>
             </div>
             <p id="a-freigabe-text" class="klein"></p>

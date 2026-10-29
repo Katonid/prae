@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.10';
+  const FASSUNG = '1.0.11';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -508,6 +508,9 @@
   function galerieTitelSetzen(titel) {
     S.projekt.titel = titel;
     if ($('g-titel').value !== titel) $('g-titel').value = titel;
+    // Wie bei Alben: Bis der Link einmal herausgegeben wurde, folgt der Ordnername dem Titel.
+    if (!S.projekt.galerieOrdnerFest) S.projekt.galerieOrdner = G.albumOrdnerName(titel || 'galerie', G.zufallsteil(G.galerieOrdner(S.projekt)));
+    zeigeGalerieLink();
     zeigeKopfname();
     if (!S.schluessel) {
       // Mit Passwort bleibt der Titel aus der Liste heraus (er stünde dort unverschlüsselt).
@@ -539,6 +542,7 @@
     $('editor-knoepfe').hidden = false;
     $('leiste-projekt').hidden = false;
     zeigeKopfname();
+    zeigeGalerieLink();
     status('Alle Änderungen gespeichert', 'gut');
     const sh = $('speicherhinweis');
     sh.hidden = S.modus !== 'browser';
@@ -649,6 +653,29 @@
     a.ordnerFest = false;
     zeigeFreigabe(a);
     speichern();
+  }
+
+  /* ---------- Link zur ganzen Galerie ---------- */
+  function zeigeGalerieLink() {
+    $('g-link-text').value = G.galerieLink(S.projekt);
+  }
+
+  async function neuerGalerieLink() {
+    const ok = await frage({ titel: 'Neuen Link zur Galerie erzeugen?', text: 'Die Seite der ganzen Galerie bekommt einen neuen Ordner. Der bisherige Link funktioniert nicht mehr, sobald du den alten Ordner auf dem Webspace gelöscht hast. Die Links zu den einzelnen Alben bleiben gleich.', ok: 'Neuer Link' });
+    if (!ok) return;
+    S.projekt.galerieOrdner = G.albumOrdnerName(S.projekt.titel || 'galerie');
+    S.projekt.galerieOrdnerFest = false;
+    zeigeGalerieLink();
+    speichern();
+  }
+
+  /** Teilen-Menü des Geräts (iPhone/iPad: Nachrichten, Mail …) — nur eine Adresse, keine Datei. */
+  async function linkTeilen(titel, adresse) {
+    try {
+      await navigator.share({ title: titel, url: adresse });
+    } catch (e) {
+      if (!abgebrochen(e)) linkKopieren(adresse);
+    }
   }
 
   async function linkKopieren(text, knopfEl) {
@@ -1591,6 +1618,19 @@
       inhalt.append(schritte);
       if (veroeffentlicht.length) {
         const ul = el('ul', 'geheimliste');
+        {
+          const li = el('li');
+          li.append(el('strong', '', 'Ganze Galerie „' + (S.projekt.titel || 'Galerie') + '" 🔗 (alle veröffentlichten Alben)'));
+          const zeile = el('div', 'freigabe-link');
+          const feldEl = el('input');
+          feldEl.readOnly = true;
+          feldEl.value = G.galerieLink(S.projekt);
+          const k = knopf('Kopieren', 'zweit klein', () => { S.projekt.galerieOrdnerFest = true; speichern(); linkKopieren(feldEl.value, k); });
+          zeile.append(feldEl, k);
+          if (navigator.share) zeile.append(knopf('Teilen …', 'zweit klein', () => { S.projekt.galerieOrdnerFest = true; speichern(); linkTeilen(S.projekt.titel || 'Galerie', feldEl.value); }));
+          li.append(zeile);
+          ul.append(li);
+        }
         for (const a of veroeffentlicht) {
           G.albumOrdner(a);
           const li = el('li');
@@ -1656,6 +1696,7 @@
       // Ab jetzt sind die Links draußen: Ordnernamen nicht mehr dem Titel nachführen.
       const { hatSeite } = G.seitenRegeln(S.projekt);
       S.projekt.alben.forEach((a) => { if (hatSeite(a)) a.ordnerFest = true; });
+      if (G.galerieAlben(S.projekt).length) S.projekt.galerieOrdnerFest = true;
       speichern();
       return eintraege;
     }
@@ -1891,10 +1932,19 @@
       const w = e.value.trim();
       S.projekt.einstellungen.webadresse = /^https?:\/\/[^\s<>"]+$/i.test(w) ? w : '';
       zeigeFreigabe(aktuellesAlbum());
+      zeigeGalerieLink();
     });
     $('a-freigabe').addEventListener('change', freigabeAendern);
     $('k-link-neu').addEventListener('click', neuerLink);
     $('k-link-kopieren').addEventListener('click', (e) => linkKopieren($('a-link-text').value, e.currentTarget));
+    $('k-glink-kopieren').addEventListener('click', (e) => { S.projekt.galerieOrdnerFest = true; speichern(); linkKopieren($('g-link-text').value, e.currentTarget); });
+    $('k-glink-neu').addEventListener('click', neuerGalerieLink);
+    if (navigator.share) {
+      $('k-glink-teilen').hidden = false;
+      $('k-link-teilen').hidden = false;
+      $('k-glink-teilen').addEventListener('click', () => { S.projekt.galerieOrdnerFest = true; speichern(); linkTeilen(S.projekt.titel || 'Galerie', $('g-link-text').value); });
+      $('k-link-teilen').addEventListener('click', () => { const a = aktuellesAlbum(); a.ordnerFest = true; speichern(); linkTeilen(a.titel || 'Album', $('a-link-text').value); });
+    }
     $('k-passwort').addEventListener('click', passwortSetzen);
     $('k-passwort-weg').addEventListener('click', passwortEntfernen);
     $('g-design').addEventListener('change', () => { S.projekt.einstellungen.design = $('g-design').value; speichern(); });

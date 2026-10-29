@@ -4,7 +4,7 @@
  * bleibt auf den Geräten die alte Fassung im Zwischenspeicher.
  * Die Galerien selbst (Blob-Adressen, Browser-Speicher) laufen nicht hier durch.
  */
-const FASSUNG = 'v10';
+const FASSUNG = 'v11';
 const DATEIEN = [
   './',
   './index.html',

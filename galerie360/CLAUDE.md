@@ -179,6 +179,18 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   neben dem Albumtitel „✎ Umbenennen". Der Speicherordner behält seinen
   Namen (OPFS kann Ordner nicht verlässlich umbenennen). Test: Teil
   „Umbenennen" in `test-unteralben.js`.
+- **Link zur ganzen Galerie (Wunsch des Nutzers, 10/2026).** Eigene,
+  IMMER geheime Seite `360Grad/<galerietitel>-<26 Zeichen>/` (`p.galerieOrdner`,
+  folgt dem Titel bis `p.galerieOrdnerFest` — nach Webspace-ZIP, Kopieren,
+  Teilen). Inhalt: Karten `../<album>/` für `G.galerieAlben` = alle Alben mit
+  Seite, die nicht schon auf der Seite ihres Elternalbums stehen (also auch
+  ein geheimes Unteralbum unter öffentlichem Elternalbum). Von keiner
+  anderen Seite verlinkt, `noindex`; Albumseiten führen NICHT zurück zur
+  Galerieseite (sonst bekäme jeder Album-Link die ganze Galerie). „Teilen …"
+  (`navigator.share` mit `url`, keine Datei) bei Galerie- und Album-Link.
+  Bekannt, nicht gelöst: Mehrere Galerien teilen sich `360Grad/index.html`
+  — die zuletzt hochgeladene gewinnt. Tests: `test-unteralben.js`,
+  `test-albumordner.js` (iPad-Teilen).
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind

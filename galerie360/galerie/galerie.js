@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.10';
+  const FASSUNG = '1.0.11';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
