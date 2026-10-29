@@ -137,6 +137,14 @@
             </div>
             <p id="a-freigabe-text" class="klein"></p>
           </div>
+          <div class="albumwerkzeug">
+            <label class="eltern-wahl">Liegt in
+              <select id="a-eltern" aria-label="Übergeordnetes Album"></select>
+            </label>
+            <button type="button" id="k-unteralbum" class="zweit klein">+ Unteralbum</button>
+            <button type="button" id="k-album-loeschen-oben" class="zweit klein gefahr">Album löschen …</button>
+          </div>
+          <div id="a-unteralben" class="unteralben" hidden></div>
         </div>
 
         <div id="ablage" class="ablage">
@@ -150,6 +158,18 @@
 
         <ul id="warteschlange" class="warteschlange"></ul>
         <p id="leerhinweis" class="leerhinweis" hidden>Dieses Album ist noch leer.</p>
+        <div id="sortierleiste" class="sortierleiste" hidden>
+          <label>Reihenfolge
+            <select id="a-sortieren">
+              <option value="">Sortieren …</option>
+              <option value="datum">Nach Aufnahmedatum, älteste zuerst</option>
+              <option value="datum-neu">Nach Aufnahmedatum, neueste zuerst</option>
+              <option value="titel">Nach Titel (A–Z)</option>
+              <option value="umkehren">Reihenfolge umkehren</option>
+            </select>
+          </label>
+          <span class="klein leise">Einzeln: mit ↑ ↓ verschieben oder am Griff ⠿ ziehen.</span>
+        </div>
         <ul id="medienliste" class="medienliste"></ul>
 
         <div class="albumfuss">

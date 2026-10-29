@@ -177,6 +177,7 @@ body.g360-seite { margin: 0; background: #0e0f12; }
 }
 
 /* ---------- Kacheln ---------- */
+.g360 .g-unteralben { margin-bottom: 32px; }
 .g360 .g-albuminfo { color: var(--g-leise); font-size: 14px; margin: -12px 0 18px; }
 .g360 .g-kacheln {
   display: grid;

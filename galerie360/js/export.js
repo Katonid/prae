@@ -40,6 +40,50 @@
   G.WEBADRESSE_STANDARD = 'https://jerosch.net/apps/galerie360/360Grad/';
   G.webadresse = (p) => ((p.einstellungen && p.einstellungen.webadresse) || G.WEBADRESSE_STANDARD).replace(/\/*$/, '/');
 
+  /* ---------- Unteralben ----------
+   * Alben stehen flach in p.alben; a.eltern verweist auf das Album darüber.
+   * Auf dem Webspace bleibt jedes Album in seinem eigenen Ordner direkt unter
+   * 360Grad/ — Umsortieren ändert so nie einen Link. Die Seiten verlinken
+   * einander: das Elternalbum zeigt Karten seiner Unteralben, das Unteralbum
+   * führt zurück. */
+
+  /** Das Album darüber (oder null). Verweise auf sich selbst oder im Kreis zählen nicht. */
+  G.elternVon = function (p, a) {
+    const gesehen = new Set([a.id]);
+    let x = a;
+    while (x.eltern) {
+      if (gesehen.has(x.eltern)) return null; // Kreis
+      gesehen.add(x.eltern);
+      x = p.alben.find((y) => y.id === x.eltern);
+      if (!x) return null;
+    }
+    return a.eltern ? p.alben.find((y) => y.id === a.eltern) || null : null;
+  };
+  G.kinderVon = (p, a) => p.alben.filter((x) => x !== a && G.elternVon(p, x) === a);
+  /** Tiefe im Baum (0 = oberste Ebene). */
+  G.albumTiefe = function (p, a) {
+    let t = 0;
+    for (let x = G.elternVon(p, a); x && t < 50; x = G.elternVon(p, x)) t++;
+    return t;
+  };
+  /** Liegt kandidat (oder a selbst) unterhalb von a? */
+  G.istUnter = function (p, kandidat, a) {
+    for (let x = kandidat, i = 0; x && i < 50; x = G.elternVon(p, x), i++) if (x === a) return true;
+    return false;
+  };
+  /** Alben in Baumreihenfolge: jedes Album, direkt danach seine Unteralben. */
+  G.albenBaum = function (p) {
+    const aus = [];
+    const besuche = (a) => { aus.push(a); G.kinderVon(p, a).forEach(besuche); };
+    p.alben.filter((a) => !G.elternVon(p, a)).forEach(besuche);
+    return aus;
+  };
+  G.albumPfadText = function (p, a) {
+    const teile = [];
+    for (let x = a, i = 0; x && i < 50; x = G.elternVon(p, x), i++) teile.unshift(x.titel || 'Ohne Namen');
+    return teile.join(' › ');
+  };
+
   /** Ordnername des Albums; fehlt er (alte Daten), wird er jetzt vergeben. */
   G.albumOrdner = function (a) {
     if (!G.ORDNER_MUSTER.test(a.ordner || '')) a.ordner = G.albumOrdnerName(a.titel);
@@ -69,9 +113,12 @@
       basis: seite.basis || '',
       privat: !!seite.privat,
       startseite: seite.startseite || null,
+      album: seite.album || null,
+      zurueck: seite.zurueck || null,
       einstellungen: p.einstellungen,
       alben: alben.map((a) => (a.uebersicht ? a.uebersicht : {
         id: a.id,
+        eltern: a.eltern || null,
         titel: a.titel,
         beschreibung: a.beschreibung,
         titelbild: a.titelbild,
@@ -257,19 +304,31 @@
     text('assets/galerie.css', q.css, 'text/css');
     text('assets/index.html', LEER_INDEX);
 
-    const veroeffentlicht = p.alben.filter((a) => G.freigabe(a) !== 'entwurf' && a.medien.length);
-    const oeffentlich = veroeffentlicht.filter((a) => G.freigabe(a) === 'oeffentlich');
+    const { hatSeite, darf, sichtbareKinder } = G.seitenRegeln(p);
+    const veroeffentlicht = p.alben.filter(hatSeite);
     const albumVon = new Map();
     veroeffentlicht.forEach((a) => a.medien.forEach((m) => albumVon.set(m.id, { a, m })));
+    // Karte, die in den Ordner eines Albums führt. weg: '' von der Startseite, '../' von einer Albumseite.
+    const karte = (a, weg) => {
+      const bild = kartenBild(a, darf, sichtbareKinder);
+      return {
+        medien: [], uebersicht: {
+          id: a.id, titel: a.titel, beschreibung: a.beschreibung, adresse: weg + G.albumOrdner(a) + '/',
+          vorschau: bild ? weg + G.albumOrdner(bild.a) + '/' + bild.m.vorschau : null,
+          zahl: Object.assign(zahl(a), { alben: sichtbareKinder(a).length }), medien: []
+        }
+      };
+    };
 
-    // Startseite: nur Karten, die in die Albumordner führen — keine Aufnahmen.
-    text('index.html', oeffentlich.length
-      ? G.indexHtml(p, stempel, {
-        alben: oeffentlich.map((a) => {
-          const bild = a.medien.find((m) => m.id === a.titelbild) || a.medien[0];
-          return { medien: [], uebersicht: { id: a.id, titel: a.titel, beschreibung: a.beschreibung, adresse: G.albumOrdner(a) + '/', vorschau: bild && bild.vorschau ? G.albumOrdner(a) + '/' + bild.vorschau : null, zahl: zahl(a), medien: [] } };
-        })
-      })
+    // Startseite: öffentliche Alben, die nicht schon auf der Seite eines öffentlichen
+    // Elternalbums stehen — nur Karten, keine Aufnahmen.
+    const oben = veroeffentlicht.filter((a) => {
+      if (G.freigabe(a) !== 'oeffentlich') return false;
+      const e = G.elternVon(p, a);
+      return !(e && hatSeite(e) && G.freigabe(e) === 'oeffentlich');
+    });
+    text('index.html', oben.length
+      ? G.indexHtml(p, stempel, { alben: oben.map((a) => karte(a, '')) })
       : G.indexHtml(p, stempel, { alben: [], privat: true, titel: '', beschreibung: '' }));
 
     for (const a of veroeffentlicht) {
@@ -285,9 +344,15 @@
       text(ordner + '/assets/galerie.js', q.js, 'text/javascript');
       text(ordner + '/assets/galerie.css', q.css, 'text/css');
       text(ordner + '/assets/index.html', LEER_INDEX);
+      // Zurück: ins Elternalbum, wenn diese Seite es verraten darf, sonst (öffentlich) zur Startseite.
+      const e = G.elternVon(p, a);
+      const zurueck = e && hatSeite(e) && darf(a, e)
+        ? { adresse: '../' + G.albumOrdner(e) + '/', titel: e.titel || 'Album' }
+        : (geheim ? null : { adresse: '../', titel: 'Alle Alben' });
       text(ordner + '/index.html', G.indexHtml(p, stempel, {
-        alben: [a], basis: '', titel: a.titel || p.titel, beschreibung: a.beschreibung || '',
-        geheim, startseite: geheim ? null : '../', fremd
+        alben: [Object.assign({}, a, { eltern: null })].concat(sichtbareKinder(a).map((k) => ((c) => { c.uebersicht.eltern = a.id; return c; })(karte(k, '../')))),
+        basis: '', titel: a.titel || p.titel, beschreibung: a.beschreibung || '',
+        geheim, album: a.id, zurueck, fremd
       }));
       const ordnerListe = new Set();
       for (const pfad of G.verwiesenePfade({ alben: [a] })) {
@@ -302,6 +367,37 @@
     }
     return eintraege;
   };
+
+  /**
+   * Welche Albumseite auf dem Webspace entsteht und welche Seite welche
+   * verlinken darf: nie von einer öffentlichen Seite auf ein Album „nur mit
+   * Link" (dessen Adresse stünde sonst offen da), nie auf Entwürfe.
+   */
+  G.seitenRegeln = function (p) {
+    const merk = new Map();
+    const darf = (von, nach) => G.freigabe(nach) === 'oeffentlich' || G.freigabe(von) === 'link';
+    function hatSeite(a) {
+      if (merk.has(a.id)) return merk.get(a.id);
+      merk.set(a.id, false); // schützt vor Kreisen
+      const ja = G.freigabe(a) !== 'entwurf' && (a.medien.length > 0 || G.kinderVon(p, a).some((k) => hatSeite(k) && darf(a, k)));
+      merk.set(a.id, ja);
+      return ja;
+    }
+    const sichtbareKinder = (a) => G.kinderVon(p, a).filter((k) => hatSeite(k) && darf(a, k));
+    return { hatSeite, darf, sichtbareKinder };
+  };
+
+  /** Vorschaubild für die Karte eines Albums — eigenes oder das eines sichtbaren Unteralbums. */
+  function kartenBild(a, darf, sichtbareKinder, tiefe) {
+    const m = a.medien.find((x) => x.id === a.titelbild) || a.medien[0];
+    if (m && m.vorschau) return { a, m };
+    if ((tiefe || 0) > 20) return null;
+    for (const k of sichtbareKinder(a)) {
+      const b = kartenBild(k, darf, sichtbareKinder, (tiefe || 0) + 1);
+      if (b) return b;
+    }
+    return null;
+  }
 
   /** Alle Pfade, auf die die Galerie verweist. */
   G.verwiesenePfade = function (p) {
@@ -364,8 +460,21 @@
         }
       }
     }
-    const leer = p.alben.filter((a) => !a.medien.length).map((a) => a.titel || 'Album');
+    const leer = p.alben.filter((a) => !a.medien.length && !G.kinderVon(p, a).length).map((a) => a.titel || 'Album');
     if (leer.length) hinweise.push({ titel: 'Leere Alben', text: leer.join(', ') + ' — leere Alben erscheinen in der Galerie nicht.' });
+    // Unteralben, die auf der Seite ihres Elternalbums fehlen (Freigabe passt nicht zusammen).
+    for (const a of p.alben) {
+      const e = G.elternVon(p, a);
+      if (!e || G.freigabe(a) === 'entwurf') continue;
+      const pfad = G.albumPfadText(p, a);
+      if (G.freigabe(e) === 'entwurf') {
+        hinweise.push({ titel: pfad, text: 'Liegt in einem Entwurf. Das Unteralbum wird trotzdem veröffentlicht' + (G.freigabe(a) === 'oeffentlich' ? ' und steht direkt auf der Startseite.' : ' und ist nur über seinen Link erreichbar.') });
+      } else if (G.freigabe(e) === 'oeffentlich' && G.freigabe(a) === 'link') {
+        hinweise.push({ titel: pfad, text: 'Nur mit Link — deshalb steht es NICHT auf der Seite des öffentlichen Albums „' + (e.titel || 'Album') + '". Erreichbar nur über seinen eigenen Link.' });
+      } else if (G.freigabe(e) === 'link' && G.freigabe(a) === 'oeffentlich') {
+        hinweise.push({ titel: pfad, text: 'Öffentlich in einem Album „nur mit Link" — es steht deshalb auch direkt auf der Startseite.' });
+      }
+    }
     return { fehlend, groesse, dateien: pfade.length, hinweise };
   };
 

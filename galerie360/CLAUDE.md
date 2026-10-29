@@ -153,6 +153,22 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   Fehlt der Betrachter trotzdem, ersetzt `onerror` am Skript den Text
   „Galerie wird geladen …" durch eine Erklärung. Test: Teil „Nur ein
   Albumordner" in `test-albumordner.js`.
+- **Unteralben, Reihenfolge, Löschen (Wunsch des Nutzers, 10/2026: „keine
+  Funktion gefunden, wie man Alben löschen kann", „Reihenfolge der Bilder
+  wählen", „Unterordner erstellen").** Löschen und ↑/↓ gab es schon, aber
+  ganz unten bzw. blass — deshalb „Album löschen …" oben im Album und
+  „Reihenfolge → Sortieren …" (Datum, Titel, umkehren). **Ziehen am Griff
+  mit Zeiger-Ereignissen am FENSTER**, nicht HTML-Drag-and-Drop (startet
+  am iPad nicht verlässlich) und nicht mit `setPointerCapture` am Griff:
+  Sobald die Karte im DOM wandert, ist die Bindung weg (gefunden im Test).
+  Unteralben: `a.eltern` (flache Liste, `G.elternVon` mit Kreisschutz,
+  `ergaenzen` räumt Kreise/fehlende Eltern ab). **Auf dem Webspace bleibt
+  jedes Album ein eigener Ordner direkt unter `360Grad/`** — Umhängen ändert
+  keinen Link. Die Seiten verlinken einander (`G.seitenRegeln`: `hatSeite`,
+  `darf` — nie von öffentlich auf „nur mit Link"): Elternseite zeigt Karten
+  `../<kind>/`, Unteralbum bekommt `zurueck: {adresse: '../<eltern>/'}`;
+  Startseite nur Alben ohne öffentliches Elternalbum. Löschen lässt
+  Unteralben eine Ebene höher rücken. Test: `test-unteralben.js`.
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind
@@ -204,8 +220,8 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 
 `scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`),
 `scripts/test-hotspots.js`, `scripts/test-schutz.js`, `scripts/test-albumordner.js`,
-`scripts/test-grosses-zip.js`, `scripts/test-videoaufloesung.js` und
-`scripts/test-zip64.js`;
+`scripts/test-grosses-zip.js`, `scripts/test-videoaufloesung.js`,
+`scripts/test-unteralben.js` und `scripts/test-zip64.js`;
 Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,

@@ -197,6 +197,17 @@ details.block:not([open]) .klappzeichen::after { content: "▸"; }
 .album-wahl strong { font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .album-wahl span { font-size: 12px; color: var(--leise); }
 .album .mini { padding: 4px 7px; }
+.album .album-wahl { padding-left: calc(10px + var(--tiefe, 0) * 16px); }
+.album[style*="--tiefe"] .album-wahl strong::before { content: "↳ "; color: var(--leise); font-weight: 400; }
+.albumwerkzeug { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.eltern-wahl { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--leise); }
+.eltern-wahl select { width: auto; max-width: 280px; font-size: 14px; padding: 5px 8px; }
+.unteralben { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 14px; color: var(--leise); }
+.sortierleiste { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 0 0 12px; }
+.sortierleiste label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--leise); }
+.sortierleiste select { width: auto; font-size: 14px; padding: 5px 8px; }
+.leise { color: var(--leise); }
+.medium.platzhalter-ziel { outline: 2px dashed var(--akzent); outline-offset: 2px; }
 
 .arbeitsflaeche { padding: 28px 32px 80px; max-width: 1200px; width: 100%; }
 .albumkopf { margin-bottom: 18px; }
@@ -253,8 +264,9 @@ details.block:not([open]) .klappzeichen::after { content: "▸"; }
   box-shadow: var(--schatten);
   align-items: start;
 }
-.medium.zieht { opacity: 0.45; }
-.griff { cursor: grab; color: var(--leise); align-self: center; display: grid; place-items: center; height: 100%; touch-action: none; }
+.griff { cursor: grab; color: var(--leise); align-self: stretch; display: grid; place-items: center; touch-action: none; border-radius: 8px; user-select: none; -webkit-user-select: none; }
+.griff:hover, .medium.zieht .griff { background: var(--flaeche2); color: var(--text); }
+.medium.zieht { position: relative; z-index: 5; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25); opacity: 0.9; }
 .mbild {
   position: relative;
   padding: 0;
@@ -309,18 +321,20 @@ details.block:not([open]) .klappzeichen::after { content: "▸"; }
 @media (max-width: 1100px) {
   .medium { grid-template-columns: 22px 200px minmax(0, 1fr); }
   .maktionen { grid-column: 2 / -1; flex-direction: row; flex-wrap: wrap; }
+  .griff { grid-row: span 2; }
 }
 @media (max-width: 820px) {
   .editor { grid-template-columns: 1fr; }
   .seitenleiste { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--linie); }
   .arbeitsflaeche { padding: 20px 16px 60px; }
-  .medium { grid-template-columns: 180px minmax(0, 1fr); padding: 12px; }
-  .griff { display: none; }
-  .maktionen { grid-column: 1 / -1; }
+  .medium { grid-template-columns: 28px 180px minmax(0, 1fr); padding: 12px 12px 12px 4px; }
+  .maktionen { grid-column: 2 / -1; }
   .leiste { flex-wrap: wrap; }
 }
 @media (max-width: 560px) {
-  .medium { grid-template-columns: 1fr; }
+  .medium { grid-template-columns: 28px minmax(0, 1fr); }
+  .medium > :not(.griff) { grid-column: 2; }
+  .griff { grid-row: span 3; }
 }
 
 /* ---------- Vorschau ---------- */

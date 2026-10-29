@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.8';
+  const FASSUNG = '1.0.9';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -196,6 +196,12 @@
         m.hotspots = (Array.isArray(m.hotspots) ? m.hotspots : []).map(G.hsErgaenzen);
       }
     }
+    // Unteralben (1.0.9): eltern muss auf ein vorhandenes Album zeigen, ohne Kreis.
+    const ids = new Set(p.alben.map((a) => a.id));
+    for (const a of p.alben) {
+      if (!a.eltern || !ids.has(a.eltern) || a.eltern === a.id) delete a.eltern;
+    }
+    for (const a of p.alben) if (a.eltern && !G.elternVon(p, a)) delete a.eltern;
     p.einstellungen = Object.assign({ hotspotTooltip: true, hotspotUmschalter: true, hotspotAnimation: true }, p.einstellungen);
     p.einstellungen.hotspotStil = Object.assign({}, window.Galerie360.STIL_STANDARD, p.einstellungen.hotspotStil || {});
     p.hotspotVorlagen = Array.isArray(p.hotspotVorlagen) ? p.hotspotVorlagen : [];
@@ -541,20 +547,26 @@
   function zeigeAlben() {
     const liste = $('albenliste');
     liste.innerHTML = '';
-    const alben = S.projekt.alben;
-    alben.forEach((a, i) => {
+    const p = S.projekt;
+    G.albenBaum(p).forEach((a) => {
       const li = el('li', 'album' + (a.id === aktuellesAlbum().id ? ' gewaehlt' : ''));
+      const tiefe = G.albumTiefe(p, a);
+      if (tiefe) li.style.setProperty('--tiefe', tiefe);
       const wahl = el('button', 'album-wahl');
       wahl.type = 'button';
       const fotos = a.medien.filter((m) => m.typ === 'foto').length;
       const videos = a.medien.length - fotos;
       const zeichen = { link: ' 🔗', entwurf: ' ✎' }[G.freigabe(a)] || '';
-      wahl.append(el('strong', '', (a.titel || 'Ohne Namen') + zeichen), el('span', '', a.medien.length ? [fotos ? fotos + (fotos === 1 ? ' Foto' : ' Fotos') : '', videos ? videos + (videos === 1 ? ' Video' : ' Videos') : ''].filter(Boolean).join(' · ') : 'leer'));
+      const unter = G.kinderVon(p, a).length;
+      const zahlen = [unter ? unter + (unter === 1 ? ' Unteralbum' : ' Unteralben') : '', fotos ? fotos + (fotos === 1 ? ' Foto' : ' Fotos') : '', videos ? videos + (videos === 1 ? ' Video' : ' Videos') : ''].filter(Boolean);
+      wahl.append(el('strong', '', (a.titel || 'Ohne Namen') + zeichen), el('span', '', zahlen.length ? zahlen.join(' · ') : 'leer'));
       wahl.addEventListener('click', () => { S.albumId = a.id; zeigeAlben(); zeigeAlbum(); });
-      const hoch = knopf('↑', 'still mini', () => verschiebeAlbum(i, -1), 'Nach oben');
-      const runter = knopf('↓', 'still mini', () => verschiebeAlbum(i, 1), 'Nach unten');
+      const geschwister = geschwisterVon(a);
+      const i = geschwister.indexOf(a);
+      const hoch = knopf('↑', 'still mini', () => verschiebeAlbum(a, -1), 'Nach oben');
+      const runter = knopf('↓', 'still mini', () => verschiebeAlbum(a, 1), 'Nach unten');
       hoch.disabled = i === 0;
-      runter.disabled = i === alben.length - 1;
+      runter.disabled = i === geschwister.length - 1;
       li.append(wahl, hoch, runter);
       liste.append(li);
     });
@@ -567,10 +579,16 @@
     $('a-link').hidden = art === 'entwurf';
     const text = $('a-freigabe-text');
     $('a-link-text').value = G.albumLink(S.projekt, a);
+    const e = G.elternVon(S.projekt, a);
+    const eArt = e && G.freigabe(e);
     if (art === 'link') {
-      text.textContent = 'Nur wer diesen Link kennt, sieht das Album: Es steht auf keiner anderen Seite, und der Ordnername endet auf 26 Zufallszeichen — durch Probieren nicht zu finden. Gilt nach dem Hochladen.';
+      text.textContent = 'Nur wer diesen Link kennt, sieht das Album: Es steht auf keiner öffentlichen Seite' +
+        (eArt === 'link' ? ' (nur auf der ebenfalls geheimen Seite von „' + (e.titel || 'Ohne Namen') + '")' : '') +
+        ', und der Ordnername endet auf 26 Zufallszeichen — durch Probieren nicht zu finden. Gilt nach dem Hochladen.';
     } else if (art === 'oeffentlich') {
-      text.textContent = 'Das Album steht auf der Startseite (' + G.webadresse(S.projekt) + ') und ist direkt unter diesem Link erreichbar.';
+      text.textContent = (eArt === 'oeffentlich'
+        ? 'Das Album steht auf der Seite von „' + (e.titel || 'Ohne Namen') + '"'
+        : 'Das Album steht auf der Startseite (' + G.webadresse(S.projekt) + ')') + ' und ist direkt unter diesem Link erreichbar.';
     } else {
       text.textContent = 'Das Album erscheint auf keiner Seite und kommt nicht mit auf den Webspace.';
     }
@@ -658,12 +676,86 @@
     zeigeSchutz();
   }
 
-  function verschiebeAlbum(i, r) {
-    const a = S.projekt.alben;
-    const j = i + r;
-    if (j < 0 || j >= a.length) return;
-    [a[i], a[j]] = [a[j], a[i]];
+  /** Alben auf derselben Ebene (gleiches Elternalbum), in ihrer Reihenfolge. */
+  function geschwisterVon(a) {
+    const e = G.elternVon(S.projekt, a);
+    return S.projekt.alben.filter((x) => G.elternVon(S.projekt, x) === e);
+  }
+
+  /** Tauscht ein Album mit seinem Nachbarn auf derselben Ebene. */
+  function verschiebeAlbum(a, r) {
+    const g = geschwisterVon(a);
+    const nachbar = g[g.indexOf(a) + r];
+    if (!nachbar) return;
+    const alle = S.projekt.alben;
+    const i = alle.indexOf(a), j = alle.indexOf(nachbar);
+    [alle[i], alle[j]] = [alle[j], alle[i]];
     zeigeAlben();
+    speichern();
+  }
+
+  /* ---------- Unteralben ---------- */
+  function zeigeEltern(a) {
+    const p = S.projekt;
+    const wahl = $('a-eltern');
+    wahl.innerHTML = '';
+    wahl.append(new Option('— oberste Ebene —', ''));
+    // Nicht in sich selbst oder eines seiner eigenen Unteralben.
+    G.albenBaum(p).filter((x) => !G.istUnter(p, x, a)).forEach((x) => wahl.append(new Option('\u00a0\u00a0'.repeat(G.albumTiefe(p, x)) + (x.titel || 'Ohne Namen'), x.id)));
+    const e = G.elternVon(p, a);
+    wahl.value = e ? e.id : '';
+    const box = $('a-unteralben');
+    box.innerHTML = '';
+    const kinder = G.kinderVon(p, a);
+    box.hidden = !kinder.length;
+    if (kinder.length) {
+      box.append(el('span', '', 'Unteralben:'));
+      kinder.forEach((k) => box.append(knopf(k.titel || 'Ohne Namen', 'zweit klein', () => { S.albumId = k.id; zeigeAlben(); zeigeAlbum(); })));
+    }
+  }
+
+  function elternAendern() {
+    const p = S.projekt;
+    const a = aktuellesAlbum();
+    const ziel = p.alben.find((x) => x.id === $('a-eltern').value) || null;
+    if (ziel && G.istUnter(p, ziel, a)) return zeigeEltern(a); // wäre ein Kreis
+    if (ziel) a.eltern = ziel.id;
+    else delete a.eltern;
+    zeigeAlben();
+    zeigeAlbum();
+    speichern();
+  }
+
+  function unteralbumAnlegen() {
+    const eltern = aktuellesAlbum();
+    const a = neuesAlbum('Neues Unteralbum');
+    a.eltern = eltern.id;
+    // Freigabe vom Elternalbum übernehmen — das passt meist (öffentlich bleibt öffentlich, geheim bleibt geheim).
+    a.freigabe = { art: G.freigabe(eltern) };
+    S.projekt.alben.push(a);
+    S.albumId = a.id;
+    zeigeAlben();
+    zeigeAlbum();
+    speichern();
+    $('a-titel').focus();
+    $('a-titel').select();
+  }
+
+  /* ---------- Reihenfolge der Aufnahmen ---------- */
+  function sortieren(art) {
+    const a = aktuellesAlbum();
+    const titel = (m) => (m.titel || m.datei || '').toLocaleLowerCase('de');
+    const datum = (m) => m.datum || '';
+    const vorher = a.medien.slice();
+    if (art === 'umkehren') a.medien.reverse();
+    else if (art === 'titel') a.medien.sort((x, y) => titel(x).localeCompare(titel(y), 'de', { numeric: true }));
+    else if (art === 'datum' || art === 'datum-neu') {
+      // Ohne Datum ans Ende; gleiche Daten behalten ihre Reihenfolge.
+      const r = art === 'datum' ? 1 : -1;
+      a.medien.sort((x, y) => (!datum(x) - !datum(y)) || r * datum(x).localeCompare(datum(y)));
+    } else return;
+    if (a.medien.every((m, i) => m === vorher[i])) return status('Die Reihenfolge war schon so.', 'gut');
+    zeigeAlbum();
     speichern();
   }
 
@@ -673,10 +765,13 @@
     $('a-titel').value = a.titel || '';
     $('a-beschreibung').value = a.beschreibung || '';
     zeigeFreigabe(a);
+    zeigeEltern(a);
     const liste = $('medienliste');
     liste.innerHTML = '';
     a.medien.forEach((m, i) => liste.append(medienKarte(a, m, i)));
     $('leerhinweis').hidden = a.medien.length > 0;
+    $('sortierleiste').hidden = a.medien.length < 2;
+    $('a-sortieren').value = '';
   }
 
   function aktualisiereKarte(m) {
@@ -693,18 +788,8 @@
     const griff = el('div', 'griff');
     griff.title = 'Ziehen, um die Reihenfolge zu ändern';
     griff.setAttribute('aria-hidden', 'true');
-    griff.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18"><g fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></g></svg>';
-    griff.addEventListener('pointerdown', () => { li.draggable = true; });
-    li.addEventListener('dragstart', (e) => {
-      li.classList.add('zieht');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/x-galerie-medium', m.id);
-    });
-    li.addEventListener('dragend', () => {
-      li.draggable = false;
-      li.classList.remove('zieht');
-      reihenfolgeAusListe();
-    });
+    griff.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><g fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></g></svg>';
+    griffZiehen(griff, li);
 
     const bild = el('button', 'mbild');
     bild.type = 'button';
@@ -772,8 +857,8 @@
     }
 
     const aktionen = el('div', 'maktionen');
-    const hoch = knopf('↑', 'still mini', () => verschiebeMedium(album, index, -1), 'Nach vorne');
-    const runter = knopf('↓', 'still mini', () => verschiebeMedium(album, index, 1), 'Nach hinten');
+    const hoch = knopf('↑', 'zweit mini', () => verschiebeMedium(album, index, -1), 'Eine Stelle nach vorne');
+    const runter = knopf('↓', 'zweit mini', () => verschiebeMedium(album, index, 1), 'Eine Stelle nach hinten');
     hoch.disabled = index === 0;
     runter.disabled = index === album.medien.length - 1;
     const reihe = el('div', 'mreihe');
@@ -788,7 +873,7 @@
       const wohin = el('select', 'klein');
       wohin.setAttribute('aria-label', 'In ein anderes Album verschieben');
       wohin.append(new Option('Verschieben nach …', ''));
-      S.projekt.alben.filter((a) => a !== album).forEach((a) => wohin.append(new Option(a.titel || 'Ohne Namen', a.id)));
+      G.albenBaum(S.projekt).filter((a) => a !== album).forEach((a) => wohin.append(new Option(G.albumPfadText(S.projekt, a), a.id)));
       wohin.addEventListener('change', () => {
         const ziel = S.projekt.alben.find((a) => a.id === wohin.value);
         if (!ziel) return;
@@ -842,6 +927,53 @@
     [album.medien[i], album.medien[j]] = [album.medien[j], album.medien[i]];
     zeigeAlbum();
     speichern();
+  }
+
+  /**
+   * Ziehen am Griff — mit Zeiger-Ereignissen, damit es auch mit dem Finger am
+   * iPad geht (HTML-Drag-and-Drop startet dort nur nach langem Drücken, wenn
+   * überhaupt; Nutzer 10/2026: „keine Funktion gefunden, die Reihenfolge zu wählen").
+   */
+  function griffZiehen(griff, li) {
+    // Die Ereignisse hört während des Ziehens das Fenster: Wandert die Karte im
+    // DOM, verliert der Griff sonst seine Zeiger-Bindung (gefunden im Test).
+    griff.addEventListener('pointerdown', (e) => {
+      if (e.button > 0) return;
+      e.preventDefault();
+      const id = e.pointerId;
+      li.classList.add('zieht');
+      const bewege = (ev) => {
+        if (ev.pointerId !== id) return;
+        ev.preventDefault();
+        const liste = li.parentNode;
+        if (!liste) return;
+        // Über welcher Karte steht der Finger? Dorthin rückt die gezogene Karte.
+        for (const nachbar of liste.children) {
+          if (nachbar === li) continue;
+          const r = nachbar.getBoundingClientRect();
+          if (ev.clientY > r.top && ev.clientY < r.bottom) {
+            const davor = ev.clientY < r.top + r.height / 2;
+            const ziel = davor ? nachbar : nachbar.nextSibling;
+            if (ziel !== li && ziel !== li.nextSibling) liste.insertBefore(li, ziel);
+            break;
+          }
+        }
+        // Am Rand der Ansicht weiterrollen.
+        if (ev.clientY < 60) window.scrollBy(0, -12);
+        else if (ev.clientY > innerHeight - 60) window.scrollBy(0, 12);
+      };
+      const ende = (ev) => {
+        if (ev.pointerId !== id) return;
+        window.removeEventListener('pointermove', bewege);
+        window.removeEventListener('pointerup', ende);
+        window.removeEventListener('pointercancel', ende);
+        li.classList.remove('zieht');
+        reihenfolgeAusListe();
+      };
+      window.addEventListener('pointermove', bewege, { passive: false });
+      window.addEventListener('pointerup', ende);
+      window.addEventListener('pointercancel', ende);
+    });
   }
 
   function reihenfolgeAusListe() {
@@ -909,17 +1041,22 @@
   async function albumLoeschen() {
     const a = aktuellesAlbum();
     const n = a.medien.length;
+    const kinder = G.kinderVon(S.projekt, a);
+    const e = G.elternVon(S.projekt, a);
     const ok = await frage({
       titel: 'Album löschen?',
-      text: (n ? '„' + (a.titel || 'Ohne Namen') + '" und seine ' + n + ' Aufnahmen werden aus der Galerie entfernt und die Kopien im Galerieordner gelöscht. Deine Originaldateien bleiben erhalten.' : '„' + (a.titel || 'Ohne Namen') + '" wird gelöscht.') + verweisText(verweiseAuf(a.medien.map((m) => m.id))),
+      text: (n ? '„' + (a.titel || 'Ohne Namen') + '" und seine ' + n + ' Aufnahmen werden aus der Galerie entfernt und die Kopien im Galerieordner gelöscht. Deine Originaldateien bleiben erhalten.' : '„' + (a.titel || 'Ohne Namen') + '" wird gelöscht.') +
+        (kinder.length ? ' Seine ' + (kinder.length === 1 ? 'Unteralbum „' + (kinder[0].titel || 'Ohne Namen') + '" bleibt' : kinder.length + ' Unteralben bleiben') + ' erhalten und ' + (kinder.length === 1 ? 'rückt' : 'rücken') + (e ? ' in „' + (e.titel || 'Ohne Namen') + '".' : ' auf die oberste Ebene.') : '') +
+        verweisText(verweiseAuf(a.medien.map((m) => m.id))),
       ok: 'Album löschen',
       gefahr: true
     });
     if (!ok) return;
     const alben = S.projekt.alben;
+    kinder.forEach((k) => { if (e) k.eltern = e.id; else delete k.eltern; });
     alben.splice(alben.indexOf(a), 1);
     if (!alben.length) alben.push(neuesAlbum('Neues Album'));
-    S.albumId = alben[0].id;
+    S.albumId = (e || kinder[0] || alben[0]).id;
     zeigeAlben();
     zeigeAlbum();
     speichern();
@@ -952,6 +1089,7 @@
         if (album === aktuellesAlbum()) {
           $('medienliste').append(medienKarte(album, m, album.medien.length - 1));
           $('leerhinweis').hidden = true;
+          $('sortierleiste').hidden = album.medien.length < 2;
           // Der Pfeil „nach hinten" der bisher letzten Karte muss frei werden.
           const vorher = album.medien[album.medien.length - 2];
           if (vorher) aktualisiereKarte(vorher);
@@ -1404,7 +1542,7 @@
       inhalt.append(el('h2', '', 'Noch keine Aufnahmen'), el('p', '', 'Füge zuerst Fotos oder Videos hinzu.'));
     } else {
       inhalt.append(el('h2', 'gut', 'Die Website ist fertig'));
-      const veroeffentlicht = S.projekt.alben.filter((a) => G.freigabe(a) !== 'entwurf' && a.medien.length);
+      const veroeffentlicht = G.albenBaum(S.projekt).filter(G.seitenRegeln(S.projekt).hatSeite);
       const p = el('p');
       p.innerHTML = '<strong>' + anzahl + ' Aufnahmen</strong> (' + G.groesseText(bericht.groesse) + ') in ' + veroeffentlicht.length + (veroeffentlicht.length === 1 ? ' veröffentlichtem Album' : ' veröffentlichten Alben') + '. Für den Webspace:';
       inhalt.append(p);
@@ -1420,7 +1558,7 @@
         for (const a of veroeffentlicht) {
           G.albumOrdner(a);
           const li = el('li');
-          li.append(el('strong', '', (a.titel || 'Ohne Namen') + (G.freigabe(a) === 'link' ? ' 🔗 (nur mit Link)' : '')));
+          li.append(el('strong', '', G.albumPfadText(S.projekt, a) + (G.freigabe(a) === 'link' ? ' 🔗 (nur mit Link)' : '')));
           const zeile = el('div', 'freigabe-link');
           const feldEl = el('input');
           feldEl.readOnly = true;
@@ -1480,7 +1618,8 @@
     if (art === 'webspace') {
       const eintraege = await G.webspaceEintraege(S.wurzel, S.projekt);
       // Ab jetzt sind die Links draußen: Ordnernamen nicht mehr dem Titel nachführen.
-      S.projekt.alben.forEach((a) => { if (G.freigabe(a) !== 'entwurf' && a.medien.length) a.ordnerFest = true; });
+      const { hatSeite } = G.seitenRegeln(S.projekt);
+      S.projekt.alben.forEach((a) => { if (hatSeite(a)) a.ordnerFest = true; });
       speichern();
       return eintraege;
     }
@@ -1696,6 +1835,10 @@
       $('a-titel').select();
     });
     $('k-album-loeschen').addEventListener('click', albumLoeschen);
+    $('k-album-loeschen-oben').addEventListener('click', albumLoeschen);
+    $('k-unteralbum').addEventListener('click', unteralbumAnlegen);
+    $('a-eltern').addEventListener('change', elternAendern);
+    $('a-sortieren').addEventListener('change', () => { const art = $('a-sortieren').value; $('a-sortieren').value = ''; sortieren(art); });
     $('k-dateien').addEventListener('click', () => $('dateiwahl').click());
     $('dateiwahl').addEventListener('change', () => {
       const f = [...$('dateiwahl').files];
@@ -1789,6 +1932,6 @@
   }
   window.G360.app = {
     S, importieren, projektOeffnen, fertigstellen, sofortSpeichern, vorschauOeffnen, vorschauSchliessen,
-    speichern, frage, melde, fehlerText, adresse, adresseVergessen, mediumFinden, aktualisiereKarte, nurBlickWaehlen, einzelneDatei, zeigeAlbum
+    speichern, frage, melde, fehlerText, adresse, adresseVergessen, mediumFinden, aktualisiereKarte, nurBlickWaehlen, einzelneDatei, zeigeAlbum, ergaenzen
   };
 })();
