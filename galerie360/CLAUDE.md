@@ -177,7 +177,12 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 - **Videos**: kein Umwandeln im Browser. Stattdessen mehrere „Fassungen“
   je Video (z. B. 5,7K H.265 + 4K H.264); der Betrachter nimmt die erste,
   die `canPlayType` bejaht, am Handy zuerst ≤ 4096, und probiert bei
-  `error` die nächste. Codec-Kennung kommt aus der `stsd`-Box der MP4
+  `error` die nächste. **Am iPhone/iPad gilt `MOBIL_VIDEO` = 5760** (für
+  Sortierung UND Texturgrenze `maxBreiteVideo`), sonst am Handy 4096: Bis
+  1.0.7 wurde jedes Videobild am iPad per Zeichenfläche auf 4096
+  verkleinert — Nutzer (10/2026): „Qualität schlechter als in der
+  Insta360-App". Fotos bleiben am Handy bei 4096.
+  Test: `test-videoaufloesung.js`. Codec-Kennung kommt aus der `stsd`-Box der MP4
   (`js/medien.js`), nicht aus der Dateiendung.
 - **iOS**: Video nur nach Tippen starten (`play()` im selben Klick), es
   muss im DOM stehen (sonst keine Bilder für WebGL), `playsinline`.
@@ -199,7 +204,8 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 
 `scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`),
 `scripts/test-hotspots.js`, `scripts/test-schutz.js`, `scripts/test-albumordner.js`,
-`scripts/test-grosses-zip.js` und `scripts/test-zip64.js`;
+`scripts/test-grosses-zip.js`, `scripts/test-videoaufloesung.js` und
+`scripts/test-zip64.js`;
 Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,
