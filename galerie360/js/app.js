@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.9';
+  const FASSUNG = '1.0.10';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -497,12 +497,48 @@
   /* ================================================================
    * Editor
    * ================================================================ */
+  /** Kopfzeile: Name der Galerie (zum Umbenennen antippen) und wo sie liegt. */
+  function zeigeKopfname() {
+    $('projektname').textContent = S.projekt.titel || S.wurzel.name;
+    $('projektort').textContent = S.modus === 'browser' ? 'im Browser-Speicher' : 'Ordner „' + S.wurzel.name + '"';
+    document.title = (S.projekt.titel || 'Galerie') + ' — Galerie 360';
+  }
+
+  /** Neuer Galeriename: Kopfzeile, Feld links und Liste „Zuletzt geöffnet" ziehen mit. */
+  function galerieTitelSetzen(titel) {
+    S.projekt.titel = titel;
+    if ($('g-titel').value !== titel) $('g-titel').value = titel;
+    zeigeKopfname();
+    if (!S.schluessel) {
+      // Mit Passwort bleibt der Titel aus der Liste heraus (er stünde dort unverschlüsselt).
+      G.projekteMerken({ schluessel: S.modus + ':' + S.wurzel.name, name: S.wurzel.name, titel, geschuetzt: false, modus: S.modus, handle: S.modus === 'ordner' ? S.wurzel : null, zuletzt: Date.now() });
+    }
+  }
+
+  async function galerieUmbenennen() {
+    const neu = await frage({
+      titel: 'Galerie umbenennen',
+      text: 'Der Name steht als Überschrift über der Galerie und in der Liste deiner Galerien. Die Links zu den Alben ändern sich dadurch nicht.',
+      eingabe: S.projekt.titel || '',
+      platzhalter: 'Name der Galerie',
+      ok: 'Umbenennen'
+    });
+    if (typeof neu !== 'string' || !neu || neu === S.projekt.titel) return;
+    galerieTitelSetzen(neu.slice(0, 120));
+    speichern();
+  }
+
+  function albumUmbenennen() {
+    const f = $('a-titel');
+    f.focus();
+    f.select();
+  }
   function zeigeEditor() {
     $('start').hidden = true;
     $('editor').hidden = false;
     $('editor-knoepfe').hidden = false;
     $('leiste-projekt').hidden = false;
-    $('projektname').textContent = S.modus === 'browser' ? 'Browser-Speicher › ' + S.wurzel.name : 'Ordner › ' + S.wurzel.name;
+    zeigeKopfname();
     status('Alle Änderungen gespeichert', 'gut');
     const sh = $('speicherhinweis');
     sh.hidden = S.modus !== 'browser';
@@ -1846,7 +1882,9 @@
       importieren(f);
     });
 
-    feld('g-titel', (e) => { S.projekt.titel = e.value; document.title = (e.value || 'Galerie') + ' — Galerie 360'; });
+    feld('g-titel', (e) => galerieTitelSetzen(e.value));
+    $('k-galerie-name').addEventListener('click', galerieUmbenennen);
+    $('k-album-name').addEventListener('click', albumUmbenennen);
     feld('g-beschreibung', (e) => { S.projekt.beschreibung = e.value; });
     feld('g-fuss', (e) => { S.projekt.fusszeile = e.value; });
     feld('g-webadresse', (e) => {

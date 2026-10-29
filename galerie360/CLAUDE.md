@@ -169,6 +169,16 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   `../<kind>/`, Unteralbum bekommt `zurueck: {adresse: '../<eltern>/'}`;
   Startseite nur Alben ohne öffentliches Elternalbum. Löschen lässt
   Unteralben eine Ebene höher rücken. Test: `test-unteralben.js`.
+- **Umbenennen (Wunsch des Nutzers, 10/2026: „Namen der Galerie und des
+  Albums ändern").** Ging schon (Feld „Titel" links, Albumtitel als Feld),
+  war aber nicht zu erkennen — links eingeklappt am iPad hochkant, der
+  Albumtitel sah aus wie eine Überschrift. Jetzt: Kopfzeile zeigt den
+  GALERIENAMEN (nicht mehr „Browser-Speicher › ordner") als Knopf mit ✎,
+  `galerieTitelSetzen` zieht Feld, Kopfzeile und „Zuletzt geöffnet" mit
+  (nicht bei Passwort: Titel bliebe sonst unverschlüsselt in IndexedDB);
+  neben dem Albumtitel „✎ Umbenennen". Der Speicherordner behält seinen
+  Namen (OPFS kann Ordner nicht verlässlich umbenennen). Test: Teil
+  „Umbenennen" in `test-unteralben.js`.
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind

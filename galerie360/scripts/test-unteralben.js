@@ -194,6 +194,23 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   a = await alben();
   pruefe(a.length === 2 && a[1].titel === 'Abend' && a[1].eltern === a[0].id && a[1].n === 1, '„Tag 1" gelöscht, „Abend" rückt in „Urlaub" und behält sein Foto');
 
+  console.log('Umbenennen');
+  await seite.click('#k-galerie-name');
+  await seite.waitForSelector('#dlg-frage[open]');
+  pruefe((await seite.inputValue('#frage-eingabe')) === 'Familie', 'Kopfzeile: Antippen des Namens öffnet „Galerie umbenennen" mit dem bisherigen Namen');
+  await seite.fill('#frage-eingabe', 'Familie Jerosch');
+  await seite.click('#frage-ja');
+  pruefe((await E(() => window.G360.app.S.projekt.titel)) === 'Familie Jerosch' && (await seite.inputValue('#g-titel')) === 'Familie Jerosch' && (await seite.textContent('#projektname')) === 'Familie Jerosch', 'Galeriename geändert: Projekt, Feld links und Kopfzeile');
+  await seite.click('#k-album-name');
+  pruefe(await E(() => document.activeElement.id === 'a-titel'), '„✎ Umbenennen" setzt den Cursor in den Albumnamen');
+  await seite.fill('#a-titel', 'Sommerurlaub');
+  pruefe(/Sommerurlaub/.test(await seite.textContent('.album.gewaehlt')), 'Neuer Albumname steht sofort in der Seitenleiste');
+  await E(() => window.G360.app.sofortSpeichern());
+  await seite.click('#k-schliessen');
+  await seite.waitForSelector('#start:not([hidden])');
+  await seite.waitForFunction(() => /Familie Jerosch/.test(document.getElementById('start').textContent), null, { timeout: 10000 }).catch(() => {});
+  pruefe(/Familie Jerosch/.test(await seite.textContent('#start')), 'Liste der Galerien zeigt den neuen Namen');
+
   console.log('Daten');
   const kreis = await E(() => {
     const p = { alben: [{ id: 'x', eltern: 'y', medien: [] }, { id: 'y', eltern: 'x', medien: [] }, { id: 'z', eltern: 'fehlt', medien: [] }, { id: 'w', eltern: 'w', medien: [] }] };
