@@ -17,6 +17,10 @@
     <link rel="stylesheet" href="./css/generator.css" />
   </head>
   <body>
+    <div class="neufassung" id="neufassung" hidden>
+      <span>Eine neue Fassung von Galerie 360 ist geladen.</span>
+      <button type="button" id="k-neu-laden" class="haupt klein">Jetzt neu laden</button>
+    </div>
     <header class="leiste">
       <a class="marke" href="./" id="marke">
         <img src="./icons/icon.svg" alt="" width="28" height="28" />
@@ -32,6 +36,7 @@
       <div class="leiste-rechts">
         <span id="editor-knoepfe" class="knopfreihe" hidden>
           <button type="button" id="k-hotspots" class="still" title="Symbole und Informationspunkte in den Aufnahmen setzen">Hotspots</button>
+          <button type="button" id="k-teilen" class="zweit" title="Link zur ganzen Galerie mit allen veröffentlichten Alben">Galerie teilen …</button>
           <button type="button" id="k-vorschau" class="zweit">Vorschau</button>
           <button type="button" id="k-fertig" class="haupt">Website fertigstellen</button>
           <button type="button" id="k-schliessen" class="still" title="Projekt schließen und zur Übersicht">Schließen</button>
@@ -69,11 +74,22 @@
       </section>
 
       <p class="datenschutz">Alles läuft auf diesem Rechner. Deine Fotos und Videos werden nirgendwohin übertragen.</p>
+      <p class="fassung" id="fassung"></p>
     </main>
 
     <!-- ===================== Editor ===================== -->
     <div id="editor" class="editor" hidden>
       <aside class="seitenleiste">
+        <section class="block" id="teilenblock">
+          <h2>Ganze Galerie teilen</h2>
+          <div class="freigabe-link">
+            <input type="text" id="g-link-text" readonly aria-label="Link zur ganzen Galerie" />
+            <button type="button" id="k-glink-kopieren" class="zweit klein">Kopieren</button>
+            <button type="button" id="k-glink-teilen" class="zweit klein" hidden>Teilen …</button>
+          </div>
+          <p class="klein" id="g-link-text-info">Eine Seite mit allen veröffentlichten Alben dieser Galerie, auch denen „nur mit Link“, aber ohne Entwürfe. Der Link ist so lang, dass ihn niemand errät. Er gilt, sobald das „ZIP für den Webspace“ hochgeladen ist.</p>
+          <button type="button" id="k-glink-neu" class="still klein" title="Der bisherige Link funktioniert danach nicht mehr">Neuer Link …</button>
+        </section>
         <details class="block" id="galerieblock" open>
           <summary><h2>Galerie</h2><span class="klappzeichen" aria-hidden="true"></span></summary>
           <label class="feld">Titel
@@ -103,16 +119,6 @@
             <input type="url" id="g-webadresse" maxlength="300" placeholder="https://jerosch.net/apps/galerie360/360Grad/" inputmode="url" />
           </label>
         </details>
-        <section class="block" id="teilenblock">
-          <h2>Ganze Galerie teilen</h2>
-          <div class="freigabe-link">
-            <input type="text" id="g-link-text" readonly aria-label="Link zur ganzen Galerie" />
-            <button type="button" id="k-glink-kopieren" class="zweit klein">Kopieren</button>
-            <button type="button" id="k-glink-teilen" class="zweit klein" hidden>Teilen …</button>
-          </div>
-          <p class="klein" id="g-link-text-info">Eine Seite mit allen veröffentlichten Alben dieser Galerie, auch denen „nur mit Link“, aber ohne Entwürfe. Der Link ist so lang, dass ihn niemand errät. Er gilt, sobald das „ZIP für den Webspace“ hochgeladen ist.</p>
-          <button type="button" id="k-glink-neu" class="still klein" title="Der bisherige Link funktioniert danach nicht mehr">Neuer Link …</button>
-        </section>
         <section class="block" id="schutzblock">
           <h2>Schutz</h2>
           <p id="schutz-text" class="klein"></p>

@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.12';
+  const FASSUNG = '1.0.13';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -1072,6 +1072,12 @@
     const oben = alben.filter((a) => !elternVon(a));
     // Albumseite im eigenen Ordner: dieses Album ist die Seite; zurueck führt eine Ebene höher.
     const seitenAlbum = alben.find((a) => a.id === daten.album && !a.adresse) || null;
+    // Datenfassung 2 (1.0.13): Die Galerie ist die oberste Ebene und zeigt ihre Alben
+    // immer als Karten, auch wenn es nur eines gibt; ein Album trägt seinen eigenen
+    // Titel, der Galeriename steht klein darüber. Fassung 1 (ältere Seiten auf dem
+    // Webspace) sprang bei einem einzigen Album direkt hinein.
+    const neueSeite = (+daten.version || 1) >= 2;
+    const galerieName = typeof daten.galerie === 'string' ? daten.galerie : (daten.titel || '');
     const ZURUECK_ADRESSE = /^\.\.\/([a-z0-9-]+\/)?$/;
     const zurueckNach = daten.zurueck && ZURUECK_ADRESSE.test(daten.zurueck.adresse || '')
       ? { adresse: daten.zurueck.adresse, titel: String(daten.zurueck.titel || '') } : null;
@@ -1141,7 +1147,7 @@
       const r = route();
       let album = alben.find((a) => a.id === r.album && !a.adresse) || null;
       if (!album && seitenAlbum) album = seitenAlbum;
-      if (!album && oben.length === 1 && !oben[0].adresse) album = oben[0];
+      if (!album && !neueSeite && oben.length === 1 && !oben[0].adresse) album = oben[0];
       if (album !== aktuellesAlbum || !seite.firstChild) {
         aktuellesAlbum = album;
         if (album) zeichneAlbum(album);
@@ -1166,7 +1172,7 @@
     function zurueckVon(album) {
       const p = elternVon(album);
       if (p) return { text: p.titel || 'Album', route: 'a/' + p.id };
-      if (album === seitenAlbum || (!seitenAlbum && oben.length === 1)) {
+      if (album === seitenAlbum || (!neueSeite && !seitenAlbum && oben.length === 1)) {
         if (zurueckNach) return { text: zurueckNach.titel || 'Alle Alben', adresse: zurueckNach.adresse };
         if (startseite) return { text: 'Alle Alben', adresse: startseite };
         return null;
@@ -1174,7 +1180,7 @@
       return { text: 'Alle Alben', route: '' };
     }
 
-    function kopf(titel, text, zurueck) {
+    function kopf(titel, text, zurueck, oberzeile) {
       const k = el('header', 'g-kopf');
       const leiste = el('div', 'g-kopfleiste');
       if (zurueck) {
@@ -1203,7 +1209,7 @@
       });
       leiste.append(tk);
       k.append(leiste);
-      if (zurueck && daten.titel) k.append(el('p', 'g-oberzeile', daten.titel));
+      if (oberzeile) k.append(el('p', 'g-oberzeile', oberzeile));
       k.append(el('h1', 'g-titel', titel || ''));
       if (text) k.append(el('p', 'g-beschreibung', text));
       return k;
@@ -1285,10 +1291,17 @@
     /* ---------- Album ---------- */
     function zeichneAlbum(album) {
       seite.innerHTML = '';
-      // Eigener Titel, sobald die Seite mehr als dieses eine Album zeigt.
-      const eigen = album !== seitenAlbum && (oben.length > 1 || !!elternVon(album));
-      seite.append(kopf(eigen ? album.titel : (daten.titel || album.titel),
-        eigen ? album.beschreibung : (daten.beschreibung || album.beschreibung), zurueckVon(album)));
+      const zurueck = zurueckVon(album);
+      if (neueSeite) {
+        // Das Album heißt wie das Album; der Name der Galerie steht klein darüber.
+        seite.append(kopf(album.titel || 'Album', album.beschreibung, zurueck,
+          galerieName && galerieName !== album.titel ? galerieName : ''));
+      } else {
+        // Ältere Seiten: eigener Titel erst, wenn die Seite mehr als dieses eine Album zeigt.
+        const eigen = album !== seitenAlbum && (oben.length > 1 || !!elternVon(album));
+        seite.append(kopf(eigen ? album.titel : (daten.titel || album.titel),
+          eigen ? album.beschreibung : (daten.beschreibung || album.beschreibung), zurueck, zurueck && daten.titel));
+      }
       const haupt = el('main', 'g-haupt');
       const info = el('p', 'g-albuminfo', zaehler(album));
       haupt.append(info);
@@ -1335,7 +1348,7 @@
       });
       haupt.append(raster);
       seite.append(haupt, fuss());
-      document.title = (album.titel ? album.titel + ' – ' : '') + (daten.titel || 'Galerie');
+      document.title = (album.titel ? album.titel + ' – ' : '') + (galerieName || 'Galerie');
     }
 
     /* ---------- Betrachter ---------- */
@@ -1797,7 +1810,7 @@
       v.dauer.textContent = zeitText(m.dauer || 0);
       v.playKnopf.innerHTML = symbol('play');
       spurFarbe();
-      document.title = v.titel.textContent + ' – ' + (daten.titel || 'Galerie');
+      document.title = v.titel.textContent + ' – ' + (galerieName || 'Galerie');
 
       if (!v.pano) {
         meldung('Dieser Browser kann keine 360°-Ansicht darstellen (WebGL ist nicht verfügbar oder abgeschaltet).',

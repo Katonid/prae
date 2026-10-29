@@ -4,7 +4,7 @@
  * bleibt auf den Geräten die alte Fassung im Zwischenspeicher.
  * Die Galerien selbst (Blob-Adressen, Browser-Speicher) laufen nicht hier durch.
  */
-const FASSUNG = 'v12';
+const FASSUNG = 'v13';
 const DATEIEN = [
   './',
   './index.html',
@@ -27,7 +27,12 @@ const DATEIEN = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open('galerie360-' + FASSUNG).then((c) => c.addAll(DATEIEN)).then(() => self.skipWaiting()));
+  // cache: 'reload' — am Browser-Zwischenspeicher vorbei. jerosch.net schickt keine
+  // Cache-Angaben, Safari schätzt die Frische dann selbst und lieferte der neuen
+  // Fassung alte Dateien (10/2026: iPad zeigte Stunden nach dem Hochladen noch 1.0.9).
+  e.waitUntil(caches.open('galerie360-' + FASSUNG)
+    .then((c) => c.addAll(DATEIEN.map((d) => new Request(d, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {

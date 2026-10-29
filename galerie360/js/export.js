@@ -118,8 +118,9 @@
     alben.forEach((a) => a.medien.forEach((m) => hier.add(m.id)));
     return {
       format: 'galerie360',
-      version: 1,
+      version: 2, // 2: Galerie zeigt Alben immer als Karten, Album trägt eigenen Titel (galerie.js)
       titel: seite.titel != null ? seite.titel : p.titel,
+      galerie: seite.privat ? '' : (p.titel || ''),
       beschreibung: seite.beschreibung != null ? seite.beschreibung : p.beschreibung,
       fusszeile: p.fusszeile,
       basis: seite.basis || '',
@@ -276,7 +277,7 @@
       const ordner = G.albumOrdner(a);
       gewollt.add(ordner);
       await G.dateiSchreiben(wurzel, ordner + '/index.html', G.indexHtml(p, stempel, {
-        alben: [a], basis: '../', titel: a.titel || p.titel, beschreibung: a.beschreibung || '', geheim: true
+        alben: [a], basis: '../', titel: a.titel || p.titel, beschreibung: a.beschreibung || '', geheim: true, album: a.id
       }));
     }
     for await (const [name, h] of wurzel.entries()) {

@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.12';
+  const FASSUNG = '1.0.13';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -667,6 +667,23 @@
     S.projekt.galerieOrdnerFest = false;
     zeigeGalerieLink();
     speichern();
+  }
+
+  /** Kopfzeile „Galerie teilen …": Teilen-Menü (iPhone/iPad) bzw. Link mit Kopieren-Knopf. */
+  async function galerieTeilen() {
+    const link = G.galerieLink(S.projekt);
+    S.projekt.galerieOrdnerFest = true;
+    zeigeGalerieLink();
+    speichern();
+    const zahl = G.galerieAlben(S.projekt).length;
+    if (!zahl) return melde('Noch nichts zu teilen', 'Diese Galerie hat noch kein veröffentlichtes Album mit Aufnahmen. Stell bei einem Album „Öffentlich" oder „Nur mit geheimem Link" ein.');
+    if (navigator.share) return linkTeilen(S.projekt.titel || 'Galerie', link);
+    const ok = await frage({
+      titel: 'Link zur ganzen Galerie',
+      text: 'Zeigt alle ' + zahl + (zahl === 1 ? ' veröffentlichte Album' : ' veröffentlichten Alben') + ' dieser Galerie zur Auswahl — gilt, sobald das „ZIP für den Webspace" hochgeladen ist:\n' + link,
+      ok: 'Link kopieren'
+    });
+    if (ok) linkKopieren(link);
   }
 
   /** Teilen-Menü des Geräts (iPhone/iPad: Nachrichten, Mail …) — nur eine Adresse, keine Datei. */
@@ -1939,6 +1956,7 @@
     $('k-link-kopieren').addEventListener('click', (e) => linkKopieren($('a-link-text').value, e.currentTarget));
     $('k-glink-kopieren').addEventListener('click', (e) => { S.projekt.galerieOrdnerFest = true; speichern(); linkKopieren($('g-link-text').value, e.currentTarget); });
     $('k-glink-neu').addEventListener('click', neuerGalerieLink);
+    $('k-teilen').addEventListener('click', galerieTeilen);
     if (navigator.share) {
       $('k-glink-teilen').hidden = false;
       $('k-link-teilen').hidden = false;
@@ -2015,8 +2033,24 @@
   if (IOS) $('dateiwahl').removeAttribute('accept');
   zeigeStart();
   // Offline-Betrieb und „Zum Home-Bildschirm" (nicht in der Einzeldatei über file://).
+  $('fassung').textContent = 'Galerie 360 · Fassung ' + FASSUNG;
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // Neue Fassung sichtbar machen (10/2026: Die App vom Home-Bildschirm zeigte noch Tage
+    // nach dem Hochladen die alte). Beim Zurückkehren in die App nach einer neuen fragen;
+    // übernimmt eine neue die Seite, gleich neu laden (Startseite) oder fragen (offene Galerie).
+    let hatteSteuerung = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hatteSteuerung) { hatteSteuerung = true; return; } // erste Installation
+      if (!S.projekt) location.reload();
+      else $('neufassung').hidden = false;
+    });
+    $('k-neu-laden').addEventListener('click', async () => {
+      if (S.projekt) { try { await sofortSpeichern(); } catch (_) { /* Speichern meldet selbst */ } }
+      location.reload();
+    });
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => {});
   }
   window.G360.app = {
     S, importieren, projektOeffnen, fertigstellen, sofortSpeichern, vorschauOeffnen, vorschauSchliessen,

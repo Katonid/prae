@@ -202,9 +202,12 @@ const PW2 = 'Herbst 2026 im Wald';
   const b = await c.newPage();
   b.on('pageerror', (e) => konsole.push('galerie: ' + e.message));
   await b.goto(`http://127.0.0.1:${ws.address().port}/familie-sicherung/`);
+  await b.waitForSelector('.g-albumkarte');
+  // Nur ein öffentliches Album: Die Startseite (Galerie „Familie") zeigt es als Karte (seit 1.0.13).
+  pruefe((await b.$$eval('.g-albumkarte', (l) => l.length)) === 1 && /Familie/.test(await b.textContent('.g-titel')) && !/Geheim|Entwurf/.test(await b.textContent('body')), 'Startseite zeigt nur das öffentliche Album');
+  await b.click('.g-albumkarte');
   await b.waitForSelector('.g-kachel');
-  // Nur ein öffentliches Album: Die Startseite zeigt es direkt, unter dem Galerietitel.
-  pruefe((await b.$$eval('.g-kachel', (l) => l.length)) === 1 && /Familie/.test(await b.textContent('.g-titel')) && !/Geheim|Entwurf/.test(await b.textContent('body')), 'Startseite zeigt nur das öffentliche Album');
+  pruefe((await b.$$eval('.g-kachel', (l) => l.length)) === 1, 'Karte öffnet das öffentliche Album mit seiner Aufnahme');
   await b.goto(`http://127.0.0.1:${ws.address().port}/familie-sicherung/${token2}/`);
   await b.waitForSelector('.g-kachel');
   pruefe(/Geheimes Album/.test(await b.textContent('.g-titel')), 'Geheimer Link öffnet das geheime Album');

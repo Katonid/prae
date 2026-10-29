@@ -191,6 +191,23 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   Bekannt, nicht gelöst: Mehrere Galerien teilen sich `360Grad/index.html`
   — die zuletzt hochgeladene gewinnt. Tests: `test-unteralben.js`,
   `test-albumordner.js` (iPad-Teilen).
+- **Galerie ist die oberste Ebene (10/2026, Nutzer: „grundlegendes Problem
+  zwischen Galerie und Album … beim geteilten Album erscheint der Titel der
+  Galerie").** Betrachter-Daten `version: 2` (`galerieDaten`): Die Startseite
+  zeigt Alben IMMER als Karten, auch ein einziges (vorher sprang sie hinein
+  und zeigte Galerietitel + Albumbeschreibung); ein Album trägt seinen
+  Titel, `daten.galerie` steht als Oberzeile darüber. Seiten mit
+  `version: 1` (alte Albumseiten auf dem Webspace mit neuem gemeinsamem
+  `assets/`) verhalten sich wie früher — nicht entfernen.
+- **Neue Fassung erreicht das iPad (10/2026: Home-Bildschirm-App Stunden
+  nach dem Hochladen noch auf 1.0.9, obwohl der Server 1.0.11 hatte).**
+  Ursache nachgestellt: Der neue Service Worker installierte, holte aber
+  per `addAll` die ALTE app.js aus dem Browser-Zwischenspeicher (jerosch.net
+  schickt keine Cache-Angaben → Safari schätzt). Jetzt `new Request(d,
+  {cache: 'reload'})`, `reg.update()` bei `visibilitychange`, bei
+  `controllerchange` Startseite neu laden bzw. Leiste „Jetzt neu laden";
+  Fassung unten auf der Startseite. Test: `test-neufassung.js` (schlägt mit
+  dem alten sw.js fehl — so geprüft).
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind
@@ -255,7 +272,8 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 `scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`),
 `scripts/test-hotspots.js`, `scripts/test-schutz.js`, `scripts/test-albumordner.js`,
 `scripts/test-grosses-zip.js`, `scripts/test-videoaufloesung.js`,
-`scripts/test-unteralben.js` und `scripts/test-zip64.js`;
+`scripts/test-unteralben.js`, `scripts/test-neufassung.js` und
+`scripts/test-zip64.js`;
 Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,
