@@ -62,6 +62,11 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   await seite.waitForFunction(() => document.querySelectorAll('.medium').length === 3 && !document.querySelector('#warteschlange li'), null, { timeout: 120000 });
   await seite.fill('#a-titel', 'Urlaub');
 
+  pruefe(/Fassung \d+\.\d+\.\d+/.test(await E(() => document.getElementById('fassung').textContent)), 'Startseite nennt die Fassung: ' + await E(() => document.getElementById('fassung').textContent));
+  pruefe(await seite.isVisible('#k-teilen'), 'Kopfzeile: „Galerie teilen …"');
+  const teilenOben = await E(() => document.querySelector('.seitenleiste').firstElementChild.id);
+  pruefe(teilenOben === 'teilenblock', '„Ganze Galerie teilen" steht oben in der Seitenleiste');
+
   console.log('Album löschen ist sichtbar');
   const oben = await seite.$('#k-album-loeschen-oben');
   const box = oben && await oben.boundingBox();
@@ -133,8 +138,14 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
 
   console.log('Vorschau');
   await seite.click('#k-vorschau');
+  await seite.waitForSelector('#vorschau .g-albumkarte');
+  pruefe((await seite.textContent('#vorschau .g-titel')) === 'Familie' && (await seite.$$eval('#vorschau .g-alben > .g-albumkarte h2', (l) => l.map((h) => h.textContent))).join() === 'Urlaub',
+    'Vorschau beginnt mit der Galerie „Familie" und zeigt ihr (einziges) Album als Karte zur Auswahl');
+  await seite.click('#vorschau .g-albumkarte');
   await seite.waitForSelector('#vorschau .g-unteralben .g-albumkarte');
-  pruefe((await seite.$$eval('#vorschau .g-unteralben .g-albumkarte h2', (l) => l.map((h) => h.textContent))).join() === 'Tag 1', 'Vorschau: einziges oberes Album direkt, mit Karte seines Unteralbums');
+  pruefe((await seite.textContent('#vorschau .g-titel')) === 'Urlaub' && (await seite.textContent('#vorschau .g-oberzeile')) === 'Familie' && /Alle Alben/.test(await seite.textContent('#vorschau .g-zurueck')),
+    'Album trägt seinen eigenen Titel „Urlaub", der Galeriename steht klein darüber, „Alle Alben" führt zurück');
+  pruefe((await seite.$$eval('#vorschau .g-unteralben .g-albumkarte h2', (l) => l.map((h) => h.textContent))).join() === 'Tag 1', 'Album zeigt die Karte seines Unteralbums');
   await seite.click('#vorschau .g-unteralben .g-albumkarte');
   await seite.waitForSelector('#vorschau .g-kachel');
   pruefe(/Tag 1/.test(await seite.textContent('#vorschau .g-titel')) && /Urlaub/.test(await seite.textContent('#vorschau .g-zurueck')), 'Vorschau: Unteralbum mit „zurück zu Urlaub"');
@@ -179,6 +190,7 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   await b.waitForSelector('.g-kachel');
   pruefe(b.url() === basis + oT + '/', 'Klick öffnet die Seite von „Tag 1"');
   pruefe(/Urlaub/.test(await b.textContent('.g-zurueck')), '„Tag 1" führt zurück zu „Urlaub"');
+  pruefe((await b.textContent('.g-titel')) === 'Tag 1' && (await b.textContent('.g-oberzeile')) === 'Familie' && /^Tag 1 – Familie/.test(await b.title()), 'Geteilte Albumseite: Titel des Albums, darüber der Galeriename, Fenstertitel „Tag 1 – Familie"');
   await b.click('.g-zurueck');
   await b.waitForSelector('.g-unteralben');
   pruefe(b.url() === basis + oU + '/', 'Zurück landet auf „Urlaub"');
