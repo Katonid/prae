@@ -101,7 +101,7 @@ const pruefe = (bedingung, text) => {
   await seite.waitForSelector('#dlg-frage[open]');
   await seite.click('#frage-nein');
   const ORDNER = BROWSERMODUS ? ['galerien', 'sommer-in-norwegen'] : ['testprojekte'];
-  pruefe(await seite.textContent('#projektname') === (BROWSERMODUS ? 'Browser-Speicher › sommer-in-norwegen' : 'Ordner › testprojekte'), 'Projekt angelegt: ' + await seite.textContent('#projektname'));
+  pruefe(await seite.textContent('#projektname') === 'Sommer in Norwegen' && await seite.textContent('#projektort') === (BROWSERMODUS ? 'im Browser-Speicher' : 'Ordner „testprojekte"'), 'Projekt angelegt: ' + await seite.textContent('#projektname') + ' (' + await seite.textContent('#projektort') + ')');
   await seite.screenshot({ path: path.join(aus, '1-editor-leer.png') });
 
   await seite.fill('#g-beschreibung', 'Fjorde, Berge und Mitternachtssonne.');

@@ -23,7 +23,10 @@
         <span>Galerie 360</span>
       </a>
       <div class="leiste-projekt" id="leiste-projekt" hidden>
-        <span class="projektname" id="projektname"></span>
+        <button type="button" class="projektname" id="k-galerie-name" title="Namen der Galerie ändern">
+          <span id="projektname"></span><span class="stift" aria-hidden="true">✎</span>
+        </button>
+        <span class="projektort" id="projektort"></span>
         <span class="status" id="status" aria-live="polite"></span>
       </div>
       <div class="leiste-rechts">
@@ -120,7 +123,10 @@
 
       <section class="arbeitsflaeche" id="arbeitsflaeche">
         <div class="albumkopf">
-          <input type="text" id="a-titel" class="albumtitel" placeholder="Name des Albums" maxlength="120" aria-label="Name des Albums" />
+          <div class="albumtitelzeile">
+            <input type="text" id="a-titel" class="albumtitel" placeholder="Name des Albums" maxlength="120" aria-label="Name des Albums" />
+            <button type="button" id="k-album-name" class="zweit klein" title="Namen des Albums ändern">✎ Umbenennen</button>
+          </div>
           <textarea id="a-beschreibung" rows="2" placeholder="Beschreibung des Albums (optional)" aria-label="Beschreibung des Albums"></textarea>
           <div class="freigabe">
             <label class="freigabe-wahl">Veröffentlichen
