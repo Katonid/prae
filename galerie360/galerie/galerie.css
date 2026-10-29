@@ -257,15 +257,17 @@ body.g360-seite { margin: 0; background: #0e0f12; }
   outline: none;
 }
 .g360 .g-leinwand:active { cursor: grabbing; }
-/* Das Video selbst bleibt unsichtbar; es liefert nur die Bilder für WebGL.
-   Es muss trotzdem im Dokument stehen — iOS dekodiert sonst keine Bilder. */
+/* Das Video liefert nur die Bilder für WebGL. Es muss im Dokument stehen
+   (iOS dekodiert sonst keine Bilder) und liegt in voller Größe HINTER der
+   undurchsichtigen Leinwand. Bis 1.0.11 war es 2 × 2 Pixel und fast
+   durchsichtig — Safari behandelt so ein Video als unsichtbar und liefert
+   seltener neue Bilder; Bild und Ton liefen auseinander (10/2026). */
 .g360 .g-videoquelle {
   position: absolute;
-  left: 0;
-  top: 0;
-  width: 2px;
-  height: 2px;
-  opacity: 0.01;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   pointer-events: none;
 }
 

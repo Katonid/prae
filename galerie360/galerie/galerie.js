@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.11';
+  const FASSUNG = '1.0.12';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -147,10 +147,27 @@
      * null gibt den Grafikspeicher frei.
      */
     setzeQuelle(quelle, istVideo) {
+      if (this._rvfc && this.quelle && this.quelle.cancelVideoFrameCallback) this.quelle.cancelVideoFrameCallback(this._rvfc);
+      this._rvfc = 0;
       this.quelle = quelle;
       this.istVideo = !!istVideo;
       this.letzteZeit = -1;
       this._zwischen = null;
+      this._neuesBild = true;
+      // Neues Videobild genau dann holen, wenn der Browser eines fertig hat
+      // (10/2026: in der Vorschau liefen Bild und Ton auseinander — Safari
+      // rückt currentTime nicht bei jedem Bild weiter, und das Abfragen danach
+      // verpasste Bilder).
+      this._mitRvfc = !!(istVideo && quelle && quelle.requestVideoFrameCallback);
+      if (this._mitRvfc) {
+        const q = quelle;
+        const weiter = () => {
+          if (this.quelle !== q) return;
+          this._neuesBild = true;
+          this._rvfc = q.requestVideoFrameCallback(weiter);
+        };
+        this._rvfc = q.requestVideoFrameCallback(weiter);
+      }
       if (!quelle) {
         this._leeren();
       } else if (!istVideo) {
@@ -364,9 +381,13 @@
         bewegt = true;
       }
       if (this.istVideo && this.quelle && this.quelle.readyState >= 2) {
-        const zeit = this.quelle.currentTime;
-        if (zeit !== this.letzteZeit || !this.hatTextur) {
-          if (this._lade(this.quelle)) this.letzteZeit = zeit;
+        const q = this.quelle;
+        // Mit requestVideoFrameCallback: bei jedem neuen Bild. Ohne: bei jedem
+        // Durchlauf, solange das Video läuft, sonst nur nach einem Sprung.
+        const neu = this._mitRvfc ? this._neuesBild : (!q.paused || q.currentTime !== this.letzteZeit);
+        if (neu || !this.hatTextur) {
+          this._neuesBild = false;
+          if (this._lade(q)) this.letzteZeit = q.currentTime;
           bewegt = true;
         }
       }
@@ -1393,7 +1414,8 @@
       v.steuer.append(v.playKnopf, v.zeit, v.spur, v.dauer, v.tonKnopf, v.lautstaerke);
       v.unten.append(v.info, v.steuer);
 
-      v.wurzel.append(v.canvas, v.video, v.hsHost, v.laden, v.start, v.meldung, v.oben, v.zurueck, v.vor, v.unten, v.ifHost, v.toast);
+      // Video VOR der Leinwand: liegt in voller Größe dahinter (siehe galerie.css).
+      v.wurzel.append(v.video, v.canvas, v.hsHost, v.laden, v.start, v.meldung, v.oben, v.zurueck, v.vor, v.unten, v.ifHost, v.toast);
       viewerHost.append(v.wurzel);
 
       try {

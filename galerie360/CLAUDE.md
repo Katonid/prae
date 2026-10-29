@@ -226,6 +226,18 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   muss im DOM stehen (sonst keine Bilder für WebGL), `playsinline`.
   Lautstärke lässt iOS nicht zu (Regler ausgeblendet). Kein
   Element-Vollbild auf dem iPhone: Ersatz blendet die Bedienung aus.
+- **Bild und Ton synchron (10/2026: Nutzer „in der Vorschau nicht
+  synchron"; Vorschau = derselbe Betrachter wie online).** Zwei Ursachen
+  behoben: (1) Das Video-Element war 2 × 2 px und `opacity: 0.01` — Safari
+  behandelt so ein Video als unsichtbar und liefert seltener Bilder. Jetzt
+  liegt es in voller Größe HINTER der Leinwand (`alpha: false`, deckt
+  vollständig; DOM-Reihenfolge video, canvas). (2) Neue Bilder nur bei
+  geändertem `currentTime` geholt — Safari rückt das nicht je Bild weiter.
+  Jetzt `requestVideoFrameCallback` (setzt `_neuesBild`, die rAF-Schleife
+  lädt), Rückfall ohne rVFC: bei jedem Durchlauf, solange das Video läuft.
+  Test: `test-videoaufloesung.js` (Lage des Videos, Übertragungen je
+  gezeigtem Bild bzw. Durchlauf). Echte Synchronität misst der Container
+  NICHT (Software-Grafik, kein Safari).
 - **Beim Schließen/Wechseln `src` entfernen und `load()`**, sonst behält
   der Browser Decoder und Puffer. Der Test prüft das.
 - **`<dialog>`: das `close`-Ereignis kommt verspätet.** Folgt sofort die
