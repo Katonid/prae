@@ -84,6 +84,18 @@
     return teile.join(' › ');
   };
 
+  /**
+   * Ordner der Seite „ganze Galerie" (1.0.11, Wunsch des Nutzers: „den Link zu
+   * einer ganzen Galerie teilen"): wie ein Albumordner, lesbarer Titel + 26
+   * Zufallszeichen. Die Seite ist immer geheim — wer den Link hat, sieht alle
+   * veröffentlichten Alben dieser Galerie, auch die „nur mit Link".
+   */
+  G.galerieOrdner = function (p) {
+    if (!G.ORDNER_MUSTER.test(p.galerieOrdner || '')) p.galerieOrdner = G.albumOrdnerName(p.titel || 'galerie');
+    return p.galerieOrdner;
+  };
+  G.galerieLink = (p) => G.webadresse(p) + G.galerieOrdner(p) + '/';
+
   /** Ordnername des Albums; fehlt er (alte Daten), wird er jetzt vergeben. */
   G.albumOrdner = function (a) {
     if (!G.ORDNER_MUSTER.test(a.ordner || '')) a.ordner = G.albumOrdnerName(a.titel);
@@ -331,6 +343,18 @@
       ? G.indexHtml(p, stempel, { alben: oben.map((a) => karte(a, '')) })
       : G.indexHtml(p, stempel, { alben: [], privat: true, titel: '', beschreibung: '' }));
 
+    // Ganze Galerie: alle Alben, die nicht schon auf der Seite ihres Elternalbums stehen.
+    const galerieAlben = G.galerieAlben(p);
+    if (galerieAlben.length) {
+      const go = G.galerieOrdner(p);
+      text(go + '/assets/galerie.js', q.js, 'text/javascript');
+      text(go + '/assets/galerie.css', q.css, 'text/css');
+      text(go + '/assets/index.html', LEER_INDEX);
+      text(go + '/index.html', G.indexHtml(p, stempel, {
+        alben: galerieAlben.map((a) => karte(a, '../')), basis: '', titel: p.titel, beschreibung: p.beschreibung, geheim: true
+      }));
+    }
+
     for (const a of veroeffentlicht) {
       const ordner = G.albumOrdner(a);
       const geheim = G.freigabe(a) === 'link';
@@ -385,6 +409,16 @@
     }
     const sichtbareKinder = (a) => G.kinderVon(p, a).filter((k) => hatSeite(k) && darf(a, k));
     return { hatSeite, darf, sichtbareKinder };
+  };
+
+  /** Alben auf der Seite „ganze Galerie": veröffentlicht und nicht schon auf der Seite des Elternalbums. */
+  G.galerieAlben = function (p) {
+    const { hatSeite, darf } = G.seitenRegeln(p);
+    return G.albenBaum(p).filter((a) => {
+      if (!hatSeite(a)) return false;
+      const e = G.elternVon(p, a);
+      return !(e && hatSeite(e) && darf(e, a));
+    });
   };
 
   /** Vorschaubild für die Karte eines Albums — eigenes oder das eines sichtbaren Unteralbums. */

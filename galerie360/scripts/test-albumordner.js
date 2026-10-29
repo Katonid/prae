@@ -94,7 +94,7 @@ const zipNamen = (zip) => execFileSync('python3', ['-c', 'import zipfile,sys; z=
   await seite.click('#k-fertig');
   await seite.waitForSelector('#fertig-inhalt h2.gut', { timeout: 30000 });
   const links = await seite.$$eval('.geheimliste input', (l) => l.map((i) => i.value));
-  pruefe(links.length === 2 && links[0] === link1 && links[1] === link2, 'Fertigstellen listet beide veröffentlichten Alben mit Link');
+  pruefe(links.length === 3 && /\/360Grad\/jerosch-[a-z2-7]{26}\/$/.test(links[0]) && links[1] === link1 && links[2] === link2, 'Fertigstellen listet den Link zur ganzen Galerie und beide veröffentlichten Alben');
   pruefe(/fehlt dieser Sprung/.test(await seite.textContent('#fertig-inhalt')), 'Hinweis: Sprung vom öffentlichen ins geheime Album entfällt');
   const zipPfad = path.join(aus, '360Grad.zip');
   let [download] = await Promise.all([seite.waitForEvent('download', { timeout: 60000 }), seite.click('#fertig-inhalt button:has-text("ZIP für den Webspace")')]);
@@ -127,9 +127,10 @@ const zipNamen = (zip) => execFileSync('python3', ['-c', 'import zipfile,sys; z=
 
   console.log('Je Album ein ZIP');
   await seite.click('#fertig-inhalt button:has-text("Je Album ein ZIP")');
-  await seite.waitForFunction(() => document.querySelectorAll('.zipzeile').length === 3, null, { timeout: 60000 });
+  // 360Grad.zip, die Seite der ganzen Galerie und zwei Alben
+  await seite.waitForFunction(() => document.querySelectorAll('.zipzeile').length === 4, null, { timeout: 60000 });
   const teile = {};
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const [d] = await Promise.all([seite.waitForEvent('download'), seite.click(`.zipzeile >> nth=${i} >> button:has-text("Herunterladen")`)]);
     const ziel2 = path.join(aus, 'teil-' + d.suggestedFilename());
     await d.saveAs(ziel2);
@@ -149,12 +150,16 @@ const zipNamen = (zip) => execFileSync('python3', ['-c', 'import zipfile,sys; z=
     delete FileSystemFileHandle.prototype.createWritable;
     Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' });
     Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 });
-    navigator.share = async () => {}; navigator.canShare = () => true;
+    window.__geteilt = [];
+    navigator.share = async (d) => { window.__geteilt.push(d); }; navigator.canShare = () => true;
   });
   await ip.goto(genUrl);
   await ip.click('#k-zip');
   await ip.setInputFiles('#dateiwahl-einzeln', sicherung);
   await ip.waitForSelector('#editor:not([hidden])', { timeout: 60000 });
+  await ip.click('#k-glink-teilen');
+  const geteilt = await ip.evaluate(() => window.__geteilt[0] || {});
+  pruefe(/^https:\/\/jerosch\.net\/apps\/galerie360\/360Grad\/jerosch-[a-z2-7]{26}\/$/.test(geteilt.url || '') && !geteilt.files, 'iPad: „Teilen …" gibt den Galerie-Link ans Teilen-Menü (nur die Adresse, keine Datei): ' + geteilt.url);
   let autoDownload = false;
   ip.on('download', () => { autoDownload = true; });
   await ip.click('#k-fertig');

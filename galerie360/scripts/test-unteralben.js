@@ -128,6 +128,9 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   const linkAbend = await seite.inputValue('#a-link-text');
   await E(() => window.G360.app.sofortSpeichern());
 
+  const galerieLink = await seite.inputValue('#g-link-text');
+  pruefe(/^https:\/\/jerosch\.net\/apps\/galerie360\/360Grad\/familie-[a-z2-7]{26}\/$/.test(galerieLink), 'Link zur ganzen Galerie steht links: ' + galerieLink);
+
   console.log('Vorschau');
   await seite.click('#k-vorschau');
   await seite.waitForSelector('#vorschau .g-unteralben .g-albumkarte');
@@ -156,6 +159,10 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   pruefe(lies('').includes(oU + '/') && !lies('').includes(oT) && !lies('').includes(oA), 'Startseite: nur das oberste Album');
   pruefe(!lies(oT).includes(oA), 'Öffentliches „Tag 1" verrät das geheime „Abend" nicht');
   pruefe(lies(oA).includes('../' + oT + '/'), 'Geheimes „Abend" führt zurück zu „Tag 1"');
+  const oG = galerieLink.split('/').slice(-2)[0];
+  const gSeite = lies(oG);
+  pruefe(gSeite.includes('../' + oU + '/') && gSeite.includes('../' + oA + '/') && !gSeite.includes('../' + oT + '/'), 'Galerieseite: Karten für „Urlaub" und das sonst nirgends verlinkte geheime „Abend", nicht für „Tag 1" (steht auf „Urlaub")');
+  pruefe(/noindex/.test(gSeite) && !lies('').includes(oG) && !lies(oU).includes(oG), 'Galerieseite ist geheim: noindex, von keiner anderen Seite verlinkt');
 
   const ws = await server(web);
   const basis = `http://127.0.0.1:${ws.address().port}/apps/galerie360/360Grad/`;
@@ -178,6 +185,12 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   await b.click('.g-zurueck');
   await b.waitForSelector('.g-albumkarte');
   pruefe(b.url() === basis, '„Alle Alben" von „Urlaub" zur Startseite');
+  await b.goto(galerieLink.replace('https://jerosch.net/apps/galerie360/360Grad/', basis));
+  await b.waitForSelector('.g-albumkarte');
+  pruefe((await b.$$eval('.g-albumkarte h2', (l) => l.map((h) => h.textContent))).join() === 'Urlaub,Abend' && /Familie/.test(await b.textContent('.g-titel')), 'Galerie-Link öffnet die Übersicht „Familie" mit beiden Karten');
+  await b.click('.g-albumkarte >> nth=0');
+  await b.waitForSelector('.g-unteralben');
+  pruefe(b.url() === basis + oU + '/', 'Karte führt in den Ordner von „Urlaub"');
   await b.goto(linkAbend.replace('https://jerosch.net/apps/galerie360/360Grad/', basis));
   await b.waitForSelector('.g-kachel');
   pruefe(/Tag 1/.test(await b.textContent('.g-zurueck')), 'Geheimer Link „Abend" geht, zurück zu „Tag 1"');
@@ -201,6 +214,7 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   await seite.fill('#frage-eingabe', 'Familie Jerosch');
   await seite.click('#frage-ja');
   pruefe((await E(() => window.G360.app.S.projekt.titel)) === 'Familie Jerosch' && (await seite.inputValue('#g-titel')) === 'Familie Jerosch' && (await seite.textContent('#projektname')) === 'Familie Jerosch', 'Galeriename geändert: Projekt, Feld links und Kopfzeile');
+  const galerieLinkNachUmbenennen = await seite.inputValue('#g-link-text');
   await seite.click('#k-album-name');
   pruefe(await E(() => document.activeElement.id === 'a-titel'), '„✎ Umbenennen" setzt den Cursor in den Albumnamen');
   await seite.fill('#a-titel', 'Sommerurlaub');
@@ -210,6 +224,7 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   await seite.waitForSelector('#start:not([hidden])');
   await seite.waitForFunction(() => /Familie Jerosch/.test(document.getElementById('start').textContent), null, { timeout: 10000 }).catch(() => {});
   pruefe(/Familie Jerosch/.test(await seite.textContent('#start')), 'Liste der Galerien zeigt den neuen Namen');
+  pruefe(galerieLinkNachUmbenennen === galerieLink, 'Nach dem Hochladen bleibt der Galerie-Link beim Umbenennen gleich');
 
   console.log('Daten');
   const kreis = await E(() => {
