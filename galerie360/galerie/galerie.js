@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.8';
+  const FASSUNG = '1.0.9';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -1036,9 +1036,24 @@
     const basis = typeof daten.basis === 'string' && /^(\.\.\/)*$/.test(daten.basis) ? daten.basis : '';
     const url = (p) => (opt.urls && opt.urls[p]) || basis + p;
     const einst = Object.assign({ design: 'dunkel', akzent: '#3b82f6', autoRotation: true, datumZeigen: true, downloads: false }, daten.einstellungen || {});
-    // Albumkarten mit „adresse" führen in den eigenen Ordner eines Albums (Webspace-Aufbau 360Grad/…).
-    const ORDNER_ADRESSE = /^[a-z0-9-]+\/$/;
-    const alben = (daten.alben || []).filter((a) => (a.medien && a.medien.length) || (a.adresse && ORDNER_ADRESSE.test(a.adresse)));
+    // Albumkarten mit „adresse" führen in den eigenen Ordner eines Albums (Webspace-Aufbau 360Grad/…):
+    // „<ordner>/" von der Startseite, „../<ordner>/" von einer Albumseite zu ihren Unteralben.
+    const ORDNER_ADRESSE = /^(\.\.\/)?[a-z0-9-]+\/$/;
+    const roh = (daten.alben || []).filter((a) => a && a.id);
+    roh.forEach((a) => { a.medien = Array.isArray(a.medien) ? a.medien : []; });
+    // Ein Album ohne eigene Aufnahmen zählt, wenn eines seiner Unteralben etwas zeigt.
+    const zeigtEtwas = (a, tiefe) => tiefe < 20 && (a.medien.length > 0 || (a.adresse && ORDNER_ADRESSE.test(a.adresse)) ||
+      roh.some((k) => k.eltern === a.id && k !== a && zeigtEtwas(k, tiefe + 1)));
+    const alben = roh.filter((a) => zeigtEtwas(a, 0));
+    // Unteralben: „eltern" zählt nur, wenn das Elternalbum auf DIESER Seite steht.
+    const elternVon = (a) => (a.eltern && a.eltern !== a.id && alben.find((x) => x.id === a.eltern)) || null;
+    const kinderVon = (a) => alben.filter((x) => elternVon(x) === a);
+    const oben = alben.filter((a) => !elternVon(a));
+    // Albumseite im eigenen Ordner: dieses Album ist die Seite; zurueck führt eine Ebene höher.
+    const seitenAlbum = alben.find((a) => a.id === daten.album && !a.adresse) || null;
+    const ZURUECK_ADRESSE = /^\.\.\/([a-z0-9-]+\/)?$/;
+    const zurueckNach = daten.zurueck && ZURUECK_ADRESSE.test(daten.zurueck.adresse || '')
+      ? { adresse: daten.zurueck.adresse, titel: String(daten.zurueck.titel || '') } : null;
     // Sprung auf eine andere Albumseite: nur „../<ordner>/#a/<album>/<aufnahme>".
     const SEITE = /^\.\.\/[a-z0-9-]+\/#a\/[\w-]+\/[\w-]+$/;
     const startseite = daten.startseite === '../' ? '../' : null;
@@ -1103,8 +1118,9 @@
 
     function zeigeRoute() {
       const r = route();
-      let album = alben.find((a) => a.id === r.album) || null;
-      if (!album && alben.length === 1 && !alben[0].adresse) album = alben[0];
+      let album = alben.find((a) => a.id === r.album && !a.adresse) || null;
+      if (!album && seitenAlbum) album = seitenAlbum;
+      if (!album && oben.length === 1 && !oben[0].adresse) album = oben[0];
       if (album !== aktuellesAlbum || !seite.firstChild) {
         aktuellesAlbum = album;
         if (album) zeichneAlbum(album);
@@ -1122,18 +1138,34 @@
     }
 
     /* ---------- Kopf ---------- */
+    /**
+     * Wohin „zurück" von einem Album führt: {text, adresse} (echter Link, eigene
+     * Albumseite) oder {text, route} (innerhalb dieser Seite) — oder null.
+     */
+    function zurueckVon(album) {
+      const p = elternVon(album);
+      if (p) return { text: p.titel || 'Album', route: 'a/' + p.id };
+      if (album === seitenAlbum || (!seitenAlbum && oben.length === 1)) {
+        if (zurueckNach) return { text: zurueckNach.titel || 'Alle Alben', adresse: zurueckNach.adresse };
+        if (startseite) return { text: 'Alle Alben', adresse: startseite };
+        return null;
+      }
+      return { text: 'Alle Alben', route: '' };
+    }
+
     function kopf(titel, text, zurueck) {
       const k = el('header', 'g-kopf');
       const leiste = el('div', 'g-kopfleiste');
       if (zurueck) {
         const z = el('a', 'g-zurueck');
-        z.innerHTML = symbol('zurueck') + '<span>Alle Alben</span>';
-        if (typeof zurueck === 'string') {
-          // Eigene Albumseite (Webspace-Aufbau): ein echter Link zur Startseite im Ordner darüber.
-          z.href = zurueck;
+        z.innerHTML = symbol('zurueck');
+        z.append(el('span', '', zurueck.text));
+        if (zurueck.adresse) {
+          // Eigene Albumseite (Webspace-Aufbau): ein echter Link in den Ordner darüber.
+          z.href = zurueck.adresse;
         } else {
-          z.href = hashRouting ? '#' : 'javascript:void 0';
-          an(z, 'click', (e) => { e.preventDefault(); gehe('', false); });
+          z.href = hashRouting ? '#' + zurueck.route : 'javascript:void 0';
+          an(z, 'click', (e) => { e.preventDefault(); gehe(zurueck.route, false); });
         }
         leiste.append(z);
       } else {
@@ -1165,10 +1197,53 @@
     function zaehler(album) {
       const f = album.zahl ? +album.zahl.fotos || 0 : album.medien.filter((m) => m.typ === 'foto').length;
       const v = album.zahl ? +album.zahl.videos || 0 : album.medien.length - f;
+      const u = album.zahl ? +album.zahl.alben || 0 : (alben.includes(album) ? kinderVon(album).length : 0);
       const teile = [];
+      if (u) teile.push(zahlText(u, 'Album', 'Alben'));
       if (f) teile.push(zahlText(f, 'Foto', 'Fotos'));
       if (v) teile.push(zahlText(v, 'Video', 'Videos'));
       return teile.join(' · ');
+    }
+
+    /** Vorschaubild eines Albums ohne eigene Aufnahmen: das erste seiner Unteralben. */
+    function albumBild(a, tiefe) {
+      if (a.adresse) return /^(\.\.\/)?[a-z0-9-]+\/thumbnails\/[\w.-]+$/.test(a.vorschau || '') ? { vorschau: a.vorschau } : null;
+      const m = a.medien.find((x) => x.id === a.titelbild) || a.medien[0];
+      if (m || tiefe > 20) return m || null;
+      for (const k of kinderVon(a)) {
+        const b = albumBild(k, tiefe + 1);
+        if (b) return b;
+      }
+      return null;
+    }
+
+    function albumKarte(a) {
+      const k = el('a', 'g-albumkarte');
+      if (a.adresse) {
+        k.href = a.adresse; // eigener Albumordner — normale Navigation
+      } else {
+        k.href = hashRouting ? '#a/' + encodeURIComponent(a.id) : 'javascript:void 0';
+        an(k, 'click', (e) => { e.preventDefault(); gehe('a/' + a.id, false); });
+      }
+      const titelbild = albumBild(a, 0);
+      const bildrahmen = el('div', 'g-albumbild');
+      if (titelbild && titelbild.vorschau) {
+        const img = el('img');
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.alt = '';
+        img.width = 800;
+        img.height = 500;
+        img.src = url(titelbild.vorschau);
+        bildrahmen.append(img);
+      }
+      bildrahmen.insertAdjacentHTML('beforeend', '<span class="g-marke360">360°</span>');
+      const text = el('div', 'g-albumtext');
+      text.append(el('h2', '', a.titel || 'Album'));
+      text.append(el('p', 'g-albumzahl', zaehler(a)));
+      if (a.beschreibung) text.append(el('p', 'g-albumbeschreibung', a.beschreibung));
+      k.append(bildrahmen, text);
+      return k;
     }
 
     /* ---------- Startseite ---------- */
@@ -1180,36 +1255,7 @@
         haupt.append(el('p', 'g-leer', daten.privat ? 'Hier gibt es nichts zu sehen.' : 'Diese Galerie enthält noch keine Aufnahmen.'));
       }
       const raster = el('div', 'g-alben');
-      alben.forEach((a) => {
-        const k = el('a', 'g-albumkarte');
-        if (a.adresse) {
-          k.href = a.adresse; // eigener Albumordner — normale Navigation
-        } else {
-          k.href = hashRouting ? '#a/' + encodeURIComponent(a.id) : 'javascript:void 0';
-          an(k, 'click', (e) => { e.preventDefault(); gehe('a/' + a.id, false); });
-        }
-        const titelbild = a.adresse
-          ? (/^[a-z0-9-]+\/thumbnails\/[\w.-]+$/.test(a.vorschau || '') ? { vorschau: a.vorschau } : null)
-          : a.medien.find((m) => m.id === a.titelbild) || a.medien[0];
-        const bildrahmen = el('div', 'g-albumbild');
-        if (titelbild && titelbild.vorschau) {
-          const img = el('img');
-          img.loading = 'lazy';
-          img.decoding = 'async';
-          img.alt = '';
-          img.width = 800;
-          img.height = 500;
-          img.src = url(titelbild.vorschau);
-          bildrahmen.append(img);
-        }
-        bildrahmen.insertAdjacentHTML('beforeend', '<span class="g-marke360">360°</span>');
-        const text = el('div', 'g-albumtext');
-        text.append(el('h2', '', a.titel || 'Album'));
-        text.append(el('p', 'g-albumzahl', zaehler(a)));
-        if (a.beschreibung) text.append(el('p', 'g-albumbeschreibung', a.beschreibung));
-        k.append(bildrahmen, text);
-        raster.append(k);
-      });
+      oben.forEach((a) => raster.append(albumKarte(a)));
       haupt.append(raster);
       seite.append(haupt, fuss());
       document.title = daten.titel || 'Galerie';
@@ -1218,12 +1264,19 @@
     /* ---------- Album ---------- */
     function zeichneAlbum(album) {
       seite.innerHTML = '';
-      const mehrere = alben.length > 1;
-      seite.append(kopf(mehrere ? album.titel : (daten.titel || album.titel),
-        mehrere ? album.beschreibung : (daten.beschreibung || album.beschreibung), mehrere || startseite));
+      // Eigener Titel, sobald die Seite mehr als dieses eine Album zeigt.
+      const eigen = album !== seitenAlbum && (oben.length > 1 || !!elternVon(album));
+      seite.append(kopf(eigen ? album.titel : (daten.titel || album.titel),
+        eigen ? album.beschreibung : (daten.beschreibung || album.beschreibung), zurueckVon(album)));
       const haupt = el('main', 'g-haupt');
       const info = el('p', 'g-albuminfo', zaehler(album));
       haupt.append(info);
+      const kinder = kinderVon(album);
+      if (kinder.length) {
+        const unter = el('div', 'g-alben g-unteralben');
+        kinder.forEach((a) => unter.append(albumKarte(a)));
+        haupt.append(unter);
+      }
       const raster = el('div', 'g-kacheln');
       album.medien.forEach((m) => {
         const k = el('a', 'g-kachel');
