@@ -12,12 +12,16 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.7';
+  const FASSUNG = '1.0.8';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const istMobil = istIOS || /Android|Mobi/i.test(navigator.userAgent);
+  // Größte Videobreite am Handy/Tablet. iPhone und iPad spielen 5,7K (5760 × 2880,
+  // knapp unter 16,7 Megapixel) mit dem Hardware-Decoder; bis 1.0.7 wurde jedes
+  // Videobild auf 4096 verkleinert — unschärfer als in der Insta360-App (10/2026).
+  const MOBIL_VIDEO = istIOS ? 5760 : 4096;
 
   /* ================================================================
    * Panorama
@@ -52,7 +56,7 @@
   class Panorama {
     /**
      * @param {HTMLCanvasElement} canvas
-     * @param {{interaktiv?: boolean, festhalten?: boolean, maxBreite?: number,
+     * @param {{interaktiv?: boolean, festhalten?: boolean, maxBreite?: number, maxBreiteVideo?: number,
      *          beiTippen?: Function, beiAenderung?: Function}} opt
      */
     constructor(canvas, opt) {
@@ -135,7 +139,7 @@
 
     /** Größte Breite, die als Textur hochgeladen wird. */
     get grenze() {
-      return Math.min(this.maxTex, this.opt.maxBreite || Infinity);
+      return Math.min(this.maxTex, (this.istVideo ? this.opt.maxBreiteVideo : this.opt.maxBreite) || Infinity);
     }
 
     /**
@@ -287,7 +291,8 @@
 
     _passeGroesseAn() {
       if (this.festeGroesse) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Bis 3 (iPhone): Der Shader holt je Pixel nur einen Texturwert, das kostet wenig.
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
       const w = Math.max(1, Math.round(this.canvas.clientWidth * dpr));
       const h = Math.max(1, Math.round(this.canvas.clientHeight * dpr));
       if (this.canvas.width !== w || this.canvas.height !== h) {
@@ -1341,6 +1346,7 @@
       try {
         v.pano = new Panorama(v.canvas, {
           maxBreite: istMobil ? 4096 : 0,
+          maxBreiteVideo: istMobil ? MOBIL_VIDEO : 0,
           beiTippen: () => {
             // Erstes Tippen daneben schließt ein offenes Fenster, erst das nächste blendet die Bedienung aus.
             if (v.fenster && v.fenster.offen) v.fenster.schliesse();
@@ -1834,10 +1840,11 @@
     function videoKandidaten(m) {
       const probe = viewer.video;
       const alle = (m.quellen || []).slice();
-      // Am Handy zuerst Fassungen bis 4K — größere spielen viele Geräte nicht flüssig oder gar nicht.
+      // Am Handy zuerst Fassungen bis MOBIL_VIDEO (iPhone/iPad 5,7K, sonst 4K) — größere
+      // spielen viele Geräte nicht flüssig oder gar nicht.
       alle.sort((a, b) => {
         if (istMobil) {
-          const ka = (a.breite || 0) <= 4096 ? 0 : 1, kb = (b.breite || 0) <= 4096 ? 0 : 1;
+          const ka = (a.breite || 0) <= MOBIL_VIDEO ? 0 : 1, kb = (b.breite || 0) <= MOBIL_VIDEO ? 0 : 1;
           if (ka !== kb) return ka - kb;
         }
         return (b.breite || 0) - (a.breite || 0);
@@ -1897,7 +1904,7 @@
         text += ' Es ist im Format H.265 (HEVC) gespeichert, das Firefox und manche Windows-Rechner nicht wiedergeben. Safari (iPhone, iPad, Mac) sowie meist Chrome und Edge können es.';
       } else if (art) {
         text += ' Format: ' + art + (q.breite ? ', ' + q.breite + ' × ' + q.hoehe : '') + '.';
-        if (q.breite > 4096 && istMobil) text += ' Die Auflösung ist für dieses Gerät vermutlich zu hoch.';
+        if (q.breite > MOBIL_VIDEO && istMobil) text += ' Die Auflösung ist für dieses Gerät vermutlich zu hoch.';
       }
       v.videoBereit = false;
       v.pano.setzeQuelle(null);
