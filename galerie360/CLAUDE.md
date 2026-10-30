@@ -232,6 +232,15 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   man einen kleinen Ausschnitt stark vergrößert): Datenrate steht an jeder
   Fassung, `videoHinweise` warnt unter 60 (≥ 5000 px) bzw. 35 Mbit/s (4K).
   Die Anleitung empfahl bis 1.0.14 nur 30–50 Mbit/s — zu wenig für 5,7K.
+- **Nur ein Album als ZIP (Wunsch des Nutzers, 10/2026: „nicht immer gleich
+  alle Archive").** „Album als ZIP …" im Albumkopf (`albumZip`,
+  `zipSpeichern(bereich, 'album', a)`): `G.webspaceEintraege` gefiltert auf
+  `360Grad/<albumordner>/` plus die Übersichtsseiten ohne Aufnahmen
+  (`360Grad/index.html`, `360Grad/assets/`, Galerieseite) — die halten die
+  Karten aktuell und sind winzig. Unteralben NICHT (eigene Ordner, eigenes
+  ZIP). Vorher nur dieses Album fürs Netz umordnen und auf fehlende Dateien
+  prüfen. Dateiname `360Grad-<albumtitel>.zip`. Test: Teil „Nur ein Album
+  als ZIP" in `test-unteralben.js`.
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind

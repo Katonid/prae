@@ -220,6 +220,34 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   await c.close();
   ws.close();
 
+  console.log('Nur ein Album als ZIP');
+  await seite.click('#fertig-inhalt button:has-text("Schließen")');
+  await seite.click('.album:nth-child(2) .album-wahl'); // Tag 1 (hat das Unteralbum Abend)
+  await seite.click('#k-album-zip');
+  await seite.waitForSelector('#fertig-inhalt button:has-text("ZIP erstellen")', { timeout: 60000 });
+  const albumText = await seite.textContent('#fertig-inhalt');
+  pruefe(/ZIP für das Album „Tag 1"/.test(albumText) && /Unteralben \(Abend\)/.test(albumText) && /nicht dabei/.test(albumText), 'Dialog nennt das Album und sagt, dass das Unteralbum nicht dabei ist');
+  const [dl] = await Promise.all([seite.waitForEvent('download', { timeout: 60000 }), seite.click('#fertig-inhalt button:has-text("ZIP erstellen")')]);
+  const albumZip = path.join(aus, dl.suggestedFilename());
+  await dl.saveAs(albumZip);
+  const namenA = execFileSync('python3', ['-c', 'import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; print("\\n".join(z.namelist()))', albumZip]).toString().trim().split('\n');
+  pruefe(/^360Grad-tag-1\.zip$/.test(dl.suggestedFilename()), 'Dateiname nach dem Album: ' + dl.suggestedFilename());
+  pruefe(namenA.every((n) => n.startsWith('360Grad/')) && namenA.includes('360Grad/' + oT + '/index.html') && namenA.some((n) => /\/media\/(fotos|videos)\/[^/]+\.(jpe?g|mp4)$/.test(n) && n.startsWith('360Grad/' + oT + '/')) && namenA.includes('360Grad/' + oT + '/assets/galerie.js'),
+    'Enthält den Ordner von „Tag 1" mit seiner Aufnahme und eigenem Betrachter');
+  pruefe(!namenA.some((n) => n.startsWith('360Grad/' + oU + '/') || n.startsWith('360Grad/' + oA + '/')), 'Keine anderen Alben (weder „Urlaub" noch das Unteralbum „Abend")');
+  pruefe(namenA.includes('360Grad/index.html') && namenA.includes('360Grad/' + oG + '/index.html') && !namenA.some((n) => /\/(media|thumbnails)\//.test(n) && !n.startsWith('360Grad/' + oT + '/')), 'Dazu nur die Übersichtsseiten, ohne fremde Aufnahmen');
+  pruefe(!namenA.some((n) => /gallery\.json$/.test(n)), 'Keine gallery.json');
+  await seite.click('#fertig-inhalt button:has-text("Schließen")');
+  await seite.click('.album:nth-child(1) .album-wahl');
+  await seite.selectOption('#a-freigabe', 'entwurf');
+  await seite.click('#k-album-zip');
+  await seite.waitForSelector('#dlg-frage[open]');
+  pruefe(/Entwurf/.test(await seite.textContent('#dlg-frage')), 'Entwurf: Hinweis statt ZIP');
+  await seite.click('#frage-ja');
+  await seite.selectOption('#a-freigabe', 'oeffentlich');
+  await seite.click('#k-fertig');
+  await seite.waitForSelector('#fertig-inhalt h2.gut', { timeout: 30000 });
+
   console.log('Löschen');
   await seite.click('#fertig-inhalt button:has-text("Schließen")');
   await seite.click('.album:nth-child(2) .album-wahl');

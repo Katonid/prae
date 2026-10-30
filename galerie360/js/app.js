@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.15';
+  const FASSUNG = '1.0.16';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -1620,9 +1620,9 @@
    * verlustfrei fürs Netz umordnen (neue Datei, alte danach gelöscht).
    * @returns {Promise<number>} Zahl der umgeordneten Videos
    */
-  async function videosFuerNetz(meldeFortschritt) {
+  async function videosFuerNetz(meldeFortschritt, nurAlbum) {
     const offen = [];
-    for (const a of S.projekt.alben) for (const m of a.medien) {
+    for (const a of nurAlbum ? [nurAlbum] : S.projekt.alben) for (const m of a.medien) {
       if (m.typ === 'video') (m.quellen || []).forEach((q) => { if (!q.netz && /\.(mp4|m4v|mov)$/i.test(q.src || '')) offen.push({ m, q }); });
     }
     let umgeordnet = 0;
@@ -1648,6 +1648,67 @@
       speichern();
     }
     return umgeordnet;
+  }
+
+  /** „Album als ZIP …": nur dieses eine Album für den Webspace. */
+  async function albumZip() {
+    const a = aktuellesAlbum();
+    const titel = a.titel || 'Ohne Namen';
+    if (G.freigabe(a) === 'entwurf') return melde('Entwurf', '„' + titel + '" ist als Entwurf eingestellt und kommt nicht auf den Webspace. Unter „Veröffentlichen" „Öffentlich" oder „Nur mit geheimem Link" wählen.');
+    if (!G.seitenRegeln(S.projekt).hatSeite(a)) return melde('Noch nichts drin', '„' + titel + '" hat noch keine Aufnahmen.');
+    const dlg = $('dlg-fertig');
+    const inhalt = $('fertig-inhalt');
+    inhalt.innerHTML = '';
+    const kopf = el('h2', '', 'ZIP für das Album „' + titel + '"');
+    const zeile = el('p', '', 'Wird vorbereitet …');
+    inhalt.append(kopf, zeile);
+    dlg.showModal();
+    let umgeordnet = 0;
+    const fehlend = [];
+    try {
+      await sofortSpeichern();
+      await S.kette;
+      let grundtext = '';
+      umgeordnet = await videosFuerNetz((text, f) => {
+        if (text) grundtext = text;
+        zeile.textContent = grundtext + (f ? ' ' + Math.round(f * 100) + ' %' : '');
+      }, a);
+      if (umgeordnet) await sofortSpeichern();
+      for (const pfad of G.verwiesenePfade({ alben: [a] })) if (!(await G.existiert(S.wurzel, pfad))) fehlend.push(pfad);
+    } catch (e) {
+      zeile.textContent = fehlerText(e);
+      inhalt.append(fuss([knopf('Schließen', 'zweit', () => dlg.close())]));
+      return;
+    }
+    if (fehlend.length) {
+      zeile.textContent = 'Diese Dateien des Albums fehlen im Galerieordner — die betroffenen Aufnahmen am besten entfernen und neu hinzufügen:';
+      const ul = el('ul', 'liste-fehler');
+      fehlend.slice(0, 30).forEach((p) => ul.append(el('li', '', p)));
+      inhalt.append(ul, fuss([knopf('Schließen', 'zweit', () => dlg.close())]));
+      return;
+    }
+    const zahl = a.medien.length;
+    zeile.textContent = 'Enthält nur dieses Album: seinen Ordner mit ' + zahl + (zahl === 1 ? ' Aufnahme' : ' Aufnahmen') +
+      ', dazu die kleinen Übersichtsseiten (Startseite und Seite der ganzen Galerie, ohne Aufnahmen). Andere Alben sind nicht dabei.';
+    if (umgeordnet) inhalt.append(el('p', 'klein', umgeordnet + (umgeordnet === 1 ? ' Video wurde' : ' Videos wurden') + ' für den schnellen Start umgeordnet — verlustfrei.'));
+    const kinder = G.kinderVon(S.projekt, a);
+    if (kinder.length) inhalt.append(el('p', 'klein', 'Unteralben (' + kinder.map((k) => k.titel || 'Ohne Namen').join(', ') + ') haben eigene Ordner und sind nicht dabei — für sie jeweils ein eigenes ZIP erstellen.'));
+    const schritte = el('ol', 'anleitungsliste');
+    ['ZIP erstellen, herunterladen und entpacken. Darin liegt der Ordner „360Grad".', 'Den Ordner „360Grad" wie gewohnt nach /apps/galerie360/ hochladen. Die anderen Alben auf dem Webspace bleiben unberührt.'].forEach((t) => schritte.append(el('li', '', t)));
+    inhalt.append(schritte);
+    const link = el('div', 'freigabe-link');
+    const feldEl = el('input');
+    feldEl.readOnly = true;
+    feldEl.value = G.albumLink(S.projekt, a);
+    const k = knopf('Kopieren', 'zweit klein', () => linkKopieren(feldEl.value, k));
+    link.append(feldEl, k);
+    inhalt.append(el('p', 'klein', 'Link zu diesem Album:'), link);
+    const zipBereich = el('div', 'zipbereich');
+    inhalt.append(zipBereich);
+    inhalt.append(fuss([
+      knopf('ZIP erstellen …', 'haupt', () => zipSpeichern(zipBereich, 'album', a)),
+      knopf('Schließen', 'zweit', () => dlg.close())
+    ]));
   }
 
   async function fertigstellen() {
@@ -1775,7 +1836,20 @@
   const TEILEN_BIS = 200 * 1024 * 1024;
 
   /** Einträge des ZIPs: 'webspace' (360Grad/…), 'sicherung' (ganzes Projekt). */
-  async function zipEintraege(art, name) {
+  async function zipEintraege(art, name, album) {
+    if (art === 'album') {
+      // Nur dieses Album — dazu die kleinen Übersichtsseiten ohne Aufnahmen (Startseite,
+      // Seite der ganzen Galerie), damit die Karten auf dem Webspace aktuell bleiben.
+      const ordner = G.albumOrdner(album);
+      const go = G.galerieAlben(S.projekt).length ? G.galerieOrdner(S.projekt) : null;
+      const behalten = (pfad) => pfad.startsWith('360Grad/' + ordner + '/') || pfad === '360Grad/index.html' ||
+        pfad.startsWith('360Grad/assets/') || (go && pfad.startsWith('360Grad/' + go + '/'));
+      const eintraege = (await G.webspaceEintraege(S.wurzel, S.projekt)).filter((e) => behalten(e.pfad));
+      album.ordnerFest = true;
+      if (go) S.projekt.galerieOrdnerFest = true;
+      speichern();
+      return eintraege;
+    }
     if (art === 'webspace') {
       const eintraege = await G.webspaceEintraege(S.wurzel, S.projekt);
       // Ab jetzt sind die Links draußen: Ordnernamen nicht mehr dem Titel nachführen.
@@ -1834,10 +1908,14 @@
     return zeile;
   }
 
-  /** art 'webspace': Ordner 360Grad mit den Albumordnern; 'sicherung': das ganze Projekt; 'alben': Webspace je Album. */
-  async function zipSpeichern(bereich, art) {
+  /**
+   * art 'webspace': Ordner 360Grad mit den Albumordnern; 'sicherung': das ganze Projekt;
+   * 'alben': Webspace je Album; 'album': nur das Album `album` (mit den Übersichtsseiten).
+   */
+  async function zipSpeichern(bereich, art, album) {
     const webspace = art !== 'sicherung';
-    const name = webspace ? '360Grad' : (G.sauberName(S.projekt.titel || S.wurzel.name).basis || 'galerie') + '-sicherung';
+    const name = art === 'album' ? '360Grad-' + (G.sauberName((album.titel || 'album') + '.x').basis || 'album')
+      : webspace ? '360Grad' : (G.sauberName(S.projekt.titel || S.wurzel.name).basis || 'galerie') + '-sicherung';
     let ziel = null;
     // Chrome/Edge am Rechner: Speichern-Dialog, ZIP direkt an den gewählten Ort. Sonst: in den Browser-Speicher.
     const dialog = window.showSaveFilePicker && art !== 'alben';
@@ -1862,12 +1940,12 @@
     };
     const hinweisWebspace = 'Entpacken und den Ordner „360Grad" per FTP nach /apps/galerie360/ hochladen.';
     try {
-      const eintraege = await zipEintraege(webspace ? 'webspace' : 'sicherung', name);
+      const eintraege = await zipEintraege(art === 'album' ? 'album' : webspace ? 'webspace' : 'sicherung', name, album);
       if (dialog) {
         await G.zipErstellen(eintraege, ziel, zeigeFortschritt('ZIP-Archiv wird erstellt … '));
         balken.remove();
         text.textContent = webspace
-          ? 'ZIP gespeichert: 360Grad.zip (' + eintraege.length + ' Dateien). ' + hinweisWebspace
+          ? 'ZIP gespeichert: ' + name + '.zip (' + eintraege.length + ' Dateien). ' + hinweisWebspace
           : 'Sicherung gespeichert: ' + name + '.zip. Wiederherstellen oder auf einem anderen Gerät weiterarbeiten mit „Galerie aus ZIP-Archiv übernehmen …" — nicht hochladen.';
         text.className = 'gut';
         return;
@@ -1999,6 +2077,7 @@
     $('k-album-loeschen').addEventListener('click', albumLoeschen);
     $('k-album-loeschen-oben').addEventListener('click', albumLoeschen);
     $('k-unteralbum').addEventListener('click', unteralbumAnlegen);
+    $('k-album-zip').addEventListener('click', albumZip);
     $('a-eltern').addEventListener('change', elternAendern);
     $('a-sortieren').addEventListener('change', () => { const art = $('a-sortieren').value; $('a-sortieren').value = ''; sortieren(art); });
     $('k-dateien').addEventListener('click', () => $('dateiwahl').click());
