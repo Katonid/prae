@@ -1,0 +1,63 @@
+# Führt die Unit-Tests von Insta360Datum im iOS-Simulator aus.
+#
+# Übersetzt wird die App ohnehin von „iOS-Apps bauen"; der reine Bau sagt
+# aber nichts darüber, ob das Datum aus dem Kommentarfeld richtig gelesen
+# wird (Ortszeit, das "+0000" ignorieren) und ob der moov-Leser mit
+# kaputten Dateien zurechtkommt. Das prüfen die Tests in
+# Insta360DatumiOS/Insta360DatumTests/.
+name: Insta360Datum testen
+
+on:
+  push:
+    paths:
+      - 'Insta360DatumiOS/**'
+      - '.github/workflows/insta360datum-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: insta360datum-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit-Tests (iOS-Simulator)
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Quelltext vorprüfen
+        run: python3 scripts/swift-quelltext-pruefen.py Insta360DatumiOS
+
+      - name: Werkzeuge zeigen
+        run: xcodebuild -version
+
+      - name: Simulator wählen
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | python3 -c "import sys,json;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d if 'iOS' in rt for x in d[rt] if x['name'].startswith('iPhone')), ''))")
+          [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Testen
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Insta360DatumiOS/Insta360Datum.xcodeproj \
+            -scheme Insta360Datum \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/test.log
+
+      - name: Fehler und Warnungen zusammenfassen
+        if: always()
+        run: |
+          echo "===== Fehler ====="
+          grep -hE "error:|failed" /tmp/test.log | sort -u | head -60 || echo "keine"
+          echo "===== Warnungen ====="
+          grep -hE "warning:" /tmp/test.log | grep -v "AppIntents.framework" | sort -u | head -40 || echo "keine"
+          echo "===== Ergebnis ====="
+          grep -hE "Executed|TEST (SUCCEEDED|FAILED)" /tmp/test.log | tail -5 || true
