@@ -208,6 +208,15 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   `controllerchange` Startseite neu laden bzw. Leiste „Jetzt neu laden";
   Fassung unten auf der Startseite. Test: `test-neufassung.js` (schlägt mit
   dem alten sw.js fehl — so geprüft).
+- **Vollbild beim Antippen (Wunsch des Nutzers, 10/2026: „direkt im
+  Vollbildmodus und ohne Menüleiste starten").** `einstellungen.vollbildStart`
+  (Vorgabe true): Der Klick auf die Kachel ruft NACH `gehe()` im selben
+  Ereignis `vollbildStart(m)` — Vollbild und Ton erlauben Browser nur im
+  Antippen selbst: `g-ruhig`, `vollbild()` (iPhone: Ersatz `g-pseudovoll`),
+  Video gleich `spieleVideo()`; einmal der Hinweis „Antippen zeigt die
+  Bedienung". Aufruf per Adresse (#a/…) öffnet ohne Vollbild (kein
+  Antippen). Tests: `test-e2e.js` (Desktop/Handy), Schalter in
+  `test-unteralben.js`.
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind

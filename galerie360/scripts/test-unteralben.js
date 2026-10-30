@@ -150,6 +150,17 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   await seite.waitForSelector('#vorschau .g-kachel');
   pruefe(/Tag 1/.test(await seite.textContent('#vorschau .g-titel')) && /Urlaub/.test(await seite.textContent('#vorschau .g-zurueck')), 'Vorschau: Unteralbum mit „zurück zu Urlaub"');
   await seite.click('#k-vorschau-zu');
+  // Schalter „im Vollbild öffnen" (Vorgabe an) ausgeschaltet: Aufnahme öffnet mit Bedienung
+  pruefe(await seite.isChecked('#g-vollbild'), 'Generator: „Im Vollbild öffnen" ist vorgegeben');
+  await seite.uncheck('#g-vollbild');
+  await seite.click('#k-vorschau');
+  await seite.click('#vorschau .g-albumkarte');
+  await seite.click('#vorschau .g-kachel');
+  await seite.waitForSelector('#vorschau .g-viewer.g-offen');
+  pruefe(!(await E(() => document.querySelector('#vorschau .g-viewer').classList.contains('g-ruhig'))), 'Ausgeschaltet: Aufnahme öffnet mit Bedienleiste wie früher');
+  await seite.keyboard.press('Escape');
+  await seite.click('#k-vorschau-zu');
+  await seite.check('#g-vollbild');
 
   console.log('Webspace');
   await seite.click('#k-fertig');
