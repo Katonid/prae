@@ -221,8 +221,168 @@
     return info;
   };
 
+  /* ---------- MP4 fürs Netz: Inhaltsverzeichnis nach vorn, Bild und Ton verzahnt ----------
+   * Nutzer (10/2026): „das Video wird fast zur Hälfte vorgeladen, bis es abgespielt
+   * wird". Ursachen in der Datei: Das Inhaltsverzeichnis (moov) steht am Ende,
+   * und/oder Bild und Ton liegen nacheinander statt Sekunde für Sekunde verzahnt —
+   * dann muss der Browser weit vorausladen, bevor die erste Sekunde läuft.
+   * G.mp4FuerWeb ordnet um, OHNE neu zu kodieren: dieselben Stücke (chunks), nur
+   * in zeitlicher Reihenfolge, Verzeichnis vorn, Zeiger (stco/co64) angepasst.
+   * Das Ergebnis ist ein Blob aus Scheiben der Originaldatei — nichts davon liegt
+   * im Arbeitsspeicher außer dem neuen Verzeichnis.
+   */
+  const u64 = (d, p) => d.getUint32(p) * 4294967296 + d.getUint32(p + 4);
+
+  /** Aufbau einer MP4: Kisten der obersten Ebene, Verzeichnis, Stücke je Spur. null, wenn unlesbar. */
+  G.mp4Aufbau = async function (datei) {
+    const kisten = [];
+    let pos = 0;
+    for (let i = 0; i < 4096 && pos < datei.size; i++) {
+      const b = await box(datei, pos);
+      if (!b || pos + b.groesse > datei.size) return null;
+      kisten.push(b);
+      pos += b.groesse;
+    }
+    if (pos !== datei.size) return null;
+    const moov = kisten.find((k) => k.art === 'moov');
+    const mdats = kisten.filter((k) => k.art === 'mdat');
+    if (!moov || !mdats.length || moov.groesse > 200 * 1024 * 1024) return null;
+    const puffer = await datei.slice(moov.pos, moov.pos + moov.groesse).arrayBuffer();
+    const d = new DataView(puffer);
+    const finde = (liste, art) => liste.find((k) => k.art === art);
+    const spuren = [];
+    for (const trak of kinder(d, moov.kopf, d.byteLength).filter((k) => k.art === 'trak')) {
+      const mdia = finde(kinder(d, trak.start, trak.ende), 'mdia');
+      if (!mdia) return null;
+      const mk = kinder(d, mdia.start, mdia.ende);
+      const mdhd = finde(mk, 'mdhd');
+      const minf = finde(mk, 'minf');
+      const stbl = minf && finde(kinder(d, minf.start, minf.ende), 'stbl');
+      if (!mdhd || !stbl) return null;
+      const skala = d.getUint8(mdhd.start) === 1 ? d.getUint32(mdhd.start + 20) : d.getUint32(mdhd.start + 12);
+      const sk = kinder(d, stbl.start, stbl.ende);
+      const stts = finde(sk, 'stts'), stsc = finde(sk, 'stsc'), stsz = finde(sk, 'stsz');
+      const stco = finde(sk, 'stco'), co64 = finde(sk, 'co64');
+      const tab = stco || co64;
+      if (!tab || !stsc || !stsz || !stts || !skala) return null; // z. B. stz2: lieber nichts anfassen
+      const anzahl = d.getUint32(tab.start + 4);
+      const breite = co64 ? 8 : 4;
+      const offsets = new Array(anzahl);
+      for (let i = 0; i < anzahl; i++) offsets[i] = co64 ? u64(d, tab.start + 8 + i * 8) : d.getUint32(tab.start + 8 + i * 4);
+      // Probengrößen
+      const festeGroesse = d.getUint32(stsz.start + 4);
+      const probenZahl = d.getUint32(stsz.start + 8);
+      const groesse = (i) => (festeGroesse || d.getUint32(stsz.start + 12 + i * 4));
+      // Proben je Stück (stsc: erste Stücknummer ab 1, Proben je Stück)
+      const sc = [];
+      const scN = d.getUint32(stsc.start + 4);
+      for (let i = 0; i < scN; i++) sc.push({ erstes: d.getUint32(stsc.start + 8 + i * 12) - 1, proben: d.getUint32(stsc.start + 12 + i * 12) });
+      // Startzeit jeder Probe (stts)
+      const zeitVon = [];
+      let t = 0;
+      const ttN = d.getUint32(stts.start + 4);
+      for (let i = 0; i < ttN && zeitVon.length < probenZahl; i++) {
+        const n = d.getUint32(stts.start + 8 + i * 8), dauer = d.getUint32(stts.start + 12 + i * 8);
+        for (let j = 0; j < n && zeitVon.length < probenZahl; j++) { zeitVon.push(t); t += dauer; }
+      }
+      const stuecke = [];
+      let probe = 0;
+      for (let c = 0; c < anzahl; c++) {
+        let e = 0;
+        while (e + 1 < sc.length && sc[e + 1].erstes <= c) e++;
+        const n = sc.length ? sc[e].proben : 0;
+        let g = 0;
+        for (let j = 0; j < n && probe + j < probenZahl; j++) g += groesse(probe + j);
+        stuecke.push({ alt: offsets[c], groesse: g, zeit: (zeitVon[probe] || 0) / skala });
+        probe += n;
+      }
+      if (probe < probenZahl) return null; // Tabellen passen nicht zusammen
+      spuren.push({ stuecke, tabelle: tab.start + 8, breite });
+    }
+    if (!spuren.length) return null;
+    for (const sp of spuren) {
+      for (const st of sp.stuecke) if (st.groesse && (st.alt < 0 || st.alt + st.groesse > datei.size)) return null;
+    }
+    // Wie weit muss ein Browser vorausladen? Stücke in Dateireihenfolge: größter Rücksprung in der Zeit.
+    const alle = [];
+    spuren.forEach((sp, i) => sp.stuecke.forEach((st) => { if (st.groesse) alle.push(Object.assign({ spur: i }, st)); }));
+    alle.sort((a, b) => a.alt - b.alt);
+    let max = 0, rueck = 0;
+    for (const st of alle) { max = Math.max(max, st.zeit); rueck = Math.max(rueck, max - st.zeit); }
+    return { kisten, moov, puffer, spuren, alle, moovVorne: moov.pos < mdats[0].pos, verzahnung: rueck };
+  };
+
+  /** Lohnt sich das Umordnen? Verzeichnis hinten oder Ton/Bild mehr als 1 s auseinander. */
+  G.mp4BrauchtUmbau = (a) => !!a && (!a.moovVorne || a.verzahnung > 1);
+
+  /**
+   * Netzfreundliche Fassung (Blob) oder null, wenn die Datei schon passt oder nicht
+   * sicher umzuordnen ist. Bild- und Tondaten bleiben Byte für Byte gleich.
+   */
+  G.mp4FuerWeb = async function (datei, aufbau) {
+    const a = aufbau || await G.mp4Aufbau(datei);
+    if (!G.mp4BrauchtUmbau(a)) return null;
+    // Zeitliche Reihenfolge; bei gleicher Zeit die Reihenfolge in der Datei.
+    const folge = a.alle.slice().sort((x, y) => x.zeit - y.zeit || x.alt - y.alt);
+    const vorne = [], hinten = [];
+    let gesehen = false;
+    for (const k of a.kisten) {
+      if (k.art === 'mdat') { gesehen = true; continue; }
+      if (k.art === 'moov' || k.art === 'free' || k.art === 'skip' || k.art === 'wide') continue;
+      (gesehen ? hinten : vorne).push(k);
+    }
+    const vorneGroesse = vorne.reduce((s, k) => s + k.groesse, 0);
+    const nutzlast = folge.reduce((s, st) => s + st.groesse, 0);
+    const lang = nutzlast + 8 > 0xFFFFFFFF;
+    const mdatKopf = lang ? 16 : 8;
+    let p = vorneGroesse + a.moov.groesse + mdatKopf;
+    // Neue Lage jedes Stücks
+    const neu = new Map();
+    for (const st of folge) { neu.set(st.spur + ':' + st.alt, p); p += st.groesse; }
+    const moov = new Uint8Array(a.puffer.slice(0));
+    const d = new DataView(moov.buffer);
+    for (let i = 0; i < a.spuren.length; i++) {
+      const sp = a.spuren[i];
+      sp.stuecke.forEach((st, c) => {
+        const ziel = st.groesse ? neu.get(i + ':' + st.alt) : st.alt;
+        const pos = sp.tabelle + c * sp.breite;
+        if (sp.breite === 8) { d.setUint32(pos, Math.floor(ziel / 4294967296)); d.setUint32(pos + 4, ziel >>> 0); }
+        else if (ziel > 0xFFFFFFFF) throw new Error('zu groß für stco');
+        else d.setUint32(pos, ziel);
+      });
+    }
+    const kopf = new DataView(new ArrayBuffer(mdatKopf));
+    if (lang) {
+      kopf.setUint32(0, 1);
+      kopf.setUint32(8, Math.floor((nutzlast + 16) / 4294967296));
+      kopf.setUint32(12, (nutzlast + 16) >>> 0);
+    } else {
+      kopf.setUint32(0, nutzlast + 8);
+    }
+    kopf.setUint8(4, 0x6d); kopf.setUint8(5, 0x64); kopf.setUint8(6, 0x61); kopf.setUint8(7, 0x74); // mdat
+    const teile = vorne.map((k) => datei.slice(k.pos, k.pos + k.groesse));
+    teile.push(moov, kopf.buffer);
+    // Aneinanderliegende Stücke als eine Scheibe — bei gut verzahnten Dateien sind das wenige.
+    let von = -1, bis = -1;
+    for (const st of folge) {
+      if (st.alt === bis) { bis += st.groesse; continue; }
+      if (von >= 0) teile.push(datei.slice(von, bis));
+      von = st.alt; bis = st.alt + st.groesse;
+    }
+    if (von >= 0) teile.push(datei.slice(von, bis));
+    hinten.forEach((k) => teile.push(datei.slice(k.pos, k.pos + k.groesse)));
+    try {
+      return new File(teile, datei.name || 'video.mp4', { type: datei.type || 'video/mp4' });
+    } catch (_) {
+      return new Blob(teile, { type: datei.type || 'video/mp4' });
+    }
+  };
+
+  /** Datenrate in Mbit/s (ganze Datei, Bild + Ton). */
+  G.mbits = (groesse, dauer) => (groesse && dauer ? groesse * 8 / dauer / 1e6 : 0);
+
   /** Hinweise zur Abspielbarkeit einer Videofassung — für die Anzeige im Generator. */
-  G.videoHinweise = function (q, alleQuellen) {
+  G.videoHinweise = function (q, alleQuellen, dauer) {
     const h = [];
     const art = (q.codec || '').slice(0, 4);
     const hatKompatible = (alleQuellen || []).some((x) => /^avc/.test(x.codec || '') && (x.breite || 0) <= 4096);
@@ -233,6 +393,14 @@
       h.push('H.264 mit mehr als 4K (' + q.breite + ' × ' + q.hoehe + '): iPhone, iPad und viele Handys spielen das oft nicht ab. Empfehlung: zusätzlich eine Fassung mit 3840 × 1920 hinzufügen.');
     } else if (art === 'av01' || art === 'vp09') {
       h.push('Format ' + (art === 'av01' ? 'AV1' : 'VP9') + ': ältere iPhones und iPads spielen das nicht ab. Am verträglichsten ist H.264.');
+    }
+    // Nutzer (10/2026): „Die Videos pumpen und man sieht Artefakte". Bei 360° sieht man
+    // nur einen kleinen Ausschnitt stark vergrößert — Kompressionsfehler fallen viel
+    // stärker auf als bei einem flachen Video. Grenzen grob nach Erfahrungswerten.
+    const rate = G.mbits(q.groesse, dauer);
+    const noetig = q.breite >= 5000 ? 60 : q.breite >= 3800 ? 35 : 0;
+    if (rate && noetig && rate < noetig) {
+      h.push('Datenrate nur ' + Math.round(rate) + ' Mbit/s bei ' + q.breite + ' × ' + q.hoehe + '. Bei 360° sieht man immer nur einen kleinen Ausschnitt, stark vergrößert — Blöcke, Matsch und „Pumpen" (die Schärfe schwankt alle paar Sekunden) fallen dann deutlich auf. Besser ' + (q.breite >= 5000 ? '80–120' : '50–60') + ' Mbit/s: in Insta360 Studio bzw. der Insta360-App beim Export eine höhere Bitrate wählen.');
     }
     if (q.breite && q.hoehe && Math.abs(q.breite / q.hoehe - 2) > 0.03) h.push('Seitenverhältnis ' + q.breite + ' × ' + q.hoehe + ' ist nicht 2:1 — ist das ein vollständiges 360°-Video?');
     return h;

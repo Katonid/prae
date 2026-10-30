@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.14';
+  const FASSUNG = '1.0.15';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -913,7 +913,7 @@
     const hinweise = [...(m.hinweise || [])];
     if (m.typ === 'video') {
       const set = new Set();
-      m.quellen.forEach((q) => G.videoHinweise(q, m.quellen).forEach((h) => set.add(h)));
+      m.quellen.forEach((q) => G.videoHinweise(q, m.quellen, m.dauer).forEach((h) => set.add(h)));
       hinweise.push(...set);
     }
     if (hinweise.length) {
@@ -927,7 +927,7 @@
       fass.append(el('span', 'fassungen-titel', m.quellen.length > 1 ? 'Fassungen (der Browser jedes Besuchers nimmt die passende):' : 'Videodatei:'));
       const ul = el('ul');
       m.quellen.forEach((q, qi) => {
-        const qli = el('li', '', q.src.split('/').pop() + ' — ' + quellenText(q));
+        const qli = el('li', '', q.src.split('/').pop() + ' — ' + quellenText(q, m));
         if (m.quellen.length > 1) {
           qli.append(knopf('entfernen', 'still mini-text', () => fassungEntfernen(m, qi)));
         }
@@ -984,13 +984,16 @@
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   }
 
-  function quellenText(q) {
+  function quellenText(q, m) {
     const teile = [];
     const art = G.medienArt({ name: q.src, type: '' });
     if (q.codec) teile.push(window.Galerie360.CODEC_NAMEN[q.codec.slice(0, 4)] || q.codec);
     else if (art) teile.push('Format unbekannt');
     if (q.breite) teile.push(q.breite + ' × ' + q.hoehe);
     if (q.groesse) teile.push(G.groesseText(q.groesse));
+    const rate = G.mbits(q.groesse, m && m.dauer);
+    if (rate) teile.push(Math.round(rate) + ' Mbit/s');
+    if (q.netz === 'umgeordnet') teile.push('für schnellen Start umgeordnet');
     return teile.join(' · ');
   }
 
@@ -1329,10 +1332,27 @@
     };
   }
 
+  /**
+   * Fürs Netz umgeordnete Fassung (Verzeichnis vorn, Bild und Ton verzahnt) oder
+   * die Datei selbst, wenn sie schon passt — verlustfrei, siehe G.mp4FuerWeb.
+   */
+  async function videoFuerNetz(datei) {
+    if (!/\.(mp4|m4v|mov)$/i.test(datei.name || '')) return { datei, netz: '' };
+    try {
+      const web = await G.mp4FuerWeb(datei);
+      return web ? { datei: web, netz: 'umgeordnet' } : { datei, netz: 'gut' };
+    } catch (_) {
+      return { datei, netz: '' };
+    }
+  }
+
   async function videoImport(datei, eintrag) {
-    const ziel = await kopieren(datei, 'media/videos', eintrag, 0.85);
+    eintrag.zustand('Wird geprüft …');
+    const fuerNetz = await videoFuerNetz(datei);
+    const ziel = await kopieren(fuerNetz.datei, 'media/videos', eintrag, 0.85);
     eintrag.zustand('Standbild wird erzeugt …');
     const { info, quelle } = await quelleAus(datei, ziel);
+    if (fuerNetz.netz) quelle.netz = fuerNetz.netz;
     const m = {
       id: G.neueId(), typ: 'video', titel: titelAusName(datei.name), beschreibung: '',
       datum: (info && info.datum) || datumAusName(datei.name),
@@ -1394,8 +1414,10 @@
     const eintrag = warteEintrag(datei);
     S.importLaeuft++;
     try {
-      const ziel = await kopieren(datei, 'media/videos', eintrag, 1);
+      const fuerNetz = await videoFuerNetz(datei);
+      const ziel = await kopieren(fuerNetz.datei, 'media/videos', eintrag, 1);
       const { quelle } = await quelleAus(datei, ziel);
+      if (fuerNetz.netz) quelle.netz = fuerNetz.netz;
       if (!quelle.breite) {
         try {
           const b = await G.videoStandbild(datei, 0);
@@ -1593,15 +1615,59 @@
   /* ================================================================
    * Fertigstellen und ZIP
    * ================================================================ */
+  /**
+   * Videos, die vor 1.0.15 hinzugefügt wurden: einmal prüfen und, wo nötig,
+   * verlustfrei fürs Netz umordnen (neue Datei, alte danach gelöscht).
+   * @returns {Promise<number>} Zahl der umgeordneten Videos
+   */
+  async function videosFuerNetz(meldeFortschritt) {
+    const offen = [];
+    for (const a of S.projekt.alben) for (const m of a.medien) {
+      if (m.typ === 'video') (m.quellen || []).forEach((q) => { if (!q.netz && /\.(mp4|m4v|mov)$/i.test(q.src || '')) offen.push({ m, q }); });
+    }
+    let umgeordnet = 0;
+    for (let i = 0; i < offen.length; i++) {
+      const { m, q } = offen[i];
+      let datei;
+      try { datei = await G.dateiLesen(S.wurzel, q.src); } catch (_) { continue; } // fehlt — meldet pruefen
+      const web = (await videoFuerNetz(datei));
+      if (web.netz !== 'umgeordnet') { if (web.netz) q.netz = web.netz; continue; }
+      meldeFortschritt('Video ' + (umgeordnet + 1) + ' wird für schnellen Start umgeordnet (' + G.groesseText(datei.size) + ') …', 0);
+      const alt = q.src;
+      const teile = alt.split('/');
+      const { basis, endung } = G.sauberName(teile.pop());
+      const ziel = await G.freierName(S.wurzel, teile.join('/'), basis + '-n', endung, S.belegt);
+      await G.dateiSchreiben(S.wurzel, ziel.pfad, web.datei, (f) => meldeFortschritt(null, f));
+      q.src = ziel.pfad;
+      q.groesse = web.datei.size;
+      q.netz = 'umgeordnet';
+      if (m.datei === alt) m.datei = ziel.pfad;
+      adresseVergessen(alt);
+      await G.dateiLoeschen(S.wurzel, alt);
+      umgeordnet++;
+      speichern();
+    }
+    return umgeordnet;
+  }
+
   async function fertigstellen() {
     const dlg = $('dlg-fertig');
     const inhalt = $('fertig-inhalt');
     inhalt.innerHTML = '<h2>Website wird geprüft …</h2><p>Einen Moment.</p>';
     dlg.showModal();
     let bericht;
+    let umgeordnet = 0;
     try {
       await sofortSpeichern();
       await S.kette;
+      // Nutzer (10/2026): „das Video wird fast zur Hälfte vorgeladen" — ältere Importe nachholen.
+      const zeile = inhalt.querySelector('p');
+      let grundtext = '';
+      umgeordnet = await videosFuerNetz((text, f) => {
+        if (text) grundtext = text;
+        zeile.textContent = grundtext + (f ? ' ' + Math.round(f * 100) + ' %' : '');
+      });
+      if (umgeordnet) await sofortSpeichern();
       await G.websiteSchreiben(S.wurzel, S.projekt, true);
       await G.verwaisteBilderLoeschen(S.wurzel, S.projekt);
       bericht = await G.pruefen(S.wurzel, S.projekt);
@@ -1623,6 +1689,7 @@
       inhalt.append(el('h2', '', 'Noch keine Aufnahmen'), el('p', '', 'Füge zuerst Fotos oder Videos hinzu.'));
     } else {
       inhalt.append(el('h2', 'gut', 'Die Website ist fertig'));
+      if (umgeordnet) inhalt.append(el('p', 'klein', umgeordnet + (umgeordnet === 1 ? ' Video wurde' : ' Videos wurden') + ' für den schnellen Start im Netz umgeordnet — verlustfrei, Bild und Ton unverändert. Beim Hochladen ersetzen die neuen Dateien die alten.'));
       const veroeffentlicht = G.albenBaum(S.projekt).filter(G.seitenRegeln(S.projekt).hatSeite);
       const p = el('p');
       p.innerHTML = '<strong>' + anzahl + ' Aufnahmen</strong> (' + G.groesseText(bericht.groesse) + ') in ' + veroeffentlicht.length + (veroeffentlicht.length === 1 ? ' veröffentlichtem Album' : ' veröffentlichten Alben') + '. Für den Webspace:';
