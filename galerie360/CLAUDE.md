@@ -217,6 +217,21 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   Bedienung". Aufruf per Adresse (#a/…) öffnet ohne Vollbild (kein
   Antippen). Tests: `test-e2e.js` (Desktop/Handy), Schalter in
   `test-unteralben.js`.
+- **Videos fürs Netz umordnen, verlustfrei (10/2026, Nutzer: „Video wird fast
+  zur Hälfte vorgeladen, bis es abgespielt wird").** `G.mp4FuerWeb`
+  (js/medien.js): Verzeichnis (moov) nach vorn, Stücke (chunks) aller Spuren
+  in zeitlicher Reihenfolge, stco/co64 angepasst — Ergebnis ist ein Blob aus
+  Scheiben der Originaldatei (kein Neukodieren, nichts Großes im Speicher).
+  Nur wenn nötig: moov hinten oder Vorauslauf (`verzahnung`) > 1 s. Beim
+  Hinzufügen (`videoFuerNetz` vor `kopieren`, `q.netz`), ältere Galerien
+  beim Fertigstellen (`videosFuerNetz`: neue Datei `-n`, alte gelöscht,
+  danach erst `websiteSchreiben`). Tests: `test-mp4web.js` (ffmpeg-MD5 von
+  Bild und Ton gleich; Testdatei per `scripts/mp4-unverzahnt.py`),
+  `test-videostart.js` (Safari-Weg, Vorschau spielt).
+  **„Pumpen" und Artefakte** sind meist zu niedrige Bitrate (bei 360° sieht
+  man einen kleinen Ausschnitt stark vergrößert): Datenrate steht an jeder
+  Fassung, `videoHinweise` warnt unter 60 (≥ 5000 px) bzw. 35 Mbit/s (4K).
+  Die Anleitung empfahl bis 1.0.14 nur 30–50 Mbit/s — zu wenig für 5,7K.
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind
@@ -281,8 +296,8 @@ Bei jeder neuen Fassung, ohne Nachfrage:
 `scripts/test-e2e.js` (Modi `ordner`, `einzeldatei`, `browser`, `safari`),
 `scripts/test-hotspots.js`, `scripts/test-schutz.js`, `scripts/test-albumordner.js`,
 `scripts/test-grosses-zip.js`, `scripts/test-videoaufloesung.js`,
-`scripts/test-unteralben.js`, `scripts/test-neufassung.js` und
-`scripts/test-zip64.js`;
+`scripts/test-unteralben.js`, `scripts/test-neufassung.js`,
+`scripts/test-mp4web.js`, `scripts/test-videostart.js` und `scripts/test-zip64.js`;
 Aufrufe im README. Chromium und ffmpeg sind im
 Container vorhanden. Ein grüner Lauf heißt: anlegen, importieren
 (inkl. 9000-Pixel-Foto und H.264-Video), Blick festlegen, Alben,

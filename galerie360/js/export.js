@@ -473,7 +473,7 @@
       for (const m of a.medien) {
         if (m.typ !== 'video') continue;
         const h = new Set();
-        m.quellen.forEach((q) => G.videoHinweise(q, m.quellen).forEach((x) => h.add(x)));
+        m.quellen.forEach((q) => G.videoHinweise(q, m.quellen, m.dauer).forEach((x) => h.add(x)));
         h.forEach((text) => hinweise.push({ titel: (a.titel || 'Album') + ' › ' + (m.titel || m.datei || 'Video'), text }));
       }
     }

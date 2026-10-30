@@ -33,6 +33,9 @@ Datenbank, CDN oder Konto.
 | `scripts/test-videoaufloesung.js` | 5,7K-Video am iPad in voller Breite (nicht auf 4096 verkleinert) |
 | `scripts/test-unteralben.js` | Unteralben, Sortieren, Ziehen (Maus und Finger), Album löschen, Seiten und Links auf dem Webspace |
 | `scripts/test-neufassung.js` | neue Fassung erreicht die installierte App (Service Worker am Browser-Zwischenspeicher vorbei, „Jetzt neu laden“) |
+| `scripts/test-mp4web.js` | MP4 verlustfrei fürs Netz umordnen (Verzeichnis vorn, Bild/Ton verzahnt), MD5 gleich |
+| `scripts/test-videostart.js` | Umordnen beim Hinzufügen und beim Fertigstellen (Safari-Weg), Datenrate-Hinweis |
+| `scripts/mp4-unverzahnt.py` | baut eine ungünstige Test-MP4 (Verzeichnis hinten, Bild und Ton nacheinander) |
 
 ## Prüfen
 
@@ -45,6 +48,8 @@ node scripts/test-schutz.js /tmp/m /tmp/aus-schutz
 node scripts/test-albumordner.js /tmp/m /tmp/aus-ao
 node scripts/test-unteralben.js /tmp/m /tmp/aus-ua
 node scripts/test-neufassung.js
+node scripts/test-mp4web.js /tmp/aus-mp4
+node scripts/test-videostart.js /tmp/aus-vs
 node scripts/test-grosses-zip.js /tmp/aus-gross 1100   # MB
 node scripts/test-videoaufloesung.js /tmp/aus-ordner /tmp/aus-video   # nach test-e2e ordner
 node scripts/test-zip64.js /tmp/aus && python3 -c "import zipfile; zipfile.ZipFile('/tmp/aus/z64-true.zip').testzip()"
