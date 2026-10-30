@@ -258,6 +258,12 @@ const pruefe = (bedingung, text) => {
     const hell = +execFileSync('python3', ['-c', 'import sys; from PIL import Image, ImageStat; print(sum(ImageStat.Stat(Image.open(sys.argv[1]).convert("RGB")).mean) / 3)', foto]).toString();
     pruefe(hell > 40, name + ': 360°-Foto wird gezeichnet (Helligkeit ' + hell.toFixed(0) + ')');
     pruefe(/#a\/.+\/.+/.test(s.url()), name + ': Adresse verweist direkt auf die Aufnahme');
+    // Seit 1.0.14 (Wunsch des Nutzers): nach dem Antippen Vollbild, ohne Bedienleiste.
+    pruefe(await s.evaluate(() => document.querySelector('.g-viewer').classList.contains('g-ruhig')), name + ': Aufnahme öffnet ohne Bedienleiste');
+    pruefe(await s.evaluate(() => !!(document.fullscreenElement || document.webkitFullscreenElement) || document.querySelector('.g-viewer').classList.contains('g-pseudovoll')), name + ': Aufnahme öffnet im Vollbild');
+    await s.mouse.click(vp.width / 2, vp.height / 2);
+    await s.waitForFunction(() => !document.querySelector('.g-viewer').classList.contains('g-ruhig'), null, { timeout: 5000 });
+    pruefe(true, name + ': Antippen holt die Bedienung zurück');
     // Blättern bis zum Video (Album 1 enthält 2 Fotos + evtl. Video)
     const n = await s.$$eval('.g-kachel', (l) => l.length);
     let istVideo = false;
@@ -276,6 +282,14 @@ const pruefe = (bedingung, text) => {
       await s.screenshot({ path: path.join(aus, `11-${name}-video.png`) });
       await s.click('.g-steuer .g-knopf'); // Pause
       pruefe(await s.evaluate(() => document.querySelector('.g-videoquelle').paused), name + ': Pause');
+      // Video direkt aus der Kachel: startet sofort, ohne „Video abspielen"
+      await s.click('.g-oben .g-knopf');
+      await s.waitForFunction(() => !document.querySelector('.g-viewer.g-offen'));
+      await s.click('.g-kachel:has(.g-kachelplay)');
+      await s.waitForFunction(() => { const v = document.querySelector('.g-videoquelle'); return v.currentTime > 0.5 && !v.paused; }, null, { timeout: 20000 });
+      pruefe(await s.evaluate(() => document.querySelector('.g-startknopf').hidden && document.querySelector('.g-viewer').classList.contains('g-ruhig')), name + ': Video aus der Kachel läuft sofort, im Vollbild ohne Bedienleiste');
+      await s.mouse.click(vp.width / 2, vp.height / 2);
+      await s.waitForFunction(() => !document.querySelector('.g-viewer').classList.contains('g-ruhig'), null, { timeout: 5000 });
     }
     await s.click('.g-oben .g-knopf');
     await s.waitForFunction(() => !document.querySelector('.g-viewer.g-offen'));

@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.13';
+  const FASSUNG = '1.0.14';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -161,7 +161,7 @@
       titel,
       beschreibung: '',
       fusszeile: '',
-      einstellungen: { design: 'dunkel', akzent: AKZENTE[0], autoRotation: true, datumZeigen: true, downloads: false, nichtIndexieren: true },
+      einstellungen: { design: 'dunkel', akzent: AKZENTE[0], autoRotation: true, datumZeigen: true, downloads: false, nichtIndexieren: true, vollbildStart: true },
       hotspotVorlagen: [],
       alben: [neuesAlbum('Erstes Album')]
     };
@@ -173,7 +173,7 @@
 
   /** Ältere oder von Hand bearbeitete gallery.json auf den erwarteten Stand bringen. */
   function ergaenzen(p) {
-    p.einstellungen = Object.assign({ design: 'dunkel', akzent: AKZENTE[0], autoRotation: true, datumZeigen: true, downloads: false, nichtIndexieren: true }, p.einstellungen || {});
+    p.einstellungen = Object.assign({ design: 'dunkel', akzent: AKZENTE[0], autoRotation: true, datumZeigen: true, downloads: false, nichtIndexieren: true, vollbildStart: true }, p.einstellungen || {});
     p.alben = Array.isArray(p.alben) ? p.alben : [];
     if (!p.alben.length) p.alben.push(neuesAlbum('Erstes Album'));
     for (const a of p.alben) {
@@ -566,6 +566,7 @@
     zeigeSchutz();
     $('g-design').value = e.design;
     $('g-auto').checked = !!e.autoRotation;
+    $('g-vollbild').checked = e.vollbildStart !== false;
     $('g-datum').checked = !!e.datumZeigen;
     $('g-downloads').checked = !!e.downloads;
     $('g-index').checked = e.nichtIndexieren !== false;
@@ -1967,6 +1968,7 @@
     $('k-passwort-weg').addEventListener('click', passwortEntfernen);
     $('g-design').addEventListener('change', () => { S.projekt.einstellungen.design = $('g-design').value; speichern(); });
     $('g-auto').addEventListener('change', () => { S.projekt.einstellungen.autoRotation = $('g-auto').checked; speichern(); });
+    $('g-vollbild').addEventListener('change', () => { S.projekt.einstellungen.vollbildStart = $('g-vollbild').checked; speichern(); });
     $('g-datum').addEventListener('change', () => { S.projekt.einstellungen.datumZeigen = $('g-datum').checked; speichern(); });
     $('g-downloads').addEventListener('change', () => { S.projekt.einstellungen.downloads = $('g-downloads').checked; speichern(); });
     $('g-index').addEventListener('change', () => { S.projekt.einstellungen.nichtIndexieren = $('g-index').checked; speichern(); });

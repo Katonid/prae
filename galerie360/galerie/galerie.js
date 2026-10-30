@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.13';
+  const FASSUNG = '1.0.14';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -1056,7 +1056,7 @@
     // basis: Weg von dieser Seite zum Galerieordner — '../' bei Albumseiten mit geheimem Link.
     const basis = typeof daten.basis === 'string' && /^(\.\.\/)*$/.test(daten.basis) ? daten.basis : '';
     const url = (p) => (opt.urls && opt.urls[p]) || basis + p;
-    const einst = Object.assign({ design: 'dunkel', akzent: '#3b82f6', autoRotation: true, datumZeigen: true, downloads: false }, daten.einstellungen || {});
+    const einst = Object.assign({ design: 'dunkel', akzent: '#3b82f6', autoRotation: true, datumZeigen: true, downloads: false, vollbildStart: true }, daten.einstellungen || {});
     // Albumkarten mit „adresse" führen in den eigenen Ordner eines Albums (Webspace-Aufbau 360Grad/…):
     // „<ordner>/" von der Startseite, „../<ordner>/" von einer Albumseite zu ihren Unteralben.
     const ORDNER_ADRESSE = /^(\.\.\/)?[a-z0-9-]+\/$/;
@@ -1319,6 +1319,10 @@
           e.preventDefault();
           selbstGeoeffnet = true;
           gehe('a/' + album.id + '/' + m.id, false);
+          // Wunsch des Nutzers (10/2026): nach dem Antippen gleich im Vollbild, ohne
+          // Bedienleiste; Videos laufen sofort. Vollbild und Ton erlauben die Browser
+          // nur im selben Antippen — deshalb hier und nicht erst im Betrachter.
+          if (einst.vollbildStart !== false && viewer && viewer.offen) vollbildStart(m);
         });
         const rahmen = el('div', 'g-kachelbild');
         if (m.vorschau) {
@@ -1634,6 +1638,19 @@
       if (v.wurzel.requestFullscreen) v.wurzel.requestFullscreen().catch(pseudo);
       else if (v.wurzel.webkitRequestFullscreen) v.wurzel.webkitRequestFullscreen();
       else pseudo();
+    }
+
+    /** Beim Öffnen aus der Kachel: Vollbild, Bedienung ausgeblendet, Video läuft. */
+    function vollbildStart(m) {
+      const v = viewer;
+      v.wurzel.classList.add('g-ruhig');
+      const d = document;
+      if (!(d.fullscreenElement || d.webkitFullscreenElement) && !v.wurzel.classList.contains('g-pseudovoll')) vollbild();
+      if (m.typ === 'video') spieleVideo();
+      if (!vollbildStart.erklaert) {
+        vollbildStart.erklaert = true;
+        hinweis(istMobil ? 'Antippen zeigt die Bedienung' : 'Klicken zeigt die Bedienung · Esc schließt');
+      }
     }
 
     function blaettern(r) {
