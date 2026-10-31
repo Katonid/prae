@@ -110,7 +110,7 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   Entwürfe und Links). Deshalb: mit Passwort ist sie VERSCHLÜSSELT
   (AES-256-GCM, PBKDF2-SHA256 600 000, frischer IV je Speichern; Hülle
   `{format, verschluesselt:{…}}`), Öffnen nur mit Passwort, „Schließen"
-  vergisst den Schlüssel. Passwort wird nie gespeichert; ändern verlangt
+  vergisst den Schlüssel (seit 1.0.17 außer „angemeldet bleiben", s. u.). Passwort wird nie gespeichert; ändern verlangt
   das alte. Freigabe je Album (`a.freigabe.art`: oeffentlich / link /
   entwurf, Datenfassung 3): geheime Alben bekommen `<26 Zeichen a–z2–7>/index.html`
   (130 Bit, `G.geheimerName`) mit `basis: '../'`; die Startseite enthält
@@ -241,6 +241,22 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   ZIP). Vorher nur dieses Album fürs Netz umordnen und auf fehlende Dateien
   prüfen. Dateiname `360Grad-<albumtitel>.zip`. Test: Teil „Nur ein Album
   als ZIP" in `test-unteralben.js`.
+- **Zurück-Knopf im Betrachter (Wunsch des Nutzers, 10/2026: „eine Ebene
+  höher bzw. zurück", im Vollbild unsichtbar).** Das kleine ✕ oben links
+  (`v.zu`) ist jetzt `g-hoch`: Pfeil + Albumname, Titel „Zurück zu …
+  (Esc)". Liegt in `g-oben` und verschwindet damit mit `g-ruhig`. Test:
+  `test-e2e.js` (ausgeblendet im Vollbild, sichtbar nach Antippen, führt
+  ins Album).
+- **Auf diesem Gerät angemeldet bleiben (Wunsch des Nutzers, 10/2026: „als
+  Admin angemeldet bleiben").** Häkchen im Passwort-Dialog (`merken`,
+  Vorgabe an). IndexedDB Fassung 2, Speicher `anmeldung`: der abgeleitete
+  AES-Schlüssel als NICHT exportierbarer CryptoKey + Salz + Iterationen —
+  nie das Passwort. Öffnen: `anmeldungHolen` → `entschluesselnMit`; passt
+  das Salz nicht mehr (Passwort anderswo geändert), wird vergessen und
+  gefragt. Ändern übernimmt den neuen Schlüssel, Entfernen und „Auf diesem
+  Gerät abmelden" vergessen ihn. „Schließen" lässt ihn liegen. Test:
+  Teil „Angemeldet bleiben" in `test-schutz.js` (exportKey scheitert,
+  Passwort steht nirgends).
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind

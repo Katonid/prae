@@ -261,9 +261,13 @@ const pruefe = (bedingung, text) => {
     // Seit 1.0.14 (Wunsch des Nutzers): nach dem Antippen Vollbild, ohne Bedienleiste.
     pruefe(await s.evaluate(() => document.querySelector('.g-viewer').classList.contains('g-ruhig')), name + ': Aufnahme öffnet ohne Bedienleiste');
     pruefe(await s.evaluate(() => !!(document.fullscreenElement || document.webkitFullscreenElement) || document.querySelector('.g-viewer').classList.contains('g-pseudovoll')), name + ': Aufnahme öffnet im Vollbild');
+    await s.waitForTimeout(400);
+    pruefe(await s.evaluate(() => getComputedStyle(document.querySelector('.g-viewer .g-oben')).opacity === '0'), name + ': Zurück-Knopf ist im Vollbild mit der Leiste ausgeblendet');
     await s.mouse.click(vp.width / 2, vp.height / 2);
     await s.waitForFunction(() => !document.querySelector('.g-viewer').classList.contains('g-ruhig'), null, { timeout: 5000 });
     pruefe(true, name + ': Antippen holt die Bedienung zurück');
+    const albumTitel = await s.evaluate(() => document.querySelector('.g-hoch span').textContent);
+    pruefe(await s.isVisible('.g-hoch') && albumTitel.length > 0 && /^Zurück zu/.test(await s.getAttribute('.g-hoch', 'title')), name + ': Zurück-Knopf „← ' + albumTitel + '" führt eine Ebene höher');
     // Blättern bis zum Video (Album 1 enthält 2 Fotos + evtl. Video)
     const n = await s.$$eval('.g-kachel', (l) => l.length);
     let istVideo = false;
@@ -291,8 +295,9 @@ const pruefe = (bedingung, text) => {
       await s.mouse.click(vp.width / 2, vp.height / 2);
       await s.waitForFunction(() => !document.querySelector('.g-viewer').classList.contains('g-ruhig'), null, { timeout: 5000 });
     }
-    await s.click('.g-oben .g-knopf');
+    await s.click('.g-oben .g-hoch');
     await s.waitForFunction(() => !document.querySelector('.g-viewer.g-offen'));
+    pruefe(await s.isVisible('.g-kachel'), name + ': Zurück-Knopf: wieder im Album');
     pruefe(await s.evaluate(() => !document.querySelector('.g-videoquelle').getAttribute('src')), name + ': Video nach dem Schließen freigegeben');
     await c.close();
   }

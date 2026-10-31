@@ -219,16 +219,53 @@ const PW2 = 'Herbst 2026 im Wald';
   pruefe(falsch.status() === 404, 'Alter Link führt ins Leere');
   await c.close();
 
-  console.log('Neu öffnen nur mit Passwort');
+  console.log('Angemeldet bleiben (1.0.17)');
+  // Beim Festlegen und beim Ändern war „Auf diesem Gerät angemeldet bleiben" angehakt (Vorgabe).
   await seite.reload();
   await seite.waitForSelector('#zuletzt-liste .projekt-oeffnen');
   pruefe(/🔒/.test(await seite.textContent('#zuletzt-liste')) && !/Familie/.test(await seite.textContent('#zuletzt-liste strong')), 'Liste zeigt das Schloss statt des Titels');
+  const gemerkt = await E(async () => {
+    const d = await new Promise((ok) => { const r = indexedDB.open('galerie360'); r.onsuccess = () => ok(r.result); });
+    const e = await new Promise((ok) => { const r = d.transaction('anmeldung').objectStore('anmeldung').getAll(); r.onsuccess = () => ok(r.result); });
+    d.close();
+    const k = e[0] && e[0].key;
+    let auslesbar = true;
+    try { await crypto.subtle.exportKey('raw', k); } catch (_) { auslesbar = false; }
+    return { anzahl: e.length, istSchluessel: k instanceof CryptoKey, extractable: k && k.extractable, auslesbar, json: JSON.stringify(e) };
+  });
+  pruefe(gemerkt.anzahl === 1 && gemerkt.istSchluessel && !gemerkt.extractable && !gemerkt.auslesbar, 'Gemerkt ist ein nicht auslesbarer Schlüssel (CryptoKey, exportKey scheitert)');
+  pruefe(!gemerkt.json.includes(PW) && !gemerkt.json.includes(PW2), 'Das Passwort selbst steht nirgends im Speicher');
+  await seite.click('#zuletzt-liste .projekt-oeffnen');
+  await seite.waitForSelector('#editor:not([hidden])', { timeout: 20000 });
+  pruefe(!(await seite.isVisible('#dlg-passwort')), 'Nach Neuladen öffnet die Galerie ohne Passwort (angemeldet geblieben, mit dem GEÄNDERTEN Passwort)');
+  pruefe(/angemeldet/.test(await seite.textContent('#schutz-text')) && await seite.isVisible('#k-abmelden'), 'Seitenleiste sagt es und bietet „Auf diesem Gerät abmelden"');
+  await seite.click('#k-schliessen');
+  await seite.click('#zuletzt-liste .projekt-oeffnen');
+  await seite.waitForSelector('#editor:not([hidden])', { timeout: 20000 });
+  pruefe(!(await seite.isVisible('#dlg-passwort')), '„Schließen" und wieder öffnen: weiterhin ohne Passwort');
+  await seite.click('#k-abmelden');
+  await seite.waitForSelector('#dlg-frage[open]');
+  await seite.click('#frage-ja');
+  await seite.waitForSelector('#k-abmelden', { state: 'hidden', timeout: 5000 }).catch(() => {});
+  pruefe(await seite.isHidden('#k-abmelden'), 'Abgemeldet');
+  await seite.click('#k-schliessen');
+
+  console.log('Neu öffnen nur mit Passwort');
   await seite.click('#zuletzt-liste .projekt-oeffnen');
   await seite.waitForSelector('#dlg-passwort[open]');
+  pruefe(await seite.isVisible('#pw-merken'), 'Nach dem Abmelden fragt der Generator wieder — mit Häkchen „angemeldet bleiben"');
+  await seite.uncheck('#pw-merken');
   await seite.fill('#pw-1', PW);
   await seite.click('#pw-ja');
   await seite.waitForFunction(() => /stimmt nicht/.test(document.getElementById('pw-fehler').textContent), null, { timeout: 20000 });
   pruefe(await seite.isHidden('#editor'), 'Altes Passwort wird nach dem Ändern abgewiesen');
+  await seite.fill('#pw-1', PW2);
+  await seite.click('#pw-ja');
+  await seite.waitForSelector('#editor:not([hidden])', { timeout: 20000 });
+  await seite.click('#k-schliessen');
+  await seite.click('#zuletzt-liste .projekt-oeffnen');
+  await seite.waitForSelector('#dlg-passwort[open]');
+  pruefe(true, 'Ohne Häkchen: beim nächsten Öffnen wieder das Passwort');
   await seite.fill('#pw-1', PW2);
   await seite.click('#pw-ja');
   await seite.waitForSelector('#editor:not([hidden])', { timeout: 20000 });

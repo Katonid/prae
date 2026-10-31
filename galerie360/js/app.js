@@ -7,7 +7,7 @@
   const G = window.G360;
   const $ = (id) => document.getElementById(id);
 
-  const FASSUNG = '1.0.16';
+  const FASSUNG = '1.0.17';
   const DATENFASSUNG = 3; // gallery.json: 1 = ohne Hotspots, 2 = mit Hotspots, 3 = mit Freigabe je Album
   const IOS = window.Galerie360.istIOS;
   // iPadOS/iOS: Zeichenflächen über 16,7 Megapixel bleiben stumm leer.
@@ -219,6 +219,8 @@
     $('pw-titel').textContent = o.titel;
     $('pw-text').textContent = o.text || '';
     $('pw-2-feld').hidden = !o.doppelt;
+    $('pw-merken-feld').hidden = !o.merken;
+    $('pw-merken').checked = o.merken !== 'aus';
     $('pw-1').value = $('pw-2').value = '';
     $('pw-1').autocomplete = o.doppelt ? 'new-password' : 'current-password';
     $('pw-fehler').textContent = '';
@@ -231,6 +233,7 @@
         $('pw-form').onsubmit = $('pw-nein').onclick = dlg.onclose = null;
         if (dlg.open) dlg.close();
         $('pw-1').value = $('pw-2').value = '';
+        passwortDialog.merken = !!o.merken && $('pw-merken').checked;
         ok(wert);
       };
       dlg.onclose = () => { if (!dlg.open) ende(false); };
@@ -332,12 +335,20 @@
     }
     if (p.format !== 'galerie360') return melde('Keine Galerie', 'Die gallery.json in diesem Ordner stammt nicht aus Galerie 360.');
     let schluessel = null;
+    let angemeldet = false;
     if (G.istVerschluesselt(p)) {
       if (!G.kannVerschluesseln) return melde('Geschützte Galerie', 'Dieser Browser kann die verschlüsselte Galerie nicht öffnen (sicherer Kontext nötig: https oder die Einzeldatei).');
       const huelle = p;
       let klar = null;
-      const pw = await passwortDialog({
-        titel: 'Geschützte Galerie', text: 'Die Galerie „' + wurzel.name + '" ist mit einem Passwort geschützt.', ok: 'Öffnen',
+      const id = modus + ':' + wurzel.name;
+      // Auf diesem Gerät angemeldet geblieben? Dann ohne Passwort öffnen.
+      const gemerkt = await G.anmeldungHolen(id);
+      if (gemerkt) {
+        klar = await G.entschluesselnMit(huelle, gemerkt);
+        if (!klar) await G.anmeldungVergessen(id); // Passwort inzwischen geändert
+      }
+      const pw = klar ? true : await passwortDialog({
+        titel: 'Geschützte Galerie', text: 'Die Galerie „' + wurzel.name + '" ist mit einem Passwort geschützt.', ok: 'Öffnen', merken: true,
         pruefe: async (versuch) => {
           try {
             const r = await G.entschluesseln(huelle, versuch);
@@ -351,11 +362,14 @@
       if (!pw || !klar) return;
       p = JSON.parse(klar.text);
       schluessel = klar.schluessel;
+      if (gemerkt && pw === true) angemeldet = true;
+      else if (passwortDialog.merken) angemeldet = await G.anmeldungMerken(id, schluessel);
     }
     if (p.version > DATENFASSUNG) await melde('Neuere Galerie', 'Diese Galerie wurde mit einer neueren Fassung des Generators gespeichert. Einige Einstellungen könnten verloren gehen.');
     S.wurzel = wurzel;
     S.modus = modus;
     S.schluessel = schluessel;
+    S.angemeldet = angemeldet;
     S.projekt = ergaenzen(p);
     S.albumId = S.projekt.alben[0].id;
     alleAdressenVergessen();
@@ -409,7 +423,10 @@
     alleAdressenVergessen();
     S.projekt = null;
     S.wurzel = null;
-    S.schluessel = null; // „Schließen" sperrt: ohne Passwort kein erneutes Öffnen
+    // „Schließen" sperrt: ohne Passwort kein erneutes Öffnen — außer man ist auf diesem
+    // Gerät angemeldet geblieben (dann liegt der Schlüssel in IndexedDB, siehe anmeldungMerken).
+    S.schluessel = null;
+    S.angemeldet = false;
     zeigeStart();
   }
 
@@ -713,6 +730,19 @@
       : 'Ohne Passwort kann jeder, der diesen Galerieordner bzw. eine Sicherung (ZIP) öffnet, alle Alben samt Entwürfen sehen und bearbeiten. Auf den Webspace kommt die Projektdatei nicht.';
     $('k-passwort').textContent = an ? 'Passwort ändern …' : 'Passwort festlegen …';
     $('k-passwort-weg').hidden = !an;
+    $('k-abmelden').hidden = !(an && S.angemeldet);
+    if (an && S.angemeldet) {
+      $('schutz-text').append(' ', el('span', '', 'Auf diesem Gerät bleibst du angemeldet: Die Galerie öffnet hier ohne Passwort, auch nach „Schließen".'));
+    }
+  }
+
+  async function abmelden() {
+    const ok = await frage({ titel: 'Auf diesem Gerät abmelden?', text: 'Beim nächsten Öffnen dieser Galerie fragt der Generator hier wieder nach dem Passwort. An der Galerie selbst ändert sich nichts.', ok: 'Abmelden' });
+    if (!ok) return;
+    await G.anmeldungVergessen(S.modus + ':' + S.wurzel.name);
+    S.angemeldet = false;
+    zeigeSchutz();
+    status('Abgemeldet — beim nächsten Öffnen wird das Passwort abgefragt.', 'gut');
   }
 
   /** @returns {Promise<boolean>} ob jetzt ein Passwort gilt */
@@ -731,13 +761,16 @@
       if (!alt) return true;
     }
     const pw = await passwortDialog({
-      titel: S.schluessel ? 'Neues Passwort' : 'Passwort festlegen', doppelt: true, ok: 'Festlegen',
+      titel: S.schluessel ? 'Neues Passwort' : 'Passwort festlegen', doppelt: true, ok: 'Festlegen', merken: S.schluessel && !S.angemeldet ? 'aus' : true,
       text: 'Mindestens 8 Zeichen. Wichtig: Ohne dieses Passwort lässt sich die Galerie nicht mehr bearbeiten — es gibt keinen Weg zurück. Am besten im Passwort-Manager oder auf Papier aufbewahren.'
     });
     if (!pw) return !!S.schluessel;
     status('Wird verschlüsselt …', 'laeuft');
     S.schluessel = await G.neuerSchluessel(pw);
     await sofortSpeichern();
+    const id = S.modus + ':' + S.wurzel.name;
+    if (passwortDialog.merken) S.angemeldet = await G.anmeldungMerken(id, S.schluessel);
+    else { await G.anmeldungVergessen(id); S.angemeldet = false; }
     G.projekteMerken({ schluessel: S.modus + ':' + S.wurzel.name, name: S.wurzel.name, titel: '', geschuetzt: true, modus: S.modus, handle: S.modus === 'ordner' ? S.wurzel : null, zuletzt: Date.now() });
     zeigeSchutz();
     melde('Passwort gilt', 'Die Galerie ist jetzt geschützt. Beim nächsten Hochladen die gallery.json auf dem Webspace mit ersetzen — die alte, unverschlüsselte darf dort nicht liegen bleiben.');
@@ -752,6 +785,8 @@
     });
     if (!pw) return;
     S.schluessel = null;
+    await G.anmeldungVergessen(S.modus + ':' + S.wurzel.name);
+    S.angemeldet = false;
     await sofortSpeichern();
     G.projekteMerken({ schluessel: S.modus + ':' + S.wurzel.name, name: S.wurzel.name, titel: S.projekt.titel, geschuetzt: false, modus: S.modus, handle: S.modus === 'ordner' ? S.wurzel : null, zuletzt: Date.now() });
     zeigeSchutz();
@@ -2112,6 +2147,7 @@
     }
     $('k-passwort').addEventListener('click', passwortSetzen);
     $('k-passwort-weg').addEventListener('click', passwortEntfernen);
+    $('k-abmelden').addEventListener('click', abmelden);
     $('g-design').addEventListener('change', () => { S.projekt.einstellungen.design = $('g-design').value; speichern(); });
     $('g-auto').addEventListener('change', () => { S.projekt.einstellungen.autoRotation = $('g-auto').checked; speichern(); });
     $('g-vollbild').addEventListener('change', () => { S.projekt.einstellungen.vollbildStart = $('g-vollbild').checked; speichern(); });

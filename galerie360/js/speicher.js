@@ -261,18 +261,24 @@
   /* ---------- zuletzt benutzte Projekte (IndexedDB) ---------- */
   function db() {
     return new Promise((ok, nein) => {
-      const r = indexedDB.open('galerie360', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('projekte', { keyPath: 'schluessel' });
+      // Fassung 2 (1.0.17): zusätzlich „anmeldung" — gemerkte Schlüssel geschützter Galerien.
+      const r = indexedDB.open('galerie360', 2);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        if (!d.objectStoreNames.contains('projekte')) d.createObjectStore('projekte', { keyPath: 'schluessel' });
+        if (!d.objectStoreNames.contains('anmeldung')) d.createObjectStore('anmeldung', { keyPath: 'schluessel' });
+      };
       r.onsuccess = () => ok(r.result);
       r.onerror = () => nein(r.error);
     });
   }
 
-  async function vorgang(modus, fn) {
+  async function vorgang(modus, fn, speicher) {
     const d = await db();
+    const name = speicher || 'projekte';
     return new Promise((ok, nein) => {
-      const tx = d.transaction('projekte', modus);
-      const ergebnis = fn(tx.objectStore('projekte'));
+      const tx = d.transaction(name, modus);
+      const ergebnis = fn(tx.objectStore(name));
       tx.oncomplete = () => { d.close(); ok(ergebnis && ergebnis.result); };
       tx.onerror = () => { d.close(); nein(tx.error); };
     });
@@ -290,6 +296,45 @@
       return (alle || []).sort((a, b) => b.zuletzt - a.zuletzt);
     } catch (_) {
       return [];
+    }
+  };
+
+  /*
+   * „Auf diesem Gerät angemeldet bleiben" (Wunsch des Nutzers, 10/2026: „als Admin
+   * angemeldet bleiben, ohne mich ständig neu anmelden zu müssen"). Gemerkt wird
+   * NICHT das Passwort, sondern der daraus abgeleitete AES-Schlüssel als nicht
+   * exportierbarer CryptoKey — er lässt sich zum Ver- und Entschlüsseln benutzen,
+   * aber nicht auslesen. Dazu Salz und Iterationen: passen sie nicht mehr zur
+   * gallery.json (Passwort anderswo geändert), gilt die Anmeldung nicht.
+   */
+  G.anmeldungMerken = async function (id, s) {
+    try {
+      await vorgang('readwrite', (st) => st.put({ schluessel: id, key: s.schluessel, salz: b64(s.salz), iterationen: s.iterationen, seit: Date.now() }), 'anmeldung');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+  G.anmeldungVergessen = async function (id) {
+    try { await vorgang('readwrite', (st) => st.delete(id), 'anmeldung'); } catch (_) { /* egal */ }
+  };
+  G.anmeldungHolen = async function (id) {
+    try {
+      const e = await vorgang('readonly', (st) => st.get(id), 'anmeldung');
+      return e && e.key ? { schluessel: e.key, salz: ausB64(e.salz), iterationen: e.iterationen, seit: e.seit } : null;
+    } catch (_) {
+      return null;
+    }
+  };
+  /** Hülle mit gemerktem Schlüssel öffnen → {text, schluessel} oder null (passt nicht mehr). */
+  G.entschluesselnMit = async function (huelle, s) {
+    const v = huelle.verschluesselt;
+    if (!s || v.salz !== b64(s.salz) || v.iterationen !== s.iterationen) return null;
+    try {
+      const klar = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ausB64(v.iv) }, s.schluessel, ausB64(v.daten));
+      return { text: new TextDecoder().decode(klar), schluessel: s };
+    } catch (_) {
+      return null;
     }
   };
 

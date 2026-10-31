@@ -236,6 +236,14 @@
         <li><strong>Die Projektdatei <span class="pfad">gallery.json</span>:</strong> Sie liegt im Galerieordner auf deinem Gerät und in jeder Sicherung (auf den Webspace kommt sie seit Fassung 1.0.5 nicht mehr). Mit Passwort ist sie verschlüsselt (AES-256, Schlüssel aus dem Passwort per PBKDF2 mit 600 000 Durchgängen) und für alle anderen wertlos. Ohne Passwort stünden darin alle Alben, auch Entwürfe und geheime Links.</li>
       </ul>
       <p>Festlegen, ändern oder entfernen: links unter <strong>„Schutz“</strong>. Beim Anlegen einer neuen Galerie fragt der Generator gleich danach.</p>
+      <h3>Auf diesem Gerät angemeldet bleiben</h3>
+      <p>Im Passwort-Fenster ist <strong>„Auf diesem Gerät angemeldet bleiben“</strong> angehakt. Dann öffnet sich die Galerie auf diesem Gerät künftig ohne Passwort, auch nach „Schließen“, nach einem Neustart und beim nächsten Besuch. Auf anderen Geräten und für jede Sicherung (ZIP) bleibt das Passwort nötig.</p>
+      <ul>
+        <li>Gemerkt wird <em>nicht</em> das Passwort, sondern ein daraus berechneter Schlüssel. Der Browser hält ihn so, dass er sich nicht auslesen lässt.</li>
+        <li>Wer dieses Gerät entsperrt in die Hand bekommt, kann die Galerie öffnen. Für ein gemeinsam genutztes Gerät deshalb nicht anhaken.</li>
+        <li><strong>Abmelden:</strong> links unter „Schutz“ auf „Auf diesem Gerät abmelden“ tippen. Danach fragt der Generator hier wieder nach dem Passwort.</li>
+        <li>Wird das Passwort geändert, bleibt man angemeldet. Wurde es auf einem anderen Gerät geändert, fragt der Generator hier einmal nach dem neuen.</li>
+      </ul>
       <div class="kasten wichtig"><strong>Passwort gut aufbewahren</strong>, z. B. im Passwort-Manager oder auf Papier. Ohne Passwort lässt sich die Galerie nicht mehr bearbeiten, und niemand kann es wiederherstellen. Die veröffentlichte Website funktioniert trotzdem weiter, und die Fotos und Videos liegen weiter im Ordner.</div>
       <p class="leise">Liegt von früher noch eine gallery.json auf dem Webspace (vor Fassung 1.0.5 kam sie mit), diese dort löschen. Das Passwort schützt die Projektdatei, nicht die veröffentlichten Seiten und Bilder; die sehen alle, die den Link haben.</p>
 
@@ -315,6 +323,7 @@
       <ul>
         <li>Startseite mit Titel und Alben, darin Kacheln mit Symbol für Foto oder Video (mit Dauer).</li>
         <li>Ein Klick öffnet den 360°-Betrachter, normalerweise im Vollbild und ohne Bedienleiste (Einstellung „Im Vollbild öffnen“). Am iPhone gibt es kein echtes Vollbild für Webseiten; dort wird die Bedienung ausgeblendet, die Adressleiste von Safari bleibt. <strong>Ziehen</strong> mit Maus oder Finger dreht den Blick, <strong>Mausrad, Trackpad oder zwei Finger</strong> zoomen, Doppelklick zoomt schnell.</li>
+        <li>Oben links führt der Knopf mit dem Albumnamen (← Album) eine Ebene höher, zurück zur Übersicht des Albums. Wie alle Bedienelemente ist er im Vollbild ausgeblendet; einmal aufs Bild tippen holt ihn zurück.</li>
         <li>Pfeile bzw. Tasten ← → blättern, Esc schließt, Leertaste startet und stoppt Videos, F schaltet das Vollbild um.</li>
         <li>Einmal aufs Bild tippen blendet alle Bedienelemente aus und wieder ein.</li>
         <li>Videos starten direkt beim Antippen der Kachel, mit Ton (bei ausgeschaltetem „Im Vollbild öffnen“ nach einem Tipp auf „Video abspielen“). Der Blick lässt sich während der Wiedergabe frei drehen; spulen, pausieren und die Lautstärke regeln geht über die Leiste unten.</li>

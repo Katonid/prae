@@ -126,6 +126,7 @@
           <div class="knopfreihe">
             <button type="button" id="k-passwort" class="zweit klein">Passwort festlegen …</button>
             <button type="button" id="k-passwort-weg" class="still klein gefahr" hidden>Passwort entfernen</button>
+            <button type="button" id="k-abmelden" class="still klein" hidden title="Beim nächsten Öffnen wird das Passwort wieder abgefragt">Auf diesem Gerät abmelden</button>
           </div>
         </section>
         <section class="block">
@@ -307,6 +308,7 @@
         <label class="feld" id="pw-2-feld">Passwort wiederholen
           <input type="password" id="pw-2" autocomplete="new-password" />
         </label>
+        <label class="haken" id="pw-merken-feld" hidden><input type="checkbox" id="pw-merken" checked /> Auf diesem Gerät angemeldet bleiben</label>
         <p id="pw-fehler" class="klein fehler" aria-live="assertive"></p>
         <div class="dialogfuss">
           <span class="frei"></span>
