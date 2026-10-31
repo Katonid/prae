@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.16';
+  const FASSUNG = '1.0.17';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -1377,7 +1377,14 @@
       v.start.hidden = true;
 
       v.oben = el('div', 'g-oben');
-      v.zu = knopf('', 'zu', 'Schließen (Esc)');
+      // „Eine Ebene höher": zurück zum Album (Wunsch des Nutzers, 10/2026) — ein Pfeil
+      // mit dem Albumnamen statt eines kleinen ✕. Liegt in der oberen Leiste und
+      // verschwindet damit im Vollbild mit den übrigen Bedienelementen (g-ruhig).
+      v.zu = el('button', 'g-knopf g-hoch');
+      v.zu.type = 'button';
+      v.zuText = el('span', '', 'Zurück');
+      v.zu.innerHTML = symbol('zurueck');
+      v.zu.append(v.zuText);
       v.titelBox = el('div', 'g-vtitel');
       v.titel = el('strong');
       v.nummer = el('span', 'g-nummer');
@@ -1808,6 +1815,9 @@
       v.meldung.hidden = true;
       v.start.hidden = true;
       v.titel.textContent = m.titel || (m.typ === 'video' ? '360°-Video' : '360°-Foto');
+      v.zuText.textContent = album.titel || 'Album';
+      v.zu.title = 'Zurück zu „' + (album.titel || 'Album') + '" (Esc)';
+      v.zu.setAttribute('aria-label', v.zu.title);
       v.nummer.textContent = (index + 1) + ' / ' + album.medien.length;
       v.zurueck.hidden = v.vor.hidden = album.medien.length < 2;
       v.infoText.textContent = m.beschreibung || '';

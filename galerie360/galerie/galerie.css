@@ -291,6 +291,21 @@ body.g360-seite { margin: 0; background: #0e0f12; }
   pointer-events: none;
 }
 .g360 .g-oben > * { pointer-events: auto; }
+.g360 .g-viewer .g-knopf.g-hoch {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  max-width: 34vw;
+  gap: 4px;
+  padding: 0 12px 0 6px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.35);
+}
+.g360 .g-viewer .g-knopf.g-hoch span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g360 .g-viewer .g-knopf.g-hoch:hover { background: rgba(255, 255, 255, 0.22); }
 .g360 .g-vtitel {
   flex: 1;
   min-width: 0;
