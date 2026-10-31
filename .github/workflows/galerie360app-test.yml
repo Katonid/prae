@@ -1,0 +1,64 @@
+# Führt die Unit-Tests der iOS-App Galerie 360 im iOS-Simulator aus.
+#
+# Übersetzt wird die App ohnehin von „iOS-Apps bauen"; der reine Bau sagt
+# aber nichts darüber, ob die App Galerien der Web-App richtig liest
+# (verschlüsselte gallery.json aus WebCrypto, unbekannte Felder bleiben
+# erhalten) und ob der Betrachter dieselbe Stelle zeigt wie der Web-Betrachter
+# (Blickrichtung, Bildkoordinaten, gerendertes Prüfbild). Das prüfen die Tests
+# in Galerie360iOS/Galerie360Tests/.
+name: Galerie 360 (iOS) testen
+
+on:
+  push:
+    paths:
+      - 'Galerie360iOS/**'
+      - '.github/workflows/galerie360app-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: galerie360app-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit-Tests (iOS-Simulator)
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Quelltext vorprüfen
+        run: python3 scripts/swift-quelltext-pruefen.py Galerie360iOS
+
+      - name: Werkzeuge zeigen
+        run: xcodebuild -version
+
+      - name: Simulator wählen
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | python3 -c "import sys,json;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d if 'iOS' in rt for x in d[rt] if x['name'].startswith('iPhone')), ''))")
+          [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Testen
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Galerie360iOS/Galerie360.xcodeproj \
+            -scheme Galerie360 \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/test.log
+
+      - name: Fehler und Warnungen zusammenfassen
+        if: always()
+        run: |
+          echo "===== Fehler ====="
+          grep -hE "error:|failed" /tmp/test.log | sort -u | head -60 || echo "keine"
+          echo "===== Warnungen ====="
+          grep -hE "warning:" /tmp/test.log | grep -v "AppIntents.framework" | sort -u | head -40 || echo "keine"
+          echo "===== Ergebnis ====="
+          grep -hE "Executed|TEST (SUCCEEDED|FAILED)" /tmp/test.log | tail -5 || true

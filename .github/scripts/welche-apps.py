@@ -55,6 +55,7 @@ APPS = [
     ("CadUsdEuriOS", "CadUsdEur"),
     ("FernwehiOS", "Fernweh"),
     ("FlightMateiOS", "FlightMate"),
+    ("Galerie360iOS", "Galerie360"),
     ("HimmelskompassiOS", "Himmelskompass"),
     ("Insta360DatumiOS", "Insta360Datum"),
     ("KalenderstudioiOS", "Kalenderstudio"),
