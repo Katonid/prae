@@ -134,7 +134,7 @@ struct StartAnsicht: View {
                     if bibliothek.laedt { ProgressView().controlSize(.mini) }
                 }
             } footer: {
-                Text("Galerie 360 · Fassung \(App.fassung)")
+                Text("Galerie 360 · Fassung \(AppInfo.fassung)")
             }
         }
     }

@@ -124,7 +124,7 @@ final class Bibliothek {
         let projekt: JSONObjekt = [
             "format": "galerie360",
             "version": 3,
-            "generator": ["fassung": "ios-" + App.fassung, "angelegt": ISO8601DateFormatter().string(from: Date())],
+            "generator": ["fassung": "ios-" + AppInfo.fassung, "angelegt": ISO8601DateFormatter().string(from: Date())],
             "titel": titel,
             "beschreibung": "",
             "fusszeile": "",
@@ -164,6 +164,6 @@ final class Bibliothek {
     }
 }
 
-enum App {
+enum AppInfo {
     static var fassung: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?" }
 }
