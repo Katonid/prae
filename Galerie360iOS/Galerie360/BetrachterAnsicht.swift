@@ -127,10 +127,10 @@ struct BetrachterAnsicht: View {
                 HStack(spacing: 12) {
                     Button { umschalten() } label: { Image(systemName: laeuft ? "pause.fill" : "play.fill").font(.title3).frame(width: 36) }
                     Text(zeitText(zeit)).font(.caption.monospacedDigit())
-                    Slider(value: Binding(get: { zeit }, set: { zeit = $0 }), in: 0...max(1, dauer)) { anfang in
+                    Slider(value: Binding(get: { zeit }, set: { zeit = $0 }), in: 0...max(1, dauer), onEditingChanged: { anfang in
                         spulen = anfang
                         if !anfang { player?.seek(to: CMTime(seconds: zeit, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) }
-                    }
+                    })
                     Text(zeitText(dauer)).font(.caption.monospacedDigit())
                 }
                 .padding(.horizontal, 18).padding(.vertical, 10)

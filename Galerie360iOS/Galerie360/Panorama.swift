@@ -155,8 +155,9 @@ struct PanoramaAnsicht: UIViewRepresentable {
         v.antialiasingMode = .none
         v.preferredFramesPerSecond = 60
         v.isPlaying = true // zeichnet laufend — nötig für Video und Sensor, hält Ziehen flüssig
-        v.groesseGeaendert = { [weak szene] g in
-            if g.height > 0 { szene?.seitenverhaeltnis = g.width / g.height }
+        let s = szene
+        v.groesseGeaendert = { [weak s] g in
+            if g.height > 0 { s?.seitenverhaeltnis = g.width / g.height }
         }
         context.coordinator.anbinden(v)
         return v

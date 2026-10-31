@@ -22,21 +22,21 @@ final class Bibliothek {
     var eintraege: [GalerieEintrag] = []
     var laedt = false
 
-    @ObservationIgnored private let lesezeichenSchluessel = "wurzelLesezeichen"
-    @ObservationIgnored private let geraetSchluessel = "wurzelAufGeraet"
+    private static let lesezeichenSchluessel = "wurzelLesezeichen"
+    private static let geraetSchluessel = "wurzelAufGeraet"
 
     static var dokumente: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] }
 
     init() {
         let d = UserDefaults.standard
-        if d.bool(forKey: geraetSchluessel) {
+        if d.bool(forKey: Bibliothek.geraetSchluessel) {
             wurzel = Bibliothek.dokumente
             ortName = "Auf diesem Gerät"
-        } else if let daten = d.data(forKey: lesezeichenSchluessel) {
+        } else if let daten = d.data(forKey: Bibliothek.lesezeichenSchluessel) {
             var veraltet = false
             if let url = try? URL(resolvingBookmarkData: daten, options: [], relativeTo: nil, bookmarkDataIsStale: &veraltet) {
                 _ = url.startAccessingSecurityScopedResource() // für die ganze Laufzeit der App
-                if veraltet, let neu = try? url.bookmarkData() { d.set(neu, forKey: lesezeichenSchluessel) }
+                if veraltet, let neu = try? url.bookmarkData() { d.set(neu, forKey: Bibliothek.lesezeichenSchluessel) }
                 wurzel = url
                 ortName = url.lastPathComponent
             }
@@ -48,16 +48,16 @@ final class Bibliothek {
     func ordnerGewaehlt(_ url: URL) {
         _ = url.startAccessingSecurityScopedResource()
         if let daten = try? url.bookmarkData() {
-            UserDefaults.standard.set(daten, forKey: lesezeichenSchluessel)
+            UserDefaults.standard.set(daten, forKey: Bibliothek.lesezeichenSchluessel)
         }
-        UserDefaults.standard.set(false, forKey: geraetSchluessel)
+        UserDefaults.standard.set(false, forKey: Bibliothek.geraetSchluessel)
         wurzel = url
         ortName = url.lastPathComponent
         Task { await aktualisieren() }
     }
 
     func aufDiesemGeraet() {
-        UserDefaults.standard.set(true, forKey: geraetSchluessel)
+        UserDefaults.standard.set(true, forKey: Bibliothek.geraetSchluessel)
         wurzel = Bibliothek.dokumente
         ortName = "Auf diesem Gerät"
         Task { await aktualisieren() }

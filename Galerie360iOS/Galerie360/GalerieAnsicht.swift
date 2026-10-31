@@ -216,7 +216,10 @@ struct AlbumAnsicht: View {
     private func kontextmenue(_ m: Medium, _ album: Album) -> some View {
         Button { neuerTitel = m.titel; umbenennen = m } label: { Label("Titel ändern …", systemImage: "pencil") }
         Button {
-            galerie.albumAendern(albumId) { $0["titelbild"] = album.titelbild == m.id ? NSNull() : m.id }
+            let istSchon = album.titelbild == m.id
+            galerie.albumAendern(albumId) { a in
+                if istSchon { a["titelbild"] = NSNull() } else { a["titelbild"] = m.id }
+            }
         } label: { Label(album.titelbild == m.id ? "Albumbild ✓" : "Als Albumbild", systemImage: "star") }
         Menu {
             ForEach(galerie.baum.filter { $0.album.id != albumId }) { e in

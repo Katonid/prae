@@ -42,7 +42,7 @@ enum Krypto {
                     &aus, aus.count)
             }
         }
-        return status == kCCSuccess ? SymmetricKey(data: aus) : nil
+        return status == Int32(kCCSuccess) ? SymmetricKey(data: aus) : nil
     }
 
     private static func teile(_ huelle: JSONObjekt) throws -> (salz: Data, iv: Data, daten: Data, iterationen: Int) {

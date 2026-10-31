@@ -142,8 +142,8 @@ enum Import {
             "quellen": [["src": pfad, "mime": "video/mp4", "codec": codec, "breite": b, "hoehe": h, "groesse": dateigroesse] as JSONObjekt],
             "blick": Blick.start.json, "hinweise": [Any](), "hotspots": [Any]()
         ]
-        m["poster"] = poster ?? NSNull()
-        m["vorschau"] = vorschau ?? NSNull()
+        if let poster { m["poster"] = poster } else { m["poster"] = NSNull() }
+        if let vorschau { m["vorschau"] = vorschau } else { m["vorschau"] = NSNull() }
         return m
     }
 
@@ -165,7 +165,9 @@ enum Import {
             var kompat = UInt32(c[2]) << 24 | UInt32(c[3]) << 16 | UInt32(c[4]) << 8 | UInt32(c[5])
             var umgekehrt: UInt32 = 0
             for _ in 0..<32 { umgekehrt = (umgekehrt << 1) | (kompat & 1); kompat >>= 1 }
-            return vier + "." + raum + "\(profil)." + String(umgekehrt, radix: 16, uppercase: true) + "." + stufe + "\(c[12]).B0"
+            let kompatText = String(umgekehrt, radix: 16, uppercase: true)
+            let teile: [String] = [vier, raum + String(profil), kompatText, stufe + String(c[12]), "B0"]
+            return teile.joined(separator: ".")
         }
         return vier
     }
