@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  const FASSUNG = '1.0.17';
+  const FASSUNG = '1.0.18';
 
   // iPadOS meldet sich als Mac — erkennbar nur an den Berührungspunkten.
   const istIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
@@ -1169,9 +1169,40 @@
      * Wohin „zurück" von einem Album führt: {text, adresse} (echter Link, eigene
      * Albumseite) oder {text, route} (innerhalb dieser Seite) — oder null.
      */
+    /*
+     * Herkunft (Nutzer 10/2026: „Wo ist der Zurück-Button?" auf einer Albumseite, die er
+     * über den Galerie-Link geöffnet hatte). Eine Albumseite darf den geheimen Link der
+     * Galerie nicht kennen — wer nur den Album-Link hat, soll die Galerie nicht finden.
+     * Deshalb merkt sich die Seite, von der man per Karte kommt, das im selben Tab
+     * (sessionStorage, nie in der Adresse); die Zielseite zeigt dann „← <Herkunft>".
+     */
+    const HERKUNFT = 'g360-herkunft:';
+    function herkunftMerken(adresse, titel) {
+      try {
+        const ziel = new URL(adresse, location.href);
+        sessionStorage.setItem(HERKUNFT + ziel.pathname, JSON.stringify({ href: location.href.split('#')[0], titel: titel || '' }));
+      } catch (_) { /* privat oder file:// — dann eben ohne */ }
+    }
+    function herkunft() {
+      try {
+        const h = JSON.parse(sessionStorage.getItem(HERKUNFT + location.pathname) || 'null');
+        if (!h || typeof h.href !== 'string') return null;
+        const u = new URL(h.href);
+        if (u.origin !== location.origin || u.pathname === location.pathname) return null;
+        return { text: String(h.titel || 'Zurück'), adresse: u.href };
+      } catch (_) {
+        return null;
+      }
+    }
+
     function zurueckVon(album) {
       const p = elternVon(album);
       if (p) return { text: p.titel || 'Album', route: 'a/' + p.id };
+      // Eigene Albumseite, über eine Karte erreicht: dorthin zurück, woher man kam.
+      if (album === seitenAlbum) {
+        const h = herkunft();
+        if (h) return h;
+      }
       if (album === seitenAlbum || (!neueSeite && !seitenAlbum && oben.length === 1)) {
         if (zurueckNach) return { text: zurueckNach.titel || 'Alle Alben', adresse: zurueckNach.adresse };
         if (startseite) return { text: 'Alle Alben', adresse: startseite };
@@ -1248,6 +1279,7 @@
       const k = el('a', 'g-albumkarte');
       if (a.adresse) {
         k.href = a.adresse; // eigener Albumordner — normale Navigation
+        an(k, 'click', () => herkunftMerken(a.adresse, seitenAlbum ? seitenAlbum.titel : (daten.titel || galerieName)));
       } else {
         k.href = hashRouting ? '#a/' + encodeURIComponent(a.id) : 'javascript:void 0';
         an(k, 'click', (e) => { e.preventDefault(); gehe('a/' + a.id, false); });
