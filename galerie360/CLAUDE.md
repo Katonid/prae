@@ -257,6 +257,15 @@ Bei jeder neuen Fassung, ohne Nachfrage:
   Gerät abmelden" vergessen ihn. „Schließen" lässt ihn liegen. Test:
   Teil „Angemeldet bleiben" in `test-schutz.js` (exportKey scheitert,
   Passwort steht nirgends).
+- **Zurück zur Galerie über die Herkunft (10/2026, Nutzer am iPhone: „Wo
+  ist der Zurück-Button?" auf einer Albumseite, die er über den Galerie-Link
+  geöffnet hatte).** Albumseiten dürfen den Galerie-Link NICHT enthalten.
+  Deshalb merkt sich der Klick auf eine Karte mit `adresse` im selben Tab
+  `sessionStorage['g360-herkunft:' + Zielpfad] = {href, titel}`; die Zielseite
+  (`seitenAlbum`) zeigt dann „← <titel>" — Vorrang vor Eltern-/Startseiten-
+  Link. Nie in der Adresse (würde beim Weitergeben mitwandern). Direkt
+  geöffnet: wie bisher. Test: `test-unteralben.js` (Galerie → Album →
+  zurück; direkt geöffnet ohne Galerie; Serverdateien ohne Galerie-Link).
 - **Kamera-Rohdateien (INSP/INSV/LRV/DNG) werden ERKANNT, nicht verarbeitet**
   (10/2026: Der Nutzer wählte am iPhone den Kameraordner `Camera01`, alles
   grau). `G.kameraDatei` + `kameraHinweis` erklären, was die Dateien sind

@@ -214,10 +214,28 @@ const pruefe = (b, text) => { if (!b) fehlschlaege++; console.log((b ? '  ok    
   await b.click('.g-albumkarte >> nth=0');
   await b.waitForSelector('.g-unteralben');
   pruefe(b.url() === basis + oU + '/', 'Karte führt in den Ordner von „Urlaub"');
-  await b.goto(linkAbend.replace('https://jerosch.net/apps/galerie360/360Grad/', basis));
+  // 1.0.18 (Nutzer: „Wo ist der Zurück-Button?"): über die Galerie gekommen → zurück zur Galerie
+  const gUrl = galerieLink.replace('https://jerosch.net/apps/galerie360/360Grad/', basis);
+  pruefe((await b.textContent('.g-zurueck')).trim() === 'Familie', 'Über den Galerie-Link gekommen: „← Familie" auf der Albumseite');
+  await b.click('.g-zurueck');
+  await b.waitForSelector('.g-albumkarte');
+  pruefe(b.url() === gUrl, '„← Familie" führt zurück zur Galerieseite');
+  await b.click('.g-albumkarte:has-text("Abend")');
   await b.waitForSelector('.g-kachel');
-  pruefe(/Tag 1/.test(await b.textContent('.g-zurueck')), 'Geheimer Link „Abend" geht, zurück zu „Tag 1"');
+  pruefe((await b.textContent('.g-zurueck')).trim() === 'Familie', 'Auch das geheime „Abend" führt zurück zur Galerie, wenn man von dort kam');
+  pruefe(!lies(oA).includes(oG) && !lies(oU).includes(oG), 'Die Albumseiten auf dem Server enthalten den Galerie-Link nicht (nur der Tab merkt sich die Herkunft)');
   await c.close();
+  // Direkt über den Album-Link (neuer Browser, keine Herkunft): kein Weg zur geheimen Galerie
+  const c3 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const b3 = await c3.newPage();
+  b3.on('pageerror', (e) => konsole.push('direkt: ' + e.message));
+  await b3.goto(linkAbend.replace('https://jerosch.net/apps/galerie360/360Grad/', basis));
+  await b3.waitForSelector('.g-kachel');
+  pruefe(/Tag 1/.test(await b3.textContent('.g-zurueck')), 'Geheimer Link „Abend" direkt geöffnet: zurück zu „Tag 1", nicht zur Galerie');
+  await b3.goto(basis + oU + '/');
+  await b3.waitForSelector('.g-kachel');
+  pruefe(/Alle Alben/.test(await b3.textContent('.g-zurueck')), 'Öffentliches „Urlaub" direkt geöffnet: „Alle Alben" (Startseite) wie bisher');
+  await c3.close();
   ws.close();
 
   console.log('Nur ein Album als ZIP');
