@@ -1,13 +1,16 @@
 import AVFoundation
 import ImageIO
+import Photos
 import SwiftUI
 
-/// Vollbild-Betrachter: startet ohne Bedienung (Wunsch des Nutzers aus der Web-App);
-/// einmal tippen zeigt „← Album", Titel, Bewegungssteuerung, Blättern und — bei Videos — die Wiedergabe.
+/// Vollbild-Betrachter: startet ohne Bedienung; einmal tippen zeigt „← Album", Titel,
+/// Startansicht festlegen, Bewegungssteuerung, Blättern und — bei Videos — die Wiedergabe.
+/// Fotos und Videos kommen direkt aus der Fotos-Mediathek (bei iCloud Fotos aus dem Netz).
 struct BetrachterAnsicht: View {
-    let galerie: Galerie
-    let albumId: String
+    let albumTitel: String
+    let aufnahmen: [PHAsset]
     @Environment(\.dismiss) private var schliessen
+    @Environment(Notizen.self) private var notizen
     @State private var index: Int
     @State private var szene = PanoramaSzene()
     @State private var bedienung = false
@@ -21,17 +24,21 @@ struct BetrachterAnsicht: View {
     @State private var dauer: Double = 0
     @State private var spulen = false
     @State private var laedt = false
+    @State private var fortschritt: Double?
     @State private var meldung: String?
+    @State private var gemerkt = false
 
-    init(galerie: Galerie, albumId: String, startIndex: Int) {
-        self.galerie = galerie
-        self.albumId = albumId
+    init(albumTitel: String, aufnahmen: [PHAsset], startIndex: Int) {
+        self.albumTitel = albumTitel
+        self.aufnahmen = aufnahmen
         _index = State(initialValue: startIndex)
     }
 
-    private var album: Album? { galerie.album(albumId) }
-    private var medien: [Medium] { album?.medien ?? [] }
-    private var medium: Medium? { medien.indices.contains(index) ? medien[index] : nil }
+    private var asset: PHAsset? { aufnahmen.indices.contains(index) ? aufnahmen[index] : nil }
+    private var titel: String {
+        guard let a = asset else { return "" }
+        return notizen.titel(a.localIdentifier) ?? datumText(a.creationDate)
+    }
 
     var body: some View {
         ZStack {
@@ -42,7 +49,14 @@ struct BetrachterAnsicht: View {
             }
             .ignoresSafeArea()
 
-            if laedt { ProgressView().controlSize(.large).tint(.white) }
+            if laedt {
+                VStack(spacing: 10) {
+                    ProgressView().controlSize(.large).tint(.white)
+                    if let f = fortschritt, f > 0, f < 1 {
+                        Text("Aus iCloud geladen: \(Int(f * 100)) %").font(.footnote).foregroundStyle(.white)
+                    }
+                }
+            }
             if let meldung {
                 Text(meldung)
                     .multilineTextAlignment(.center)
@@ -78,44 +92,43 @@ struct BetrachterAnsicht: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Button { schliessen() } label: {
-                    Label(album?.anzeigeTitel ?? "Zurück", systemImage: "chevron.left")
+                    Label(albumTitel, systemImage: "chevron.left")
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                         .padding(.horizontal, 14).padding(.vertical, 9)
                         .background(.black.opacity(0.45), in: Capsule())
                 }
-                .accessibilityLabel("Zurück zu \(album?.anzeigeTitel ?? "Album")")
+                .accessibilityLabel("Zurück zu \(albumTitel)")
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(medium?.anzeigeTitel ?? "").font(.headline).lineLimit(1)
-                    Text("\(index + 1) / \(medien.count)").font(.caption).foregroundStyle(.white.opacity(0.7))
+                    Text(titel).font(.headline).lineLimit(1)
+                    Text("\(index + 1) / \(aufnahmen.count)").font(.caption).foregroundStyle(.white.opacity(0.7))
                 }
                 .shadow(radius: 3)
                 Spacer()
-                if let m = medium, !m.beschreibung.isEmpty || m.datum != nil {
+                if let a = asset, !(notizen.notiz(a.localIdentifier).beschreibung ?? "").isEmpty {
                     rundknopf(info ? "info.circle.fill" : "info.circle") { info.toggle() }
                 }
+                rundknopf(gemerkt ? "pin.fill" : "pin") { startansichtMerken() }
+                    .accessibilityLabel("Diesen Blick als Startansicht merken")
                 rundknopf(bewegung ? "gyroscope" : "hand.draw") { bewegung.toggle() }
                     .accessibilityLabel(bewegung ? "Umsehen mit dem Finger" : "Umsehen durch Bewegen des Geräts")
             }
             .padding(.horizontal).padding(.top, 8).padding(.bottom, 24)
             .background(LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom))
 
-            if info, let m = medium {
-                VStack(alignment: .leading, spacing: 4) {
-                    if !m.beschreibung.isEmpty { Text(m.beschreibung) }
-                    if let d = m.datum { Text(datumText(d)).font(.caption).foregroundStyle(.white.opacity(0.7)) }
-                }
-                .frame(maxWidth: 520, alignment: .leading)
-                .padding()
-                .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if info, let a = asset, let b = notizen.notiz(a.localIdentifier).beschreibung, !b.isEmpty {
+                Text(b)
+                    .frame(maxWidth: 520, alignment: .leading)
+                    .padding()
+                    .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Spacer()
 
             HStack {
-                if medien.count > 1 {
+                if aufnahmen.count > 1 {
                     rundknopf("chevron.left") { blaettern(-1) }
                     Spacer()
                     rundknopf("chevron.right") { blaettern(1) }
@@ -123,7 +136,7 @@ struct BetrachterAnsicht: View {
             }
             .padding(.horizontal)
 
-            if medium?.art == .video {
+            if asset?.mediaType == .video {
                 HStack(spacing: 12) {
                     Button { umschalten() } label: { Image(systemName: laeuft ? "pause.fill" : "play.fill").font(.title3).frame(width: 36) }
                     Text(zeitText(zeit)).font(.caption.monospacedDigit())
@@ -151,8 +164,8 @@ struct BetrachterAnsicht: View {
     }
 
     private func blaettern(_ r: Int) {
-        guard medien.count > 1 else { return }
-        index = (index + r + medien.count) % medien.count
+        guard aufnahmen.count > 1 else { return }
+        index = (index + r + aufnahmen.count) % aufnahmen.count
     }
 
     private func umschalten() {
@@ -165,50 +178,50 @@ struct BetrachterAnsicht: View {
         }
     }
 
+    /// Der aktuelle Blick wird zur Startansicht dieser Aufnahme (nur in der App gespeichert).
+    private func startansichtMerken() {
+        guard let a = asset else { return }
+        let f = szene.blickrichtung
+        let yaw = Double(atan2(f.x, -f.z)) * 180 / .pi
+        let pitch = Double(asin(max(-1, min(1, f.y)))) * 180 / .pi
+        notizen.setzeBlick(a.localIdentifier, Blick(yaw: yaw, pitch: pitch, fov: szene.fov))
+        gemerkt = true
+    }
+
     // MARK: Laden
 
     private func laden() async {
         stoppen()
         meldung = nil
-        guard let m = medium else { return }
+        gemerkt = false
+        fortschritt = nil
+        guard let a = asset else { return }
         szene.setzeBild(nil)
-        szene.setzeBlick(m.blick)
+        szene.setzeBlick(notizen.blick(a.localIdentifier))
         laedt = true
         defer { laedt = false }
         do {
-            switch m.art {
-            case .foto:
-                // Bis 8192 Pixel Breite: so scharf, wie die Grafik es sicher trägt (16384 wären 1 GB Speicher).
-                guard let url = galerie.url(m.bildfassung(grenze: 8192)) else { throw CocoaError(.fileNoSuchFile) }
-                let bild = try await Task.detached(priority: .userInitiated) { () -> CGImage in
-                    let lokal = try Datei.bereitstellen(url)
-                    guard let q = CGImageSourceCreateWithURL(lokal as CFURL, nil),
-                          let b = Import.verkleinert(q, 8192)
-                    else { throw ImportFehler.keinBild }
-                    return b
-                }.value
+            if a.mediaType == .video {
+                let item = try await Mediathek.video(a) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
-                szene.setzeBild(bild)
-            case .video:
-                guard let q = m.videofassung(grenze: 5760), let url = galerie.url(q.src) else { throw ImportFehler.keinVideo }
-                // Aus iCloud ggf. erst ganz herunterladen — AVPlayer liest sonst nur Platzhalter.
-                let lokal = try await Task.detached(priority: .userInitiated) { try Datei.bereitstellen(url) }.value
-                guard !Task.isCancelled else { return }
-                let p = AVPlayer(url: lokal)
+                let p = AVPlayer(playerItem: item)
                 p.actionAtItemEnd = .pause
                 player = p
-                dauer = m.dauer
+                dauer = a.duration
                 zeit = 0
                 szene.setzeVideo(p)
                 zeitBeobachter = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { t in
                     if !spulen { zeit = t.seconds }
                     laeuft = p.rate > 0
-                    if let d = p.currentItem?.duration.seconds, d.isFinite, d > 0 { dauer = d }
                 }
                 p.play()
+            } else {
+                let bild = try await Mediathek.foto(a, maxPixel: 8192) { f in Task { @MainActor in fortschritt = f } }
+                guard !Task.isCancelled else { return }
+                szene.setzeBild(bild)
             }
         } catch {
-            if !Task.isCancelled { meldung = "Diese Aufnahme lässt sich nicht öffnen: \(error.localizedDescription)" }
+            if !Task.isCancelled { meldung = "Diese Aufnahme lässt sich nicht laden: \(error.localizedDescription)" }
         }
     }
 
@@ -221,5 +234,55 @@ struct BetrachterAnsicht: View {
         zeitBeobachter = nil
         player = nil
         laeuft = false
+    }
+}
+
+enum MediathekFehler: LocalizedError {
+    case nichtGeladen
+
+    var errorDescription: String? { "Sie ist auf diesem Gerät nicht verfügbar und ließ sich nicht aus iCloud laden." }
+}
+
+/// Lädt Originale aus der Fotos-Mediathek — nichts wird dauerhaft abgelegt.
+enum Mediathek {
+    /// Foto in voller Qualität (aus iCloud, wenn nötig), verkleinert auf höchstens `maxPixel` Breite
+    /// — so groß, wie die Grafik es sicher trägt.
+    static func foto(_ asset: PHAsset, maxPixel: Int, fortschritt: @escaping (Double) -> Void) async throws -> CGImage {
+        let daten: Data = try await withCheckedThrowingContinuation { f in
+            let o = PHImageRequestOptions()
+            o.deliveryMode = .highQualityFormat
+            o.version = .current
+            o.isNetworkAccessAllowed = true
+            o.progressHandler = { p, _, _, _ in fortschritt(p) }
+            PHImageManager.default().requestImageDataAndOrientation(for: asset, options: o) { d, _, _, _ in
+                if let d { f.resume(returning: d) } else { f.resume(throwing: MediathekFehler.nichtGeladen) }
+            }
+        }
+        return try await Task.detached(priority: .userInitiated) { () -> CGImage in
+            let o: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixel
+            ]
+            guard let q = CGImageSourceCreateWithData(daten as CFData, nil),
+                  let b = CGImageSourceCreateThumbnailAtIndex(q, 0, o as CFDictionary)
+            else { throw MediathekFehler.nichtGeladen }
+            return b
+        }.value
+    }
+
+    /// Video zum Abspielen — bei iCloud Fotos gestreamt, ohne es vorher ganz zu laden.
+    static func video(_ asset: PHAsset, fortschritt: @escaping (Double) -> Void) async throws -> AVPlayerItem {
+        try await withCheckedThrowingContinuation { f in
+            let o = PHVideoRequestOptions()
+            o.deliveryMode = .highQualityFormat
+            o.version = .current
+            o.isNetworkAccessAllowed = true
+            o.progressHandler = { p, _, _, _ in fortschritt(p) }
+            PHImageManager.default().requestPlayerItem(forVideo: asset, options: o) { item, _ in
+                if let item { f.resume(returning: item) } else { f.resume(throwing: MediathekFehler.nichtGeladen) }
+            }
+        }
     }
 }

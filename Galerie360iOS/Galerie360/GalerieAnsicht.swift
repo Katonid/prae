@@ -1,92 +1,313 @@
+import Photos
 import PhotosUI
 import SwiftUI
-import UniformTypeIdentifiers
 
-/// Eine geöffnete Galerie: links die Alben (Unteralben eingerückt), rechts das gewählte Album.
+/// Eine Galerie: links ihre Alben und Ordner (Unteralben eingerückt), rechts das gewählte Album.
 struct GalerieAnsicht: View {
-    @Bindable var galerie: Galerie
+    let galerie: GalerieInfo
     let schliessen: () -> Void
+    @Environment(FotoBibliothek.self) private var bibliothek
+    @State private var baum: [Knoten] = []
     @State private var auswahl: String?
-    @State private var umbenennen: Album?
-    @State private var neuerName = ""
-    @State private var loeschen: Album?
-    @State private var titelAendern = false
-    @State private var galerieTitel = ""
+    @State private var frage: Frage?
+    @State private var eingabe = ""
+    @State private var loeschen: Knoten?
+    @State private var meldung: String?
+
+    /// Was der Namensdialog gerade erfragt.
+    enum Frage: Identifiable {
+        case neuesAlbum(in: String), neuerOrdner(in: String), umbenennen(Knoten), galerieUmbenennen
+        var id: String {
+            switch self {
+            case .neuesAlbum(let e): return "a" + e
+            case .neuerOrdner(let e): return "o" + e
+            case .umbenennen(let k): return "u" + k.id
+            case .galerieUmbenennen: return "g"
+            }
+        }
+    }
+
+    private var titel: String { bibliothek.galerien.first { $0.id == galerie.id }?.titel ?? galerie.titel }
 
     var body: some View {
         NavigationSplitView {
             List(selection: $auswahl) {
-                ForEach(galerie.baum) { e in
-                    HStack(spacing: 10) {
-                        Vorschaubild(url: galerie.url(e.album.kartenbild?.vorschau))
-                            .frame(width: 44, height: 28)
-                            .clipShape(RoundedRectangle(cornerRadius: 5))
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(e.album.anzeigeTitel + (e.album.freigabe == "link" ? " 🔗" : e.album.freigabe == "entwurf" ? " ✎" : ""))
-                                .lineLimit(1)
-                            Text(e.album.zaehlung).font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.leading, CGFloat(e.tiefe) * 18)
-                    .tag(e.album.id)
-                    .contextMenu {
-                        Button { neuerName = e.album.titel; umbenennen = e.album } label: { Label("Umbenennen …", systemImage: "pencil") }
-                        Button {
-                            auswahl = galerie.albumAnlegen(titel: "Neues Unteralbum", eltern: e.album.id)
-                        } label: { Label("Unteralbum anlegen", systemImage: "folder.badge.plus") }
-                        if e.album.eltern != nil {
-                            Button { galerie.elternSetzen(e.album.id, nil) } label: { Label("Auf die oberste Ebene", systemImage: "arrow.up.to.line") }
-                        }
-                        Button(role: .destructive) { loeschen = e.album } label: { Label("Album löschen …", systemImage: "trash") }
-                    }
+                if baum.isEmpty {
+                    Text("Noch kein Album. Mit + ein Album anlegen.").foregroundStyle(.secondary)
+                }
+                ForEach(baum) { k in
+                    zeile(k)
+                        .padding(.leading, CGFloat(k.tiefe) * 18)
+                        .tag(k.id)
+                        .contextMenu { kontext(k) }
                 }
             }
-            .navigationTitle(galerie.titel)
+            .navigationTitle(titel)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { schliessen() } label: { Label("Galerien", systemImage: "chevron.left") }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Button { auswahl = galerie.albumAnlegen(titel: "Neues Album", eltern: nil) } label: { Label("Neues Album", systemImage: "plus.rectangle.on.rectangle") }
-                        Button { galerieTitel = galerie.titel; titelAendern = true } label: { Label("Galerie umbenennen …", systemImage: "pencil") }
+                        Button { fragen(.neuesAlbum(in: galerie.id)) } label: { Label("Neues Album", systemImage: "rectangle.stack.badge.plus") }
+                        Button { fragen(.neuerOrdner(in: galerie.id)) } label: { Label("Neuer Ordner für Unteralben", systemImage: "folder.badge.plus") }
+                        Button { eingabe = titel; frage = .galerieUmbenennen } label: { Label("Galerie umbenennen …", systemImage: "pencil") }
                     } label: { Image(systemName: "plus") }
                 }
             }
         } detail: {
-            if let id = auswahl, galerie.album(id) != nil {
-                AlbumAnsicht(galerie: galerie, albumId: id, auswahl: $auswahl)
-                    .id(id)
+            if let id = auswahl, let k = baum.first(where: { $0.id == id }) {
+                if k.art == .album {
+                    AlbumAnsicht(albumId: k.id, titel: k.titel, alleAlben: baum.filter { $0.art == .album })
+                        .id(k.id)
+                } else {
+                    ContentUnavailableView {
+                        Label(k.titel, systemImage: "folder")
+                    } description: {
+                        Text("Ein Ordner für Unteralben. Links ein Album darin wählen — oder eines anlegen.")
+                    } actions: {
+                        Button("Neues Album in diesem Ordner") { fragen(.neuesAlbum(in: k.id)) }
+                    }
+                }
             } else {
                 ContentUnavailableView("Album wählen", systemImage: "rectangle.stack", description: Text("Links ein Album antippen."))
             }
         }
-        .onAppear { if auswahl == nil { auswahl = galerie.baum.first?.album.id } }
-        .alert("Album umbenennen", isPresented: Binding(get: { umbenennen != nil }, set: { if !$0 { umbenennen = nil } })) {
-            TextField("Name", text: $neuerName)
-            Button("Abbrechen", role: .cancel) {}
-            Button("Umbenennen") { if let a = umbenennen { galerie.albumTitelSetzen(a.id, neuerName) } }
+        .task(id: bibliothek.stand) {
+            baum = bibliothek.baum(galerie.id)
+            if auswahl == nil || !baum.contains(where: { $0.id == auswahl }) {
+                auswahl = baum.first { $0.art == .album }?.id
+            }
         }
-        .alert("Galerie umbenennen", isPresented: $titelAendern) {
-            TextField("Name", text: $galerieTitel)
+        .alert(frageTitel, isPresented: Binding(get: { frage != nil }, set: { if !$0 { frage = nil } })) {
+            TextField("Name", text: $eingabe)
             Button("Abbrechen", role: .cancel) {}
-            Button("Umbenennen") { if !galerieTitel.isEmpty { galerie.setzeTitel(galerieTitel) } }
-        } message: { Text("Die Links zu den Alben ändern sich dadurch nicht.") }
-        .confirmationDialog(loeschen.map { "„\($0.anzeigeTitel)“ löschen?" } ?? "",
+            Button("OK") { if let f = frage { ausfuehren(f) } }
+        }
+        .confirmationDialog(loeschen.map { "„\($0.titel)“ löschen?" } ?? "",
                             isPresented: Binding(get: { loeschen != nil }, set: { if !$0 { loeschen = nil } }),
                             titleVisibility: .visible) {
-            Button("Album und seine \(loeschen?.medien.count ?? 0) Aufnahmen löschen", role: .destructive) {
-                if let a = loeschen {
-                    galerie.dateienLoeschen(galerie.albumLoeschen(a.id))
-                    if auswahl == a.id { auswahl = galerie.baum.first?.album.id }
-                }
+            Button(loeschen?.art == .ordner ? "Ordner mit seinen Alben löschen" : "Album löschen", role: .destructive) {
+                if let k = loeschen { Task { await tun { try await bibliothek.loeschen(k.id) } } }
             }
         } message: {
-            Text("Die Kopien in der Galerie werden gelöscht, deine Originale in Fotos bleiben. Unteralben bleiben erhalten und rücken eine Ebene höher.")
+            Text("Nur das Album bzw. der Ordner verschwindet — die Fotos und Videos bleiben in deiner Mediathek.")
         }
-        .alert("Fehler", isPresented: Binding(get: { galerie.fehler != nil }, set: { if !$0 { galerie.fehler = nil } })) {
+        .alert("Hinweis", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
             Button("OK", role: .cancel) {}
-        } message: { Text(galerie.fehler ?? "") }
+        } message: { Text(meldung ?? "") }
+    }
+
+    private func zeile(_ k: Knoten) -> some View {
+        HStack(spacing: 10) {
+            if k.art == .ordner {
+                Image(systemName: "folder")
+                    .frame(width: 44, height: 28)
+                    .foregroundStyle(Color.accentColor)
+            } else {
+                AlbumVorschau(albumId: k.id)
+                    .frame(width: 44, height: 28)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(k.titel).lineLimit(1)
+                if k.art == .album {
+                    Text(k.anzahl == 1 ? "1 Aufnahme" : "\(k.anzahl) Aufnahmen").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func kontext(_ k: Knoten) -> some View {
+        Button { eingabe = k.titel; frage = .umbenennen(k) } label: { Label("Umbenennen …", systemImage: "pencil") }
+        if k.art == .ordner {
+            Button { fragen(.neuesAlbum(in: k.id)) } label: { Label("Neues Album darin", systemImage: "rectangle.stack.badge.plus") }
+            Button { fragen(.neuerOrdner(in: k.id)) } label: { Label("Neuer Ordner darin", systemImage: "folder.badge.plus") }
+        }
+        Button(role: .destructive) { loeschen = k } label: { Label("Löschen …", systemImage: "trash") }
+    }
+
+    private var frageTitel: String {
+        switch frage {
+        case .neuesAlbum: return "Neues Album"
+        case .neuerOrdner: return "Neuer Ordner für Unteralben"
+        case .umbenennen: return "Umbenennen"
+        case .galerieUmbenennen: return "Galerie umbenennen"
+        case nil: return ""
+        }
+    }
+
+    private func fragen(_ f: Frage) {
+        eingabe = ""
+        frage = f
+    }
+
+    private func ausfuehren(_ f: Frage) {
+        let t = eingabe.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return }
+        Task {
+            await tun {
+                switch f {
+                case .neuesAlbum(let e):
+                    if let id = try await bibliothek.albumAnlegen(t, in: e) { auswahl = id }
+                case .neuerOrdner(let e):
+                    _ = try await bibliothek.unterordnerAnlegen(t, in: e)
+                case .umbenennen(let k):
+                    try await bibliothek.umbenennen(k.id, t)
+                case .galerieUmbenennen:
+                    try await bibliothek.umbenennen(galerie.id, t)
+                }
+            }
+        }
+    }
+
+    private func tun(_ f: () async throws -> Void) async {
+        do { try await f() } catch {
+            // Abbrechen in der Rückfrage von iOS (Löschen) ist kein Fehler.
+            if (error as NSError).code != 3072 { meldung = error.localizedDescription }
+        }
+    }
+}
+
+/// Ein Album: Aufnahmen als Raster; „Bearbeiten" zum Ordnen und Entfernen.
+struct AlbumAnsicht: View {
+    let albumId: String
+    let titel: String
+    let alleAlben: [Knoten]
+    @Environment(FotoBibliothek.self) private var bibliothek
+    @Environment(Notizen.self) private var notizen
+    @State private var aufnahmen: [PHAsset] = []
+    @State private var bearbeiten = false
+    @State private var auswahlFotos: [PhotosPickerItem] = []
+    @State private var betrachter: BetrachterZiel?
+    @State private var titelAendern: PHAsset?
+    @State private var eingabe = ""
+    @State private var meldung: String?
+
+    var body: some View {
+        Group {
+            if bearbeiten { liste } else { raster }
+        }
+        .navigationTitle(titel)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                PhotosPicker(selection: $auswahlFotos, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
+                    Label("Aus der Mediathek hinzufügen", systemImage: "plus")
+                }
+                Menu {
+                    Button("Nach Aufnahmedatum, älteste zuerst") { sortieren(.datumAlt) }
+                    Button("Nach Aufnahmedatum, neueste zuerst") { sortieren(.datumNeu) }
+                    Button("Nach Titel (A–Z)") { sortieren(.titel) }
+                    Button("Reihenfolge umkehren") { sortieren(.umkehren) }
+                } label: { Label("Sortieren", systemImage: "arrow.up.arrow.down") }
+                Button(bearbeiten ? "Fertig" : "Bearbeiten") { withAnimation { bearbeiten.toggle() } }
+            }
+        }
+        .task(id: bibliothek.stand) { aufnahmen = bibliothek.aufnahmen(albumId) }
+        .onChange(of: auswahlFotos) { _, neu in
+            let ids = neu.compactMap(\.itemIdentifier)
+            guard !neu.isEmpty else { return }
+            auswahlFotos = []
+            if ids.isEmpty {
+                meldung = "Die Auswahl kam ohne Verweis auf die Mediathek an. Bitte Vollzugriff auf Fotos erlauben."
+                return
+            }
+            Task { await tun { try await bibliothek.hinzufuegen(ids, zu: albumId) } }
+        }
+        .fullScreenCover(item: $betrachter) { z in
+            BetrachterAnsicht(albumTitel: titel, aufnahmen: aufnahmen, startIndex: z.index)
+        }
+        .alert("Titel ändern", isPresented: Binding(get: { titelAendern != nil }, set: { if !$0 { titelAendern = nil } })) {
+            TextField("Titel", text: $eingabe)
+            Button("Abbrechen", role: .cancel) {}
+            Button("Übernehmen") { if let a = titelAendern { notizen.setzeTitel(a.localIdentifier, eingabe) } }
+        }
+        .alert("Hinweis", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(meldung ?? "") }
+    }
+
+    private var raster: some View {
+        ScrollView {
+            if aufnahmen.isEmpty {
+                ContentUnavailableView("Noch leer", systemImage: "photo.badge.plus",
+                                       description: Text("Mit + Fotos und Videos aus deiner Mediathek hinzufügen. Sie werden nicht kopiert, nur ins Album aufgenommen."))
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 14)], spacing: 18) {
+                ForEach(Array(aufnahmen.enumerated()), id: \.element.localIdentifier) { i, a in
+                    Button { betrachter = BetrachterZiel(index: i) } label: {
+                        Kachel(asset: a, albumbild: notizen.albumbild(albumId) == a.localIdentifier)
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu { kontext(a) }
+                }
+            }
+            .padding()
+        }
+    }
+
+    private var liste: some View {
+        List {
+            Section {
+                ForEach(aufnahmen, id: \.localIdentifier) { a in
+                    HStack(spacing: 12) {
+                        AssetBild(asset: a, groesse: CGSize(width: 160, height: 100))
+                            .frame(width: 80, height: 50)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        VStack(alignment: .leading) {
+                            Text(notizen.titel(a.localIdentifier) ?? datumText(a.creationDate)).lineLimit(1)
+                            Text(a.mediaType == .video ? "Video · " + zeitText(a.duration) : "Foto").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .onMove { von, nach in
+                    aufnahmen.move(fromOffsets: von, toOffset: nach)
+                    Task { await tun { try await bibliothek.reihenfolge(albumId, von: von, nach: nach) } }
+                }
+                .onDelete { idx in
+                    let weg = idx.map { aufnahmen[$0] }
+                    Task { await tun { try await bibliothek.entfernen(weg, aus: albumId) } }
+                }
+            } footer: {
+                Text("Am Griff ziehen ändert die Reihenfolge (auch in der Fotos-App). Nach links wischen nimmt die Aufnahme aus dem Album — in der Mediathek bleibt sie.")
+            }
+        }
+        .environment(\.editMode, .constant(.active))
+    }
+
+    @ViewBuilder
+    private func kontext(_ a: PHAsset) -> some View {
+        let id = a.localIdentifier
+        Button { eingabe = notizen.titel(id) ?? ""; titelAendern = a } label: { Label("Titel ändern …", systemImage: "pencil") }
+        Button {
+            notizen.setzeAlbumbild(albumId, notizen.albumbild(albumId) == id ? nil : id)
+        } label: { Label(notizen.albumbild(albumId) == id ? "Albumbild ✓" : "Als Albumbild", systemImage: "star") }
+        let ziele = alleAlben.filter { $0.id != albumId }
+        if !ziele.isEmpty {
+            Menu {
+                ForEach(ziele) { z in
+                    Button(String(repeating: "  ", count: z.tiefe) + z.titel) {
+                        Task { await tun { try await bibliothek.verschieben(a, von: albumId, nach: z.id) } }
+                    }
+                }
+            } label: { Label("Verschieben nach", systemImage: "folder") }
+        }
+        Button(role: .destructive) {
+            Task { await tun { try await bibliothek.entfernen([a], aus: albumId) } }
+        } label: { Label("Aus dem Album nehmen", systemImage: "minus.circle") }
+    }
+
+    private func sortieren(_ art: Sortierung) {
+        let neu = art.ordne(aufnahmen, datum: { $0.creationDate }, titel: { notizen.titel($0.localIdentifier) ?? "" })
+        Task { await tun { try await bibliothek.ordnen(albumId, neu) } }
+    }
+
+    private func tun(_ f: () async throws -> Void) async {
+        do { try await f() } catch {
+            if (error as NSError).code != 3072 { meldung = error.localizedDescription }
+        }
     }
 }
 
@@ -95,240 +316,19 @@ struct BetrachterZiel: Identifiable {
     var id: Int { index }
 }
 
-/// Ein Album: Kopf (Name, Beschreibung, Unteralben), darunter die Aufnahmen als Raster.
-/// „Bearbeiten" zeigt eine Liste zum Verschieben (am Griff ziehen) und Löschen.
-struct AlbumAnsicht: View {
-    @Bindable var galerie: Galerie
-    let albumId: String
-    @Binding var auswahl: String?
-    @State private var bearbeiten = false
-    @State private var fotoAuswahl: [PhotosPickerItem] = []
-    @State private var dateienWaehlen = false
-    @State private var betrachter: BetrachterZiel?
-    @State private var importStand: String?
-    @State private var umbenennen: Medium?
-    @State private var neuerTitel = ""
-    @State private var loeschen: Medium?
-    @State private var meldung: String?
-
-    private var album: Album? { galerie.album(albumId) }
-
-    var body: some View {
-        Group {
-            if let album {
-                if bearbeiten { bearbeitenListe(album) } else { raster(album) }
-            }
-        }
-        .navigationTitle(album?.anzeigeTitel ?? "")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Menu {
-                    PhotosPicker(selection: $fotoAuswahl, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
-                        Label("Aus Fotos …", systemImage: "photo.on.rectangle")
-                    }
-                    Button { dateienWaehlen = true } label: { Label("Aus Dateien …", systemImage: "folder") }
-                } label: { Label("Hinzufügen", systemImage: "plus") }
-                Menu {
-                    Button("Nach Aufnahmedatum, älteste zuerst") { galerie.sortieren(album: albumId, .datumAlt) }
-                    Button("Nach Aufnahmedatum, neueste zuerst") { galerie.sortieren(album: albumId, .datumNeu) }
-                    Button("Nach Titel (A–Z)") { galerie.sortieren(album: albumId, .titel) }
-                    Button("Reihenfolge umkehren") { galerie.sortieren(album: albumId, .umkehren) }
-                } label: { Label("Sortieren", systemImage: "arrow.up.arrow.down") }
-                Button(bearbeiten ? "Fertig" : "Bearbeiten") { withAnimation { bearbeiten.toggle() } }
-            }
-        }
-        .onChange(of: fotoAuswahl) { _, neu in
-            guard !neu.isEmpty else { return }
-            fotoAuswahl = []
-            Task { await importieren(neu) }
-        }
-        .fileImporter(isPresented: $dateienWaehlen, allowedContentTypes: [.image, .movie], allowsMultipleSelection: true) { ergebnis in
-            if case .success(let urls) = ergebnis { Task { await importieren(urls) } }
-        }
-        .fullScreenCover(item: $betrachter) { z in
-            BetrachterAnsicht(galerie: galerie, albumId: albumId, startIndex: z.index)
-        }
-        .overlay(alignment: .bottom) {
-            if let s = importStand {
-                HStack(spacing: 10) { ProgressView(); Text(s) }
-                    .padding(.horizontal, 16).padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding()
-            }
-        }
-        .alert("Titel ändern", isPresented: Binding(get: { umbenennen != nil }, set: { if !$0 { umbenennen = nil } })) {
-            TextField("Titel", text: $neuerTitel)
-            Button("Abbrechen", role: .cancel) {}
-            Button("Übernehmen") { if let m = umbenennen { galerie.mediumAendern(m.id) { $0["titel"] = neuerTitel } } }
-        }
-        .confirmationDialog("Aufnahme entfernen?", isPresented: Binding(get: { loeschen != nil }, set: { if !$0 { loeschen = nil } }), titleVisibility: .visible) {
-            Button("Entfernen", role: .destructive) { if let m = loeschen { galerie.dateienLoeschen(galerie.mediumLoeschen(m.id)) } }
-        } message: { Text("Die Kopie in der Galerie wird gelöscht, dein Original in Fotos bleibt.") }
-        .alert("Hinweis", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: { Text(meldung ?? "") }
-    }
-
-    // MARK: Raster
-
-    private func raster(_ album: Album) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                kopf(album)
-                let kinder = galerie.kinder(von: album.id)
-                if !kinder.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(kinder) { k in
-                                Button { auswahl = k.id } label: { AlbumKarte(galerie: galerie, album: k) }
-                                    .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-                if album.medien.isEmpty {
-                    ContentUnavailableView("Noch leer", systemImage: "photo.badge.plus", description: Text("Mit + Fotos und Videos aus der Fotos-App oder aus Dateien hinzufügen."))
-                }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 14)], spacing: 18) {
-                    ForEach(Array(album.medien.enumerated()), id: \.element.id) { i, m in
-                        Button { betrachter = BetrachterZiel(index: i) } label: { Kachel(galerie: galerie, medium: m, albumbild: album.titelbild == m.id) }
-                            .buttonStyle(.plain)
-                            .contextMenu { kontextmenue(m, album) }
-                    }
-                }
-            }
-            .padding()
-        }
-    }
-
-    private func kopf(_ album: Album) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TextField("Name des Albums", text: Binding(get: { album.titel }, set: { galerie.albumTitelSetzen(albumId, $0) }))
-                .font(.largeTitle.bold())
-            TextField("Beschreibung (optional)", text: Binding(get: { album.beschreibung }, set: { t in galerie.albumAendern(albumId) { $0["beschreibung"] = t } }), axis: .vertical)
-                .foregroundStyle(.secondary)
-            Text(album.zaehlung).font(.footnote).foregroundStyle(.tertiary)
-        }
-    }
-
-    @ViewBuilder
-    private func kontextmenue(_ m: Medium, _ album: Album) -> some View {
-        Button { neuerTitel = m.titel; umbenennen = m } label: { Label("Titel ändern …", systemImage: "pencil") }
-        Button {
-            let istSchon = album.titelbild == m.id
-            galerie.albumAendern(albumId) { a in
-                if istSchon { a["titelbild"] = NSNull() } else { a["titelbild"] = m.id }
-            }
-        } label: { Label(album.titelbild == m.id ? "Albumbild ✓" : "Als Albumbild", systemImage: "star") }
-        Menu {
-            ForEach(galerie.baum.filter { $0.album.id != albumId }) { e in
-                Button(String(repeating: "  ", count: e.tiefe) + e.album.anzeigeTitel) { galerie.mediumVerschieben(m.id, nach: e.album.id) }
-            }
-        } label: { Label("Verschieben nach", systemImage: "folder") }
-        Button(role: .destructive) { loeschen = m } label: { Label("Entfernen …", systemImage: "trash") }
-    }
-
-    // MARK: Bearbeiten
-
-    private func bearbeitenListe(_ album: Album) -> some View {
-        List {
-            Section {
-                ForEach(album.medien) { m in
-                    HStack(spacing: 12) {
-                        Vorschaubild(url: galerie.url(m.vorschau))
-                            .frame(width: 80, height: 50)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                        VStack(alignment: .leading) {
-                            Text(m.anzeigeTitel).lineLimit(1)
-                            Text(m.datum.map(datumText) ?? "").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .onMove { galerie.medienVerschieben(album: albumId, von: $0, nach: $1) }
-                .onDelete { idx in
-                    for i in idx.sorted(by: >) where album.medien.indices.contains(i) {
-                        galerie.dateienLoeschen(galerie.mediumLoeschen(album.medien[i].id))
-                    }
-                }
-            } footer: {
-                Text("Am Griff ziehen, um die Reihenfolge zu ändern; nach links wischen zum Entfernen.")
-            }
-        }
-        .environment(\.editMode, .constant(.active))
-    }
-
-    // MARK: Import
-
-    private func importieren(_ eintraege: [PhotosPickerItem]) async {
-        let ordner = galerie.ordner
-        for (i, e) in eintraege.enumerated() {
-            importStand = "Übernehme \(i + 1) von \(eintraege.count) …"
-            do {
-                if e.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
-                    guard let film = try await e.loadTransferable(type: FilmDatei.self) else { continue }
-                    defer { try? FileManager.default.removeItem(at: film.url) }
-                    let name = film.url.lastPathComponent.components(separatedBy: "-").dropFirst(5).joined(separator: "-")
-                    let m = try await Import.video(film.url, name: name.isEmpty ? "video.mp4" : name, ordner: ordner)
-                    galerie.mediumHinzufuegen(m, album: albumId)
-                } else {
-                    guard let daten = try await e.loadTransferable(type: Data.self) else { continue }
-                    let m = try await Import.foto(daten: daten, name: nil, ordner: ordner)
-                    galerie.mediumHinzufuegen(m, album: albumId)
-                }
-            } catch {
-                meldung = "Eine Aufnahme ließ sich nicht übernehmen: \(error.localizedDescription)"
-            }
-        }
-        importStand = nil
-        galerie.jetztSpeichern()
-    }
-
-    private func importieren(_ urls: [URL]) async {
-        let ordner = galerie.ordner
-        for (i, url) in urls.enumerated() {
-            importStand = "Übernehme \(i + 1) von \(urls.count) …"
-            let zugriff = url.startAccessingSecurityScopedResource()
-            defer { if zugriff { url.stopAccessingSecurityScopedResource() } }
-            do {
-                let typ = UTType(filenameExtension: url.pathExtension)
-                if typ?.conforms(to: .movie) == true {
-                    let m = try await Import.video(url, name: url.lastPathComponent, ordner: ordner)
-                    galerie.mediumHinzufuegen(m, album: albumId)
-                } else {
-                    let daten = try await Task.detached { try Datei.lesen(url) }.value
-                    let m = try await Import.foto(daten: daten, name: url.lastPathComponent, ordner: ordner)
-                    galerie.mediumHinzufuegen(m, album: albumId)
-                }
-            } catch {
-                meldung = "„\(url.lastPathComponent)“ ließ sich nicht übernehmen: \(error.localizedDescription)"
-            }
-        }
-        importStand = nil
-        galerie.jetztSpeichern()
-    }
-}
-
-func datumText(_ iso: String) -> String {
-    let f = DateFormatter()
-    f.locale = Locale(identifier: "en_US_POSIX")
-    f.dateFormat = "yyyy-MM-dd"
-    guard let d = f.date(from: String(iso.prefix(10))) else { return iso }
-    return d.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "de_DE")))
-}
-
 struct Kachel: View {
-    let galerie: Galerie
-    let medium: Medium
+    let asset: PHAsset
     var albumbild = false
+    @Environment(Notizen.self) private var notizen
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Vorschaubild(url: galerie.url(medium.vorschau))
+            AssetBild(asset: asset, groesse: CGSize(width: 640, height: 400))
                 .aspectRatio(16 / 10, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(alignment: .bottomLeading) {
-                    Label(medium.art == .video ? zeitText(medium.dauer) : "360°", systemImage: medium.art == .video ? "video" : "camera")
+                    Label(asset.mediaType == .video ? zeitText(asset.duration) : "360°",
+                          systemImage: asset.mediaType == .video ? "video" : "camera")
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(.black.opacity(0.55), in: Capsule())
@@ -341,62 +341,45 @@ struct Kachel: View {
                             .background(Color.accentColor, in: Circle()).foregroundStyle(.white).padding(8)
                     }
                 }
-            Text(medium.anzeigeTitel).font(.subheadline.weight(.semibold)).lineLimit(1)
-            if let d = medium.datum { Text(datumText(d)).font(.caption).foregroundStyle(.secondary) }
+            if let t = notizen.titel(asset.localIdentifier) {
+                Text(t).font(.subheadline.weight(.semibold)).lineLimit(1)
+            }
+            Text(datumText(asset.creationDate)).font(.caption).foregroundStyle(.secondary)
         }
     }
 }
 
-struct AlbumKarte: View {
-    let galerie: Galerie
-    let album: Album
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Vorschaubild(url: galerie.url(album.kartenbild?.vorschau))
-                .frame(width: 180, height: 112)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            Text(album.anzeigeTitel).font(.subheadline.weight(.semibold)).lineLimit(1)
-            Text(album.zaehlung).font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(width: 180)
-    }
-}
-
-func zeitText(_ s: Double) -> String {
-    let g = Int(s.rounded())
-    return String(format: "%d:%02d", g / 60, g % 60)
-}
-
-/// Vorschaubild aus der Galerie (lädt bei iCloud-Dateien erst herunter), zwischengespeichert.
-struct Vorschaubild: View {
-    let url: URL?
+/// Bild einer Aufnahme aus der Mediathek (aus iCloud nachgeladen, wenn nötig).
+struct AssetBild: View {
+    let asset: PHAsset?
+    let groesse: CGSize
     @State private var bild: UIImage?
 
     var body: some View {
         ZStack {
             Rectangle().fill(Color.secondary.opacity(0.15))
-            if let bild {
-                Image(uiImage: bild).resizable().scaledToFill()
-            }
+            if let bild { Image(uiImage: bild).resizable().scaledToFill() }
         }
         .clipped()
-        .task(id: url) { bild = await Bildspeicher.shared.bild(url) }
+        .task(id: asset?.localIdentifier) {
+            guard let asset else { bild = nil; return }
+            bild = await Vorschau.bild(asset, groesse)
+        }
     }
 }
 
-actor Bildspeicher {
-    static let shared = Bildspeicher()
-    private let speicher = NSCache<NSURL, UIImage>()
+/// Vorschau eines Albums für die Seitenleiste: das Albumbild, sonst die erste Aufnahme.
+struct AlbumVorschau: View {
+    let albumId: String
+    @Environment(FotoBibliothek.self) private var bibliothek
+    @Environment(Notizen.self) private var notizen
+    @State private var asset: PHAsset?
 
-    func bild(_ url: URL?) async -> UIImage? {
-        guard let url else { return nil }
-        if let b = speicher.object(forKey: url as NSURL) { return b }
-        let geladen = await Task.detached(priority: .utility) { () -> UIImage? in
-            guard let d = try? Datei.lesen(url), let b = UIImage(data: d) else { return nil }
-            return b.preparingThumbnail(of: CGSize(width: 640, height: 400)) ?? b
-        }.value
-        if let geladen { speicher.setObject(geladen, forKey: url as NSURL) }
-        return geladen
+    var body: some View {
+        AssetBild(asset: asset, groesse: CGSize(width: 120, height: 76))
+            .task(id: "\(albumId)-\(bibliothek.stand)-\(notizen.albumbild(albumId) ?? "")") {
+                let alle = bibliothek.aufnahmen(albumId)
+                asset = alle.first { $0.localIdentifier == notizen.albumbild(albumId) } ?? alle.first
+            }
     }
 }
