@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -102,6 +102,17 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   CoreMotion (`Steuerung.szenenLage`). **Drehrichtungen im Querformat am
   Gerät NICHT geprüft** — erste Stelle, falls es dort falsch dreht.
 
+- **Vorschaubilder unverzerrt** (seit 1.0.4, Nutzer 11/2026: „diese verzerrten
+  360-Grad-Ansichten … mach eine schöne Vorschau daraus"). `AssetBild` zeigt
+  bei 2 : 1-Aufnahmen nicht das Rundumbild, sondern rechnet per
+  `Ausschnitt.ansicht` (Gemeinsam/Ausschnitt.swift, CPU, bilinear) den
+  Ausschnitt der Startansicht — dieselbe Rechnung wie der Betrachter,
+  Bildwinkel auf 55–90° begrenzt. Quelle nur so breit wie nötig
+  (`quellbreite`, höchstens 4096; PhotoKit liefert mit `.fast` manchmal das
+  Original, deshalb `hoechstens`). Ergebnisse im `NSCache`
+  (`VorschauAnsicht`); andere Seitenverhältnisse wie bisher. Videos: das
+  Standbild von PhotoKit, ebenso umgerechnet. Tests: `AusschnittTests`.
+
 ## Apple-TV-App (seit 1.0.2)
 
 Wunsch des Nutzers (11/2026): auf dem Apple TV ansehen, mit Wischen auf der
@@ -141,6 +152,6 @@ Web-Galerie (Sicherung) in Fotos-Alben.
 ## Tests
 
 `Galerie360Tests/` (XCTest, App als Host): `PanoramaTests`, `NotizenTests`,
-`SortierungTests`. PhotoKit selbst ist im Simulator ohne Berechtigung nicht
+`SortierungTests`, `AusschnittTests`. PhotoKit selbst ist im Simulator ohne Berechtigung nicht
 prüfbar. Läuft in `.github/workflows/galerie360app-test.yml` bei jedem Push
 unter `Galerie360iOS/`; der Bau zusätzlich in `ios-apps-build.yml`.

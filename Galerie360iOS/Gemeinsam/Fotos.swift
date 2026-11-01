@@ -265,14 +265,14 @@ final class FotoBibliothek: NSObject, PHPhotoLibraryChangeObserver {
 enum Vorschau {
     static let verwalter = PHCachingImageManager()
 
-    static func bild(_ asset: PHAsset, _ groesse: CGSize) async -> UIImage? {
+    static func bild(_ asset: PHAsset, _ groesse: CGSize, modus: PHImageContentMode = .aspectFill) async -> UIImage? {
         await withCheckedContinuation { fortsetzung in
             let o = PHImageRequestOptions()
             o.deliveryMode = .highQualityFormat // genau ein Rückruf
             o.resizeMode = .fast
             o.isNetworkAccessAllowed = true
             var fertig = false
-            verwalter.requestImage(for: asset, targetSize: groesse, contentMode: .aspectFill, options: o) { b, _ in
+            verwalter.requestImage(for: asset, targetSize: groesse, contentMode: modus, options: o) { b, _ in
                 guard !fertig else { return }
                 fertig = true
                 fortsetzung.resume(returning: b)
