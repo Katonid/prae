@@ -1,4 +1,5 @@
 import AVFoundation
+import MediaPlayer
 import Photos
 import SwiftUI
 
@@ -210,6 +211,9 @@ struct BetrachterTV: View {
     @State private var hinweis = true
     @State private var player: AVPlayer?
     @State private var zeitBeobachter: Any?
+    /// Macht die App zur „Now Playing"-App von tvOS — ohne das gehen die Lautstärketasten
+    /// der Siri Remote bei Ton über HomePod/AirPlay ins Leere (gemeldet 11/2026, 1.0.5).
+    @State private var sitzung: MPNowPlayingSession?
     @State private var zeit: Double = 0
     @State private var laedt = false
     @State private var fortschritt: Double?
@@ -305,6 +309,8 @@ struct BetrachterTV: View {
             if a.mediaType == .video {
                 let item = try await Mediathek.video(a) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
+                item.externalMetadata = [metadaten(.commonIdentifierTitle, notizen.titel(a.localIdentifier) ?? datumText(a.creationDate)),
+                                         metadaten(.iTunesMetadataTrackSubTitle, albumTitel)]
                 let p = AVPlayer(playerItem: item)
                 p.actionAtItemEnd = .pause
                 player = p
@@ -313,6 +319,7 @@ struct BetrachterTV: View {
                 zeitBeobachter = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { t in
                     zeit = t.seconds
                 }
+                tonAn(p)
                 p.play()
             } else {
                 // Apple TV 4K: Texturen bis 16384 — 8192 ist scharf und schont den Speicher.
@@ -325,7 +332,39 @@ struct BetrachterTV: View {
         }
     }
 
+    /// Audio-Sitzung aktivieren und als „Now Playing" bei tvOS anmelden: Dann steuert die
+    /// Siri Remote die Lautstärke (HomePod, AirPlay, Lautsprecher am Apple TV) und das
+    /// Kontrollzentrum zeigt das Video. Spielt der Ton über den Fernseher (HDMI-CEC/IR),
+    /// regelt die Fernbedienung ohnehin direkt den Fernseher.
+    private func tonAn(_ p: AVPlayer) {
+        try? AVAudioSession.sharedInstance().setActive(true)
+        let s = MPNowPlayingSession(players: [p])
+        s.automaticallyPublishesNowPlayingInfo = true
+        let befehle = s.remoteCommandCenter
+        befehle.togglePlayPauseCommand.addTarget { _ in umschalten(); return .success }
+        befehle.playCommand.addTarget { _ in p.play(); return .success }
+        befehle.pauseCommand.addTarget { _ in p.pause(); return .success }
+        s.becomeActiveIfPossible { _ in }
+        sitzung = s
+    }
+
+    private func metadaten(_ kennung: AVMetadataIdentifier, _ wert: String) -> AVMetadataItem {
+        let m = AVMutableMetadataItem()
+        m.identifier = kennung
+        m.value = wert as NSString
+        m.extendedLanguageTag = "und"
+        return m.copy() as! AVMetadataItem
+    }
+
     private func stoppen() {
+        if let s = sitzung {
+            s.remoteCommandCenter.togglePlayPauseCommand.removeTarget(nil)
+            s.remoteCommandCenter.playCommand.removeTarget(nil)
+            s.remoteCommandCenter.pauseCommand.removeTarget(nil)
+            s.automaticallyPublishesNowPlayingInfo = false
+            sitzung = nil
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
         if let p = player {
             p.pause()
             if let b = zeitBeobachter { p.removeTimeObserver(b) }

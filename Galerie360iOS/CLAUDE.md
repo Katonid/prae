@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -137,6 +137,14 @@ Fernbedienung umsehen, Zoom „irgendwie einstellen".
   Play/Pause = Video; „Zurück" geht an tvOS weiter (schließt). Nicht
   behandelte Tasten gehen mit Begin/Ende an `super` — sonst bleibt
   tvOS-Navigation hängen.
+- **Lautstärke bei Videos** (gemeldet 11/2026: „Tasten auf der Fernbedienung
+  ohne Funktion"; seit 1.0.5): `BetrachterTV.tonAn` aktiviert die
+  Audio-Sitzung und meldet den Player per `MPNowPlayingSession`
+  (`automaticallyPublishesNowPlayingInfo`, `becomeActiveIfPossible`) als
+  „Now Playing" an; Titel über `externalMetadata`. Ohne das regelt die Siri
+  Remote bei Ton über HomePod/AirPlay nichts — ein AVPlayer als
+  SceneKit-Textur ist für tvOS sonst keine Wiedergabe. Ton über den
+  Fernseher (HDMI-CEC/IR) ist davon unabhängig. **Am Gerät nicht geprüft.**
 - **Am Gerät NICHT geprüft:** ob tvOS einer eigenen App Zugriff auf iCloud
   Fotos gibt (PhotoKit ist ab tvOS 14 da, die Praxis steht nirgends sicher);
   Empfindlichkeit des Wischens. Notizen (Titel, Startansicht) kommen erst
