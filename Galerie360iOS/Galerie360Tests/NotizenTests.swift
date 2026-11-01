@@ -33,4 +33,88 @@ final class NotizenTests: XCTestCase {
         n.setzeAlbumbild("L", nil)
         XCTAssertNil(n.albumbild("L"))
     }
+
+    // MARK: Abgleich über iCloud
+
+    /// iCloud zum Anfassen: ein gemeinsamer Inhalt, dazu je Gerät eine Übersetzung
+    /// localIdentifier ↔ Cloud-Kennung.
+    final class Wolke {
+        var inhalt = Notizen.Inhalt()
+    }
+
+    final class GeraeteWolke: NotizenWolke {
+        let wolke: Wolke
+        let karte: [String: String] // lokal → cloud
+        var beiAenderung: (() -> Void)?
+        init(_ wolke: Wolke, _ karte: [String: String]) { self.wolke = wolke; self.karte = karte }
+        func lesen() -> Notizen.Inhalt { wolke.inhalt }
+        func schreiben(_ inhalt: Notizen.Inhalt) { wolke.inhalt = inhalt }
+        func zuCloud(_ ids: [String]) -> [String: String] { karte.filter { ids.contains($0.key) } }
+        func zuLokal(_ ids: [String]) -> [String: String] {
+            var aus: [String: String] = [:]
+            for (l, c) in karte where ids.contains(c) { aus[c] = l }
+            return aus
+        }
+    }
+
+    private final class Uhr {
+        var t = Date(timeIntervalSince1970: 1_800_000_000)
+        func weiter() -> Date { t += 1; return t }
+    }
+
+    func testTitelUndAlbumbildWandernZumAnderenGeraet() {
+        let wolke = Wolke()
+        let uhr = Uhr()
+        let iphone = Notizen(datei: datei(), wolke: GeraeteWolke(wolke, ["i-A": "c-A", "i-L": "c-L"]), jetzt: uhr.weiter)
+        let tv = Notizen(datei: datei(), wolke: GeraeteWolke(wolke, ["t-A": "c-A", "t-L": "c-L"]), jetzt: uhr.weiter)
+        iphone.setzeTitel("i-A", "Königssee")
+        iphone.setzeBlick("i-A", Blick(yaw: 30, pitch: 5, fov: 60))
+        iphone.setzeAlbumbild("i-L", "i-A")
+        tv.abgleichen()
+        XCTAssertEqual(tv.titel("t-A"), "Königssee")
+        XCTAssertEqual(tv.blick("t-A"), Blick(yaw: 30, pitch: 5, fov: 60))
+        XCTAssertEqual(tv.albumbild("t-L"), "t-A")
+    }
+
+    func testJuengereAenderungGewinntUndLoeschenUebertraegtSich() {
+        let wolke = Wolke()
+        let uhr = Uhr()
+        let a = Notizen(datei: datei(), wolke: GeraeteWolke(wolke, ["a1": "c1"]), jetzt: uhr.weiter)
+        let b = Notizen(datei: datei(), wolke: GeraeteWolke(wolke, ["b1": "c1"]), jetzt: uhr.weiter)
+        a.setzeTitel("a1", "Alt")
+        b.abgleichen()
+        b.setzeTitel("b1", "Neu")
+        a.abgleichen()
+        XCTAssertEqual(a.titel("a1"), "Neu")
+        a.setzeTitel("a1", "")
+        b.abgleichen()
+        XCTAssertNil(b.titel("b1"))
+    }
+
+    func testNochNichtAngekommeneAufnahmeBleibtInDerWolke() {
+        let wolke = Wolke()
+        let uhr = Uhr()
+        let a = Notizen(datei: datei(), wolke: GeraeteWolke(wolke, ["a1": "c1"]), jetzt: uhr.weiter)
+        a.setzeTitel("a1", "Watzmann")
+        // Gerät B kennt die Aufnahme noch nicht (iCloud Fotos hat sie noch nicht geliefert).
+        let b = Notizen(datei: datei(), wolke: GeraeteWolke(wolke, [:]), jetzt: uhr.weiter)
+        b.abgleichen()
+        XCTAssertEqual(wolke.inhalt.medien["c1"]?.titel, "Watzmann")
+        // Später ist sie da.
+        let b2 = Notizen(datei: datei(), wolke: GeraeteWolke(wolke, ["b1": "c1"]), jetzt: uhr.weiter)
+        b2.abgleichen()
+        XCTAssertEqual(b2.titel("b1"), "Watzmann")
+    }
+
+    func testAlteDateiOhneZeitstempelWirdGelesenUndHochgeladen() throws {
+        let d = datei()
+        try Data(#"{"medien":{"x":{"titel":"Früher"}},"albumbilder":{"L":"x"}}"#.utf8).write(to: d)
+        let wolke = Wolke()
+        let n = Notizen(datei: d, wolke: GeraeteWolke(wolke, ["x": "cx", "L": "cL"]))
+        XCTAssertEqual(n.titel("x"), "Früher")
+        XCTAssertEqual(n.albumbild("L"), "x")
+        n.abgleichen()
+        XCTAssertEqual(wolke.inhalt.medien["cx"]?.titel, "Früher")
+        XCTAssertEqual(wolke.inhalt.alben["cL"]?.asset, "cx")
+    }
 }
