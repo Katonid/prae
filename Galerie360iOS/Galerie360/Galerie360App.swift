@@ -3,7 +3,8 @@ import SwiftUI
 
 @main
 struct Galerie360App: App {
-    @State private var bibliothek = Bibliothek()
+    @State private var bibliothek = FotoBibliothek()
+    @State private var notizen = Notizen()
 
     init() {
         // Ton auch bei stummgeschaltetem iPhone — wie ein Video in der Fotos-App.
@@ -14,7 +15,7 @@ struct Galerie360App: App {
         WindowGroup {
             StartAnsicht()
                 .environment(bibliothek)
-                .tint(Color.accentColor)
+                .environment(notizen)
         }
     }
 }
