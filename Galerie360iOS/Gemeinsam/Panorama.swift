@@ -1,5 +1,7 @@
 import AVFoundation
+#if os(iOS)
 import CoreMotion
+#endif
 import SceneKit
 import SwiftUI
 import UIKit
@@ -138,12 +140,19 @@ final class PanoramaSzene {
     var blickrichtung: SIMD3<Float> { kameraKnoten.simdOrientation.act(SIMD3(0, 0, -1)) }
 }
 
-/// SwiftUI-Hülle um SCNView mit Gesten: ziehen (mit Schwung), zwei Finger zoomen,
-/// doppelt tippen zoomen, einmal tippen → `beiTippen` (Bedienung ein/aus).
+/// Tasten der Siri Remote, die der Betrachter nicht selbst verarbeitet (tvOS).
+enum Taste { case links, rechts, playPause }
+
+/// SwiftUI-Hülle um SCNView.
+/// iPhone/iPad: ziehen (mit Schwung), zwei Finger zoomen, doppelt tippen zoomen,
+/// einmal tippen → `beiTippen` (Bedienung ein/aus), Bewegungssensor.
+/// Apple TV: auf der Touch-Fläche der Siri Remote wischen dreht (mit Schwung), oben/unten
+/// auf dem Ring klicken zoomt, Mitte klicken → `beiTippen`, links/rechts/Play → `beiTaste`.
 struct PanoramaAnsicht: UIViewRepresentable {
     let szene: PanoramaSzene
-    var bewegung: Bool
+    var bewegung = false
     var beiTippen: () -> Void
+    var beiTaste: (Taste) -> Void = { _ in }
 
     func makeCoordinator() -> Steuerung { Steuerung(szene: szene) }
 
@@ -165,11 +174,16 @@ struct PanoramaAnsicht: UIViewRepresentable {
 
     func updateUIView(_ v: PanoramaFlaeche, context: Context) {
         context.coordinator.beiTippen = beiTippen
+        context.coordinator.beiTaste = beiTaste
+        #if os(iOS)
         context.coordinator.sensor(an: bewegung, ansicht: v)
+        #endif
     }
 
     static func dismantleUIView(_ v: PanoramaFlaeche, coordinator: Steuerung) {
+        #if os(iOS)
         coordinator.sensor(an: false, ansicht: v)
+        #endif
         coordinator.schwungStoppen()
         v.isPlaying = false
     }
@@ -177,17 +191,24 @@ struct PanoramaAnsicht: UIViewRepresentable {
     final class Steuerung: NSObject, UIGestureRecognizerDelegate {
         let szene: PanoramaSzene
         var beiTippen: () -> Void = {}
+        var beiTaste: (Taste) -> Void = { _ in }
         private var startFov: Double = 75
         private var geschwindigkeit = SIMD2<Double>(0, 0) // Grad je Sekunde
         private var schwung: CADisplayLink?
+        #if os(iOS)
         private let bewegung = CMMotionManager()
         private var sensorAn = false
         private var versatz: Float? // Drehung um die Senkrechte, damit der Sensor beim aktuellen Blick einsetzt
+        #else
+        private let sensorAn = false
+        private var versatz: Float?
+        #endif
 
         init(szene: PanoramaSzene) { self.szene = szene }
 
-        func anbinden(_ v: SCNView) {
+        func anbinden(_ v: PanoramaFlaeche) {
             let ziehen = UIPanGestureRecognizer(target: self, action: #selector(gezogen(_:)))
+            #if os(iOS)
             ziehen.maximumNumberOfTouches = 1
             let kneifen = UIPinchGestureRecognizer(target: self, action: #selector(gekniffen(_:)))
             let doppelt = UITapGestureRecognizer(target: self, action: #selector(doppeltGetippt(_:)))
@@ -198,15 +219,30 @@ struct PanoramaAnsicht: UIViewRepresentable {
                 g.delegate = self
                 v.addGestureRecognizer(g)
             }
+            #else
+            // Siri Remote: Wischen auf der Touch-Fläche (indirekte Berührung).
+            ziehen.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirect.rawValue)]
+            v.addGestureRecognizer(ziehen)
+            v.tasteGedrueckt = { [weak self] art in self?.gedrueckt(art) ?? false }
+            #endif
         }
 
         func gestureRecognizer(_ a: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith b: UIGestureRecognizer) -> Bool {
-            (a is UIPinchGestureRecognizer) != (b is UIPinchGestureRecognizer) && !(a is UITapGestureRecognizer) && !(b is UITapGestureRecognizer)
+            #if os(iOS)
+            return (a is UIPinchGestureRecognizer) != (b is UIPinchGestureRecognizer) && !(a is UITapGestureRecognizer) && !(b is UITapGestureRecognizer)
+            #else
+            return false
+            #endif
         }
 
-        /// Grad je Bildschirmpunkt: der Finger soll das Bild „mitnehmen".
+        /// Grad je Bildschirmpunkt: der Finger soll das Bild „mitnehmen". Auf dem Apple TV ist
+        /// die Touch-Fläche klein gegenüber dem Fernseher — dort mehr Grad je Punkt.
         private func gradJePunkt(_ v: UIView) -> Double {
-            szene.wirksamesFov / Double(max(1, v.bounds.height))
+            #if os(tvOS)
+            return 1.6 * szene.wirksamesFov / Double(max(1, v.bounds.height))
+            #else
+            return szene.wirksamesFov / Double(max(1, v.bounds.height))
+            #endif
         }
 
         @objc private func gezogen(_ g: UIPanGestureRecognizer) {
@@ -257,6 +293,23 @@ struct PanoramaAnsicht: UIViewRepresentable {
             if simd_length(geschwindigkeit) < 2 { schwungStoppen() }
         }
 
+        #if os(tvOS)
+        /// Tasten der Siri Remote. true = verarbeitet (sonst geht die Taste an tvOS weiter,
+        /// z. B. „Zurück" zum Schließen).
+        func gedrueckt(_ art: UIPress.PressType) -> Bool {
+            switch art {
+            case .upArrow: szene.setzeFov(szene.fov * 0.8); return true      // näher heran
+            case .downArrow: szene.setzeFov(szene.fov * 1.25); return true   // weiter weg
+            case .leftArrow: beiTaste(.links); return true
+            case .rightArrow: beiTaste(.rechts); return true
+            case .select: schwungStoppen(); beiTippen(); return true
+            case .playPause: beiTaste(.playPause); return true
+            default: return false
+            }
+        }
+        #endif
+
+        #if os(iOS)
         @objc private func gekniffen(_ g: UIPinchGestureRecognizer) {
             if g.state == .began { startFov = szene.fov; schwungStoppen() }
             if g.scale > 0 { szene.setzeFov(startFov / Double(g.scale)) }
@@ -318,6 +371,7 @@ struct PanoramaAnsicht: UIViewRepresentable {
             }
             return bezug * geraet * simd_quatf(angle: drehung, axis: SIMD3(0, 0, 1))
         }
+        #endif
     }
 }
 
@@ -328,4 +382,31 @@ final class PanoramaFlaeche: SCNView {
         super.layoutSubviews()
         groesseGeaendert?(bounds.size)
     }
+
+    #if os(tvOS)
+    /// Siri Remote: die Fläche bekommt den Fokus, damit Wischen und Tasten hier ankommen.
+    var tasteGedrueckt: ((UIPress.PressType) -> Bool)?
+    override var canBecomeFocused: Bool { true }
+
+    private var behandelt = Set<UIPress.PressType>()
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        var uebrig = Set<UIPress>()
+        for p in presses {
+            if tasteGedrueckt?(p.type) ?? false { behandelt.insert(p.type) } else { uebrig.insert(p) }
+        }
+        if !uebrig.isEmpty { super.pressesBegan(uebrig, with: event) }
+    }
+
+    // Ende und Abbruch nur für Tasten weitergeben, die tvOS auch begonnen hat (z. B. „Zurück").
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let uebrig = presses.filter { behandelt.remove($0.type) == nil }
+        if !uebrig.isEmpty { super.pressesEnded(uebrig, with: event) }
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let uebrig = presses.filter { behandelt.remove($0.type) == nil }
+        if !uebrig.isEmpty { super.pressesCancelled(uebrig, with: event) }
+    }
+    #endif
 }
