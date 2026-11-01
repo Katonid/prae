@@ -191,6 +191,8 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
+			name = Debug;
+		};
 		7B36000000000000000000AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -244,6 +246,8 @@
 				SDKROOT = appletvos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
+			name = Release;
+		};
 		7B36000000000000000000AE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
