@@ -13,12 +13,12 @@
   (TestFlight); hier laufen nur Bau und Tests im Simulator.
 - iPhone + iPad, iOS 17, SwiftUI, Swift 5, keine Pakete. Bundle-Id
   `de.familie.galerie360` — nach dem ersten Signieren nicht mehr ändern.
-  **Keine Entitlements.**
+  **Keine Entitlements** (bis die App-Id iCloud trägt, siehe Abgleich).
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -48,10 +48,43 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   dauerhaft abgelegt.
 - **Was Fotos nicht speichern kann** (eigener Titel, Beschreibung,
   Startansicht je Aufnahme, Albumbild): `Notizen` — ein paar KB JSON in
-  Application Support, Schlüssel = `localIdentifier`. Nicht über iCloud
-  synchronisiert (das bräuchte CloudKit/KVS und damit Entitlements); bleibt
-  über Geräte-Backup erhalten. `localIdentifier` ist je Gerät verschieden —
-  für einen späteren Abgleich die `PHCloudIdentifier` nehmen.
+  Application Support, Schlüssel = `localIdentifier` (je Gerät verschieden).
+- **Abgleich über iCloud (seit 1.0.3, Wunsch des Nutzers 11/2026: „Alben,
+  die ich auf einem Gerät anlege, sollen sich auf ein anderes
+  übertragen").** Zwei Teile:
+  - *Alben und Ordner* überträgt iCloud Fotos selbst. Falle: Legen zwei
+    Geräte den Ordner „Galerie 360" an, bevor der erste übertragen ist,
+    stehen danach ZWEI gleichnamige Ordner oben in der Mediathek. Bis 1.0.2
+    las die App nur einen (Kennung in `UserDefaults`) — die Galerien des
+    anderen Geräts blieben unsichtbar. Seit 1.0.3 liest
+    `FotoBibliothek.wurzeln()` ALLE gleichnamigen; neue Galerien entstehen
+    im zuletzt benutzten.
+  - *Notizen*: `ICloudNotizen` (Gemeinsam/NotizenWolke.swift) legt sie im
+    iCloud-Schlüsselwertspeicher (`NSUbiquitousKeyValueStore`, Schlüssel
+    `notizen-v1`) ab, geschlüsselt nach `PHCloudIdentifier` (übersetzt per
+    `cloudIdentifierMappings`/`localIdentifierMappings`). Je Eintrag gewinnt
+    der jüngere Zeitstempel (`geaendert`); Leeren bleibt als leerer Eintrag
+    mit Zeitstempel stehen, damit es sich überträgt. Nicht zuordenbare
+    Kennungen (Aufnahme noch nicht angekommen) bleiben unberührt und kommen
+    beim nächsten Abgleich dran (Start, Fotozugriff, `bibliothek.stand`,
+    Vordergrund, iCloud-Meldung). Die Rechnung ist rein
+    (`Notizen.zusammenfuehren`) und in `NotizenTests` geprüft.
+  - **Entitlement steht NOCH NICHT im Projekt** (Stand 1.0.3). Ohne
+    `com.apple.developer.ubiquity-kvstore-identifier` verhält sich der
+    Speicher rein lokal — kein Fehler, nur kein Abgleich der Notizen. Erst
+    muss die App-Id `de.familie.galerie360` in der Entwicklerkonsole die
+    Fähigkeit „iCloud" tragen (Lehre Urlaubstagebuch 1.0.44/1.0.45: ein
+    Recht, das die App-Id nicht trägt, macht das Projekt unsignierbar).
+    Wenn der Nutzer das bestätigt: `Config/Galerie360.entitlements` mit
+    `com.apple.developer.ubiquity-kvstore-identifier` =
+    `$(TeamIdentifierPrefix)$(CFBundleIdentifier)` und
+    `CODE_SIGN_ENTITLEMENTS` in BEIDEN Projekten (iOS- und TV-Ziel, Debug
+    und Release) — gleicher Wert = gemeinsamer Speicher.
+- **Galerie umbenennen/löschen** (seit 1.0.3, gemeldet 11/2026: „kann weder
+  den Namen ändern noch die Galerie löschen" — Umbenennen stand bis dahin
+  versteckt im „+"-Menü der Galerie, Löschen gab es nicht): in der
+  Galerienliste nach links wischen oder lange drücken; in der Galerie das
+  „…"-Menü oben rechts. Löschen entfernt nur Ordner und Alben, nie Aufnahmen.
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 
@@ -95,8 +128,8 @@ Fernbedienung umsehen, Zoom „irgendwie einstellen".
   tvOS-Navigation hängen.
 - **Am Gerät NICHT geprüft:** ob tvOS einer eigenen App Zugriff auf iCloud
   Fotos gibt (PhotoKit ist ab tvOS 14 da, die Praxis steht nirgends sicher);
-  Empfindlichkeit des Wischens. Notizen (Titel, Startansicht) liegen je
-  Gerät — das Apple TV kennt die vom iPhone nicht.
+  Empfindlichkeit des Wischens. Notizen (Titel, Startansicht) kommen erst
+  mit dem iCloud-Entitlement aufs Apple TV (siehe Abgleich).
 - Bau: Job „Apple-TV-App übersetzen" in `galerie360app-test.yml`
   (tvOS-Simulator). „iOS-Apps bauen" kennt nur iOS-Ziele.
 

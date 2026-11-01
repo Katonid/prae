@@ -12,6 +12,7 @@ struct GalerieAnsicht: View {
     @State private var frage: Frage?
     @State private var eingabe = ""
     @State private var loeschen: Knoten?
+    @State private var galerieLoeschen = false
     @State private var meldung: String?
 
     /// Was der Namensdialog gerade erfragt.
@@ -51,8 +52,13 @@ struct GalerieAnsicht: View {
                     Menu {
                         Button { fragen(.neuesAlbum(in: galerie.id)) } label: { Label("Neues Album", systemImage: "rectangle.stack.badge.plus") }
                         Button { fragen(.neuerOrdner(in: galerie.id)) } label: { Label("Neuer Ordner für Unteralben", systemImage: "folder.badge.plus") }
-                        Button { eingabe = titel; frage = .galerieUmbenennen } label: { Label("Galerie umbenennen …", systemImage: "pencil") }
                     } label: { Image(systemName: "plus") }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button { eingabe = titel; frage = .galerieUmbenennen } label: { Label("Galerie umbenennen …", systemImage: "pencil") }
+                        Button(role: .destructive) { galerieLoeschen = true } label: { Label("Galerie löschen …", systemImage: "trash") }
+                    } label: { Label("Galerie", systemImage: "ellipsis.circle") }
                 }
             }
         } detail: {
@@ -92,6 +98,18 @@ struct GalerieAnsicht: View {
             }
         } message: {
             Text("Nur das Album bzw. der Ordner verschwindet — die Fotos und Videos bleiben in deiner Mediathek.")
+        }
+        .confirmationDialog("Galerie „\(titel)“ löschen?", isPresented: $galerieLoeschen, titleVisibility: .visible) {
+            Button("Galerie mit ihren Alben löschen", role: .destructive) {
+                Task {
+                    await tun {
+                        try await bibliothek.loeschen(galerie.id)
+                        if bibliothek.ordner(galerie.id) == nil { schliessen() }
+                    }
+                }
+            }
+        } message: {
+            Text("Der Ordner und die Alben darin verschwinden aus der Fotos-App — die Fotos und Videos selbst bleiben in deiner Mediathek.")
         }
         .alert("Hinweis", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
             Button("OK", role: .cancel) {}

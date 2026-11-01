@@ -74,29 +74,36 @@ final class FotoBibliothek: NSObject, PHPhotoLibraryChangeObserver {
 
     // MARK: Lesen
 
+    /// Alle Ordner „Galerie 360" oben in der Mediathek. Normalerweise einer — aber legen zwei
+    /// Geräte ihn an, bevor iCloud Fotos den ersten übertragen hat, stehen danach ZWEI gleich
+    /// benannte Ordner da (Fotos führt sie nicht zusammen). Bis 1.0.2 las die App nur den
+    /// eigenen; die Galerien des anderen Geräts blieben unsichtbar. Jetzt zählen alle.
+    private func wurzeln() -> [PHCollectionList] {
+        var liste: [PHCollectionList] = []
+        PHCollectionList.fetchTopLevelUserCollections(with: nil).enumerateObjects { c, _, _ in
+            if let l = c as? PHCollectionList, l.localizedTitle == FotoBibliothek.wurzelTitel { liste.append(l) }
+        }
+        return liste
+    }
+
+    /// Der Ordner, in dem neue Galerien entstehen: der zuletzt benutzte, sonst der erste.
     private func wurzel() -> PHCollectionList? {
-        let schluessel = "wurzelOrdner"
-        if let id = UserDefaults.standard.string(forKey: schluessel),
-           let l = PHCollectionList.fetchCollectionLists(withLocalIdentifiers: [id], options: nil).firstObject {
+        let alle = wurzeln()
+        if let id = UserDefaults.standard.string(forKey: "wurzelOrdner"),
+           let l = alle.first(where: { $0.localIdentifier == id }) {
             return l
         }
-        var gefunden: PHCollectionList?
-        PHCollectionList.fetchTopLevelUserCollections(with: nil).enumerateObjects { c, _, stopp in
-            if let l = c as? PHCollectionList, l.localizedTitle == FotoBibliothek.wurzelTitel {
-                gefunden = l
-                stopp.pointee = true
-            }
-        }
-        if let g = gefunden { UserDefaults.standard.set(g.localIdentifier, forKey: schluessel) }
-        return gefunden
+        if let l = alle.first { UserDefaults.standard.set(l.localIdentifier, forKey: "wurzelOrdner") }
+        return alle.first
     }
 
     func aktualisieren() {
-        guard let w = wurzel() else { galerien = []; return }
         var liste: [GalerieInfo] = []
-        PHCollection.fetchCollections(in: w, options: nil).enumerateObjects { c, _, _ in
-            if let l = c as? PHCollectionList {
-                liste.append(GalerieInfo(id: l.localIdentifier, titel: l.localizedTitle ?? "Ohne Namen"))
+        for w in wurzeln() {
+            PHCollection.fetchCollections(in: w, options: nil).enumerateObjects { c, _, _ in
+                if let l = c as? PHCollectionList {
+                    liste.append(GalerieInfo(id: l.localIdentifier, titel: l.localizedTitle ?? "Ohne Namen"))
+                }
             }
         }
         galerien = liste
