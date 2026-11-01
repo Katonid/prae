@@ -16,7 +16,9 @@
   **Keine Entitlements.**
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
-  App- UND Testziel). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek.
+  App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
+  gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
+  1.0.2 (3) Apple-TV-App.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -66,6 +68,37 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   = aktuellen Blick als Startansicht merken; Bewegungssteuerung über
   CoreMotion (`Steuerung.szenenLage`). **Drehrichtungen im Querformat am
   Gerät NICHT geprüft** — erste Stelle, falls es dort falsch dreht.
+
+## Apple-TV-App (seit 1.0.2)
+
+Wunsch des Nutzers (11/2026): auf dem Apple TV ansehen, mit Wischen auf der
+Fernbedienung umsehen, Zoom „irgendwie einstellen".
+
+- Eigenes Projekt `Galerie360TV.xcodeproj` (Ziel `Galerie360TV`, Ordner
+  `Galerie360TV/`), **dieselbe Bundle-Id** `de.familie.galerie360` — ein
+  App-Store-Eintrag für iPhone, iPad und Apple TV. tvOS 17, Team und
+  `ITSAppUsesNonExemptEncryption = NO` wie oben (`Config/InfoTV.plist`).
+  Symbol als tvOS-Ebenenbild (`App Icon & Top Shelf Image.brandassets`,
+  Vorder- und Hinterebene + Top-Shelf-Bilder, gezeichnet nach
+  `galerie360/scripts/generate-icons.py`).
+- **Gemeinsamer Code in `Gemeinsam/`** (Betrachter, Fotos-Zugriff, Laden,
+  Notizen, Modell) — beide Projekte binden den Ordner ein. Plattform-
+  unterschiede per `#if os(iOS)` / `#if os(tvOS)`: Bewegungssensor, Kneifen,
+  Tippen nur iOS; **Ändern der Mediathek nur iOS** (das Apple TV zeigt nur
+  an).
+- Siri Remote (`PanoramaFlaeche.pressesBegan`, `Steuerung.gedrueckt`):
+  Wischen auf der Touch-Fläche = `UIPanGestureRecognizer` mit
+  `.indirect`-Berührungen (1,6-fach empfindlicher, mit Schwung); Ring
+  oben/unten = Zoom; links/rechts = blättern; Mitte = Hilfe ein/aus;
+  Play/Pause = Video; „Zurück" geht an tvOS weiter (schließt). Nicht
+  behandelte Tasten gehen mit Begin/Ende an `super` — sonst bleibt
+  tvOS-Navigation hängen.
+- **Am Gerät NICHT geprüft:** ob tvOS einer eigenen App Zugriff auf iCloud
+  Fotos gibt (PhotoKit ist ab tvOS 14 da, die Praxis steht nirgends sicher);
+  Empfindlichkeit des Wischens. Notizen (Titel, Startansicht) liegen je
+  Gerät — das Apple TV kennt die vom iPhone nicht.
+- Bau: Job „Apple-TV-App übersetzen" in `galerie360app-test.yml`
+  (tvOS-Simulator). „iOS-Apps bauen" kennt nur iOS-Ziele.
 
 ## Noch nicht in der App
 

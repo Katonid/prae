@@ -349,25 +349,6 @@ struct Kachel: View {
     }
 }
 
-/// Bild einer Aufnahme aus der Mediathek (aus iCloud nachgeladen, wenn nötig).
-struct AssetBild: View {
-    let asset: PHAsset?
-    let groesse: CGSize
-    @State private var bild: UIImage?
-
-    var body: some View {
-        ZStack {
-            Rectangle().fill(Color.secondary.opacity(0.15))
-            if let bild { Image(uiImage: bild).resizable().scaledToFill() }
-        }
-        .clipped()
-        .task(id: asset?.localIdentifier) {
-            guard let asset else { bild = nil; return }
-            bild = await Vorschau.bild(asset, groesse)
-        }
-    }
-}
-
 /// Vorschau eines Albums für die Seitenleiste: das Albumbild, sonst die erste Aufnahme.
 struct AlbumVorschau: View {
     let albumId: String

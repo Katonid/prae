@@ -122,7 +122,7 @@ gilt.
 | Kalenderstudio | `KalenderstudioiOS/` | Patch + Build je +1 |
 | Kamerablick (IP-Kameras) | `KamerablickiOS/` | Patch + Build je +1 |
 | Insta360Datum | `Insta360DatumiOS/` | Patch + Build je +1 |
-| Galerie 360 (iOS-App) | `Galerie360iOS/` | Patch + Build je +1 |
+| Galerie 360 (iOS- und Apple-TV-App) | `Galerie360iOS/` | Patch + Build je +1, beide Projekte gleich |
 | Notfallalarm (Android) | `NotfallalarmAndroid/` | eigener Linux-Bau `notfallalarm-build.yml` |
 | Wörterwerkstatt (Web) | `woerterwerkstatt/` | `js/version.js` + `FASSUNG` in `sw.js` |
 | Terminkonverter (Web) | `terminkonverter/` | `FASSUNG` in `sw.js`, `einzeldatei.html` neu bauen |

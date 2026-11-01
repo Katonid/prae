@@ -62,3 +62,38 @@ jobs:
           grep -hE "warning:" /tmp/test.log | grep -v "AppIntents.framework" | sort -u | head -40 || echo "keine"
           echo "===== Ergebnis ====="
           grep -hE "Executed|TEST (SUCCEEDED|FAILED)" /tmp/test.log | tail -5 || true
+
+  tvos:
+    # Die Apple-TV-App (Galerie360iOS/Galerie360TV.xcodeproj) teilt Betrachter und
+    # Fotos-Zugriff mit der iOS-App (Ordner Gemeinsam/). „iOS-Apps bauen" kennt nur das
+    # iOS-Ziel — übersetzt wird sie deshalb hier, für den tvOS-Simulator.
+    name: Apple-TV-App übersetzen
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Quelltext vorprüfen
+        run: python3 scripts/swift-quelltext-pruefen.py Galerie360iOS
+
+      - name: Übersetzen (tvOS-Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Galerie360iOS/Galerie360TV.xcodeproj \
+            -scheme Galerie360TV \
+            -configuration Debug \
+            -destination 'generic/platform=tvOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee /tmp/tv.log
+
+      - name: Fehler und Warnungen zusammenfassen
+        if: always()
+        run: |
+          echo "===== Fehler ====="
+          grep -hE "error:" /tmp/tv.log | sort -u | head -60 || echo "keine"
+          echo "===== Warnungen ====="
+          grep -hE "warning:" /tmp/tv.log | sort -u | head -40 || echo "keine"

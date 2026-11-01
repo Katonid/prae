@@ -138,7 +138,8 @@ final class FotoBibliothek: NSObject, PHPhotoLibraryChangeObserver {
         return aus
     }
 
-    // MARK: Ändern — alles über PhotoKit, nichts wird kopiert
+    // MARK: Ändern — alles über PhotoKit, nichts wird kopiert (nur iPhone/iPad; das Apple TV zeigt nur an)
+    #if os(iOS)
 
     private func aendern(_ f: @escaping @Sendable () -> Void) async throws {
         try await PHPhotoLibrary.shared().performChanges(f)
@@ -250,6 +251,7 @@ final class FotoBibliothek: NSObject, PHPhotoLibraryChangeObserver {
             PHAssetCollectionChangeRequest(for: a, assets: inhalt)?.replaceAssets(at: IndexSet(integersIn: 0..<neu.count), withAssets: neu as NSArray)
         }
     }
+    #endif
 }
 
 /// Vorschaubilder aus der Mediathek (bei iCloud Fotos notfalls aus dem Netz).
