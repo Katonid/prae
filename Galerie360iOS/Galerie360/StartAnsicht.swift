@@ -8,6 +8,9 @@ struct StartAnsicht: View {
     @State private var neuerTitel = ""
     @State private var offen: GalerieInfo?
     @State private var meldung: String?
+    @State private var umbenennen: GalerieInfo?
+    @State private var neuerName = ""
+    @State private var loeschen: GalerieInfo?
 
     var body: some View {
         NavigationStack {
@@ -33,6 +36,20 @@ struct StartAnsicht: View {
             Button("Anlegen") { anlegen() }
         } message: {
             Text("Die Galerie wird ein Ordner in der Fotos-App unter Alben › Galerie 360.")
+        }
+        .alert("Galerie umbenennen", isPresented: Binding(get: { umbenennen != nil }, set: { if !$0 { umbenennen = nil } })) {
+            TextField("Name", text: $neuerName)
+            Button("Abbrechen", role: .cancel) {}
+            Button("Umbenennen") { if let g = umbenennen { galerieUmbenennen(g) } }
+        }
+        .confirmationDialog(loeschen.map { "Galerie „\($0.titel)“ löschen?" } ?? "",
+                            isPresented: Binding(get: { loeschen != nil }, set: { if !$0 { loeschen = nil } }),
+                            titleVisibility: .visible) {
+            Button("Galerie mit ihren Alben löschen", role: .destructive) {
+                if let g = loeschen { galerieLoeschen(g) }
+            }
+        } message: {
+            Text("Der Ordner und die Alben darin verschwinden aus der Fotos-App — die Fotos und Videos selbst bleiben in deiner Mediathek.")
         }
         .alert("Hinweis", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
             Button("OK", role: .cancel) {}
@@ -117,14 +134,42 @@ struct StartAnsicht: View {
                         }
                         .padding(.vertical, 6)
                     }
+                    .contextMenu {
+                        Button { neuerName = g.titel; umbenennen = g } label: { Label("Umbenennen …", systemImage: "pencil") }
+                        Button(role: .destructive) { loeschen = g } label: { Label("Löschen …", systemImage: "trash") }
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) { loeschen = g } label: { Label("Löschen", systemImage: "trash") }
+                        Button { neuerName = g.titel; umbenennen = g } label: { Label("Umbenennen", systemImage: "pencil") }
+                            .tint(.orange)
+                    }
                 }
             } header: {
                 Label("Fotos › Alben › Galerie 360", systemImage: "photo.on.rectangle")
             } footer: {
-                Text("Fotos und Videos bleiben in deiner Mediathek (iCloud Fotos); die App speichert keine Kopien. Galerie 360 · Fassung \(AppInfo.fassung)")
+                Text("Umbenennen oder löschen: Galerie nach links wischen oder lange drücken. Fotos und Videos bleiben in deiner Mediathek (iCloud Fotos); die App speichert keine Kopien. Galerie 360 · Fassung \(AppInfo.fassung)")
             }
         }
         .refreshable { bibliothek.aktualisieren() }
+    }
+
+    private func galerieUmbenennen(_ g: GalerieInfo) {
+        let t = neuerName.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty, t != g.titel else { return }
+        Task {
+            do { try await bibliothek.umbenennen(g.id, t) } catch {
+                meldung = "Die Galerie ließ sich nicht umbenennen: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func galerieLoeschen(_ g: GalerieInfo) {
+        Task {
+            do { try await bibliothek.loeschen(g.id) } catch {
+                // 3072 = in der Rückfrage von iOS abgebrochen — kein Fehler.
+                if (error as NSError).code != 3072 { meldung = "Die Galerie ließ sich nicht löschen: \(error.localizedDescription)" }
+            }
+        }
     }
 
     private func anlegen() {

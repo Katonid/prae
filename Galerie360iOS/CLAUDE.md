@@ -80,6 +80,11 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
     `$(TeamIdentifierPrefix)$(CFBundleIdentifier)` und
     `CODE_SIGN_ENTITLEMENTS` in BEIDEN Projekten (iOS- und TV-Ziel, Debug
     und Release) — gleicher Wert = gemeinsamer Speicher.
+- **Galerie umbenennen/löschen** (seit 1.0.3, gemeldet 11/2026: „kann weder
+  den Namen ändern noch die Galerie löschen" — Umbenennen stand bis dahin
+  versteckt im „+"-Menü der Galerie, Löschen gab es nicht): in der
+  Galerienliste nach links wischen oder lange drücken; in der Galerie das
+  „…"-Menü oben rechts. Löschen entfernt nur Ordner und Alben, nie Aufnahmen.
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 
