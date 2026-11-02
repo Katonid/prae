@@ -215,6 +215,7 @@ struct BetrachterTV: View {
     /// Macht die App zur „Now Playing"-App von tvOS — ohne das gehen die Lautstärketasten
     /// der Siri Remote bei Ton über HomePod/AirPlay ins Leere (gemeldet 11/2026, 1.0.5).
     @State private var sitzung: MPNowPlayingSession?
+    @Environment(\.scenePhase) private var phase
     @State private var zeit: Double = 0
     @State private var laedt = false
     @State private var fortschritt: Double?
@@ -280,6 +281,14 @@ struct BetrachterTV: View {
             withAnimation { hinweis = false }
         }
         .onDisappear(perform: stoppen)
+        .onChange(of: phase) {
+            if phase == .active {
+                if let p = player, sitzung == nil { tonAn(p) }
+            } else {
+                player?.pause()
+                tonAus()
+            }
+        }
     }
 
     private func blaettern(_ r: Int) {
@@ -342,8 +351,14 @@ struct BetrachterTV: View {
         let s = MPNowPlayingSession(players: [p])
         s.automaticallyPublishesNowPlayingInfo = true
         let befehle = s.remoteCommandCenter
-        befehle.togglePlayPauseCommand.addTarget { _ in umschalten(); return .success }
-        befehle.playCommand.addTarget { _ in p.play(); return .success }
+        befehle.togglePlayPauseCommand.addTarget { _ in
+            guard UIApplication.shared.applicationState == .active else { return .commandFailed }
+            umschalten(); return .success
+        }
+        befehle.playCommand.addTarget { _ in
+            guard UIApplication.shared.applicationState == .active else { return .commandFailed }
+            p.play(); return .success
+        }
         befehle.pauseCommand.addTarget { _ in p.pause(); return .success }
         s.becomeActiveIfPossible { _ in }
         sitzung = s
@@ -357,15 +372,26 @@ struct BetrachterTV: View {
         return m.copy() as! AVMetadataItem
     }
 
+    /// Abmelden als „Now Playing" — beim Verlassen des Videos UND sobald die App in den
+    /// Hintergrund geht (Home-Taste, Ruhezustand). Bis 1.0.6 blieb die Anmeldung stehen,
+    /// wenn man die App mit offenem Video verließ: Das Apple TV galt dann weiter als
+    /// Wiedergabegerät, und ein Play-Befehl von iPhone (Sperrbildschirm, Kontrollzentrum),
+    /// HomePod oder Siri konnte es samt Fernseher aus dem Ruhezustand holen
+    /// (gemeldet 11/2026, „seit gestern geht es immer an" — einen Tag nach 1.0.5).
+    private func tonAus() {
+        guard let s = sitzung else { return }
+        s.remoteCommandCenter.togglePlayPauseCommand.removeTarget(nil)
+        s.remoteCommandCenter.playCommand.removeTarget(nil)
+        s.remoteCommandCenter.pauseCommand.removeTarget(nil)
+        s.automaticallyPublishesNowPlayingInfo = false
+        s.nowPlayingInfoCenter.nowPlayingInfo = nil
+        sitzung = nil
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
     private func stoppen() {
-        if let s = sitzung {
-            s.remoteCommandCenter.togglePlayPauseCommand.removeTarget(nil)
-            s.remoteCommandCenter.playCommand.removeTarget(nil)
-            s.remoteCommandCenter.pauseCommand.removeTarget(nil)
-            s.automaticallyPublishesNowPlayingInfo = false
-            sitzung = nil
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        }
+        tonAus()
         if let p = player {
             p.pause()
             if let b = zeitBeobachter { p.removeTimeObserver(b) }

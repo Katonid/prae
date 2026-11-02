@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -152,6 +152,17 @@ Fernbedienung umsehen, Zoom „irgendwie einstellen".
   Remote bei Ton über HomePod/AirPlay nichts — ein AVPlayer als
   SceneKit-Textur ist für tvOS sonst keine Wiedergabe. Ton über den
   Fernseher (HDMI-CEC/IR) ist davon unabhängig. **Am Gerät nicht geprüft.**
+- **Ruhezustand** (seit 1.0.7; gemeldet 11/2026, einen Tag nach 1.0.5:
+  „seit gestern erwacht das Apple TV regelmäßig und schaltet den Fernseher
+  ein"). Eine tvOS-App läuft im Ruhezustand nicht und kann das Gerät nicht
+  selbst wecken (keine Hintergrundmodi, keine Top-Shelf-Erweiterung). Aber
+  die Now-Playing-Anmeldung aus 1.0.5 blieb stehen, wenn man die App mit
+  offenem Video verließ (`onDisappear` kommt dann nicht) — das Apple TV galt
+  weiter als Wiedergabegerät, und Play von iPhone-Sperrbildschirm,
+  Kontrollzentrum, HomePod oder Siri konnte es wecken. Seither:
+  `tonAus()` bei jedem Wechsel weg von `.active` (`scenePhase`), Befehle
+  nur bei aktiver App; zurück im Vordergrund meldet `tonAn` wieder an
+  (ohne Abspielen). Zusammenhang am Gerät NICHT bestätigt.
 - **Am Gerät NICHT geprüft:** ob tvOS einer eigenen App Zugriff auf iCloud
   Fotos gibt (PhotoKit ist ab tvOS 14 da, die Praxis steht nirgends sicher);
   Empfindlichkeit des Wischens. Notizen (Titel, Startansicht) kommen erst
