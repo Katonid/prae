@@ -153,12 +153,34 @@ jobs:
           open("/tmp/medien/pruef.png", "wb").write(png)
           PY
           sips -s format jpeg /tmp/medien/pruef.png --out /tmp/medien/pruef360.jpg
-          if command -v ffmpeg >/dev/null; then
-            ffmpeg -loglevel error -f lavfi -i testsrc=size=1920x960:rate=30 -f lavfi -i sine=frequency=440 \
-              -t 6 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest /tmp/medien/pruef360.mp4
-          else
-            echo "::warning::ffmpeg fehlt — nur das Foto wird geprüft"
-          fi
+          # Video ohne ffmpeg (fehlt auf dem Läufer): AVAssetWriter, H.264, 1920 × 960, 4 s.
+          cat > /tmp/video.swift <<'SW'
+          import AVFoundation
+          import CoreVideo
+          let url = URL(fileURLWithPath: "/tmp/medien/pruef360.mov")
+          try? FileManager.default.removeItem(at: url)
+          let w = try! AVAssetWriter(outputURL: url, fileType: .mov)
+          let e = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 1920, AVVideoHeightKey: 960])
+          let a = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: e, sourcePixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA, kCVPixelBufferWidthKey as String: 1920, kCVPixelBufferHeightKey as String: 960])
+          w.add(e); w.startWriting(); w.startSession(atSourceTime: .zero)
+          for i in 0..<120 {
+              while !e.isReadyForMoreMediaData { usleep(1000) }
+              var pb: CVPixelBuffer?
+              CVPixelBufferPoolCreatePixelBuffer(nil, a.pixelBufferPool!, &pb)
+              CVPixelBufferLockBaseAddress(pb!, [])
+              let p = CVPixelBufferGetBaseAddress(pb!)!.assumingMemoryBound(to: UInt8.self)
+              let zeile = CVPixelBufferGetBytesPerRow(pb!)
+              for y in 0..<960 { for x in 0..<1920 { let o = y * zeile + x * 4; p[o] = UInt8((x + i * 8) % 256); p[o + 1] = UInt8(y % 256); p[o + 2] = 128; p[o + 3] = 255 } }
+              CVPixelBufferUnlockBaseAddress(pb!, [])
+              a.append(pb!, withPresentationTime: CMTime(value: Int64(i), timescale: 30))
+          }
+          e.markAsFinished()
+          let fertig = DispatchSemaphore(value: 0)
+          w.finishWriting { fertig.signal() }
+          fertig.wait()
+          print("Video:", w.status == .completed ? "fertig" : "Fehler \(String(describing: w.error))")
+          SW
+          swift /tmp/video.swift || echo "::warning::Prüfvideo ließ sich nicht erzeugen"
           ls -l /tmp/medien
 
       - name: Installieren, Fotozugriff erlauben, Aufnahmen in die Mediathek
@@ -166,8 +188,10 @@ jobs:
           U=${{ steps.sim.outputs.udid }}
           xcrun simctl install "$U" /tmp/tvbau/Build/Products/Debug-appletvsimulator/Galerie360TV.app
           xcrun simctl privacy "$U" grant photos de.familie.galerie360 || echo "::warning::Fotozugriff ließ sich nicht vorab erlauben"
-          for f in /tmp/medien/pruef360.jpg /tmp/medien/pruef360.mp4; do
-            [ -f "$f" ] && { xcrun simctl addmedia "$U" "$f" || echo "::warning::addmedia $f fehlgeschlagen"; }
+          for f in /tmp/medien/pruef360.jpg /tmp/medien/pruef360.mov; do
+            if [ -f "$f" ]; then
+              xcrun simctl addmedia "$U" "$f" || echo "::warning::addmedia $f fehlgeschlagen"
+            fi
           done
 
       - name: Betrachter öffnen (Foto, dann Video)
