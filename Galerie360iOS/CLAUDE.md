@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -97,6 +97,13 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   (Rechnung UND ein im Simulator gerendertes Prüfbild).
 - Video: `AVPlayer` direkt als `material.diffuse.contents` — Hardware-
   Dekodierung, kein Kopieren je Bild wie in WebGL.
+- **Kein AirPlay** (seit 1.0.6; gemeldet 11/2026: „seit gestern geht das
+  Apple TV immer an und schaltet den Fernseher mit ein"):
+  `allowsExternalPlayback = false` am AVPlayer der iOS-App. Mit
+  `.playback`/`.moviePlayback` und der iOS-Einstellung „Automatisch AirPlay"
+  schickte jedes Video im Betrachter sich ans Apple TV — das wachte auf und
+  weckte per HDMI-CEC den Fernseher. Sinnlos obendrein: übertragen würde die
+  Textur (das verzerrte Rundumbild). Ursache am Gerät NICHT bestätigt.
 - Start ohne Bedienung, Tippen zeigt sie; „← Album" oben links; Stecknadel
   = aktuellen Blick als Startansicht merken; Bewegungssteuerung über
   CoreMotion (`Steuerung.szenenLage`). **Drehrichtungen im Querformat am
