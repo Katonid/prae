@@ -61,6 +61,7 @@ APPS = [
     ("KalenderstudioiOS", "Kalenderstudio"),
     ("KamerablickiOS", "Kamerablick"),
     ("KartenwalletiOS", "Kartenwallet"),
+    ("PhotoLocatoriOS", "PhotoLocator"),
     ("PhotoSpotRadariOS", "PhotoSpotRadar"),
     ("ReisekasseiOS", "Reisekasse"),
     ("RoutenplaneriOS", "Routenplaner"),
