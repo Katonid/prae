@@ -1,5 +1,4 @@
 import AVFoundation
-import AVKit
 import MediaPlayer
 import Photos
 import SwiftUI
@@ -18,6 +17,23 @@ struct Galerie360TVApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            // Prüfmodus für GitHub Actions (Job „Apple-TV-Betrachter starten"): öffnet den
+            // Betrachter mit der ersten Aufnahme der Mediathek, ohne Bedienung.
+            if let art = ProcessInfo.processInfo.environment["GALERIE360_PRUEFUNG"] {
+                PruefBetrachterTV(art: art)
+                    .environment(bibliothek)
+                    .environment(notizen)
+            } else {
+                startseite
+            }
+            #else
+            startseite
+            #endif
+        }
+    }
+
+    private var startseite: some View {
             StartTV()
                 .environment(bibliothek)
                 .environment(notizen)
@@ -27,9 +43,32 @@ struct Galerie360TVApp: App {
                 .onChange(of: bibliothek.zugriff) { notizen.abgleichen() }
                 .onChange(of: bibliothek.stand) { notizen.abgleichen() }
                 .onChange(of: phase) { if phase == .active { notizen.abgleichen() } }
-        }
     }
 }
+
+#if DEBUG
+/// Öffnet den Betrachter mit der ersten Aufnahme (Foto oder Video) — nur für die Prüfung im
+/// Simulator. Ohne Aufnahmen öffnet er leer, das prüft wenigstens Aufbau und Umgebung.
+struct PruefBetrachterTV: View {
+    let art: String
+    @State private var aufnahmen: [PHAsset]?
+
+    var body: some View {
+        Color.black
+            .task {
+                let s = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+                let typ: PHAssetMediaType = art == "video" ? .video : .image
+                let alle = PHAsset.fetchAssets(with: typ, options: nil)
+                print("PRUEFUNG: Zugriff \(s.rawValue), \(alle.count) Aufnahme(n) vom Typ \(art)")
+                aufnahmen = alle.firstObject.map { [$0] } ?? []
+            }
+            .fullScreenCover(isPresented: Binding(get: { aufnahmen != nil }, set: { _ in })) {
+                BetrachterTV(albumTitel: "Prüfung", aufnahmen: aufnahmen ?? [], startIndex: 0)
+                    .onAppear { print("PRUEFUNG: Betrachter offen") }
+            }
+    }
+}
+#endif
 
 struct StartTV: View {
     @Environment(FotoBibliothek.self) private var bibliothek
@@ -320,8 +359,9 @@ struct BetrachterTV: View {
             if a.mediaType == .video {
                 let item = try await Mediathek.video(a) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
-                item.externalMetadata = [metadaten(.commonIdentifierTitle, notizen.titel(a.localIdentifier) ?? datumText(a.creationDate)),
-                                         metadaten(.iTunesMetadataTrackSubTitle, albumTitel)]
+                // KEIN item.externalMetadata: Das PlayerItem von PhotoKit kennt es auf tvOS nicht —
+                // „unrecognized selector", die App stürzte bei JEDEM Video ab (1.0.5 bis 1.0.9,
+                // nachgestellt im Job „Apple-TV-Betrachter starten").
                 let p = AVPlayer(playerItem: item)
                 p.actionAtItemEnd = .pause
                 player = p
@@ -365,14 +405,6 @@ struct BetrachterTV: View {
         sitzung = s
     }
 
-    private func metadaten(_ kennung: AVMetadataIdentifier, _ wert: String) -> AVMetadataItem {
-        let m = AVMutableMetadataItem()
-        m.identifier = kennung
-        m.value = wert as NSString
-        m.extendedLanguageTag = "und"
-        return m.copy() as! AVMetadataItem
-    }
-
     /// Abmelden als „Now Playing" — beim Verlassen des Videos UND sobald die App in den
     /// Hintergrund geht (Home-Taste, Ruhezustand). Bis 1.0.6 blieb die Anmeldung stehen,
     /// wenn man die App mit offenem Video verließ: Das Apple TV galt dann weiter als
@@ -387,7 +419,6 @@ struct BetrachterTV: View {
         s.automaticallyPublishesNowPlayingInfo = false
         s.nowPlayingInfoCenter.nowPlayingInfo = nil
         sitzung = nil
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 

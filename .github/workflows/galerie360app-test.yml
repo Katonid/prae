@@ -97,3 +97,150 @@ jobs:
           grep -hE "error:" /tmp/tv.log | sort -u | head -60 || echo "keine"
           echo "===== Warnungen ====="
           grep -hE "warning:" /tmp/tv.log | sort -u | head -40 || echo "keine"
+
+  tvos-start:
+    # Startet die Apple-TV-App im tvOS-Simulator und öffnet den Betrachter mit einem
+    # Prüffoto und einem Prüfvideo (Prüfmodus GALERIE360_PRUEFUNG, nur Debug). Entstanden
+    # aus „stürzt ab, sobald ein Video oder Foto wiedergegeben werden soll" (11/2026):
+    # Übersetzen allein sagt nichts darüber, ob der Betrachter aufgeht. Bei einem Absturz
+    # steht der Bericht (Ausnahme und Aufrufkette) im Protokoll.
+    name: Apple-TV-Betrachter starten
+    runs-on: macos-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Apple-TV-Simulator wählen und starten
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | python3 -c "import sys,json;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d if 'tvOS' in rt for x in d[rt] if x['name'].startswith('Apple TV')), ''))")
+          [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Übersetzen
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Galerie360iOS/Galerie360TV.xcodeproj \
+            -scheme Galerie360TV \
+            -configuration Debug \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath /tmp/tvbau \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/tvbau.log | grep -E "error:|BUILD" || true
+          test -d /tmp/tvbau/Build/Products/Debug-appletvsimulator/Galerie360TV.app
+
+      - name: Prüfaufnahmen anlegen (360°-Foto und -Video, 2 zu 1)
+        run: |
+          mkdir -p /tmp/medien
+          python3 - <<'PY'
+          import struct, zlib
+          b, h = 2048, 1024
+          zeilen = bytearray()
+          for y in range(h):
+              zeilen.append(0)
+              for x in range(b):
+                  zeilen += bytes(((x * 255) // b, (y * 255) // h, 128))
+          def teil(art, daten):
+              return struct.pack(">I", len(daten)) + art + daten + struct.pack(">I", zlib.crc32(art + daten) & 0xffffffff)
+          png = b"\x89PNG\r\n\x1a\n" + teil(b"IHDR", struct.pack(">IIBBBBB", b, h, 8, 2, 0, 0, 0)) \
+                + teil(b"IDAT", zlib.compress(bytes(zeilen), 6)) + teil(b"IEND", b"")
+          open("/tmp/medien/pruef.png", "wb").write(png)
+          PY
+          # Groß wie ein Insta360-Foto (5760 × 2880) — der Betrachter lädt bis 8192 px.
+          sips -z 2880 5760 /tmp/medien/pruef.png --out /tmp/medien/gross.png
+          sips -s format jpeg /tmp/medien/gross.png --out /tmp/medien/pruef360.jpg
+          # Video ohne ffmpeg (fehlt auf dem Läufer): AVAssetWriter, H.264, 1920 × 960, 4 s.
+          cat > /tmp/video.swift <<'SW'
+          import AVFoundation
+          import CoreVideo
+          let url = URL(fileURLWithPath: "/tmp/medien/pruef360.mov")
+          try? FileManager.default.removeItem(at: url)
+          let w = try! AVAssetWriter(outputURL: url, fileType: .mov)
+          let e = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 1920, AVVideoHeightKey: 960])
+          let a = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: e, sourcePixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA, kCVPixelBufferWidthKey as String: 1920, kCVPixelBufferHeightKey as String: 960])
+          w.add(e); w.startWriting(); w.startSession(atSourceTime: .zero)
+          for i in 0..<120 {
+              while !e.isReadyForMoreMediaData { usleep(1000) }
+              var pb: CVPixelBuffer?
+              CVPixelBufferPoolCreatePixelBuffer(nil, a.pixelBufferPool!, &pb)
+              CVPixelBufferLockBaseAddress(pb!, [])
+              let p = CVPixelBufferGetBaseAddress(pb!)!.assumingMemoryBound(to: UInt8.self)
+              let zeile = CVPixelBufferGetBytesPerRow(pb!)
+              for y in 0..<960 { for x in 0..<1920 { let o = y * zeile + x * 4; p[o] = UInt8((x + i * 8) % 256); p[o + 1] = UInt8(y % 256); p[o + 2] = 128; p[o + 3] = 255 } }
+              CVPixelBufferUnlockBaseAddress(pb!, [])
+              a.append(pb!, withPresentationTime: CMTime(value: Int64(i), timescale: 30))
+          }
+          e.markAsFinished()
+          let fertig = DispatchSemaphore(value: 0)
+          w.finishWriting { fertig.signal() }
+          fertig.wait()
+          print("Video:", w.status == .completed ? "fertig" : "Fehler \(String(describing: w.error))")
+          SW
+          swift /tmp/video.swift || echo "::warning::Prüfvideo ließ sich nicht erzeugen"
+          ls -l /tmp/medien
+
+      - name: Installieren, Fotozugriff erlauben, Aufnahmen in die Mediathek
+        run: |
+          U=${{ steps.sim.outputs.udid }}
+          xcrun simctl install "$U" /tmp/tvbau/Build/Products/Debug-appletvsimulator/Galerie360TV.app
+          xcrun simctl privacy "$U" grant photos de.familie.galerie360 || echo "::warning::Fotozugriff ließ sich nicht vorab erlauben"
+          for f in /tmp/medien/pruef360.jpg /tmp/medien/pruef360.mov; do
+            if [ -f "$f" ]; then
+              xcrun simctl addmedia "$U" "$f" || echo "::warning::addmedia $f fehlgeschlagen"
+            fi
+          done
+
+      - name: Betrachter öffnen (Foto, dann Video)
+        run: |
+          U=${{ steps.sim.outputs.udid }}
+          fehler=0
+          for art in foto video; do
+            echo "===== $art ====="
+            start=$(date +%s)
+            SIMCTL_CHILD_GALERIE360_PRUEFUNG=$art xcrun simctl launch --console-pty --terminate-running-process \
+              "$U" de.familie.galerie360 > /tmp/start-$art.log 2>&1 &
+            sleep 30
+            cat /tmp/start-$art.log | grep -v "^$" | tail -40
+            if xcrun simctl spawn "$U" launchctl list | grep -q "de.familie.galerie360"; then
+              echo "läuft nach 30 s noch"
+              grep -q "PRUEFUNG: Betrachter offen" /tmp/start-$art.log || { echo "::error::Betrachter ($art) nicht geöffnet"; fehler=1; }
+            else
+              echo "::error::App ($art) ist nicht mehr da — abgestürzt?"
+              fehler=1
+            fi
+            xcrun simctl terminate "$U" de.familie.galerie360 || true
+            sleep 2
+          done
+          exit $fehler
+
+      - name: Absturzberichte
+        if: always()
+        run: |
+          ls -t ~/Library/Logs/DiagnosticReports/ 2>/dev/null | grep -i galerie | head -5 || true
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/*alerie360* 2>/dev/null | head -2); do
+            echo "===== $f ====="
+            python3 - "$f" <<'PY'
+          import json, sys
+          text = open(sys.argv[1]).read()
+          kopf, _, rumpf = text.partition("\n")
+          try:
+              d = json.loads(rumpf)
+          except Exception:
+              print(text[:8000]); sys.exit()
+          print("Ausnahme:", json.dumps(d.get("exception"), ensure_ascii=False))
+          print("Grund:", json.dumps(d.get("termination"), ensure_ascii=False)[:1500])
+          if d.get("asi"): print("Meldung:", json.dumps(d["asi"], ensure_ascii=False)[:3000])
+          bilder = d.get("usedImages", [])
+          for t in d.get("threads", []):
+              if t.get("triggered"):
+                  for fr in t.get("frames", [])[:40]:
+                      name = bilder[fr["imageIndex"]].get("name", "?") if fr.get("imageIndex") is not None and fr["imageIndex"] < len(bilder) else "?"
+                      print(" ", name, fr.get("symbol", "?"), fr.get("symbolLocation", ""))
+          PY
+          done
