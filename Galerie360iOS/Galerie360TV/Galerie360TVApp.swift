@@ -357,7 +357,11 @@ struct BetrachterTV: View {
         defer { laedt = false }
         do {
             if a.mediaType == .video {
-                let item = try await Mediathek.video(a) { f in Task { @MainActor in fortschritt = f } }
+                // .automatic wie die Fotos-App des Apple TV: Fotos liefert eine Fassung, die
+                // die Leitung schafft. Mit .highQualityFormat kam das Original — es stockte,
+                // lud nach, stockte wieder (gemeldet 11/2026), während dieselben Videos in der
+                // Fotos-App des Apple TV flüssig liefen.
+                let item = try await Mediathek.video(a, qualitaet: .automatic) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
                 // KEIN item.externalMetadata: Das PlayerItem von PhotoKit kennt es auf tvOS nicht —
                 // „unrecognized selector", die App stürzte bei JEDEM Video ab (1.0.5 bis 1.0.9,

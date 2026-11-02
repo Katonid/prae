@@ -39,10 +39,14 @@ enum Mediathek {
     }
 
     /// Video zum Abspielen — bei iCloud Fotos gestreamt, ohne es vorher ganz zu laden.
-    static func video(_ asset: PHAsset, fortschritt: @escaping (Double) -> Void) async throws -> AVPlayerItem {
+    /// `qualitaet`: `.highQualityFormat` streamt das Original (iPhone/iPad); `.automatic`
+    /// lässt Fotos die Stufe wählen wie in der Fotos-App — auf dem Apple TV nötig, sonst
+    /// stockt das Original mit seiner hohen Datenrate (seit 1.0.11).
+    static func video(_ asset: PHAsset, qualitaet: PHVideoRequestOptionsDeliveryMode = .highQualityFormat,
+                      fortschritt: @escaping (Double) -> Void) async throws -> AVPlayerItem {
         try await withCheckedThrowingContinuation { f in
             let o = PHVideoRequestOptions()
-            o.deliveryMode = .highQualityFormat
+            o.deliveryMode = qualitaet
             o.version = .current
             o.isNetworkAccessAllowed = true
             o.progressHandler = { p, _, _, _ in fortschritt(p) }
