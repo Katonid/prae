@@ -22,3 +22,11 @@ final class SortierungTests: XCTestCase {
         XCTAssertEqual(ordne(.umkehren, l), ["Abend", "Bild 2", "Bild 10"]) // Eingabe rückwärts
     }
 }
+
+/// Hinzufügen aus dem Auswahlfenster: Reihenfolge des Antippens bleibt erhalten.
+final class AuswahlReihenfolgeTests: XCTestCase {
+    func testReihenfolgeDesAntippensOhneDoppelteUndVorhandene() {
+        let r = FotoBibliothek.neueInReihenfolge(["C", "A", "B", "A", "D"], vorhanden: ["B"])
+        XCTAssertEqual(r, ["C", "A", "D"])
+    }
+}

@@ -217,16 +217,20 @@ final class FotoBibliothek: NSObject, PHPhotoLibraryChangeObserver {
     }
 
     /// Fügt Aufnahmen aus der Mediathek hinzu (Verweise, keine Kopien).
+    /// Die Aufnahmen kommen in der Reihenfolge `assetIds` (= Reihenfolge des Antippens im
+    /// Auswahlfenster) ans Ende des Albums. `fetchAssets(withLocalIdentifiers:)` liefert in
+    /// Mediathek-Reihenfolge — deshalb wird nach `assetIds` neu geordnet (seit 1.0.8).
     func hinzufuegen(_ assetIds: [String], zu albumId: String) async throws {
         guard let a = album(albumId), !assetIds.isEmpty else { return }
-        let vorhanden = Set(aufnahmen(albumId).map(\.localIdentifier))
-        var neu: [PHAsset] = []
-        PHAsset.fetchAssets(withLocalIdentifiers: assetIds, options: nil).enumerateObjects { x, _, _ in
-            if !vorhanden.contains(x.localIdentifier) { neu.append(x) }
-        }
-        guard !neu.isEmpty else { return }
-        let hinzu = neu
-        try await aendern { PHAssetCollectionChangeRequest(for: a)?.addAssets(hinzu as NSArray) }
+        let bisher = aufnahmen(albumId)
+        let reihe = FotoBibliothek.neueInReihenfolge(assetIds, vorhanden: Set(bisher.map(\.localIdentifier)))
+        guard !reihe.isEmpty else { return }
+        var nachId: [String: PHAsset] = [:]
+        PHAsset.fetchAssets(withLocalIdentifiers: reihe, options: nil).enumerateObjects { x, _, _ in nachId[x.localIdentifier] = x }
+        let hinzu = reihe.compactMap { nachId[$0] }
+        guard !hinzu.isEmpty else { return }
+        let stellen = IndexSet(integersIn: bisher.count..<(bisher.count + hinzu.count))
+        try await aendern { PHAssetCollectionChangeRequest(for: a)?.insertAssets(hinzu as NSArray, at: stellen) }
     }
 
     /// Nimmt Aufnahmen nur aus dem Album — sie bleiben in der Mediathek.
@@ -278,5 +282,13 @@ enum Vorschau {
                 fortsetzung.resume(returning: b)
             }
         }
+    }
+}
+
+extension FotoBibliothek {
+    /// Neue Kennungen in der gegebenen Reihenfolge, ohne Doppelte und ohne schon vorhandene.
+    static func neueInReihenfolge(_ ids: [String], vorhanden: Set<String>) -> [String] {
+        var gesehen = vorhanden
+        return ids.filter { gesehen.insert($0).inserted }
     }
 }
