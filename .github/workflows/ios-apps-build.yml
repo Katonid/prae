@@ -54,6 +54,7 @@ on:
           - Kalenderstudio
           - Kamerablick
           - Kartenwallet
+          - PhotoLocator
           - PhotoSpotRadar
           - Reisekasse
           - Routenplaner
