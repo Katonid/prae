@@ -259,8 +259,6 @@ struct BetrachterTV: View {
     @State private var zeit: Double = 0
     @State private var laedt = false
     @State private var fortschritt: Double?
-    /// Video nicht erst ganz laden, sondern gleich streamen (Play/Pause während des Ladens).
-    @State private var sofort = false
     @State private var meldung: String?
 
     init(albumTitel: String, aufnahmen: [PHAsset], startIndex: Int) {
@@ -280,7 +278,7 @@ struct BetrachterTV: View {
                 switch taste {
                 case .links: blaettern(-1)
                 case .rechts: blaettern(1)
-                case .playPause: if laedt && asset?.mediaType == .video && !sofort { sofort = true } else { umschalten() }
+                case .playPause: umschalten()
                 }
             })
             .ignoresSafeArea()
@@ -289,12 +287,6 @@ struct BetrachterTV: View {
                 VStack(spacing: 16) {
                     ProgressView()
                     if let f = fortschritt, f > 0, f < 1 { Text("Aus iCloud geladen: \(Int(f * 100)) %").font(.callout) }
-                    if asset?.mediaType == .video && !sofort {
-                        Text("Das Video startet, sobald es ganz geladen ist — dann ohne Stocken.\nPlay/Pause: sofort abspielen (kann stocken)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
                 }
             }
             if let meldung {
@@ -323,7 +315,7 @@ struct BetrachterTV: View {
                 .transition(.opacity)
             }
         }
-        .task(id: "\(index)-\(sofort)") { await laden() }
+        .task(id: index) { await laden() }
         .task {
             try? await Task.sleep(for: .seconds(5))
             withAnimation { hinweis = false }
@@ -341,7 +333,6 @@ struct BetrachterTV: View {
 
     private func blaettern(_ r: Int) {
         guard aufnahmen.count > 1 else { return }
-        sofort = false
         index = (index + r + aufnahmen.count) % aufnahmen.count
     }
 
@@ -366,13 +357,11 @@ struct BetrachterTV: View {
         defer { laedt = false }
         do {
             if a.mediaType == .video {
-                let melden: (Double) -> Void = { f in Task { @MainActor in fortschritt = f } }
-                let item: AVPlayerItem
-                if sofort {
-                    item = try await Mediathek.video(a, fortschritt: melden)
-                } else {
-                    item = try await Mediathek.videoVollstaendig(a, fortschritt: melden)
-                }
+                // .automatic wie die Fotos-App des Apple TV: Fotos liefert eine Fassung, die
+                // die Leitung schafft. Mit .highQualityFormat kam das Original — es stockte,
+                // lud nach, stockte wieder (gemeldet 11/2026), während dieselben Videos in der
+                // Fotos-App des Apple TV flüssig liefen.
+                let item = try await Mediathek.video(a, qualitaet: .automatic) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
                 // KEIN item.externalMetadata: Das PlayerItem von PhotoKit kennt es auf tvOS nicht —
                 // „unrecognized selector", die App stürzte bei JEDEM Video ab (1.0.5 bis 1.0.9,

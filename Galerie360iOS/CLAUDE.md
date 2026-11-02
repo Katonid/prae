@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV erst ganz laden.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -171,15 +171,15 @@ Fernbedienung umsehen, Zoom „irgendwie einstellen".
   Remote bei Ton über HomePod/AirPlay nichts — ein AVPlayer als
   SceneKit-Textur ist für tvOS sonst keine Wiedergabe. Ton über den
   Fernseher (HDMI-CEC/IR) ist davon unabhängig. **Am Gerät nicht geprüft.**
-- **Videos erst ganz laden** (seit 1.0.11; gemeldet 11/2026: „nach einiger
-  Zeit stockt das Video, lädt nach, stockt wieder"). Das Apple TV behält von
-  iCloud Fotos keine Originale — jedes Video kommt aus dem Netz, und die
-  360°-Videos haben eine hohe Datenrate (der Nutzer exportiert mit erhöhter
-  Bitrate). Gestreamt (`requestPlayerItem`) reicht die Leitung dafür oft
-  nicht. Jetzt `Mediathek.videoVollstaendig` (`requestAVAsset`, wartet bis
-  ganz geladen, Fortschritt in %); Play/Pause während des Ladens streamt
-  sofort (`sofort`, kann stocken). iOS streamt weiter. Ob `requestAVAsset`
-  auf tvOS wirklich vorab vollständig lädt, ist am Gerät NICHT geprüft.
+- **Videos stockten** (gemeldet 11/2026: „stockt, lädt nach, stockt wieder
+  … dieselben Videos laufen in der Galerie des Apple TV ohne weiteres").
+  Das Apple TV behält von iCloud Fotos keine Originale; mit
+  `deliveryMode = .highQualityFormat` streamte `requestPlayerItem` das
+  Original mit seiner hohen Datenrate. Seit 1.0.11 auf tvOS `.automatic` —
+  Fotos wählt die Stufe wie in der eigenen App. iOS bleibt bei
+  `.highQualityFormat`. Welche Auflösung `.automatic` auf dem Apple TV
+  liefert, ist am Gerät NICHT gemessen; ist sie für 360° zu unscharf, wäre
+  der nächste Schritt „ganz laden" per `requestAVAsset` (lädt vorab).
 - **Ruhezustand** (seit 1.0.7; gemeldet 11/2026, einen Tag nach 1.0.5:
   „seit gestern erwacht das Apple TV regelmäßig und schaltet den Fernseher
   ein"). Eine tvOS-App läuft im Ruhezustand nicht und kann das Gerät nicht

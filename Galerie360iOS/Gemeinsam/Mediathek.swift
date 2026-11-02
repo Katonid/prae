@@ -39,10 +39,14 @@ enum Mediathek {
     }
 
     /// Video zum Abspielen — bei iCloud Fotos gestreamt, ohne es vorher ganz zu laden.
-    static func video(_ asset: PHAsset, fortschritt: @escaping (Double) -> Void) async throws -> AVPlayerItem {
+    /// `qualitaet`: `.highQualityFormat` streamt das Original (iPhone/iPad); `.automatic`
+    /// lässt Fotos die Stufe wählen wie in der Fotos-App — auf dem Apple TV nötig, sonst
+    /// stockt das Original mit seiner hohen Datenrate (seit 1.0.11).
+    static func video(_ asset: PHAsset, qualitaet: PHVideoRequestOptionsDeliveryMode = .highQualityFormat,
+                      fortschritt: @escaping (Double) -> Void) async throws -> AVPlayerItem {
         try await withCheckedThrowingContinuation { f in
             let o = PHVideoRequestOptions()
-            o.deliveryMode = .highQualityFormat
+            o.deliveryMode = qualitaet
             o.version = .current
             o.isNetworkAccessAllowed = true
             o.progressHandler = { p, _, _, _ in fortschritt(p) }
@@ -50,40 +54,6 @@ enum Mediathek {
                 if let item { f.resume(returning: item) } else { f.resume(throwing: MediathekFehler.nichtGeladen) }
             }
         }
-    }
-}
-
-extension Mediathek {
-    /// Video GANZ aus iCloud laden, bevor es läuft (Apple TV, seit 1.0.11). Das Apple TV
-    /// behält von iCloud Fotos keine Originale; gestreamt stockten die 360°-Videos mit ihrer
-    /// hohen Datenrate immer wieder (gemeldet 11/2026). `requestAVAsset` meldet über
-    /// `fortschritt` den Ladestand und liefert erst, wenn das Video vollständig da ist.
-    static func videoVollstaendig(_ asset: PHAsset, fortschritt: @escaping (Double) -> Void) async throws -> AVPlayerItem {
-        let anfrage = Anfrage()
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { f in
-                let o = PHVideoRequestOptions()
-                o.deliveryMode = .highQualityFormat
-                o.version = .current
-                o.isNetworkAccessAllowed = true
-                o.progressHandler = { p, _, _, _ in fortschritt(p) }
-                anfrage.kennung = PHImageManager.default().requestAVAsset(forVideo: asset, options: o) { av, _, info in
-                    if let av {
-                        f.resume(returning: AVPlayerItem(asset: av))
-                    } else if (info?[PHImageCancelledKey] as? Bool) == true {
-                        f.resume(throwing: CancellationError())
-                    } else {
-                        f.resume(throwing: (info?[PHImageErrorKey] as? Error) ?? MediathekFehler.nichtGeladen)
-                    }
-                }
-            }
-        } onCancel: {
-            PHImageManager.default().cancelImageRequest(anfrage.kennung)
-        }
-    }
-
-    private final class Anfrage: @unchecked Sendable {
-        var kennung: PHImageRequestID = PHInvalidImageRequestID
     }
 }
 
