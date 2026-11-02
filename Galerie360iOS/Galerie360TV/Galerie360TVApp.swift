@@ -48,11 +48,13 @@ struct StartTV: View {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 420), spacing: 48)], spacing: 60) {
                                 ForEach(bibliothek.galerien) { g in
                                     NavigationLink(value: g) {
-                                        VStack(spacing: 18) {
-                                            Image(systemName: "photo.stack").font(.system(size: 80))
-                                            Text(g.titel).font(.title3).lineLimit(2)
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            SammlungsBild(id: g.id, art: .galerie, groesse: CGSize(width: 840, height: 472))
+                                                .frame(width: 420, height: 236)
+                                                .clipped()
+                                            Text(g.titel).font(.headline).lineLimit(1).padding(16)
                                         }
-                                        .frame(width: 420, height: 260)
+                                        .frame(width: 420)
                                     }
                                     .buttonStyle(.card)
                                 }
@@ -76,6 +78,12 @@ struct StartTV: View {
                 }
             }
             .navigationTitle("Galerie 360")
+            .safeAreaInset(edge: .bottom) {
+                // Fassung sichtbar, damit sich am Gerät prüfen lässt, was installiert ist.
+                Text("Fassung \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?")")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
             .navigationDestination(for: GalerieInfo.self) { GalerieTV(galerie: $0) }
             .navigationDestination(for: Knoten.self) { AlbumTV(album: $0) }
         }
@@ -140,16 +148,9 @@ struct GalerieTV: View {
 
 struct AlbumBildTV: View {
     let albumId: String
-    @Environment(FotoBibliothek.self) private var bibliothek
-    @Environment(Notizen.self) private var notizen
-    @State private var asset: PHAsset?
 
     var body: some View {
-        AssetBild(asset: asset, groesse: CGSize(width: 800, height: 450))
-            .task(id: "\(albumId)-\(bibliothek.stand)") {
-                let alle = bibliothek.aufnahmen(albumId)
-                asset = alle.first { $0.localIdentifier == notizen.albumbild(albumId) } ?? alle.first
-            }
+        SammlungsBild(id: albumId, art: .album, groesse: CGSize(width: 800, height: 450))
     }
 }
 

@@ -124,10 +124,9 @@ struct StartAnsicht: View {
                 ForEach(bibliothek.galerien) { g in
                     Button { offen = g } label: {
                         HStack(spacing: 14) {
-                            Image(systemName: "photo.stack")
-                                .font(.title3)
-                                .foregroundStyle(Color.accentColor)
-                                .frame(width: 32)
+                            SammlungsBild(id: g.id, art: .galerie, groesse: CGSize(width: 320, height: 200))
+                                .frame(width: 128, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
                             Text(g.titel).font(.headline).foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "chevron.right").foregroundStyle(.tertiary)
