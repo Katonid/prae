@@ -33,19 +33,45 @@ struct Kandidat: Identifiable {
 final class Modell: ObservableObject {
     @Published var kandidaten: [Kandidat] = []
     @Published var status = ""
-    @Published var laeuft = false
+    @Published var laeuft = false       // Suche, Download oder Korrektur
+    @Published var sucht = false        // Suche oder Download — abbrechbar
+    @Published var nochOffen = 0        // Videos, die erst aus iCloud kommen müssen
+
+    private var offen: [(PHAsset, String)] = [] {
+        didSet { nochOffen = offen.count }
+    }
+    private var arbeit: Task<Void, Never>?
 
     private let erledigtKey = "erledigteAssets"
     private var erledigt: Set<String> {
         get { Set(UserDefaults.standard.stringArray(forKey: erledigtKey) ?? []) }
         set { UserDefaults.standard.set(Array(newValue), forKey: erledigtKey) }
     }
+    // Videos ohne Aufnahmezeit im Kommentar — nicht bei jeder Suche neu laden
+    private let ohneZeitKey = "ohneZeitAssets"
+    private var ohneZeit: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: ohneZeitKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: ohneZeitKey) }
+    }
 
-    func scannen() async {
+    func suchenStarten() {
         guard !laeuft else { return }
+        arbeit = Task { await scannen() }
+    }
+
+    func iCloudLaden() {
+        guard !laeuft, !offen.isEmpty else { return }
+        arbeit = Task { await ausICloudLesen() }
+    }
+
+    func abbrechen() { arbeit?.cancel() }
+
+    private func scannen() async {
         laeuft = true
-        defer { laeuft = false }
+        sucht = true
+        defer { laeuft = false; sucht = false }
         kandidaten = []
+        offen = []
 
         let auth = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
         guard auth == .authorized else {
@@ -57,10 +83,10 @@ final class Modell: ObservableObject {
         let optionen = PHFetchOptions()
         optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         let videos = PHAsset.fetchAssets(with: .video, options: optionen)
-        let schonErledigt = erledigt
+        let ueberspringen = erledigt.union(ohneZeit)
         var treffer: [(PHAsset, String)] = []
         videos.enumerateObjects { asset, _, _ in
-            guard !schonErledigt.contains(asset.localIdentifier) else { return }
+            guard !ueberspringen.contains(asset.localIdentifier) else { return }
             let ressourcen = PHAssetResource.assetResources(for: asset)
             let name = (ressourcen.first(where: { $0.type == .video }) ?? ressourcen.first)?.originalFilename ?? ""
             if name.lowercased().hasPrefix("temp_video_") {
@@ -73,27 +99,84 @@ final class Modell: ObservableObject {
             return
         }
 
-        // 2. Aufnahmezeit aus jeder Datei lesen
-        var gefunden: [Kandidat] = []
+        // 2. Erst nur, was schon auf dem Gerät liegt — das geht schnell. Videos,
+        //    die nur in iCloud liegen (360°-Videos: oft mehrere GB), lädt
+        //    erst der Knopf „aus iCloud laden“.
+        let bilanz = await lesen(treffer, ausICloud: false)
+        offen = bilanz.offen
+        status = bericht(bilanz)
+    }
+
+    private func ausICloudLesen() async {
+        laeuft = true
+        sucht = true
+        defer { laeuft = false; sucht = false }
+        let bilanz = await lesen(offen, ausICloud: true)
+        offen = bilanz.offen
+        status = bericht(bilanz)
+    }
+
+    private struct Bilanz {
         var ohneZeit = 0
-        for (i, (asset, name)) in treffer.enumerated() {
-            status = "Lese Video \(i + 1) von \(treffer.count) …"
-            guard let neu = await Leser.aufnahmezeit(von: asset) else {
-                ohneZeit += 1
-                continue
+        var fehler = 0
+        var offen: [(PHAsset, String)] = []
+        var abgebrochen = false
+    }
+
+    /// Liest die Aufnahmezeiten der Reihe nach; Treffer erscheinen sofort in der Liste.
+    private func lesen(_ liste: [(PHAsset, String)], ausICloud: Bool) async -> Bilanz {
+        var b = Bilanz()
+        for (i, (asset, name)) in liste.enumerated() {
+            if Task.isCancelled {
+                b.abgebrochen = true
+                b.offen.append(contentsOf: liste[i...])
+                break
             }
-            if let bisher = asset.creationDate, abs(bisher.timeIntervalSince(neu)) <= 60 {
-                erledigt.insert(asset.localIdentifier)   // stimmt schon
-                continue
+            let kopf = ausICloud
+                ? "Lade Video \(i + 1) von \(liste.count) aus iCloud"
+                : "Lese Video \(i + 1) von \(liste.count)"
+            status = kopf + " …"
+            let ergebnis = await Leser.aufnahmezeit(von: asset, ausICloud: ausICloud) { anteil in
+                Task { @MainActor [weak self] in
+                    guard let self, self.status.hasPrefix(kopf) else { return }
+                    self.status = "\(kopf) … \(Int(anteil * 100)) %"
+                }
             }
-            gefunden.append(Kandidat(id: asset.localIdentifier, name: name,
-                                     bisher: asset.creationDate, neu: neu))
+            switch ergebnis {
+            case .datum(let neu):
+                if let bisher = asset.creationDate, abs(bisher.timeIntervalSince(neu)) <= 60 {
+                    erledigt.insert(asset.localIdentifier)   // stimmt schon
+                } else {
+                    kandidaten.append(Kandidat(id: asset.localIdentifier, name: name,
+                                               bisher: asset.creationDate, neu: neu))
+                }
+            case .keinDatum:
+                b.ohneZeit += 1
+                ohneZeit.insert(asset.localIdentifier)
+            case .nurInICloud, .fehlgeschlagen:
+                if Task.isCancelled {
+                    b.abgebrochen = true
+                } else if ausICloud {
+                    b.fehler += 1
+                }
+                b.offen.append((asset, name))
+            }
         }
-        kandidaten = gefunden
-        status = gefunden.isEmpty
-            ? "Alle Insta360-Videos haben bereits das richtige Datum."
-            : "\(gefunden.count) Video(s) mit falschem Datum gefunden."
-        if ohneZeit > 0 { status += " \(ohneZeit) ohne Aufnahmezeit übersprungen." }
+        return b
+    }
+
+    private func bericht(_ b: Bilanz) -> String {
+        var s = b.abgebrochen ? "Abgebrochen. " : ""
+        if !kandidaten.isEmpty {
+            s += "\(kandidaten.count) Video(s) mit falschem Datum gefunden."
+        } else if b.offen.isEmpty {
+            s += "Alle Insta360-Videos haben bereits das richtige Datum."
+        } else {
+            s += "Auf dem Gerät keine Videos mit falschem Datum."
+        }
+        if b.ohneZeit > 0 { s += " \(b.ohneZeit) ohne Aufnahmezeit übersprungen." }
+        if b.fehler > 0 { s += " \(b.fehler) ließen sich nicht aus iCloud laden." }
+        return s
     }
 
     func korrigieren() async {
@@ -128,9 +211,24 @@ final class Modell: ObservableObject {
 // MARK: - Aufnahmezeit aus der Videodatei lesen
 
 enum Leser {
-    static func aufnahmezeit(von asset: PHAsset) async -> Date? {
-        guard let url = await videoURL(von: asset) else { return nil }
+    enum Ergebnis { case datum(Date), keinDatum, nurInICloud, fehlgeschlagen }
+    enum Laden { case datei(URL), nurInICloud, fehlgeschlagen }
 
+    /// So lange darf ein iCloud-Download ohne jeden Fortschritt bleiben.
+    static let geduld: TimeInterval = 120
+
+    static func aufnahmezeit(von asset: PHAsset, ausICloud: Bool,
+                             fortschritt: @escaping @Sendable (Double) -> Void = { _ in }) async -> Ergebnis {
+        switch await videoURL(von: asset, ausICloud: ausICloud, fortschritt: fortschritt) {
+        case .nurInICloud: return .nurInICloud
+        case .fehlgeschlagen: return .fehlgeschlagen
+        case .datei(let url):
+            if let d = await aufnahmezeit(aus: url) { return .datum(d) }
+            return .keinDatum
+        }
+    }
+
+    static func aufnahmezeit(aus url: URL) async -> Date? {
         // a) Über AVFoundation: Kommentarfeld (©cmt)
         let av = AVURLAsset(url: url)
         if let items = try? await av.load(.metadata) {
@@ -151,16 +249,43 @@ enum Leser {
         return nil
     }
 
-    /// Lädt das Original-Video (bei Bedarf aus iCloud) und liefert dessen Datei-URL.
-    static func videoURL(von asset: PHAsset) async -> URL? {
-        await withCheckedContinuation { fortsetzung in
-            let o = PHVideoRequestOptions()
-            o.version = .original
-            o.deliveryMode = .highQualityFormat
-            o.isNetworkAccessAllowed = true
-            PHImageManager.default().requestAVAsset(forVideo: asset, options: o) { av, _, _ in
-                fortsetzung.resume(returning: (av as? AVURLAsset)?.url)
+    /// Liefert die Datei-URL des Original-Videos. Ohne `ausICloud` nur, wenn es
+    /// schon auf dem Gerät liegt; sonst wird es geladen — abbrechbar, und ein
+    /// Download, der `geduld` Sekunden lang nicht vorankommt, wird aufgegeben.
+    static func videoURL(von asset: PHAsset, ausICloud: Bool,
+                         fortschritt: @escaping @Sendable (Double) -> Void) async -> Laden {
+        let anfrage = Anfrage()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { (fortsetzung: CheckedContinuation<Laden, Never>) in
+                guard anfrage.beginnen(fortsetzung) else { return }
+                let o = PHVideoRequestOptions()
+                o.version = .original
+                o.deliveryMode = .highQualityFormat
+                o.isNetworkAccessAllowed = ausICloud
+                o.progressHandler = { anteil, _, _, _ in
+                    anfrage.lebt()
+                    fortschritt(anteil)
+                }
+                let id = PHImageManager.default().requestAVAsset(forVideo: asset, options: o) { av, _, info in
+                    if let url = (av as? AVURLAsset)?.url {
+                        anfrage.beenden(.datei(url))
+                    } else if (info?[PHImageResultIsInCloudKey] as? Bool) == true {
+                        anfrage.beenden(.nurInICloud)
+                    } else {
+                        anfrage.beenden(.fehlgeschlagen)
+                    }
+                }
+                anfrage.merken(id)
+                guard ausICloud else { return }
+                Task.detached {
+                    while !anfrage.vorbei {
+                        try? await Task.sleep(for: .seconds(5))
+                        if anfrage.stillSeit > Leser.geduld { anfrage.abbrechen() }
+                    }
+                }
             }
+        } onCancel: {
+            anfrage.abbrechen()
         }
     }
 
@@ -211,6 +336,56 @@ enum Leser {
     }
 }
 
+/// Eine Video-Anfrage an Fotos, die genau einmal endet: mit dem Ergebnis,
+/// durch Abbrechen oder weil der iCloud-Download hängen bleibt.
+private final class Anfrage: @unchecked Sendable {
+    private let sperre = NSLock()
+    private var fortsetzung: CheckedContinuation<Leser.Laden, Never>?
+    private var id: PHImageRequestID?
+    private var beendet = false
+    private var letzterFortschritt = Date()
+
+    /// false, wenn schon abgebrochen wurde, bevor die Anfrage begann.
+    func beginnen(_ f: CheckedContinuation<Leser.Laden, Never>) -> Bool {
+        let schonVorbei: Bool = sperre.withLock {
+            if !beendet {
+                fortsetzung = f
+                letzterFortschritt = Date()
+            }
+            return beendet
+        }
+        if schonVorbei { f.resume(returning: .fehlgeschlagen) }
+        return !schonVorbei
+    }
+
+    func merken(_ neu: PHImageRequestID) {
+        let schonVorbei: Bool = sperre.withLock {
+            id = neu
+            return beendet
+        }
+        if schonVorbei { PHImageManager.default().cancelImageRequest(neu) }
+    }
+
+    func lebt() { sperre.withLock { letzterFortschritt = Date() } }
+    var vorbei: Bool { sperre.withLock { beendet } }
+    var stillSeit: TimeInterval { sperre.withLock { Date().timeIntervalSince(letzterFortschritt) } }
+
+    func beenden(_ ergebnis: Leser.Laden) {
+        let f: CheckedContinuation<Leser.Laden, Never>? = sperre.withLock {
+            beendet = true
+            defer { fortsetzung = nil }
+            return fortsetzung
+        }
+        f?.resume(returning: ergebnis)
+    }
+
+    func abbrechen() {
+        let laufend: PHImageRequestID? = sperre.withLock { id }
+        if let laufend { PHImageManager.default().cancelImageRequest(laufend) }
+        beenden(.fehlgeschlagen)
+    }
+}
+
 // MARK: - Oberfläche
 
 struct ContentView: View {
@@ -231,6 +406,14 @@ struct ContentView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                if modell.nochOffen > 0 && !modell.laeuft {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Button("\(modell.nochOffen) Video(s) aus iCloud laden") { modell.iCloudLaden() }
+                        Text("Liegen nicht auf diesem Gerät. Jedes Video wird ganz geladen – 360°-Videos sind oft mehrere GB groß, besser im WLAN.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 ForEach($modell.kandidaten) { $k in
                     Toggle(isOn: $k.ausgewaehlt) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -247,8 +430,12 @@ struct ContentView: View {
             .navigationTitle("Insta360-Datum")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Suchen") { Task { await modell.scannen() } }
-                        .disabled(modell.laeuft)
+                    if modell.sucht {
+                        Button("Abbrechen") { modell.abbrechen() }
+                    } else {
+                        Button("Suchen") { modell.suchenStarten() }
+                            .disabled(modell.laeuft)
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Korrigieren") { Task { await modell.korrigieren() } }
@@ -256,9 +443,9 @@ struct ContentView: View {
                 }
             }
             .overlay {
-                if modell.laeuft { ProgressView() }
+                if modell.laeuft && modell.kandidaten.isEmpty { ProgressView() }
             }
-            .task { await modell.scannen() }
+            .task { modell.suchenStarten() }
         }
     }
 }

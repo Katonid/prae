@@ -12,7 +12,7 @@
   Signieren nicht mehr ändern.
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release,
-  in App- UND Testziel). Erste Fassung: 1.0.0 (1).
+  in App- UND Testziel). Erste Fassung: 1.0.0 (1); aktuell 1.0.1 (2).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung. Keine
@@ -33,7 +33,26 @@
   **Keine Fotos** bearbeiten: Insta360-Fotoexporte haben keine
   Aufnahmezeit (geprüft). Oberfläche Deutsch.
 - Bereits korrigierte Videos: `UserDefaults` `erledigteAssets`
-  (localIdentifier).
+  (localIdentifier). Videos ohne Aufnahmezeit im Kommentar:
+  `ohneZeitAssets` — werden bei der nächsten Suche nicht neu geladen.
+
+## iCloud (Lehre aus 1.0.0 → 1.0.1)
+
+- 1.0.0 lud jedes Video mit `isNetworkAccessAllowed = true` und ohne
+  Fortschrittsanzeige. Auf dem iPad des Nutzers (Mediathek optimiert)
+  hing die App bei „Lese Video 2 von 101 …“ scheinbar endlos: Ein
+  360°-Video ist mehrere GB groß und wird zum Lesen GANZ geladen —
+  PhotoKit kennt keine Teil-Downloads, und das moov liegt meist am Ende.
+- Seit 1.0.1: Die Suche liest **nur, was schon auf dem Gerät liegt**
+  (`isNetworkAccessAllowed = false`; `PHImageResultIsInCloudKey` meldet
+  den Rest). iCloud-Videos lädt erst der Knopf „N Video(s) aus iCloud
+  laden“, einzeln mit Prozentanzeige. „Abbrechen“ bricht die laufende
+  Anfrage ab (`cancelImageRequest`); ein Download ohne Fortschritt über
+  `Leser.geduld` (120 s) wird aufgegeben. Treffer erscheinen sofort in
+  der Liste.
+- `Anfrage` sorgt dafür, dass die Continuation genau einmal fortgesetzt
+  wird — durch Ergebnis, Abbruch oder Wächter, egal was zuerst kommt.
+  Nicht durch ein einfaches `withCheckedContinuation` ersetzen.
 
 ## moov-Leser
 
