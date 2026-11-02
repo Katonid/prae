@@ -11,7 +11,7 @@ struct GeteilteAnsicht<Erster: View, Zweiter: View>: View {
     @ViewBuilder let erster: () -> Erster
     @ViewBuilder let zweiter: () -> Zweiter
 
-    @State private var startAnteil: Double?
+    @State private var startAnteil: Double? = nil
 
     static var minimum: Double { 0.1 }
     static var maximum: Double { 0.85 }

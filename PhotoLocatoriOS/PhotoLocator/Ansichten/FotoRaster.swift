@@ -144,8 +144,8 @@ private struct RasterZelle: View {
 /// Miniatur eines Fotos — aus dem Zwischenspeicher oder asynchron geladen.
 struct MiniaturAnsicht: View {
     let asset: PHAsset
-    @State private var bild: UIImage?
-    @State private var anfrage: PHImageRequestID?
+    @State private var bild: UIImage? = nil
+    @State private var anfrage: PHImageRequestID? = nil
 
     var body: some View {
         ZStack {

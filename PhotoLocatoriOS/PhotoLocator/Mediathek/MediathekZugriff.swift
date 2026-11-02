@@ -1,5 +1,6 @@
 import Observation
 import Photos
+import PhotosUI
 import UIKit
 
 /// Berechtigung für die Fotomediathek und Benachrichtigung über Änderungen.
