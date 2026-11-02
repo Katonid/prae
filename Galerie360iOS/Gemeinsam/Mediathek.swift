@@ -53,6 +53,40 @@ enum Mediathek {
     }
 }
 
+extension Mediathek {
+    /// Video GANZ aus iCloud laden, bevor es läuft (Apple TV, seit 1.0.11). Das Apple TV
+    /// behält von iCloud Fotos keine Originale; gestreamt stockten die 360°-Videos mit ihrer
+    /// hohen Datenrate immer wieder (gemeldet 11/2026). `requestAVAsset` meldet über
+    /// `fortschritt` den Ladestand und liefert erst, wenn das Video vollständig da ist.
+    static func videoVollstaendig(_ asset: PHAsset, fortschritt: @escaping (Double) -> Void) async throws -> AVPlayerItem {
+        let anfrage = Anfrage()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { f in
+                let o = PHVideoRequestOptions()
+                o.deliveryMode = .highQualityFormat
+                o.version = .current
+                o.isNetworkAccessAllowed = true
+                o.progressHandler = { p, _, _, _ in fortschritt(p) }
+                anfrage.kennung = PHImageManager.default().requestAVAsset(forVideo: asset, options: o) { av, _, info in
+                    if let av {
+                        f.resume(returning: AVPlayerItem(asset: av))
+                    } else if (info?[PHImageCancelledKey] as? Bool) == true {
+                        f.resume(throwing: CancellationError())
+                    } else {
+                        f.resume(throwing: (info?[PHImageErrorKey] as? Error) ?? MediathekFehler.nichtGeladen)
+                    }
+                }
+            }
+        } onCancel: {
+            PHImageManager.default().cancelImageRequest(anfrage.kennung)
+        }
+    }
+
+    private final class Anfrage: @unchecked Sendable {
+        var kennung: PHImageRequestID = PHInvalidImageRequestID
+    }
+}
+
 /// Vorschaubild einer Aufnahme aus der Mediathek (aus iCloud nachgeladen, wenn nötig).
 /// 360°-Aufnahmen erscheinen NICHT als verzerrtes Rundumbild, sondern als unverzerrter
 /// Ausschnitt in ihrer Startansicht — so, wie der Betrachter sie öffnet (seit 1.0.4).
