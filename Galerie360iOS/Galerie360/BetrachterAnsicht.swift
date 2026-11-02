@@ -205,6 +205,10 @@ struct BetrachterAnsicht: View {
                 let item = try await Mediathek.video(a) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
                 let p = AVPlayer(playerItem: item)
+                // Kein AirPlay: Das Video ist nur die Textur der Kugel — auf dem Fernseher käme
+                // das verzerrte Rundumbild an. Und „Automatisch AirPlay" in iOS hat damit das
+                // Apple TV samt Fernseher aus dem Ruhezustand geholt (gemeldet 11/2026, 1.0.6).
+                p.allowsExternalPlayback = false
                 p.actionAtItemEnd = .pause
                 player = p
                 dauer = a.duration
