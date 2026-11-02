@@ -211,7 +211,9 @@ struct AlbumAnsicht: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                PhotosPicker(selection: $auswahlFotos, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
+                // .ordered: nummeriert die Auswahl, und `auswahlFotos` kommt in der Reihenfolge des Antippens.
+                PhotosPicker(selection: $auswahlFotos, selectionBehavior: .ordered,
+                             matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
                     Label("Aus der Mediathek hinzufügen", systemImage: "plus")
                 }
                 Menu {
