@@ -161,6 +161,13 @@ enum Koordinaten {
             return (String(teile[0]), String(teile[1]))
         }
 
+        // „47,6302, 13,0045“ / „47, 13“: Ein Komma mit Leerzeichen dahinter
+        // trennt die beiden Hälften, die übrigen Kommas sind Dezimalzeichen.
+        let trenner = s.components(separatedBy: ", ")
+        if trenner.count == 2 {
+            return (trenner[0], trenner[1])
+        }
+
         let kommas = s.filter { $0 == "," }.count
         switch kommas {
         case 0:
