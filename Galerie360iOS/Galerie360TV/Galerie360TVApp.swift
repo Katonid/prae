@@ -18,6 +18,23 @@ struct Galerie360TVApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            // Prüfmodus für GitHub Actions (Job „Apple-TV-Betrachter starten"): öffnet den
+            // Betrachter mit der ersten Aufnahme der Mediathek, ohne Bedienung.
+            if let art = ProcessInfo.processInfo.environment["GALERIE360_PRUEFUNG"] {
+                PruefBetrachterTV(art: art)
+                    .environment(bibliothek)
+                    .environment(notizen)
+            } else {
+                startseite
+            }
+            #else
+            startseite
+            #endif
+        }
+    }
+
+    private var startseite: some View {
             StartTV()
                 .environment(bibliothek)
                 .environment(notizen)
@@ -27,9 +44,32 @@ struct Galerie360TVApp: App {
                 .onChange(of: bibliothek.zugriff) { notizen.abgleichen() }
                 .onChange(of: bibliothek.stand) { notizen.abgleichen() }
                 .onChange(of: phase) { if phase == .active { notizen.abgleichen() } }
-        }
     }
 }
+
+#if DEBUG
+/// Öffnet den Betrachter mit der ersten Aufnahme (Foto oder Video) — nur für die Prüfung im
+/// Simulator. Ohne Aufnahmen öffnet er leer, das prüft wenigstens Aufbau und Umgebung.
+struct PruefBetrachterTV: View {
+    let art: String
+    @State private var aufnahmen: [PHAsset]?
+
+    var body: some View {
+        Color.black
+            .task {
+                let s = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+                let typ: PHAssetMediaType = art == "video" ? .video : .image
+                let alle = PHAsset.fetchAssets(with: typ, options: nil)
+                print("PRUEFUNG: Zugriff \(s.rawValue), \(alle.count) Aufnahme(n) vom Typ \(art)")
+                aufnahmen = alle.firstObject.map { [$0] } ?? []
+            }
+            .fullScreenCover(isPresented: Binding(get: { aufnahmen != nil }, set: { _ in })) {
+                BetrachterTV(albumTitel: "Prüfung", aufnahmen: aufnahmen ?? [], startIndex: 0)
+                    .onAppear { print("PRUEFUNG: Betrachter offen") }
+            }
+    }
+}
+#endif
 
 struct StartTV: View {
     @Environment(FotoBibliothek.self) private var bibliothek
