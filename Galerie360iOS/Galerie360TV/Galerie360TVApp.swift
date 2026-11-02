@@ -1,5 +1,4 @@
 import AVFoundation
-import AVKit
 import MediaPlayer
 import Photos
 import SwiftUI
@@ -360,8 +359,9 @@ struct BetrachterTV: View {
             if a.mediaType == .video {
                 let item = try await Mediathek.video(a) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
-                item.externalMetadata = [metadaten(.commonIdentifierTitle, notizen.titel(a.localIdentifier) ?? datumText(a.creationDate)),
-                                         metadaten(.iTunesMetadataTrackSubTitle, albumTitel)]
+                // KEIN item.externalMetadata: Das PlayerItem von PhotoKit kennt es auf tvOS nicht —
+                // „unrecognized selector", die App stürzte bei JEDEM Video ab (1.0.5 bis 1.0.9,
+                // nachgestellt im Job „Apple-TV-Betrachter starten").
                 let p = AVPlayer(playerItem: item)
                 p.actionAtItemEnd = .pause
                 player = p
@@ -405,14 +405,6 @@ struct BetrachterTV: View {
         sitzung = s
     }
 
-    private func metadaten(_ kennung: AVMetadataIdentifier, _ wert: String) -> AVMetadataItem {
-        let m = AVMutableMetadataItem()
-        m.identifier = kennung
-        m.value = wert as NSString
-        m.extendedLanguageTag = "und"
-        return m.copy() as! AVMetadataItem
-    }
-
     /// Abmelden als „Now Playing" — beim Verlassen des Videos UND sobald die App in den
     /// Hintergrund geht (Home-Taste, Ruhezustand). Bis 1.0.6 blieb die Anmeldung stehen,
     /// wenn man die App mit offenem Video verließ: Das Apple TV galt dann weiter als
@@ -427,7 +419,6 @@ struct BetrachterTV: View {
         s.automaticallyPublishesNowPlayingInfo = false
         s.nowPlayingInfoCenter.nowPlayingInfo = nil
         sitzung = nil
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 

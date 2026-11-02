@@ -152,7 +152,9 @@ jobs:
                 + teil(b"IDAT", zlib.compress(bytes(zeilen), 6)) + teil(b"IEND", b"")
           open("/tmp/medien/pruef.png", "wb").write(png)
           PY
-          sips -s format jpeg /tmp/medien/pruef.png --out /tmp/medien/pruef360.jpg
+          # Groß wie ein Insta360-Foto (5760 × 2880) — der Betrachter lädt bis 8192 px.
+          sips -z 2880 5760 /tmp/medien/pruef.png --out /tmp/medien/gross.png
+          sips -s format jpeg /tmp/medien/gross.png --out /tmp/medien/pruef360.jpg
           # Video ohne ffmpeg (fehlt auf dem Läufer): AVAssetWriter, H.264, 1920 × 960, 4 s.
           cat > /tmp/video.swift <<'SW'
           import AVFoundation
