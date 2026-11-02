@@ -105,3 +105,31 @@ enum VorschauAnsicht {
         return ergebnis
     }
 }
+
+/// Vorschaubild eines Albums oder einer Galerie (Galerie- bzw. Albumbild, sonst die erste
+/// Aufnahme) — für Galerienliste, Albenübersicht und Seitenleiste, auf iOS und tvOS.
+struct SammlungsBild: View {
+    enum Art { case album, galerie }
+    let id: String
+    let art: Art
+    let groesse: CGSize
+    @Environment(FotoBibliothek.self) private var bibliothek
+    @Environment(Notizen.self) private var notizen
+    @State private var asset: PHAsset?
+
+    var body: some View {
+        AssetBild(asset: asset, groesse: groesse)
+            .overlay {
+                if asset == nil {
+                    Image(systemName: art == .galerie ? "photo.stack" : "rectangle.stack")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .task(id: "\(id)-\(bibliothek.stand)-\(notizen.albumbild(id) ?? "")") {
+                asset = art == .galerie
+                    ? bibliothek.vorschauAsset(galerie: id, notizen: notizen)
+                    : bibliothek.vorschauAsset(album: id, bild: notizen.albumbild(id))
+            }
+    }
+}

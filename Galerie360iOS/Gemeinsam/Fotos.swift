@@ -292,3 +292,24 @@ extension FotoBibliothek {
         return ids.filter { gesehen.insert($0).inserted }
     }
 }
+
+extension FotoBibliothek {
+    /// Vorschau eines Albums: das gewählte Albumbild, sonst die erste Aufnahme.
+    func vorschauAsset(album: String, bild: String?) -> PHAsset? {
+        let alle = aufnahmen(album)
+        return alle.first { $0.localIdentifier == bild } ?? alle.first
+    }
+
+    /// Vorschau einer Galerie: das gewählte Galeriebild (seit 1.0.9), sonst die Vorschau
+    /// des ersten Albums mit Aufnahmen.
+    func vorschauAsset(galerie: String, notizen: Notizen) -> PHAsset? {
+        if let id = notizen.albumbild(galerie),
+           let a = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject {
+            return a
+        }
+        for k in baum(galerie) where k.art == .album && k.anzahl > 0 {
+            if let a = vorschauAsset(album: k.id, bild: notizen.albumbild(k.id)) { return a }
+        }
+        return nil
+    }
+}

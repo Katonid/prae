@@ -7,6 +7,8 @@ struct GalerieAnsicht: View {
     let galerie: GalerieInfo
     let schliessen: () -> Void
     @Environment(FotoBibliothek.self) private var bibliothek
+    @Environment(Notizen.self) private var notizen
+    @Environment(\.horizontalSizeClass) private var groesse
     @State private var baum: [Knoten] = []
     @State private var auswahl: String?
     @State private var frage: Frage?
@@ -33,6 +35,12 @@ struct GalerieAnsicht: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $auswahl) {
+                if groesse == .regular { // auf dem iPhone ist diese Liste selbst die Übersicht
+                    Button { auswahl = nil } label: {
+                        Label("Übersicht", systemImage: "square.grid.2x2")
+                            .fontWeight(auswahl == nil ? .semibold : .regular)
+                    }
+                }
                 if baum.isEmpty {
                     Text("Noch kein Album. Mit + ein Album anlegen.").foregroundStyle(.secondary)
                 }
@@ -64,7 +72,7 @@ struct GalerieAnsicht: View {
         } detail: {
             if let id = auswahl, let k = baum.first(where: { $0.id == id }) {
                 if k.art == .album {
-                    AlbumAnsicht(albumId: k.id, titel: k.titel, alleAlben: baum.filter { $0.art == .album })
+                    AlbumAnsicht(albumId: k.id, titel: k.titel, galerieId: galerie.id, alleAlben: baum.filter { $0.art == .album })
                         .id(k.id)
                 } else {
                     ContentUnavailableView {
@@ -76,14 +84,13 @@ struct GalerieAnsicht: View {
                     }
                 }
             } else {
-                ContentUnavailableView("Album wählen", systemImage: "rectangle.stack", description: Text("Links ein Album antippen."))
+                uebersicht
             }
         }
         .task(id: bibliothek.stand) {
             baum = bibliothek.baum(galerie.id)
-            if auswahl == nil || !baum.contains(where: { $0.id == auswahl }) {
-                auswahl = baum.first { $0.art == .album }?.id
-            }
+            // Beim Öffnen die Übersicht zeigen, nicht gleich das erste Album (Wunsch 11/2026).
+            if let a = auswahl, !baum.contains(where: { $0.id == a }) { auswahl = nil }
         }
         .alert(frageTitel, isPresented: Binding(get: { frage != nil }, set: { if !$0 { frage = nil } })) {
             TextField("Name", text: $eingabe)
@@ -116,6 +123,66 @@ struct GalerieAnsicht: View {
         } message: { Text(meldung ?? "") }
     }
 
+    /// Alle Alben der Galerie als Karten mit Vorschaubild; Alben in Ordnern unter dem Ordnernamen.
+    private var uebersicht: some View {
+        ScrollView {
+            if baum.isEmpty {
+                ContentUnavailableView {
+                    Label("Noch kein Album", systemImage: "rectangle.stack")
+                } description: {
+                    Text("Mit + ein Album anlegen und Aufnahmen aus der Mediathek hinzufügen.")
+                } actions: {
+                    Button("Neues Album") { fragen(.neuesAlbum(in: galerie.id)) }
+                }
+                .padding(.top, 60)
+            }
+            VStack(alignment: .leading, spacing: 28) {
+                ForEach(gruppen, id: \.titel) { gruppe in
+                    if !gruppe.titel.isEmpty {
+                        Label(gruppe.titel, systemImage: "folder").font(.headline).foregroundStyle(.secondary)
+                    }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 16)], spacing: 22) {
+                        ForEach(gruppe.alben) { k in
+                            Button { auswahl = k.id } label: { albumKarte(k) }
+                                .buttonStyle(.plain)
+                                .contextMenu { kontext(k) }
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+        .navigationTitle(titel)
+    }
+
+    private func albumKarte(_ k: Knoten) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SammlungsBild(id: k.id, art: .album, groesse: CGSize(width: 640, height: 400))
+                .aspectRatio(16 / 10, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            Text(k.titel).font(.headline).lineLimit(1)
+            Text(k.anzahl == 1 ? "1 Aufnahme" : "\(k.anzahl) Aufnahmen").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    /// Alben gruppiert nach dem Ordner, in dem sie liegen (oberste Ebene ohne Überschrift).
+    private var gruppen: [(titel: String, alben: [Knoten])] {
+        var aus: [(titel: String, alben: [Knoten])] = [("", [])]
+        var pfad: [String] = []
+        for k in baum {
+            pfad = Array(pfad.prefix(k.tiefe))
+            if k.art == .ordner {
+                pfad.append(k.titel)
+                aus.append((pfad.joined(separator: " › "), []))
+            } else if k.tiefe == 0 {
+                aus[0].alben.append(k)
+            } else {
+                aus[aus.count - 1].alben.append(k)
+            }
+        }
+        return aus.filter { !$0.alben.isEmpty }
+    }
+
     private func zeile(_ k: Knoten) -> some View {
         HStack(spacing: 10) {
             if k.art == .ordner {
@@ -139,6 +206,11 @@ struct GalerieAnsicht: View {
     @ViewBuilder
     private func kontext(_ k: Knoten) -> some View {
         Button { eingabe = k.titel; frage = .umbenennen(k) } label: { Label("Umbenennen …", systemImage: "pencil") }
+        if k.art == .album, let a = bibliothek.vorschauAsset(album: k.id, bild: notizen.albumbild(k.id)) {
+            Button { notizen.setzeAlbumbild(galerie.id, a.localIdentifier) } label: {
+                Label("Albumbild als Galeriebild", systemImage: "star.square")
+            }
+        }
         if k.art == .ordner {
             Button { fragen(.neuesAlbum(in: k.id)) } label: { Label("Neues Album darin", systemImage: "rectangle.stack.badge.plus") }
             Button { fragen(.neuerOrdner(in: k.id)) } label: { Label("Neuer Ordner darin", systemImage: "folder.badge.plus") }
@@ -192,6 +264,7 @@ struct GalerieAnsicht: View {
 struct AlbumAnsicht: View {
     let albumId: String
     let titel: String
+    let galerieId: String
     let alleAlben: [Knoten]
     @Environment(FotoBibliothek.self) private var bibliothek
     @Environment(Notizen.self) private var notizen
@@ -304,6 +377,9 @@ struct AlbumAnsicht: View {
         Button {
             notizen.setzeAlbumbild(albumId, notizen.albumbild(albumId) == id ? nil : id)
         } label: { Label(notizen.albumbild(albumId) == id ? "Albumbild ✓" : "Als Albumbild", systemImage: "star") }
+        Button {
+            notizen.setzeAlbumbild(galerieId, notizen.albumbild(galerieId) == id ? nil : id)
+        } label: { Label(notizen.albumbild(galerieId) == id ? "Galeriebild ✓" : "Als Galeriebild", systemImage: "star.square") }
         let ziele = alleAlben.filter { $0.id != albumId }
         if !ziele.isEmpty {
             Menu {
@@ -372,15 +448,8 @@ struct Kachel: View {
 /// Vorschau eines Albums für die Seitenleiste: das Albumbild, sonst die erste Aufnahme.
 struct AlbumVorschau: View {
     let albumId: String
-    @Environment(FotoBibliothek.self) private var bibliothek
-    @Environment(Notizen.self) private var notizen
-    @State private var asset: PHAsset?
 
     var body: some View {
-        AssetBild(asset: asset, groesse: CGSize(width: 120, height: 76))
-            .task(id: "\(albumId)-\(bibliothek.stand)-\(notizen.albumbild(albumId) ?? "")") {
-                let alle = bibliothek.aufnahmen(albumId)
-                asset = alle.first { $0.localIdentifier == notizen.albumbild(albumId) } ?? alle.first
-            }
+        SammlungsBild(id: albumId, art: .album, groesse: CGSize(width: 120, height: 76))
     }
 }

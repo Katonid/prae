@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -90,6 +90,16 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   `hinzufuegen` ordnet nach den übergebenen Kennungen
   (`neueInReihenfolge`), weil `fetchAssets(withLocalIdentifiers:)` in
   Mediathek-Reihenfolge liefert, und setzt per `insertAssets(at:)` ans Ende.
+- **Galeriebild und Albenübersicht** (seit 1.0.9, Wunsch 11/2026): Eine
+  Galerie öffnet mit einer Übersicht aller Alben als Karten mit Vorschau
+  (gruppiert nach Ordnern), NICHT mehr gleich im ersten Album. Auf dem iPad
+  führt „Übersicht" oben in der Seitenleiste zurück; auf dem iPhone ist die
+  Seitenleiste selbst die Übersicht. Galeriebild: im Album lange auf eine
+  Aufnahme drücken → „Als Galeriebild", oder in der Übersicht auf ein Album
+  → „Albumbild als Galeriebild". Gespeichert in `Notizen` wie das
+  Albumbild, Schlüssel = Kennung des Galerie-Ordners; ohne Wahl die
+  Vorschau des ersten Albums (`vorschauAsset(galerie:)`). `SammlungsBild`
+  (Mediathek.swift) zeigt Galerie-/Albumvorschau auf iOS und tvOS.
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 
