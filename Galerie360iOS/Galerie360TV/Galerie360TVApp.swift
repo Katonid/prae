@@ -258,6 +258,10 @@ struct BetrachterTV: View {
     @Environment(\.scenePhase) private var phase
     @State private var zeit: Double = 0
     @State private var laedt = false
+    /// Ladestand des Originals im Hintergrund (nil = nicht nötig/fertig) und ob es läuft.
+    @State private var original: Double?
+    @State private var volleQualitaet = false
+    @State private var originalAufgabe: Task<Void, Never>?
     @State private var fortschritt: Double?
     @State private var meldung: String?
 
@@ -292,6 +296,15 @@ struct BetrachterTV: View {
             if let meldung {
                 Text(meldung).padding(30).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
             }
+            if !hinweis, asset?.mediaType == .video, original != nil || volleQualitaet {
+                qualitaetsHinweis
+                    .padding(.horizontal, 18).padding(.vertical, 8)
+                    .background(.black.opacity(0.45), in: Capsule())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(50)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
             if hinweis {
                 VStack {
                     HStack(alignment: .firstTextBaseline) {
@@ -304,6 +317,7 @@ struct BetrachterTV: View {
                         ProgressView(value: min(zeit, a.duration), total: a.duration)
                             .tint(.white)
                             .padding(.bottom, 12)
+                        qualitaetsHinweis.padding(.bottom, 8)
                     }
                     Text("Wischen: umsehen  ·  oben/unten klicken: Zoom  ·  links/rechts: blättern  ·  Play/Pause: Video  ·  Mitte: diese Hilfe aus")
                         .font(.caption)
@@ -376,6 +390,7 @@ struct BetrachterTV: View {
                 }
                 tonAn(p)
                 p.play()
+                originalNachladen(a, in: p)
             } else {
                 // Apple TV 4K: Texturen bis 16384 — 8192 ist scharf und schont den Speicher.
                 let bild = try await Mediathek.foto(a, maxPixel: 8192) { f in Task { @MainActor in fortschritt = f } }
@@ -426,7 +441,46 @@ struct BetrachterTV: View {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
+    @ViewBuilder
+    private var qualitaetsHinweis: some View {
+        if volleQualitaet {
+            Label("Volle Qualität", systemImage: "checkmark.seal").font(.caption)
+        } else if let o = original {
+            Label("Volle Qualität wird geladen: \(Int(o * 100)) %", systemImage: "arrow.down.circle").font(.caption)
+        }
+    }
+
+    /// Spielt zuerst die flüssige Fassung (`.automatic`) und lädt im Hintergrund das Original.
+    /// Ist es ganz da, wechselt der Player an derselben Stelle darauf — volle Schärfe, und
+    /// weil die Datei auf dem Gerät liegt, ohne Stocken (Nutzer 11/2026: „Bildqualität nicht
+    /// mehr ausreichend" mit `.automatic`, mit dem gestreamten Original stockte es).
+    private func originalNachladen(_ a: PHAsset, in p: AVPlayer) {
+        original = 0
+        volleQualitaet = false
+        originalAufgabe = Task {
+            do {
+                let item = try await Mediathek.videoOriginal(a) { f in Task { @MainActor in if original != nil { original = f } } }
+                guard !Task.isCancelled, player === p else { return }
+                let stelle = p.currentTime()
+                let lief = p.rate > 0
+                p.replaceCurrentItem(with: item)
+                await p.seek(to: stelle, toleranceBefore: .zero, toleranceAfter: .zero)
+                if lief { p.play() }
+                original = nil
+                withAnimation { volleQualitaet = true }
+                try? await Task.sleep(for: .seconds(4))
+                withAnimation { volleQualitaet = false }
+            } catch {
+                original = nil // bleibt bei der flüssigen Fassung
+            }
+        }
+    }
+
     private func stoppen() {
+        originalAufgabe?.cancel()
+        originalAufgabe = nil
+        original = nil
+        volleQualitaet = false
         tonAus()
         if let p = player {
             p.pause()

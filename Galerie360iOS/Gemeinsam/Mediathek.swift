@@ -57,6 +57,41 @@ enum Mediathek {
     }
 }
 
+extension Mediathek {
+    /// Das ORIGINAL eines Videos vollständig auf das Gerät laden (Apple TV, seit 1.0.12).
+    /// `requestAVAsset` meldet den Ladestand über `fortschritt` und liefert erst, wenn die
+    /// Datei da ist. Kommt statt einer Datei ein Netz-Asset zurück (dann würde es wieder
+    /// gestreamt und stocken), gilt das als Fehler — der Betrachter bleibt dann bei der
+    /// flüssigen Fassung.
+    static func videoOriginal(_ asset: PHAsset, fortschritt: @escaping (Double) -> Void) async throws -> AVPlayerItem {
+        let anfrage = Anfrage()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { f in
+                let o = PHVideoRequestOptions()
+                o.deliveryMode = .highQualityFormat
+                o.version = .current
+                o.isNetworkAccessAllowed = true
+                o.progressHandler = { p, _, _, _ in fortschritt(p) }
+                anfrage.kennung = PHImageManager.default().requestAVAsset(forVideo: asset, options: o) { av, _, info in
+                    if let u = av as? AVURLAsset, u.url.isFileURL {
+                        f.resume(returning: AVPlayerItem(asset: u))
+                    } else if (info?[PHImageCancelledKey] as? Bool) == true {
+                        f.resume(throwing: CancellationError())
+                    } else {
+                        f.resume(throwing: (info?[PHImageErrorKey] as? Error) ?? MediathekFehler.nichtGeladen)
+                    }
+                }
+            }
+        } onCancel: {
+            PHImageManager.default().cancelImageRequest(anfrage.kennung)
+        }
+    }
+
+    private final class Anfrage: @unchecked Sendable {
+        var kennung: PHImageRequestID = PHInvalidImageRequestID
+    }
+}
+
 /// Vorschaubild einer Aufnahme aus der Mediathek (aus iCloud nachgeladen, wenn nötig).
 /// 360°-Aufnahmen erscheinen NICHT als verzerrtes Rundumbild, sondern als unverzerrter
 /// Ausschnitt in ihrer Startansicht — so, wie der Betrachter sie öffnet (seit 1.0.4).

@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -178,8 +178,17 @@ Fernbedienung umsehen, Zoom „irgendwie einstellen".
   Original mit seiner hohen Datenrate. Seit 1.0.11 auf tvOS `.automatic` —
   Fotos wählt die Stufe wie in der eigenen App. iOS bleibt bei
   `.highQualityFormat`. Welche Auflösung `.automatic` auf dem Apple TV
-  liefert, ist am Gerät NICHT gemessen; ist sie für 360° zu unscharf, wäre
-  der nächste Schritt „ganz laden" per `requestAVAsset` (lädt vorab).
+  liefert, ist am Gerät NICHT gemessen.
+  **Seit 1.0.12: erst flüssig, dann volle Qualität** (Nutzer 11/2026 zu
+  1.0.11: „etwas flüssiger … Bildqualität nicht mehr ausreichend"). Der
+  Betrachter startet mit `.automatic` und lädt gleichzeitig per
+  `Mediathek.videoOriginal` (`requestAVAsset`, `.highQualityFormat`) das
+  Original GANZ aufs Gerät (PhotoKits eigener Zwischenspeicher, nicht unser
+  Ordner). Ist es da, `replaceCurrentItem` + `seek` auf dieselbe Stelle →
+  volle Schärfe ohne Stocken. Anzeige unten rechts „Volle Qualität wird
+  geladen: x %". Liefert `requestAVAsset` keine Datei (`url.isFileURL`),
+  bleibt es bei `.automatic`. Am Gerät NICHT geprüft: ob tvOS das Original
+  wirklich vorab ganz lädt und wie lange das dauert.
 - **Ruhezustand** (seit 1.0.7; gemeldet 11/2026, einen Tag nach 1.0.5:
   „seit gestern erwacht das Apple TV regelmäßig und schaltet den Fernseher
   ein"). Eine tvOS-App läuft im Ruhezustand nicht und kann das Gerät nicht
