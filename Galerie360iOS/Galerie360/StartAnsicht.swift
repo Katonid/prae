@@ -156,9 +156,20 @@ struct StartAnsicht: View {
         }
         .refreshable { bibliothek.aktualisieren() }
         .task(id: bibliothek.stand) {
-            alben = bibliothek.mediathekAlben()
-            sammlungen = bibliothek.sammlungen()
-            geteilte = bibliothek.geteilteAlben()
+            // Zählt Aufnahmen in jeder Sammlung — teuer. Beim Abgleich mit iCloud erst, wenn
+            // drei Sekunden Ruhe ist, und nicht auf dem Hauptthread (seit 1.0.16; vorher
+            // stockte das Raster, weil diese Seite darunter bei jeder Änderung neu zählte).
+            if !alben.isEmpty || !sammlungen.isEmpty {
+                try? await Task.sleep(for: .seconds(3))
+                guard !Task.isCancelled else { return }
+            }
+            let (a, z, g) = await Task.detached(priority: .utility) {
+                (FotoBibliothek.mediathekAlbenLesen(), FotoBibliothek.sammlungenLesen(), FotoBibliothek.geteilteAlbenLesen())
+            }.value
+            guard !Task.isCancelled else { return }
+            alben = a
+            sammlungen = z
+            geteilte = g
         }
     }
 
