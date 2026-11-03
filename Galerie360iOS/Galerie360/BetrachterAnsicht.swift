@@ -8,7 +8,9 @@ import SwiftUI
 /// Fotos und Videos kommen direkt aus der Fotos-Mediathek (bei iCloud Fotos aus dem Netz).
 struct BetrachterAnsicht: View {
     let albumTitel: String
-    let aufnahmen: [PHAsset]
+    /// Veränderlich: nach Löschen fällt die Aufnahme heraus, nach Favorit/Datum/Ort steht die
+    /// frisch gelesene drin (seit 1.0.15).
+    @State private var aufnahmen: [PHAsset]
     @Environment(\.dismiss) private var schliessen
     @Environment(Notizen.self) private var notizen
     @State private var index: Int
@@ -29,10 +31,15 @@ struct BetrachterAnsicht: View {
     @State private var gemerkt = false
     /// Normales (nicht 360°) Foto, flach gezeigt (seit 1.0.13).
     @State private var flachBild: CGImage?
+    // Aktionen wie in der Fotos-App (seit 1.0.15)
+    @State private var infoOffen = false
+    @State private var albumWahl = false
+    @State private var paket: TeilenPaket?
+    @State private var teiltGerade: Double?
 
     init(albumTitel: String, aufnahmen: [PHAsset], startIndex: Int) {
         self.albumTitel = albumTitel
-        self.aufnahmen = aufnahmen
+        _aufnahmen = State(initialValue: aufnahmen)
         _index = State(initialValue: startIndex)
     }
 
@@ -89,12 +96,24 @@ struct BetrachterAnsicht: View {
         .statusBarHidden(!bedienung)
         .persistentSystemOverlays(bedienung ? .automatic : .hidden)
         .preferredColorScheme(.dark)
-        .task(id: index) { await laden() }
+        .task(id: asset?.localIdentifier ?? "") { await laden() }
         .task {
             try? await Task.sleep(for: .seconds(3))
             withAnimation { hinweis = false }
         }
         .onDisappear(perform: stoppen)
+        .sheet(isPresented: $infoOffen) {
+            if let a = asset { InfoAnsicht(asset: a) { neu in ersetzen(neu) } }
+        }
+        .sheet(item: $paket) { p in
+            TeilenBlatt(paket: p) { paket = nil }
+        }
+        .sheet(isPresented: $albumWahl) {
+            AlbumWahl { ziel in
+                guard let a = asset else { return }
+                ausfuehren { try await Aenderungen.hinzufuegen([a], zuAlbum: ziel) }
+            }
+        }
     }
 
     // MARK: Bedienung
@@ -117,7 +136,7 @@ struct BetrachterAnsicht: View {
                 .shadow(radius: 3)
                 Spacer()
                 if let a = asset, !(notizen.notiz(a.localIdentifier).beschreibung ?? "").isEmpty {
-                    rundknopf(info ? "info.circle.fill" : "info.circle") { info.toggle() }
+                    rundknopf(info ? "text.bubble.fill" : "text.bubble") { info.toggle() }
                 }
                 if asset?.ist360 ?? true {
                     rundknopf(gemerkt ? "pin.fill" : "pin") { startansichtMerken() }
@@ -161,10 +180,97 @@ struct BetrachterAnsicht: View {
                 }
                 .padding(.horizontal, 18).padding(.vertical, 10)
                 .background(.black.opacity(0.5), in: Capsule())
-                .padding()
+                .padding(.horizontal).padding(.top, 8)
             }
+
+            aktionsleiste
         }
         .foregroundStyle(.white)
+    }
+
+    /// Wie unten in der Fotos-App: Teilen, Favorit, Info, mehr, Löschen.
+    private var aktionsleiste: some View {
+        HStack {
+            if let t = teiltGerade {
+                ProgressView(value: t).frame(width: 44).tint(.white)
+            } else {
+                rundknopf("square.and.arrow.up") { teilen() }.accessibilityLabel("Teilen")
+            }
+            Spacer()
+            rundknopf(asset?.isFavorite == true ? "heart.fill" : "heart") { favorit() }
+                .accessibilityLabel(asset?.isFavorite == true ? "Aus Favoriten entfernen" : "Zu Favoriten")
+            Spacer()
+            rundknopf("info.circle") { infoOffen = true }.accessibilityLabel("Info: Datum und Ort")
+            Spacer()
+            Menu {
+                Button { albumWahl = true } label: { Label("Zu Album hinzufügen …", systemImage: "rectangle.stack.badge.plus") }
+                Button { ausblenden() } label: { Label("Ausblenden", systemImage: "eye.slash") }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
+                    .background(.black.opacity(0.4), in: Circle())
+            }
+            .accessibilityLabel("Mehr")
+            Spacer()
+            rundknopf("trash") { loeschen() }.accessibilityLabel("Löschen")
+        }
+        .padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 12)
+        .background(LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom))
+    }
+
+    // MARK: Aktionen (seit 1.0.15)
+
+    private func ersetzen(_ neu: PHAsset) {
+        if let i = aufnahmen.firstIndex(where: { $0.localIdentifier == neu.localIdentifier }) { aufnahmen[i] = neu }
+    }
+
+    private func entfernen(_ id: String) {
+        guard let i = aufnahmen.firstIndex(where: { $0.localIdentifier == id }) else { return }
+        aufnahmen.remove(at: i)
+        if aufnahmen.isEmpty { schliessen(); return }
+        index = min(index, aufnahmen.count - 1)
+    }
+
+    private func ausfuehren(_ f: @escaping () async throws -> Void) {
+        Task {
+            do { try await f() } catch {
+                if !Aenderungen.abgebrochen(error) { meldung = error.localizedDescription }
+            }
+        }
+    }
+
+    private func favorit() {
+        guard let a = asset else { return }
+        ausfuehren {
+            let neu = try await Aenderungen.favorit(a, !a.isFavorite)
+            ersetzen(neu)
+        }
+    }
+
+    private func loeschen() {
+        guard let a = asset else { return }
+        ausfuehren {
+            try await Aenderungen.loeschen([a])
+            if Aenderungen.holen(a.localIdentifier) == nil { entfernen(a.localIdentifier) }
+        }
+    }
+
+    private func ausblenden() {
+        guard let a = asset else { return }
+        ausfuehren {
+            try await Aenderungen.ausblenden([a])
+            entfernen(a.localIdentifier)
+        }
+    }
+
+    private func teilen() {
+        guard let a = asset, teiltGerade == nil else { return }
+        teiltGerade = 0
+        ausfuehren {
+            defer { teiltGerade = nil }
+            paket = try await Teilen.paket([a]) { f in Task { @MainActor in if teiltGerade != nil { teiltGerade = f } } }
+        }
     }
 
     private func rundknopf(_ symbol: String, aktion: @escaping () -> Void) -> some View {

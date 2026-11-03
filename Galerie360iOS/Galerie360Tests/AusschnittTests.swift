@@ -1,3 +1,5 @@
+import CoreLocation
+import ImageIO
 import UIKit
 import XCTest
 @testable import Galerie360
@@ -52,5 +54,25 @@ final class AusschnittTests: XCTestCase {
         let qb = Ausschnitt.quellbreite(fuer: 640, hoehe: 400, blick: .start)
         XCTAssertGreaterThanOrEqual(qb, 2000)
         XCTAssertLessThanOrEqual(qb, 4096)
+    }
+}
+
+/// Teilen schreibt Ort und Datum verlustfrei in die Bilddatei (seit 1.0.15).
+final class TeilenAngabenTests: XCTestCase {
+    func testOrtUndDatumLandenInDerJPEGDatei() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let jpeg = try XCTUnwrap(UIGraphicsImageRenderer(size: CGSize(width: 64, height: 32), format: format)
+            .image { k in UIColor.orange.setFill(); k.fill(CGRect(x: 0, y: 0, width: 64, height: 32)) }
+            .jpegData(compressionQuality: 0.9))
+        let ort = CLLocation(latitude: 47.5981, longitude: -12.9805)
+        let neu = try XCTUnwrap(Teilen.mitAngaben(jpeg, typ: "public.jpeg", ort: ort, datum: Date(timeIntervalSince1970: 1_800_000_000)))
+        let quelle = try XCTUnwrap(CGImageSourceCreateWithData(neu as CFData, nil))
+        let e = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(quelle, 0, nil) as? [CFString: Any])
+        let gps = try XCTUnwrap(e[kCGImagePropertyGPSDictionary] as? [CFString: Any])
+        XCTAssertEqual(gps[kCGImagePropertyGPSLatitude] as? Double ?? 0, 47.5981, accuracy: 0.0001)
+        XCTAssertEqual(gps[kCGImagePropertyGPSLongitudeRef] as? String, "W")
+        let exif = try XCTUnwrap(e[kCGImagePropertyExifDictionary] as? [CFString: Any])
+        XCTAssertNotNil(exif[kCGImagePropertyExifDateTimeOriginal])
     }
 }
