@@ -142,6 +142,7 @@ struct RasterSammlung: UIViewRepresentable {
             }
             for zelle in v.visibleCells {
                 guard let z = zelle as? KachelZelle, let p = v.indexPath(for: z) else { continue }
+ausstatten(z, p.item) // knappe oder volle Marke je nach Kachelgröße
                 bildLaden(z, p.item)
             }
         }
@@ -291,7 +292,8 @@ struct RasterSammlung: UIViewRepresentable {
         func ausstatten(_ z: KachelZelle, _ i: Int) {
             guard aufnahmen.indices.contains(i) else { return }
             let a = aufnahmen[i]
-            z.marke(marken ? KachelZelle.markeFuer(a) : nil)
+            let knapp = kachelSeite < 80
+            z.marke(KachelZelle.markeFuer(a, knapp: knapp), klein: kachelSeite < 60)
             z.auswahl(auswaehlen ? gewaehlt.contains(a.localIdentifier) : nil)
             z.accessibilityLabel = (a.mediaType == .video ? "Video" : "Foto") + (a.creationDate.map { ", " + datumText($0) } ?? "")
         }
@@ -346,11 +348,15 @@ struct RasterSammlung: UIViewRepresentable {
 }
 
 /// Eine Kachel: Miniatur, Marke (Videolänge / 360°), Auswahlkreis.
+///
+/// Marke seit 1.0.20 per Auto Layout und IMMER sichtbar (gemeldet 11/2026: „360°-Fotos und
+/// -Videos werden in der Kachelansicht nicht mehr markiert"). Bis dahin blendete das Raster die
+/// Marke ab acht Kacheln je Zeile ganz aus, und die Marke hing an einer selbst gerechneten
+/// Lage. Jetzt: bei kleinen Kacheln die knappe Form („360°", „▶︎"), sonst mit Länge.
 final class KachelZelle: UICollectionViewCell {
     static let kennung = "kachel"
     let bild = UIImageView()
-    private let markenText = UILabel()
-    private let markenGrund = UIView()
+    let markenText = Etikett()
     private let haken = UIImageView()
     private let schleier = UIView()
     var anfrage: PHImageRequestID?
@@ -358,37 +364,51 @@ final class KachelZelle: UICollectionViewCell {
     /// 360°: Bildmitte zeigen (90° × 90° geradeaus) — dort ist das Rundumbild kaum verzerrt.
     var ist360 = false { didSet { bild.transform = ist360 ? CGAffineTransform(scaleX: 2, y: 2) : .identity } }
 
+    /// UILabel mit Innenabstand und abgerundetem dunklem Grund.
+    final class Etikett: UILabel {
+        let innen = UIEdgeInsets(top: 2, left: 5, bottom: 2, right: 5)
+        override func drawText(in rect: CGRect) { super.drawText(in: rect.inset(by: innen)) }
+        override var intrinsicContentSize: CGSize {
+            let g = super.intrinsicContentSize
+            return CGSize(width: g.width + innen.left + innen.right, height: g.height + innen.top + innen.bottom)
+        }
+    }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         contentView.clipsToBounds = true
         contentView.backgroundColor = UIColor.secondarySystemFill
         bild.contentMode = .scaleAspectFill
         bild.clipsToBounds = false
+        bild.frame = contentView.bounds
+        bild.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         schleier.backgroundColor = UIColor.white.withAlphaComponent(0.25)
         schleier.isHidden = true
-        markenGrund.backgroundColor = UIColor.black.withAlphaComponent(0.55)
-        markenGrund.layer.cornerRadius = 8
+        schleier.frame = contentView.bounds
+        schleier.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         markenText.font = .systemFont(ofSize: 10, weight: .semibold)
         markenText.textColor = .white
+        markenText.backgroundColor = UIColor.black.withAlphaComponent(0.6)
+        markenText.layer.cornerRadius = 7
+        markenText.layer.masksToBounds = true
+        markenText.isHidden = true
         haken.contentMode = .scaleAspectFit
-        for v in [bild, schleier, markenGrund, haken] as [UIView] { contentView.addSubview(v) }
-        markenGrund.addSubview(markenText)
+        haken.isHidden = true
+        for v in [bild, schleier, markenText, haken] as [UIView] { contentView.addSubview(v) }
+        markenText.translatesAutoresizingMaskIntoConstraints = false
+        haken.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            markenText.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 3),
+            markenText.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -3),
+            markenText.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -3),
+            haken.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
+            haken.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
+            haken.widthAnchor.constraint(equalToConstant: 22),
+            haken.heightAnchor.constraint(equalToConstant: 22),
+        ])
     }
 
     required init?(coder: NSCoder) { fatalError() }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        let r = contentView.bounds
-        bild.bounds = r
-        bild.center = CGPoint(x: r.midX, y: r.midY)
-        schleier.frame = r
-        markenText.sizeToFit()
-        let m = markenText.bounds.size
-        markenGrund.frame = CGRect(x: 4, y: r.height - m.height - 8, width: m.width + 12, height: m.height + 4)
-        markenText.frame = CGRect(x: 6, y: 2, width: m.width, height: m.height)
-        haken.frame = CGRect(x: r.width - 27, y: r.height - 27, width: 22, height: 22)
-    }
 
     override func prepareForReuse() {
         super.prepareForReuse()
@@ -396,10 +416,11 @@ final class KachelZelle: UICollectionViewCell {
         kennung = nil
     }
 
-    func marke(_ text: String?) {
+    func marke(_ text: String?, klein: Bool = false) {
         markenText.text = text
-        markenGrund.isHidden = text == nil
-        setNeedsLayout()
+        markenText.font = .systemFont(ofSize: klein ? 8 : 10, weight: .semibold)
+        markenText.isHidden = text == nil
+        markenText.invalidateIntrinsicContentSize()
     }
 
     /// nil = nicht im Auswählen-Modus.
@@ -411,8 +432,13 @@ final class KachelZelle: UICollectionViewCell {
         haken.image = UIImage(systemName: an ? "checkmark.circle.fill" : "circle", withConfiguration: k)
     }
 
-    static func markeFuer(_ a: PHAsset) -> String? {
-        if a.mediaType == .video { return (a.ist360 ? "360° · " : "▶︎ ") + zeitText(a.duration) }
+    /// Text der Marke: 360°-Fotos „360°", Videos ihre Länge (360°-Videos mit „360°"); bei
+    /// kleinen Kacheln knapp. Normale Fotos haben keine Marke.
+    static func markeFuer(_ a: PHAsset, knapp: Bool = false) -> String? {
+        if a.mediaType == .video {
+            if knapp { return a.ist360 ? "360° ▶︎" : "▶︎" }
+            return (a.ist360 ? "360° · " : "▶︎ ") + zeitText(a.duration)
+        }
         return a.ist360 ? "360°" : nil
     }
 }
