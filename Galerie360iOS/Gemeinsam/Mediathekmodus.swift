@@ -16,18 +16,24 @@ extension PHAsset {
 
 /// Was im Mediathek-Modus gezeigt wird.
 enum MediathekQuelle: Hashable {
-    /// Ganze Mediathek (sortierbar) im Unterschied zu einem Album (eigene Reihenfolge).
-    var istMediathek: Bool { if case .album = self { return false } else { return true } }
-
     case alle, nur360, videos
+    /// Ein eigenes Album (eigene Reihenfolge, wie in der Fotos-App).
     case album(id: String, titel: String)
+    /// Eine Sammlung der Fotos-App (Favoriten, Selfies, Panoramen, geteilte Alben …) —
+    /// nach Aufnahmedatum wie die Mediathek (seit 1.0.15).
+    case sammlung(id: String, titel: String, symbol: String)
+    /// Bestimmte Aufnahmen, z. B. alle an einem Ort der Karte (seit 1.0.15).
+    case auswahl(ids: [String], titel: String)
+
+    /// Nach Aufnahmedatum sortierbar (alles außer einem eigenen Album).
+    var istMediathek: Bool { if case .album = self { return false } else { return true } }
 
     var titel: String {
         switch self {
         case .alle: return "Alle Aufnahmen"
         case .nur360: return "360°-Aufnahmen"
         case .videos: return "Videos"
-        case .album(_, let t): return t
+        case .album(_, let t), .sammlung(_, let t, _), .auswahl(_, let t): return t
         }
     }
 
@@ -37,30 +43,113 @@ enum MediathekQuelle: Hashable {
         case .nur360: return "globe.europe.africa"
         case .videos: return "video"
         case .album: return "rectangle.stack"
+        case .sammlung(_, _, let s): return s
+        case .auswahl: return "mappin.and.ellipse"
         }
     }
 }
 
+/// Eine Sammlung, wie sie die Fotos-App zeigt (Name kommt von iOS, also deutsch).
+struct Sammlung: Identifiable, Hashable {
+    let id: String
+    let titel: String
+    let symbol: String
+    let anzahl: Int
+    var quelle: MediathekQuelle { .sammlung(id: id, titel: titel, symbol: symbol) }
+}
+
 extension FotoBibliothek {
-    /// Aufnahmen einer Quelle. Mediathek: nach Aufnahmedatum — wie in der Fotos-App die
-    /// neuesten unten (`neuesteZuerst = false`, seit 1.0.14 einstellbar); Album: in seiner
-    /// eigenen Reihenfolge.
+    private static func nachDatum(_ neuesteZuerst: Bool) -> PHFetchOptions {
+        let o = PHFetchOptions()
+        o.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: !neuesteZuerst)]
+        return o
+    }
+
+    private static func liste(_ r: PHFetchResult<PHAsset>) -> [PHAsset] {
+        r.count > 0 ? r.objects(at: IndexSet(integersIn: 0..<r.count)) : []
+    }
+
+    /// Aufnahmen einer Quelle. Mediathek und Sammlungen nach Aufnahmedatum — wie in der
+    /// Fotos-App die neuesten unten (`neuesteZuerst = false`, seit 1.0.14 einstellbar);
+    /// eigenes Album: in seiner eigenen Reihenfolge.
     func aufnahmen(_ quelle: MediathekQuelle, neuesteZuerst: Bool = false) -> [PHAsset] {
         switch quelle {
         case .album(let id, _):
             return aufnahmen(id)
+        case .sammlung(let id, _, _):
+            guard let c = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [id], options: nil).firstObject else { return [] }
+            return Self.liste(PHAsset.fetchAssets(in: c, options: Self.nachDatum(neuesteZuerst)))
+        case .auswahl(let ids, _):
+            return Self.liste(PHAsset.fetchAssets(withLocalIdentifiers: ids, options: Self.nachDatum(neuesteZuerst)))
         case .alle, .nur360, .videos:
-            let o = PHFetchOptions()
-            o.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: !neuesteZuerst)]
+            let o = Self.nachDatum(neuesteZuerst)
             o.predicate = quelle == .videos
                 ? NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
                 : NSPredicate(format: "mediaType == %d OR mediaType == %d",
                               PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
-            let r = PHAsset.fetchAssets(with: o)
-            guard r.count > 0 else { return [] }
-            let alle = r.objects(at: IndexSet(integersIn: 0..<r.count))
+            let alle = Self.liste(PHAsset.fetchAssets(with: o))
             return quelle == .nur360 ? alle.filter(\.ist360) : alle
         }
+    }
+
+    /// Reihenfolge und Symbole wie in der Fotos-App („Medientypen" und „Sammlungen").
+    static let sammlungsTypen: [(PHAssetCollectionSubtype, String)] = [
+        (.smartAlbumFavorites, "heart"),
+        (.smartAlbumRecentlyAdded, "clock"),
+        (.smartAlbumSelfPortraits, "person.crop.square"),
+        (.smartAlbumLivePhotos, "livephoto"),
+        (.smartAlbumDepthEffect, "cube"),
+        (.smartAlbumPanoramas, "pano"),
+        (.smartAlbumTimelapses, "timelapse"),
+        (.smartAlbumSlomoVideos, "slowmo"),
+        (.smartAlbumBursts, "square.stack.3d.down.right"),
+        (.smartAlbumScreenshots, "camera.viewfinder"),
+        (.smartAlbumRAW, "r.square"),
+        (.smartAlbumAnimated, "square.stack.3d.forward.dottedline"),
+        (.smartAlbumLongExposures, "plusminus.circle"),
+    ]
+
+    /// Die Sammlungen der Fotos-App, die Aufnahmen enthalten (Favoriten, Selfies, Live
+    /// Photos, Porträt, Panoramen, Zeitraffer, Slo-Mo, Bildschirmfotos …). „Ausgeblendet",
+    /// „Zuletzt gelöscht", „Personen" und „Erinnerungen" gibt iOS fremden Apps nicht heraus.
+    func sammlungen() -> [Sammlung] {
+        var aus: [Sammlung] = []
+        for (typ, symbol) in Self.sammlungsTypen {
+            PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: typ, options: nil).enumerateObjects { c, _, _ in
+                let n = PHAsset.fetchAssets(in: c, options: nil).count
+                if n > 0 { aus.append(Sammlung(id: c.localIdentifier, titel: c.localizedTitle ?? "Sammlung", symbol: symbol, anzahl: n)) }
+            }
+        }
+        return aus
+    }
+
+    /// Geteilte Alben (iCloud) — ansehen ja, ändern nur durch ihren Eigentümer.
+    func geteilteAlben() -> [Sammlung] {
+        var aus: [Sammlung] = []
+        PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumCloudShared, options: nil).enumerateObjects { c, _, _ in
+            let n = PHAsset.fetchAssets(in: c, options: nil).count
+            aus.append(Sammlung(id: c.localIdentifier, titel: c.localizedTitle ?? "Geteiltes Album", symbol: "person.2", anzahl: n))
+        }
+        return aus
+    }
+
+    /// Eigene Alben, in die man Aufnahmen legen kann — mit den Galerie-Alben, deren Titel
+    /// den Weg zeigt („Berchtesgaden › Pilsensee").
+    func zielAlben() -> [Knoten] {
+        var aus: [Knoten] = []
+        func besuche(_ r: PHFetchResult<PHCollection>, _ pfad: [String]) {
+            guard pfad.count < 20 else { return }
+            r.enumerateObjects { c, _, _ in
+                if let a = c as? PHAssetCollection, a.canPerform(.addContent) {
+                    aus.append(Knoten(id: a.localIdentifier, titel: (pfad + [a.localizedTitle ?? "Ohne Namen"]).joined(separator: " › "),
+                                      art: .album, tiefe: 0, anzahl: 0))
+                } else if let l = c as? PHCollectionList {
+                    besuche(PHCollection.fetchCollections(in: l, options: nil), pfad + [l.localizedTitle ?? "Ordner"])
+                }
+            }
+        }
+        besuche(PHCollectionList.fetchTopLevelUserCollections(with: nil), [])
+        return aus
     }
 
     /// Die eigenen Alben der Mediathek (auch in Ordnern), OHNE den Ordner „Galerie 360" —

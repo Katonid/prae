@@ -9,6 +9,8 @@ struct StartAnsicht: View {
     @State private var offen: GalerieInfo?
     @State private var meldung: String?
     @State private var alben: [Knoten] = []
+    @State private var sammlungen: [Sammlung] = []
+    @State private var geteilte: [Sammlung] = []
     @State private var umbenennen: GalerieInfo?
     @State private var neuerName = ""
     @State private var loeschen: GalerieInfo?
@@ -150,10 +152,14 @@ struct StartAnsicht: View {
             } footer: {
                 Text("Umbenennen oder löschen: Galerie nach links wischen oder lange drücken. Fotos und Videos bleiben in deiner Mediathek (iCloud Fotos); die App speichert keine Kopien. Galerie 360 · Fassung \(AppInfo.fassung)")
             }
-            MediathekAbschnitt(alben: alben)
+            MediathekAbschnitt(alben: alben, sammlungen: sammlungen, geteilte: geteilte)
         }
         .refreshable { bibliothek.aktualisieren() }
-        .task(id: bibliothek.stand) { alben = bibliothek.mediathekAlben() }
+        .task(id: bibliothek.stand) {
+            alben = bibliothek.mediathekAlben()
+            sammlungen = bibliothek.sammlungen()
+            geteilte = bibliothek.geteilteAlben()
+        }
     }
 
     private func galerieUmbenennen(_ g: GalerieInfo) {

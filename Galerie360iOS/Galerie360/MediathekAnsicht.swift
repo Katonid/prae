@@ -17,6 +17,13 @@ struct MediathekRaster: View {
     @State private var geladen = false
     @State private var geladeneReihenfolge: Bool?
     @State private var offen: BetrachterZiel?
+    // Auswählen wie in der Fotos-App (seit 1.0.15)
+    @State private var auswaehlen = false
+    @State private var gewaehlt: Set<String> = []
+    @State private var albumWahl = false
+    @State private var paket: TeilenPaket?
+    @State private var teiltGerade = false
+    @State private var meldung: String?
 
     static let spaltenBereich = 1...15
 
@@ -40,7 +47,13 @@ struct MediathekRaster: View {
                 }
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: aktSpalten), spacing: 2) {
                     ForEach(Array(aufnahmen.enumerated()), id: \.element.localIdentifier) { i, a in
-                        Button { offen = BetrachterZiel(index: i) } label: {
+                        Button {
+                            if auswaehlen {
+                                if gewaehlt.contains(a.localIdentifier) { gewaehlt.remove(a.localIdentifier) } else { gewaehlt.insert(a.localIdentifier) }
+                            } else {
+                                offen = BetrachterZiel(index: i)
+                            }
+                        } label: {
                             Color.clear
                                 .aspectRatio(1, contentMode: .fit)
                                 .overlay { AssetBild(asset: a, groesse: CGSize(width: kachelPixel, height: kachelPixel)) }
@@ -50,6 +63,17 @@ struct MediathekRaster: View {
                                         KachelMarke(asset: a).scaleEffect(0.85, anchor: .bottomLeading).padding(4)
                                     }
                                 }
+                                .overlay(alignment: .bottomTrailing) {
+                                    if auswaehlen {
+                                        Image(systemName: gewaehlt.contains(a.localIdentifier) ? "checkmark.circle.fill" : "circle")
+                                            .font(.title3)
+                                            .symbolRenderingMode(.palette)
+                                            .foregroundStyle(.white, gewaehlt.contains(a.localIdentifier) ? Color.accentColor : .black.opacity(0.3))
+                                            .shadow(radius: 2)
+                                            .padding(5)
+                                    }
+                                }
+                                .overlay { if auswaehlen && gewaehlt.contains(a.localIdentifier) { Color.white.opacity(0.25) } }
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -76,7 +100,35 @@ struct MediathekRaster: View {
                 ToolbarItem(placement: .status) {
                     if geladen { Text(aufnahmen.count == 1 ? "1 Aufnahme" : "\(aufnahmen.count) Aufnahmen").font(.caption).foregroundStyle(.secondary) }
                 }
-                if quelle.istMediathek {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(auswaehlen ? "Fertig" : "Auswählen") {
+                        withAnimation { auswaehlen.toggle() }
+                        gewaehlt = []
+                    }
+                    .fontWeight(auswaehlen ? .semibold : .regular)
+                }
+                if auswaehlen {
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        if teiltGerade {
+                            ProgressView()
+                        } else {
+                            Button { teilen() } label: { Image(systemName: "square.and.arrow.up") }.disabled(gewaehlt.isEmpty)
+                        }
+                        Spacer()
+                        Text(gewaehlt.isEmpty ? "Aufnahmen wählen" : (gewaehlt.count == 1 ? "1 ausgewählt" : "\(gewaehlt.count) ausgewählt"))
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        Menu {
+                            Button { ausfuehren { try await favoriten() } } label: { Label("Zu Favoriten", systemImage: "heart") }
+                            Button { albumWahl = true } label: { Label("Zu Album hinzufügen …", systemImage: "rectangle.stack.badge.plus") }
+                            Button { ausfuehren { try await Aenderungen.ausblenden(auswahl); fertig() } } label: { Label("Ausblenden", systemImage: "eye.slash") }
+                        } label: { Image(systemName: "ellipsis.circle") }
+                        .disabled(gewaehlt.isEmpty)
+                        Button(role: .destructive) { ausfuehren { try await Aenderungen.loeschen(auswahl); fertig() } } label: { Image(systemName: "trash") }
+                            .disabled(gewaehlt.isEmpty)
+                    }
+                }
+                if quelle.istMediathek && !auswaehlen {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Picker("Reihenfolge", selection: $neuesteUnten) {
@@ -105,6 +157,44 @@ struct MediathekRaster: View {
         .fullScreenCover(item: $offen) { z in
             BetrachterAnsicht(albumTitel: quelle.titel, aufnahmen: aufnahmen, startIndex: z.index)
         }
+        .sheet(item: $paket) { p in TeilenBlatt(paket: p) { paket = nil } }
+        .sheet(isPresented: $albumWahl) {
+            AlbumWahl { ziel in ausfuehren { try await Aenderungen.hinzufuegen(auswahl, zuAlbum: ziel); fertig() } }
+        }
+        .alert("Hinweis", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(meldung ?? "") }
+    }
+
+    /// Die gewählten Aufnahmen in der Reihenfolge des Rasters.
+    private var auswahl: [PHAsset] { aufnahmen.filter { gewaehlt.contains($0.localIdentifier) } }
+
+    private func fertig() {
+        gewaehlt = []
+        withAnimation { auswaehlen = false }
+    }
+
+    private func ausfuehren(_ f: @escaping () async throws -> Void) {
+        Task {
+            do { try await f() } catch {
+                if !Aenderungen.abgebrochen(error) { meldung = error.localizedDescription }
+            }
+        }
+    }
+
+    private func favoriten() async throws {
+        for a in auswahl where !a.isFavorite { _ = try await Aenderungen.favorit(a, true) }
+        fertig()
+    }
+
+    private func teilen() {
+        let liste = auswahl
+        guard !liste.isEmpty else { return }
+        teiltGerade = true
+        ausfuehren {
+            defer { teiltGerade = false }
+            paket = try await Teilen.paket(liste) { _ in }
+        }
     }
 
     /// Kacheln je Zeile nach einer Kneif-Geste: Faktor 2 halbiert die Zahl (größere Kacheln).
@@ -119,6 +209,8 @@ struct MediathekRaster: View {
 /// eigenen Alben der Mediathek.
 struct MediathekAbschnitt: View {
     let alben: [Knoten]
+    var sammlungen: [Sammlung] = []
+    var geteilte: [Sammlung] = []
 
     var body: some View {
         Section {
@@ -127,6 +219,29 @@ struct MediathekAbschnitt: View {
                     Label(q.titel, systemImage: q.symbol).foregroundStyle(.primary)
                 }
             }
+            NavigationLink { OrteKarte() } label: {
+                Label("Orte", systemImage: "map").foregroundStyle(.primary)
+            }
+        } header: {
+            Label("Fotos-Mediathek", systemImage: "photo.on.rectangle.angled")
+        } footer: {
+            Text("Alle Fotos und Videos deiner Mediathek: normale Aufnahmen im Vollbild, 360°-Aufnahmen gleich rundum.")
+        }
+        if !sammlungen.isEmpty {
+            // Wie „Medientypen" und „Sammlungen" in der Fotos-App (seit 1.0.15).
+            Section("Sammlungen") {
+                ForEach(sammlungen) { z in
+                    NavigationLink(value: z.quelle) {
+                        HStack {
+                            Label(z.titel, systemImage: z.symbol).foregroundStyle(.primary)
+                            Spacer()
+                            Text("\(z.anzahl)").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        Section {
             if !alben.isEmpty {
                 DisclosureGroup {
                     ForEach(alben) { k in
@@ -149,10 +264,25 @@ struct MediathekAbschnitt: View {
                     Label("Meine Alben", systemImage: "rectangle.stack").foregroundStyle(.primary)
                 }
             }
+            if !geteilte.isEmpty {
+                DisclosureGroup {
+                    ForEach(geteilte) { z in
+                        NavigationLink(value: z.quelle) {
+                            HStack {
+                                Text(z.titel).foregroundStyle(.primary)
+                                Spacer()
+                                Text("\(z.anzahl)").foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Geteilte Alben", systemImage: "person.2").foregroundStyle(.primary)
+                }
+            }
         } header: {
-            Label("Fotos-Mediathek", systemImage: "photo.on.rectangle.angled")
+            Text("Alben")
         } footer: {
-            Text("Alle Fotos und Videos deiner Mediathek: normale Aufnahmen im Vollbild, 360°-Aufnahmen gleich rundum.")
+            Text("„Personen\u{201C}, „Erinnerungen\u{201C}, „Ausgeblendet\u{201C} und „Zuletzt gelöscht\u{201C} gibt iOS nur der Fotos-App selbst heraus.")
         }
     }
 }

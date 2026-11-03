@@ -76,9 +76,11 @@ struct PruefBetrachterTV: View {
 struct StartTV: View {
     @Environment(FotoBibliothek.self) private var bibliothek
     @State private var alben: [Knoten] = []
+    @State private var sammlungen: [Sammlung] = []
 
+    /// Wie die Fotos-App: Mediathek, Sammlungen (Favoriten, Selfies …), eigene und geteilte Alben.
     private var mediathekQuellen: [MediathekQuelle] {
-        [.alle, .nur360, .videos] + alben.map { .album(id: $0.id, titel: $0.titel) }
+        [.alle, .nur360, .videos] + sammlungen.map(\.quelle) + alben.map { .album(id: $0.id, titel: $0.titel) }
     }
 
     var body: some View {
@@ -125,7 +127,10 @@ struct StartTV: View {
                         }
                         .padding(60)
                     }
-                    .task(id: bibliothek.stand) { alben = bibliothek.mediathekAlben().filter { $0.art == .album } }
+                    .task(id: bibliothek.stand) {
+                        alben = bibliothek.mediathekAlben().filter { $0.art == .album }
+                        sammlungen = bibliothek.sammlungen() + bibliothek.geteilteAlben()
+                    }
                 case .verweigert:
                     ContentUnavailableView("Kein Zugriff auf Fotos", systemImage: "lock",
                                            description: Text("Bitte in den Einstellungen des Apple TV unter Apps › Galerie 360 den Zugriff auf Fotos erlauben."))

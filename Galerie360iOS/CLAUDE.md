@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -128,6 +128,39 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   - `KachelMarke`: Video mit Länge (und „360° ·"), 360°-Foto „360°",
     normales Foto ohne Marke.
   - Start-Prüfung öffnet zusätzlich ein normales 4 : 3-Foto (`flach`).
+- **Galerie-Ersatz** (seit 1.0.15, Wunsch 11/2026: „alle Auswahlelemente aus
+  der Apple-Fotogalerie … Ort und Datum verändern … beim Ort an der anderen
+  App bedienen"):
+  - Startseite wie Fotos: Mediathek (Alle, 360°, Videos, **Orte** =
+    `OrteKarte`, MKMapView mit Gruppierung), **Sammlungen**
+    (`FotoBibliothek.sammlungen()`: Favoriten, Zuletzt hinzugefügt, Selfies,
+    Live Photos, Porträt, Panoramen, Zeitraffer, Slo-Mo, Serien,
+    Bildschirmfotos, RAW, Animiert, Langzeitbelichtung — nur mit Inhalt;
+    Namen liefert iOS), Meine Alben, **Geteilte Alben**. Nicht möglich, weil
+    iOS es fremden Apps nicht gibt: Personen, Erinnerungen, Ausgeblendet,
+    Zuletzt gelöscht (steht so im Fuß). tvOS zeigt Sammlungen und geteilte
+    Alben als Karten (nur ansehen).
+  - Betrachter (iOS) unten wie Fotos: Teilen, Favorit, ⓘ Info, … (Zu Album
+    hinzufügen, Ausblenden), Löschen (iOS fragt selbst; „Zuletzt
+    gelöscht"). Die Beschreibung aus den Notizen hat jetzt das Symbol
+    „text.bubble". Raster: „Auswählen" mit Teilen, Favoriten, Zu Album,
+    Ausblenden, Löschen.
+  - **Info** (`InfoAnsicht`): Datum/Uhrzeit ändern, Ort festlegen/ändern/
+    entfernen (`OrtWahlAnsicht`), Datei, Art, Format, Dauer, Favorit.
+    Geschrieben NUR per `PHAssetChangeRequest` (`creationDate`, `location`,
+    `isFavorite`, `isHidden`) in `Aenderungen` (Galerie360/Aktionen.swift),
+    danach neu lesen und vergleichen — erst dann gilt es als gespeichert.
+    `canPerform(.properties)` vorher; gesperrt bei geteilten Alben.
+  - **Ort aus PhotoLocator übernommen** (Galerie360/Ort/): `Koordinaten`,
+    `OrtsSuche` + `Adressaufloesung`, `KartenAnsicht` (MKMapView, Nadel
+    tippen/ziehen, flache Karte), `KartenGedaechtnis` (eigene Schlüssel
+    `galerie360.karte.*`) — Kopf jeder Datei sagt das; Fehlerbehebungen in
+    BEIDEN Apps nachziehen. Regeln wie dort: Genauigkeit 5 m, Höhe
+    unbekannt, Zeitstempel = Aufnahmezeit. `KoordinatenTests` mitkopiert.
+  - **Teilen** (`Teilen.swift`): Dateien in `tmp/Teilen-…`, gelöscht, sobald
+    das Teilen-Fenster zu ist. Ort und Datum aus der Fotos-Datenbank werden
+    hineingeschrieben — Fotos verlustfrei (`CGImageDestinationCopyImageSource`,
+    Test `TeilenAngabenTests`), Videos per Passthrough-Export mit ISO-6709-Ort.
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 
@@ -253,6 +286,6 @@ Web-Galerie (Sicherung) in Fotos-Alben.
 ## Tests
 
 `Galerie360Tests/` (XCTest, App als Host): `PanoramaTests`, `NotizenTests`,
-`SortierungTests`, `AusschnittTests`. PhotoKit selbst ist im Simulator ohne Berechtigung nicht
+`SortierungTests`, `AusschnittTests`, `KoordinatenTests`, `TeilenAngabenTests`. PhotoKit selbst ist im Simulator ohne Berechtigung nicht
 prüfbar. Läuft in `.github/workflows/galerie360app-test.yml` bei jedem Push
 unter `Galerie360iOS/`; der Bau zusätzlich in `ios-apps-build.yml`.
