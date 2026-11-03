@@ -16,6 +16,7 @@ struct MediathekRaster: View {
     @State private var aufnahmen: [PHAsset] = []
     @State private var geladen = false
     @State private var geladeneReihenfolge: Bool?
+    @State private var ergebnis: PHFetchResult<PHAsset>?
     @State private var offen: BetrachterZiel?
     // Auswählen wie in der Fotos-App (seit 1.0.15)
     @State private var auswaehlen = false
@@ -56,7 +57,7 @@ struct MediathekRaster: View {
                         } label: {
                             Color.clear
                                 .aspectRatio(1, contentMode: .fit)
-                                .overlay { AssetBild(asset: a, groesse: CGSize(width: kachelPixel, height: kachelPixel)) }
+                                .overlay { RasterBild(asset: a, pixel: kachelPixel) }
                                 .clipped()
                                 .overlay(alignment: .bottomLeading) {
                                     if aktSpalten <= 7 {
@@ -142,12 +143,22 @@ struct MediathekRaster: View {
                 }
             }
             .task(id: "\(bibliothek.stand)-\(neuesteUnten)") {
-                aufnahmen = bibliothek.aufnahmen(quelle, neuesteZuerst: !neuesteUnten)
+                // Nur neu laden, wenn sich an DIESEN Aufnahmen etwas geändert hat oder die
+                // Reihenfolge umgestellt wurde — nicht bei jeder Meldung von iCloud (seit 1.0.16).
+                if geladen, geladeneReihenfolge == neuesteUnten, let e = ergebnis, !bibliothek.betrifft(e) { return }
+                guard let e = bibliothek.ergebnis(quelle, neuesteZuerst: !neuesteUnten) else {
+                    aufnahmen = []
+                    geladen = true
+                    return
+                }
+                ergebnis = e
+                aufnahmen = FotoBibliothek.aufnahmen(aus: e, quelle: quelle)
                 geladen = true
                 // Beim Öffnen und nach dem Umstellen dort beginnen, wo die neuesten stehen —
                 // aber NICHT bei jeder Änderung der Mediathek (iCloud), sonst springt das Raster.
-                guard quelle.istMediathek, geladeneReihenfolge != neuesteUnten else { return }
+                let umgestellt = geladeneReihenfolge != neuesteUnten
                 geladeneReihenfolge = neuesteUnten
+                guard quelle.istMediathek, umgestellt else { return }
                 try? await Task.sleep(for: .milliseconds(60))
                 if let z = neuesteUnten ? aufnahmen.last : aufnahmen.first {
                     leser.scrollTo(z.localIdentifier, anchor: neuesteUnten ? .bottom : .top)

@@ -65,11 +65,33 @@ final class FotoBibliothek: NSObject, PHPhotoLibraryChangeObserver {
         }
     }
 
+    /// Änderungen seit dem letzten `stand` — damit eine Ansicht prüfen kann, ob SIE betroffen ist.
+    @ObservationIgnored private(set) var aenderungen: [PHChange] = []
+    @ObservationIgnored private var gesammelt: [PHChange] = []
+    @ObservationIgnored private var geplant = false
+
+    /// Während iCloud Fotos abgleicht, meldet PhotoKit Änderungen mehrmals je Sekunde. Bis
+    /// 1.0.15 löste jede davon in allen Ansichten ein komplettes Neuladen aus — das Raster
+    /// stockte (gemeldet 11/2026). Jetzt höchstens ein `stand` je 0,8 s, mit den gesammelten
+    /// Änderungen dazu.
     func photoLibraryDidChange(_ change: PHChange) {
         DispatchQueue.main.async {
-            self.stand += 1
-            self.aktualisieren()
+            self.gesammelt.append(change)
+            guard !self.geplant else { return }
+            self.geplant = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                self.geplant = false
+                self.aenderungen = self.gesammelt
+                self.gesammelt = []
+                self.stand += 1
+                self.aktualisieren()
+            }
         }
+    }
+
+    /// Hat sich seit dem letzten `stand` an diesem Abfrageergebnis etwas geändert?
+    func betrifft(_ r: PHFetchResult<PHAsset>) -> Bool {
+        aenderungen.contains { $0.changeDetails(for: r) != nil }
     }
 
     // MARK: Lesen

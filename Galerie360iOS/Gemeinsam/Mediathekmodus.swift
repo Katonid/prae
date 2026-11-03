@@ -69,27 +69,39 @@ extension FotoBibliothek {
         r.count > 0 ? r.objects(at: IndexSet(integersIn: 0..<r.count)) : []
     }
 
-    /// Aufnahmen einer Quelle. Mediathek und Sammlungen nach Aufnahmedatum — wie in der
-    /// Fotos-App die neuesten unten (`neuesteZuerst = false`, seit 1.0.14 einstellbar);
-    /// eigenes Album: in seiner eigenen Reihenfolge.
-    func aufnahmen(_ quelle: MediathekQuelle, neuesteZuerst: Bool = false) -> [PHAsset] {
+    /// Das PhotoKit-Abfrageergebnis einer Quelle (für `betrifft`: lädt das Raster nur neu,
+    /// wenn sich an IHREN Aufnahmen etwas geändert hat).
+    func ergebnis(_ quelle: MediathekQuelle, neuesteZuerst: Bool = false) -> PHFetchResult<PHAsset>? {
         switch quelle {
         case .album(let id, _):
-            return aufnahmen(id)
+            guard let a = album(id) else { return nil }
+            return PHAsset.fetchAssets(in: a, options: nil)
         case .sammlung(let id, _, _):
-            guard let c = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [id], options: nil).firstObject else { return [] }
-            return Self.liste(PHAsset.fetchAssets(in: c, options: Self.nachDatum(neuesteZuerst)))
+            guard let c = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [id], options: nil).firstObject else { return nil }
+            return PHAsset.fetchAssets(in: c, options: Self.nachDatum(neuesteZuerst))
         case .auswahl(let ids, _):
-            return Self.liste(PHAsset.fetchAssets(withLocalIdentifiers: ids, options: Self.nachDatum(neuesteZuerst)))
+            return PHAsset.fetchAssets(withLocalIdentifiers: ids, options: Self.nachDatum(neuesteZuerst))
         case .alle, .nur360, .videos:
             let o = Self.nachDatum(neuesteZuerst)
             o.predicate = quelle == .videos
                 ? NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
                 : NSPredicate(format: "mediaType == %d OR mediaType == %d",
                               PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
-            let alle = Self.liste(PHAsset.fetchAssets(with: o))
-            return quelle == .nur360 ? alle.filter(\.ist360) : alle
+            return PHAsset.fetchAssets(with: o)
         }
+    }
+
+    /// Aufnahmen einer Quelle. Mediathek und Sammlungen nach Aufnahmedatum — wie in der
+    /// Fotos-App die neuesten unten (`neuesteZuerst = false`, seit 1.0.14 einstellbar);
+    /// eigenes Album: in seiner eigenen Reihenfolge.
+    func aufnahmen(_ quelle: MediathekQuelle, neuesteZuerst: Bool = false) -> [PHAsset] {
+        guard let r = ergebnis(quelle, neuesteZuerst: neuesteZuerst) else { return [] }
+        return Self.aufnahmen(aus: r, quelle: quelle)
+    }
+
+    static func aufnahmen(aus r: PHFetchResult<PHAsset>, quelle: MediathekQuelle) -> [PHAsset] {
+        let alle = liste(r)
+        return quelle == .nur360 ? alle.filter(\.ist360) : alle
     }
 
     /// Reihenfolge und Symbole wie in der Fotos-App („Medientypen" und „Sammlungen").
@@ -112,7 +124,10 @@ extension FotoBibliothek {
     /// Die Sammlungen der Fotos-App, die Aufnahmen enthalten (Favoriten, Selfies, Live
     /// Photos, Porträt, Panoramen, Zeitraffer, Slo-Mo, Bildschirmfotos …). „Ausgeblendet",
     /// „Zuletzt gelöscht", „Personen" und „Erinnerungen" gibt iOS fremden Apps nicht heraus.
-    func sammlungen() -> [Sammlung] {
+    func sammlungen() -> [Sammlung] { Self.sammlungenLesen() }
+
+    /// Ohne Zustand — darf außerhalb des Hauptthreads laufen (zählt Aufnahmen je Sammlung).
+    static func sammlungenLesen() -> [Sammlung] {
         var aus: [Sammlung] = []
         for (typ, symbol) in Self.sammlungsTypen {
             PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: typ, options: nil).enumerateObjects { c, _, _ in
@@ -124,7 +139,9 @@ extension FotoBibliothek {
     }
 
     /// Geteilte Alben (iCloud) — ansehen ja, ändern nur durch ihren Eigentümer.
-    func geteilteAlben() -> [Sammlung] {
+    func geteilteAlben() -> [Sammlung] { Self.geteilteAlbenLesen() }
+
+    static func geteilteAlbenLesen() -> [Sammlung] {
         var aus: [Sammlung] = []
         PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumCloudShared, options: nil).enumerateObjects { c, _, _ in
             let n = PHAsset.fetchAssets(in: c, options: nil).count
@@ -154,7 +171,9 @@ extension FotoBibliothek {
 
     /// Die eigenen Alben der Mediathek (auch in Ordnern), OHNE den Ordner „Galerie 360" —
     /// dessen Alben stehen schon als Galerien da.
-    func mediathekAlben() -> [Knoten] {
+    func mediathekAlben() -> [Knoten] { Self.mediathekAlbenLesen() }
+
+    static func mediathekAlbenLesen() -> [Knoten] {
         var aus: [Knoten] = []
         func besuche(_ r: PHFetchResult<PHCollection>, _ tiefe: Int) {
             guard tiefe < 20 else { return }
@@ -171,6 +190,55 @@ extension FotoBibliothek {
         }
         besuche(PHCollectionList.fetchTopLevelUserCollections(with: nil), 0)
         return aus
+    }
+}
+
+/// Schnelles Vorschaubild für das Kachelraster (seit 1.0.16). Bis 1.0.15 nahm das Raster
+/// `AssetBild`: höchste Qualität in EINEM Rückruf (wartet ggf. auf iCloud) und für jede
+/// 360°-Kachel die genaue Umrechnung auf der CPU — beim Scrollen stockte es (gemeldet 11/2026).
+/// Jetzt wie die Fotos-App: PhotoKits zwischengespeicherte Miniatur, erst grob, dann scharf
+/// (`.opportunistic`), Anfrage wird beim Hinausscrollen abgebrochen. 360°-Aufnahmen zeigen die
+/// Bildmitte (90° × 90° um die Blickrichtung geradeaus) — dort ist das Rundumbild kaum verzerrt.
+struct RasterBild: View {
+    let asset: PHAsset
+    /// Kantenlänge der Kachel in Pixeln.
+    let pixel: CGFloat
+    @State private var bild: UIImage?
+    @State private var anfrage: PHImageRequestID?
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(Color.secondary.opacity(0.15))
+            if let bild {
+                Image(uiImage: bild)
+                    .resizable()
+                    .scaledToFill()
+                    .scaleEffect(asset.ist360 ? 2 : 1)
+            }
+        }
+        .clipped()
+        .onAppear(perform: laden)
+        .onDisappear(perform: abbrechen)
+        .onChange(of: pixel) { laden() }
+        .onChange(of: asset.localIdentifier) { bild = nil; laden() }
+    }
+
+    private func laden() {
+        abbrechen()
+        let o = PHImageRequestOptions()
+        o.deliveryMode = .opportunistic
+        o.resizeMode = .fast
+        o.isNetworkAccessAllowed = true
+        let breite = asset.ist360 ? pixel * 2 : pixel
+        anfrage = Vorschau.verwalter.requestImage(for: asset, targetSize: CGSize(width: breite, height: pixel),
+                                                   contentMode: .aspectFill, options: o) { b, _ in
+            if let b { bild = b }
+        }
+    }
+
+    private func abbrechen() {
+        if let a = anfrage { Vorschau.verwalter.cancelImageRequest(a) }
+        anfrage = nil
     }
 }
 

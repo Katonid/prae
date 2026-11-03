@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -161,6 +161,23 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
     das Teilen-Fenster zu ist. Ort und Datum aus der Fotos-Datenbank werden
     hineingeschrieben — Fotos verlustfrei (`CGImageDestinationCopyImageSource`,
     Test `TeilenAngabenTests`), Videos per Passthrough-Export mit ISO-6709-Ort.
+- **Raster flüssig** (seit 1.0.16; gemeldet 11/2026: „Kachelansicht sehr träge
+  … beim Scrollen bleibt es stocken"). Drei Ursachen, alle behoben:
+  1. `photoLibraryDidChange` erhöhte `stand` bei JEDER Meldung — beim
+     iCloud-Abgleich mehrmals je Sekunde —, und jede Ansicht lud alles neu
+     (20 000 Aufnahmen, alle Sammlungen gezählt). Jetzt höchstens ein `stand`
+     je 0,8 s mit den gesammelten Änderungen (`aenderungen`); das Raster lädt
+     nur, wenn `bibliothek.betrifft(ergebnis)` (PHChange.changeDetails) —
+     also wenn SEINE Aufnahmen betroffen sind.
+  2. Die Startseite darunter zählte bei jedem `stand` alle Sammlungen auf dem
+     Hauptthread. Jetzt erst nach 3 s Ruhe, im Hintergrund
+     (`…Lesen()`-Funktionen ohne Zustand).
+  3. Kacheln nahmen `AssetBild` (höchste Qualität in einem Rückruf, für 360°
+     die genaue Umrechnung je Kachel). Jetzt `RasterBild`: Miniatur aus dem
+     `PHCachingImageManager`, `.opportunistic` (erst grob, dann scharf),
+     Anfrage beim Hinausscrollen abgebrochen; 360° als Bildmitte
+     (`scaleEffect(2)` = 90° × 90° geradeaus). `AssetBild` mit der genauen
+     Umrechnung bleibt für die großen Vorschauen (Galerie-Alben, Karten).
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 

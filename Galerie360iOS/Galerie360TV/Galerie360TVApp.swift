@@ -128,8 +128,18 @@ struct StartTV: View {
                         .padding(60)
                     }
                     .task(id: bibliothek.stand) {
-                        alben = bibliothek.mediathekAlben().filter { $0.art == .album }
-                        sammlungen = bibliothek.sammlungen() + bibliothek.geteilteAlben()
+                        // Teuer (zählt je Sammlung) — erst nach drei Sekunden Ruhe, im Hintergrund.
+                        if !alben.isEmpty || !sammlungen.isEmpty {
+                            try? await Task.sleep(for: .seconds(3))
+                            guard !Task.isCancelled else { return }
+                        }
+                        let (a, z) = await Task.detached(priority: .utility) {
+                            (FotoBibliothek.mediathekAlbenLesen().filter { $0.art == .album },
+                             FotoBibliothek.sammlungenLesen() + FotoBibliothek.geteilteAlbenLesen())
+                        }.value
+                        guard !Task.isCancelled else { return }
+                        alben = a
+                        sammlungen = z
                     }
                 case .verweigert:
                     ContentUnavailableView("Kein Zugriff auf Fotos", systemImage: "lock",
@@ -548,6 +558,8 @@ struct MediathekRasterTV: View {
     @AppStorage("mediathekNeuesteUnten") private var neuesteUnten = true
     @State private var aufnahmen: [PHAsset] = []
     @State private var geladen = false
+    @State private var geladeneReihenfolge: Bool?
+    @State private var ergebnis: PHFetchResult<PHAsset>?
     @State private var offen: BetrachterZielTV?
 
     var body: some View {
@@ -568,7 +580,7 @@ struct MediathekRasterTV: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 40)], spacing: 40) {
                 ForEach(Array(aufnahmen.enumerated()), id: \.element.localIdentifier) { i, a in
                     Button { offen = BetrachterZielTV(index: i) } label: {
-                        AssetBild(asset: a, groesse: CGSize(width: 600, height: 338))
+                        RasterBild(asset: a, pixel: 340)
                             .frame(width: 300, height: 169)
                             .overlay(alignment: .bottomLeading) { KachelMarke(asset: a).padding(8) }
                     }
@@ -580,7 +592,10 @@ struct MediathekRasterTV: View {
         .defaultScrollAnchor(quelle.istMediathek && neuesteUnten ? .bottom : .top)
         .navigationTitle(quelle.titel)
         .task(id: "\(bibliothek.stand)-\(neuesteUnten)") {
-            aufnahmen = bibliothek.aufnahmen(quelle, neuesteZuerst: !neuesteUnten)
+            if geladen, geladeneReihenfolge == neuesteUnten, let e = ergebnis, !bibliothek.betrifft(e) { return }
+            geladeneReihenfolge = neuesteUnten
+            ergebnis = bibliothek.ergebnis(quelle, neuesteZuerst: !neuesteUnten)
+            aufnahmen = ergebnis.map { FotoBibliothek.aufnahmen(aus: $0, quelle: quelle) } ?? []
             geladen = true
         }
         .fullScreenCover(item: $offen) { z in
