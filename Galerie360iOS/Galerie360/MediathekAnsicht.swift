@@ -12,7 +12,8 @@ struct MediathekRaster: View {
     @AppStorage("mediathekNeuesteUnten") private var neuesteUnten = true
     /// Kacheln je Zeile, mit zwei Fingern einstellbar (0 = Vorgabe je Gerät).
     @AppStorage("mediathekSpalten") private var spalten = 0
-    @State private var spaltenBeimKneifen: Int?
+    @State private var datenStand = 0
+    @State private var springen = false
     @State private var aufnahmen: [PHAsset] = []
     @State private var geladen = false
     @State private var geladeneReihenfolge: Bool?
@@ -32,69 +33,27 @@ struct MediathekRaster: View {
         spalten > 0 ? spalten : (groessenklasse == .regular ? 7 : 4)
     }
 
-    /// Pixel je Kachel — bei großen Kacheln schärfer, bei vielen kleinen sparsamer.
-    private var kachelPixel: CGFloat {
-        let breite = groessenklasse == .regular ? 1400.0 : 1200.0
-        return min(1200, max(160, (breite / Double(aktSpalten)).rounded()))
-    }
-
     var body: some View {
-        ScrollViewReader { leser in
-            ScrollView {
-                if geladen && aufnahmen.isEmpty {
-                    ContentUnavailableView(quelle == .nur360 ? "Keine 360°-Aufnahmen" : "Keine Aufnahmen",
-                                           systemImage: quelle.symbol)
-                        .padding(.top, 60)
-                }
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: aktSpalten), spacing: 2) {
-                    ForEach(Array(aufnahmen.enumerated()), id: \.element.localIdentifier) { i, a in
-                        Button {
-                            if auswaehlen {
-                                if gewaehlt.contains(a.localIdentifier) { gewaehlt.remove(a.localIdentifier) } else { gewaehlt.insert(a.localIdentifier) }
-                            } else {
-                                offen = BetrachterZiel(index: i)
-                            }
-                        } label: {
-                            Color.clear
-                                .aspectRatio(1, contentMode: .fit)
-                                .overlay { RasterBild(asset: a, pixel: kachelPixel) }
-                                .clipped()
-                                .overlay(alignment: .bottomLeading) {
-                                    if aktSpalten <= 7 {
-                                        KachelMarke(asset: a).scaleEffect(0.85, anchor: .bottomLeading).padding(4)
-                                    }
-                                }
-                                .overlay(alignment: .bottomTrailing) {
-                                    if auswaehlen {
-                                        Image(systemName: gewaehlt.contains(a.localIdentifier) ? "checkmark.circle.fill" : "circle")
-                                            .font(.title3)
-                                            .symbolRenderingMode(.palette)
-                                            .foregroundStyle(.white, gewaehlt.contains(a.localIdentifier) ? Color.accentColor : .black.opacity(0.3))
-                                            .shadow(radius: 2)
-                                            .padding(5)
-                                    }
-                                }
-                                .overlay { if auswaehlen && gewaehlt.contains(a.localIdentifier) { Color.white.opacity(0.25) } }
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .id(a.localIdentifier)
-                    }
-                }
+        ZStack {
+            // UIKit-Raster wie die Fotos-App (seit 1.0.17, `RasterSammlung`).
+            RasterSammlung(aufnahmen: aufnahmen, stand: datenStand, spalten: aktSpalten, marken: aktSpalten <= 7,
+                           auswaehlen: auswaehlen, gewaehlt: gewaehlt, amEndeBeginnen: springen,
+                           getippt: { i in
+                               guard aufnahmen.indices.contains(i) else { return }
+                               let id = aufnahmen[i].localIdentifier
+                               if auswaehlen {
+                                   if gewaehlt.contains(id) { gewaehlt.remove(id) } else { gewaehlt.insert(id) }
+                               } else {
+                                   offen = BetrachterZiel(index: i)
+                               }
+                           },
+                           spaltenGeaendert: { spalten = $0 })
+                .ignoresSafeArea(edges: .bottom)
+            if geladen && aufnahmen.isEmpty {
+                ContentUnavailableView(quelle == .nur360 ? "Keine 360°-Aufnahmen" : "Keine Aufnahmen",
+                                       systemImage: quelle.symbol)
             }
-            .defaultScrollAnchor(quelle.istMediathek && neuesteUnten ? .bottom : .top)
-            // Zwei Finger: auseinander = größere Kacheln (weniger je Zeile), zusammen = mehr —
-            // wie in der Fotos-App (seit 1.0.14).
-            .simultaneousGesture(
-                MagnifyGesture()
-                    .onChanged { w in
-                        let start = spaltenBeimKneifen ?? aktSpalten
-                        if spaltenBeimKneifen == nil { spaltenBeimKneifen = start }
-                        let neu = Self.spalten(start: start, faktor: w.magnification)
-                        if neu != aktSpalten { withAnimation(.easeInOut(duration: 0.2)) { spalten = neu } }
-                    }
-                    .onEnded { _ in spaltenBeimKneifen = nil }
-            )
+        }
             .navigationTitle(quelle.titel)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -149,6 +108,7 @@ struct MediathekRaster: View {
                 guard let e = bibliothek.ergebnis(quelle, neuesteZuerst: !neuesteUnten) else {
                     aufnahmen = []
                     geladen = true
+                    datenStand += 1
                     return
                 }
                 ergebnis = e
@@ -158,13 +118,9 @@ struct MediathekRaster: View {
                 // aber NICHT bei jeder Änderung der Mediathek (iCloud), sonst springt das Raster.
                 let umgestellt = geladeneReihenfolge != neuesteUnten
                 geladeneReihenfolge = neuesteUnten
-                guard quelle.istMediathek, umgestellt else { return }
-                try? await Task.sleep(for: .milliseconds(60))
-                if let z = neuesteUnten ? aufnahmen.last : aufnahmen.first {
-                    leser.scrollTo(z.localIdentifier, anchor: neuesteUnten ? .bottom : .top)
-                }
+                springen = umgestellt && quelle.istMediathek && neuesteUnten
+                datenStand += 1
             }
-        }
         .fullScreenCover(item: $offen) { z in
             BetrachterAnsicht(albumTitel: quelle.titel, aufnahmen: aufnahmen, startIndex: z.index)
         }
