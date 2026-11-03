@@ -49,17 +49,12 @@ struct BetrachterAnsicht: View {
                 PanoramaAnsicht(szene: szene, bewegung: bewegung) { tippen() }
                     .ignoresSafeArea()
             } else if let p = player {
-                // Normales Video: ganzes Bild, flach (seit 1.0.13).
-                PlayerFlaeche(player: p)
+                // Normales Video: flach, zoombar wie ein Foto (seit 1.0.14).
+                ZoomFlaeche(inhalt: .video(p), beiTippen: tippen, beiWischen: blaettern)
                     .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture { tippen() }
-                    .gesture(DragGesture(minimumDistance: 40).onEnded { w in
-                        if abs(w.translation.width) > abs(w.translation.height) { blaettern(w.translation.width < 0 ? 1 : -1) }
-                    })
             } else if let b = flachBild {
                 // Normales Foto: flach, mit Zoom (seit 1.0.13).
-                ZoomBild(bild: b, beiTippen: tippen, beiWischen: blaettern)
+                ZoomFlaeche(inhalt: .bild(b), beiTippen: tippen, beiWischen: blaettern)
                     .ignoresSafeArea()
             } else {
                 Color.black.ignoresSafeArea().onTapGesture { tippen() }

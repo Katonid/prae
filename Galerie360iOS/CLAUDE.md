@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -106,16 +106,25 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   `Mediathekmodus.swift`:
   - `PHAsset.ist360` = Seitenverhältnis 2 : 1 (`Ausschnitt.istPanorama`).
     Alles andere — normale Fotos, Videos, iPhone-Panoramen — zeigt der
-    Betrachter FLACH: iOS `ZoomBild` (UIScrollView, Kneifen/Doppeltippen,
-    seitlich wischen blättert) bzw. `PlayerFlaeche` (AVPlayerLayer, eigene
-    Bedienleiste wie bei 360°); Stecknadel und Bewegungssteuerung nur bei
+    Betrachter FLACH: iOS `ZoomFlaeche` (UIScrollView, Kneifen/Doppeltippen,
+    seitlich wischen blättert) — für Fotos (UIImageView) UND seit 1.0.14 für
+    Videos (AVPlayerLayer-Ansicht, eigene Bedienleiste wie bei 360°); Stecknadel und Bewegungssteuerung nur bei
     360°. tvOS: flache Ebene ÜBER der Kugel mit `allowsHitTesting(false)` —
     die `PanoramaFlaeche` darunter bleibt fokussiert und nimmt weiter die
     Tasten an (blättern, Play/Pause, Hilfe). Gilt auch in Galerie-Alben.
   - `MediathekQuelle` (.alle, .nur360, .videos, .album): Startseite
     Abschnitt „Fotos-Mediathek" (iOS `MediathekAbschnitt` mit „Meine Alben"
     ohne den Ordner „Galerie 360"; tvOS Karten). Raster: iOS
-    `MediathekRaster`, tvOS `MediathekRasterTV`; neueste zuerst.
+    `MediathekRaster`, tvOS `MediathekRasterTV`.
+  - **Seit 1.0.14** (Wunsch 11/2026 „wie in der Apple-Galerie"): neueste
+    UNTEN als Vorgabe, umstellbar (`@AppStorage("mediathekNeuesteUnten")`,
+    iOS Menü ⇅, tvOS Knopf oben); `defaultScrollAnchor(.bottom)` + einmal
+    `scrollTo` beim Öffnen/Umstellen — NICHT bei jeder Mediathek-Änderung
+    (sonst springt das Raster bei jedem iCloud-Abgleich). Kacheln je Zeile
+    per Kneifen (`MagnifyGesture`, 1–15, `@AppStorage("mediathekSpalten")`,
+    Vorgabe iPhone 4, iPad 7; Rechnung `MediathekRaster.spalten`, Test
+    `RasterSpaltenTests`). Pixel je Kachel folgen der Spaltenzahl;
+    `AssetBild` lädt bei geänderter Größe neu.
   - `KachelMarke`: Video mit Länge (und „360° ·"), 360°-Foto „360°",
     normales Foto ohne Marke.
   - Start-Prüfung öffnet zusätzlich ein normales 4 : 3-Foto (`flach`).

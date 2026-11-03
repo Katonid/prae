@@ -109,7 +109,7 @@ struct AssetBild: View {
             if let bild { Image(uiImage: bild).resizable().scaledToFill() }
         }
         .clipped()
-        .task(id: "\(asset?.localIdentifier ?? "")|\(blick.yaw)|\(blick.pitch)|\(blick.fov)") {
+        .task(id: "\(asset?.localIdentifier ?? "")|\(blick.yaw)|\(blick.pitch)|\(blick.fov)|\(Int(groesse.width))x\(Int(groesse.height))") {
             guard let asset else { bild = nil; return }
             bild = await VorschauAnsicht.bild(asset, groesse, blick)
         }
