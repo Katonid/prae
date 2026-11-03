@@ -30,3 +30,14 @@ final class AuswahlReihenfolgeTests: XCTestCase {
         XCTAssertEqual(r, ["C", "A", "D"])
     }
 }
+
+/// Kneif-Geste im Mediathek-Raster: auseinander = weniger, größere Kacheln (wie Fotos).
+final class RasterSpaltenTests: XCTestCase {
+    func testKneifenAendertSpalten() {
+        XCTAssertEqual(MediathekRaster.spalten(start: 4, faktor: 2), 2)    // auseinander
+        XCTAssertEqual(MediathekRaster.spalten(start: 4, faktor: 0.5), 8)  // zusammen
+        XCTAssertEqual(MediathekRaster.spalten(start: 2, faktor: 10), 1)   // nie unter 1
+        XCTAssertEqual(MediathekRaster.spalten(start: 10, faktor: 0.2), 15) // nie über 15
+        XCTAssertEqual(MediathekRaster.spalten(start: 5, faktor: 0), 5)
+    }
+}

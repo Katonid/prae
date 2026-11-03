@@ -539,12 +539,24 @@ struct BetrachterTV: View {
 struct MediathekRasterTV: View {
     let quelle: MediathekQuelle
     @Environment(FotoBibliothek.self) private var bibliothek
+    /// Wie in der Fotos-App: neueste unten (seit 1.0.14, umstellbar mit dem Knopf oben).
+    @AppStorage("mediathekNeuesteUnten") private var neuesteUnten = true
     @State private var aufnahmen: [PHAsset] = []
     @State private var geladen = false
     @State private var offen: BetrachterZielTV?
 
     var body: some View {
         ScrollView {
+            if quelle.istMediathek {
+                Button {
+                    neuesteUnten.toggle()
+                } label: {
+                    Label(neuesteUnten ? "Neueste unten — umstellen auf: neueste oben" : "Neueste oben — umstellen auf: neueste unten",
+                          systemImage: "arrow.up.arrow.down")
+                        .font(.callout)
+                }
+                .padding(.top, 20)
+            }
             if geladen && aufnahmen.isEmpty {
                 ContentUnavailableView(quelle == .nur360 ? "Keine 360°-Aufnahmen" : "Keine Aufnahmen", systemImage: quelle.symbol)
             }
@@ -560,9 +572,10 @@ struct MediathekRasterTV: View {
             }
             .padding(60)
         }
+        .defaultScrollAnchor(quelle.istMediathek && neuesteUnten ? .bottom : .top)
         .navigationTitle(quelle.titel)
-        .task(id: bibliothek.stand) {
-            aufnahmen = bibliothek.aufnahmen(quelle)
+        .task(id: "\(bibliothek.stand)-\(neuesteUnten)") {
+            aufnahmen = bibliothek.aufnahmen(quelle, neuesteZuerst: !neuesteUnten)
             geladen = true
         }
         .fullScreenCover(item: $offen) { z in

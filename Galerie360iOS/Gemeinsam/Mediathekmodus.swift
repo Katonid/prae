@@ -16,6 +16,9 @@ extension PHAsset {
 
 /// Was im Mediathek-Modus gezeigt wird.
 enum MediathekQuelle: Hashable {
+    /// Ganze Mediathek (sortierbar) im Unterschied zu einem Album (eigene Reihenfolge).
+    var istMediathek: Bool { if case .album = self { return false } else { return true } }
+
     case alle, nur360, videos
     case album(id: String, titel: String)
 
@@ -39,14 +42,16 @@ enum MediathekQuelle: Hashable {
 }
 
 extension FotoBibliothek {
-    /// Aufnahmen einer Quelle. Mediathek: neueste zuerst; Album: in seiner Reihenfolge.
-    func aufnahmen(_ quelle: MediathekQuelle) -> [PHAsset] {
+    /// Aufnahmen einer Quelle. Mediathek: nach Aufnahmedatum — wie in der Fotos-App die
+    /// neuesten unten (`neuesteZuerst = false`, seit 1.0.14 einstellbar); Album: in seiner
+    /// eigenen Reihenfolge.
+    func aufnahmen(_ quelle: MediathekQuelle, neuesteZuerst: Bool = false) -> [PHAsset] {
         switch quelle {
         case .album(let id, _):
             return aufnahmen(id)
         case .alle, .nur360, .videos:
             let o = PHFetchOptions()
-            o.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            o.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: !neuesteZuerst)]
             o.predicate = quelle == .videos
                 ? NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
                 : NSPredicate(format: "mediaType == %d OR mediaType == %d",
@@ -121,21 +126,27 @@ struct PlayerFlaeche: UIViewRepresentable {
 }
 
 #if os(iOS)
-/// Normales Foto im Vollbild: zwei Finger zoomen, doppelt tippen zoomt, einmal tippen →
-/// `beiTippen` (Bedienung), seitlich wischen (nicht hineingezoomt) → `beiWischen` (±1).
-struct ZoomBild: UIViewRepresentable {
-    let bild: CGImage
+/// Normales Foto oder Video im Vollbild, zoombar wie in der Fotos-App: zwei Finger zoomen,
+/// doppelt tippen zoomt, einmal tippen → `beiTippen` (Bedienung), seitlich wischen (nicht
+/// hineingezoomt) → `beiWischen` (±1). Videos zoombar seit 1.0.14 (Wunsch 11/2026).
+struct ZoomFlaeche: UIViewRepresentable {
+    enum Inhalt {
+        case bild(CGImage)
+        case video(AVPlayer)
+    }
+
+    let inhalt: Inhalt
     var beiTippen: () -> Void
     var beiWischen: (Int) -> Void
 
     final class Steuerung: NSObject, UIScrollViewDelegate {
-        let bildAnsicht = UIImageView()
+        var ansicht: UIView = UIView()
         weak var flaeche: UIScrollView?
         var beiTippen: () -> Void = {}
         var beiWischen: (Int) -> Void = { _ in }
-        var gezeigt: CGImage?
+        var gezeigt: AnyObject?
 
-        func viewForZooming(in scrollView: UIScrollView) -> UIView? { bildAnsicht }
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { ansicht }
 
         @objc func getippt() { beiTippen() }
 
@@ -144,7 +155,7 @@ struct ZoomBild: UIViewRepresentable {
             if s.zoomScale > 1.01 {
                 s.setZoomScale(1, animated: true)
             } else {
-                let p = g.location(in: bildAnsicht)
+                let p = g.location(in: ansicht)
                 let b = s.bounds.width / 2.5, h = s.bounds.height / 2.5
                 s.zoom(to: CGRect(x: p.x - b / 2, y: p.y - h / 2, width: b, height: h), animated: true)
             }
@@ -152,6 +163,34 @@ struct ZoomBild: UIViewRepresentable {
 
         @objc func nachLinks() { if (flaeche?.zoomScale ?? 1) <= 1.01 { beiWischen(1) } }
         @objc func nachRechts() { if (flaeche?.zoomScale ?? 1) <= 1.01 { beiWischen(-1) } }
+
+        /// Tauscht die gezoomte Ansicht (Bild ↔ Video), wenn sich die Aufnahme ändert.
+        func zeigen(_ inhalt: Inhalt, in s: UIScrollView) {
+            let neu: UIView
+            switch inhalt {
+            case .bild(let b):
+                guard gezeigt !== b else { return }
+                gezeigt = b
+                let v = UIImageView(image: UIImage(cgImage: b))
+                v.contentMode = .scaleAspectFit
+                neu = v
+            case .video(let p):
+                guard gezeigt !== p else { return }
+                gezeigt = p
+                let v = PlayerFlaeche.Flaeche()
+                v.backgroundColor = .black
+                v.spieler.videoGravity = .resizeAspect
+                v.spieler.player = p
+                neu = v
+            }
+            s.setZoomScale(1, animated: false)
+            ansicht.removeFromSuperview()
+            neu.frame = s.bounds
+            neu.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            neu.isUserInteractionEnabled = true
+            s.addSubview(neu)
+            ansicht = neu
+        }
     }
 
     func makeCoordinator() -> Steuerung { Steuerung() }
@@ -167,11 +206,6 @@ struct ZoomBild: UIViewRepresentable {
         s.contentInsetAdjustmentBehavior = .never
         s.delegate = k
         k.flaeche = s
-        k.bildAnsicht.contentMode = .scaleAspectFit
-        k.bildAnsicht.frame = s.bounds
-        k.bildAnsicht.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        k.bildAnsicht.isUserInteractionEnabled = true
-        s.addSubview(k.bildAnsicht)
         let doppelt = UITapGestureRecognizer(target: k, action: #selector(Steuerung.doppelt(_:)))
         doppelt.numberOfTapsRequired = 2
         let einmal = UITapGestureRecognizer(target: k, action: #selector(Steuerung.getippt))
@@ -188,11 +222,7 @@ struct ZoomBild: UIViewRepresentable {
         let k = context.coordinator
         k.beiTippen = beiTippen
         k.beiWischen = beiWischen
-        if k.gezeigt !== bild {
-            k.gezeigt = bild
-            s.setZoomScale(1, animated: false)
-            k.bildAnsicht.image = UIImage(cgImage: bild)
-        }
+        k.zeigen(inhalt, in: s)
     }
 }
 #endif
