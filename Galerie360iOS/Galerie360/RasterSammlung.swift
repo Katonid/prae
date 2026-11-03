@@ -20,8 +20,13 @@ struct RasterSammlung: UIViewRepresentable {
     let marken: Bool
     let auswaehlen: Bool
     let gewaehlt: Set<String>
-    /// Beim ersten Anzeigen und nach dem Umstellen der Reihenfolge ans Ende springen.
-    let amEndeBeginnen: Bool
+    /// Unter diesem Schlüssel merkt sich das Raster, wo man zuletzt war (seit 1.0.18; nil = nicht
+    /// merken). Beim nächsten Öffnen geht es dort weiter, sonst bei den neuesten Aufnahmen.
+    let positionsSchluessel: String?
+    /// Wo die neuesten stehen: unten (wie Fotos) oder oben.
+    let neuesteUnten: Bool
+    /// Nach dem Umstellen der Reihenfolge zu den neuesten springen.
+    let zuNeuesten: Bool
     var getippt: (Int) -> Void
     var spaltenGeaendert: (Int) -> Void
 
@@ -63,11 +68,23 @@ struct RasterSammlung: UIViewRepresentable {
         k.auswaehlen = auswaehlen
         k.gewaehlt = gewaehlt
         k.marken = marken
+        k.neuesteUnten = neuesteUnten
+        k.schluessel = positionsSchluessel
         if neueDaten {
             k.stand = stand
             k.cacheLeeren()
             v.reloadData()
-            if amEndeBeginnen { k.ansEnde(v) }
+            if !k.erstGeladen && !aufnahmen.isEmpty {
+                // Erstes Öffnen: dort weiter, wo man zuletzt war — sonst bei den neuesten.
+                // Bis dahin bleibt das Raster unsichtbar (dunkel), damit nicht erst die
+                // ältesten Aufnahmen aufblitzen (Wunsch des Nutzers 11/2026).
+                k.erstGeladen = true
+                k.ausstehend = k.gemerkteStelle() ?? .neueste
+                k.zielPlanen(v, verbergen: true)
+            } else if zuNeuesten {
+                k.ausstehend = .neueste
+                k.zielPlanen(v, verbergen: true)
+            }
         } else if neueGroesse {
             k.groesseAnpassen(v)
         } else if neueAuswahl {
@@ -76,6 +93,10 @@ struct RasterSammlung: UIViewRepresentable {
                 k.ausstatten(z, p.item)
             }
         }
+    }
+
+    static func dismantleUIView(_ v: UICollectionView, coordinator: Koordinator) {
+        coordinator.merken(v)
     }
 
     final class RasterAnsicht: UICollectionView {
@@ -112,10 +133,10 @@ struct RasterSammlung: UIViewRepresentable {
             kachelSeite = ((breite - CGFloat(spalten - 1) * 2) / CGFloat(spalten)).rounded(.down)
             cacheLeeren()
             v.collectionViewLayout.invalidateLayout()
+            kachelGesetzt = true
             v.layoutIfNeeded()
-            if endeWartet, !aufnahmen.isEmpty {
-                endeWartet = false
-                v.scrollToItem(at: IndexPath(item: aufnahmen.count - 1, section: 0), at: .bottom, animated: false)
+            if ausstehend != nil {
+                zielPlanen(v, verbergen: false)
             } else if let alt {
                 v.scrollToItem(at: alt, at: .top, animated: false)
             }
@@ -125,15 +146,99 @@ struct RasterSammlung: UIViewRepresentable {
             }
         }
 
-        /// Ans Ende springen, sobald die Kachelgröße feststeht (erst dann stimmt die Höhe).
-        private var endeWartet = false
+        // MARK: Stelle merken und wiederfinden (seit 1.0.18)
 
-        func ansEnde(_ v: UICollectionView) {
-            guard !aufnahmen.isEmpty else { return }
-            endeWartet = true
-            DispatchQueue.main.async {
-                if v.bounds.width > 0 { self.groesseAnpassen(v) }
+        enum Ziel { case neueste, stelle(Int) }
+        var ausstehend: Ziel?
+        var erstGeladen = false
+        var neuesteUnten = true
+        var schluessel: String?
+        private var kachelGesetzt = false
+        private static let amRand = "NEUESTE"
+
+        /// „raster2": Was 1.0.18 gemerkt hat, kann die oberste Stelle sein, weil dort der Sprung
+        /// scheiterte — die Angaben fangen deshalb neu an.
+        private func ablage(_ s: String) -> String { "galerie360.raster2." + s }
+
+        /// Die zuletzt gemerkte Stelle dieses Rasters (oder nil — dann zu den neuesten).
+        func gemerkteStelle() -> Ziel? {
+            guard let s = schluessel, let wert = UserDefaults.standard.string(forKey: ablage(s)) else { return nil }
+            if wert == Self.amRand { return .neueste }
+            guard let i = aufnahmen.firstIndex(where: { $0.localIdentifier == wert }) else { return nil }
+            return .stelle(i)
+        }
+
+        /// Springt, sobald Kachelgröße und Inhaltshöhe feststehen — versucht es dafür einige
+        /// Takte lang. 1.0.17/1.0.18 riefen `scrollToItem` mitten im Layout auf; das ging
+        /// oft ins Leere, und das Raster blieb oben bei den ältesten (gemeldet 11/2026).
+        /// Jetzt wird die Stelle aus dem Layout berechnet und direkt gesetzt.
+        func zielPlanen(_ v: UICollectionView, verbergen: Bool) {
+            if verbergen { v.alpha = 0 }
+            versuchen(v, rest: 40)
+        }
+
+        private func versuchen(_ v: UICollectionView, rest: Int) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.016) { [weak self, weak v] in
+                guard let self, let v else { return }
+                guard self.ausstehend != nil else { self.zeigen(v); return }
+                v.layoutIfNeeded()
+                let hoehe = v.collectionViewLayout.collectionViewContentSize.height
+                guard self.kachelGesetzt, v.bounds.height > 0, hoehe > 0, !self.aufnahmen.isEmpty else {
+                    if rest > 0 { self.versuchen(v, rest: rest - 1) } else { self.zeigen(v) }
+                    return
+                }
+                self.anwenden(v, inhaltHoehe: hoehe)
+                self.zeigen(v)
             }
+        }
+
+        private func anwenden(_ v: UICollectionView, inhaltHoehe: CGFloat) {
+            guard let ziel = ausstehend else { return }
+            ausstehend = nil
+            let oben = -v.adjustedContentInset.top
+            let unten = max(oben, inhaltHoehe - v.bounds.height + v.adjustedContentInset.bottom)
+            var y: CGFloat
+            switch ziel {
+            case .neueste:
+                y = neuesteUnten ? unten : oben
+            case .stelle(let i):
+                let p = IndexPath(item: min(max(0, i), aufnahmen.count - 1), section: 0)
+                y = (v.collectionViewLayout.layoutAttributesForItem(at: p)?.frame.minY ?? 0) + oben
+            }
+            y = min(max(y, oben), unten)
+            v.setContentOffset(CGPoint(x: 0, y: y), animated: false)
+        }
+
+        private func zeigen(_ v: UICollectionView) {
+            guard v.alpha < 1 else { return }
+            UIView.animate(withDuration: 0.15) { v.alpha = 1 }
+        }
+
+        /// Merkt die oberste sichtbare Aufnahme — oder „bei den neuesten", wenn man am Rand
+        /// mit den neuesten steht (dann sieht man beim nächsten Öffnen auch neu Hinzugekommenes).
+        func merken(_ v: UICollectionView) {
+            guard let s = schluessel, erstGeladen, ausstehend == nil, !aufnahmen.isEmpty else { return }
+            let oben = -v.adjustedContentInset.top
+            let unten = v.contentSize.height - v.bounds.height + v.adjustedContentInset.bottom
+            let y = v.contentOffset.y
+            let amNeuestenRand = neuesteUnten ? y >= unten - 24 : y <= oben + 24
+            if amNeuestenRand {
+                UserDefaults.standard.set(Self.amRand, forKey: ablage(s))
+            } else if let p = v.indexPathsForVisibleItems.min(), aufnahmen.indices.contains(p.item) {
+                UserDefaults.standard.set(aufnahmen[p.item].localIdentifier, forKey: ablage(s))
+            }
+        }
+
+        func scrollViewDidEndDecelerating(_ v: UIScrollView) {
+            if let c = v as? UICollectionView { merken(c) }
+        }
+
+        func scrollViewDidEndDragging(_ v: UIScrollView, willDecelerate: Bool) {
+            if !willDecelerate, let c = v as? UICollectionView { merken(c) }
+        }
+
+        func scrollViewDidScrollToTop(_ v: UIScrollView) {
+            if let c = v as? UICollectionView { merken(c) }
         }
 
         private var zielGroesse: CGSize {
