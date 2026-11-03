@@ -44,10 +44,6 @@ struct RasterSammlung: UIViewRepresentable {
         v.dataSource = k
         v.delegate = k
         v.prefetchDataSource = k
-        v.nachLayout = { [weak k, weak v] in
-            guard let k, let v else { return }
-            k.zielAnwenden(v)
-        }
         v.breiteGeaendert = { [weak k, weak v] in
             // Nicht mitten in layoutSubviews umbauen — einen Takt später.
             DispatchQueue.main.async {
@@ -80,12 +76,15 @@ struct RasterSammlung: UIViewRepresentable {
             v.reloadData()
             if !k.erstGeladen && !aufnahmen.isEmpty {
                 // Erstes Öffnen: dort weiter, wo man zuletzt war — sonst bei den neuesten.
+                // Bis dahin bleibt das Raster unsichtbar (dunkel), damit nicht erst die
+                // ältesten Aufnahmen aufblitzen (Wunsch des Nutzers 11/2026).
                 k.erstGeladen = true
                 k.ausstehend = k.gemerkteStelle() ?? .neueste
+                k.zielPlanen(v, verbergen: true)
             } else if zuNeuesten {
                 k.ausstehend = .neueste
+                k.zielPlanen(v, verbergen: true)
             }
-            v.setNeedsLayout()
         } else if neueGroesse {
             k.groesseAnpassen(v)
         } else if neueAuswahl {
@@ -102,10 +101,6 @@ struct RasterSammlung: UIViewRepresentable {
 
     final class RasterAnsicht: UICollectionView {
         var breiteGeaendert: () -> Void = {}
-        /// Nach jedem Layout — erst dann stimmen Inhaltshöhe und Kachelgröße, und ein
-        /// ausstehender Sprung (zu den neuesten / zur gemerkten Stelle) landet richtig.
-        /// Bis 1.0.17 sprang das Raster zu früh und landete oben (gemeldet 11/2026).
-        var nachLayout: () -> Void = {}
         private var letzteBreite: CGFloat = 0
         override func layoutSubviews() {
             if bounds.width != letzteBreite {
@@ -113,7 +108,6 @@ struct RasterSammlung: UIViewRepresentable {
                 breiteGeaendert()
             }
             super.layoutSubviews()
-            nachLayout()
         }
     }
 
@@ -142,7 +136,7 @@ struct RasterSammlung: UIViewRepresentable {
             kachelGesetzt = true
             v.layoutIfNeeded()
             if ausstehend != nil {
-                zielAnwenden(v)
+                zielPlanen(v, verbergen: false)
             } else if let alt {
                 v.scrollToItem(at: alt, at: .top, animated: false)
             }
@@ -162,7 +156,9 @@ struct RasterSammlung: UIViewRepresentable {
         private var kachelGesetzt = false
         private static let amRand = "NEUESTE"
 
-        private func ablage(_ s: String) -> String { "galerie360.raster." + s }
+        /// „raster2": Was 1.0.18 gemerkt hat, kann die oberste Stelle sein, weil dort der Sprung
+        /// scheiterte — die Angaben fangen deshalb neu an.
+        private func ablage(_ s: String) -> String { "galerie360.raster2." + s }
 
         /// Die zuletzt gemerkte Stelle dieses Rasters (oder nil — dann zu den neuesten).
         func gemerkteStelle() -> Ziel? {
@@ -172,20 +168,50 @@ struct RasterSammlung: UIViewRepresentable {
             return .stelle(i)
         }
 
-        func zielAnwenden(_ v: UICollectionView) {
-            guard let ziel = ausstehend, kachelGesetzt, v.bounds.height > 0, !aufnahmen.isEmpty,
-                  v.contentSize.height > 0 else { return }
-            ausstehend = nil
-            let letzte = aufnahmen.count - 1
-            UIView.performWithoutAnimation {
-                switch ziel {
-                case .neueste:
-                    v.scrollToItem(at: IndexPath(item: neuesteUnten ? letzte : 0, section: 0),
-                                   at: neuesteUnten ? .bottom : .top, animated: false)
-                case .stelle(let i):
-                    v.scrollToItem(at: IndexPath(item: min(max(0, i), letzte), section: 0), at: .top, animated: false)
+        /// Springt, sobald Kachelgröße und Inhaltshöhe feststehen — versucht es dafür einige
+        /// Takte lang. 1.0.17/1.0.18 riefen `scrollToItem` mitten im Layout auf; das ging
+        /// oft ins Leere, und das Raster blieb oben bei den ältesten (gemeldet 11/2026).
+        /// Jetzt wird die Stelle aus dem Layout berechnet und direkt gesetzt.
+        func zielPlanen(_ v: UICollectionView, verbergen: Bool) {
+            if verbergen { v.alpha = 0 }
+            versuchen(v, rest: 40)
+        }
+
+        private func versuchen(_ v: UICollectionView, rest: Int) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.016) { [weak self, weak v] in
+                guard let self, let v else { return }
+                guard self.ausstehend != nil else { self.zeigen(v); return }
+                v.layoutIfNeeded()
+                let hoehe = v.collectionViewLayout.collectionViewContentSize.height
+                guard self.kachelGesetzt, v.bounds.height > 0, hoehe > 0, !self.aufnahmen.isEmpty else {
+                    if rest > 0 { self.versuchen(v, rest: rest - 1) } else { self.zeigen(v) }
+                    return
                 }
+                self.anwenden(v, inhaltHoehe: hoehe)
+                self.zeigen(v)
             }
+        }
+
+        private func anwenden(_ v: UICollectionView, inhaltHoehe: CGFloat) {
+            guard let ziel = ausstehend else { return }
+            ausstehend = nil
+            let oben = -v.adjustedContentInset.top
+            let unten = max(oben, inhaltHoehe - v.bounds.height + v.adjustedContentInset.bottom)
+            var y: CGFloat
+            switch ziel {
+            case .neueste:
+                y = neuesteUnten ? unten : oben
+            case .stelle(let i):
+                let p = IndexPath(item: min(max(0, i), aufnahmen.count - 1), section: 0)
+                y = (v.collectionViewLayout.layoutAttributesForItem(at: p)?.frame.minY ?? 0) + oben
+            }
+            y = min(max(y, oben), unten)
+            v.setContentOffset(CGPoint(x: 0, y: y), animated: false)
+        }
+
+        private func zeigen(_ v: UICollectionView) {
+            guard v.alpha < 1 else { return }
+            UIView.animate(withDuration: 0.15) { v.alpha = 1 }
         }
 
         /// Merkt die oberste sichtbare Aufnahme — oder „bei den neuesten", wenn man am Rand

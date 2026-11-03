@@ -213,6 +213,16 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   nächsten Öffnen auch Neues). Gespeichert am Ende jedes Scrollens und beim
   Schließen. Nicht gefunden (gelöscht) → zu den neuesten; Reihenfolge
   umgestellt → zu den neuesten. `.auswahl` (Orte) merkt nichts.
+  **Nachtrag 1.0.19** (gemeldet: „springt nicht nach unten … zeigt erst die
+  ältesten … lieber dunkel bleiben, bis die aktuellen Bilder erscheinen"):
+  `scrollToItem` mitten in `layoutSubviews` ging oft ins Leere. Jetzt
+  `zielPlanen` → `versuchen` (bis 40 Takte à 16 ms, bis Kachelgröße und
+  `collectionViewContentSize` feststehen) → `anwenden` berechnet den
+  Versatz selbst (Ende bzw. `layoutAttributesForItem`) und setzt
+  `contentOffset`. Bis dahin `alpha = 0` — beim Öffnen sieht man nichts,
+  dann gleich die richtige Stelle. Ablage-Schlüssel neu `galerie360.raster2.`
+  (was 1.0.18 gemerkt hatte, konnte wegen des gescheiterten Sprungs „ganz
+  oben" sein).
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 
