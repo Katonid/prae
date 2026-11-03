@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -100,6 +100,25 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   Albumbild, Schlüssel = Kennung des Galerie-Ordners; ohne Wahl die
   Vorschau des ersten Albums (`vorschauAsset(galerie:)`). `SammlungsBild`
   (Mediathek.swift) zeigt Galerie-/Albumvorschau auf iOS und tvOS.
+- **Mediathek-Modus und normale Aufnahmen** (seit 1.0.13, Wunsch 11/2026:
+  „ganz normal auf die Galerie zugreifen, Fotos und Videos als Kachel und in
+  der Vollansicht, 360-Grad-Aufnahmen direkt richtig"). Gemeinsam/
+  `Mediathekmodus.swift`:
+  - `PHAsset.ist360` = Seitenverhältnis 2 : 1 (`Ausschnitt.istPanorama`).
+    Alles andere — normale Fotos, Videos, iPhone-Panoramen — zeigt der
+    Betrachter FLACH: iOS `ZoomBild` (UIScrollView, Kneifen/Doppeltippen,
+    seitlich wischen blättert) bzw. `PlayerFlaeche` (AVPlayerLayer, eigene
+    Bedienleiste wie bei 360°); Stecknadel und Bewegungssteuerung nur bei
+    360°. tvOS: flache Ebene ÜBER der Kugel mit `allowsHitTesting(false)` —
+    die `PanoramaFlaeche` darunter bleibt fokussiert und nimmt weiter die
+    Tasten an (blättern, Play/Pause, Hilfe). Gilt auch in Galerie-Alben.
+  - `MediathekQuelle` (.alle, .nur360, .videos, .album): Startseite
+    Abschnitt „Fotos-Mediathek" (iOS `MediathekAbschnitt` mit „Meine Alben"
+    ohne den Ordner „Galerie 360"; tvOS Karten). Raster: iOS
+    `MediathekRaster`, tvOS `MediathekRasterTV`; neueste zuerst.
+  - `KachelMarke`: Video mit Länge (und „360° ·"), 360°-Foto „360°",
+    normales Foto ohne Marke.
+  - Start-Prüfung öffnet zusätzlich ein normales 4 : 3-Foto (`flach`).
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 
