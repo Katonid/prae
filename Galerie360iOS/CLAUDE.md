@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -85,6 +85,15 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   versteckt im „+"-Menü der Galerie, Löschen gab es nicht): in der
   Galerienliste nach links wischen oder lange drücken; in der Galerie das
   „…"-Menü oben rechts. Löschen entfernt nur Ordner und Alben, nie Aufnahmen.
+- **Alben ordnen** (seit 1.0.19, Frage des Nutzers 11/2026: „kann ich die
+  Alben in einer Galerie nicht manuell sortieren?"): in der Galerie „…" →
+  „Alben ordnen …" (`AlbenOrdnen`, GalerieAnsicht.swift). Je Ebene (Galerie
+  und jeder Ordner mit mehr als einem Eintrag) am Griff ziehen, oder je
+  Ebene „Nach Name" / „Nach Aufnahmedatum". Gespeichert in der Mediathek:
+  `PHCollectionListChangeRequest.moveChildCollections` bzw.
+  `replaceChildCollections` (`FotoBibliothek.verschiebeKinder`,
+  `ordneKinder`) — dieselbe Reihenfolge in der Fotos-App, auf allen
+  Geräten und auf dem Apple TV (das liest `baum` in Ordnerreihenfolge).
 - **Reihenfolge des Antippens** (seit 1.0.8, Wunsch 11/2026): `PhotosPicker`
   mit `selectionBehavior: .ordered` (nummeriert, liefert in Tipp-Reihenfolge);
   `hinzufuegen` ordnet nach den übergebenen Kennungen

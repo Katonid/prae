@@ -15,6 +15,7 @@ struct GalerieAnsicht: View {
     @State private var eingabe = ""
     @State private var loeschen: Knoten?
     @State private var galerieLoeschen = false
+    @State private var ordnen = false
     @State private var meldung: String?
 
     /// Was der Namensdialog gerade erfragt.
@@ -64,6 +65,7 @@ struct GalerieAnsicht: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button { ordnen = true } label: { Label("Alben ordnen …", systemImage: "arrow.up.arrow.down") }
                         Button { eingabe = titel; frage = .galerieUmbenennen } label: { Label("Galerie umbenennen …", systemImage: "pencil") }
                         Button(role: .destructive) { galerieLoeschen = true } label: { Label("Galerie löschen …", systemImage: "trash") }
                     } label: { Label("Galerie", systemImage: "ellipsis.circle") }
@@ -106,6 +108,7 @@ struct GalerieAnsicht: View {
         } message: {
             Text("Nur das Album bzw. der Ordner verschwindet — die Fotos und Videos bleiben in deiner Mediathek.")
         }
+        .sheet(isPresented: $ordnen) { AlbenOrdnen(galerie: GalerieInfo(id: galerie.id, titel: titel)) }
         .confirmationDialog("Galerie „\(titel)“ löschen?", isPresented: $galerieLoeschen, titleVisibility: .visible) {
             Button("Galerie mit ihren Alben löschen", role: .destructive) {
                 Task {
@@ -443,5 +446,103 @@ struct AlbumVorschau: View {
 
     var body: some View {
         SammlungsBild(id: albumId, art: .album, groesse: CGSize(width: 120, height: 76))
+    }
+}
+
+/// Reihenfolge der Alben einer Galerie ändern (seit 1.0.19, Wunsch 11/2026): am Griff ziehen,
+/// je Ebene (Galerie und jeder Ordner für Unteralben); dazu „nach Name" und „nach Datum".
+/// Gespeichert in der Fotos-Mediathek — gleiche Reihenfolge in der Fotos-App, auf allen
+/// Geräten und auf dem Apple TV.
+struct AlbenOrdnen: View {
+    let galerie: GalerieInfo
+    @Environment(FotoBibliothek.self) private var bibliothek
+    @Environment(\.dismiss) private var schliessen
+    @State private var ebenen: [Ebene] = []
+    @State private var meldung: String?
+
+    struct Ebene: Identifiable {
+        let id: String
+        let titel: String
+        var eintraege: [Knoten]
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach($ebenen) { $e in
+                    Section {
+                        ForEach(e.eintraege) { k in
+                            HStack {
+                                Label(k.titel, systemImage: k.art == .ordner ? "folder" : "rectangle.stack")
+                                Spacer()
+                                if k.art == .album { Text("\(k.anzahl)").foregroundStyle(.secondary) }
+                            }
+                        }
+                        .onMove { von, nach in verschieben(e.id, von, nach) }
+                    } header: {
+                        HStack {
+                            Text(e.titel)
+                            Spacer()
+                            Menu {
+                                Button("Nach Name (A–Z)") { sortieren(e.id, nachDatum: false) }
+                                Button("Nach Aufnahmedatum (älteste zuerst)") { sortieren(e.id, nachDatum: true) }
+                            } label: {
+                                Label("Sortieren", systemImage: "arrow.up.arrow.down").font(.caption)
+                            }
+                            .textCase(nil)
+                        }
+                    }
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("Alben ordnen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { schliessen() } } }
+            .alert("Hinweis", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(meldung ?? "") }
+            .task(id: bibliothek.stand) { laden() }
+        }
+    }
+
+    private func laden() {
+        var neu = [Ebene(id: galerie.id, titel: galerie.titel, eintraege: bibliothek.kinder(galerie.id))]
+        var pfad: [String] = []
+        for k in bibliothek.baum(galerie.id) where k.art == .ordner {
+            pfad = Array(pfad.prefix(k.tiefe)) + [k.titel]
+            let kinder = bibliothek.kinder(k.id)
+            if kinder.count > 1 { neu.append(Ebene(id: k.id, titel: pfad.joined(separator: " › "), eintraege: kinder)) }
+        }
+        ebenen = neu
+    }
+
+    private func verschieben(_ ebene: String, _ von: IndexSet, _ nach: Int) {
+        guard let i = ebenen.firstIndex(where: { $0.id == ebene }) else { return }
+        ebenen[i].eintraege.move(fromOffsets: von, toOffset: nach) // sofort sichtbar
+        Task {
+            do { try await bibliothek.verschiebeKinder(ebene, von: von, nach: nach) } catch {
+                meldung = "Die Reihenfolge ließ sich nicht ändern: \(error.localizedDescription)"
+                laden()
+            }
+        }
+    }
+
+    private func sortieren(_ ebene: String, nachDatum: Bool) {
+        guard let i = ebenen.firstIndex(where: { $0.id == ebene }) else { return }
+        let alt = ebenen[i].eintraege
+        let neu: [Knoten]
+        if nachDatum {
+            let daten = Dictionary(uniqueKeysWithValues: alt.map { ($0.id, bibliothek.fruehestesDatum($0.id) ?? .distantFuture) })
+            neu = alt.sorted { (daten[$0.id] ?? .distantFuture) < (daten[$1.id] ?? .distantFuture) }
+        } else {
+            neu = alt.sorted { $0.titel.localizedStandardCompare($1.titel) == .orderedAscending }
+        }
+        ebenen[i].eintraege = neu
+        Task {
+            do { try await bibliothek.ordneKinder(ebene, neu.map(\.id)) } catch {
+                meldung = "Die Reihenfolge ließ sich nicht ändern: \(error.localizedDescription)"
+                laden()
+            }
+        }
     }
 }

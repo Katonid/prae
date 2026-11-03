@@ -218,6 +218,58 @@ final class FotoBibliothek: NSObject, PHPhotoLibraryChangeObserver {
         return kiste.wert
     }
 
+    // MARK: Reihenfolge der Alben (seit 1.0.19)
+
+    /// Die direkten Einträge eines Ordners (Alben und Unterordner) in ihrer Reihenfolge.
+    func kinder(_ elternId: String) -> [Knoten] {
+        guard let l = ordner(elternId) else { return [] }
+        var aus: [Knoten] = []
+        PHCollection.fetchCollections(in: l, options: nil).enumerateObjects { c, _, _ in
+            if let a = c as? PHAssetCollection {
+                aus.append(Knoten(id: a.localIdentifier, titel: a.localizedTitle ?? "Ohne Namen", art: .album, tiefe: 0,
+                                  anzahl: PHAsset.fetchAssets(in: a, options: nil).count))
+            } else if let u = c as? PHCollectionList {
+                aus.append(Knoten(id: u.localIdentifier, titel: u.localizedTitle ?? "Ohne Namen", art: .ordner, tiefe: 0, anzahl: 0))
+            }
+        }
+        return aus
+    }
+
+    /// Verschiebt Einträge innerhalb eines Ordners — dieselbe Reihenfolge sieht man danach in
+    /// der Fotos-App, und iCloud gleicht sie auf alle Geräte ab (auch aufs Apple TV).
+    func verschiebeKinder(_ elternId: String, von: IndexSet, nach: Int) async throws {
+        guard let l = ordner(elternId) else { return }
+        try await aendern {
+            let inhalt = PHCollection.fetchCollections(in: l, options: nil)
+            PHCollectionListChangeRequest(for: l, childCollections: inhalt)?.moveChildCollections(at: von, to: nach)
+        }
+    }
+
+    /// Ordnet alle Einträge eines Ordners neu (z. B. nach Name oder Datum).
+    func ordneKinder(_ elternId: String, _ reihenfolge: [String]) async throws {
+        guard let l = ordner(elternId) else { return }
+        try await aendern {
+            let inhalt = PHCollection.fetchCollections(in: l, options: nil)
+            var nachId: [String: PHCollection] = [:]
+            inhalt.enumerateObjects { c, _, _ in nachId[c.localIdentifier] = c }
+            let neu = reihenfolge.compactMap { nachId[$0] }
+            guard neu.count == inhalt.count else { return }
+            PHCollectionListChangeRequest(for: l, childCollections: inhalt)?
+                .replaceChildCollections(at: IndexSet(integersIn: 0..<inhalt.count), withChildCollections: neu as NSArray)
+        }
+    }
+
+    /// Frühestes Aufnahmedatum eines Albums (für „nach Datum"); Ordner: frühestes ihrer Alben.
+    func fruehestesDatum(_ id: String) -> Date? {
+        if let a = album(id) {
+            let o = PHFetchOptions()
+            o.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+            o.fetchLimit = 1
+            return PHAsset.fetchAssets(in: a, options: o).firstObject?.creationDate
+        }
+        return kinder(id).compactMap { fruehestesDatum($0.id) }.min()
+    }
+
     func umbenennen(_ id: String, _ titel: String) async throws {
         if let a = album(id) {
             try await aendern { PHAssetCollectionChangeRequest(for: a)?.title = titel }
