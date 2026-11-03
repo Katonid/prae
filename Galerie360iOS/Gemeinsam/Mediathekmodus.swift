@@ -25,6 +25,18 @@ enum MediathekQuelle: Hashable {
     /// Bestimmte Aufnahmen, z. B. alle an einem Ort der Karte (seit 1.0.15).
     case auswahl(ids: [String], titel: String)
 
+    /// Unter diesem Namen merkt sich das Raster die zuletzt gezeigte Stelle (seit 1.0.18).
+    var positionsSchluessel: String? {
+        switch self {
+        case .alle: return "alle"
+        case .nur360: return "360"
+        case .videos: return "videos"
+        case .album(let id, _): return "album:" + id
+        case .sammlung(let id, _, _): return "sammlung:" + id
+        case .auswahl: return nil
+        }
+    }
+
     /// Nach Aufnahmedatum sortierbar (alles außer einem eigenen Album).
     var istMediathek: Bool { if case .album = self { return false } else { return true } }
 

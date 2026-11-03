@@ -37,7 +37,9 @@ struct MediathekRaster: View {
         ZStack {
             // UIKit-Raster wie die Fotos-App (seit 1.0.17, `RasterSammlung`).
             RasterSammlung(aufnahmen: aufnahmen, stand: datenStand, spalten: aktSpalten, marken: aktSpalten <= 7,
-                           auswaehlen: auswaehlen, gewaehlt: gewaehlt, amEndeBeginnen: springen,
+                           auswaehlen: auswaehlen, gewaehlt: gewaehlt,
+                           positionsSchluessel: quelle.positionsSchluessel,
+                           neuesteUnten: quelle.istMediathek && neuesteUnten, zuNeuesten: springen,
                            getippt: { i in
                                guard aufnahmen.indices.contains(i) else { return }
                                let id = aufnahmen[i].localIdentifier
@@ -116,9 +118,11 @@ struct MediathekRaster: View {
                 geladen = true
                 // Beim Öffnen und nach dem Umstellen dort beginnen, wo die neuesten stehen —
                 // aber NICHT bei jeder Änderung der Mediathek (iCloud), sonst springt das Raster.
-                let umgestellt = geladeneReihenfolge != neuesteUnten
+                // Erstes Öffnen: das Raster geht selbst zur gemerkten Stelle (sonst zu den
+                // neuesten). Nach dem Umstellen der Reihenfolge: zu den neuesten.
+                let umgestellt = geladeneReihenfolge != nil && geladeneReihenfolge != neuesteUnten
                 geladeneReihenfolge = neuesteUnten
-                springen = umgestellt && quelle.istMediathek && neuesteUnten
+                springen = umgestellt
                 datenStand += 1
             }
         .fullScreenCover(item: $offen) { z in

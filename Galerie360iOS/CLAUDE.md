@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -192,6 +192,18 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   erst, wenn die Kachelgröße feststeht (`endeWartet`). tvOS bleibt beim
   SwiftUI-Raster mit `RasterBild` (Fokus-Engine). **NICHT zurück auf
   LazyVGrid.**
+- **Stelle merken** (seit 1.0.18; gemeldet zu 1.0.17: „springt beim Öffnen
+  nicht mehr zu den neuesten … lieber die letzte Ansicht speichern"). Der
+  Sprung in 1.0.17 kam vor dem fertigen Layout und landete oben. Jetzt:
+  `Koordinator.ausstehend` (.neueste / .stelle) wird in
+  `RasterAnsicht.layoutSubviews` NACH `super` angewandt, sobald
+  Kachelgröße und Inhaltshöhe feststehen. Gemerkt wird je Quelle
+  (`MediathekQuelle.positionsSchluessel`, UserDefaults
+  `galerie360.raster.<schlüssel>`) die oberste sichtbare Aufnahme — oder
+  „NEUESTE", wenn man am Rand mit den neuesten steht (dann sieht man beim
+  nächsten Öffnen auch Neues). Gespeichert am Ende jedes Scrollens und beim
+  Schließen. Nicht gefunden (gelöscht) → zu den neuesten; Reihenfolge
+  umgestellt → zu den neuesten. `.auswahl` (Orte) merkt nichts.
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 
