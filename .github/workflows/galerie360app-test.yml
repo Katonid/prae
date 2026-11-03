@@ -155,6 +155,9 @@ jobs:
           # Groß wie ein Insta360-Foto (5760 × 2880) — der Betrachter lädt bis 8192 px.
           sips -z 2880 5760 /tmp/medien/pruef.png --out /tmp/medien/gross.png
           sips -s format jpeg /tmp/medien/gross.png --out /tmp/medien/pruef360.jpg
+          # Normales Foto (4 : 3) — muss flach erscheinen, nicht auf der Kugel (seit 1.0.13).
+          sips -z 1536 2048 /tmp/medien/pruef.png --out /tmp/medien/flach.png
+          sips -s format jpeg /tmp/medien/flach.png --out /tmp/medien/normal.jpg
           # Video ohne ffmpeg (fehlt auf dem Läufer): AVAssetWriter, H.264, 1920 × 960, 4 s.
           cat > /tmp/video.swift <<'SW'
           import AVFoundation
@@ -190,17 +193,17 @@ jobs:
           U=${{ steps.sim.outputs.udid }}
           xcrun simctl install "$U" /tmp/tvbau/Build/Products/Debug-appletvsimulator/Galerie360TV.app
           xcrun simctl privacy "$U" grant photos de.familie.galerie360 || echo "::warning::Fotozugriff ließ sich nicht vorab erlauben"
-          for f in /tmp/medien/pruef360.jpg /tmp/medien/pruef360.mov; do
+          for f in /tmp/medien/pruef360.jpg /tmp/medien/normal.jpg /tmp/medien/pruef360.mov; do
             if [ -f "$f" ]; then
               xcrun simctl addmedia "$U" "$f" || echo "::warning::addmedia $f fehlgeschlagen"
             fi
           done
 
-      - name: Betrachter öffnen (Foto, dann Video)
+      - name: Betrachter öffnen (360°-Foto, normales Foto, Video)
         run: |
           U=${{ steps.sim.outputs.udid }}
           fehler=0
-          for art in foto video; do
+          for art in foto flach video; do
             echo "===== $art ====="
             start=$(date +%s)
             SIMCTL_CHILD_GALERIE360_PRUEFUNG=$art xcrun simctl launch --console-pty --terminate-running-process \

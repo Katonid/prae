@@ -422,15 +422,7 @@ struct Kachel: View {
             AssetBild(asset: asset, groesse: CGSize(width: 640, height: 400))
                 .aspectRatio(16 / 10, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(alignment: .bottomLeading) {
-                    Label(asset.mediaType == .video ? zeitText(asset.duration) : "360°",
-                          systemImage: asset.mediaType == .video ? "video" : "camera")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(.black.opacity(0.55), in: Capsule())
-                        .foregroundStyle(.white)
-                        .padding(8)
-                }
+                .overlay(alignment: .bottomLeading) { KachelMarke(asset: asset).padding(8) }
                 .overlay(alignment: .topTrailing) {
                     if albumbild {
                         Image(systemName: "star.fill").font(.caption).padding(6)

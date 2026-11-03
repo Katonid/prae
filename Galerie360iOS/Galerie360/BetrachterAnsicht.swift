@@ -27,6 +27,8 @@ struct BetrachterAnsicht: View {
     @State private var fortschritt: Double?
     @State private var meldung: String?
     @State private var gemerkt = false
+    /// Normales (nicht 360°) Foto, flach gezeigt (seit 1.0.13).
+    @State private var flachBild: CGImage?
 
     init(albumTitel: String, aufnahmen: [PHAsset], startIndex: Int) {
         self.albumTitel = albumTitel
@@ -43,11 +45,25 @@ struct BetrachterAnsicht: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            PanoramaAnsicht(szene: szene, bewegung: bewegung) {
-                withAnimation(.easeInOut(duration: 0.2)) { bedienung.toggle() }
-                hinweis = false
+            if asset?.ist360 ?? true {
+                PanoramaAnsicht(szene: szene, bewegung: bewegung) { tippen() }
+                    .ignoresSafeArea()
+            } else if let p = player {
+                // Normales Video: ganzes Bild, flach (seit 1.0.13).
+                PlayerFlaeche(player: p)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { tippen() }
+                    .gesture(DragGesture(minimumDistance: 40).onEnded { w in
+                        if abs(w.translation.width) > abs(w.translation.height) { blaettern(w.translation.width < 0 ? 1 : -1) }
+                    })
+            } else if let b = flachBild {
+                // Normales Foto: flach, mit Zoom (seit 1.0.13).
+                ZoomBild(bild: b, beiTippen: tippen, beiWischen: blaettern)
+                    .ignoresSafeArea()
+            } else {
+                Color.black.ignoresSafeArea().onTapGesture { tippen() }
             }
-            .ignoresSafeArea()
 
             if laedt {
                 VStack(spacing: 10) {
@@ -108,10 +124,12 @@ struct BetrachterAnsicht: View {
                 if let a = asset, !(notizen.notiz(a.localIdentifier).beschreibung ?? "").isEmpty {
                     rundknopf(info ? "info.circle.fill" : "info.circle") { info.toggle() }
                 }
-                rundknopf(gemerkt ? "pin.fill" : "pin") { startansichtMerken() }
-                    .accessibilityLabel("Diesen Blick als Startansicht merken")
-                rundknopf(bewegung ? "gyroscope" : "hand.draw") { bewegung.toggle() }
-                    .accessibilityLabel(bewegung ? "Umsehen mit dem Finger" : "Umsehen durch Bewegen des Geräts")
+                if asset?.ist360 ?? true {
+                    rundknopf(gemerkt ? "pin.fill" : "pin") { startansichtMerken() }
+                        .accessibilityLabel("Diesen Blick als Startansicht merken")
+                    rundknopf(bewegung ? "gyroscope" : "hand.draw") { bewegung.toggle() }
+                        .accessibilityLabel(bewegung ? "Umsehen mit dem Finger" : "Umsehen durch Bewegen des Geräts")
+                }
             }
             .padding(.horizontal).padding(.top, 8).padding(.bottom, 24)
             .background(LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom))
@@ -163,6 +181,11 @@ struct BetrachterAnsicht: View {
         }
     }
 
+    private func tippen() {
+        withAnimation(.easeInOut(duration: 0.2)) { bedienung.toggle() }
+        hinweis = false
+    }
+
     private func blaettern(_ r: Int) {
         guard aufnahmen.count > 1 else { return }
         index = (index + r + aufnahmen.count) % aufnahmen.count
@@ -195,6 +218,7 @@ struct BetrachterAnsicht: View {
         meldung = nil
         gemerkt = false
         fortschritt = nil
+        flachBild = nil
         guard let a = asset else { return }
         szene.setzeBild(nil)
         szene.setzeBlick(notizen.blick(a.localIdentifier))
@@ -213,16 +237,16 @@ struct BetrachterAnsicht: View {
                 player = p
                 dauer = a.duration
                 zeit = 0
-                szene.setzeVideo(p)
+                if a.ist360 { szene.setzeVideo(p) }
                 zeitBeobachter = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { t in
                     if !spulen { zeit = t.seconds }
                     laeuft = p.rate > 0
                 }
                 p.play()
             } else {
-                let bild = try await Mediathek.foto(a, maxPixel: 8192) { f in Task { @MainActor in fortschritt = f } }
+                let bild = try await Mediathek.foto(a, maxPixel: a.ist360 ? 8192 : 4096) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
-                szene.setzeBild(bild)
+                if a.ist360 { szene.setzeBild(bild) } else { flachBild = bild }
             }
         } catch {
             if !Task.isCancelled { meldung = "Diese Aufnahme lässt sich nicht laden: \(error.localizedDescription)" }

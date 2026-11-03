@@ -8,6 +8,7 @@ struct StartAnsicht: View {
     @State private var neuerTitel = ""
     @State private var offen: GalerieInfo?
     @State private var meldung: String?
+    @State private var alben: [Knoten] = []
     @State private var umbenennen: GalerieInfo?
     @State private var neuerName = ""
     @State private var loeschen: GalerieInfo?
@@ -22,6 +23,7 @@ struct StartAnsicht: View {
                 }
             }
             .navigationTitle("Galerie 360")
+            .navigationDestination(for: MediathekQuelle.self) { MediathekRaster(quelle: $0) }
             .toolbar {
                 if bibliothek.zugriff == .erlaubt || bibliothek.zugriff == .eingeschraenkt {
                     ToolbarItem(placement: .primaryAction) {
@@ -148,8 +150,10 @@ struct StartAnsicht: View {
             } footer: {
                 Text("Umbenennen oder löschen: Galerie nach links wischen oder lange drücken. Fotos und Videos bleiben in deiner Mediathek (iCloud Fotos); die App speichert keine Kopien. Galerie 360 · Fassung \(AppInfo.fassung)")
             }
+            MediathekAbschnitt(alben: alben)
         }
         .refreshable { bibliothek.aktualisieren() }
+        .task(id: bibliothek.stand) { alben = bibliothek.mediathekAlben() }
     }
 
     private func galerieUmbenennen(_ g: GalerieInfo) {

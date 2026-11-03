@@ -57,10 +57,13 @@ struct PruefBetrachterTV: View {
         Color.black
             .task {
                 let s = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+                // foto = 360°-Foto, flach = normales Foto (nicht 2 : 1), video = erstes Video.
                 let typ: PHAssetMediaType = art == "video" ? .video : .image
-                let alle = PHAsset.fetchAssets(with: typ, options: nil)
-                print("PRUEFUNG: Zugriff \(s.rawValue), \(alle.count) Aufnahme(n) vom Typ \(art)")
-                aufnahmen = alle.firstObject.map { [$0] } ?? []
+                let r = PHAsset.fetchAssets(with: typ, options: nil)
+                let alle = r.count > 0 ? r.objects(at: IndexSet(integersIn: 0..<r.count)) : []
+                let passend = alle.filter { art == "video" || (art == "flach") != $0.ist360 }
+                print("PRUEFUNG: Zugriff \(s.rawValue), \(passend.count) Aufnahme(n) vom Typ \(art)")
+                aufnahmen = passend.first.map { [$0] } ?? []
             }
             .fullScreenCover(isPresented: Binding(get: { aufnahmen != nil }, set: { _ in })) {
                 BetrachterTV(albumTitel: "Prüfung", aufnahmen: aufnahmen ?? [], startIndex: 0)
@@ -72,35 +75,57 @@ struct PruefBetrachterTV: View {
 
 struct StartTV: View {
     @Environment(FotoBibliothek.self) private var bibliothek
+    @State private var alben: [Knoten] = []
+
+    private var mediathekQuellen: [MediathekQuelle] {
+        [.alle, .nur360, .videos] + alben.map { .album(id: $0.id, titel: $0.titel) }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 switch bibliothek.zugriff {
                 case .erlaubt, .eingeschraenkt:
-                    if bibliothek.galerien.isEmpty {
-                        ContentUnavailableView("Noch keine Galerie",
-                                               systemImage: "photo.stack",
-                                               description: Text("Galerien legst du in Galerie 360 auf dem iPhone oder iPad an. Sie erscheinen hier, sobald iCloud Fotos sie auf das Apple TV gebracht hat (Einstellungen › Benutzer und Accounts › iCloud › iCloud Fotos)."))
-                    } else {
-                        ScrollView {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 420), spacing: 48)], spacing: 60) {
-                                ForEach(bibliothek.galerien) { g in
-                                    NavigationLink(value: g) {
-                                        VStack(alignment: .leading, spacing: 0) {
-                                            SammlungsBild(id: g.id, art: .galerie, groesse: CGSize(width: 840, height: 472))
-                                                .frame(width: 420, height: 236)
-                                                .clipped()
-                                            Text(g.titel).font(.headline).lineLimit(1).padding(16)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 40) {
+                            Text("Galerien").font(.title3).foregroundStyle(.secondary)
+                            if bibliothek.galerien.isEmpty {
+                                Text("Galerien legst du in Galerie 360 auf dem iPhone oder iPad an. Sie erscheinen hier, sobald iCloud Fotos sie auf das Apple TV gebracht hat.")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 420), spacing: 48)], spacing: 60) {
+                                    ForEach(bibliothek.galerien) { g in
+                                        NavigationLink(value: g) {
+                                            VStack(alignment: .leading, spacing: 0) {
+                                                SammlungsBild(id: g.id, art: .galerie, groesse: CGSize(width: 840, height: 472))
+                                                    .frame(width: 420, height: 236)
+                                                    .clipped()
+                                                Text(g.titel).font(.headline).lineLimit(1).padding(16)
+                                            }
+                                            .frame(width: 420)
                                         }
-                                        .frame(width: 420)
+                                        .buttonStyle(.card)
+                                    }
+                                }
+                            }
+                            // Mediathek-Modus (seit 1.0.13): die ganze Fotos-Mediathek ansehen.
+                            Text("Fotos-Mediathek").font(.title3).foregroundStyle(.secondary).padding(.top, 30)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 40)], spacing: 40) {
+                                ForEach(mediathekQuellen, id: \.self) { q in
+                                    NavigationLink(value: q) {
+                                        VStack(spacing: 14) {
+                                            Image(systemName: q.symbol).font(.system(size: 50))
+                                            Text(q.titel).font(.headline).lineLimit(1)
+                                        }
+                                        .frame(width: 320, height: 180)
                                     }
                                     .buttonStyle(.card)
                                 }
                             }
-                            .padding(60)
                         }
+                        .padding(60)
                     }
+                    .task(id: bibliothek.stand) { alben = bibliothek.mediathekAlben().filter { $0.art == .album } }
                 case .verweigert:
                     ContentUnavailableView("Kein Zugriff auf Fotos", systemImage: "lock",
                                            description: Text("Bitte in den Einstellungen des Apple TV unter Apps › Galerie 360 den Zugriff auf Fotos erlauben."))
@@ -125,6 +150,7 @@ struct StartTV: View {
             }
             .navigationDestination(for: GalerieInfo.self) { GalerieTV(galerie: $0) }
             .navigationDestination(for: Knoten.self) { AlbumTV(album: $0) }
+            .navigationDestination(for: MediathekQuelle.self) { MediathekRasterTV(quelle: $0) }
         }
     }
 }
@@ -208,14 +234,7 @@ struct AlbumTV: View {
                         VStack(alignment: .leading, spacing: 0) {
                             AssetBild(asset: a, groesse: CGSize(width: 800, height: 450))
                                 .frame(width: 400, height: 225)
-                                .overlay(alignment: .bottomLeading) {
-                                    Label(a.mediaType == .video ? zeitText(a.duration) : "360°",
-                                          systemImage: a.mediaType == .video ? "video" : "camera")
-                                        .font(.caption)
-                                        .padding(.horizontal, 10).padding(.vertical, 4)
-                                        .background(.black.opacity(0.55), in: Capsule())
-                                        .padding(10)
-                                }
+                                .overlay(alignment: .bottomLeading) { KachelMarke(asset: a).padding(10) }
                             Text(notizen.titel(a.localIdentifier) ?? datumText(a.creationDate))
                                 .font(.callout).lineLimit(1)
                                 .padding(14)
@@ -258,8 +277,14 @@ struct BetrachterTV: View {
     @Environment(\.scenePhase) private var phase
     @State private var zeit: Double = 0
     @State private var laedt = false
+    /// Ladestand des Originals im Hintergrund (nil = nicht nötig/fertig) und ob es läuft.
+    @State private var original: Double?
+    @State private var volleQualitaet = false
+    @State private var originalAufgabe: Task<Void, Never>?
     @State private var fortschritt: Double?
     @State private var meldung: String?
+    /// Normales (nicht 360°) Foto, flach gezeigt (seit 1.0.13).
+    @State private var flachBild: CGImage?
 
     init(albumTitel: String, aufnahmen: [PHAsset], startIndex: Int) {
         self.albumTitel = albumTitel
@@ -283,6 +308,24 @@ struct BetrachterTV: View {
             })
             .ignoresSafeArea()
 
+            // Normale Fotos und Videos flach darüber (seit 1.0.13). Die Kugel darunter bleibt
+            // die fokussierte Fläche: Sie nimmt weiter Tasten an (blättern, Play/Pause, Hilfe).
+            if let a = asset, !a.ist360 {
+                Group {
+                    if a.mediaType == .video, let p = player {
+                        PlayerFlaeche(player: p)
+                    } else if let b = flachBild {
+                        Image(decorative: b, scale: 1).resizable().scaledToFit()
+                    } else {
+                        Color.black
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            }
+
             if laedt {
                 VStack(spacing: 16) {
                     ProgressView()
@@ -291,6 +334,15 @@ struct BetrachterTV: View {
             }
             if let meldung {
                 Text(meldung).padding(30).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+            }
+            if !hinweis, asset?.mediaType == .video, original != nil || volleQualitaet {
+                qualitaetsHinweis
+                    .padding(.horizontal, 18).padding(.vertical, 8)
+                    .background(.black.opacity(0.45), in: Capsule())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(50)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
             }
             if hinweis {
                 VStack {
@@ -304,8 +356,11 @@ struct BetrachterTV: View {
                         ProgressView(value: min(zeit, a.duration), total: a.duration)
                             .tint(.white)
                             .padding(.bottom, 12)
+                        qualitaetsHinweis.padding(.bottom, 8)
                     }
-                    Text("Wischen: umsehen  ·  oben/unten klicken: Zoom  ·  links/rechts: blättern  ·  Play/Pause: Video  ·  Mitte: diese Hilfe aus")
+                    Text(asset?.ist360 ?? true
+                         ? "Wischen: umsehen  ·  oben/unten klicken: Zoom  ·  links/rechts: blättern  ·  Play/Pause: Video  ·  Mitte: diese Hilfe aus"
+                         : "links/rechts: blättern  ·  Play/Pause: Video  ·  Mitte: diese Hilfe aus")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -350,6 +405,7 @@ struct BetrachterTV: View {
         stoppen()
         meldung = nil
         fortschritt = nil
+        flachBild = nil
         guard let a = asset else { return }
         szene.setzeBild(nil)
         szene.setzeBlick(notizen.blick(a.localIdentifier))
@@ -370,17 +426,18 @@ struct BetrachterTV: View {
                 p.actionAtItemEnd = .pause
                 player = p
                 zeit = 0
-                szene.setzeVideo(p)
+                if a.ist360 { szene.setzeVideo(p) }
                 zeitBeobachter = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { t in
                     zeit = t.seconds
                 }
                 tonAn(p)
                 p.play()
+                originalNachladen(a, in: p)
             } else {
                 // Apple TV 4K: Texturen bis 16384 — 8192 ist scharf und schont den Speicher.
-                let bild = try await Mediathek.foto(a, maxPixel: 8192) { f in Task { @MainActor in fortschritt = f } }
+                let bild = try await Mediathek.foto(a, maxPixel: a.ist360 ? 8192 : 3840) { f in Task { @MainActor in fortschritt = f } }
                 guard !Task.isCancelled else { return }
-                szene.setzeBild(bild)
+                if a.ist360 { szene.setzeBild(bild) } else { flachBild = bild }
             }
         } catch {
             if !Task.isCancelled { meldung = "Diese Aufnahme lässt sich nicht laden: \(error.localizedDescription)" }
@@ -426,7 +483,46 @@ struct BetrachterTV: View {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
+    @ViewBuilder
+    private var qualitaetsHinweis: some View {
+        if volleQualitaet {
+            Label("Volle Qualität", systemImage: "checkmark.seal").font(.caption)
+        } else if let o = original {
+            Label("Volle Qualität wird geladen: \(Int(o * 100)) %", systemImage: "arrow.down.circle").font(.caption)
+        }
+    }
+
+    /// Spielt zuerst die flüssige Fassung (`.automatic`) und lädt im Hintergrund das Original.
+    /// Ist es ganz da, wechselt der Player an derselben Stelle darauf — volle Schärfe, und
+    /// weil die Datei auf dem Gerät liegt, ohne Stocken (Nutzer 11/2026: „Bildqualität nicht
+    /// mehr ausreichend" mit `.automatic`, mit dem gestreamten Original stockte es).
+    private func originalNachladen(_ a: PHAsset, in p: AVPlayer) {
+        original = 0
+        volleQualitaet = false
+        originalAufgabe = Task {
+            do {
+                let item = try await Mediathek.videoOriginal(a) { f in Task { @MainActor in if original != nil { original = f } } }
+                guard !Task.isCancelled, player === p else { return }
+                let stelle = p.currentTime()
+                let lief = p.rate > 0
+                p.replaceCurrentItem(with: item)
+                await p.seek(to: stelle, toleranceBefore: .zero, toleranceAfter: .zero)
+                if lief { p.play() }
+                original = nil
+                withAnimation { volleQualitaet = true }
+                try? await Task.sleep(for: .seconds(4))
+                withAnimation { volleQualitaet = false }
+            } catch {
+                original = nil // bleibt bei der flüssigen Fassung
+            }
+        }
+    }
+
     private func stoppen() {
+        originalAufgabe?.cancel()
+        originalAufgabe = nil
+        original = nil
+        volleQualitaet = false
         tonAus()
         if let p = player {
             p.pause()
@@ -435,5 +531,42 @@ struct BetrachterTV: View {
         }
         zeitBeobachter = nil
         player = nil
+    }
+}
+
+/// Mediathek-Modus auf dem Apple TV (seit 1.0.13): Aufnahmen als Kacheln; der Betrachter
+/// zeigt normale Fotos und Videos flach, 360°-Aufnahmen rundum.
+struct MediathekRasterTV: View {
+    let quelle: MediathekQuelle
+    @Environment(FotoBibliothek.self) private var bibliothek
+    @State private var aufnahmen: [PHAsset] = []
+    @State private var geladen = false
+    @State private var offen: BetrachterZielTV?
+
+    var body: some View {
+        ScrollView {
+            if geladen && aufnahmen.isEmpty {
+                ContentUnavailableView(quelle == .nur360 ? "Keine 360°-Aufnahmen" : "Keine Aufnahmen", systemImage: quelle.symbol)
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 40)], spacing: 40) {
+                ForEach(Array(aufnahmen.enumerated()), id: \.element.localIdentifier) { i, a in
+                    Button { offen = BetrachterZielTV(index: i) } label: {
+                        AssetBild(asset: a, groesse: CGSize(width: 600, height: 338))
+                            .frame(width: 300, height: 169)
+                            .overlay(alignment: .bottomLeading) { KachelMarke(asset: a).padding(8) }
+                    }
+                    .buttonStyle(.card)
+                }
+            }
+            .padding(60)
+        }
+        .navigationTitle(quelle.titel)
+        .task(id: bibliothek.stand) {
+            aufnahmen = bibliothek.aufnahmen(quelle)
+            geladen = true
+        }
+        .fullScreenCover(item: $offen) { z in
+            BetrachterTV(albumTitel: quelle.titel, aufnahmen: aufnahmen, startIndex: z.index)
+        }
     }
 }
