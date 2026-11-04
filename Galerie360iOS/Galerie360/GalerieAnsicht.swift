@@ -16,6 +16,7 @@ struct GalerieAnsicht: View {
     @State private var loeschen: Knoten?
     @State private var galerieLoeschen = false
     @State private var ordnen = false
+    @State private var webTeilen = false
     @State private var meldung: String?
 
     /// Was der Namensdialog gerade erfragt.
@@ -65,6 +66,7 @@ struct GalerieAnsicht: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button { webTeilen = true } label: { Label("Im Web teilen …", systemImage: "globe") }
                         Button { ordnen = true } label: { Label("Alben ordnen …", systemImage: "arrow.up.arrow.down") }
                         Button { eingabe = titel; frage = .galerieUmbenennen } label: { Label("Galerie umbenennen …", systemImage: "pencil") }
                         Button(role: .destructive) { galerieLoeschen = true } label: { Label("Galerie löschen …", systemImage: "trash") }
@@ -108,6 +110,7 @@ struct GalerieAnsicht: View {
         } message: {
             Text("Nur das Album bzw. der Ordner verschwindet — die Fotos und Videos bleiben in deiner Mediathek.")
         }
+        .sheet(isPresented: $webTeilen) { WebAnsicht(galerie: GalerieInfo(id: galerie.id, titel: titel)) }
         .sheet(isPresented: $ordnen) { AlbenOrdnen(galerie: GalerieInfo(id: galerie.id, titel: titel)) }
         .confirmationDialog("Galerie „\(titel)“ löschen?", isPresented: $galerieLoeschen, titleVisibility: .visible) {
             Button("Galerie mit ihren Alben löschen", role: .destructive) {
@@ -263,7 +266,7 @@ struct GalerieAnsicht: View {
     }
 }
 
-/// Ein Album: Aufnahmen als Raster; „Bearbeiten" zum Ordnen und Entfernen.
+/// Ein Album: Aufnahmen als Raster; „Bearbeiten“ zum Ordnen und Entfernen.
 struct AlbumAnsicht: View {
     let albumId: String
     let titel: String
@@ -450,7 +453,7 @@ struct AlbumVorschau: View {
 }
 
 /// Reihenfolge der Alben einer Galerie ändern (seit 1.0.19, Wunsch 11/2026): am Griff ziehen,
-/// je Ebene (Galerie und jeder Ordner für Unteralben); dazu „nach Name" und „nach Datum".
+/// je Ebene (Galerie und jeder Ordner für Unteralben); dazu „nach Name“ und „nach Datum“.
 /// Gespeichert in der Fotos-Mediathek — gleiche Reihenfolge in der Fotos-App, auf allen
 /// Geräten und auf dem Apple TV.
 struct AlbenOrdnen: View {

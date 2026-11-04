@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen, 1.0.20 (21) Kachelmarken wieder da, 1.0.21 (22) Im Web teilen.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -223,6 +223,13 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
   dann gleich die richtige Stelle. Ablage-Schlüssel neu `galerie360.raster2.`
   (was 1.0.18 gemerkt hatte, konnte wegen des gescheiterten Sprungs „ganz
   oben" sein).
+- **Kachelmarken** (seit 1.0.20; gemeldet: „360-Grad-Fotos und -Videos werden in
+  der Kachelansicht nicht mehr markiert"). Das UIKit-Raster blendete die
+  Marke ab acht Kacheln je Zeile ganz aus (`marken: aktSpalten <= 7`) und
+  legte sie von Hand aus. Jetzt `KachelZelle.Etikett` per Auto Layout unten
+  links, IMMER gezeigt; bei kleinen Kacheln knapp („360°", „360° ▶︎", „▶︎"),
+  sonst mit Länge. Test `KachelMarkeTests` (sichtbar, in der Kachel, über
+  dem Bild — für 40, 100 und 300 pt).
 - Fehlercode 3072 (`PHPhotosError.userCancelled`) = Nutzer hat die
   Rückfrage von iOS abgebrochen — keine Fehlermeldung zeigen.
 
@@ -340,14 +347,75 @@ Fernbedienung umsehen, Zoom „irgendwie einstellen".
   auf diesen Job schauen** — er hat den externalMetadata-Absturz in einem
   Lauf gefunden, nach dem fünf Fassungen grün übersetzt hatten.
 
+## Im Web teilen (seit 1.0.21)
+
+Wunsch des Nutzers (11/2026): „360-Grad-Alben von Urlauben … mit anderen
+Menschen teilen, die z. T. kein iPhone haben … die iOS-App als Grundlage, die
+Webapp möglichst komfortabel synchronisieren". Antworten: Strato, genug
+Speicher, „nur mit laaaaangem Link", „Ansehen".
+
+- **Die App ist die EINZIGE Quelle, das Web ihr Spiegel.** Kein Abgleich in
+  beide Richtungen (Konflikte). Bearbeitet wird nur in der App; die
+  Web-App `galerie360/` bleibt der Betrachter für Gäste (ihr Editor ist für
+  diese Galerien nicht nötig).
+- Galerie → „…" → „Im Web teilen …" (`Web/WebAnsicht.swift`): einmal
+  einrichten (Adresse, Empfangsdatei, Verbindung prüfen), dann
+  „Im Web veröffentlichen" / „Aktualisieren", Link + QR-Code, „Aus dem Web
+  entfernen".
+- **Format = das der Web-App** (`Web/WebFormat.swift`, nachgebaut nach
+  `galerie360/js/export.js`): je Galerie und je Album ein Ordner
+  `<lesbar>-<26 Zeichen>` direkt unter der Basis (Vorgabe
+  `https://jerosch.net/apps/galerie360/360Grad/`), Daten in `index.html`,
+  Betrachter in JEDEM Ordner (`assets/`), leere `index.html` in jedem
+  Unterordner. Alle Seiten geheim, `noindex`, `no-referrer`,
+  `downloads: false`. Ordner für Unteralben = Album ohne Aufnahmen mit
+  Karten. Kennungen ohne „/" (`webId`). **Nur 360°-Aufnahmen** (der
+  Web-Betrachter zieht alles auf die Kugel); die Zahl der übersprungenen
+  steht als Hinweis da.
+- **Betrachter-Kopie:** `Web/Betrachter/galerie.js.txt` und `.css.txt` =
+  `galerie360/galerie/galerie.js`/`.css` Byte für Byte (als .txt, damit Xcode
+  sie als Ressource kopiert und nicht zu kompilieren versucht). Der Job
+  „Web-Galerie im Browser" prüft das per `cmp` — **nach jeder Änderung am
+  Web-Betrachter dorthin kopieren.**
+- **Aufbereitung** (`Web/WebAufbereitung.swift`, Arbeitsordner unter `tmp/`,
+  nach dem Hochladen gelöscht): Fotos JPEG 0,9 in voller Größe + 8192 +
+  4096 (wie die Web-App), neu gerechnet OHNE Metadaten (kein GPS für
+  Gäste). Videos: H.264 3840 × 1920 mit 50 Mbit/s (AVAssetReader/Writer,
+  Ton auf Stereo-AAC gemischt) — spielt überall; wahlweise dazu das
+  Original per Passthrough (`metadataItemFilter = .forSharing()`).
+  Codec-Kennung aus avcC/hvcC wie `medien.js`. Vorschau 800 × 500 aus
+  PhotoKits Bild in der Startansicht (`Ausschnitt`), Name mit Zufallsteil —
+  bei neuer Startansicht neu, ohne das Original zu laden.
+- **Hochladen** (`Web/WebEmpfang.swift`): Empfangsdatei
+  `galerie360-empfang.php` (Vorlage `Web/galerie360-empfang-vorlage.txt`)
+  einmal per Strato-Dateimanager/FTP in die Basis. Sie kennt nur die
+  SHA-256 des Schlüssels (64 Zufallszeichen im Schlüsselbund,
+  `WebSchluessel`); schreibt/löscht NUR in Ordnern mit 26 Zufallszeichen,
+  nur html/js/css/json/jpg/png/mp4/mov, nie PHP/.htaccess. Teil-Upload mit
+  Versatz (Stück = halbe `post_max_size`, höchstens 8 MB), Größenprüfung am
+  Ende. Geprüft mit `scripts/test-empfang.sh` (24 Fälle, `php -S`).
+- **Nur Änderungen** (`Web/WebVeroeffentlichung.swift`, `WebStand` in
+  Application Support): je Galerie die Ordnernamen (Link bleibt gleich)
+  und je Aufnahme `fassung` (Änderungsdatum + Videowahl), Dateien,
+  Vorschau. Vor dem Lauf `liste` vom Server: Fehlt eine Datei, wird die
+  Aufnahme neu gemacht. Nach jeder Aufnahme gespeichert (Abbruch verliert
+  nichts). Seiten immer neu; am Ende alles löschen, was nicht mehr
+  gebraucht wird (auch ganze Albumordner). `WebStand` liegt nur auf DIESEM
+  Gerät — vom zweiten Gerät aus entstünde eine neue Web-Galerie.
+- Tests: `WebFormatTests` (Ordnernamen, Codec-Kennungen, Adresse, Bündel,
+  Seiten) schreibt zusätzlich eine Beispiel-Galerie; der Linux-Job „Web-
+  Galerie im Browser" öffnet sie mit `scripts/web-probe.js` in Chromium
+  (Rechner + Handy: Karten, Vorschauen, Albumseite, Foto im Betrachter,
+  Unteralbum, Sonderzeichen, keine Skriptfehler). Echte Videos und Strato
+  selbst prüft CI NICHT.
+
 ## Noch nicht in der App
 
-Hotspots, Export zur Web-Galerie (ZIP für den Webspace), Übernahme einer
-Web-Galerie (Sicherung) in Fotos-Alben.
+Hotspots, Übernahme einer Web-Galerie (Sicherung) in Fotos-Alben.
 
 ## Tests
 
 `Galerie360Tests/` (XCTest, App als Host): `PanoramaTests`, `NotizenTests`,
-`SortierungTests`, `AusschnittTests`, `KoordinatenTests`, `TeilenAngabenTests`. PhotoKit selbst ist im Simulator ohne Berechtigung nicht
+`SortierungTests`, `AusschnittTests`, `KoordinatenTests`, `TeilenAngabenTests`, `WebFormatTests`. PhotoKit selbst ist im Simulator ohne Berechtigung nicht
 prüfbar. Läuft in `.github/workflows/galerie360app-test.yml` bei jedem Push
 unter `Galerie360iOS/`; der Bau zusätzlich in `ios-apps-build.yml`.

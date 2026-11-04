@@ -41,3 +41,31 @@ final class RasterSpaltenTests: XCTestCase {
         XCTAssertEqual(MediathekRaster.spalten(start: 5, faktor: 0), 5)
     }
 }
+
+/// Kachelmarke im UIKit-Raster: sichtbar, über dem Bild, innerhalb der Kachel (seit 1.0.20 —
+/// gemeldet: „360°-Fotos und -Videos werden nicht mehr markiert").
+final class KachelMarkeTests: XCTestCase {
+    func testMarkeIstSichtbarUndLiegtInDerKachel() {
+        for seite in [40.0, 100.0, 300.0] as [CGFloat] {
+            let z = KachelZelle(frame: CGRect(x: 0, y: 0, width: seite, height: seite))
+            z.ist360 = true
+            z.marke("360°", klein: seite < 60)
+            z.layoutIfNeeded()
+            z.contentView.layoutIfNeeded()
+            let m = z.markenText
+            XCTAssertFalse(m.isHidden)
+            XCTAssertGreaterThan(m.frame.width, 10, "Kachel \(seite)")
+            XCTAssertGreaterThan(m.frame.height, 8, "Kachel \(seite)")
+            XCTAssertTrue(z.contentView.bounds.contains(m.frame), "Marke ragt aus der Kachel (\(seite))")
+            let unten = z.contentView.subviews.firstIndex(of: z.bild) ?? -1
+            let oben = z.contentView.subviews.firstIndex(of: m) ?? -1
+            XCTAssertGreaterThan(oben, unten, "Marke liegt unter dem Bild")
+        }
+    }
+
+    func testOhneMarkeVersteckt() {
+        let z = KachelZelle(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        z.marke(nil)
+        XCTAssertTrue(z.markenText.isHidden)
+    }
+}

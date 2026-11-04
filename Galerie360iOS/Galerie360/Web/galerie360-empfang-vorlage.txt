@@ -1,0 +1,142 @@
+<?php
+/*
+ * Galerie 360 — Empfang auf dem eigenen Webspace (z. B. Strato).
+ *
+ * Diese Datei erzeugt die App „Galerie 360" auf dem iPhone/iPad. Sie liegt im
+ * Ordner, in dem die Galerien entstehen (Vorgabe: apps/galerie360/360Grad/),
+ * und nimmt von der App die Dateien einer veröffentlichten Galerie an.
+ *
+ * Sicherheit:
+ *  - Nur wer den geheimen Schlüssel kennt, darf schreiben. In dieser Datei steht
+ *    nicht der Schlüssel selbst, nur seine SHA-256-Prüfsumme.
+ *  - Geschrieben und gelöscht wird nur in Ordnern mit 26 Zufallszeichen im Namen
+ *    (so legt Galerie 360 jede Galerie und jedes Album an) — nie diese Datei,
+ *    nie andere Ordner des Webspace.
+ *  - Nur Dateiarten einer Galerie: html, js, css, json, jpg, png, mp4, mov.
+ *    Nie PHP oder .htaccess.
+ */
+declare(strict_types=1);
+
+const SCHLUESSEL_SHA256 = '{{SCHLUESSEL_SHA256}}';
+const FASSUNG = 1;
+const ORDNER = '/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?[a-z2-7]{26}$/';
+const TEIL = '/^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/';
+const ENDUNGEN = ['html', 'js', 'css', 'json', 'jpg', 'jpeg', 'png', 'mp4', 'mov'];
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+header('X-Robots-Tag: noindex, nofollow');
+
+function antwort(int $status, array $daten): void {
+    http_response_code($status);
+    echo json_encode($daten, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    antwort(405, ['fehler' => 'Nur für die App Galerie 360.']);
+}
+$schluessel = $_SERVER['HTTP_X_G360_SCHLUESSEL'] ?? '';
+if ($schluessel === '' || !hash_equals(SCHLUESSEL_SHA256, hash('sha256', $schluessel))) {
+    usleep(300000); // Raten bremsen
+    antwort(403, ['fehler' => 'Falscher Schlüssel.']);
+}
+
+$basis = __DIR__;
+
+/** Prüft einen relativen Pfad: erster Teil ein Galerie-/Albumordner, keine Sprünge nach oben. */
+function pfadPruefen(string $pfad, bool $mussDatei): array {
+    $teile = explode('/', $pfad);
+    if (count($teile) < 1 || count($teile) > 6) antwort(400, ['fehler' => 'Ungültiger Pfad.']);
+    if (!preg_match(ORDNER, $teile[0])) antwort(400, ['fehler' => 'Ungültiger Ordner.']);
+    foreach (array_slice($teile, 1) as $t) {
+        if (!preg_match(TEIL, $t) || $t === '..' || $t === '.') antwort(400, ['fehler' => 'Ungültiger Pfad.']);
+    }
+    if ($mussDatei) {
+        if (count($teile) < 2) antwort(400, ['fehler' => 'Ungültiger Dateiname.']);
+        $endung = strtolower(pathinfo(end($teile), PATHINFO_EXTENSION));
+        if (!in_array($endung, ENDUNGEN, true)) antwort(400, ['fehler' => 'Diese Dateiart ist nicht erlaubt.']);
+    }
+    return $teile;
+}
+
+function loeschenRekursiv(string $weg): void {
+    if (is_dir($weg) && !is_link($weg)) {
+        foreach (scandir($weg) ?: [] as $e) {
+            if ($e === '.' || $e === '..') continue;
+            loeschenRekursiv($weg . '/' . $e);
+        }
+        @rmdir($weg);
+    } elseif (file_exists($weg) || is_link($weg)) {
+        @unlink($weg);
+    }
+}
+
+$aktion = $_GET['aktion'] ?? '';
+switch ($aktion) {
+    case 'pruefen':
+        // Darf hier geschrieben werden? Grenzen des Servers für die Teilgröße.
+        $probe = $basis . '/.g360-probe-' . bin2hex(random_bytes(6));
+        $schreibbar = @file_put_contents($probe, 'x') === 1;
+        if ($schreibbar) @unlink($probe);
+        antwort(200, [
+            'ok' => true, 'fassung' => FASSUNG, 'schreibbar' => $schreibbar,
+            'post_max_size' => ini_get('post_max_size'), 'php' => PHP_VERSION,
+        ]);
+
+    case 'liste':
+        // Dateien eines Ordners mit Größe — die App vergleicht damit, was fehlt.
+        $teile = pfadPruefen((string)($_GET['ordner'] ?? ''), false);
+        if (count($teile) !== 1) antwort(400, ['fehler' => 'Nur ganze Ordner.']);
+        $wurzel = $basis . '/' . $teile[0];
+        $dateien = [];
+        if (is_dir($wurzel)) {
+            $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($wurzel, FilesystemIterator::SKIP_DOTS));
+            foreach ($it as $datei) {
+                if (!$datei->isFile() || str_ends_with($datei->getFilename(), '.teil')) continue;
+                $rel = substr($datei->getPathname(), strlen($basis) + 1);
+                $dateien[str_replace('\\', '/', $rel)] = $datei->getSize();
+            }
+        }
+        antwort(200, ['ok' => true, 'dateien' => (object)$dateien]);
+
+    case 'hochladen':
+        // Teilstück einer Datei. versatz = Stelle in der Datei; ende=1 beim letzten Stück.
+        $teile = pfadPruefen((string)($_GET['pfad'] ?? ''), true);
+        $ziel = $basis . '/' . implode('/', $teile);
+        $versatz = (int)($_GET['versatz'] ?? 0);
+        $ende = ($_GET['ende'] ?? '') === '1';
+        $ordner = dirname($ziel);
+        if (!is_dir($ordner) && !@mkdir($ordner, 0755, true)) antwort(500, ['fehler' => 'Ordner ließ sich nicht anlegen.']);
+        $teil = $ziel . '.teil';
+        $bisher = is_file($teil) ? filesize($teil) : 0;
+        if ($versatz === 0 && $bisher > 0) { @unlink($teil); $bisher = 0; }
+        if ($versatz !== $bisher) antwort(409, ['fehler' => 'Falsche Stelle.', 'versatz' => $bisher]);
+        $ein = fopen('php://input', 'rb');
+        $aus = fopen($teil, $versatz === 0 ? 'wb' : 'ab');
+        if (!$ein || !$aus) antwort(500, ['fehler' => 'Datei ließ sich nicht schreiben.']);
+        $anzahl = stream_copy_to_stream($ein, $aus);
+        fclose($ein);
+        fclose($aus);
+        clearstatcache();
+        $neu = filesize($teil);
+        if ($ende) {
+            $erwartet = (int)($_GET['groesse'] ?? -1);
+            if ($erwartet >= 0 && $neu !== $erwartet) {
+                @unlink($teil);
+                antwort(422, ['fehler' => 'Datei unvollständig angekommen.', 'groesse' => $neu]);
+            }
+            if (!@rename($teil, $ziel)) antwort(500, ['fehler' => 'Datei ließ sich nicht ablegen.']);
+            @chmod($ziel, 0644);
+        }
+        antwort(200, ['ok' => true, 'versatz' => $neu, 'empfangen' => $anzahl]);
+
+    case 'loeschen':
+        // Datei oder ganzer Galerie-/Albumordner.
+        $teile = pfadPruefen((string)($_GET['pfad'] ?? ''), false);
+        loeschenRekursiv($basis . '/' . implode('/', $teile));
+        antwort(200, ['ok' => true]);
+
+    default:
+        antwort(400, ['fehler' => 'Unbekannte Aktion.']);
+}

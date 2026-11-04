@@ -12,6 +12,7 @@ on:
   push:
     paths:
       - 'Galerie360iOS/**'
+      - 'galerie360/galerie/**'
       - '.github/workflows/galerie360app-test.yml'
   workflow_dispatch:
 
@@ -52,6 +53,23 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee /tmp/test.log
+
+      - name: Beispiel-Galerie fürs Web einsammeln
+        if: always()
+        run: |
+          # WebFormatTests.testProbeGalerieSchreiben schreibt sie in den Simulator und nennt den Ort.
+          ORT=$(grep -ho 'G360-WEB-PROBE: .*' /tmp/test.log | head -1 | sed 's/G360-WEB-PROBE: //')
+          mkdir -p /tmp/web-probe
+          if [ -n "$ORT" ] && [ -d "$ORT" ]; then cp -R "$ORT"/. /tmp/web-probe/; ls /tmp/web-probe; else echo "::warning::keine Beispiel-Galerie gefunden"; fi
+
+      - name: Beispiel-Galerie aufheben
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-probe
+          path: /tmp/web-probe
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Fehler und Warnungen zusammenfassen
         if: always()
@@ -247,3 +265,42 @@ jobs:
                       print(" ", name, fr.get("symbol", "?"), fr.get("symbolLocation", ""))
           PY
           done
+
+  web:
+    # Web-Galerie aus der iOS-App (seit 1.0.21): Die Beispiel-Galerie, die die App-Tests erzeugt
+    # haben, im echten Betrachter in Chromium öffnen; die Empfangsdatei mit PHP prüfen; und
+    # sicherstellen, dass die App denselben Betrachter mitbringt wie die Web-App. Linux — belegt
+    # keinen macOS-Läufer.
+    name: Web-Galerie im Browser
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+    timeout-minutes: 15
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Betrachter in der App = Betrachter der Web-App
+        run: |
+          for f in galerie.js galerie.css; do
+            cmp galerie360/galerie/$f Galerie360iOS/Galerie360/Web/Betrachter/$f.txt || {
+              echo "::error::Galerie360iOS/Galerie360/Web/Betrachter/$f.txt weicht von galerie360/galerie/$f ab — nach Änderungen am Web-Betrachter dorthin kopieren (als .txt)."
+              exit 1
+            }
+          done
+
+      - name: Empfangsdatei mit PHP prüfen
+        run: bash Galerie360iOS/scripts/test-empfang.sh
+
+      - name: Beispiel-Galerie holen
+        uses: actions/download-artifact@v4
+        with:
+          name: web-probe
+          path: /tmp/web-probe
+
+      - name: Im Browser öffnen
+        run: |
+          npm install --no-save --silent playwright@1.49.1
+          npx playwright install --with-deps chromium > /dev/null
+          node Galerie360iOS/scripts/web-probe.js /tmp/web-probe

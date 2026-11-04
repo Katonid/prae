@@ -16,6 +16,17 @@
   kein Chatverlauf.
 - Ausführlich: `README.md`, Bedienung: `anleitung.html`.
 
+## Die iOS-App bringt diesen Betrachter mit (seit 11/2026)
+
+Galerie 360 für iPhone/iPad veröffentlicht Galerien selbst auf dem Webspace
+(Format dieser Web-App, siehe `Galerie360iOS/CLAUDE.md` „Im Web teilen").
+Sie enthält dafür `galerie/galerie.js` und `galerie.css` als Kopie
+(`Galerie360iOS/Galerie360/Web/Betrachter/*.txt`). **Nach jeder Änderung am
+Betrachter dorthin kopieren** — der Job „Web-Galerie im Browser" in
+`galerie360app-test.yml` vergleicht beide und schlägt sonst fehl. Ändert sich
+das Datenformat (`G.galerieDaten`), auch `Galerie360iOS/Galerie360/Web/WebFormat.swift`
+nachziehen.
+
 ## Webspace-ZIP — zu JEDER Arbeitseinheit, ohne Nachfrage
 
 Ansage des Nutzers (10/2026): **„Gib immer ein ZIP mit an, in dem die
