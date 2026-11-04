@@ -16,6 +16,7 @@ struct GalerieAnsicht: View {
     @State private var loeschen: Knoten?
     @State private var galerieLoeschen = false
     @State private var ordnen = false
+    @State private var webTeilen = false
     @State private var meldung: String?
 
     /// Was der Namensdialog gerade erfragt.
@@ -65,6 +66,7 @@ struct GalerieAnsicht: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button { webTeilen = true } label: { Label("Im Web teilen …", systemImage: "globe") }
                         Button { ordnen = true } label: { Label("Alben ordnen …", systemImage: "arrow.up.arrow.down") }
                         Button { eingabe = titel; frage = .galerieUmbenennen } label: { Label("Galerie umbenennen …", systemImage: "pencil") }
                         Button(role: .destructive) { galerieLoeschen = true } label: { Label("Galerie löschen …", systemImage: "trash") }
@@ -108,6 +110,7 @@ struct GalerieAnsicht: View {
         } message: {
             Text("Nur das Album bzw. der Ordner verschwindet — die Fotos und Videos bleiben in deiner Mediathek.")
         }
+        .sheet(isPresented: $webTeilen) { WebAnsicht(galerie: GalerieInfo(id: galerie.id, titel: titel)) }
         .sheet(isPresented: $ordnen) { AlbenOrdnen(galerie: GalerieInfo(id: galerie.id, titel: titel)) }
         .confirmationDialog("Galerie „\(titel)“ löschen?", isPresented: $galerieLoeschen, titleVisibility: .visible) {
             Button("Galerie mit ihren Alben löschen", role: .destructive) {
