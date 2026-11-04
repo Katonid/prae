@@ -18,7 +18,8 @@ U=http://127.0.0.1:8765/360Grad/galerie360-empfang.php
 O=urlaub-abcdefghijklmnopqrstuvwxyz
 FEHLER=0
 pruefe() { if [ "$1" = "$2" ]; then echo "  ✓ $3"; else echo "  ✗ $3 (erwartet $2, war $1)"; FEHLER=$((FEHLER+1)); fi; }
-code() { curl -s -o /dev/null -w "%{http_code}" "$@"; }
+# Wie die App: Inhalt immer als application/octet-stream (sonst liest PHP Binärdaten als Formular).
+code() { curl -s -o /dev/null -w "%{http_code}" -H "Content-Type: application/octet-stream" "$@"; }
 
 pruefe "$(code -X POST -H "X-G360-Schluessel: $KEY" "$U?aktion=pruefen")" 200 "richtiger Schlüssel"
 pruefe "$(code -X POST -H "X-G360-Schluessel: falsch" "$U?aktion=pruefen")" 403 "falscher Schlüssel abgewiesen"
@@ -31,7 +32,7 @@ pruefe "$(code -X POST -H "X-G360-Schluessel: $KEY" --data-binary @"$W/t2" "$U?a
 cmp -s "$W/gross.bin" "$W/web/360Grad/$O/media/videos/a.mp4"; pruefe $? 0 "Datei kommt Byte für Byte an"
 pruefe "$(code -X POST -H "X-G360-Schluessel: $KEY" --data-binary @"$W/t2" "$U?aktion=hochladen&pfad=$O/b.jpg&versatz=99")" 409 "falsche Stelle abgewiesen"
 pruefe "$(code -X POST -H "X-G360-Schluessel: $KEY" --data-binary 'kurz' "$U?aktion=hochladen&pfad=$O/c.jpg&versatz=0&ende=1&groesse=99")" 422 "unvollständige Datei abgewiesen"
-LISTE=$(curl -s -X POST -H "X-G360-Schluessel: $KEY" "$U?aktion=liste&ordner=$O")
+LISTE=$(curl -s -X POST -H "Content-Type: application/octet-stream" -H "X-G360-Schluessel: $KEY" "$U?aktion=liste&ordner=$O")
 case "$LISTE" in *"$O/media/videos/a.mp4\":3000000"*) pruefe 1 1 "Liste mit Größe";; *) pruefe "$LISTE" "…a.mp4:3000000" "Liste mit Größe";; esac
 
 for p in "../andere.txt" "$O/../andere.txt" "$O/x.php" "$O/x.PHP" "$O/.htaccess" "andere.txt" "normalerordner/x.jpg" "$O/a/../../x.jpg" "$O/x.phtml"; do
