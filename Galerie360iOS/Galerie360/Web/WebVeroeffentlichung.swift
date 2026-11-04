@@ -92,7 +92,7 @@ final class WebVeroeffentlichung {
                 try await lauf(galerie: galerie, bibliothek: bibliothek, notizen: notizen)
                 zustand = .fertig
             } catch is CancellationError {
-                zustand = .fehler("Abgebrochen. Was schon oben ist, bleibt; „Aktualisieren" macht dort weiter.")
+                zustand = .fehler("Abgebrochen. Was schon oben ist, bleibt; „Aktualisieren“ macht dort weiter.")
             } catch {
                 zustand = .fehler(error.localizedDescription)
             }
@@ -306,7 +306,7 @@ final class WebVeroeffentlichung {
         schritt = "Fertig."
     }
 
-    /// Kennung im Web: ohne „/" (die Galerie-Adresse nutzt #a/<album>/<aufnahme>).
+    /// Kennung im Web: ohne „/“ (die Galerie-Adresse nutzt #a/<album>/<aufnahme>).
     static func webId(_ localIdentifier: String) -> String { WebFormat.lesbar(localIdentifier, hoechstens: 80) }
 
     /// Daten der Aufnahme mit Titel, Beschreibung und Startansicht aus den Notizen.

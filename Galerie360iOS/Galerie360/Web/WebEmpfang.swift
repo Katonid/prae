@@ -39,7 +39,7 @@ struct WebEmpfang {
         self.schluessel = schluessel
     }
 
-    /// Adresse aus der Eingabe: mit https://, immer mit „/" am Ende.
+    /// Adresse aus der Eingabe: mit https://, immer mit „/“ am Ende.
     static func basis(aus text: String) -> URL? {
         var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if t.isEmpty { return nil }

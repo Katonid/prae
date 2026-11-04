@@ -10,7 +10,7 @@ import Foundation
 ///   …/assets/galerie.js, galerie.css             Betrachter, in JEDEM Ordner (Lehre der Web-App:
 ///                                                sonst weiße Seite, wenn nur ein Ordner hochgeladen ist)
 /// Alle Seiten sind geheim (nur mit Link), `noindex`, `no-referrer` (Wunsch des Nutzers 11/2026:
-/// „nur mit laaaaangem Link", „Ansehen" — keine Downloads).
+/// „nur mit laaaaangem Link“, „Ansehen“ — keine Downloads).
 enum WebFormat {
     /// Kleinbuchstaben + 2–7 wie die Web-App (`G.zufall`): 26 Zeichen = 130 Bit.
     static let base32 = Array("abcdefghijklmnopqrstuvwxyz234567")
@@ -43,7 +43,7 @@ enum WebFormat {
         return aus
     }
 
-    /// „sommer-am-see-k7f3…" (wie `G.albumOrdnerName`).
+    /// „sommer-am-see-k7f3…“ (wie `G.albumOrdnerName`).
     static func ordnerName(_ titel: String) -> String {
         let l = lesbar(titel)
         return (l.isEmpty ? "" : l + "-") + zufall(26)
@@ -90,7 +90,7 @@ enum WebFormat {
         var id: String
         var titel: String
         var beschreibung: String
-        var datum: String?          // „2026-10-31"
+        var datum: String?          // „2026-10-31“
         var vorschau: String        // thumbnails/…jpg
         var blick: Blick
         var datei: String           // größte Fassung
@@ -206,7 +206,7 @@ enum WebFormat {
     static func indexHtml(daten: [String: Any], stempel: String) -> String {
         let json = (try? JSONSerialization.data(withJSONObject: daten, options: [.sortedKeys, .withoutEscapingSlashes]))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
-        // „</script>" in einem Titel darf den Datenblock nicht beenden.
+        // „</script>“ in einem Titel darf den Datenblock nicht beenden.
         let sicher = json.replacingOccurrences(of: "<", with: "\\u003c")
         let akzent = "3b82f6"
         let symbol = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='none' stroke='%23" +
@@ -258,14 +258,14 @@ enum WebFormat {
 
     // MARK: Codec-Kennung (RFC 6381) — wie `galerie360/js/medien.js`
 
-    /// „avc1.640033" aus dem avcC-Eintrag.
+    /// „avc1.640033“ aus dem avcC-Eintrag.
     static func avcKennung(_ avcC: Data, art: String = "avc1") -> String? {
         let b = [UInt8](avcC)
         guard b.count >= 4 else { return nil }
         return art + "." + String(format: "%02X%02X%02X", b[1], b[2], b[3]).lowercased()
     }
 
-    /// „hvc1.1.6.L153.B0" aus dem hvcC-Eintrag.
+    /// „hvc1.1.6.L153.B0“ aus dem hvcC-Eintrag.
     static func hevcKennung(_ hvcC: Data, art: String = "hvc1") -> String? {
         let b = [UInt8](hvcC)
         guard b.count >= 13 else { return nil }
@@ -278,7 +278,7 @@ enum WebFormat {
         return art + "." + raum + String(profil) + "." + String(umgekehrt, radix: 16).uppercased() + "." + tier + String(b[12]) + ".B0"
     }
 
-    /// „2026-10-31" (wie die Web-App; der Betrachter liest nur das Datum).
+    /// „2026-10-31“ (wie die Web-App; der Betrachter liest nur das Datum).
     static func datum(_ d: Date?) -> String? {
         guard let d else { return nil }
         let f = DateFormatter()

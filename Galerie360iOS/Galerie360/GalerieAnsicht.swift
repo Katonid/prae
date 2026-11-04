@@ -266,7 +266,7 @@ struct GalerieAnsicht: View {
     }
 }
 
-/// Ein Album: Aufnahmen als Raster; „Bearbeiten" zum Ordnen und Entfernen.
+/// Ein Album: Aufnahmen als Raster; „Bearbeiten“ zum Ordnen und Entfernen.
 struct AlbumAnsicht: View {
     let albumId: String
     let titel: String
@@ -453,7 +453,7 @@ struct AlbumVorschau: View {
 }
 
 /// Reihenfolge der Alben einer Galerie ändern (seit 1.0.19, Wunsch 11/2026): am Griff ziehen,
-/// je Ebene (Galerie und jeder Ordner für Unteralben); dazu „nach Name" und „nach Datum".
+/// je Ebene (Galerie und jeder Ordner für Unteralben); dazu „nach Name“ und „nach Datum“.
 /// Gespeichert in der Fotos-Mediathek — gleiche Reihenfolge in der Fotos-App, auf allen
 /// Geräten und auf dem Apple TV.
 struct AlbenOrdnen: View {

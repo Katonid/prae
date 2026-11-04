@@ -159,7 +159,7 @@ enum WebAufbereitung {
         return s
     }
 
-    /// RFC-6381-Kennung („hvc1.1.6.L153.B0", „avc1.640033") aus der Spurbeschreibung.
+    /// RFC-6381-Kennung („hvc1.1.6.L153.B0“, „avc1.640033“) aus der Spurbeschreibung.
     static func kennung(_ spur: AVAssetTrack) async throws -> String? {
         guard let fd = try await spur.load(.formatDescriptions).first else { return nil }
         let typ = CMFormatDescriptionGetMediaSubType(fd)
@@ -195,7 +195,7 @@ enum WebAufbereitung {
         init(_ s: AVAssetExportSession) { self.s = s }
     }
 
-    /// H.264 in fester, hoher Datenrate (50 Mbit/s) — gegen „Pumpen" und Artefakte, die bei 360°
+    /// H.264 in fester, hoher Datenrate (50 Mbit/s) — gegen „Pumpen“ und Artefakte, die bei 360°
     /// besonders auffallen, weil man einen kleinen Ausschnitt stark vergrößert sieht.
     static func h264(_ av: AVAsset, nach ziel: URL, breite: Int, hoehe: Int, fortschritt: @escaping (Double) -> Void) async throws {
         try? FileManager.default.removeItem(at: ziel)

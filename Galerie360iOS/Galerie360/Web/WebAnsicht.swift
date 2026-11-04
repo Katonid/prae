@@ -1,7 +1,7 @@
 import CoreImage.CIFilterBuiltins
 import SwiftUI
 
-/// „Im Web teilen" einer Galerie (seit 1.0.21): Einrichtung des Webspace (einmal), Veröffentlichen
+/// „Im Web teilen“ einer Galerie (seit 1.0.21): Einrichtung des Webspace (einmal), Veröffentlichen
 /// bzw. Aktualisieren, Link mit QR-Code. Die Web-Galerie ist ein Spiegel der App — bearbeitet wird
 /// nur hier.
 struct WebAnsicht: View {
@@ -130,7 +130,7 @@ struct WebAnsicht: View {
         } header: {
             Text("Webspace (einmal einrichten)")
         } footer: {
-            Text("1. „Empfangsdatei sichern …" und die Datei galerie360-empfang.php in „Dateien" ablegen.\n2. Sie im Strato-Kundenbereich (Dateimanager) oder mit einem FTP-Programm in genau den Ordner oben hochladen (Vorgabe: apps/galerie360/360Grad).\n3. „Verbindung prüfen".\nDie Datei enthält nur eine Prüfsumme deines geheimen Schlüssels; der Schlüssel selbst bleibt auf diesem Gerät.")
+            Text("1. „Empfangsdatei sichern …“ und die Datei galerie360-empfang.php in „Dateien“ ablegen.\n2. Sie im Strato-Kundenbereich (Dateimanager) oder mit einem FTP-Programm in genau den Ordner oben hochladen (Vorgabe: apps/galerie360/360Grad).\n3. „Verbindung prüfen“.\nDie Datei enthält nur eine Prüfsumme deines geheimen Schlüssels; der Schlüssel selbst bleibt auf diesem Gerät.")
         }
     }
 
