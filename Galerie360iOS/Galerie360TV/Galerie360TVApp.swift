@@ -75,6 +75,7 @@ struct PruefBetrachterTV: View {
 
 struct StartTV: View {
     @Environment(FotoBibliothek.self) private var bibliothek
+    @AppStorage("tvQualitaetsAnzeige") private var qualitaetsAnzeige = false
     @State private var alben: [Knoten] = []
     @State private var sammlungen: [Sammlung] = []
 
@@ -124,6 +125,16 @@ struct StartTV: View {
                                     .buttonStyle(.card)
                                 }
                             }
+                            Text("Einstellungen").font(.title3).foregroundStyle(.secondary).padding(.top, 30)
+                            Button {
+                                qualitaetsAnzeige.toggle()
+                            } label: {
+                                Label(qualitaetsAnzeige ? "Ladeanzeige bei Videos: an — ausschalten" : "Ladeanzeige bei Videos: aus — einschalten",
+                                      systemImage: qualitaetsAnzeige ? "eye" : "eye.slash")
+                                    .font(.callout)
+                            }
+                            Text("Zeigt unten rechts im Video, wie weit die volle Qualität geladen ist. Auch wenn sie aus ist, steht der Stand in der Hilfe (beim Video die Mitte der Fernbedienung drücken).")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                         .padding(60)
                     }
@@ -295,7 +306,15 @@ struct BetrachterTV: View {
     /// Ladestand des Originals im Hintergrund (nil = nicht nötig/fertig) und ob es läuft.
     @State private var original: Double?
     @State private var volleQualitaet = false
+    /// Ladeanzeige „Volle Qualität wird geladen“ dauerhaft im Bild (seit 1.0.23 abschaltbar und
+    /// aus als Vorgabe — gemeldet 11/2026: „scheint nicht wegzugehen … stört"). In der Hilfe
+    /// (Mitte drücken) steht der Stand immer.
+    @AppStorage("tvQualitaetsAnzeige") private var qualitaetsAnzeige = false
     @State private var originalAufgabe: Task<Void, Never>?
+    /// Videos, deren Original auf diesem Gerät nicht sauber lief (keine oder zu wenige Bilder) —
+    /// für sie bleibt es in dieser Sitzung bei der flüssigen Fassung (seit 1.0.23).
+    @State private var nurFluessig: Set<String> = []
+    @State private var zurueckgestellt = false
     @State private var fortschritt: Double?
     @State private var meldung: String?
     /// Normales (nicht 360°) Foto, flach gezeigt (seit 1.0.13).
@@ -350,7 +369,7 @@ struct BetrachterTV: View {
             if let meldung {
                 Text(meldung).padding(30).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
             }
-            if !hinweis, asset?.mediaType == .video, original != nil || volleQualitaet {
+            if qualitaetsAnzeige, !hinweis, asset?.mediaType == .video, original != nil || volleQualitaet || zurueckgestellt {
                 qualitaetsHinweis
                     .padding(.horizontal, 18).padding(.vertical, 8)
                     .background(.black.opacity(0.45), in: Capsule())
@@ -447,7 +466,19 @@ struct BetrachterTV: View {
                 }
                 tonAn(p)
                 p.play()
-                originalNachladen(a, in: p)
+                if !nurFluessig.contains(a.localIdentifier) { originalNachladen(a, in: p) }
+                #if DEBUG
+                if ProcessInfo.processInfo.environment["GALERIE360_PRUEFUNG"] != nil, a.ist360 {
+                    // Für den Job „Apple-TV-Betrachter starten": kommen Bilder auf die Kugel —
+                    // auch nach dem Wechsel aufs Original (im Simulator sofort da)?
+                    Task {
+                        for _ in 0..<3 {
+                            try? await Task.sleep(for: .seconds(6))
+                            print("PRUEFUNG: Videobilder \(szene.videoTextur.bilder), Original \(volleQualitaet || original == nil ? "ja" : "nein")")
+                        }
+                    }
+                }
+                #endif
             } else {
                 // Apple TV 4K: Texturen bis 16384 — 8192 ist scharf und schont den Speicher.
                 let bild = try await Mediathek.foto(a, maxPixel: a.ist360 ? 8192 : 3840) { f in Task { @MainActor in fortschritt = f } }
@@ -500,7 +531,9 @@ struct BetrachterTV: View {
 
     @ViewBuilder
     private var qualitaetsHinweis: some View {
-        if volleQualitaet {
+        if zurueckgestellt {
+            Label("Flüssige Fassung — das Original lief auf diesem Apple TV nicht sauber", systemImage: "tortoise").font(.caption)
+        } else if volleQualitaet {
             Label("Volle Qualität", systemImage: "checkmark.seal").font(.caption)
         } else if let o = original {
             Label("Volle Qualität wird geladen: \(Int(o * 100)) %", systemImage: "arrow.down.circle").font(.caption)
@@ -525,7 +558,25 @@ struct BetrachterTV: View {
                 if lief { p.play() }
                 original = nil
                 withAnimation { volleQualitaet = true }
-                try? await Task.sleep(for: .seconds(4))
+                if a.ist360, !(await originalLaeuft(item, in: p)) {
+                    // Weißes/stehendes Bild oder Ruckeln: zurück auf die flüssige Fassung.
+                    guard !Task.isCancelled, player === p else { return }
+                    nurFluessig.insert(a.localIdentifier)
+                    volleQualitaet = false
+                    zurueckgestellt = true
+                    if let fluessig = try? await Mediathek.video(a, qualitaet: .automatic, fortschritt: { _ in }),
+                       !Task.isCancelled, player === p {
+                        let stelle = p.currentTime()
+                        let lief = p.rate > 0
+                        p.replaceCurrentItem(with: fluessig)
+                        await p.seek(to: stelle, toleranceBefore: .zero, toleranceAfter: .zero)
+                        if lief { p.play() }
+                    }
+                    try? await Task.sleep(for: .seconds(5))
+                    withAnimation { zurueckgestellt = false }
+                    return
+                }
+                try? await Task.sleep(for: .seconds(2))
                 withAnimation { volleQualitaet = false }
             } catch {
                 original = nil // bleibt bei der flüssigen Fassung
@@ -533,11 +584,37 @@ struct BetrachterTV: View {
         }
     }
 
+    /// Läuft das Original wirklich? Beobachtet ein Fenster von 4 s, in dem das Video spielt
+    /// (höchstens 40 s lang warten, falls pausiert): Es müssen mindestens 60 % der Bilder
+    /// des Videos auf der Kugel ankommen. Kein Bild = weißes oder stehendes Bild (gemeldet
+    /// 11/2026), zu wenige = Ruckeln — das Apple TV schafft das Original dann nicht.
+    private func originalLaeuft(_ item: AVPlayerItem, in p: AVPlayer) async -> Bool {
+        let rate = (try? await item.asset.loadTracks(withMediaType: .video).first?.load(.nominalFrameRate)) ?? 30
+        let fps = Double(rate > 1 ? min(rate, 60) : 30)
+        for _ in 0..<10 {
+            guard !Task.isCancelled, player === p else { return true }
+            if item.status == .failed { return false }
+            let start = szene.videoTextur.bilder
+            let lief = p.rate > 0
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled, player === p else { return true }
+            if item.status == .failed { return false }
+            if lief, p.rate > 0, p.currentItem === item {
+                let n = szene.videoTextur.bilder - start
+                print("Videoprüfung: \(n) Bilder in 4 s, erwartet \(Int(fps * 4))")
+                return Double(n) >= fps * 4 * 0.6
+            }
+        }
+        return true
+    }
+
     private func stoppen() {
         originalAufgabe?.cancel()
         originalAufgabe = nil
         original = nil
         volleQualitaet = false
+        zurueckgestellt = false
+        szene.videoTextur.setze(nil)
         tonAus()
         if let p = player {
             p.pause()

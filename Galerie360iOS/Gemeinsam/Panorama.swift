@@ -2,6 +2,8 @@ import AVFoundation
 #if os(iOS)
 import CoreMotion
 #endif
+import CoreVideo
+import Metal
 import SceneKit
 import SwiftUI
 import UIKit
@@ -87,15 +89,38 @@ final class PanoramaSzene {
     }
 
     func setzeBild(_ bild: CGImage?) {
+        #if os(tvOS)
+        videoTextur.setze(nil)
+        #endif
         material.diffuse.mipFilter = .linear // schärfer beim Herauszoomen, ohne Flimmern
         material.diffuse.contents = bild ?? UIColor.black
     }
 
+    #if os(iOS)
     /// Das Video läuft über AVFoundation direkt als Textur — dekodiert von der Hardware.
     func setzeVideo(_ player: AVPlayer) {
         material.diffuse.mipFilter = .none
         material.diffuse.contents = player
     }
+    #else
+    /// Apple TV (seit 1.0.23): Bilder selbst aus dem Player holen (`VideoTextur`) statt den
+    /// AVPlayer an SceneKit zu geben. Gemeldet 11/2026: ruckelt auch voll geladen, und bei
+    /// schon geladenen Videos manchmal WEISSES Bild mit Ton. SceneKit zeichnet einen AVPlayer
+    /// über eine SpriteKit-Zwischenszene in eine Textur — teuer, und nach `replaceCurrentItem`
+    /// (Wechsel auf das Original) blieb sie mitunter weiß.
+    let videoTextur = VideoTextur()
+
+    func setzeVideo(_ player: AVPlayer) {
+        material.diffuse.mipFilter = .none
+        material.diffuse.contents = UIColor.black
+        videoTextur.setze(player)
+    }
+
+    /// Je gezeichnetem Bild vom Renderer (Renderfaden): neues Videobild auf die Kugel.
+    func vorDemZeichnen() {
+        if let t = videoTextur.naechstesBild() { material.diffuse.contents = t }
+    }
+    #endif
 
     func setzeBlick(_ b: Blick) {
         yaw = b.yaw
@@ -164,6 +189,9 @@ struct PanoramaAnsicht: UIViewRepresentable {
         v.antialiasingMode = .none
         v.preferredFramesPerSecond = 60
         v.isPlaying = true // zeichnet laufend — nötig für Video und Sensor, hält Ziehen flüssig
+        #if os(tvOS)
+        v.delegate = context.coordinator
+        #endif
         let s = szene
         v.groesseGeaendert = { [weak s] g in
             if g.height > 0 { s?.seitenverhaeltnis = g.width / g.height }
@@ -410,3 +438,82 @@ final class PanoramaFlaeche: SCNView {
     }
     #endif
 }
+
+#if os(tvOS)
+extension PanoramaAnsicht.Steuerung: SCNSceneRendererDelegate {
+    func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+        szene.vorDemZeichnen()
+    }
+}
+
+/// Holt die Bilder eines AVPlayers als Metal-Texturen (Apple TV, seit 1.0.23) — der Weg, den
+/// Videoplayer in Metal gehen: `AVPlayerItemVideoOutput` → `CVMetalTextureCache`, ohne Kopie.
+/// Folgt dem Player auch über `replaceCurrentItem` (je Item eine eigene Ausgabe).
+/// `bilder` zählt die gezeigten Bilder — daran erkennt der Betrachter ein Video, das nicht
+/// dekodiert (weißes/schwarzes Bild) oder nicht mitkommt (ruckelt).
+final class VideoTextur: @unchecked Sendable {
+    private let schloss = NSLock()
+    private var player: AVPlayer?
+    private var ausgabe: AVPlayerItemVideoOutput?
+    private var beobachtung: NSKeyValueObservation?
+    private var cache: CVMetalTextureCache?
+    /// Die letzten beiden Texturen festhalten: Die Grafikkarte liest womöglich noch daraus.
+    private var gehalten: [CVMetalTexture] = []
+    private var _bilder = 0
+
+    init() {
+        if let geraet = MTLCreateSystemDefaultDevice() {
+            CVMetalTextureCacheCreate(nil, nil, geraet, nil, &cache)
+        }
+    }
+
+    var bilder: Int { schloss.lock(); defer { schloss.unlock() }; return _bilder }
+
+    func setze(_ p: AVPlayer?) {
+        beobachtung?.invalidate()
+        beobachtung = nil
+        schloss.lock()
+        if let alt = ausgabe { player?.currentItem?.remove(alt) }
+        player = p
+        ausgabe = nil
+        gehalten = []
+        _bilder = 0
+        schloss.unlock()
+        guard let p else { return }
+        beobachtung = p.observe(\.currentItem, options: [.initial, .new]) { [weak self] p, _ in
+            self?.anhaengen(p.currentItem)
+        }
+    }
+
+    private func anhaengen(_ item: AVPlayerItem?) {
+        // 8-Bit-BGRA, Metal-tauglich; Farbumrechnung macht die Videohardware.
+        let neu = AVPlayerItemVideoOutput(pixelBufferAttributes: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+        ])
+        item?.add(neu)
+        schloss.lock()
+        ausgabe = item == nil ? nil : neu
+        schloss.unlock()
+    }
+
+    /// Neues Bild für jetzt, sonst nil (dann bleibt das vorige auf der Kugel).
+    func naechstesBild() -> MTLTexture? {
+        schloss.lock()
+        defer { schloss.unlock() }
+        guard let ausgabe, let cache else { return nil }
+        let zeit = ausgabe.itemTime(forHostTime: CACurrentMediaTime())
+        guard ausgabe.hasNewPixelBuffer(forItemTime: zeit),
+              let puffer = ausgabe.copyPixelBuffer(forItemTime: zeit, itemTimeForDisplay: nil) else { return nil }
+        var cv: CVMetalTexture?
+        // _srgb: SceneKit rechnet linear; ohne würde das Bild blass/zu hell.
+        CVMetalTextureCacheCreateTextureFromImage(nil, cache, puffer, nil, .bgra8Unorm_srgb,
+                                                  CVPixelBufferGetWidth(puffer), CVPixelBufferGetHeight(puffer), 0, &cv)
+        guard let cv, let textur = CVMetalTextureGetTexture(cv) else { return nil }
+        gehalten.append(cv)
+        if gehalten.count > 3 { gehalten.removeFirst() }
+        _bilder += 1
+        return textur
+    }
+}
+#endif
