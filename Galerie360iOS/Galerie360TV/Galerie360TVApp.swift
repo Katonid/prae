@@ -75,6 +75,7 @@ struct PruefBetrachterTV: View {
 
 struct StartTV: View {
     @Environment(FotoBibliothek.self) private var bibliothek
+    @AppStorage("tvQualitaetsAnzeige") private var qualitaetsAnzeige = false
     @State private var alben: [Knoten] = []
     @State private var sammlungen: [Sammlung] = []
 
@@ -124,6 +125,16 @@ struct StartTV: View {
                                     .buttonStyle(.card)
                                 }
                             }
+                            Text("Einstellungen").font(.title3).foregroundStyle(.secondary).padding(.top, 30)
+                            Button {
+                                qualitaetsAnzeige.toggle()
+                            } label: {
+                                Label(qualitaetsAnzeige ? "Ladeanzeige bei Videos: an — ausschalten" : "Ladeanzeige bei Videos: aus — einschalten",
+                                      systemImage: qualitaetsAnzeige ? "eye" : "eye.slash")
+                                    .font(.callout)
+                            }
+                            Text("Zeigt unten rechts im Video, wie weit die volle Qualität geladen ist. Auch wenn sie aus ist, steht der Stand in der Hilfe (beim Video die Mitte der Fernbedienung drücken).")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                         .padding(60)
                     }
@@ -295,6 +306,10 @@ struct BetrachterTV: View {
     /// Ladestand des Originals im Hintergrund (nil = nicht nötig/fertig) und ob es läuft.
     @State private var original: Double?
     @State private var volleQualitaet = false
+    /// Ladeanzeige „Volle Qualität wird geladen“ dauerhaft im Bild (seit 1.0.23 abschaltbar und
+    /// aus als Vorgabe — gemeldet 11/2026: „scheint nicht wegzugehen … stört"). In der Hilfe
+    /// (Mitte drücken) steht der Stand immer.
+    @AppStorage("tvQualitaetsAnzeige") private var qualitaetsAnzeige = false
     @State private var originalAufgabe: Task<Void, Never>?
     @State private var fortschritt: Double?
     @State private var meldung: String?
@@ -350,7 +365,7 @@ struct BetrachterTV: View {
             if let meldung {
                 Text(meldung).padding(30).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
             }
-            if !hinweis, asset?.mediaType == .video, original != nil || volleQualitaet {
+            if qualitaetsAnzeige, !hinweis, asset?.mediaType == .video, original != nil || volleQualitaet {
                 qualitaetsHinweis
                     .padding(.horizontal, 18).padding(.vertical, 8)
                     .background(.black.opacity(0.45), in: Capsule())

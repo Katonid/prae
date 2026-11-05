@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen, 1.0.20 (21) Kachelmarken wieder da, 1.0.21 (22) Im Web teilen, 1.0.22 (23) Symbole für den Home-Bildschirm.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen, 1.0.20 (21) Kachelmarken wieder da, 1.0.21 (22) Im Web teilen, 1.0.22 (23) Symbole für den Home-Bildschirm, 1.0.23 (24) Ladeanzeige am Apple TV abschaltbar.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -316,7 +316,10 @@ Fernbedienung umsehen, Zoom „irgendwie einstellen".
   Original GANZ aufs Gerät (PhotoKits eigener Zwischenspeicher, nicht unser
   Ordner). Ist es da, `replaceCurrentItem` + `seek` auf dieselbe Stelle →
   volle Schärfe ohne Stocken. Anzeige unten rechts „Volle Qualität wird
-  geladen: x %". Liefert `requestAVAsset` keine Datei (`url.isFileURL`),
+  geladen: x %" — **seit 1.0.23 nur, wenn eingeschaltet** (Startseite →
+  „Einstellungen“ → „Ladeanzeige bei Videos“, `@AppStorage("tvQualitaetsAnzeige")`,
+  Vorgabe AUS; gemeldet 11/2026: „scheint nicht wegzugehen … stört … ausblenden
+  können"). In der Hilfe (Mitte drücken) steht der Stand immer. Liefert `requestAVAsset` keine Datei (`url.isFileURL`),
   bleibt es bei `.automatic`. Am Gerät NICHT geprüft: ob tvOS das Original
   wirklich vorab ganz lädt und wie lange das dauert.
 - **Ruhezustand** (seit 1.0.7; gemeldet 11/2026, einen Tag nach 1.0.5:
