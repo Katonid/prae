@@ -335,7 +335,7 @@ enum WebAufbereitung {
             f.scale = 1
             f.opaque = true
             let seite = CGFloat(g)
-            aus[g] = UIGraphicsImageRenderer(size: CGSize(width: seite, height: seite), format: f).pngData { k in
+            let gezeichnet = UIGraphicsImageRenderer(size: CGSize(width: seite, height: seite), format: f).image { k in
                 UIColor(red: 0.055, green: 0.059, blue: 0.071, alpha: 1).setFill()
                 k.fill(CGRect(x: 0, y: 0, width: seite, height: seite))
                 // Quadratisch beschneiden, falls das Bild es nicht ist.
@@ -353,7 +353,21 @@ enum WebAufbereitung {
                 UIBezierPath(roundedRect: pille, cornerRadius: pille.height / 2).fill()
                 text.draw(at: CGPoint(x: (seite - t.width) / 2, y: pille.minY + seite * 0.01))
             }
+            aus[g] = gezeichnet.cgImage.flatMap(ohneAlpha)
         }
         return aus
+    }
+
+    /// PNG ohne Alphakanal: Auch ein „undurchsichtiger“ Renderer schreibt RGBA (gemessen im
+    /// Simulator) — umgezeichnet in einen RGB-Kontext, dann als PNG.
+    private static func ohneAlpha(_ bild: CGImage) -> Data? {
+        guard let k = CGContext(data: nil, width: bild.width, height: bild.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        k.draw(bild, in: CGRect(x: 0, y: 0, width: bild.width, height: bild.height))
+        guard let rgb = k.makeImage() else { return nil }
+        let d = NSMutableData()
+        guard let ziel = CGImageDestinationCreateWithData(d, UTType.png.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(ziel, rgb, nil)
+        return CGImageDestinationFinalize(ziel) ? d as Data : nil
     }
 }
