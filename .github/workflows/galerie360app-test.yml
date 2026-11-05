@@ -176,7 +176,7 @@ jobs:
           # Normales Foto (4 : 3) — muss flach erscheinen, nicht auf der Kugel (seit 1.0.13).
           sips -z 1536 2048 /tmp/medien/pruef.png --out /tmp/medien/flach.png
           sips -s format jpeg /tmp/medien/flach.png --out /tmp/medien/normal.jpg
-          # Video ohne ffmpeg (fehlt auf dem Läufer): AVAssetWriter, H.264, 1920 × 960, 4 s.
+          # Video ohne ffmpeg (fehlt auf dem Läufer): AVAssetWriter, H.264, 1920 × 960, 30 s.
           cat > /tmp/video.swift <<'SW'
           import AVFoundation
           import CoreVideo
@@ -186,16 +186,22 @@ jobs:
           let e = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 1920, AVVideoHeightKey: 960])
           let a = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: e, sourcePixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA, kCVPixelBufferWidthKey as String: 1920, kCVPixelBufferHeightKey as String: 960])
           w.add(e); w.startWriting(); w.startSession(atSourceTime: .zero)
-          for i in 0..<120 {
-              while !e.isReadyForMoreMediaData { usleep(1000) }
+          // 32 verschiedene Bilder, wiederholt auf 30 s (seit 1.0.23): Die Prüfung zählt nach 6,
+          // 12 und 18 s, ob noch Bilder auf der Kugel ankommen — auch nach dem Wechsel aufs Original.
+          var bilder: [CVPixelBuffer] = []
+          for i in 0..<32 {
               var pb: CVPixelBuffer?
-              CVPixelBufferPoolCreatePixelBuffer(nil, a.pixelBufferPool!, &pb)
+              CVPixelBufferCreate(nil, 1920, 960, kCVPixelFormatType_32BGRA, nil, &pb)
               CVPixelBufferLockBaseAddress(pb!, [])
               let p = CVPixelBufferGetBaseAddress(pb!)!.assumingMemoryBound(to: UInt8.self)
               let zeile = CVPixelBufferGetBytesPerRow(pb!)
               for y in 0..<960 { for x in 0..<1920 { let o = y * zeile + x * 4; p[o] = UInt8((x + i * 8) % 256); p[o + 1] = UInt8(y % 256); p[o + 2] = 128; p[o + 3] = 255 } }
               CVPixelBufferUnlockBaseAddress(pb!, [])
-              a.append(pb!, withPresentationTime: CMTime(value: Int64(i), timescale: 30))
+              bilder.append(pb!)
+          }
+          for i in 0..<900 {
+              while !e.isReadyForMoreMediaData { usleep(1000) }
+              a.append(bilder[i % 32], withPresentationTime: CMTime(value: Int64(i), timescale: 30))
           }
           e.markAsFinished()
           let fertig = DispatchSemaphore(value: 0)
@@ -231,6 +237,16 @@ jobs:
             if xcrun simctl spawn "$U" launchctl list | grep -q "de.familie.galerie360"; then
               echo "läuft nach 30 s noch"
               grep -q "PRUEFUNG: Betrachter offen" /tmp/start-$art.log || { echo "::error::Betrachter ($art) nicht geöffnet"; fehler=1; }
+              if [ "$art" = video ]; then
+                # Seit 1.0.23: Bilder müssen weiter auf der Kugel ankommen (gemeldet: weißes Bild
+                # mit Ton nach dem Wechsel aufs Original). Zählerstände nach 6, 12, 18 s.
+                zahlen=$(grep -o "PRUEFUNG: Videobilder [0-9]*" /tmp/start-$art.log | grep -o "[0-9]*$" | tr '\n' ' ')
+                echo "Videobilder: $zahlen"
+                set -- $zahlen
+                if [ $# -lt 3 ] || [ "$3" -le "$2" ] || [ "$2" -le "$1" ] || [ "$1" -le 0 ]; then
+                  echo "::error::Video: keine (weiteren) Bilder auf der Kugel ($zahlen)"; fehler=1
+                fi
+              fi
             else
               echo "::error::App ($art) ist nicht mehr da — abgestürzt?"
               fehler=1
