@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen, 1.0.20 (21) Kachelmarken wieder da, 1.0.21 (22) Im Web teilen.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen, 1.0.20 (21) Kachelmarken wieder da, 1.0.21 (22) Im Web teilen, 1.0.22 (23) Symbole für den Home-Bildschirm.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -408,6 +408,38 @@ Speicher, „nur mit laaaaangem Link", „Ansehen".
   (Rechner + Handy: Karten, Vorschauen, Albumseite, Foto im Betrachter,
   Unteralbum, Sonderzeichen, keine Skriptfehler). Echte Videos und Strato
   selbst prüft CI NICHT.
+
+## Home-Bildschirm-Symbole der Web-Galerie (seit 1.0.22)
+
+Wunsch des Nutzers (11/2026): Ein Gast wollte die Galerie „auf dem
+Homescreen ablegen, als Web-App … damit sie nicht unter den Lesezeichen im
+Nirvana verschwindet" — „für jedes Album bzw. für jede Galerie ein
+passendes Icon".
+
+- Jede Seite (Galerie und jedes Album, auch Ordner) bekommt beim
+  Veröffentlichen eigene Symbole `icons/symbol-<6 Zufallszeichen>-180/192/512.png`
+  und eine `manifest.json` (NICHT `.webmanifest` — die Empfangsdatei nimmt nur
+  html/js/css/json/jpg/png/mp4/mov). `index.html` verweist darauf
+  (`apple-touch-icon` 180, `manifest`, `apple-mobile-web-app-capable`,
+  `-title` = Titel der Seite). `WebFormat.homeBildschirm`, `.manifest`.
+- Manifest: `display: standalone`, `start_url`/`id` `./`, **`scope: ../`**
+  (= die Basis mit allen Ordnern der Galerie) — sonst öffnete ein Antippen
+  einer Albumkarte in der Home-Bildschirm-App ein Browserfenster.
+- Bild: Titelbild der Seite in seiner Startansicht, quadratisch 512 × 512
+  (`WebAufbereitung.symbolBild`, dieselbe Rechnung wie die Vorschau), unten
+  mittig eine kleine „360°“-Marke, undurchsichtig (iOS rundet selbst).
+  Titelbild: Albumbild aus den Notizen, sonst erste 360°-Aufnahme; Ordner →
+  das des ersten Unteralbums; Galerie → Galeriebild, sonst das des ersten
+  Albums.
+- Neu gezeichnet nur, wenn sich Aufnahme, ihr Änderungsdatum oder die
+  Startansicht ändern (`WebStand.Galerie.symbole`, optional — alte Stände
+  laden weiter). Neuer Name mit Zufallsteil, damit kein Browser ein altes
+  Symbol zeigt; das alte räumt der Abgleich weg. Lässt sich das Bild nicht
+  laden, bleibt das alte Symbol (kein Abbruch).
+- Was schon auf einem Home-Bildschirm liegt, ändert sich NICHT von selbst —
+  iOS übernimmt Symbol und Namen nur beim Hinzufügen.
+- Tests: `testHomeBildschirm`, `testSymbolDateien`; `web-probe.js` prüft
+  Verweise, Manifest (Start, Bereich) und dass die Symbole als PNG laden.
 
 ## Noch nicht in der App
 

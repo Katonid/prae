@@ -127,6 +127,8 @@ enum WebFormat {
         var aufnahmen: [Aufnahme]
         var titelbild: String?
         var kinder: [Album]
+        /// Stamm der Symbole für den Home-Bildschirm, z. B. „icons/symbol-ab12cd“ (→ „…-180.png“ usw.).
+        var symbol: String? = nil
     }
 
     struct Galerie {
@@ -134,6 +136,7 @@ enum WebFormat {
         var beschreibung: String
         var ordner: String
         var alben: [Album] // oberste Ebene, in Galerie-Reihenfolge
+        var symbol: String? = nil
     }
 
     static func blickDict(_ b: Blick) -> [String: Any] { ["yaw": b.yaw, "pitch": b.pitch, "fov": b.fov] }
@@ -203,7 +206,7 @@ enum WebFormat {
     }
 
     /// Die fertige `index.html` einer Seite (wie `G.indexHtml` für geheime Seiten).
-    static func indexHtml(daten: [String: Any], stempel: String) -> String {
+    static func indexHtml(daten: [String: Any], stempel: String, symbol eigenesSymbol: String? = nil) -> String {
         let json = (try? JSONSerialization.data(withJSONObject: daten, options: [.sortedKeys, .withoutEscapingSlashes]))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
         // „</script>“ in einem Titel darf den Datenblock nicht beenden.
@@ -220,6 +223,7 @@ enum WebFormat {
             "<meta name=\"theme-color\" content=\"#0e0f12\">\n" +
             "<meta name=\"generator\" content=\"Galerie 360 (iOS)\">\n" +
             "<link rel=\"icon\" href=\"" + symbol + "\">\n" +
+            homeBildschirm(titel: titel, symbol: eigenesSymbol) +
             "<link rel=\"stylesheet\" href=\"assets/galerie.css?v=" + stempel + "\">\n" +
             "</head>\n<body class=\"g360-seite\">\n" +
             "<div id=\"galerie\" class=\"g360\" data-thema=\"dunkel\">" +
@@ -230,18 +234,55 @@ enum WebFormat {
             "</body>\n</html>\n"
     }
 
-    /// Alle Seiten einer Galerie: Pfad (relativ zur Basis) → Inhalt.
+    // MARK: Home-Bildschirm (seit 1.0.22)
+
+    /// Größen der Symbole: 180 für iPhone/iPad („apple-touch-icon“), 192 und 512 für Android/Chrome.
+    static let symbolGroessen = [180, 192, 512]
+
+    static func symbolDatei(_ stamm: String, _ groesse: Int) -> String { stamm + "-\(groesse).png" }
+
+    /// Kopfzeilen, mit denen eine Seite vom Home-Bildschirm wie eine App startet — eigenes Symbol,
+    /// eigener Name, ohne Adressleiste.
+    static func homeBildschirm(titel: String, symbol: String?) -> String {
+        guard let symbol else { return "" }
+        return "<link rel=\"manifest\" href=\"manifest.json\">\n" +
+            "<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"" + html(symbolDatei(symbol, 180)) + "\">\n" +
+            "<link rel=\"icon\" type=\"image/png\" sizes=\"192x192\" href=\"" + html(symbolDatei(symbol, 192)) + "\">\n" +
+            "<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n" +
+            "<meta name=\"mobile-web-app-capable\" content=\"yes\">\n" +
+            "<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\">\n" +
+            "<meta name=\"apple-mobile-web-app-title\" content=\"" + html(titel) + "\">\n"
+    }
+
+    /// `manifest.json` einer Seite (als .json, weil die Empfangsdatei .webmanifest nicht annimmt).
+    /// Bereich „../“ = alle Ordner der Galerie: Albumkarten öffnen sich in derselben App.
+    static func manifest(titel: String, symbol: String) -> String {
+        let m: [String: Any] = [
+            "name": titel, "short_name": titel, "id": "./", "start_url": "./", "scope": "../",
+            "display": "standalone", "background_color": "#0e0f12", "theme_color": "#0e0f12", "lang": "de",
+            "icons": symbolGroessen.filter { $0 != 180 }.map {
+                ["src": symbolDatei(symbol, $0), "sizes": "\($0)x\($0)", "type": "image/png", "purpose": "any"]
+            },
+        ]
+        let d = (try? JSONSerialization.data(withJSONObject: m, options: [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes])) ?? Data()
+        return String(data: d, encoding: .utf8) ?? "{}"
+    }
+
+    /// Alle Seiten einer Galerie: Pfad (relativ zur Basis) → Inhalt. Mit Symbol zusätzlich `manifest.json`.
     static func seiten(_ g: Galerie, stempel: String) -> [String: String] {
         var aus: [String: String] = [:]
         // Galerieseite: Karten der obersten Ebene.
         aus[g.ordner + "/index.html"] = indexHtml(daten: seitenDaten(
             galerie: g, titel: g.titel, beschreibung: g.beschreibung,
-            alben: g.alben.map { karte($0, eltern: nil) }, album: nil), stempel: stempel)
+            alben: g.alben.map { karte($0, eltern: nil) }, album: nil), stempel: stempel, symbol: g.symbol)
+        if let s = g.symbol { aus[g.ordner + "/manifest.json"] = manifest(titel: g.titel.isEmpty ? "Galerie" : g.titel, symbol: s) }
         func album(_ a: Album) {
             let kinder = a.kinder.map { karte($0, eltern: a.id) }
+            let titel = a.titel.isEmpty ? g.titel : a.titel
             aus[a.ordner + "/index.html"] = indexHtml(daten: seitenDaten(
-                galerie: g, titel: a.titel.isEmpty ? g.titel : a.titel, beschreibung: a.beschreibung,
-                alben: [albumDaten(a)] + kinder, album: a.id), stempel: stempel)
+                galerie: g, titel: titel, beschreibung: a.beschreibung,
+                alben: [albumDaten(a)] + kinder, album: a.id), stempel: stempel, symbol: a.symbol)
+            if let s = a.symbol { aus[a.ordner + "/manifest.json"] = manifest(titel: titel.isEmpty ? "Galerie" : titel, symbol: s) }
             a.kinder.forEach(album)
         }
         g.alben.forEach(album)

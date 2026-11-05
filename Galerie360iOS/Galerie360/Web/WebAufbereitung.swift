@@ -311,4 +311,49 @@ enum WebAufbereitung {
         try FileManager.default.createDirectory(at: ziel.deletingLastPathComponent(), withIntermediateDirectories: true)
         try jpeg(bild, nach: ziel, qualitaet: 0.85)
     }
+
+    // MARK: Symbol für den Home-Bildschirm (seit 1.0.22)
+
+    /// Quadratischer Ausschnitt der Aufnahme in ihrer Startansicht (512 × 512) — wie die Vorschau,
+    /// nur ohne das Original zu laden.
+    static func symbolBild(_ a: PHAsset, blick: Blick) async throws -> CGImage {
+        guard let quelle = await Vorschau.bild(a, CGSize(width: 4096, height: 2048), modus: .aspectFit)?.cgImage else {
+            throw MediathekFehler.nichtGeladen
+        }
+        return try await Task.detached(priority: .userInitiated) { () -> CGImage in
+            guard let b = Ausschnitt.ansicht(aus: quelle, blick: blick, breite: 512, hoehe: 512) else { throw MediathekFehler.nichtGeladen }
+            return b
+        }.value
+    }
+
+    /// PNG je Größe (`WebFormat.symbolGroessen`): das Bild randlos, unten mittig eine kleine
+    /// „360°“-Marke. Undurchsichtig — iOS rundet die Ecken selbst und füllt Durchsichtiges schwarz.
+    static func symbolDateien(aus bild: CGImage) -> [Int: Data] {
+        var aus: [Int: Data] = [:]
+        for g in WebFormat.symbolGroessen {
+            let f = UIGraphicsImageRendererFormat()
+            f.scale = 1
+            f.opaque = true
+            let seite = CGFloat(g)
+            aus[g] = UIGraphicsImageRenderer(size: CGSize(width: seite, height: seite), format: f).pngData { k in
+                UIColor(red: 0.055, green: 0.059, blue: 0.071, alpha: 1).setFill()
+                k.fill(CGRect(x: 0, y: 0, width: seite, height: seite))
+                // Quadratisch beschneiden, falls das Bild es nicht ist.
+                let b = CGFloat(bild.width), h = CGFloat(bild.height), m = min(b, h)
+                let ziel = CGRect(x: -(b - m) / 2 * seite / m, y: -(h - m) / 2 * seite / m, width: b * seite / m, height: h * seite / m)
+                UIImage(cgImage: bild).draw(in: ziel)
+                let text = NSAttributedString(string: "360°", attributes: [
+                    .font: UIFont.systemFont(ofSize: seite * 0.12, weight: .bold),
+                    .foregroundColor: UIColor.white,
+                ])
+                let t = text.size()
+                let pille = CGRect(x: (seite - t.width) / 2 - seite * 0.05, y: seite * 0.78,
+                                   width: t.width + seite * 0.10, height: t.height + seite * 0.02)
+                UIColor.black.withAlphaComponent(0.55).setFill()
+                UIBezierPath(roundedRect: pille, cornerRadius: pille.height / 2).fill()
+                text.draw(at: CGPoint(x: (seite - t.width) / 2, y: pille.minY + seite * 0.01))
+            }
+        }
+        return aus
+    }
 }
