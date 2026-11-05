@@ -19,6 +19,12 @@ struct WebStand: Codable {
         var alben: [String: String] = [:]        // Kennung des Albums/Ordners in Fotos → Webordner
         var aufnahmen: [String: Aufnahme] = [:]  // "<Webordner>/<Kennung der Aufnahme>"
         var zuletzt: Date?
+        /// Symbole für den Home-Bildschirm je Webordner (seit 1.0.22; fehlt in älteren Ständen).
+        var symbole: [String: Symbol]?
+    }
+    struct Symbol: Codable {
+        var fassung: String // Aufnahme + Änderungsdatum + Startansicht — ändert sich das, neu zeichnen
+        var stamm: String   // „icons/symbol-ab12cd“
     }
     var galerien: [String: Galerie] = [:]
 
@@ -183,6 +189,7 @@ final class WebVeroeffentlichung {
             for (k, v) in try await empfang.liste(o) { vorhanden[k] = v }
         }
         var gewollt = Set<String>()
+        var deckblatt: [String: PHAsset] = [:] // Webordner → Aufnahme für das Symbol
 
         // Aufnahmen aufbereiten und hochladen (nur neue oder geänderte).
         func album(_ e: Eintrag) async throws -> WebFormat.Album {
@@ -243,6 +250,10 @@ final class WebVeroeffentlichung {
             var kinder: [WebFormat.Album] = []
             for k in e.kinder { kinder.append(try await album(k)) }
             let titelbild = notizen.albumbild(e.id).flatMap { id in aufnahmen.first { $0.id == Self.webId(id) }?.id }
+            let eigene = aufnahmenJe[e.id] ?? []
+            let ausKind = kinder.lazy.compactMap { deckblatt[$0.ordner] }.first
+            let wahl = notizen.albumbild(e.id).flatMap { id in eigene.first { $0.localIdentifier == id } } ?? eigene.first ?? ausKind
+            deckblatt[ordner] = wahl
             return WebFormat.Album(id: ordner, ordner: ordner, titel: e.titel, beschreibung: "",
                                    aufnahmen: aufnahmen, titelbild: titelbild, kinder: kinder)
         }
@@ -255,7 +266,56 @@ final class WebVeroeffentlichung {
             return b.aufnahmen.isEmpty && b.kinder.isEmpty ? nil : b
         }
         alben = alben.compactMap(mitInhalt)
-        let web = WebFormat.Galerie(titel: galerie.titel, beschreibung: "", ordner: g.ordner, alben: alben)
+        var web = WebFormat.Galerie(titel: galerie.titel, beschreibung: "", ordner: g.ordner, alben: alben)
+
+        // Symbole für den Home-Bildschirm (seit 1.0.22, Wunsch 11/2026: „für jedes Album bzw. jede
+        // Galerie ein passendes Icon"): je Seite aus ihrem Titelbild in dessen Startansicht. Neu
+        // gezeichnet nur bei anderem Bild oder anderer Startansicht; der Name trägt einen
+        // Zufallsteil, damit kein Browser ein altes Symbol aus dem Zwischenspeicher zeigt.
+        schritt = "Symbole für den Home-Bildschirm …"
+        var symbole: [String: WebStand.Symbol] = [:]
+        func symbol(_ ordner: String, _ a: PHAsset?) async throws -> String? {
+            let alt = g.symbole?[ordner]
+            let pfade = { (stamm: String) in WebFormat.symbolGroessen.map { ordner + "/" + WebFormat.symbolDatei(stamm, $0) } }
+            let altDa = alt.map { pfade($0.stamm).allSatisfy { vorhanden[$0] != nil } } ?? false
+            func behalten() -> String? {
+                guard let alt, altDa else { return nil }
+                symbole[ordner] = alt
+                pfade(alt.stamm).forEach { gewollt.insert($0) }
+                return alt.stamm
+            }
+            guard let a else { return behalten() }
+            let blick = notizen.blick(a.localIdentifier)
+            let fassung = "\(a.localIdentifier)|\(a.modificationDate?.timeIntervalSince1970 ?? 0)|\(blick.yaw)|\(blick.pitch)|\(blick.fov)"
+            if alt?.fassung == fassung, altDa { return behalten() }
+            try Task.checkCancellation()
+            // Lässt sich das Bild gerade nicht laden (iCloud), bleibt das alte Symbol — kein Abbruch.
+            guard let bild = try? await WebAufbereitung.symbolBild(a, blick: blick) else { return behalten() }
+            let stamm = "icons/symbol-" + WebFormat.zufall(6)
+            for (groesse, daten) in WebAufbereitung.symbolDateien(aus: bild) {
+                try await empfang.hochladen(daten, nach: ordner + "/" + WebFormat.symbolDatei(stamm, groesse))
+            }
+            pfade(stamm).forEach { gewollt.insert($0); vorhanden[$0] = 1 }
+            symbole[ordner] = WebStand.Symbol(fassung: fassung, stamm: stamm)
+            return stamm
+        }
+        func mitSymbol(_ a: WebFormat.Album) async throws -> WebFormat.Album {
+            var b = a
+            b.symbol = try await symbol(a.ordner, deckblatt[a.ordner])
+            var kinder: [WebFormat.Album] = []
+            for k in a.kinder { kinder.append(try await mitSymbol(k)) }
+            b.kinder = kinder
+            return b
+        }
+        let alle360 = aufnahmenJe.values.joined()
+        let galerieBild = notizen.albumbild(galerie.id).flatMap { id in alle360.first { $0.localIdentifier == id } }
+            ?? web.alben.lazy.compactMap { deckblatt[$0.ordner] }.first
+        web.symbol = try await symbol(web.ordner, galerieBild)
+        var mitSymbolen: [WebFormat.Album] = []
+        for a in web.alben { mitSymbolen.append(try await mitSymbol(a)) }
+        web.alben = mitSymbolen
+        g.symbole = symbole
+        speichern()
 
         // Seiten und Betrachter.
         schritt = "Seiten werden geschrieben …"

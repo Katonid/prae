@@ -16,7 +16,7 @@ const probe = JSON.parse(fs.readFileSync(path.join(wurzel, 'probe.json'), 'utf8'
 let fehler = 0;
 const pruefe = (ok, text) => { console.log((ok ? '  ✓ ' : '  ✗ ') + text); if (!ok) fehler++; };
 
-const typen = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.jpg': 'image/jpeg', '.json': 'application/json' };
+const typen = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.jpg': 'image/jpeg', '.png': 'image/png', '.json': 'application/json' };
 const server = http.createServer((a, b) => {
   let p = decodeURIComponent(new URL(a.url, 'http://x').pathname);
   if (p.endsWith('/')) p += 'index.html';
@@ -49,9 +49,26 @@ const server = http.createServer((a, b) => {
     pruefe(true, 'Vorschaubilder der Karten laden (auch das aus dem Unteralbum)');
     pruefe(!/Galerie wird geladen/.test(await b.textContent('body')), 'Betrachter ist gestartet');
 
+    // Home-Bildschirm: Manifest und Symbole sind erreichbar und passen zusammen.
+    const kopf = await b.evaluate(() => ({
+      manifest: document.querySelector('link[rel=manifest]') && document.querySelector('link[rel=manifest]').href,
+      apple: document.querySelector('link[rel=apple-touch-icon]') && document.querySelector('link[rel=apple-touch-icon]').href,
+      faehig: !!document.querySelector('meta[name=apple-mobile-web-app-capable][content=yes]'),
+    }));
+    pruefe(!!kopf.manifest && !!kopf.apple && kopf.faehig, 'Galerieseite verweist auf Manifest und Symbol');
+    const m = await (await c.request.get(kopf.manifest)).json();
+    pruefe(m.display === 'standalone' && m.name && new URL(m.start_url, kopf.manifest).href === basis + probe.galerie + '/', 'Manifest: eigene App mit Start auf der Galerieseite');
+    pruefe(new URL(m.scope, kopf.manifest).href === basis, 'Manifest: Albumseiten liegen im Bereich der App');
+    for (const u of [kopf.apple, ...m.icons.map((i) => new URL(i.src, kopf.manifest).href)]) {
+      const r = await c.request.get(u);
+      const bytes = await r.body();
+      pruefe(r.ok() && bytes.slice(1, 4).toString() === 'PNG', 'Symbol lädt als PNG: ' + u.split('/').pop());
+    }
+
     await b.click('.g-albumkarte');
     await b.waitForSelector('.g-kachel', { timeout: 15000 });
     pruefe(b.url() === basis + probe.alben[0] + '/', 'Karte öffnet die Albumseite');
+    pruefe(!!(await b.$('link[rel=apple-touch-icon][href*="symbol-see-180.png"]')), 'Albumseite hat ihr eigenes Symbol');
     pruefe(await b.isVisible('.g-zurueck'), 'Albumseite führt zurück zur Galerie (über die Herkunft)');
     await b.click('.g-kachel');
     await b.waitForFunction(() => document.querySelector('.g-laden') && document.querySelector('.g-laden').hidden, null, { timeout: 20000 });

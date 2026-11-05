@@ -104,11 +104,54 @@ final class WebFormatTests: XCTestCase {
         XCTAssertEqual((medien.first?["blick"] as? [String: Any])?["yaw"] as? Double, 30)
     }
 
+    func testHomeBildschirm() throws {
+        var g = Self.beispiel()
+        XCTAssertFalse(WebFormat.seiten(g, stempel: "t").values.contains { $0.contains("apple-touch-icon") }, "ohne Symbol keine Verweise")
+        g.symbol = "icons/symbol-abc"
+        g.alben[0].symbol = "icons/symbol-def"
+        let seiten = WebFormat.seiten(g, stempel: "t")
+        let start = try XCTUnwrap(seiten[g.ordner + "/index.html"])
+        XCTAssertTrue(start.contains("<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"icons/symbol-abc-180.png\">"))
+        XCTAssertTrue(start.contains("<link rel=\"manifest\" href=\"manifest.json\">"))
+        XCTAssertTrue(start.contains("<meta name=\"apple-mobile-web-app-title\" content=\"Berchtesgaden &amp; mehr\">"))
+        XCTAssertTrue(start.contains("apple-mobile-web-app-capable"))
+        let m = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(XCTUnwrap(seiten[g.ordner + "/manifest.json"]).utf8)) as? [String: Any])
+        XCTAssertEqual(m["name"] as? String, "Berchtesgaden & mehr")
+        XCTAssertEqual(m["display"] as? String, "standalone")
+        XCTAssertEqual(m["start_url"] as? String, "./")
+        XCTAssertEqual(m["scope"] as? String, "../", "Albumseiten bleiben in derselben App")
+        let icons = try XCTUnwrap(m["icons"] as? [[String: String]])
+        XCTAssertEqual(icons.map { $0["src"] }, ["icons/symbol-abc-192.png", "icons/symbol-abc-512.png"])
+        XCTAssertEqual(icons.map { $0["sizes"] }, ["192x192", "512x512"])
+        XCTAssertTrue(try XCTUnwrap(seiten[g.alben[0].ordner + "/index.html"]).contains("icons/symbol-def-180.png"))
+        XCTAssertNotNil(seiten[g.alben[0].ordner + "/manifest.json"])
+        XCTAssertNil(seiten[g.alben[1].ordner + "/manifest.json"], "Album ohne Symbol: kein Manifest")
+    }
+
+    func testSymbolDateien() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let quelle = try XCTUnwrap(UIGraphicsImageRenderer(size: CGSize(width: 512, height: 512), format: format).image { k in
+            UIColor.systemTeal.setFill(); k.fill(CGRect(x: 0, y: 0, width: 512, height: 512))
+        }.cgImage)
+        let d = WebAufbereitung.symbolDateien(aus: quelle)
+        XCTAssertEqual(Set(d.keys), Set(WebFormat.symbolGroessen))
+        for (groesse, png) in d {
+            let bild = try XCTUnwrap(UIImage(data: png)?.cgImage)
+            XCTAssertEqual(bild.width, groesse)
+            XCTAssertEqual(bild.height, groesse)
+            XCTAssertTrue([CGImageAlphaInfo.none, .noneSkipLast, .noneSkipFirst].contains(bild.alphaInfo), "undurchsichtig (\(groesse))")
+            XCTAssertTrue(png.starts(with: [0x89, 0x50, 0x4E, 0x47]), "PNG")
+        }
+    }
+
     /// Schreibt eine vollständige Beispiel-Galerie (Seiten, Betrachter, Bilder) für den Browser-Test.
     func testProbeGalerieSchreiben() throws {
         let ziel = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("g360-web-probe", isDirectory: true)
         try? FileManager.default.removeItem(at: ziel)
-        let g = Self.beispiel()
+        var g = Self.beispiel()
+        g.symbol = "icons/symbol-probe"
+        g.alben[0].symbol = "icons/symbol-see"
         let js = try Data(contentsOf: XCTUnwrap(Bundle.main.url(forResource: "galerie.js", withExtension: "txt")))
         let css = try Data(contentsOf: XCTUnwrap(Bundle.main.url(forResource: "galerie.css", withExtension: "txt")))
         func schreib(_ pfad: String, _ d: Data) throws {
@@ -134,6 +177,12 @@ final class WebFormatTests: XCTestCase {
             try a.kinder.forEach(bilder)
         }
         try g.alben.forEach(bilder)
+        let symbolQuelle = try XCTUnwrap(UIImage(data: bild)?.cgImage)
+        for (o, stamm) in [(g.ordner, g.symbol!), (g.alben[0].ordner, g.alben[0].symbol!)] {
+            for (groesse, png) in WebAufbereitung.symbolDateien(aus: symbolQuelle) {
+                try schreib(o + "/" + WebFormat.symbolDatei(stamm, groesse), png)
+            }
+        }
         let probe: [String: Any] = ["galerie": g.ordner, "alben": g.alben.map(\.ordner), "unteralbum": g.alben[1].kinder[0].ordner]
         try schreib("probe.json", try JSONSerialization.data(withJSONObject: probe))
         print("G360-WEB-PROBE: " + ziel.path)
