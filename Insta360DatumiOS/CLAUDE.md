@@ -12,7 +12,7 @@
   Signieren nicht mehr ändern.
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release,
-  in App- UND Testziel). Erste Fassung: 1.0.0 (1); aktuell 1.0.2 (3).
+  in App- UND Testziel). Erste Fassung: 1.0.0 (1); aktuell 1.0.3 (4).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung. Keine
@@ -38,9 +38,24 @@
   `IMG_20261030_181705_866.jpg`, und das ist die EXPORTzeit (am echten Foto
   geprüft: aufgenommen 12:31). Gilt für Videos UND Fotos; die Datei wird
   dafür nicht gelesen, also auch nichts aus iCloud geladen.
-- `Leser.insta360Exporte` sieht alle Videos und Fotos der Mediathek an
-  (läuft in `Task.detached`, liefert nur Sendable-Werte; die PHAssets holt
-  das Modell danach per localIdentifier).
+- `Leser.insta360Exporte` sieht Videos und Fotos der Mediathek an (läuft
+  in `Task.detached`, liefert nur Sendable-Werte; die PHAssets holt das
+  Modell danach per localIdentifier).
+- **Lehre aus 1.0.2 → 1.0.3:** `PHAssetResource.assetResources(for:)` ist
+  eine Datenbankabfrage JE Aufnahme. Auf dem iPad des Nutzers (sehr große
+  Mediathek) stand 1.0.2 minutenlang bei „Durchsuche die Mediathek …“ —
+  ohne Zahl, und „Abbrechen“ erreichte die abgekoppelte Aufgabe nicht.
+  Seit 1.0.3:
+  - Fortschritt „… 12.000 von 85.000“ alle 250 Aufnahmen; Abbrechen
+    reicht per `withTaskCancellationHandler` in die Aufgabe durch.
+  - **Nur einmal alles durchsehen:** aufsteigend nach `creationDate`;
+    `geprueftBis` (UserDefaults) merkt, bis wohin lückenlos geprüft ist —
+    auch bei Abbruch. Danach nur noch `creationDate > geprueftBis − 30
+    Tage` (Rand für spät per iCloud ankommende Exporte; deren
+    Erstellungsdatum ist die Exportzeit).
+  - `insta360Funde` merkt alle gefundenen, noch nicht erledigten Exporte
+    und prüft sie bei jeder Suche erneut (`Leser.funde(ids:)`) — sonst
+    fiele ein nicht korrigierter Fund hinter `geprueftBis` aus der Liste.
 - **Grenzen (Ansage des Nutzers):** Dateien werden weder neu codiert noch
   kopiert noch verändert — nur `PHAssetChangeRequest.creationDate`.
   360°-Fotoexporte (`IMG_…_866.jpg`) bleiben unberührt: Sie haben keine

@@ -56,6 +56,19 @@ final class Modell: ObservableObject {
         get { Set(UserDefaults.standard.stringArray(forKey: ohneZeitKey) ?? []) }
         set { UserDefaults.standard.set(Array(newValue), forKey: ohneZeitKey) }
     }
+    // Alle je gefundenen Insta360-Exporte — werden bei jeder Suche neu geprüft,
+    // auch wenn sie vor `geprueftBis` liegen
+    private let fundeKey = "insta360Funde"
+    private var bekannteFunde: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: fundeKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: fundeKey) }
+    }
+    // Bis zu diesem Erstellungsdatum ist die Mediathek schon durchgesehen
+    private let geprueftBisKey = "geprueftBis"
+    private var geprueftBis: Date? {
+        get { UserDefaults.standard.object(forKey: geprueftBisKey) as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: geprueftBisKey) }
+    }
 
     func suchenStarten() {
         guard !laeuft else { return }
@@ -82,13 +95,38 @@ final class Modell: ObservableObject {
             return
         }
 
-        // 1. Insta360-Exporte am Dateinamen erkennen — abseits der Oberfläche,
-        //    denn dafür werden alle Videos und Fotos der Mediathek angesehen.
-        status = "Durchsuche die Mediathek …"
+        // 1. Insta360-Exporte am Dateinamen erkennen. Dafür muss jedes Video und
+        //    Foto einzeln angesehen werden — bei einer großen Mediathek dauert
+        //    das. Darum nur beim ersten Mal alles; danach nur, was seit der
+        //    letzten Suche dazukam (mit 30 Tagen Rand für spät synchronisierte
+        //    Exporte), plus die schon bekannten, noch offenen Funde.
         let ueberspringen = erledigt.union(ohneZeit)
-        let funde = await Task.detached { Leser.insta360Exporte(ohne: ueberspringen) }.value
+        let ab = geprueftBis.map { $0.addingTimeInterval(-30 * 24 * 3600) }
+        status = ab == nil
+            ? "Durchsuche die Mediathek (beim ersten Mal dauert das) …"
+            : "Durchsuche neue Aufnahmen …"
+        let suche = Task.detached {
+            Leser.insta360Exporte(ab: ab, ohne: ueberspringen) { fertig, gesamt in
+                Task { @MainActor [weak self] in
+                    guard let self, self.sucht, self.status.hasPrefix("Durchsuche") else { return }
+                    self.status = "Durchsuche die Mediathek … \(fertig.formatted()) von \(gesamt.formatted())"
+                }
+            }
+        }
+        let durchsicht = await withTaskCancellationHandler {
+            await suche.value
+        } onCancel: {
+            suche.cancel()
+        }
+        if let bis = durchsicht.bis {
+            geprueftBis = max(bis, geprueftBis ?? bis)
+        }
+        let alteIds = bekannteFunde.subtracting(ueberspringen)
+            .subtracting(durchsicht.funde.map(\.id))
+        let funde = durchsicht.funde + Leser.funde(ids: Array(alteIds))
+        bekannteFunde = Set(funde.map(\.id))
         if Task.isCancelled {
-            status = "Abgebrochen."
+            status = "Abgebrochen. Die nächste Suche macht dort weiter."
             return
         }
         if funde.isEmpty {
@@ -234,27 +272,63 @@ struct Fund: Sendable {
 }
 
 enum Leser {
-    /// Sieht alle Videos und Fotos an und liefert die Insta360-Exporte:
-    /// Namen nach dem Kameramuster (Zeit im Namen) und 360°-Videos
-    /// „temp_video_…“ (Zeit im Kommentarfeld).
-    static func insta360Exporte(ohne ueberspringen: Set<String>) -> [Fund] {
+    /// Sieht alle Videos und Fotos an (mit `ab` nur die ab diesem
+    /// Erstellungsdatum) und liefert die Insta360-Exporte. `bis` ist das
+    /// Erstellungsdatum, bis zu dem lückenlos durchgesehen wurde — bei einem
+    /// Abbruch das der zuletzt angesehenen Aufnahme.
+    static func insta360Exporte(ab: Date?, ohne ueberspringen: Set<String>,
+                                fortschritt: @escaping @Sendable (Int, Int) -> Void) -> (funde: [Fund], bis: Date?) {
+        let optionen = PHFetchOptions()
+        let arten = NSPredicate(format: "mediaType == %ld OR mediaType == %ld",
+                                PHAssetMediaType.video.rawValue, PHAssetMediaType.image.rawValue)
+        optionen.predicate = ab.map {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [arten, NSPredicate(format: "creationDate > %@", $0 as NSDate)])
+        } ?? arten
+        // Aufsteigend: Bei einem Abbruch ist alles bis zur letzten Aufnahme erledigt
+        optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        let alle = PHAsset.fetchAssets(with: optionen)
         var funde: [Fund] = []
-        for art in [PHAssetMediaType.video, .image] {
-            let optionen = PHFetchOptions()
-            optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-            let haupt: PHAssetResourceType = art == .video ? .video : .photo
-            PHAsset.fetchAssets(with: art, options: optionen).enumerateObjects { asset, _, _ in
-                guard !ueberspringen.contains(asset.localIdentifier) else { return }
-                let ressourcen = PHAssetResource.assetResources(for: asset)
-                let name = (ressourcen.first(where: { $0.type == haupt }) ?? ressourcen.first)?.originalFilename ?? ""
-                if let d = datum(ausDateiname: name) {
-                    funde.append(Fund(id: asset.localIdentifier, name: name, datum: d))
-                } else if art == .video, name.lowercased().hasPrefix("temp_video_") {
-                    funde.append(Fund(id: asset.localIdentifier, name: name, datum: nil))
-                }
+        var bis: Date?
+        fortschritt(0, alle.count)
+        alle.enumerateObjects { asset, i, stopp in
+            if Task.isCancelled {
+                stopp.pointee = true
+                return
             }
+            if !ueberspringen.contains(asset.localIdentifier), let f = fund(fuer: asset) {
+                funde.append(f)
+            }
+            bis = asset.creationDate ?? bis
+            if (i + 1) % 250 == 0 || i + 1 == alle.count { fortschritt(i + 1, alle.count) }
+        }
+        return (funde, bis)
+    }
+
+    /// Prüft schon bekannte Funde erneut (Name kann sich nicht ändern, aber
+    /// die Aufnahme kann gelöscht sein).
+    static func funde(ids: [String]) -> [Fund] {
+        guard !ids.isEmpty else { return [] }
+        var funde: [Fund] = []
+        PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil).enumerateObjects { asset, _, _ in
+            if let f = fund(fuer: asset) { funde.append(f) }
         }
         return funde
+    }
+
+    /// Namen nach dem Kameramuster (Zeit im Namen) und 360°-Videos
+    /// „temp_video_…“ (Zeit im Kommentarfeld); alles andere ist kein Fund.
+    static func fund(fuer asset: PHAsset) -> Fund? {
+        let video = asset.mediaType == .video
+        let haupt: PHAssetResourceType = video ? .video : .photo
+        let ressourcen = PHAssetResource.assetResources(for: asset)
+        let name = (ressourcen.first(where: { $0.type == haupt }) ?? ressourcen.first)?.originalFilename ?? ""
+        if let d = datum(ausDateiname: name) {
+            return Fund(id: asset.localIdentifier, name: name, datum: d)
+        }
+        if video, name.lowercased().hasPrefix("temp_video_") {
+            return Fund(id: asset.localIdentifier, name: name, datum: nil)
+        }
+        return nil
     }
 
     enum Ergebnis { case datum(Date), keinDatum, nurInICloud, fehlgeschlagen }
