@@ -87,6 +87,33 @@ enum Aenderungen {
         return try await nachlesen(id) { Koordinaten.gleich($0.location?.coordinate, k) }
     }
 
+    /// Denselben Ort für mehrere Aufnahmen auf einmal (seit 1.0.24, für „Ohne Ort“). Zeitstempel
+    /// je Aufnahme = ihre Aufnahmezeit, sonst wie `ort(_:_:)`. Danach neu gelesen; liefert die
+    /// Zahl der Aufnahmen, die iOS nicht ändern lässt (geteilte Alben u. Ä.).
+    static func ort(_ assets: [PHAsset], _ k: CLLocationCoordinate2D) async throws -> Int {
+        let aenderbar = assets.filter { $0.canPerform(.properties) }
+        let ids = aenderbar.map(\.localIdentifier)
+        guard !ids.isEmpty else { return assets.count }
+        let breite = k.latitude, laenge = k.longitude
+        try await aendern {
+            let ziel = CLLocationCoordinate2D(latitude: breite, longitude: laenge)
+            PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil).enumerateObjects { z, _, _ in
+                PHAssetChangeRequest(for: z).location = CLLocation(
+                    coordinate: ziel, altitude: 0, horizontalAccuracy: 5, verticalAccuracy: -1,
+                    timestamp: z.creationDate ?? Date())
+            }
+        }
+        for versuch in 0..<6 {
+            if versuch > 0 { try? await Task.sleep(for: .milliseconds(250)) }
+            var alle = true
+            PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil).enumerateObjects { z, _, stopp in
+                if !Koordinaten.gleich(z.location?.coordinate, k) { alle = false; stopp.pointee = true }
+            }
+            if alle { return assets.count - aenderbar.count }
+        }
+        throw AenderungsFehler.nichtBestaetigt
+    }
+
     static func ausblenden(_ assets: [PHAsset]) async throws {
         let ids = assets.map(\.localIdentifier)
         try await aendern {
