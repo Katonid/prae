@@ -1,4 +1,4 @@
-# Projekt Insta360Datum (Aufnahmedatum von Insta360-Videos in Fotos korrigieren)
+# Projekt Insta360Datum (Aufnahmedatum von Insta360-Exporten in Fotos korrigieren)
 
 > Die übergreifenden Regeln (PR-Rhythmus, iOS-Pflichten, Bau in GitHub
 > Actions) stehen in der `CLAUDE.md` im Wurzelverzeichnis und gelten hier
@@ -12,7 +12,7 @@
   Signieren nicht mehr ändern.
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release,
-  in App- UND Testziel). Erste Fassung: 1.0.0 (1); aktuell 1.0.1 (2).
+  in App- UND Testziel). Erste Fassung: 1.0.0 (1); aktuell 1.0.2 (3).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung. Keine
@@ -28,10 +28,23 @@
   Video geprüft (12:38 Uhr deutscher Zeit). `Leser.datum(aus:)` liest
   darum nur Datum und Uhrzeit und legt die Gerätezeitzone an. Der
   Parameter `zeitzone:` ist nur für die Tests da.
-- **Grenzen (Ansage des Nutzers):** Videos werden weder neu codiert noch
+- **Exporte mit Kameranamen (seit 1.0.2, Ansage des Nutzers 11/2026):**
+  Nicht-360°-Exporte (Reframe, Cloud-Export) heißen wie die Kameradatei
+  plus Nachsatz, z. B. `VID_20261101_081939_00_139_113502.mp4`. Die ersten
+  Ziffern sind die Aufnahmezeit (Ortszeit der Kamera, wie beim Kommentar).
+  `Leser.datum(ausDateiname:)` verlangt das volle Muster
+  `Typ_JJJJMMTT_HHMMSS_Objektiv(2)_Nummer(3)` am Namensanfang (VID, IMG,
+  LRV, PRO) — **ohne „_00_139“ nie**: Die 360°-Fotoexporte heißen
+  `IMG_20261030_181705_866.jpg`, und das ist die EXPORTzeit (am echten Foto
+  geprüft: aufgenommen 12:31). Gilt für Videos UND Fotos; die Datei wird
+  dafür nicht gelesen, also auch nichts aus iCloud geladen.
+- `Leser.insta360Exporte` sieht alle Videos und Fotos der Mediathek an
+  (läuft in `Task.detached`, liefert nur Sendable-Werte; die PHAssets holt
+  das Modell danach per localIdentifier).
+- **Grenzen (Ansage des Nutzers):** Dateien werden weder neu codiert noch
   kopiert noch verändert — nur `PHAssetChangeRequest.creationDate`.
-  **Keine Fotos** bearbeiten: Insta360-Fotoexporte haben keine
-  Aufnahmezeit (geprüft). Oberfläche Deutsch.
+  360°-Fotoexporte (`IMG_…_866.jpg`) bleiben unberührt: Sie haben keine
+  Aufnahmezeit (geprüft, Byte für Byte). Oberfläche Deutsch.
 - Bereits korrigierte Videos: `UserDefaults` `erledigteAssets`
   (localIdentifier). Videos ohne Aufnahmezeit im Kommentar:
   `ohneZeitAssets` — werden bei der nächsten Suche nicht neu geladen.
