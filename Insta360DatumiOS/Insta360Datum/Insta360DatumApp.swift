@@ -56,6 +56,14 @@ final class Modell: ObservableObject {
         get { Set(UserDefaults.standard.stringArray(forKey: ohneZeitKey) ?? []) }
         set { UserDefaults.standard.set(Array(newValue), forKey: ohneZeitKey) }
     }
+    /// Gesucht wird ab diesem Tag (Erstellungsdatum in Fotos = Exporttag),
+    /// höchstens einen Monat zurück. Vorgabe: heute.
+    @Published var ab = Calendar.current.startOfDay(for: Date())
+
+    static var fruehestens: Date {
+        let heute = Calendar.current.startOfDay(for: Date())
+        return Calendar.current.date(byAdding: .month, value: -1, to: heute) ?? heute
+    }
 
     func suchenStarten() {
         guard !laeuft else { return }
@@ -82,17 +90,32 @@ final class Modell: ObservableObject {
             return
         }
 
-        // 1. Insta360-Exporte am Dateinamen erkennen — abseits der Oberfläche,
-        //    denn dafür werden alle Videos und Fotos der Mediathek angesehen.
-        status = "Durchsuche die Mediathek …"
+        // 1. Insta360-Exporte am Dateinamen erkennen. Dafür muss jede Aufnahme
+        //    einzeln angesehen werden — darum nur die im gewählten Zeitraum
+        //    (Exporte tragen in Fotos den Exporttag als Datum).
         let ueberspringen = erledigt.union(ohneZeit)
-        let funde = await Task.detached { Leser.insta360Exporte(ohne: ueberspringen) }.value
+        let seit = max(ab, Modell.fruehestens)
+        let tag = seit.formatted(date: .abbreviated, time: .omitted)
+        status = "Durchsuche Aufnahmen seit \(tag) …"
+        let suche = Task.detached {
+            Leser.insta360Exporte(ab: seit, ohne: ueberspringen) { fertig, gesamt in
+                Task { @MainActor [weak self] in
+                    guard let self, self.sucht, self.status.hasPrefix("Durchsuche") else { return }
+                    self.status = "Durchsuche Aufnahmen seit \(tag) … \(fertig.formatted()) von \(gesamt.formatted())"
+                }
+            }
+        }
+        let funde = await withTaskCancellationHandler {
+            await suche.value
+        } onCancel: {
+            suche.cancel()
+        }
         if Task.isCancelled {
             status = "Abgebrochen."
             return
         }
         if funde.isEmpty {
-            status = "Keine neuen Insta360-Exporte gefunden."
+            status = "Keine Insta360-Exporte seit \(tag) gefunden."
             return
         }
 
@@ -234,27 +257,45 @@ struct Fund: Sendable {
 }
 
 enum Leser {
-    /// Sieht alle Videos und Fotos an und liefert die Insta360-Exporte:
-    /// Namen nach dem Kameramuster (Zeit im Namen) und 360°-Videos
-    /// „temp_video_…“ (Zeit im Kommentarfeld).
-    static func insta360Exporte(ohne ueberspringen: Set<String>) -> [Fund] {
+    /// Sieht alle Videos und Fotos an, die ab `ab` in die Mediathek kamen
+    /// (Erstellungsdatum), und liefert die Insta360-Exporte.
+    static func insta360Exporte(ab: Date, ohne ueberspringen: Set<String>,
+                                fortschritt: @escaping @Sendable (Int, Int) -> Void) -> [Fund] {
+        let optionen = PHFetchOptions()
+        optionen.predicate = NSPredicate(format: "(mediaType == %ld OR mediaType == %ld) AND creationDate >= %@",
+                                         PHAssetMediaType.video.rawValue, PHAssetMediaType.image.rawValue,
+                                         ab as NSDate)
+        optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        let alle = PHAsset.fetchAssets(with: optionen)
         var funde: [Fund] = []
-        for art in [PHAssetMediaType.video, .image] {
-            let optionen = PHFetchOptions()
-            optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-            let haupt: PHAssetResourceType = art == .video ? .video : .photo
-            PHAsset.fetchAssets(with: art, options: optionen).enumerateObjects { asset, _, _ in
-                guard !ueberspringen.contains(asset.localIdentifier) else { return }
-                let ressourcen = PHAssetResource.assetResources(for: asset)
-                let name = (ressourcen.first(where: { $0.type == haupt }) ?? ressourcen.first)?.originalFilename ?? ""
-                if let d = datum(ausDateiname: name) {
-                    funde.append(Fund(id: asset.localIdentifier, name: name, datum: d))
-                } else if art == .video, name.lowercased().hasPrefix("temp_video_") {
-                    funde.append(Fund(id: asset.localIdentifier, name: name, datum: nil))
-                }
+        fortschritt(0, alle.count)
+        alle.enumerateObjects { asset, i, stopp in
+            if Task.isCancelled {
+                stopp.pointee = true
+                return
             }
+            if !ueberspringen.contains(asset.localIdentifier), let f = fund(fuer: asset) {
+                funde.append(f)
+            }
+            if (i + 1) % 250 == 0 || i + 1 == alle.count { fortschritt(i + 1, alle.count) }
         }
         return funde
+    }
+
+    /// Namen nach dem Kameramuster (Zeit im Namen) und 360°-Videos
+    /// „temp_video_…“ (Zeit im Kommentarfeld); alles andere ist kein Fund.
+    static func fund(fuer asset: PHAsset) -> Fund? {
+        let video = asset.mediaType == .video
+        let haupt: PHAssetResourceType = video ? .video : .photo
+        let ressourcen = PHAssetResource.assetResources(for: asset)
+        let name = (ressourcen.first(where: { $0.type == haupt }) ?? ressourcen.first)?.originalFilename ?? ""
+        if let d = datum(ausDateiname: name) {
+            return Fund(id: asset.localIdentifier, name: name, datum: d)
+        }
+        if video, name.lowercased().hasPrefix("temp_video_") {
+            return Fund(id: asset.localIdentifier, name: name, datum: nil)
+        }
+        return nil
     }
 
     enum Ergebnis { case datum(Date), keinDatum, nurInICloud, fehlgeschlagen }
@@ -461,6 +502,14 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                VStack(alignment: .leading, spacing: 4) {
+                    DatePicker("Exportiert ab", selection: $modell.ab,
+                               in: Modell.fruehestens...Date(), displayedComponents: .date)
+                        .disabled(modell.laeuft)
+                    Text("Gesucht wird nach dem Datum in Fotos – bei Exporten ist das der Tag des Exports. Höchstens einen Monat zurück.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if !modell.status.isEmpty {
                     Text(modell.status)
                         .font(.footnote)
@@ -506,6 +555,7 @@ struct ContentView: View {
                 if modell.laeuft && modell.kandidaten.isEmpty { ProgressView() }
             }
             .task { modell.suchenStarten() }
+            .onChange(of: modell.ab) { modell.suchenStarten() }
         }
     }
 }
