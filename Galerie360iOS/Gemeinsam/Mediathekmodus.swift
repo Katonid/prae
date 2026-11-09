@@ -17,6 +17,8 @@ extension PHAsset {
 /// Was im Mediathek-Modus gezeigt wird.
 enum MediathekQuelle: Hashable {
     case alle, nur360, videos
+    /// Aufnahmen ohne Ortsangabe — um ihnen gezielt einen Ort zu geben (seit 1.0.24).
+    case ohneOrt
     /// Ein eigenes Album (eigene Reihenfolge, wie in der Fotos-App).
     case album(id: String, titel: String)
     /// Eine Sammlung der Fotos-App (Favoriten, Selfies, Panoramen, geteilte Alben …) —
@@ -31,6 +33,7 @@ enum MediathekQuelle: Hashable {
         case .alle: return "alle"
         case .nur360: return "360"
         case .videos: return "videos"
+        case .ohneOrt: return "ohneOrt"
         case .album(let id, _): return "album:" + id
         case .sammlung(let id, _, _): return "sammlung:" + id
         case .auswahl: return nil
@@ -45,6 +48,7 @@ enum MediathekQuelle: Hashable {
         case .alle: return "Alle Aufnahmen"
         case .nur360: return "360°-Aufnahmen"
         case .videos: return "Videos"
+        case .ohneOrt: return "Ohne Ort"
         case .album(_, let t), .sammlung(_, let t, _), .auswahl(_, let t): return t
         }
     }
@@ -54,6 +58,7 @@ enum MediathekQuelle: Hashable {
         case .alle: return "photo.on.rectangle"
         case .nur360: return "globe.europe.africa"
         case .videos: return "video"
+        case .ohneOrt: return "mappin.slash"
         case .album: return "rectangle.stack"
         case .sammlung(_, _, let s): return s
         case .auswahl: return "mappin.and.ellipse"
@@ -93,7 +98,7 @@ extension FotoBibliothek {
             return PHAsset.fetchAssets(in: c, options: Self.nachDatum(neuesteZuerst))
         case .auswahl(let ids, _):
             return PHAsset.fetchAssets(withLocalIdentifiers: ids, options: Self.nachDatum(neuesteZuerst))
-        case .alle, .nur360, .videos:
+        case .alle, .nur360, .videos, .ohneOrt:
             let o = Self.nachDatum(neuesteZuerst)
             o.predicate = quelle == .videos
                 ? NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
@@ -113,7 +118,12 @@ extension FotoBibliothek {
 
     static func aufnahmen(aus r: PHFetchResult<PHAsset>, quelle: MediathekQuelle) -> [PHAsset] {
         let alle = liste(r)
-        return quelle == .nur360 ? alle.filter(\.ist360) : alle
+        switch quelle {
+        case .nur360: return alle.filter(\.ist360)
+        // PhotoKit kann nicht nach dem Ort filtern (kein Prädikat dafür) — also hier.
+        case .ohneOrt: return alle.filter { $0.location == nil }
+        default: return alle
+        }
     }
 
     /// Reihenfolge und Symbole wie in der Fotos-App („Medientypen" und „Sammlungen").

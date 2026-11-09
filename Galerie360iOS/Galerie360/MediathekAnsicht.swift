@@ -26,6 +26,10 @@ struct MediathekRaster: View {
     @State private var paket: TeilenPaket?
     @State private var teiltGerade = false
     @State private var meldung: String?
+    @State private var ortWahl = false
+    /// Zählt geschlossene Betrachter — „Ohne Ort“ lädt danach neu (seit 1.0.24).
+    @State private var betrachterZu = 0
+    @State private var geladenNachZu = 0
 
     static let spaltenBereich = 1...15
 
@@ -52,7 +56,8 @@ struct MediathekRaster: View {
                            spaltenGeaendert: { spalten = $0 })
                 .ignoresSafeArea(edges: .bottom)
             if geladen && aufnahmen.isEmpty {
-                ContentUnavailableView(quelle == .nur360 ? "Keine 360°-Aufnahmen" : "Keine Aufnahmen",
+                ContentUnavailableView(quelle == .nur360 ? "Keine 360°-Aufnahmen"
+                                       : quelle == .ohneOrt ? "Alle Aufnahmen haben einen Ort" : "Keine Aufnahmen",
                                        systemImage: quelle.symbol)
             }
         }
@@ -80,6 +85,9 @@ struct MediathekRaster: View {
                         Text(gewaehlt.isEmpty ? "Aufnahmen wählen" : (gewaehlt.count == 1 ? "1 ausgewählt" : "\(gewaehlt.count) ausgewählt"))
                             .font(.subheadline.weight(.semibold))
                         Spacer()
+                        Button { ortWahl = true } label: { Image(systemName: "mappin.and.ellipse") }
+                            .disabled(gewaehlt.isEmpty)
+                            .accessibilityLabel("Ort festlegen")
                         Menu {
                             Button { ausfuehren { try await favoriten() } } label: { Label("Zu Favoriten", systemImage: "heart") }
                             Button { albumWahl = true } label: { Label("Zu Album hinzufügen …", systemImage: "rectangle.stack.badge.plus") }
@@ -103,10 +111,16 @@ struct MediathekRaster: View {
                     }
                 }
             }
-            .task(id: "\(bibliothek.stand)-\(neuesteUnten)") {
+            .task(id: "\(bibliothek.stand)-\(neuesteUnten)-\(betrachterZu)") {
+                // „Ohne Ort“: Solange der Betrachter offen ist, bleibt die Liste stehen — sonst
+                // verschwände die Aufnahme, der man gerade einen Ort gibt, unter dem Finger, und
+                // der Betrachter spränge auf die nächste. Nach dem Schließen neu laden.
+                if quelle == .ohneOrt, offen != nil { return }
+                let nachBetrachter = quelle == .ohneOrt && geladenNachZu != betrachterZu
+                geladenNachZu = betrachterZu
                 // Nur neu laden, wenn sich an DIESEN Aufnahmen etwas geändert hat oder die
                 // Reihenfolge umgestellt wurde — nicht bei jeder Meldung von iCloud (seit 1.0.16).
-                if geladen, geladeneReihenfolge == neuesteUnten, let e = ergebnis, !bibliothek.betrifft(e) { return }
+                if !nachBetrachter, geladen, geladeneReihenfolge == neuesteUnten, let e = ergebnis, !bibliothek.betrifft(e) { return }
                 guard let e = bibliothek.ergebnis(quelle, neuesteZuerst: !neuesteUnten) else {
                     aufnahmen = []
                     geladen = true
@@ -125,8 +139,22 @@ struct MediathekRaster: View {
                 springen = umgestellt
                 datenStand += 1
             }
-        .fullScreenCover(item: $offen) { z in
+        .fullScreenCover(item: $offen, onDismiss: { betrachterZu += 1 }) { z in
             BetrachterAnsicht(albumTitel: quelle.titel, aufnahmen: aufnahmen, startIndex: z.index)
+        }
+        .sheet(isPresented: $ortWahl) {
+            // Ein Ort für alle gewählten (seit 1.0.24) — Start auf dem Ort der ersten, falls sie einen hat.
+            let liste = auswahl
+            OrtWahlAnsicht(start: liste.lazy.compactMap { $0.location?.coordinate }.first) { k in
+                ausfuehren {
+                    let gesperrt = try await Aenderungen.ort(liste, k)
+                    fertig()
+                    if gesperrt > 0 {
+                        meldung = gesperrt == 1 ? "1 Aufnahme lässt iOS nicht ändern (z. B. aus einem geteilten Album)."
+                            : "\(gesperrt) Aufnahmen lässt iOS nicht ändern (z. B. aus geteilten Alben)."
+                    }
+                }
+            }
         }
         .sheet(item: $paket) { p in TeilenBlatt(paket: p) { paket = nil } }
         .sheet(isPresented: $albumWahl) {
@@ -193,10 +221,15 @@ struct MediathekAbschnitt: View {
             NavigationLink { OrteKarte() } label: {
                 Label("Orte", systemImage: "map").foregroundStyle(.primary)
             }
+            // Gezielt die Aufnahmen ohne Ort (seit 1.0.24, Wunsch 11/2026) — „Auswählen“ →
+            // Stecknadel gibt vielen auf einmal einen Ort, ⓘ im Betrachter einer einzelnen.
+            NavigationLink(value: MediathekQuelle.ohneOrt) {
+                Label(MediathekQuelle.ohneOrt.titel, systemImage: MediathekQuelle.ohneOrt.symbol).foregroundStyle(.primary)
+            }
         } header: {
             Label("Fotos-Mediathek", systemImage: "photo.on.rectangle.angled")
         } footer: {
-            Text("Alle Fotos und Videos deiner Mediathek: normale Aufnahmen im Vollbild, 360°-Aufnahmen gleich rundum.")
+            Text("Alle Fotos und Videos deiner Mediathek: normale Aufnahmen im Vollbild, 360°-Aufnahmen gleich rundum. „Ohne Ort“ zeigt, was noch keinen Ort hat.")
         }
         if !sammlungen.isEmpty {
             // Wie „Medientypen" und „Sammlungen" in der Fotos-App (seit 1.0.15).

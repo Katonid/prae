@@ -18,7 +18,7 @@
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release, in
   App- UND Testziel — und im Apple-TV-Projekt `Galerie360TV.xcodeproj`
   gleich mitziehen). 1.0.0 (1) Ordner-Fassung, 1.0.1 (2) Fotos-Mediathek,
-  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen, 1.0.20 (21) Kachelmarken wieder da, 1.0.21 (22) Im Web teilen, 1.0.22 (23) Symbole für den Home-Bildschirm, 1.0.23 (24) Ladeanzeige am Apple TV abschaltbar, Videotextur am Apple TV selbst geholt.
+  1.0.2 (3) Apple-TV-App, 1.0.3 (4) iCloud-Abgleich, 1.0.4 (5) unverzerrte Vorschauen, 1.0.5 (6) Lautstärke am Apple TV, 1.0.6 (7) kein AirPlay vom iPhone, 1.0.7 (8) Apple TV meldet sich im Hintergrund ab, 1.0.8 (9) Reihenfolge des Antippens, 1.0.9 (10) Galeriebild und Albenübersicht, 1.0.10 (11) Absturz bei Videos am Apple TV behoben, 1.0.11 (12) Videos am Apple TV wie in der Fotos-App, 1.0.12 (13) danach volle Qualität, 1.0.13 (14) Mediathek-Modus, 1.0.14 (15) Zoom in Videos und Raster, Sortierung, 1.0.15 (16) Galerie-Ersatz, 1.0.16 (17) flüssiges Raster, 1.0.17 (18) Raster in UIKit, 1.0.18 (19) Raster merkt sich die Stelle, 1.0.19 (20) Alben ordnen, 1.0.20 (21) Kachelmarken wieder da, 1.0.21 (22) Im Web teilen, 1.0.22 (23) Symbole für den Home-Bildschirm, 1.0.23 (24) Ladeanzeige am Apple TV abschaltbar, Videotextur am Apple TV selbst geholt, 1.0.24 (25) Aufnahmen ohne Ort.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` als
   Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung (Vollzugriff nötig:
@@ -170,6 +170,17 @@ weitere Speicherung an einem anderen Ort". 1.0.0 kopierte in einen Ordner
     das Teilen-Fenster zu ist. Ort und Datum aus der Fotos-Datenbank werden
     hineingeschrieben — Fotos verlustfrei (`CGImageDestinationCopyImageSource`,
     Test `TeilenAngabenTests`), Videos per Passthrough-Export mit ISO-6709-Ort.
+- **Ohne Ort** (seit 1.0.24, Wunsch 11/2026: „gezielt Bilder ohne Ortsangabe
+  suchen, damit ich den Ort festlegen kann"): Startseite → Fotos-Mediathek →
+  „Ohne Ort“ (`MediathekQuelle.ohneOrt`). PhotoKit hat kein Prädikat für den
+  Ort — gefiltert wird in `FotoBibliothek.aufnahmen(aus:quelle:)`
+  (`location == nil`), Abfrage wie „Alle“. Ort geben: im Raster „Auswählen“ →
+  Stecknadel → EIN Ort für alle gewählten (`Aenderungen.ort([PHAsset], _)`,
+  ein `performChanges`, danach neu gelesen; nicht änderbare werden gezählt
+  und gemeldet), oder einzeln im Betrachter über ⓘ. Während der Betrachter
+  offen ist, lädt „Ohne Ort“ NICHT neu (sonst verschwände die Aufnahme unter
+  dem Finger und der Betrachter spränge weiter); beim Schließen schon
+  (`betrachterZu`). Nur iOS — das Apple TV ändert nichts.
 - **Raster flüssig** (seit 1.0.16; gemeldet 11/2026: „Kachelansicht sehr träge
   … beim Scrollen bleibt es stocken"). Drei Ursachen, alle behoben:
   1. `photoLibraryDidChange` erhöhte `stand` bei JEDER Meldung — beim
