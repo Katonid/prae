@@ -12,7 +12,7 @@
   Signieren nicht mehr ändern.
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release,
-  in App- UND Testziel). Erste Fassung: 1.0.0 (1); aktuell 1.0.3 (4).
+  in App- UND Testziel). Erste Fassung: 1.0.0 (1); aktuell 1.0.4 (5).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich in `Config/Info.plist`.
   `NSPhotoLibraryUsageDescription` als Build-Einstellung. Keine
@@ -41,21 +41,17 @@
 - `Leser.insta360Exporte` sieht Videos und Fotos der Mediathek an (läuft
   in `Task.detached`, liefert nur Sendable-Werte; die PHAssets holt das
   Modell danach per localIdentifier).
-- **Lehre aus 1.0.2 → 1.0.3:** `PHAssetResource.assetResources(for:)` ist
-  eine Datenbankabfrage JE Aufnahme. Auf dem iPad des Nutzers (sehr große
-  Mediathek) stand 1.0.2 minutenlang bei „Durchsuche die Mediathek …“ —
-  ohne Zahl, und „Abbrechen“ erreichte die abgekoppelte Aufgabe nicht.
-  Seit 1.0.3:
-  - Fortschritt „… 12.000 von 85.000“ alle 250 Aufnahmen; Abbrechen
-    reicht per `withTaskCancellationHandler` in die Aufgabe durch.
-  - **Nur einmal alles durchsehen:** aufsteigend nach `creationDate`;
-    `geprueftBis` (UserDefaults) merkt, bis wohin lückenlos geprüft ist —
-    auch bei Abbruch. Danach nur noch `creationDate > geprueftBis − 30
-    Tage` (Rand für spät per iCloud ankommende Exporte; deren
-    Erstellungsdatum ist die Exportzeit).
-  - `insta360Funde` merkt alle gefundenen, noch nicht erledigten Exporte
-    und prüft sie bei jeder Suche erneut (`Leser.funde(ids:)`) — sonst
-    fiele ein nicht korrigierter Fund hinter `geprueftBis` aus der Liste.
+- **Suchzeitraum (seit 1.0.4, Ansage des Nutzers 11/2026):** Die
+  Mediathek hat zigtausende Aufnahmen, und `PHAssetResource.assetResources`
+  ist eine Datenbankabfrage JE Aufnahme (1.0.2 stand darum minutenlang bei
+  „Durchsuche die Mediathek …“). Darum sieht die Suche nur Aufnahmen an,
+  deren `creationDate` ab dem gewählten Tag liegt — Exporte tragen in
+  Fotos den Exporttag. DatePicker „Exportiert ab“, Vorgabe heute,
+  **höchstens einen Monat zurück** (`Modell.fruehestens`). Eine Änderung
+  startet die Suche neu. Fortschritt „… 120 von 900“ und Abbrechen
+  (`withTaskCancellationHandler` → `suche.cancel()`) bleiben.
+  Das zwischenzeitliche Merken des Durchsuchten (`geprueftBis`,
+  `insta360Funde` in 1.0.3) ist damit entfallen — nicht zurückholen.
 - **Grenzen (Ansage des Nutzers):** Dateien werden weder neu codiert noch
   kopiert noch verändert — nur `PHAssetChangeRequest.creationDate`.
   360°-Fotoexporte (`IMG_…_866.jpg`) bleiben unberührt: Sie haben keine

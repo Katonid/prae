@@ -56,18 +56,13 @@ final class Modell: ObservableObject {
         get { Set(UserDefaults.standard.stringArray(forKey: ohneZeitKey) ?? []) }
         set { UserDefaults.standard.set(Array(newValue), forKey: ohneZeitKey) }
     }
-    // Alle je gefundenen Insta360-Exporte — werden bei jeder Suche neu geprüft,
-    // auch wenn sie vor `geprueftBis` liegen
-    private let fundeKey = "insta360Funde"
-    private var bekannteFunde: Set<String> {
-        get { Set(UserDefaults.standard.stringArray(forKey: fundeKey) ?? []) }
-        set { UserDefaults.standard.set(Array(newValue), forKey: fundeKey) }
-    }
-    // Bis zu diesem Erstellungsdatum ist die Mediathek schon durchgesehen
-    private let geprueftBisKey = "geprueftBis"
-    private var geprueftBis: Date? {
-        get { UserDefaults.standard.object(forKey: geprueftBisKey) as? Date }
-        set { UserDefaults.standard.set(newValue, forKey: geprueftBisKey) }
+    /// Gesucht wird ab diesem Tag (Erstellungsdatum in Fotos = Exporttag),
+    /// höchstens einen Monat zurück. Vorgabe: heute.
+    @Published var ab = Calendar.current.startOfDay(for: Date())
+
+    static var fruehestens: Date {
+        let heute = Calendar.current.startOfDay(for: Date())
+        return Calendar.current.date(byAdding: .month, value: -1, to: heute) ?? heute
     }
 
     func suchenStarten() {
@@ -95,42 +90,32 @@ final class Modell: ObservableObject {
             return
         }
 
-        // 1. Insta360-Exporte am Dateinamen erkennen. Dafür muss jedes Video und
-        //    Foto einzeln angesehen werden — bei einer großen Mediathek dauert
-        //    das. Darum nur beim ersten Mal alles; danach nur, was seit der
-        //    letzten Suche dazukam (mit 30 Tagen Rand für spät synchronisierte
-        //    Exporte), plus die schon bekannten, noch offenen Funde.
+        // 1. Insta360-Exporte am Dateinamen erkennen. Dafür muss jede Aufnahme
+        //    einzeln angesehen werden — darum nur die im gewählten Zeitraum
+        //    (Exporte tragen in Fotos den Exporttag als Datum).
         let ueberspringen = erledigt.union(ohneZeit)
-        let ab = geprueftBis.map { $0.addingTimeInterval(-30 * 24 * 3600) }
-        status = ab == nil
-            ? "Durchsuche die Mediathek (beim ersten Mal dauert das) …"
-            : "Durchsuche neue Aufnahmen …"
+        let seit = max(ab, Modell.fruehestens)
+        let tag = seit.formatted(date: .abbreviated, time: .omitted)
+        status = "Durchsuche Aufnahmen seit \(tag) …"
         let suche = Task.detached {
-            Leser.insta360Exporte(ab: ab, ohne: ueberspringen) { fertig, gesamt in
+            Leser.insta360Exporte(ab: seit, ohne: ueberspringen) { fertig, gesamt in
                 Task { @MainActor [weak self] in
                     guard let self, self.sucht, self.status.hasPrefix("Durchsuche") else { return }
-                    self.status = "Durchsuche die Mediathek … \(fertig.formatted()) von \(gesamt.formatted())"
+                    self.status = "Durchsuche Aufnahmen seit \(tag) … \(fertig.formatted()) von \(gesamt.formatted())"
                 }
             }
         }
-        let durchsicht = await withTaskCancellationHandler {
+        let funde = await withTaskCancellationHandler {
             await suche.value
         } onCancel: {
             suche.cancel()
         }
-        if let bis = durchsicht.bis {
-            geprueftBis = max(bis, geprueftBis ?? bis)
-        }
-        let alteIds = bekannteFunde.subtracting(ueberspringen)
-            .subtracting(durchsicht.funde.map(\.id))
-        let funde = durchsicht.funde + Leser.funde(ids: Array(alteIds))
-        bekannteFunde = Set(funde.map(\.id))
         if Task.isCancelled {
-            status = "Abgebrochen. Die nächste Suche macht dort weiter."
+            status = "Abgebrochen."
             return
         }
         if funde.isEmpty {
-            status = "Keine neuen Insta360-Exporte gefunden."
+            status = "Keine Insta360-Exporte seit \(tag) gefunden."
             return
         }
 
@@ -272,23 +257,17 @@ struct Fund: Sendable {
 }
 
 enum Leser {
-    /// Sieht alle Videos und Fotos an (mit `ab` nur die ab diesem
-    /// Erstellungsdatum) und liefert die Insta360-Exporte. `bis` ist das
-    /// Erstellungsdatum, bis zu dem lückenlos durchgesehen wurde — bei einem
-    /// Abbruch das der zuletzt angesehenen Aufnahme.
-    static func insta360Exporte(ab: Date?, ohne ueberspringen: Set<String>,
-                                fortschritt: @escaping @Sendable (Int, Int) -> Void) -> (funde: [Fund], bis: Date?) {
+    /// Sieht alle Videos und Fotos an, die ab `ab` in die Mediathek kamen
+    /// (Erstellungsdatum), und liefert die Insta360-Exporte.
+    static func insta360Exporte(ab: Date, ohne ueberspringen: Set<String>,
+                                fortschritt: @escaping @Sendable (Int, Int) -> Void) -> [Fund] {
         let optionen = PHFetchOptions()
-        let arten = NSPredicate(format: "mediaType == %ld OR mediaType == %ld",
-                                PHAssetMediaType.video.rawValue, PHAssetMediaType.image.rawValue)
-        optionen.predicate = ab.map {
-            NSCompoundPredicate(andPredicateWithSubpredicates: [arten, NSPredicate(format: "creationDate > %@", $0 as NSDate)])
-        } ?? arten
-        // Aufsteigend: Bei einem Abbruch ist alles bis zur letzten Aufnahme erledigt
-        optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        optionen.predicate = NSPredicate(format: "(mediaType == %ld OR mediaType == %ld) AND creationDate >= %@",
+                                         PHAssetMediaType.video.rawValue, PHAssetMediaType.image.rawValue,
+                                         ab as NSDate)
+        optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         let alle = PHAsset.fetchAssets(with: optionen)
         var funde: [Fund] = []
-        var bis: Date?
         fortschritt(0, alle.count)
         alle.enumerateObjects { asset, i, stopp in
             if Task.isCancelled {
@@ -298,19 +277,7 @@ enum Leser {
             if !ueberspringen.contains(asset.localIdentifier), let f = fund(fuer: asset) {
                 funde.append(f)
             }
-            bis = asset.creationDate ?? bis
             if (i + 1) % 250 == 0 || i + 1 == alle.count { fortschritt(i + 1, alle.count) }
-        }
-        return (funde, bis)
-    }
-
-    /// Prüft schon bekannte Funde erneut (Name kann sich nicht ändern, aber
-    /// die Aufnahme kann gelöscht sein).
-    static func funde(ids: [String]) -> [Fund] {
-        guard !ids.isEmpty else { return [] }
-        var funde: [Fund] = []
-        PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil).enumerateObjects { asset, _, _ in
-            if let f = fund(fuer: asset) { funde.append(f) }
         }
         return funde
     }
@@ -535,6 +502,14 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                VStack(alignment: .leading, spacing: 4) {
+                    DatePicker("Exportiert ab", selection: $modell.ab,
+                               in: Modell.fruehestens...Date(), displayedComponents: .date)
+                        .disabled(modell.laeuft)
+                    Text("Gesucht wird nach dem Datum in Fotos – bei Exporten ist das der Tag des Exports. Höchstens einen Monat zurück.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if !modell.status.isEmpty {
                     Text(modell.status)
                         .font(.footnote)
@@ -580,6 +555,7 @@ struct ContentView: View {
                 if modell.laeuft && modell.kandidaten.isEmpty { ProgressView() }
             }
             .task { modell.suchenStarten() }
+            .onChange(of: modell.ab) { modell.suchenStarten() }
         }
     }
 }
