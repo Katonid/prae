@@ -1,9 +1,12 @@
 //  Insta360DatumApp.swift
 //
-//  Kleine iOS-App: Findet alle Insta360-Exporte (temp_video_…) in der
-//  Fotos-Mediathek, liest die echte Aufnahmezeit aus dem Kommentarfeld der
-//  MP4-Datei (z. B. "2026-10-28 12:38:37 +0000" = Ortszeit der Kamera,
-//  das "+0000" ist falsch und wird ignoriert) und setzt das Datum in Fotos.
+//  Kleine iOS-App: Findet Insta360-Exporte in der Fotos-Mediathek und setzt
+//  dort die echte Aufnahmezeit als Datum. Die Zeit kommt
+//  - bei 360°-Videos (temp_video_…) aus dem Kommentarfeld der MP4-Datei
+//    (z. B. "2026-10-28 12:38:37 +0000" = Ortszeit der Kamera, das "+0000"
+//    ist falsch und wird ignoriert),
+//  - bei Exporten mit Kameranamen (VID_20261101_081939_00_139_….mp4) aus den
+//    ersten Ziffern des Dateinamens, ebenfalls Ortszeit der Kamera.
 //
 //  Einzige Swift-Datei der App; die Tests liegen in Insta360DatumTests/.
 //  NSPhotoLibraryUsageDescription steht als Build-Einstellung im Projekt.
@@ -79,24 +82,31 @@ final class Modell: ObservableObject {
             return
         }
 
-        // 1. Alle Videos holen und Insta360-Exporte am Dateinamen erkennen
-        let optionen = PHFetchOptions()
-        optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        let videos = PHAsset.fetchAssets(with: .video, options: optionen)
+        // 1. Insta360-Exporte am Dateinamen erkennen — abseits der Oberfläche,
+        //    denn dafür werden alle Videos und Fotos der Mediathek angesehen.
+        status = "Durchsuche die Mediathek …"
         let ueberspringen = erledigt.union(ohneZeit)
-        var treffer: [(PHAsset, String)] = []
-        videos.enumerateObjects { asset, _, _ in
-            guard !ueberspringen.contains(asset.localIdentifier) else { return }
-            let ressourcen = PHAssetResource.assetResources(for: asset)
-            let name = (ressourcen.first(where: { $0.type == .video }) ?? ressourcen.first)?.originalFilename ?? ""
-            if name.lowercased().hasPrefix("temp_video_") {
-                treffer.append((asset, name))
-            }
+        let funde = await Task.detached { Leser.insta360Exporte(ohne: ueberspringen) }.value
+        if Task.isCancelled {
+            status = "Abgebrochen."
+            return
+        }
+        if funde.isEmpty {
+            status = "Keine neuen Insta360-Exporte gefunden."
+            return
         }
 
-        if treffer.isEmpty {
-            status = "Keine neuen Insta360-Videos gefunden."
-            return
+        var nachId: [String: PHAsset] = [:]
+        PHAsset.fetchAssets(withLocalIdentifiers: funde.map(\.id), options: nil)
+            .enumerateObjects { asset, _, _ in nachId[asset.localIdentifier] = asset }
+        var treffer: [(PHAsset, String)] = []
+        for fund in funde {
+            guard let asset = nachId[fund.id] else { continue }
+            if let neu = fund.datum {
+                pruefen(asset, name: fund.name, neu: neu)   // Zeit steht im Namen
+            } else {
+                treffer.append((asset, fund.name))           // Zeit steht in der Datei
+            }
         }
 
         // 2. Erst nur, was schon auf dem Gerät liegt — das geht schnell. Videos,
@@ -144,12 +154,7 @@ final class Modell: ObservableObject {
             }
             switch ergebnis {
             case .datum(let neu):
-                if let bisher = asset.creationDate, abs(bisher.timeIntervalSince(neu)) <= 60 {
-                    erledigt.insert(asset.localIdentifier)   // stimmt schon
-                } else {
-                    kandidaten.append(Kandidat(id: asset.localIdentifier, name: name,
-                                               bisher: asset.creationDate, neu: neu))
-                }
+                pruefen(asset, name: name, neu: neu)
             case .keinDatum:
                 b.ohneZeit += 1
                 ohneZeit.insert(asset.localIdentifier)
@@ -165,14 +170,24 @@ final class Modell: ObservableObject {
         return b
     }
 
+    /// Stimmt das Datum schon, wird das gemerkt; sonst kommt es in die Liste.
+    private func pruefen(_ asset: PHAsset, name: String, neu: Date) {
+        if let bisher = asset.creationDate, abs(bisher.timeIntervalSince(neu)) <= 60 {
+            erledigt.insert(asset.localIdentifier)   // stimmt schon
+        } else {
+            kandidaten.append(Kandidat(id: asset.localIdentifier, name: name,
+                                       bisher: asset.creationDate, neu: neu))
+        }
+    }
+
     private func bericht(_ b: Bilanz) -> String {
         var s = b.abgebrochen ? "Abgebrochen. " : ""
         if !kandidaten.isEmpty {
-            s += "\(kandidaten.count) Video(s) mit falschem Datum gefunden."
+            s += "\(kandidaten.count) Aufnahme(n) mit falschem Datum gefunden."
         } else if b.offen.isEmpty {
-            s += "Alle Insta360-Videos haben bereits das richtige Datum."
+            s += "Alle Insta360-Exporte haben bereits das richtige Datum."
         } else {
-            s += "Auf dem Gerät keine Videos mit falschem Datum."
+            s += "Auf dem Gerät keine Aufnahmen mit falschem Datum."
         }
         if b.ohneZeit > 0 { s += " \(b.ohneZeit) ohne Aufnahmezeit übersprungen." }
         if b.fehler > 0 { s += " \(b.fehler) ließen sich nicht aus iCloud laden." }
@@ -201,7 +216,7 @@ final class Modell: ObservableObject {
             auswahl.forEach { e.insert($0.id) }
             erledigt = e
             kandidaten.removeAll { $0.ausgewaehlt }
-            status = "\(auswahl.count) Video(s) korrigiert."
+            status = "\(auswahl.count) Aufnahme(n) korrigiert."
         } catch {
             status = "Fehler: \(error.localizedDescription)"
         }
@@ -210,7 +225,38 @@ final class Modell: ObservableObject {
 
 // MARK: - Aufnahmezeit aus der Videodatei lesen
 
+/// Ein Insta360-Export in der Mediathek. `datum` ist die Aufnahmezeit, wenn
+/// sie schon im Dateinamen steht; sonst muss sie aus der Datei gelesen werden.
+struct Fund: Sendable {
+    let id: String          // localIdentifier des PHAsset
+    let name: String
+    let datum: Date?
+}
+
 enum Leser {
+    /// Sieht alle Videos und Fotos an und liefert die Insta360-Exporte:
+    /// Namen nach dem Kameramuster (Zeit im Namen) und 360°-Videos
+    /// „temp_video_…“ (Zeit im Kommentarfeld).
+    static func insta360Exporte(ohne ueberspringen: Set<String>) -> [Fund] {
+        var funde: [Fund] = []
+        for art in [PHAssetMediaType.video, .image] {
+            let optionen = PHFetchOptions()
+            optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            let haupt: PHAssetResourceType = art == .video ? .video : .photo
+            PHAsset.fetchAssets(with: art, options: optionen).enumerateObjects { asset, _, _ in
+                guard !ueberspringen.contains(asset.localIdentifier) else { return }
+                let ressourcen = PHAssetResource.assetResources(for: asset)
+                let name = (ressourcen.first(where: { $0.type == haupt }) ?? ressourcen.first)?.originalFilename ?? ""
+                if let d = datum(ausDateiname: name) {
+                    funde.append(Fund(id: asset.localIdentifier, name: name, datum: d))
+                } else if art == .video, name.lowercased().hasPrefix("temp_video_") {
+                    funde.append(Fund(id: asset.localIdentifier, name: name, datum: nil))
+                }
+            }
+        }
+        return funde
+    }
+
     enum Ergebnis { case datum(Date), keinDatum, nurInICloud, fehlgeschlagen }
     enum Laden { case datei(URL), nurInICloud, fehlgeschlagen }
 
@@ -299,6 +345,20 @@ enum Leser {
         f.timeZone = zeitzone
         f.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return f.date(from: String(text[r]).replacingOccurrences(of: "T", with: " "))
+    }
+
+    /// "VID_20261101_081939_00_139_113502.mp4" → 01.11.2026 08:19:39 Ortszeit.
+    /// Nur Namen nach dem Kameramuster Typ_Datum_Uhrzeit_Objektiv_Nummer: Ohne
+    /// „_00_139“ ist es die Zeit des Exports (z. B. IMG_20261030_181705_866.jpg).
+    static func datum(ausDateiname name: String, zeitzone: TimeZone = .current) -> Date? {
+        guard let r = name.range(of: #"^(VID|IMG|LRV|PRO)_20\d{6}_\d{6}_\d{2}_\d{3}"#,
+                                 options: [.regularExpression, .caseInsensitive]) else { return nil }
+        let teile = name[r].split(separator: "_")
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = zeitzone
+        f.dateFormat = "yyyyMMdd HHmmss"
+        return f.date(from: "\(teile[1]) \(teile[2])")
     }
 
     /// Sucht den 'moov'-Block der MP4-Datei und liest nur diesen (wenige KB).

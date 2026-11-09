@@ -61,6 +61,36 @@ final class DatumTests: XCTestCase {
     }
 }
 
+final class DateinameTests: XCTestCase {
+    private let berlin = TimeZone(identifier: "Europe/Berlin")!
+
+    /// Der Cloud-Export vom 09.11.: Aufnahme am 01.11.2026 um 08:19:39.
+    func testExportMitKameranamen() throws {
+        let d = try XCTUnwrap(Leser.datum(ausDateiname: "VID_20261101_081939_00_139_113502.mp4", zeitzone: berlin))
+        // 01.11. ist Winterzeit (MEZ = UTC+1): 08:19:39 MEZ = 07:19:39 UTC
+        XCTAssertEqual(d, Date(timeIntervalSince1970: 1_793_517_579))
+    }
+
+    func testFotoUndOhneNachsatz() throws {
+        XCTAssertNotNil(Leser.datum(ausDateiname: "IMG_20261030_123100_00_012.jpg", zeitzone: berlin))
+        XCTAssertNotNil(Leser.datum(ausDateiname: "VID_20261101_081939_00_139.mp4", zeitzone: berlin))
+        XCTAssertNotNil(Leser.datum(ausDateiname: "vid_20261101_081939_10_139_113502.MP4", zeitzone: berlin))
+    }
+
+    /// Ohne Objektiv und Nummer ist die Zeit im Namen die des Exports — nicht anfassen.
+    func testExportzeitWirdNichtGenommen() {
+        XCTAssertNil(Leser.datum(ausDateiname: "IMG_20261030_181705_866.jpg", zeitzone: berlin))
+    }
+
+    func testFremdeNamen() {
+        XCTAssertNil(Leser.datum(ausDateiname: "temp_video_123456.MP4", zeitzone: berlin))
+        XCTAssertNil(Leser.datum(ausDateiname: "IMG_1234.HEIC", zeitzone: berlin))
+        XCTAssertNil(Leser.datum(ausDateiname: "Kopie VID_20261101_081939_00_139.mp4", zeitzone: berlin))
+        XCTAssertNil(Leser.datum(ausDateiname: "VID_20261332_081939_00_139.mp4", zeitzone: berlin))
+        XCTAssertNil(Leser.datum(ausDateiname: "", zeitzone: berlin))
+    }
+}
+
 final class MoovTests: XCTestCase {
     private let kommentar = "2026-10-28 12:38:37 +0000"
 
