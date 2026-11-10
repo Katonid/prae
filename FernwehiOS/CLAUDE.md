@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36), 1.0.36 (Build 37), 1.0.37 (Build 38).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36), 1.0.36 (Build 37), 1.0.37 (Build 38), 1.0.38 (Build 39).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -730,6 +730,47 @@
     **aber nicht auf dem Gerät gelaufen** — Geocoding und Routen nicht
     gemessen; wie gut Apple Adressen wie „A45 63543 Neuberg" findet, ist
     offen.
+- **autoaid mit echtem Weg: das Scriptable-Skript** (`Model/AutoaidSkript.swift`,
+  ab 1.0.38; Ansage des Nutzers 11/2026: „damit wir das nicht wieder
+  vergessen"). **So kamen die Fahrten der Osterreise 2026 herein** — nicht
+  über die CSV: autoaid exportiert im Fahrtenbuch nur eine Zeile je Fahrt,
+  OHNE Punkte. Das Skript „autoaid → GPX" in der App Scriptable meldet sich
+  mit dem autoaid-Konto an (OAuth `oauth.autoaid.de`, Client
+  `connectedCarApi`, nur der Refresh-Token im Schlüsselbund), holt je Fahrt
+  der CSV die GPS-Punkte (`api-production.autoaid.de/cc/v3.0/events?
+  eventType=POSITION`, sonst die Polyline der Fahrt) und schreibt eine GPX
+  (eine Spur je Fahrt, Name „TT.MM.JJJJ HH:MM–HH:MM · Start → Ziel" — daher
+  `Fahrtenimport.anzeigename`). Fassung 1.0 kannte nur den ENGLISCHEN
+  Export („Trip ID"); 1.1 liest auch den deutschen („Fahrten-ID", „Okt").
+  Das Skript liegt als Text in der App; das Blatt „Autofahrten" erklärt die
+  vier Schritte und kopiert es in die Zwischenablage. **Ändert autoaid seine
+  Schnittstelle, wird `AutoaidSkript.text` nachgezogen** (und `fassung`).
+  Die CSV-Route aus 1.0.37 bleibt als Notbehelf.
+- **Ebenen: Reihenfolge und zurücktretende Reisespur** (`Linienfolge`,
+  `Linienzug`, `Linienstueck` in `Model/Kartenfarben.swift`, ab 1.0.38;
+  Ansage des Nutzers 11/2026: „Die Tagesspur überdeckt ja im Moment alles …
+  dass die Tagesspur in den Hintergrund tritt, wenn GPX-Daten einer
+  Autofahrt oder Komoot-Daten vorhanden sind … eine Ebenenverwaltung").
+  - **Reihenfolge** je Gerät (`fernweh.ebenenfolge`, unten zuerst; Vorgabe
+    Reisespur → Autofahrten → Wanderungen), verschiebbar in „Kartenfarben und
+    Ebenen". Die Tageskarten zeichneten bis 1.0.37 in der Reihenfolge der
+    GERÄTEKENNUNG — da lag eine Gerätespur auch mal über der Fahrt. **Jede
+    Karte mit mehreren Linienarten zeichnet über `Linienfolge`**, nie in
+    Ladereihenfolge.
+  - **Zurücktreten** (`fernweh.spurzuruecknehmen`, Vorgabe an): Stücke der
+    Reisespur, deren UHRZEIT in eine Fahrt oder Wanderung (erster bis letzter
+    Punkt) fällt, dünn und blass (Deckkraft 0,4, ohne weißen Rand); davor
+    und danach kräftig. Nur hinter EINGEBLENDETEN Fahrten/Wanderungen — ist
+    die Ebene aus, zeigt die Spur den Weg. Die Reisekarte rechnet die Stücke
+    einmal je Laden bzw. Ebenenwechsel (Zehntausende Punkte), die Tageskarten
+    beim Zeichnen. `Tagesfahrt` lässt die Spur dort ohnehin weg (1.0.31).
+  - **Übergabe**: `karte.folge` und `karte.reisespurZuruecknehmen`
+    (`docs/UEBERGABE.md`). **Das Reisebuch liest sie noch NICHT** — dort
+    (`Fernweheinfuhr`, `Linienfarben`) nachziehen, sonst zeichnet das Buch
+    wie bisher.
+  - **Nicht gemessen**: kein Gerät; ob die Stücke an den Grenzen sauber
+    anschließen und ob die Reisekarte über eine lange Reise flüssig bleibt,
+    ist nicht gesehen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

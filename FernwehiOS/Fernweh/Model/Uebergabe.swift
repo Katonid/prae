@@ -56,6 +56,12 @@ struct Uebergabe: Codable {
 
     struct KarteTeil: Codable {
         var farben: FarbenTeil
+        /// Ab 1.0.38: Reihenfolge der Ebenen, UNTEN zuerst
+        /// („reisespur", „fahrt", „wanderung").
+        var folge: [String]? = nil
+        /// Ab 1.0.38: Die Reisespur blass zeichnen, solange eine Fahrt oder
+        /// Wanderung läuft.
+        var reisespurZuruecknehmen: Bool? = nil
     }
 
     /// „#RRGGBB". `reisespur` fehlt, solange in Fernweh keine eigene Farbe
@@ -370,7 +376,9 @@ enum Uebergabebau {
             karte: Uebergabe.KarteTeil(farben: Uebergabe.FarbenTeil(
                 reisespur: Kartenfarben.shared.hexFuerUebergabe(.reisespur, palette: reise.palette),
                 wanderung: Kartenfarben.shared.hexFuerUebergabe(.wanderung, palette: reise.palette),
-                fahrt: Kartenfarben.shared.hexFuerUebergabe(.fahrt, palette: reise.palette))))
+                fahrt: Kartenfarben.shared.hexFuerUebergabe(.fahrt, palette: reise.palette)),
+                folge: Kartenfarben.shared.folge.map(\.rawValue),
+                reisespurZuruecknehmen: Kartenfarben.shared.spurZuruecknehmen))
         let kodierer = JSONEncoder()
         kodierer.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         // Die Beschreibung ist die LETZTE Datei im ZIP — sie entsteht erst,

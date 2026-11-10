@@ -20,16 +20,51 @@ struct KartenfarbenView: View {
                 } footer: {
                     Text("Die Reisespur folgt ohne eigene Wahl der Farbe der Reise; die Spuren der Miturlauber stehen in einem helleren Ton daneben. Die Farben gelten auf diesem Gerät und gehen mit „Fürs Fotobuch übergeben“ ins Reisebuch.")
                 }
+                ebenen
                 Section("So sieht es aus") {
                     vorschau
                         .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                 }
             }
-            .navigationTitle("Kartenfarben")
+            .navigationTitle("Kartenfarben und Ebenen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Fertig") { schliessen() } }
             }
+        }
+    }
+
+    // MARK: - Ebenen (ab 1.0.38)
+
+    /// Oben in der Liste = oben auf der Karte. Gespeichert wird unten zuerst.
+    private var ebenen: some View {
+        Section {
+            ForEach(farben.folge.reversed()) { art in
+                Label(art.name, systemImage: art.symbol)
+                    .foregroundStyle(farben.farbe(art, palette: palette))
+            }
+            .onMove { von, nach in
+                var oben = Array(farben.folge.reversed())
+                oben.move(fromOffsets: von, toOffset: nach)
+                withAnimation { farben.folgeSetzen(oben.reversed()) }
+            }
+            Toggle(isOn: Binding(get: { farben.spurZuruecknehmen },
+                                 set: { an in withAnimation { farben.zuruecknehmenSetzen(an) } })) {
+                Label("Reisespur tritt zurück", systemImage: "square.3.layers.3d.bottom.filled")
+            }
+            if !farben.folgeIstVorgabe {
+                Button("Reihenfolge zurücksetzen") {
+                    withAnimation { farben.folgeSetzen(Kartenfarben.folgeVorgabe) }
+                }
+            }
+        } header: {
+            HStack {
+                Text("Ebenen")
+                Spacer()
+                EditButton().font(.caption.weight(.semibold)).textCase(nil)
+            }
+        } footer: {
+            Text("Oben in der Liste liegt oben auf der Karte — „Bearbeiten“, dann an den Griffen ziehen. „Reisespur tritt zurück“: Solange eine Autofahrt oder Wanderung läuft, zeichnet das Telefon denselben Weg mit; diese Stücke der Reisespur werden dünn und blass gezeichnet, davor und danach bleibt sie kräftig. Beides gilt auf diesem Gerät und geht mit der Übergabe ins Reisebuch.")
         }
     }
 
@@ -55,7 +90,7 @@ struct KartenfarbenView: View {
 
     private var vorschau: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ForEach(Spurart.allCases) { art in
+            ForEach(farben.folge.reversed()) { art in
                 HStack(spacing: 12) {
                     Capsule()
                         .fill(farben.farbe(art, palette: palette))
@@ -63,6 +98,14 @@ struct KartenfarbenView: View {
                         .overlay(Capsule().stroke(.white, lineWidth: 1.5).padding(-1.5))
                         .shadow(color: .black.opacity(0.15), radius: 1)
                     Text(art.name).font(.subheadline)
+                }
+            }
+            if farben.spurZuruecknehmen {
+                HStack(spacing: 12) {
+                    Capsule()
+                        .fill(farben.farbe(.reisespur, palette: palette).opacity(0.4))
+                        .frame(width: 70, height: 3)
+                    Text("Reisespur während einer Fahrt").font(.subheadline).foregroundStyle(.secondary)
                 }
             }
         }
