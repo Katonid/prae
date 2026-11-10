@@ -61,6 +61,14 @@ enum Fahrtenimport {
         var zuKurz = 0
         /// Aus wie vielen Dateien die Fahrten stammen.
         var dateien = 0
+        /// Aus einem Fahrtenbuch (CSV, ab 1.0.37): Wege über Apple Karten
+        /// berechnet, als gerade Linie (keine Route), Adressen nicht
+        /// gefunden, Tage AUSSERHALB der Reise (nicht berechnet).
+        var csv = false
+        var berechnet = 0
+        var luftlinie = 0
+        var nichtGefunden: [String] = []
+        var csvAusserhalb: [String] = []
     }
 
     /// Eine gewählte Datei, schon gelesen — damit sich die Pause im Blatt
@@ -89,10 +97,30 @@ enum Fahrtenimport {
 
     /// Zerlegt die Dateien in Fahrten. `pause`: ab so vielen Sekunden ohne
     /// Punkt beginnt eine neue Fahrt; `nil` trennt nur an den Spuren.
-    static func auswerten(_ dateien: [Datei], pause: TimeInterval?) async -> Fund {
+    static func auswerten(_ dateien: [Datei], pause: TimeInterval?, tage: Set<String> = [],
+                          melden: @escaping @MainActor (String) -> Void = { _ in }) async -> Fund {
         var fund = Fund()
         var gelesen: [Wanderung] = []
-        for datei in dateien {
+        // Fahrtenbücher (CSV, ab 1.0.37) — siehe `FahrtenCSV.swift`.
+        for datei in dateien where FahrtenCSV.istCSV(datei.name) {
+            guard let tabelle = FahrtenCSV.lesen(datei.daten), !tabelle.zeilen.isEmpty else {
+                fund.unlesbar.append(datei.name)
+                continue
+            }
+            fund.csv = true
+            fund.dateien += 1
+            let draussen = Set(tabelle.zeilen.map(\.tag)).subtracting(tage)
+            fund.csvAusserhalb += tabelle.zeilen.map(\.tag).filter { draussen.contains($0) }
+            let e = await FahrtenCSV.berechnen(tabelle.zeilen, tage: tage, melden: melden)
+            fund.berechnet += e.berechnet
+            fund.luftlinie += e.luftlinie
+            fund.nichtGefunden += e.nichtGefunden
+            fund.zuKurz += e.zuKurz
+            for f in e.fahrten where !fund.fahrten.contains(where: { $0.kennung == f.kennung }) {
+                fund.fahrten.append(f)
+            }
+        }
+        for datei in dateien where !FahrtenCSV.istCSV(datei.name) {
             guard let ergebnis = try? GPXLeser.fahrten(datei.daten, dateiname: datei.name, pause: pause) else {
                 fund.unlesbar.append(datei.name)
                 continue

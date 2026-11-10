@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36), 1.0.36 (Build 37).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36), 1.0.36 (Build 37), 1.0.37 (Build 38).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -706,6 +706,30 @@
     (`isDeleted` / `managedObjectContext == nil`).
   - **Nicht gemessen**: kein Gerät; ob das Wischen neben dem senkrechten
     Blättern sauber greift, ist nicht gesehen.
+- **Autofahrten aus einem Fahrtenbuch (CSV)** (`Model/FahrtenCSV.swift`,
+  ab 1.0.37; gefragt 11/2026: Die Auto-App des Nutzers — **Autoaid** —
+  exportiert nur CSV, keine GPX). Eine Zeile je FAHRT (Datum, Start-/Endzeit,
+  Start- und Zieladresse, „Wegstrecke"), **keine Punkte**. Im selben Blatt
+  wie GPX (Reise → „…" → „Autofahrten (GPX, CSV) …"), Dateien gemischt
+  möglich.
+  - **Der Weg wird gerechnet**: Adressen über `CLGeocoder` (jede einmal,
+    Zone aus dem Ort), Route über `MKDirections` (Auto, schnellste),
+    Uhrzeiten über die Strecke verteilt. Ohne Route: gerade Linie, gezählt.
+    Das Blatt sagt, dass der Weg gerechnet ist. **Kilometer aus der
+    Datei**, nicht aus der Route.
+  - **Tag aus der Datei** (Startdatum, Ortszeit): Nur Fahrten an Tagen der
+    Reise werden berechnet; die übrigen werden abgezählt
+    (`Fund.csvAusserhalb`), „Reise erweitern" berechnet die neuen Tage nach.
+  - **Apple drosselt** beide Dienste (≈ 50/min): nacheinander, 0,7 s Abstand,
+    bei Drosselung 30 s Pause und zwei weitere Versuche. Etwa 2 s je Fahrt,
+    der Fortschritt steht im Blatt.
+  - Spalten über die ÜBERSCHRIFT (ohne Groß/klein und Satzzeichen), Komma
+    oder Semikolon; Datum „1 Nov 2026" (deutsche/englische Monatskürzel),
+    „01.11.2026", „2026-11-01". Unter 200 m (auch „—") fällt weg.
+  - Der Aufbau ist an einem echten Autoaid-Export abgelesen (10.11.2026),
+    **aber nicht auf dem Gerät gelaufen** — Geocoding und Routen nicht
+    gemessen; wie gut Apple Adressen wie „A45 63543 Neuberg" findet, ist
+    offen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen
