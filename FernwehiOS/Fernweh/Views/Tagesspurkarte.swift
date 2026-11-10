@@ -38,11 +38,9 @@ struct Tagesspurkarte: View {
         if eintrag.koordinate != nil || !linien.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 Map(initialPosition: .automatic, interactionModes: []) {
-                    ForEach(linien) { l in
-                        MapPolyline(coordinates: l.punkte)
-                            .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
-                        MapPolyline(coordinates: l.punkte)
-                            .stroke(farben.farbe(l.art, palette: palette), style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                    // Nach Ebene, die Reisespur tritt zurück (ab 1.0.38).
+                    ForEach(Linienfolge.stuecke(linien)) { st in
+                        Linienzug(stueck: st, farbe: farben.farbe(st.art, palette: palette), breite: 3.5)
                     }
                     if let k = eintrag.koordinate {
                         Marker(eintrag.anzeigeTitel, coordinate: k).tint(palette.haupt)
@@ -195,11 +193,8 @@ struct Tagesspurleiste: View {
             } else {
                 ZStack(alignment: .bottomLeading) {
                     Map(initialPosition: .automatic, interactionModes: []) {
-                        ForEach(linien) { l in
-                            MapPolyline(coordinates: l.punkte)
-                                .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
-                            MapPolyline(coordinates: l.punkte)
-                                .stroke(farben.farbe(l.art, palette: palette), style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                        ForEach(Linienfolge.stuecke(linien)) { st in
+                            Linienzug(stueck: st, farbe: farben.farbe(st.art, palette: palette), breite: 3.5)
                         }
                     }
                     .mapStyle(.standard(pointsOfInterest: .excludingAll))
@@ -418,11 +413,11 @@ struct SpurVollbild: View {
 
     private var karte: some View {
         Map(position: $position) {
-            ForEach(linien.filter { sichtbar($0.art) }) { l in
-                MapPolyline(coordinates: l.punkte)
-                    .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
-                MapPolyline(coordinates: l.punkte)
-                    .stroke(linienfarbe ?? farben.farbe(l.art, palette: palette), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            // Nach Ebene; die Reisespur tritt während Fahrten und
+            // Wanderungen zurück (ab 1.0.38, `Linienfolge`) — nur hinter
+            // eingeblendeten: Ist die Fahrt aus, zeigt die Spur den Weg.
+            ForEach(Linienfolge.stuecke(linien.filter { sichtbar($0.art) })) { st in
+                Linienzug(stueck: st, farbe: linienfarbe ?? farben.farbe(st.art, palette: palette))
             }
             ForEach(alleZeitmarken) { z in
                 Annotation(z.text, coordinate: z.ort) { Zeitmarkenbild(marke: z) }

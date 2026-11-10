@@ -103,6 +103,36 @@ struct FahrtenImportView: View {
         } footer: {
             Text("Wähle alle Dateien auf einmal — in der Dateien-App mit „Auswählen“. Eine Datei darf mehrere Fahrten enthalten: Getrennt wird an jeder Spur der Datei und an jeder längeren Pause. Jede Fahrt kommt an den Tag, an dem sie begann (Ortszeit am Start), und erscheint auf der Karte in der Farbe der Autofahrten.\n\nCSV aus einem Fahrtenbuch (etwa Autoaid): eine Zeile je Fahrt mit Datum, Uhrzeiten, Start- und Zieladresse. Den Weg berechnet Apple Karten aus den Adressen — er kann vom wirklich gefahrenen abweichen. Die Kilometer kommen aus der Datei. Berechnet werden nur Fahrten an Tagen der Reise; das dauert etwa zwei Sekunden je Fahrt.")
         }
+        autoaidHinweis
+    }
+
+    // MARK: - Hinweis: autoaid über Scriptable (ab 1.0.38)
+
+    @State private var skriptKopiert = false
+
+    /// So kommen Fahrten aus autoaid MIT echtem Streckenverlauf herein —
+    /// der Weg der Osterreise 2026, hier festgehalten (`AutoaidSkript`).
+    private var autoaidHinweis: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("autoaid gibt im Fahrtenbuch nur eine CSV heraus — ohne Streckenverlauf. Die echten GPS-Punkte holt das Skript „autoaid → GPX“ in der App Scriptable:")
+                Text("1. In autoaid die Fahrten als CSV exportieren.\n2. In Scriptable das Skript starten (beim ersten Mal unten kopieren und als neues Skript einfügen) → „↻ Neue CSV einlesen …“ → die CSV wählen.\n3. „📅 Zeitraum gesammelt exportieren …“ → Zeitraum der Reise → einmal bei autoaid anmelden → GPX-Datei in „Dateien“ sichern.\n4. Hier „GPX- oder CSV-Dateien wählen“ → die GPX-Datei.")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout)
+            .padding(.vertical, 2)
+            Button {
+                UIPasteboard.general.string = AutoaidSkript.text
+                withAnimation { skriptKopiert = true }
+            } label: {
+                Label(skriptKopiert ? "Skript kopiert — in Scriptable einfügen" : "Skript für Scriptable kopieren",
+                      systemImage: skriptKopiert ? "checkmark.circle.fill" : "doc.on.clipboard")
+            }
+        } header: {
+            Label("Fahrten aus autoaid mit echtem Weg", systemImage: "car.fill")
+        } footer: {
+            Text("Skript-Fassung \(AutoaidSkript.fassung). Es liest den deutschen und den englischen autoaid-Export. Dein autoaid-Passwort fragt es einmal ab und behält nur einen Anmelde-Schlüssel im Schlüsselbund.")
+        }
     }
 
     /// Wertet neu aus; eine laufende Auswertung wird abgebrochen.

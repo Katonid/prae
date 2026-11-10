@@ -70,7 +70,7 @@ struct EinstellungenView: View {
 
                 Section {
                     Button { kartenfarben = true } label: {
-                        Label("Kartenfarben …", systemImage: "paintpalette")
+                        Label("Kartenfarben und Ebenen …", systemImage: "paintpalette")
                     }
                 } header: {
                     Text("Karte")

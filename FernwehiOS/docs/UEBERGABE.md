@@ -220,6 +220,32 @@ Beides ANGEHÄNGT; die Fassungsnummer bleibt 1. Gelesen seit Reisebuch 1.0.114.
   bleibt es bei der Akzentfarbe des Buchs. `wanderung` und `fahrt` stehen
   immer da (die Vorgabe, wenn nichts gewählt ist).
 
+### Ebenen der Karte (ab Fernweh 1.0.38)
+
+Zwei Felder in `karte`, beide angehängt (Fassung bleibt 1); ein älterer Leser
+überliest sie und zeichnet wie bisher.
+
+```json
+"karte": {
+  "farben": { "wanderung": "#2E9E5B", "fahrt": "#5A6475" },
+  "folge": ["reisespur", "fahrt", "wanderung"],
+  "reisespurZuruecknehmen": true
+}
+```
+
+- **`karte.folge`** — die Reihenfolge der Linien, **UNTEN zuerst**: was
+  zuletzt steht, liegt oben. Werte wie `spuren[].art` (`reisespur`, `fahrt`,
+  `wanderung`). Vorgabe in Fernweh: Reisespur unten, darüber Autofahrten,
+  oben Wanderungen. Fehlt das Feld (ältere Fassung), gilt diese Vorgabe.
+  Ein unbekannter Wert wird überlesen; eine fehlende Art liegt unten.
+- **`karte.reisespurZuruecknehmen`** — `true`: Die Reisespur (Gerätespur,
+  `art` `reisespur`) wird **während** einer Fahrt oder Wanderung — nach der
+  UHRZEIT ihrer Punkte, im Zeitraum vom ersten bis zum letzten Punkt der
+  Fahrt bzw. Wanderung desselben Tages — dünn und blass gezeichnet (Fernweh:
+  Deckkraft 0,4, Strich 1,5 pt schmaler, ohne weißen Rand); davor und danach
+  wie gewohnt. `false`: überall kräftig. Fehlt das Feld: wie bisher im
+  Reisebuch.
+
 ### Zeitzone, Tagebuch, mehrere Fahrten (gelesen seit Reisebuch 1.0.115)
 
 Keine neuen Felder — das Reisebuch liest seit 1.0.115 drei, die schon da waren:

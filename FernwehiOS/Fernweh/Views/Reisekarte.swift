@@ -43,6 +43,10 @@ struct Reisekarte: View {
     /// Tages); der Wechsel des Tages baut die Karte ohnehin neu (`.id`).
     @State private var gerahmt = false
     @State private var eingefroren = false
+    /// Die Linien als Stücke, nach Ebene geordnet (ab 1.0.38, `Linienfolge`)
+    /// — einmal je Laden und je Wechsel der Ebenen gerechnet, nicht bei
+    /// jedem Zeichnen: Über eine ganze Reise sind es Zehntausende Punkte.
+    @State private var stuecke: [Linienstueck] = []
 
     struct Linie: Identifiable {
         let id: String
@@ -50,6 +54,9 @@ struct Reisekarte: View {
         let eigene: Bool
         /// Reisespur oder Autofahrt (ab 1.0.21).
         var art: Spurart = .reisespur
+        /// Uhrzeit je Punkt (ab 1.0.38) — damit die Reisespur während einer
+        /// Fahrt oder Wanderung zurücktreten kann.
+        var zeiten: [TimeInterval] = []
     }
 
     struct Fotopunkt: Identifiable {
@@ -112,6 +119,10 @@ struct Reisekarte: View {
             }
         }
         .task(id: schluessel) { await linienLaden() }
+        .onChange(of: zeigeSpur) { _, _ in stueckeRechnen() }
+        .onChange(of: zeigeFahrten) { _, _ in stueckeRechnen() }
+        .onChange(of: zeigeWanderungen) { _, _ in stueckeRechnen() }
+        .onChange(of: farben.folge) { _, _ in stueckeRechnen() }
         .onChange(of: punkteZeigen) { _, an in
             messpunkte = an ? Zeitsuche.auswahl(zeitpunkte, hoechstens: 400) : []
         }
@@ -141,28 +152,13 @@ struct Reisekarte: View {
 
     private var karte: some View {
         Map(position: $position, interactionModes: interaktiv ? .all : []) {
-            ForEach(linien.filter { $0.art == .reisespur && zeigeSpur }) { linie in
-                MapPolyline(coordinates: linie.punkte)
-                    .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
-                MapPolyline(coordinates: linie.punkte)
-                    .stroke(linie.eigene ? farben.farbe(.reisespur, palette: reise.palette) : farben.fremdeSpur(palette: reise.palette),
-                            style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-            }
-            // Autofahrten (ab 1.0.21) in ihrer eigenen Farbe, über der
-            // Reisespur — sie liegen oft auf derselben Straße.
-            ForEach(linien.filter { $0.art == .fahrt && zeigeFahrten }) { linie in
-                MapPolyline(coordinates: linie.punkte)
-                    .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
-                MapPolyline(coordinates: linie.punkte)
-                    .stroke(farben.fahrt, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-            }
-            // Wanderungen grün (ab 1.0.17) — über der Reisespur, denn sie
-            // sind das, was man sucht.
-            ForEach(zeigeWanderungen ? wanderlinien : []) { linie in
-                MapPolyline(coordinates: linie.punkte)
-                    .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
-                MapPolyline(coordinates: linie.punkte)
-                    .stroke(farben.wanderung, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            // Reisespur, Autofahrten (ab 1.0.21), Wanderungen (ab 1.0.17) in
+            // der eingestellten Reihenfolge der Ebenen; die Reisespur tritt
+            // während Fahrten und Wanderungen zurück (ab 1.0.38).
+            ForEach(stuecke) { st in
+                Linienzug(stueck: st, farbe: st.art == .reisespur && st.fremd
+                          ? farben.fremdeSpur(palette: reise.palette)
+                          : linienfarbe(st.art))
             }
             if fotosZeigen && zeigeFotos {
                 ForEach(fotopunkte) { p in
@@ -234,6 +230,17 @@ struct Reisekarte: View {
         return "\(tag.map(Tag.schluessel) ?? "alle")|\(spuren.hashValue)|\(eintraege.count)|\(fotos)|\(fotosZeigen)|\(stand)|\(rueckgaengig.schritte.count)"
     }
 
+    /// Die sichtbaren Linien als Stücke in der Reihenfolge der Ebenen.
+    private func stueckeRechnen() {
+        let sichtbare = (linien + wanderlinien).filter { sichtbar($0.art) }
+        let fenster = Linienfolge.fenster(sichtbare.map { ($0.art, $0.zeiten) })
+        stuecke = Linienfolge.geordnet(sichtbare.flatMap { l -> [Linienstueck] in
+            l.art == .reisespur
+                ? Linienfolge.teilen(id: l.id, punkte: l.punkte, zeiten: l.zeiten, fenster: fenster, fremd: !l.eigene)
+                : [Linienstueck(id: l.id, punkte: l.punkte, art: l.art, unterlegt: false)]
+        })
+    }
+
     private func linienLaden() async {
         let schluessel = tag.map(Tag.schluessel)
         let spuren = reise.spurListe.filter { schluessel == nil || $0.tag == schluessel }
@@ -254,7 +261,8 @@ struct Reisekarte: View {
                 // Für die Übersicht genügt ein Punkt je 40 m.
                 let punkte = Spurpunkt.ausgeduennt(Spurpunkt.entpacken(paket.daten), abstand: 40)
                 guard punkte.count > 1 else { continue }
-                linien.append(Linie(id: paket.id, punkte: punkte.map(\.koordinate), eigene: paket.eigene, art: paket.art))
+                linien.append(Linie(id: paket.id, punkte: punkte.map(\.koordinate), eigene: paket.eigene, art: paket.art,
+                                    zeiten: punkte.map(\.zeit)))
                 zeiten += Zeitsuche.punkte(punkte, art: paket.art, name: paket.name, zone: paket.zone,
                                            quelle: paket.quelle)
             }
@@ -271,12 +279,14 @@ struct Reisekarte: View {
             for w in wander {
                 let punkte = Spurpunkt.ausgeduennt(Spurpunkt.entpacken(w.daten), abstand: 30)
                 guard punkte.count > 1 else { continue }
-                linien.append(Linie(id: w.id, punkte: punkte.map(\.koordinate), eigene: true))
+                linien.append(Linie(id: w.id, punkte: punkte.map(\.koordinate), eigene: true, art: .wanderung,
+                                    zeiten: punkte.map(\.zeit)))
                 zeiten += Zeitsuche.punkte(punkte, art: .wanderung, name: w.name, zone: w.zone, quelle: w.quelle)
             }
             return (linien, zeiten)
         }.value
         wanderlinien = wanderfertig
+        stueckeRechnen()
         zeitpunkte = (spurzeiten + wanderzeiten).sorted { $0.zeit < $1.zeit }
         messpunkte = punkteZeigen ? Zeitsuche.auswahl(zeitpunkte, hoechstens: 400) : []
         gewaehlt = nil
@@ -400,7 +410,7 @@ struct Vollkarte: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button { farbenZeigen = true } label: { Label("Farben", systemImage: "paintpalette") }
+                        Button { farbenZeigen = true } label: { Label("Farben und Ebenen", systemImage: "paintpalette") }
                     }
                     // Einen gewählten Tag abfahren (ab 1.0.31), seine Punkte
                     // als Liste (ab 1.0.33).
