@@ -333,7 +333,7 @@ struct ReiseView: View {
                             Label("Wanderung aus Komoot …", systemImage: "figure.hiking")
                         }
                         Button { fahrtenimport = true } label: {
-                            Label("Autofahrten (GPX) …", systemImage: "car.fill")
+                            Label("Autofahrten (GPX, CSV) …", systemImage: "car.fill")
                         }
                     }
                 }

@@ -18,6 +18,9 @@ struct FahrtenImportView: View {
     /// sich ändern, ohne sie neu zu wählen.
     @State private var dateien: [Fahrtenimport.Datei] = []
     @State private var nichtGelesen: [String] = []
+    /// Was gerade berechnet wird (CSV: eine Fahrt nach der anderen).
+    @State private var meldung = "Fahrten werden gelesen …"
+    @State private var auswertung: Task<Void, Never>?
     /// Minuten ohne Punkt, ab denen eine neue Fahrt beginnt; 0 = nur an den
     /// Spuren der Datei trennen.
     @AppStorage("fernweh.fahrtenpause") private var pauseMinuten = 15
@@ -33,6 +36,12 @@ struct FahrtenImportView: View {
 
     private var ausserhalb: [Fahrtenimport.Fahrt] {
         (fund?.fahrten ?? []).filter { !gueltigeTage.contains($0.tag) }
+    }
+
+    /// Tage außerhalb der Reise — aus GPX berechnete Fahrten und, aus einem
+    /// Fahrtenbuch, die nicht berechneten Zeilen (ab 1.0.37).
+    private var ausserhalbTage: [String] {
+        ausserhalb.map(\.tag) + (fund?.csvAusserhalb ?? []).filter { !gueltigeTage.contains($0) }
     }
 
     var body: some View {
@@ -60,20 +69,20 @@ struct FahrtenImportView: View {
                 }
             }
             .fileImporter(isPresented: $dateiWahl,
-                          allowedContentTypes: [UTType(filenameExtension: "gpx") ?? .xml, .xml],
+                          allowedContentTypes: [UTType(filenameExtension: "gpx") ?? .xml, .xml, .commaSeparatedText, .plainText],
                           allowsMultipleSelection: true) { ergebnis in
                 if case .success(let urls) = ergebnis, !urls.isEmpty {
                     let gelesen = Fahrtenimport.dateien(urls)
                     dateien = gelesen.dateien
                     nichtGelesen = gelesen.unlesbar
-                    Task { await auswerten() }
+                    neuAuswerten()
                 }
             }
             .overlay {
                 if laedt {
                     VStack(spacing: 12) {
                         ProgressView()
-                        Text("Fahrten werden gelesen …").font(.callout).foregroundStyle(.secondary)
+                        Text(meldung).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
                     .padding(24)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -88,23 +97,63 @@ struct FahrtenImportView: View {
     private var anfang: some View {
         Section {
             Button { dateiWahl = true } label: {
-                Label("GPX-Dateien wählen", systemImage: "doc.on.doc")
+                Label("GPX- oder CSV-Dateien wählen", systemImage: "doc.on.doc")
             }
             .disabled(laedt)
         } footer: {
-            Text("Wähle alle Dateien auf einmal — in der Dateien-App mit „Auswählen“. Eine Datei darf mehrere Fahrten enthalten: Getrennt wird an jeder Spur der Datei und an jeder längeren Pause. Jede Fahrt kommt an den Tag, an dem sie begann (Ortszeit am Start), und erscheint auf der Karte in der Farbe der Autofahrten.")
+            Text("Wähle alle Dateien auf einmal — in der Dateien-App mit „Auswählen“. Eine Datei darf mehrere Fahrten enthalten: Getrennt wird an jeder Spur der Datei und an jeder längeren Pause. Jede Fahrt kommt an den Tag, an dem sie begann (Ortszeit am Start), und erscheint auf der Karte in der Farbe der Autofahrten.\n\nCSV aus einem Fahrtenbuch (etwa Autoaid): eine Zeile je Fahrt mit Datum, Uhrzeiten, Start- und Zieladresse. Den Weg berechnet Apple Karten aus den Adressen — er kann vom wirklich gefahrenen abweichen. Die Kilometer kommen aus der Datei. Berechnet werden nur Fahrten an Tagen der Reise; das dauert etwa zwei Sekunden je Fahrt.")
         }
+    }
+
+    /// Wertet neu aus; eine laufende Auswertung wird abgebrochen.
+    private func neuAuswerten() {
+        auswertung?.cancel()
+        auswertung = Task { await auswerten() }
     }
 
     private func auswerten() async {
         laedt = true
-        var neu = await Fahrtenimport.auswerten(dateien, pause: pauseMinuten > 0 ? Double(pauseMinuten) * 60 : nil)
+        meldung = "Fahrten werden gelesen …"
+        var neu = await Fahrtenimport.auswerten(dateien, pause: pauseMinuten > 0 ? Double(pauseMinuten) * 60 : nil,
+                                                tage: gueltigeTage) { text in meldung = text }
+        guard !Task.isCancelled else { return }
         neu.unlesbar = nichtGelesen + neu.unlesbar
         let belegt = Fahrtenimport.belegt(in: reise)
         vorhanden = Set(neu.fahrten.filter { Fahrtenimport.schonDa($0, belegt) }.map(\.kennung))
         abgewaehlt = []
         withAnimation { fund = neu }
         laedt = false
+    }
+
+    /// Was beim Berechnen aus einem Fahrtenbuch herauskam (ab 1.0.37).
+    private func csvHinweise(_ fund: Fahrtenimport.Fund) -> some View {
+        Section {
+            if fund.berechnet > 0 {
+                Label(fund.berechnet == 1
+                      ? "1 Weg über Apple Karten berechnet."
+                      : "\(fund.berechnet) Wege über Apple Karten berechnet.",
+                      systemImage: "map")
+            }
+            if fund.luftlinie > 0 {
+                Label(fund.luftlinie == 1
+                      ? "1 Fahrt ohne Route — als gerade Linie von Start zu Ziel."
+                      : "\(fund.luftlinie) Fahrten ohne Route — als gerade Linie von Start zu Ziel.",
+                      systemImage: "line.diagonal")
+                    .foregroundStyle(.orange)
+            }
+            if !fund.nichtGefunden.isEmpty {
+                Label("Adresse nicht gefunden: \(fund.nichtGefunden.joined(separator: "; "))",
+                      systemImage: "mappin.slash")
+                    .foregroundStyle(.orange)
+            }
+            if fund.zuKurz > 0 {
+                Label("\(fund.zuKurz) Fahrten unter 200 m weggelassen.", systemImage: "arrow.down.right.and.arrow.up.left")
+                    .foregroundStyle(.secondary)
+            }
+        } footer: {
+            Text("Der Weg ist gerechnet, nicht aufgezeichnet: die schnellste Autoroute zwischen den Adressen. Die Uhrzeiten sind über die Strecke verteilt.")
+        }
+        .font(.callout)
     }
 
     /// Wie getrennt wird — für Dateien mit mehreren Fahrten.
@@ -117,7 +166,7 @@ struct FahrtenImportView: View {
                 Text("1 Stunde").tag(60)
                 Text("nie").tag(0)
             }
-            .onChange(of: pauseMinuten) { _, _ in Task { await auswerten() } }
+            .onChange(of: pauseMinuten) { _, _ in neuAuswerten() }
         } footer: {
             Text((fund?.fahrten.count ?? 0) == 1
                  ? "1 Fahrt aus \(fund?.dateien ?? 0) Datei."
@@ -130,7 +179,8 @@ struct FahrtenImportView: View {
 
     @ViewBuilder
     private func ergebnis(_ fund: Fahrtenimport.Fund) -> some View {
-        trennung
+        if dateien.contains(where: { !FahrtenCSV.istCSV($0.name) }) { trennung }
+        if fund.csv { csvHinweise(fund) }
         if !fund.ohneZeit.isEmpty || !fund.unlesbar.isEmpty {
             Section {
                 if !fund.ohneZeit.isEmpty {
@@ -146,11 +196,11 @@ struct FahrtenImportView: View {
             }
             .font(.callout)
         }
-        if !ausserhalb.isEmpty {
+        if !ausserhalbTage.isEmpty {
             Section {
-                Label(ausserhalb.count == 1
+                Label(ausserhalbTage.count == 1
                       ? "1 Fahrt liegt außerhalb der Reise (\(Tag.zeitraum(reise.anfang, reise.ende)))."
-                      : "\(ausserhalb.count) Fahrten liegen außerhalb der Reise (\(Tag.zeitraum(reise.anfang, reise.ende))).",
+                      : "\(ausserhalbTage.count) Fahrten liegen außerhalb der Reise (\(Tag.zeitraum(reise.anfang, reise.ende))).",
                       systemImage: "calendar.badge.exclamationmark")
                     .font(.callout)
                     .foregroundStyle(.orange)
@@ -216,7 +266,7 @@ struct FahrtenImportView: View {
     /// Der Zeitraum, auf den sich die Reise erweitern ließe — nur länger,
     /// nie kürzer, und nie über heute hinaus.
     private var erweiterung: (von: Date, bis: Date)? {
-        let tage = ausserhalb.compactMap { Tag.datum(schluessel: $0.tag) }
+        let tage = ausserhalbTage.compactMap { Tag.datum(schluessel: $0) }
         guard let frueh = tage.min(), let spaet = tage.max() else { return nil }
         let von = min(frueh, reise.anfang)
         let bis = max(spaet, reise.schluss)
@@ -230,5 +280,8 @@ struct FahrtenImportView: View {
         Persistenz.shared.sichern()
         // `gueltigeTage` rechnet aus der Reise neu; die Liste folgt von selbst.
         reise.objectWillChange.send()
+        // Fahrten aus einem Fahrtenbuch sind erst für die Tage der Reise
+        // berechnet — die neuen Tage jetzt nachholen.
+        if fund?.csv == true { neuAuswerten() }
     }
 }
