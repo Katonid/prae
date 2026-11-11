@@ -286,6 +286,24 @@ extension Seitensatz {
         fussbild.groesse = groesse * 0.8
         fussbild.zeilenabstand = 1.05
 
+        // KEIN NAME DARF UMBRECHEN (ab 1.0.125; gemeldet 11/2026: „Beim
+        // Wetterbericht steht das Wort Nachmitta, also ohne G."). Der Name
+        // steht in Versalien und gesperrt in einem Rahmen von EINER Zeile
+        // Höhe; „NACHMITTAG" ist breiter als die Spalte, CoreText bricht um,
+        // und die zweite Zeile mit dem G fällt aus dem Rahmen — still. Die
+        // Namen werden deshalb GEMESSEN und, wo einer nicht passt, alle
+        // gemeinsam verkleinert: gleich große Spaltenköpfe, keiner
+        // abgeschnitten. Sperrung schrumpft mit, sonst passte es nie.
+        let platz = Double(spalte) - 4
+        let breitester = tabelle.spalten
+            .map { Textmass.breite($0.name, bild: namenbild, hoechstens: 10_000) }
+            .max() ?? 0
+        if breitester > platz, platz > 1 {
+            let faktor = platz / breitester
+            namenbild.groesse *= faktor
+            namenbild.sperrung *= faktor
+        }
+
         for (nummer, s) in tabelle.spalten.enumerated() {
             let x = rechteck.minX + CGFloat(nummer) * spalte
             var y = rechteck.minY + einheit * CGFloat(tabelle.kopfeinheiten)

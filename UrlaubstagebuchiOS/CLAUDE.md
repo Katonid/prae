@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.124 (Build 125). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.125 (Build 126). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7748,6 +7748,17 @@ Befunde, und keiner davon war Geschmack:
     an den Grenzen sauber anschließt, wie 0,4 Deckkraft im Druck wirkt und
     ob die 15-Minuten-Teilung zwei Fahrten eines Tages richtig trennt.
     **Nicht als erledigt darstellen.**
+- **„NACHMITTA" — EIN RAHMEN VON EINER ZEILE VERSCHLUCKT DIE ZWEITE STILL**
+  (`zeichneWettertabelle`, ab 1.0.125; gemeldet 11/2026: „Beim
+  Wetterbericht steht das Wort Nachmitta, also ohne G."). Der Spaltenname
+  steht in Versalien und gesperrt (Datumsschrift) in einem Rahmen von EINER
+  Zeilenhöhe; „NACHMITTAG" ist breiter als die Spalte, CoreText bricht vor
+  dem G um, und die zweite Zeile wird nicht gezeichnet. Seit 1.0.117 ist die
+  Spalte schmaler — daher erst jetzt. Die Namen werden gemessen
+  (`Textmass.breite`, samt Versalien und Sperrung) und, wo einer nicht
+  passt, ALLE gemeinsam verkleinert. **Wer Text in einen Rahmen von einer
+  Zeile setzt, misst ihn vorher** — die Textprüfung sieht in die Tabelle
+  nicht hinein. Nicht gemessen: auf keinem Gerät gesehen.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
