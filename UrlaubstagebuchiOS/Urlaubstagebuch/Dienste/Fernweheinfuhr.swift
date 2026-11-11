@@ -20,7 +20,7 @@ import Photos
 //    des Tages, sein Ort die zweite. Ohne Titel ist der Ort die Überschrift
 //    — so zeigt es auch Fernweh.
 //  - **Orte und Reisespur.** Die Orte der Einträge tragen einen NAMEN und
-//    werden nie ausgedünnt; die Spur ist schon in Fernweh auf 15 m gedünnt
+//    werden nie ausgeduennt; die Spur ist schon in Fernweh auf 15 m geduennt
 //    und wird hier auf den Mindestabstand des Buches gebracht, wie jede
 //    andere Spur. Haben zwei Miturlauber am selben Tag aufgezeichnet,
 //    stehen zwei Spuren desselben Weges in der Datei — genommen wird die
@@ -62,8 +62,36 @@ enum Fernweheinfuhr {
         var karte: KarteTeil?
     }
 
+    // Ab Fernweh 1.0.38/1.0.39 dazu Reihenfolge, zurücktretende Reisespur
+    // und eingeblendete Ebenen. Von Hand gelesen, jedes Feld für sich: Der
+    // erzeugte Leser nähme bei EINEM falschen Wert (etwa `null` in `folge`)
+    // das ganze `karte` mit — und mit ihm die ganze Datei.
     struct KarteTeil: Decodable {
         var farben: FarbenTeil?
+        var folge: [String]?
+        var reisespurZuruecknehmen: Bool?
+        var ebenen: [String: Bool]?
+
+        private enum CodingKeys: String, CodingKey {
+            case farben, folge, reisespurZuruecknehmen, ebenen
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            farben = (try? c.decodeIfPresent(FarbenTeil.self, forKey: .farben)) ?? nil
+            folge = ((try? c.decodeIfPresent(Nachsichtig<String>.self, forKey: .folge)) ?? nil)?.werte
+            reisespurZuruecknehmen = (try? c.decodeIfPresent(Bool.self, forKey: .reisespurZuruecknehmen)) ?? nil
+            ebenen = (try? c.decodeIfPresent([String: Bool].self, forKey: .ebenen)) ?? nil
+        }
+
+        // `nil`, wenn die Datei keines der drei Felder trägt (vor Fernweh
+        // 1.0.38) — dann bleibt im Buch alles, wie es war.
+        var kartenebenen: Kartenebenen? {
+            guard folge != nil || reisespurZuruecknehmen != nil || ebenen != nil else { return nil }
+            let aus = Kartenebenen.arten.filter { ebenen?[$0] == false }
+            return Kartenebenen(folge: folge, reisespurZuruecknehmen: reisespurZuruecknehmen,
+                                ausgeblendet: aus.isEmpty ? nil : aus)
+        }
     }
 
     struct FarbenTeil: Decodable {
@@ -285,6 +313,9 @@ enum Fernweheinfuhr {
         // Die Farben der Linien aus Fernweh (ab 1.0.114) — `nil`, wenn die
         // Datei keine trägt.
         var linienfarben: Linienfarben?
+        // Reihenfolge, zurücktretende Reisespur, Ebenen (ab 1.0.124) —
+        // `nil`, wenn die Datei nichts davon trägt.
+        var kartenebenen: Kartenebenen?
         // Die Tagebücher der Datei mit der Zahl ihrer Einträge (ab 1.0.115)
         // — "" heißt: ohne Tagebuchnamen. Gezählt wird VOR dem Filter,
         // sonst verschwände ein abgewähltes Tagebuch aus der Liste, und
@@ -395,6 +426,13 @@ enum Fernweheinfuhr {
                                        fahrt: Linienfarben.farbwert(hex: farben.fahrt))
             if gelesen != Linienfarben() { befund.linienfarben = gelesen }
         }
+        befund.kartenebenen = datei.karte?.kartenebenen
+        // Schickt Fernweh `reisespurZuruecknehmen` mit (ab 1.0.38, `true`
+        // ODER `false`), zeichnet es die Gerätespur auch während einer
+        // Fahrt — dünn und blass oder kräftig. Dann bleiben ihre Punkte
+        // drin, und ob sie zurücktritt, entscheidet die Karte
+        // (`Reise.linienzuege`). Fehlt das Feld: weggelassen wie seit 1.0.114.
+        let geraetInFahrtBehalten = befund.kartenebenen?.reisespurZuruecknehmen != nil
 
         for teil in datei.tage?.werte ?? [] {
             guard let schluessel = teil.datum, let datum = Tagesdatum(schluessel: schluessel),
@@ -557,13 +595,13 @@ enum Fernweheinfuhr {
                 for roh in spur.punkte?.werte ?? [] {
                     guard roh.count >= 2, let stelle = koordinate(roh[0], roh[1]) else { continue }
                     let zeit = roh.count >= 3 ? Date(timeIntervalSince1970: roh[2]) : nil
-                    if art == nil, imAuto(zeit) { continue }
+                    if art == nil, !geraetInFahrtBehalten, imAuto(zeit) { continue }
                     punkte.append(Reisepunkt(koordinate: stelle, zeit: zeit, quelle: .tagesspur, art: art))
                 }
                 for besuch in spur.besuche?.werte ?? [] {
                     guard let stelle = koordinate(besuch.breite, besuch.laenge) else { continue }
                     let zeit = besuch.ankunft.flatMap { augenblick($0) }
-                    if art == nil, imAuto(zeit) { continue }
+                    if art == nil, !geraetInFahrtBehalten, imAuto(zeit) { continue }
                     punkte.append(Reisepunkt(koordinate: stelle, zeit: zeit,
                                              quelle: .tagesspur, art: art))
                 }
@@ -754,6 +792,27 @@ enum Fernweheinfuhr {
 
     // Die Zeiten einer Fahrt als Abschnitte, getrennt an jeder Lücke ab
     // 15 Minuten — dieselbe Pause, an der Fernweh 1.0.22 Fahrten trennt.
+    // Ausdünnen je Linienart (Reisespur, Fahrt, Wanderung), danach wieder
+    // nach der Zeit geordnet — STABIL, mit der Stelle als zweitem Merkmal;
+    // Punkte ohne Uhrzeit ans Ende wie bisher.
+    static func ausgeduenntJeLinie(_ punkte: [Reisepunkt], mindestabstand: Double) -> [Reisepunkt] {
+        var gruppen: [String: [Reisepunkt]] = [:]
+        var reihenfolge: [String] = []
+        for punkt in punkte {
+            let art = Reise.linienart(punkt.art)
+            if gruppen[art] == nil { reihenfolge.append(art) }
+            gruppen[art, default: []].append(punkt)
+        }
+        let geduennt = reihenfolge.flatMap { Spurbau.ausgeduennt(gruppen[$0] ?? [], mindestabstand: mindestabstand) }
+        return geduennt.enumerated()
+            .sorted {
+                let a = $0.element.zeit ?? .distantFuture
+                let b = $1.element.zeit ?? .distantFuture
+                return a != b ? a < b : $0.offset < $1.offset
+            }
+            .map { $0.element }
+    }
+
     static func fahrtabschnitte(_ zeiten: [Double], pause: Double = 900) -> [ClosedRange<Double>] {
         let sortiert = zeiten.sorted()
         guard var von = sortiert.first else { return [] }
@@ -1088,10 +1147,16 @@ extension Reisewerk {
                 }
                 continue
             }
-            let strecke = Spurbau.ausgeduennt(Fernweheinfuhr.amOrt(tag.spur, zone: zone),
-                                              mindestabstand: reise.gestaltung.mindestabstandSpur)
+            // Bleibt die Gerätespur während der Fahrten drin (ab 1.0.124),
+            // wird JE LINIENART ausgeduennt: Gemeinsam ausgeduennt schluckte
+            // ein Punkt der Fahrt den Gerätepunkt daneben und umgekehrt, und
+            // übrig bliebe ein Wechsel der Arten von Punkt zu Punkt.
+            let amOrt = Fernweheinfuhr.amOrt(tag.spur, zone: zone)
+            let strecke = befund.kartenebenen?.reisespurZuruecknehmen != nil
+                ? Fernweheinfuhr.ausgeduenntJeLinie(amOrt, mindestabstand: reise.gestaltung.mindestabstandSpur)
+                : Spurbau.ausgeduennt(amOrt, mindestabstand: reise.gestaltung.mindestabstandSpur)
             var punkte = strecke
-            // Benannte Orte werden NIE ausgedünnt — sie tragen die Auskunft.
+            // Benannte Orte werden NIE ausgeduennt — sie tragen die Auskunft.
             for ort in Fernweheinfuhr.amOrt(tag.orte, zone: zone) {
                 guard let zeit = ort.zeit else {
                     punkte.append(ort)
@@ -1197,6 +1262,17 @@ extension Reisewerk {
             farbenUebernommen = true
         }
 
+        // Reihenfolge, zurücktretende Reisespur und Ebenen (ab 1.0.124) —
+        // nach derselben Regel wie die Farben: nur mit der Spur aus Fernweh,
+        // und was im Buch schon gewählt ist, bleibt, außer mit „ersetzen".
+        var ebenenUebernommen = false
+        if wunsch.orte == .fernweh, let ebenen = befund.kartenebenen,
+           reise.kartenebenen == nil || wunsch.ersetzen
+        {
+            reise.kartenebenen = ebenen
+            ebenenUebernommen = true
+        }
+
         alleNeuAnordnen(nurUnberuehrte: true)
         sofortSichern()
 
@@ -1205,6 +1281,9 @@ extension Reisewerk {
         if ergaenzt > 0 { zeilen.append("Bei \(ergaenzt) Tagen wurde der vorhandene Text ergänzt.") }
         if mitSpur > 0 { zeilen.append("\(mitSpur) Tage haben Orte oder eine Spur.") }
         if farbenUebernommen { zeilen.append("Die Farben der Linien kommen aus Fernweh.") }
+        if ebenenUebernommen {
+            zeilen.append("Reihenfolge und Ebenen der Karte kommen aus Fernweh (Karten \u{2192} \u{201E}Linien auf der Karte\u{201C}).")
+        }
         if mitWetter > 0 { zeilen.append("Bei \(mitWetter) Tagen steht das Wetter als eigene Zeile.") }
         if wetterNachAnordnen > 0 {
             zeilen.append("\(wetterNachAnordnen) davon tragen Handarbeit \u{2014} dort erscheint das Wetter erst nach \u{201E}Seiten neu anordnen\u{201C} in voller Gr\u{00F6}\u{00DF}e.")

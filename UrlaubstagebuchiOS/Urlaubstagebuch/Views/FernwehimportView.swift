@@ -446,6 +446,10 @@ struct FernwehimportView: View {
                 satz += " Die Farben der Linien kommen mit"
                     + (ersetzen ? "." : ", wenn im Buch noch keine eigenen gewählt sind.")
             }
+            if befund.kartenebenen != nil {
+                satz += " Reihenfolge und Ebenen der Linien kommen ebenso mit"
+                    + (ersetzen ? "." : ", wenn im Buch noch nichts dazu gewählt ist.")
+            }
             return satz
         case .fotos:
             var satz = "Spur und benannte Orte aus Fernweh bleiben draußen. Die Reisepunkte "

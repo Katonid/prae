@@ -918,7 +918,7 @@ enum Buchausgabe {
                     groesse: groesse,
                     kartenbild: gilt.bild,
                     linienfarbe: reise.spurfarbe,
-                    punktfarben: reise.punktfarben(tag.spur),
+                    linien: reise.kartenlinien(tag.spur),
                     ausschnitt: gilt.ausschnitt
                 )
                 if let bild { karten[block.id] = bild }

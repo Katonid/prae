@@ -121,6 +121,53 @@ struct KartenstilView: View {
                     Text("Wanderungen und Autofahrten kommen aus Fernweh und stehen auf der Karte in ihrer eigenen Farbe. Die Farben aus Fernweh werden beim Einlesen übernommen, solange hier keine eigenen gewählt sind.")
                 }
 
+                // DIE EBENEN (ab 1.0.124, wie in Fernweh 1.0.38/1.0.39):
+                // Reihenfolge, Ein/Aus je Linienart, zurücktretende
+                // Reisespur. Angezeigt OBEN zuerst — so liegt es auf der
+                // Karte; gespeichert wird unten zuerst (Vertrag).
+                Section {
+                    let oben = Array(werk.reise.ebenen.geltendeFolge.reversed())
+                    ForEach(Array(oben.enumerated()), id: \.element) { stelle, art in
+                        HStack(spacing: 12) {
+                            Button { ebeneVerschieben(stelle, um: -1) } label: {
+                                Image(systemName: "chevron.up")
+                            }
+                            .disabled(stelle == 0)
+                            .accessibilityLabel("\(Kartenebenen.name(art)) nach oben")
+                            Button { ebeneVerschieben(stelle, um: 1) } label: {
+                                Image(systemName: "chevron.down")
+                            }
+                            .disabled(stelle == oben.count - 1)
+                            .accessibilityLabel("\(Kartenebenen.name(art)) nach unten")
+                            Toggle(Kartenebenen.name(art), isOn: Binding(
+                                get: { werk.reise.ebenen.zeigt(art) },
+                                set: { an in
+                                    ebenenAendern { ebenen in
+                                        var aus = ebenen.ausgeblendet ?? []
+                                        aus.removeAll { $0 == art }
+                                        if !an { aus.append(art) }
+                                        ebenen.ausgeblendet = aus.isEmpty ? nil : aus
+                                    }
+                                }
+                            ))
+                        }
+                        // Mehrere Knöpfe in einer Zeile: ohne `.borderless`
+                        // löste ein Tipp auf die Zeile alle zugleich aus.
+                        .buttonStyle(.borderless)
+                    }
+                    Toggle("Reisespur tritt zurück", isOn: Binding(
+                        get: { werk.reise.ebenen.zuruecknehmen },
+                        set: { an in ebenenAendern { $0.reisespurZuruecknehmen = an } }
+                    ))
+                    if werk.reise.kartenebenen != nil {
+                        Button("Vorgaben wiederherstellen") { werk.reise.kartenebenen = nil }
+                    }
+                } header: {
+                    Text("Linien auf der Karte")
+                } footer: {
+                    Text("Oben steht, was auf der Karte oben liegt. Ausgeblendete Linien bleiben im Buch und lassen sich hier wieder einschalten. \u{201E}Reisespur tritt zurück\u{201C} zeichnet die Reisespur während einer Autofahrt oder Wanderung dünn und blass \u{2014} das geht nur, wo ihre Punkte dort noch da sind (Übernahme aus Fernweh ab 1.0.38). Beim Einlesen aus Fernweh kommt all das mit, solange hier nichts gewählt ist.")
+                }
+
                 Section {
                     Text("Was hier steht, gilt für ALLE Karten. Ein einzelner Tag und eine einzelne Karte dürfen davon abweichen — das steht im Inspektor (Pinsel) unter \u{201E}Karte\u{201C}, wenn eine Karte gewählt ist. Was dort nicht ausdrücklich gesetzt ist, folgt weiter dieser Einstellung.")
                         .font(.footnote)
@@ -137,6 +184,21 @@ struct KartenstilView: View {
                 }
             }
         }
+    }
+
+    private func ebenenAendern(_ aendern: (inout Kartenebenen) -> Void) {
+        var neu = werk.reise.kartenebenen ?? Kartenebenen()
+        aendern(&neu)
+        werk.reise.kartenebenen = neu
+    }
+
+    // `stelle` zählt von OBEN; gespeichert wird von unten.
+    private func ebeneVerschieben(_ stelle: Int, um schritt: Int) {
+        var oben = Array(werk.reise.ebenen.geltendeFolge.reversed())
+        let ziel = stelle + schritt
+        guard oben.indices.contains(stelle), oben.indices.contains(ziel) else { return }
+        oben.swapAt(stelle, ziel)
+        ebenenAendern { $0.folge = Array(oben.reversed()) }
     }
 
     private func farbe(_ weg: WritableKeyPath<Linienfarben, Farbwert?>, vorgabe: Farbwert) -> Binding<Color> {

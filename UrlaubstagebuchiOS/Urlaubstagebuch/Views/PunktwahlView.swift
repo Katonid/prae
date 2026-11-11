@@ -248,7 +248,7 @@ struct PunktwahlView: View {
         Map(position: $kamera) {
             ForEach(werk.reise.linienstuecke(tag?.spur ?? [])) { stueck in
                 MapPolyline(coordinates: stueck.punkte)
-                    .stroke(stueck.farbe, lineWidth: 3)
+                    .stroke(stueck.farbe, lineWidth: stueck.blass ? 1.5 : 3)
             }
             ForEach(tag?.spur ?? []) { eintrag in
                 Annotation(eintrag.name, coordinate: eintrag.koordinate.clLocation) {

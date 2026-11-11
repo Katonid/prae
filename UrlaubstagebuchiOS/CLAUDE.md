@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.123 (Build 124). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.124 (Build 125). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7688,6 +7688,66 @@ Befunde, und keiner davon war Geschmack:
     man vergessen kann.
   - **Nicht gemessen (1.0.123):** keine Datei hochgeladen, auf keinem Gerät
     gesehen.
+- **REIHENFOLGE, ZURÜCKTRETENDE REISESPUR UND EBENEN AUS FERNWEH**
+  (`Kartenebenen` in `Model/Grundwerte.swift`, `Reise.kartenebenen`,
+  `Reise.linienzuege`/`kartenlinien`, `Kartenwerk`, Abschnitt „Linien auf der
+  Karte" unter Karten, ab 1.0.124; Nachfrage des Nutzers 11/2026: „dass bei
+  den GPS-Punkten eine Auswahl der Ebenen und Festlegung der Reihenfolge …
+  auch an die Fotobuch-App übergeben werden soll"). Gelesen werden
+  `karte.folge`, `karte.reisespurZuruecknehmen` (Fernweh 1.0.38) und
+  `karte.ebenen` (1.0.39), siehe `FernwehiOS/docs/UEBERGABE.md`.
+  - **Ein eigenes Feld NEBEN `Linienfarben`**, jedes Unterfeld wahlweise
+    (`folge` unten zuerst, `reisespurZuruecknehmen`, `ausgeblendet` als
+    Liste der Linienarten). „Vorgaben wiederherstellen" der Farben nimmt die
+    Reihenfolge nicht mit, und umgekehrt. `nil` = Vorgabe: Reisespur unten,
+    dann Autofahrten, oben Wanderungen; nichts tritt zurück; alles an. Eine
+    ältere Fassung überliest das Feld (und verliert es beim Sichern über
+    iCloud — wie jedes neue Feld).
+  - **Übernahme wie bei den Farben**: nur mit `Ortswahl.fernweh`, nur wenn
+    `reise.kartenebenen == nil` — außer mit „ersetzen" (dann ganz ersetzt).
+    `ebenen.fotos` wird überlesen: Die Karten des Buches tragen keine
+    Fotomarken, die Fotoorte SIND Punkte der Reisespur. Ausgeblendetes
+    bleibt in den Daten und lässt sich unter Karten wieder einschalten.
+  - **Die Gerätespur bleibt während einer Fahrt drin, sobald die Datei
+    `reisespurZuruecknehmen` trägt** (`true` ODER `false` — Fernweh zeichnet
+    sie in beiden Fällen, nur verschieden kräftig). Fehlt das Feld: wie seit
+    1.0.114 weggelassen. Dann wird **je Linienart ausgedünnt**
+    (`Fernweheinfuhr.ausgeduenntJeLinie`) — gemeinsam ausgedünnt schluckte
+    ein Fahrtpunkt den Gerätepunkt daneben, und die Arten wechselten von
+    Punkt zu Punkt. Ein schon eingelesenes Buch hat diese Punkte nicht;
+    „Reisespur tritt zurück" wirkt dort erst nach einem erneuten Einlesen
+    mit „ersetzen".
+  - **Zusammengesetzt wird an EINER Stelle** (`Reise.linienzuege`), gefragt
+    vom `Kartenwerk` über `kartenlinien` (Seite und PDF) und von den lebenden
+    Karten über `linienstuecke`. Zwei Bauweisen, entschieden an den DATEN:
+    Liegt kein Punkt der Reisespur zeitlich zwischen Punkten einer Strecke,
+    bleibt es bei den Stücken gleicher Art nacheinander (Stand 1.0.114);
+    sonst ist jede Art ihre eigene Linie — die Reisespur ein Zug, geteilt in
+    kräftig/blass, jede Fahrt und Wanderung für sich (getrennt an 15 Minuten
+    ohne Punkt). **Das trifft auch Tage mit Wanderung aus älteren
+    Übernahmen**: Wanderungen schnitten die Gerätespur nie, dort lagen die
+    Punkte schon verschränkt — jetzt zeichnen sie nebeneinander statt im
+    Zickzack. Blass = nur mit „tritt zurück", nur im Zeitraum einer
+    EINGEBLENDETEN Strecke (Uhrzeit vom ersten bis letzten Punkt), Deckkraft
+    0,4, Strich 0,55-fach, ohne weiße Kontur, ohne Punktkreise.
+  - **Reihenfolge = Zeichenreihenfolge der Züge**, stabil sortiert. Im
+    `Kartenwerk` liegen erst ALLE weißen Konturen, dann die Linien in Folge
+    — eine Kontur je Zug darüber gäbe an jedem Farbwechsel den weißen Knoten
+    aus 1.0.114. Ausgeblendete Züge fallen weg, ebenso ihre Punktkreise; der
+    automatische Ausschnitt rahmt weiter ALLE Punkte (`Kartenwerk.region`
+    wird auch von der Ausschnittswahl gefragt — zwei Rahmungen liefen
+    auseinander). **Vorratsschlüssel (`Kartenlinien.merkmal`) und `kennung`
+    der Seitenkarte enthalten Züge, Reihenfolge, blass und Punktfarben** —
+    sonst bliebe nach dem Umstellen das alte Bild stehen.
+  - Ist bei Altdaten (Gerätespur in der Fahrt weggelassen) die Fahrt
+    ausgeblendet, bleibt dort eine Lücke in der Linie: Die Punkte, die den
+    Weg zeigen könnten, gibt es nicht.
+  - **Nicht gemessen (1.0.124):** an keiner echten `.fernweh`-Datei mit den
+    neuen Feldern, auf keinem Gerät gesehen, nicht übersetzt (hier gibt es
+    keinen Swift-Compiler). Ungesehen vor allem: ob die Teilung kräftig/blass
+    an den Grenzen sauber anschließt, wie 0,4 Deckkraft im Druck wirkt und
+    ob die 15-Minuten-Teilung zwei Fahrten eines Tages richtig trennt.
+    **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

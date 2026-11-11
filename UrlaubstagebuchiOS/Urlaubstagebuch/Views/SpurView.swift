@@ -320,7 +320,7 @@ struct SpurView: View {
             // in ihrer eigenen Farbe, wie im Buch.
             ForEach(werk.reise.linienstuecke(tag.spur)) { stueck in
                 MapPolyline(coordinates: stueck.punkte)
-                    .stroke(stueck.farbe, lineWidth: 3)
+                    .stroke(stueck.farbe, lineWidth: stueck.blass ? 1.5 : 3)
             }
             ForEach(tag.spur) { punkt in
                 Marker(punkt.name.isEmpty ? "Punkt" : punkt.name,

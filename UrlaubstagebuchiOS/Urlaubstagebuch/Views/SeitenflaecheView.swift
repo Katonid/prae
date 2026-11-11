@@ -1731,7 +1731,9 @@ struct KartenKachel: View {
         let punkte = tag?.spur.map(\.koordinate) ?? []
         // Die Linienfarben (ab 1.0.114) gehören dazu wie die Akzentfarbe:
         // Wer die Farbe der Autofahrten ändert, will die Karte neu sehen.
-        let farben = werk.reise.punktfarben(tag?.spur ?? []).hashValue
+        // Ab 1.0.124 ebenso Reihenfolge, zurücktretende Reisespur und
+        // Ebenen — alles steckt in `kartenlinien`.
+        let farben = werk.reise.kartenlinien(tag?.spur ?? []).hashValue
         return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(geltend.merkmal)|\(werk.reise.spurfarbe.rot),\(werk.reise.spurfarbe.gruen),\(werk.reise.spurfarbe.blau)|\(farben)"
     }
 
@@ -1743,7 +1745,7 @@ struct KartenKachel: View {
             groesse: CGSize(width: groesse.width * 2, height: groesse.height * 2),
             kartenbild: gilt.bild,
             linienfarbe: werk.reise.spurfarbe,
-            punktfarben: werk.reise.punktfarben(tag.spur),
+            linien: werk.reise.kartenlinien(tag.spur),
             ausschnitt: gilt.ausschnitt
         )
         await MainActor.run {

@@ -222,6 +222,8 @@ Beides ANGEHÄNGT; die Fassungsnummer bleibt 1. Gelesen seit Reisebuch 1.0.114.
 
 ### Ebenen der Karte (ab Fernweh 1.0.38)
 
+Gelesen seit Reisebuch 1.0.124 (alle drei Felder).
+
 Zwei Felder in `karte`, beide angehängt (Fassung bleibt 1); ein älterer Leser
 überliest sie und zeichnet wie bisher.
 
