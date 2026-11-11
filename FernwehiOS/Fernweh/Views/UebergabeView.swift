@@ -51,7 +51,7 @@ struct UebergabeView: View {
                 Section {
                     Toggle("Reisespur mitgeben", isOn: $spur)
                 } footer: {
-                    Text("Die aufgezeichneten Wege jedes Tages, von allen Geräten der Reise. Daraus zeichnet das Reisebuch die Karte des Tages; ohne sie verbindet es nur die Orte der Einträge.")
+                    Text("Die aufgezeichneten Wege jedes Tages, von allen Geräten der Reise. Daraus zeichnet das Reisebuch die Karte des Tages; ohne sie verbindet es nur die Orte der Einträge. Mit geht auch, wie die Karte hier aussieht: Farben, welche Ebenen eingeblendet sind, ihre Reihenfolge und ob die Reisespur hinter Fahrten und Wanderungen zurücktritt (Kartenfarben und Ebenen).")
                 }
 
                 Section {

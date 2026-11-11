@@ -62,6 +62,10 @@ struct Uebergabe: Codable {
         /// Ab 1.0.38: Die Reisespur blass zeichnen, solange eine Fahrt oder
         /// Wanderung läuft.
         var reisespurZuruecknehmen: Bool? = nil
+        /// Ab 1.0.39: welche Ebenen eingeblendet sind („reisespur", „fahrt",
+        /// „wanderung", „fotos"). Die Linien gehen trotzdem alle mit — das
+        /// Buch blendet aus und kann wieder einblenden.
+        var ebenen: [String: Bool]? = nil
     }
 
     /// „#RRGGBB". `reisespur` fehlt, solange in Fernweh keine eigene Farbe
@@ -378,7 +382,8 @@ enum Uebergabebau {
                 wanderung: Kartenfarben.shared.hexFuerUebergabe(.wanderung, palette: reise.palette),
                 fahrt: Kartenfarben.shared.hexFuerUebergabe(.fahrt, palette: reise.palette)),
                 folge: Kartenfarben.shared.folge.map(\.rawValue),
-                reisespurZuruecknehmen: Kartenfarben.shared.spurZuruecknehmen))
+                reisespurZuruecknehmen: Kartenfarben.shared.spurZuruecknehmen,
+                ebenen: Dictionary(uniqueKeysWithValues: Kartenebene.allCases.map { ($0.rawValue, $0.eingeblendet) })))
         let kodierer = JSONEncoder()
         kodierer.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         // Die Beschreibung ist die LETZTE Datei im ZIP — sie entsteht erst,
