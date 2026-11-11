@@ -234,7 +234,7 @@ struct SpurView: View {
                     auswahlmodus = false
                 }
             }
-            .task(id: tag?.spur) { befunde = Ausreisser.finden(tag?.spur ?? []) }
+            .task(id: tag?.spur) { befunde = Ausreisser.ausgeblendet(tag?.spur ?? []) }
             .alert("\(befunde.count) Punkte entfernen?", isPresented: $ausreisserFrage) {
                 Button("Entfernen", role: .destructive) {
                     werk.punkteLoeschen(tagID, ids: Set(befunde.map(\.id)))
@@ -252,7 +252,10 @@ struct SpurView: View {
 
     private var auffaellige: Set<UUID> { Set(befunde.map(\.id)) }
 
-    // GEFUNDEN, GEZEIGT, GEZÄHLT — UND NICHT GELÖSCHT.
+    // GEFUNDEN, GEZEIGT, GEZÄHLT — UND NICHT GELÖSCHT. Seit 1.0.127 zeigt
+    // die Liste, was die Karte AUSGEBLENDET hat (`Ausreisser.ausgeblendet`);
+    // gezeichnet wird es ohnehin nicht mehr, gelöscht wird weiter nur auf
+    // Wunsch.
     //
     // Ein Ausreißer kann echt sein: Ein Abstecher zum Aussichtspunkt und
     // zurück sieht von außen genauso aus wie ein Messfehler, und welcher
@@ -290,16 +293,15 @@ struct SpurView: View {
             }
         } header: {
             Text(befunde.count == 1
-                 ? "1 Punkt springt aus der Linie"
-                 : "\(befunde.count) Punkte springen aus der Linie")
+                 ? "1 Sprung auf der Karte ausgeblendet"
+                 : "\(befunde.count) Sprünge auf der Karte ausgeblendet")
         } footer: {
-            Text("Gemessen wird der UMWEG: was der Punkt an zusätzlicher Linie kostet, "
-                 + "verglichen mit dem mittleren Schritt DIESER Spur \u{2014} in einer "
-                 + "Stadtbesichtigung ist ein Kilometer viel, auf einer Autofahrt nichts. "
-                 + "Entfernt wird nichts von selbst: Ein Abstecher hin und zurück sieht "
-                 + "genauso aus wie ein Messfehler, und welcher von beidem es war, weiß "
-                 + "nur, wer dabei war. Der erste und der letzte Punkt haben nur einen "
-                 + "Nachbarn und werden deshalb nicht geprüft.")
+            Text("Diese Punkte zeichnet die Karte schon von selbst nicht (ab 1.0.127) "
+                 + "\u{2014} weder Linie noch Punkt, im Buch wie hier. Entfernen ist also "
+                 + "nicht nötig, nur möglich. Gemessen wird der UMWEG gegen den mittleren "
+                 + "Schritt DIESER Spur, dazu ein unmögliches Tempo. Hat der Tag eine "
+                 + "aufgezeichnete Spur, trägt nur sie die Linie, wie in Fernweh; Orte "
+                 + "und Fotos stehen als Punkte darauf.")
         }
     }
 

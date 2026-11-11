@@ -144,7 +144,7 @@ struct PunktwahlView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)))
             }
             .task { starten() }
-            .task(id: tag?.spur) { befunde = Ausreisser.finden(tag?.spur ?? []) }
+            .task(id: tag?.spur) { befunde = Ausreisser.ausgeblendet(tag?.spur ?? []) }
             .alert("Punkt löschen?", isPresented: $loeschfrage) {
                 Button("Löschen", role: .destructive) {
                     guard let alt = punktID else { return }

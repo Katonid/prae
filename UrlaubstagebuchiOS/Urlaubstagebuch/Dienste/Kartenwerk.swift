@@ -115,7 +115,12 @@ actor Kartenwerk {
                                  linienfarbe: Farbwert, linien: Kartenlinien,
                                  ausschnitt: Kartenausschnitt?) async -> UIImage?
     {
-        let feld = region(punkte, ausschnitt: ausschnitt)
+        // Ausgeblendete Sprünge rahmt der automatische Ausschnitt nicht
+        // (ab 1.0.127) — sonst zeigte die Karte das Land bis zu einem
+        // Punkt, der gar nicht gezeichnet wird.
+        let weg = Set(linien.spruenge)
+        let gerahmt = punkte.indices.filter { !weg.contains($0) }.map { punkte[$0] }
+        let feld = region(gerahmt.isEmpty ? punkte : gerahmt, ausschnitt: ausschnitt)
         // Entschieden wird an der QUELLE und nicht daran, ob eine Adresse
         // dasteht. Sonst bekäme eine eigene Quelle ohne Adresse
         // stillschweigend eine Apple-Karte — und der Nutzer hielte seinen

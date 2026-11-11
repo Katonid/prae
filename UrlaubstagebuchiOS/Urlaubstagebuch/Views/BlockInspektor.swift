@@ -280,7 +280,7 @@ struct BlockInspektor: View {
     // mit dem Bild auf der Seite nichts zu tun hat.
     private func geltendeSpanne(_ tag: Reisetag, ausschnitt: Kartenausschnitt?) -> Double {
         if let eigener = ausschnitt { return eigener.spanne }
-        return Kartenwerk.region(tag.spur.map(\.koordinate), ausschnitt: nil)
+        return Kartenwerk.region(Ausreisser.gerahmt(tag.spur), ausschnitt: nil)
             .span.latitudeDelta
     }
 
@@ -291,7 +291,7 @@ struct BlockInspektor: View {
                                   gilt: Kartenwahl.Geltend, faktor: Double)
     {
         let mitte = gilt.ausschnitt?.mitte
-            ?? Koordinate(Kartenwerk.region(tag.spur.map(\.koordinate), ausschnitt: nil).center)
+            ?? Koordinate(Kartenwerk.region(Ausreisser.gerahmt(tag.spur), ausschnitt: nil).center)
         let neu = min(max(geltendeSpanne(tag, ausschnitt: gilt.ausschnitt) * faktor, 0.0006), 90)
         let feld = Kartenausschnitt(mitte: mitte, spanne: neu)
         if gilt.ausschnittHerkunft == .block {
@@ -870,7 +870,7 @@ struct BlockInspektor: View {
                             return
                         }
                         let mitte = gilt.ausschnitt?.mitte
-                            ?? Koordinate(Kartenwerk.region(tag.spur.map(\.koordinate),
+                            ?? Koordinate(Kartenwerk.region(Ausreisser.gerahmt(tag.spur),
                                                             ausschnitt: nil).center)
                         let feld = Kartenausschnitt(
                             mitte: mitte,

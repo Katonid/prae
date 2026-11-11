@@ -872,7 +872,41 @@ extension Reise {
     //   jedem Punkt. Dann ist jede Art ihre EIGENE Linie: die Reisespur als
     //   ein Zug, geteilt in kräftig/blass, jede Fahrt und Wanderung für sich
     //   (getrennt an 15 Minuten ohne Punkt, wie `fahrtabschnitte`).
+    //
+    // WELCHE Punkte überhaupt auf eine Linie kommen und wo sie abbricht,
+    // entscheidet seit 1.0.127 `Ausreisser.linienwahl`: Hat der Tag eine
+    // aufgezeichnete Spur, trägt nur sie die Linie (wie in Fernweh), und
+    // erkannte Sprünge sind ausgeblendet. Gebaut wird auf dieser Teilfolge;
+    // die Stellen in den Zügen zeigen danach wieder in die ganze Spur.
     func linienzuege(_ spur: [Reisepunkt]) -> [Linienzug] {
+        linienzuege(spur, wahl: Ausreisser.linienwahl(spur))
+    }
+
+    func linienzuege(_ spur: [Reisepunkt], wahl: Ausreisser.Linienwahl) -> [Linienzug] {
+        let stellen = wahl.stellen
+        let teil = stellen.map { spur[$0] }
+        var zuege: [Linienzug] = []
+        for zug in linienzuegeOhneWahl(teil) {
+            // Zurück in die Stellen der ganzen Spur, geteilt an jedem Schnitt.
+            var stueck: [Int] = []
+            for i in zug.indizes {
+                let stelle = stellen[i]
+                if let letzte = stueck.last, wahl.schnitte.contains(letzte) {
+                    if stueck.count >= 2 {
+                        zuege.append(Linienzug(art: zug.art, indizes: stueck, farbe: zug.farbe, blass: zug.blass))
+                    }
+                    stueck = []
+                }
+                stueck.append(stelle)
+            }
+            if stueck.count >= 2 {
+                zuege.append(Linienzug(art: zug.art, indizes: stueck, farbe: zug.farbe, blass: zug.blass))
+            }
+        }
+        return zuege
+    }
+
+    private func linienzuegeOhneWahl(_ spur: [Reisepunkt]) -> [Linienzug] {
         guard spur.count >= 2 else { return [] }
         let ebenen = self.ebenen
         let arten = spur.map { Self.linienart($0.art) }
@@ -971,7 +1005,8 @@ extension Reise {
     // Punkt seine Farbe (`nil` = kein Punkt zeichnen — ausgeblendet oder
     // blass). Hashable, damit es in `kennung` und Vorratsschlüssel geht.
     func kartenlinien(_ spur: [Reisepunkt]) -> Kartenlinien {
-        let zuege = linienzuege(spur)
+        let wahl = Ausreisser.linienwahl(spur)
+        let zuege = linienzuege(spur, wahl: wahl)
         let ebenen = self.ebenen
         var blass = Set<Int>()
         var kraeftig = Set<Int>()
@@ -979,6 +1014,8 @@ extension Reise {
             if zug.blass { blass.formUnion(zug.indizes) } else { kraeftig.formUnion(zug.indizes) }
         }
         let punkte: [Farbwert?] = spur.enumerated().map { (i, punkt) -> Farbwert? in
+            // Ein ausgeblendeter Sprung bekommt auch keinen Kreis.
+            if wahl.spruenge.contains(i) { return nil }
             let art = Self.linienart(punkt.art)
             guard ebenen.zeigt(art) else { return nil }
             // Ein Punkt, der nur in einem blassen Zug liegt, bekommt keinen
@@ -988,7 +1025,7 @@ extension Reise {
             if blass.contains(i), !kraeftig.contains(i) { return nil }
             return linienfarbe(fuer: punkt.art)
         }
-        return Kartenlinien(zuege: zuege, punkte: punkte)
+        return Kartenlinien(zuege: zuege, punkte: punkte, spruenge: wahl.spruenge.sorted())
     }
 
     // Die Spur in Stücken — für die lebenden Karten der App (`MapPolyline`).
@@ -1018,6 +1055,9 @@ struct Linienzug: Hashable {
 struct Kartenlinien: Hashable {
     var zuege: [Linienzug]
     var punkte: [Farbwert?]
+    // Ausgeblendete Sprünge (ab 1.0.127): ohne Linie, ohne Kreis, und der
+    // automatische Ausschnitt rahmt sie nicht (`Kartenwerk.zeichnen`).
+    var spruenge: [Int] = []
 
     // Für den Vorratsschlüssel des Kartenwerks: Reihenfolge, Teilung,
     // Farben, blass — alles, was das Bild ändert.
@@ -1028,7 +1068,7 @@ struct Kartenlinien: Hashable {
                 + "\(zug.indizes.first ?? -1)-\(zug.indizes.last ?? -1)#\(zug.indizes.count)"
         }.joined(separator: ";")
         let p = punkte.map { f in f.map { "\($0.rot),\($0.gruen),\($0.blau)" } ?? "-" }.joined(separator: ";")
-        return z + "|" + p
+        return z + "|" + p + "|" + spruenge.map { String($0) }.joined(separator: ",")
     }
 }
 
