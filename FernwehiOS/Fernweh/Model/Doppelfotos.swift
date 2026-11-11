@@ -39,12 +39,12 @@ enum Doppelfotos {
         }
     }
 
-    static func zeitschluessel(_ f: Foto) -> String? {
+    nonisolated static func zeitschluessel(_ f: Foto) -> String? {
         guard let d = f.aufnahme, f.pixelBreite > 0 else { return nil }
         return "\(Int64((d.timeIntervalSince1970 * 1000).rounded()))|\(f.pixelBreite)x\(f.pixelHoehe)"
     }
 
-    static func zeitschluessel(_ a: PHAsset) -> String? {
+    nonisolated static func zeitschluessel(_ a: PHAsset) -> String? {
         guard let d = a.creationDate, a.pixelWidth > 0 else { return nil }
         return "\(Int64((d.timeIntervalSince1970 * 1000).rounded()))|\(a.pixelWidth)x\(a.pixelHeight)"
     }
