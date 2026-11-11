@@ -289,10 +289,10 @@ enum Handbuch {
             Handbucheintrag(
                 id: "punkte",
                 titel: "Reisepunkte ändern",
-                text: "Auf einer bildschirmfüllenden Karte: ein Tipp wählt einen Punkt, das Fadenkreuz versetzt ihn, die Uhrzeit wird getippt. Mehrere Zeitstempel lassen sich gemeinsam verschieben — für eine Kamera, deren Uhr auf der Zeit von zu Hause stand. Ausreißer markiert die App, gelöscht wird nie von selbst.",
+                text: "Auf einer bildschirmfüllenden Karte: ein Tipp wählt einen Punkt, das Fadenkreuz versetzt ihn, die Uhrzeit wird getippt. Mehrere Zeitstempel lassen sich gemeinsam verschieben — für eine Kamera, deren Uhr auf der Zeit von zu Hause stand. Sprünge der Linie blendet die Karte von selbst aus (ab 1.0.127) und listet sie über den Punkten auf; gelöscht wird nie von selbst.",
                 weg: "Tagesmenü \u{2192} Reisepunkte",
                 ziel: nil,
-                stichworte: ["karte", "gps", "uhrzeit", "zeitzone", "ausreißer"]),
+                stichworte: ["karte", "gps", "uhrzeit", "zeitzone", "ausreißer", "sprung", "sprunglinie"]),
         ])
 
     private static let aussehen = Handbuchkapitel(
@@ -581,10 +581,10 @@ enum Handbuch {
             Handbucheintrag(
                 id: "karte",
                 titel: "Die Karte zeigt die Verbindung, nicht den Weg",
-                text: "Gezeichnet wird die Linie von Punkt zu Punkt. Welche Straße dazwischen lag, steht in keinem Foto — und eine erfundene Route sähe aus wie eine Auskunft. Unter der Karte steht das auch.",
+                text: "Gezeichnet wird die Linie von Punkt zu Punkt. Welche Straße dazwischen lag, steht in keinem Foto — und eine erfundene Route sähe aus wie eine Auskunft. Unter der Karte steht das auch.\n\nHat ein Tag eine AUFGEZEICHNETE Spur (aus Fernweh oder Tagesspur), trägt nur sie die Linie, wie in Fernweh; Orte der Einträge, Fotos und eigene Punkte stehen als Punkte darauf, ohne dass die Linie zu ihnen hin- und zurückspringt (ab 1.0.127). Punkte, die die Messung als Sprung erkennt — auch mehrere hintereinander und am Anfang oder Ende des Tages —, blendet die Karte selbst aus; gelöscht wird dabei nichts.",
                 weg: "",
                 ziel: nil,
-                stichworte: ["route", "strecke", "straße", "luftlinie"]),
+                stichworte: ["route", "strecke", "straße", "luftlinie", "sprung", "sprunglinie", "gps"]),
             Handbucheintrag(
                 id: "schrifteinbettung",
                 titel: "Ob eine Schrift im PDF landet, wird gemessen",

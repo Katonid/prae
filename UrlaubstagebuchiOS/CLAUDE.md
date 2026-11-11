@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.126 (Build 127). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.127 (Build 128). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7781,6 +7781,59 @@ Befunde, und keiner davon war Geschmack:
   - **Nicht gemessen (1.0.126):** auf keinem Gerät gesehen; ob der Hof im
     gedruckten PDF genauso stark wirkt wie auf dem Bildschirm, zeigt erst
     ein Ausdruck.
+- **SPRUNGLINIEN: DIE LINIE TRUG PUNKTE, DIE GAR KEINE SPUR SIND**
+  (`Ausreisser.linienwahl`, `Reise.linienzuege`, ab 1.0.127; gemeldet
+  11/2026: „Bei den GPS-Daten erscheinen bei jedem Tag Sprunglinien, die in
+  der Reisetagebuch-App nicht auftauchen. Leider werden auch nicht alle von
+  ihnen durch die Bereinigungsfunktion entfernt … so einstellen, dass
+  definitiv erkannte Sprünge automatisch ausgeblendet werden").
+  - **Die Ursache steht im Quelltext, nicht in den Daten.** Fernweh
+    zeichnet seine Linie NUR aus den aufgezeichneten Spuren (Gerät, Fahrt,
+    Wanderung, `FernwehiOS/Fernweh/Views/Tagesfahrt.swift`); Orte und Fotos
+    sind dort Marken. Hier verband die Linie ALLE Punkte des Tages nach der
+    Uhrzeit: den Ort jedes Eintrags (Zeitpunkt = wann er GESCHRIEBEN wurde,
+    oft abends, der Ort aber der vom Mittag), die weiteren Orte mit grober
+    Uhrzeit, Fotopunkte, und am Ende alles ohne Uhrzeit
+    (`Fernweheinfuhr`, `tagesspurEinsetzen`). Jeder davon, der zeitlich
+    nicht zu seiner Lage passt, ist ein Zacken hin und zurück — an jedem
+    Tag mit Einträgen. Die Bereinigung (1.0.49) konnte sie nicht alle
+    finden: erster und letzter Punkt ungeprüft, zwei Ausreißer
+    hintereinander nicht zu trennen (stand dort schon als offen).
+  - **Hat ein Tag eine aufgezeichnete Spur** (≥ 2 Punkte `.tagesspur` ohne
+    Namen), trägt NUR sie die Linie. Benannte Orte, Fotos, Handpunkte
+    bleiben als Kreise. Ein Spurpunkt ohne Uhrzeit kommt nicht auf die
+    Linie, sobald andere eine tragen. Ohne Aufzeichnung bleibt es bei allen
+    Punkten (Fotobuch ohne Fernweh, Handpunkte, GPX ohne Zeit).
+  - **Auf dieser Linie werden Sprünge AUSGEBLENDET, nicht gelöscht**:
+    die Befunde von `finden`, wiederholt bis nichts mehr kommt (so fällt
+    auch der zweite von zweien), dazu Gruppen von zwei bis drei Punkten,
+    die gemeinsam hinaus und zurück führen (jeder ≥ halbe Schwelle von
+    beiden Ankern, Anker ≤ halbe Schwelle auseinander, Umweg ≥ Schwelle).
+    Und eine Verbindung über 1,5 km schneller als 1200 km/h wird nicht
+    gezeichnet — auch am Rand des Tages. Ausgeblendet = keine Linie, kein
+    Kreis, und der automatische Ausschnitt rahmt sie nicht
+    (`Kartenlinien.spruenge`, `Ausreisser.gerahmt`; sonst zöge ein Punkt
+    50 km daneben die Karte auf).
+  - **Ohne Aufzeichnung gilt nur das TEMPO** — dort kann ein einzelner
+    ferner Fotopunkt ein echter Abstecher sein, und der „Umweg" allein ist
+    keine Gewissheit. „Definitiv erkannt" heißt hier genau das.
+  - **Gebaut wird auf der TEILFOLGE**, die Stellen der Züge zeigen danach
+    wieder in die ganze Spur. Die Arten auf der vollen Spur zu bestimmen
+    und hinterher zu filtern ging nicht: Ein benannter Ort (Art `nil`)
+    mitten in einer Fahrt hätte sie in zwei Stücke mit Lücke geteilt.
+  - **Alle Karten fragen dieselbe Stelle**: Seite und PDF (`kartenlinien`),
+    die lebenden Karten (`linienstuecke`), und jetzt auch die
+    Ausschnittswahl, die bis dahin eine eigene Linie durch ALLE Punkte zog.
+    Punkteliste, Großkarte und Druckprüfung zeigen `Ausreisser.ausgeblendet`
+    — also genau das, was nicht gezeichnet wird; die Druckprüfung meldet es
+    als erledigt („ausgeblendet") statt als Warnung.
+  - **Nicht gemessen (1.0.127):** an keiner echten `.fernweh`-Datei, auf
+    keinem Gerät gesehen, nicht übersetzt (hier gibt es keinen Swift-
+    Compiler; das sagt der Bau). Die Zahlen sind die von 1.0.49 und
+    GEWÄHLT. Ungesehen vor allem: ob an den Tagen des Nutzers ein Sprung
+    übrig bleibt, der IN der Gerätespur selbst liegt und den keines der
+    Merkmale trifft — dann zeigt ihn auch Fernweh. **Nicht als erledigt
+    darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

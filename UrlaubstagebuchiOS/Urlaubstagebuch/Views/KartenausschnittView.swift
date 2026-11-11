@@ -30,7 +30,6 @@ struct KartenausschnittView: View {
     @State private var region: MKCoordinateRegion?
 
     private var tag: Reisetag? { werk.reise.tage.first { $0.id == tagID } }
-    private var punkte: [Koordinate] { tag?.spur.map(\.koordinate) ?? [] }
 
     private var block: Block? {
         guard let blockID, let ort = werk.block(blockID) else { return nil }
@@ -74,9 +73,11 @@ struct KartenausschnittView: View {
 
     private var karte: some View {
         Map(position: $kamera) {
-            if punkte.count >= 2 {
-                MapPolyline(coordinates: punkte.map(\.clLocation))
-                    .stroke(werk.reise.spurfarbe.farbe, lineWidth: 3)
+            // Dieselben Züge wie im Buch (ab 1.0.127) — sonst stünden hier
+            // die Sprünge, die die Seite ausblendet.
+            ForEach(werk.reise.linienstuecke(tag?.spur ?? [])) { stueck in
+                MapPolyline(coordinates: stueck.punkte)
+                    .stroke(stueck.farbe, lineWidth: stueck.blass ? 1.5 : 3)
             }
             ForEach(tag?.spur ?? []) { punkt in
                 Marker(punkt.name.isEmpty ? "Punkt" : punkt.name,
@@ -175,7 +176,7 @@ struct KartenausschnittView: View {
     }
 
     private func starten() {
-        let feld = Kartenwerk.region(punkte, ausschnitt: geltenderAusschnitt)
+        let feld = Kartenwerk.region(Ausreisser.gerahmt(tag?.spur ?? []), ausschnitt: geltenderAusschnitt)
         region = feld
         kamera = .region(feld)
     }

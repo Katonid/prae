@@ -462,7 +462,7 @@ enum Druckpruefung {
                 }
             }
             guard hatKarte else { continue }
-            let befunde = Ausreisser.finden(tag.spur)
+            let befunde = Ausreisser.ausgeblendet(tag.spur)
             guard !befunde.isEmpty else { continue }
             punkte += befunde.count
             let groesster = befunde.map(\.umweg).max() ?? 0
@@ -475,14 +475,15 @@ enum Druckpruefung {
             betroffen.append(zeile)
         }
         guard !betroffen.isEmpty else { return [] }
-        var text = "Gemessen wird der Umweg, den ein Punkt an zusätzlicher Linie kostet. "
-        text += "Meist steht dahinter eine ungenaue Standortmessung; es kann aber auch "
-        text += "ein Abstecher hin und zurück sein, und welcher von beidem es war, weiß "
-        text += "nur, wer dabei war \u{2014} deshalb wird nichts von selbst entfernt. "
-        text += "Nachsehen und aufräumen: das Tagesmenü \u{2192} Reisepunkte.\n\n"
+        // Seit 1.0.127 blendet die Karte diese Punkte von selbst aus; die
+        // Zeile sagt, dass es geschehen ist, und warnt nicht mehr.
+        var text = "Diese Punkte springen aus der Reiselinie und sind auf den Karten "
+        text += "ausgeblendet \u{2014} keine Linie, kein Punkt, und der Ausschnitt rahmt "
+        text += "sie nicht. Gelöscht ist nichts. Wer sie sehen oder entfernen will: "
+        text += "das Tagesmenü \u{2192} Reisepunkte.\n\n"
         text += betroffen.joined(separator: "\n")
-        return [Zeile(stufe: .hinweis,
-                      titel: "\(punkte) Punkte springen aus der Reiselinie",
+        return [Zeile(stufe: .gut,
+                      titel: "\(punkte) Sprünge in der Reiselinie ausgeblendet",
                       text: text)]
     }
 
