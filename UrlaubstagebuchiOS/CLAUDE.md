@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.125 (Build 126). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.126 (Build 127). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7759,6 +7759,28 @@ Befunde, und keiner davon war Geschmack:
   passt, ALLE gemeinsam verkleinert. **Wer Text in einen Rahmen von einer
   Zeile setzt, misst ihn vorher** — die Textprüfung sieht in die Tabelle
   nicht hinein. Nicht gemessen: auf keinem Gerät gesehen.
+- **FARBE UND SCHATTEN DER TITELSCHRIFT** (`Umschlag.titelfarbe`,
+  `.titelschatten`, `Schriftbild.schatten`, ab 1.0.126; Ansage des Nutzers
+  11/2026: „die Schrift auf der Titelseite [ist] nicht gut lesbar, wenn ein
+  dunkleres Bild dort ist … eine dunkle Schriftart mit einem helleren
+  Schatten auf dunklem Grund").
+  - **Der Schatten ist eine Eigenschaft des SCHRIFTBILDES** und wird in
+    `Seitensatz.zeichneText` gezeichnet — also auf dem Bildschirm und im PDF
+    gleich, und jede künftige Stelle bekommt ihn mit einer Zeile. Er ist ein
+    HOF ohne Versatz (hebt die Schrift in jede Richtung ab) und wird
+    zweimal gezeichnet, weil ein weicher Schatten hinter dünner Schrift
+    allein zu schwach ist.
+  - **Unschärfe gilt im GERÄTEraum** und folgt dem CTM nicht; ohne den
+    Maßstab aus `userSpaceToDeviceSpaceTransform` wäre der Hof auf einem
+    Bildschirm mit vierfacher Rasterung ein Viertel so breit wie im PDF.
+  - `Schriftbild` und `Schriftabweichung` haben den ERZEUGTEN Leser; das
+    neue Feld ist deshalb OPTIONAL — ein optionaler Schlüssel darf in alten
+    Dateien fehlen, ein nicht-optionaler machte jede Typografie unlesbar.
+  - Gilt für Titel, Untertitel und Zeitraum auf der Titelseite; die
+    Aussehens-Vorlage trägt beides mit.
+  - **Nicht gemessen (1.0.126):** auf keinem Gerät gesehen; ob der Hof im
+    gedruckten PDF genauso stark wirkt wie auf dem Bildschirm, zeigt erst
+    ein Ausdruck.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

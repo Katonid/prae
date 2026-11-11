@@ -246,6 +246,8 @@ struct Vorlagenwerte: Codable, Hashable {
         u.rand = umschlag.rand
         u.titelfaktor = umschlag.titelfaktor
         u.schriftfamilie = umschlag.schriftfamilie
+        u.titelfarbe = umschlag.titelfarbe
+        u.titelschatten = umschlag.titelschatten
         u.titellage = umschlag.titellage
         u.rueckenZeigen = umschlag.rueckenZeigen
         u.rueckenlage = umschlag.rueckenlage

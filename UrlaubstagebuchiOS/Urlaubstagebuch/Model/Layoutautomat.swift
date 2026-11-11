@@ -246,7 +246,8 @@ struct Layoutautomat {
             inhalt: .titel,
             rahmen: Rahmen(x: x + 22, y: feldY + 20, breite: breite - 44, hoehe: titelHoehe),
             abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
-                                          groesse: gross.groesse)
+                                          groesse: gross.groesse, farbe: umschlag.titelfarbe,
+                                          schatten: umschlag.titelschatten)
         ))
         if unterHoehe > 0 {
             bloecke.append(Block(
@@ -254,7 +255,8 @@ struct Layoutautomat {
                 rahmen: Rahmen(x: x + 22, y: feldY + 20 + titelHoehe + 12,
                                breite: breite - 44, hoehe: unterHoehe),
                 abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
-                                              groesse: unter.groesse)
+                                              groesse: unter.groesse, farbe: umschlag.titelfarbe,
+                                              schatten: umschlag.titelschatten)
             ))
         }
         return Seite(id: Layoutautomat.titelseitenKennung, bloecke: bloecke,
@@ -289,7 +291,9 @@ struct Layoutautomat {
             inhalt: .titel,
             rahmen: Rahmen(x: satz.minX, y: y, breite: breite, hoehe: titelHoehe),
             abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
-                                          groesse: gross.groesse, ausrichtung: .mitte)
+                                          groesse: gross.groesse, ausrichtung: .mitte,
+                                          farbe: umschlag.titelfarbe,
+                                          schatten: umschlag.titelschatten)
         ))
         y += titelHoehe + 14
         bloecke.append(Block(
@@ -303,7 +307,9 @@ struct Layoutautomat {
                 inhalt: .text(untertext),
                 rahmen: Rahmen(x: satz.minX, y: y, breite: breite, hoehe: unterHoehe),
                 abweichung: Schriftabweichung(familie: umschlag.schriftfamilie,
-                                              groesse: unter.groesse, ausrichtung: .mitte)
+                                              groesse: unter.groesse, ausrichtung: .mitte,
+                                              farbe: umschlag.titelfarbe,
+                                              schatten: umschlag.titelschatten)
             ))
         }
         return Seite(id: Layoutautomat.titelseitenKennung, bloecke: bloecke,

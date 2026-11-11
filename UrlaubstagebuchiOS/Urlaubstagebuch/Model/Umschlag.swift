@@ -296,6 +296,11 @@ struct Umschlag: Codable, Hashable {
     var titelfaktor: Double = 1
     // Die Schriftfamilie des Umschlags. `nil` heißt: die des Buchtitels.
     var schriftfamilie: Schriftfamilie?
+    // FARBE UND SCHATTEN DER TITELSCHRIFT (ab 1.0.126). `nil` heißt: wie
+    // bisher (Farbe der Überschrift, kein Schatten). Gilt für Titel,
+    // Untertitel und Zeitraum auf der Titelseite.
+    var titelfarbe: Farbwert?
+    var titelschatten: Farbwert?
 
     // WIE HOCH DER TITEL AUF DER TITELSEITE STEHT (ab 1.0.67).
     //
@@ -374,6 +379,8 @@ struct Umschlag: Codable, Hashable {
         rand = b.wahlweise(.rand)
         titelfaktor = b.wert(.titelfaktor, 1)
         schriftfamilie = b.wahlweise(.schriftfamilie)
+        titelfarbe = b.wahlweise(.titelfarbe)
+        titelschatten = b.wahlweise(.titelschatten)
         titellage = b.wahlweise(.titellage)
         titelbloecke = b.wert(.titelbloecke, [Block]())
         rueckbloecke = b.wert(.rueckbloecke, [Block]())
@@ -460,7 +467,7 @@ struct Umschlag: Codable, Hashable {
 
     var eigeneGestaltung: Bool {
         hintergrund != nil || rand != nil || titelfaktor != 1 || schriftfamilie != nil
-            || titellage != nil
+            || titellage != nil || titelfarbe != nil || titelschatten != nil
             || abs(rueckenlage - 0.5) > 0.001 || rueckenrichtung != .obenNachUnten
             || !titelbloecke.isEmpty || !rueckbloecke.isEmpty
     }
