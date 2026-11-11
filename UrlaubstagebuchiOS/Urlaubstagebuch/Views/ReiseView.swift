@@ -1709,6 +1709,12 @@ struct ReiseView: View {
                 Button("Titel, Umschlag und Rücken…", systemImage: "book.closed.fill") {
                     blatt = .umschlag
                 }
+                // Wer ein Fotobuch bestellt, sucht das PRODUKT und nicht ein
+                // Maß (ab 1.0.123, gemeldet 11/2026). Derselbe Bildschirm,
+                // nur unter dem Namen, unter dem man ihn sucht.
+                Button("Fotobuch der Druckerei wählen (Saal, WhiteWall)…", systemImage: "printer") {
+                    blatt = .seitenformat
+                }
                 Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
                 Button("Ränder und Druckzugaben…", systemImage: "ruler") {
                     blatt = .gestaltung
@@ -2358,7 +2364,8 @@ struct ReiseView: View {
         case .nurUmschlag:
             AusgabeView(werk: werk, vorwahl: .nurUmschlag)
         case .doppelseiten:
-            AusgabeView(werk: werk, vorwahl: .doppelseiten)
+            AusgabeView(werk: werk, vorwahl: werk.reise.hatRueckseite
+                        ? .doppelseitenMitUmschlag : .doppelseiten)
         case .broschuere:
             AusgabeView(werk: werk, vorwahl: .broschuere)
         case .neuverteilen:

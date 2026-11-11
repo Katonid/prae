@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.122 (Build 123). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.123 (Build 124). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7668,6 +7668,26 @@ Befunde, und keiner davon war Geschmack:
     war kein Rechenfehler: Umschlaghälfte und -beschnitt waren nicht
     eingestellt, es galten die des Buchblocks. Genau das setzt `anwenden`.
   - **Nicht gemessen (1.0.122):** auf keinem Gerät gesehen.
+- **DAS FOTOBUCH DER DRUCKEREI STEHT ZUERST — UND DIE AUSGABE FOLGT IHM**
+  (ab 1.0.123; gemeldet 11/2026: „Allerdings finde ich in der App keine
+  geeigneten Maße für Saal-Digital-Fotobücher. Auch weiß ich nicht, wo in der
+  App ich festlegen kann, dass Saal Digital ja keine Einzelseiten, sondern
+  fortlaufende Doppelseiten hochgeladen bekommen möchte."). Beides war gebaut
+  (Produkte seit 1.0.111, Doppelseiten-PDF seit 1.0.69) — und beides lag, wo
+  man es nicht sucht: die Produkte unter dem Maßfeld in zugeklappten Gruppen,
+  die Doppelseiten als eigener Menüpunkt, der den Umschlag NICHT mitschrieb.
+  Siebzehnte Auflage von „es war da, man fand es nicht".
+  - Die Fotobücher stehen im Formatblatt jetzt ganz oben, und das Buchmenü
+    hat einen Eintrag unter dem Namen, unter dem man sucht („Fotobuch der
+    Druckerei wählen (Saal, WhiteWall)…").
+  - **Neue Anordnung „Doppelseiten + Umschlag (zwei Dateien)"**: dieselben
+    beiden Aufträge wie „Doppelseiten" und „Nur der Umschlagbogen",
+    nacheinander. Sie ist die VORWAHL, sobald das Seitenformat ein Produkt
+    mit Doppelseiten ist (`Druckprodukt.produkt(format.vorlage)`) — die
+    Lieferart ist eine Folge des Produkts und keine zweite Einstellung, die
+    man vergessen kann.
+  - **Nicht gemessen (1.0.123):** keine Datei hochgeladen, auf keinem Gerät
+    gesehen.
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

@@ -50,7 +50,17 @@ struct AusgabeView: View {
     // umgestellt hat, sieht seine Wahl zurückgesetzt.
     init(werk: Reisewerk, vorwahl: Umfang? = nil) {
         self.werk = werk
-        let ausDemBuch: Umfang = werk.reise.hatRueckseite ? .getrennt : .ganzesBuch
+        // Ist im Buch ein Druckprodukt mit DOPPELSEITEN gewählt (Saal,
+        // ab 1.0.123), ist das die Vorwahl: Ansage des Nutzers 11/2026 —
+        // er fand nicht, wo man festlegt, dass Saal keine Einzelseiten,
+        // sondern fortlaufende Doppelseiten haben will.
+        let doppel = Druckprodukt.produkt(werk.reise.format.vorlage)?.doppelseiten == true
+        let ausDemBuch: Umfang
+        if doppel {
+            ausDemBuch = werk.reise.hatRueckseite ? .doppelseitenMitUmschlag : .doppelseiten
+        } else {
+            ausDemBuch = werk.reise.hatRueckseite ? .getrennt : .ganzesBuch
+        }
         _umfang = State(initialValue: vorwahl ?? ausDemBuch)
     }
     // WIE VIELE INNENSEITEN BESTELLT SIND (ab 1.0.72). Als Text, weil ein
@@ -88,6 +98,9 @@ struct AusgabeView: View {
         case nurUmschlag
         case nurInnenteil
         case doppelseiten
+        // Doppelseiten UND Umschlag, zwei Dateien (ab 1.0.123) — genau das,
+        // was Saal Digital für ein Fotobuch mit Hardcover haben will.
+        case doppelseitenMitUmschlag
         case broschuere
 
         var id: String { rawValue }
@@ -98,6 +111,7 @@ struct AusgabeView: View {
             case .nurUmschlag: return "Nur der Umschlagbogen"
             case .nurInnenteil: return "Nur die Buchseiten"
             case .doppelseiten: return "Doppelseiten (zwei auf einen Bogen)"
+            case .doppelseitenMitUmschlag: return "Doppelseiten + Umschlag (zwei Dateien)"
             case .broschuere: return "Broschüre zum Selberfalten"
             }
         }
@@ -114,6 +128,8 @@ struct AusgabeView: View {
                 return "Nur die Buchseiten, ohne den Umschlagbogen. Die Gegenrichtung zu „Nur der Umschlagbogen“: Beide zusammen ergeben dasselbe wie „Umschlag als eigene Datei“, nur eben zu zwei Zeitpunkten."
             case .doppelseiten:
                 return "Zwei Buchseiten auf eine PDF-Seite, links die gerade Nummer — so, wie das aufgeschlagene Buch aussieht. Der Bogen ist doppelt so breit wie eine Seite. Manche Fotobuchdienste wollen genau das. Der Umschlag gehört nicht hinein; den gibt es einzeln."
+            case .doppelseitenMitUmschlag:
+                return "Zwei Dateien: der Innenteil als fortlaufende Doppelseiten (links die gerade Nummer) und der Umschlagbogen. So will es Saal Digital beim Fotobuch mit Hardcover."
             case .broschuere:
                 return "Zwei Seiten nebeneinander auf einen Bogen, in Heftfolge. Für den eigenen Drucker: beidseitig ausdrucken, in der Mitte falten, heften."
             }
@@ -399,6 +415,7 @@ struct AusgabeView: View {
         case .nurUmschlag: return "Nur der Umschlag"
         case .nurInnenteil: return "Nur der Innenteil"
         case .doppelseiten: return "Doppelseiten"
+        case .doppelseitenMitUmschlag: return "Doppelseiten + Umschlag"
         case .ganzesBuch: return "Als PDF sichern"
         }
     }
@@ -466,6 +483,10 @@ struct AusgabeView: View {
             let b = 2 * reise.format.breite + 2 * anschnitt
             return Druckvorgabe.masstext(CGSize(width: b, height: reise.format.hoehe
                 + 2 * anschnitt)) + " (zwei Seiten)"
+        case .doppelseitenMitUmschlag:
+            let b = 2 * reise.format.breite + 2 * anschnitt
+            return Druckvorgabe.masstext(CGSize(width: b, height: reise.format.hoehe
+                + 2 * anschnitt)) + " \u{2B27} " + Druckvorgabe.masstext(umschlagbogenMm)
         case .broschuere:
             return broschuerenmass
         case .getrennt:
@@ -569,6 +590,23 @@ struct AusgabeView: View {
                 fertig = ziel
                 befundAmPDF = Druckpruefung.amPDF(ziel, erwartet: nil) + [doppelseitenzeile]
                 teilenliste = [ziel]
+            } else if umfang == .doppelseitenMitUmschlag {
+                // DIESELBEN BEIDEN AUFTRÄGE wie „Doppelseiten" und „Nur der
+                // Umschlagbogen", nacheinander — kein dritter Weg.
+                let umschlag = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: auftrag(nurUmschlag: true),
+                    fortschritt: { _ in })
+                let innen = try await Buchausgabe.doppelseitenPdf(
+                    werk.reise,
+                    auftrag: auftrag(),
+                    fortschritt: { wert in anteil = wert })
+                fertig = innen
+                befundAmPDF = Druckpruefung.amPDF(innen, erwartet: nil) + [doppelseitenzeile]
+                    + [Druckpruefung.Zeile(
+                        stufe: .gut, titel: "Umschlag getrennt gesichert",
+                        text: umschlag.lastPathComponent + umschlagzusatz)]
+                teilenliste = [innen, umschlag]
             } else if umfang == .getrennt {
                 // Viele Buchdienste wollen Umschlag und Innenteil als zwei
                 // Dateien. Ausgegeben wird dann der Innenteil als Hauptdatei
