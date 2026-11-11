@@ -51,6 +51,14 @@ struct FormatView: View {
                     Text("Das Endformat ist die Seite, wie sie nach dem Schneiden in der Hand liegt. Der Bogen ist das, was im PDF steht — Endformat plus Anschnitt. Beide stehen als TrimBox und BleedBox in der Datei; daran erkennt der Druckdienst, wo geschnitten wird.")
                 }
 
+                // DIE FOTOBÜCHER DER DRUCKEREIEN STEHEN GANZ OBEN (ab
+                // 1.0.123). Gemeldet 11/2026: „Allerdings finde ich in der App
+                // keine geeigneten Maße für Saal-Digital-Fotobücher." Sie
+                // waren da — unter dem Feld für das Maß der Druckerei, in
+                // zugeklappten Gruppen. Wer ein Fotobuch bestellt, sucht das
+                // Produkt und nicht ein Maß; deshalb steht es zuerst.
+                produktabschnitt
+
                 // WAS DIE DRUCKEREI VERLANGT (ab 1.0.72).
                 //
                 // Sie nennt fast immer das Maß MIT Beschnitt, weil sie die
@@ -99,8 +107,6 @@ struct FormatView: View {
                         .foregroundStyle(ausBogen == nil && !bogenBreite.isEmpty
                             ? Color.red : Color.secondary)
                 }
-
-                produktabschnitt
 
                 Section {
                     ForEach(Seitenformat.vorlagen) { vorlage in
@@ -352,7 +358,7 @@ struct FormatView: View {
                     }
                 }
             } header: {
-                Text("Druckprodukte \u{00B7} \(anbieter)")
+                Text("Fotobücher \u{00B7} \(anbieter)")
             } footer: {
                 Text(produktfuss(anbieter))
             }

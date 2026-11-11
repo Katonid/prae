@@ -239,6 +239,12 @@ struct Druckprodukt: Identifiable, Hashable {
             satz += " \u{2014} die blaue Linie; was hineinragt, wird rot umrandet"
             zeilen.append(satz)
         }
+        if doppelseiten {
+            var satz = "Ausgabe: \(anbieter) will den Innenteil als fortlaufende DOPPELSEITEN. "
+            satz += "\u{201E}Als PDF sichern\u{201C} stellt dafür \u{201E}Doppelseiten + Umschlag\u{201C} vor "
+            satz += "und schreibt zwei Dateien: Innenteil und Umschlagbogen."
+            zeilen.append(satz)
+        }
         var umfang = "Seitenzahl bei \(anbieter): \(seitenVon) bis \(seitenBis)"
         if seitenSchritt > 2 {
             umfang += ", in Schritten von \(seitenSchritt)"
