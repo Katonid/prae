@@ -141,6 +141,13 @@ enum Handbuch {
                 weg: "Plus-Knopf \u{2192} Fotoablage",
                 ziel: .ablage,
                 stichworte: ["heimatlos", "übrig", "ohne datum"]),
+            Handbucheintrag(
+                id: "duplikate",
+                titel: "Doppelte Fotos entfernen",
+                text: "Ist ein Bild zweimal im Buch \u{2014} etwa weil Fernweh es zweimal übergeben hat \u{2014}, findet es die Suche am BILD selbst: gleiche Aufnahmezeit (auch um eine Zeitzone verschoben), gleiches Seitenverhältnis und ein Vergleich der verkleinerten Bilder. Eine verkleinerte Kopie zählt als Doppel, ein nachbearbeitetes Foto mit anderem Ausschnitt oder anderen Farben nicht.\n\nEin Knopf entfernt alle Doppel auf einmal. Behalten wird das größte Bild; Bildunterschrift und Ort gehen mit hinüber, und wo ein Doppel auf einer Seite stand, steht danach das behaltene Foto. Tage ohne Handarbeit werden neu angeordnet. \u{201E}Widerrufen\u{201C} nimmt alles in einem Schritt zurück; die Dateien gehen erst beim Schließen des Buches von der Platte.",
+                weg: "Drei-Punkte-Menü \u{2192} Doppelte Fotos suchen",
+                ziel: .duplikate,
+                stichworte: ["duplikat", "duplikate", "doppelt", "zweimal", "fernweh", "aufräumen"]),
         ])
 
     private static let buehne = Handbuchkapitel(

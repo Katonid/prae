@@ -175,6 +175,8 @@ struct ReiseView: View {
         case spur(UUID)
         case seiten(UUID)
         case ablage
+        // Doppelte Fotos (ab 1.0.128).
+        case duplikate
 
         var id: String {
             switch self {
@@ -214,6 +216,7 @@ struct ReiseView: View {
             case let .spur(id): return "spur-\(id)"
             case let .seiten(id): return "seiten-\(id)"
             case .ablage: return "ablage"
+            case .duplikate: return "duplikate"
             }
         }
     }
@@ -1767,6 +1770,12 @@ struct ReiseView: View {
                 Button("Druckprüfung…", systemImage: "checkmark.seal") {
                     blatt = .druckpruefung
                 }
+                // Doppelte Fotos (ab 1.0.128, gemeldet 11/2026: „Durch die
+                // Fernweh-App sind offenbar Bilder doppelt übergeben
+                // worden."). Steht beim Prüfen, denn es ist eine Suche.
+                Button("Doppelte Fotos suchen…", systemImage: "square.on.square") {
+                    blatt = .duplikate
+                }
                 Button("Ausgabeformat und Maße…", systemImage: "doc.text.magnifyingglass") {
                     blatt = .ausgabeformat
                 }
@@ -2378,6 +2387,8 @@ struct ReiseView: View {
             SeitenView(werk: werk, tagID: id)
         case .ablage:
             AblageView(werk: werk)
+        case .duplikate:
+            DuplikateView(werk: werk)
         }
     }
 }

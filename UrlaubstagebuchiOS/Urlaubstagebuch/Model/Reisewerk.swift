@@ -35,6 +35,8 @@ final class Reisewerk: ObservableObject, Identifiable {
     @Published var gewaehlteSeite: UUID?
     @Published var seitenzeiger: Int = 0
     @Published var meldung: Meldung?
+    // Dateien entfernter Doppel, gelöscht erst beim Schließen (ab 1.0.128).
+    private(set) var zuLoeschen: Set<String> = []
     @Published var beschaeftigt: String?
     // DIE ZWISCHENABLAGE (ab 1.0.65).
     //
@@ -2799,6 +2801,184 @@ final class Reisewerk: ObservableObject, Identifiable {
                 reise.tage[t].seiten[s].bloecke.removeAll { $0.fotoID == fotoID }
             }
         }
+    }
+
+    // DOPPELTE FOTOS ENTFERNEN (ab 1.0.128) — gefunden von
+    // `Duplikate.suchen`, dort steht, wann zwei Fotos dasselbe sind.
+    //
+    // EIN Schritt „Widerrufen" für alles: ein `merken()`, und das Buch wird
+    // in EINEM Zug ersetzt. Die Dateien der entfernten Fotos bleiben bis zum
+    // Schließen des Buches liegen (`zuLoeschen`) — sonst brächte
+    // „Widerrufen" Fotos zurück, deren Bild schon von der Platte ist.
+    struct Duplikatbericht {
+        var entfernt = 0
+        var neuGesetzt = 0
+        var handarbeit = 0
+        var ohneSeite = 0
+    }
+
+    @discardableResult
+    func duplikateEntfernen(_ gruppen: [Duplikate.Gruppe]) -> Duplikatbericht {
+        var bericht = Duplikatbericht()
+        let gruppen = gruppen.filter { reise.foto($0.behalten) != nil }
+        guard !gruppen.isEmpty else { return bericht }
+
+        var neu = reise
+        var ersatz: [UUID: UUID] = [:]
+        var dateien: Set<String> = []
+        for gruppe in gruppen {
+            guard var bleibt = neu.foto(gruppe.behalten) else { continue }
+            for wegID in gruppe.weg where wegID != gruppe.behalten {
+                guard let weg = neu.foto(wegID) else { continue }
+                // Was das Doppel trägt und dem behaltenen fehlt, geht mit.
+                if bleibt.unterschrift.isEmpty, !weg.unterschrift.isEmpty {
+                    bleibt.unterschrift = weg.unterschrift
+                    bleibt.unterschriftZeigen = weg.unterschriftZeigen
+                }
+                if bleibt.unterschriftAusrichtung == nil {
+                    bleibt.unterschriftAusrichtung = weg.unterschriftAusrichtung
+                }
+                if !bleibt.hatOrt, weg.hatOrt {
+                    bleibt.koordinate = weg.koordinate
+                    bleibt.ortsquelle = weg.ortsquelle
+                }
+                if bleibt.aufnahme == nil, weg.aufnahme != nil {
+                    bleibt.aufnahme = weg.aufnahme
+                    bleibt.tagesschluessel = weg.tagesschluessel
+                }
+                if !weg.abgelegt { bleibt.abgelegt = false }
+                ersatz[wegID] = gruppe.behalten
+                if weg.datei != bleibt.datei { dateien.insert(weg.datei) }
+            }
+            neu.setzeFoto(bleibt)
+        }
+        guard !ersatz.isEmpty else { return bericht }
+
+        // Welche Tage es trifft — vor dem Umbiegen, danach sieht man es
+        // nicht mehr.
+        let betroffen = Set(neu.tage.filter { tag in
+            tag.fotos.contains { ersatz[$0] != nil || ersatz.values.contains($0) }
+                || tag.seiten.contains { seite in
+                    seite.bloecke.contains { ($0.fotoID).map { ersatz[$0] != nil } ?? false }
+                }
+        }.map(\.id))
+        // Wo das behaltene Foto vorher zu Hause war.
+        var heimat: [UUID: UUID?] = [:]
+        for id in Set(ersatz.values) {
+            let tag = neu.tage.first(where: { $0.fotos.contains(id) })?.id
+                ?? neu.tage.first(where: { tag in tag.fotos.contains { ersatz[$0] == id } })?.id
+            heimat.updateValue(tag, forKey: id)
+        }
+
+        neu.fotos.removeAll { ersatz[$0.id] != nil }
+        guard let umgebogen = Self.bezuegeUmbiegen(neu, ersatz) else {
+            meldung = Meldung(text: "Die doppelten Fotos ließen sich nicht entfernen \u{2014} das Buch "
+                              + "ist unverändert.", schwer: true)
+            return bericht
+        }
+        neu = umgebogen
+
+        // Jedes behaltene Foto an EINEM Tag und dort EINMAL auf den Seiten.
+        for (id, zuhause) in heimat {
+            // Ohne Tag (eine eingesetzte Grafik, ein Foto in der Ablage)
+            // bleiben die Blöcke, wo sie sind — sie zeigen jetzt dasselbe
+            // Bild wie vorher.
+            guard let zuhause else { continue }
+            for t in neu.tage.indices {
+                let hierZuhause = neu.tage[t].id == zuhause
+                if hierZuhause {
+                    var gesehen = false
+                    neu.tage[t].fotos.removeAll { eintrag in
+                        guard eintrag == id else { return false }
+                        defer { gesehen = true }
+                        return gesehen
+                    }
+                } else {
+                    neu.tage[t].fotos.removeAll { $0 == id }
+                }
+                var bild = hierZuhause ? 0 : 1
+                var zeile = hierZuhause ? 0 : 1
+                for s in neu.tage[t].seiten.indices {
+                    neu.tage[t].seiten[s].bloecke.removeAll { block in
+                        switch block.inhalt {
+                        case let .foto(f) where f == id:
+                            bild += 1
+                            return bild > 1
+                        case let .bildunterschrift(f) where f == id:
+                            zeile += 1
+                            return zeile > 1
+                        default:
+                            return false
+                        }
+                    }
+                }
+            }
+            Self.einmal(id, in: &neu.umschlag.titelbloecke)
+            Self.einmal(id, in: &neu.umschlag.rueckbloecke)
+            Self.einmal(id, in: &neu.schmutztitelbloecke)
+            Self.einmal(id, in: &neu.schlussbloecke)
+        }
+
+        merken()
+        reise = neu
+        zuLoeschen.formUnion(dateien)
+        bericht.entfernt = ersatz.count
+
+        // Spur und Seiten der betroffenen Tage — Handarbeit bleibt stehen.
+        let werkzeug = automat
+        for stelle in reise.tage.indices where betroffen.contains(reise.tage[stelle].id) {
+            spurAktualisieren(reise.tage[stelle].id)
+            if reise.tage[stelle].seiten.isEmpty {
+                bericht.ohneSeite += 1
+                continue
+            }
+            if reise.tage[stelle].seiten.contains(where: { $0.vonHand }) {
+                bericht.handarbeit += 1
+                continue
+            }
+            wortlautSichern(stelle)
+            seitenNeuSetzen(stelle, mit: werkzeug)
+            bericht.neuGesetzt += 1
+        }
+        befundeAuffrischen()
+        return bericht
+    }
+
+    // Jeder Verweis auf ein entferntes Foto zeigt danach auf das behaltene —
+    // ÜBERALL, auch an Stellen, die hier niemand aufzählt (Hintergründe,
+    // Titelfoto, Rückseite, Blöcke auf Umschlag und Schmutztitel). Gebaut
+    // über das Buch als JSON, also über genau den Weg, auf dem es gesichert
+    // und gelesen wird: Eine Kennung ist dort ein Text in Anführungszeichen,
+    // und eine UUID kommt nur als Kennung vor. Eine Liste der Stellen von
+    // Hand wäre die naheliegende Lösung und veraltete mit dem nächsten Feld.
+    static func bezuegeUmbiegen(_ reise: Reise, _ ersatz: [UUID: UUID]) -> Reise? {
+        guard let daten = try? Ablage.kodierer().encode(reise),
+              var text = String(data: daten, encoding: .utf8) else { return nil }
+        for (alt, neu) in ersatz {
+            text = text.replacingOccurrences(of: "\"\(alt.uuidString)\"",
+                                             with: "\"\(neu.uuidString)\"")
+        }
+        return try? Ablage.leser().decode(Reise.self, from: Data(text.utf8))
+    }
+
+    private static func einmal(_ id: UUID, in bloecke: inout [Block]) {
+        var gesehen = false
+        bloecke.removeAll { block in
+            guard block.fotoID == id else { return false }
+            defer { gesehen = true }
+            return gesehen
+        }
+    }
+
+    // Erst beim Schließen des Buches von der Platte — bis dahin kann
+    // „Widerrufen" die Fotos zurückbringen. Gelöscht wird nur, was dann
+    // KEIN Foto des Buches mehr nennt.
+    func dateienFreigeben() {
+        let benutzt = Set(reise.fotos.map(\.datei))
+        for datei in zuLoeschen where !benutzt.contains(datei) {
+            Bildarchiv.shared.loeschen(datei, reise: reise.id)
+        }
+        zuLoeschen.removeAll()
     }
 
     func fotoOrtSetzen(_ fotoID: UUID, ort: Koordinate) {
