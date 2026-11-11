@@ -40,7 +40,7 @@ struct BuecherView: View {
                     }
                 }
             }
-            .navigationTitle("Chronik")
+            .navigationTitle("Kapitelweise")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {

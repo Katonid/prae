@@ -1,4 +1,6 @@
-# Chronik
+# Kapitelweise – Das Buch
+
+(Homescreen: „Kapitelweise"; Ordner und Xcode-Ziel heißen „Chronik".)
 
 Ein Fotobuch aus Texten und Fotos, das sich selbst in Kapitel gliedert.
 

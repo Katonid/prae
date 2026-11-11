@@ -11,7 +11,7 @@ enum Buchausgabe {
         let format = UIGraphicsPDFRendererFormat()
         format.documentInfo = [
             kCGPDFContextTitle as String: buch.titel,
-            kCGPDFContextCreator as String: "Chronik",
+            kCGPDFContextCreator as String: "Kapitelweise – Das Buch",
         ]
         let maler = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: groesse), format: format)
         let ziel = FileManager.default.temporaryDirectory.appendingPathComponent(dateiname(buch.titel) + ".pdf")
@@ -31,6 +31,6 @@ enum Buchausgabe {
         let verboten = CharacterSet(charactersIn: "/\\:?%*|\"<>")
         let name = titel.components(separatedBy: verboten).joined(separator: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return name.isEmpty ? "Chronik" : name
+        return name.isEmpty ? "Kapitelweise" : name
     }
 }

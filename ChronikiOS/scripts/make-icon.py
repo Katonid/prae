@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Erzeugt das App-Symbol für Chronik (braucht Pillow: pip install pillow).
+"""Erzeugt das App-Symbol für Kapitelweise (Ziel „Chronik“) (braucht Pillow: pip install pillow).
 
 Was es zeigt: ein Buch von vorn mit einem Bild auf dem Deckel und darunter
 eine Zeitleiste aus drei Punkten — Fotobuch und Kapitel nach der Zeit.

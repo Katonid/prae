@@ -1,4 +1,4 @@
-# Projekt Chronik (Fotobuch mit Kapiteln nach der Zeit, native iOS-App)
+# Projekt Kapitelweise – Das Buch (Ordner/Ziel „Chronik", Fotobuch mit Kapiteln nach der Zeit, native iOS-App)
 
 > Die übergreifenden Regeln (PR-Rhythmus, iOS-Pflichten, Bau in GitHub
 > Actions) stehen in der `CLAUDE.md` im Wurzelverzeichnis und gelten hier
@@ -13,14 +13,21 @@
   laden. Freie Seiten an beliebiger Stelle einfügen und frei mit Text, Foto,
   PDF-Datei belegen."
 - App-Code: `ChronikiOS/` (ein Target, iPhone + iPad, iOS 17, keine fremden
-  Abhängigkeiten, kein iCloud). Bundle-Id `de.familie.chronik`,
-  Homescreen-Name „Chronik". Store-Name noch nicht festgelegt — Store-Name
-  und Anzeigename sind getrennte Felder; den App-Eintrag von Hand in App Store
-  Connect anlegen (Lehre aus Anstoß). Bundle-Id nach dem ersten Signieren
-  nicht mehr ändern.
+  Abhängigkeiten, kein iCloud). Bundle-Id `de.familie.chronik`.
+- **Name: „Kapitelweise – Das Buch"** (Ansage des Nutzers, 11/2026, ab
+  1.0.1; vorher Arbeitsname „Chronik"). Das ist der **Store-Name** (23
+  Zeichen, Grenze 30) und der Name im Titel der Bücherliste und im PDF.
+  **Homescreen-Name ist „Kapitelweise"** (`CFBundleDisplayName`): Unter einem
+  Symbol stehen nur gut zwölf Zeichen, der volle Name würde zu
+  „Kapitelweise – D…" abgeschnitten. Store-Name und Anzeigename sind getrennte
+  Felder; den App-Eintrag von Hand in App Store Connect anlegen, nie über
+  Xcodes „Create App Record" (Lehre aus Anstoß). **Ordner `ChronikiOS/`,
+  Ziel/Schema „Chronik" und Bundle-Id `de.familie.chronik` bleiben** — sie
+  sieht niemand, und die Bundle-Id ist nach dem ersten Signieren ohnehin
+  nicht mehr änderbar.
 - **Versionierung:** `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` je
   zweimal im pbxproj (Debug + Release), keine Skript-Bauphase. Jede
-  Arbeitseinheit hebt Patch- UND Build-Nummer um je +1. Start: 1.0.0 (Build 1).
+  Arbeitseinheit hebt Patch- UND Build-Nummer um je +1. Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2).
   `DEVELOPMENT_TEAM = F4989GSTWS`, `ITSAppUsesNonExemptEncryption = NO` in
   `Config/Info.plist` UND als Build-Einstellung — nicht entfernen.
 - **Berechtigungstexte nur als Build-Einstellung**
@@ -92,5 +99,6 @@
 - **1.0.0 (Build 1)**, 11/2026: erste Fassung. Unter Linux geprüft: Syntax
   aller Dateien (`swiftc -parse`) und die Logik von Zeitraster, Datenmodell
   (Speichern/Laden, alte Datei ohne Felder), Stückelung für die
-  Überarbeitung. **Nicht gemessen:** auf keinem Gerät gesehen; ob der
-  CI-Bau grün ist, steht im PR.
+  Überarbeitung. CI-Bau grün. **Nicht gemessen:** auf keinem Gerät gesehen.
+- **1.0.1 (Build 2)**, 11/2026: umbenannt in „Kapitelweise – Das Buch"
+  (Homescreen „Kapitelweise").
