@@ -781,6 +781,53 @@ struct Linienfarben: Codable, Hashable {
     }
 }
 
+// DIE EBENEN DER KARTE (ab 1.0.124, aus Fernweh 1.0.38/1.0.39: `karte.folge`,
+// `.reisespurZuruecknehmen`, `.ebenen`; Nachfrage des Nutzers 11/2026: „dass
+// bei den GPS-Punkten eine Auswahl der Ebenen und Festlegung der
+// Reihenfolge … auch an die Fotobuch-App übergeben werden soll").
+//
+// Ein EIGENES Feld neben `Linienfarben` und nicht darin: „Vorgaben
+// wiederherstellen" der Farben soll die Reihenfolge nicht mitnehmen, und
+// die Übernahme aus Fernweh fragt je Feld, ob im Buch schon etwas gewählt
+// ist. Jedes Feld wahlweise — `nil` heißt Vorgabe (Reisespur unten, dann
+// Autofahrten, oben Wanderungen; nichts tritt zurück; alles an). Der
+// erzeugte Leser verlangt optionale Schlüssel nicht, und eine ältere
+// Fassung überliest das ganze Feld an der `Reise`.
+//
+// „fotos" aus `karte.ebenen` wird überlesen: Die Karten des Buches tragen
+// keine Fotomarken — die Fotoorte SIND Punkte der Reisespur.
+struct Kartenebenen: Codable, Hashable {
+    // Linienarten, UNTEN zuerst.
+    var folge: [String]?
+    var reisespurZuruecknehmen: Bool?
+    // Linienarten, die ausgeblendet sind.
+    var ausgeblendet: [String]?
+
+    static let arten = ["reisespur", "fahrt", "wanderung"]
+
+    static func name(_ art: String) -> String {
+        switch art {
+        case "fahrt": return "Autofahrten"
+        case "wanderung": return "Wanderungen"
+        default: return "Reisespur"
+        }
+    }
+
+    // Unbekanntes und Doppeltes fällt weg, eine fehlende Art liegt UNTEN
+    // (Vertrag).
+    var geltendeFolge: [String] {
+        var gesehen: [String] = []
+        for art in folge ?? Self.arten where Self.arten.contains(art) && !gesehen.contains(art) {
+            gesehen.append(art)
+        }
+        return Self.arten.filter { !gesehen.contains($0) } + gesehen
+    }
+
+    func zeigt(_ art: String) -> Bool { !(ausgeblendet ?? []).contains(art) }
+
+    var zuruecknehmen: Bool { reisespurZuruecknehmen ?? false }
+}
+
 extension Reise {
     // DIE eine Stelle, die sagt, in welcher Farbe eine Linie läuft.
     func linienfarbe(fuer art: String?) -> Farbwert {
@@ -791,36 +838,197 @@ extension Reise {
         }
     }
 
-    // Je Punkt der Spur seine Farbe — für `Kartenwerk`. Leer, wenn die
-    // ganze Spur eine gewöhnliche ist: Dann zeichnet das Kartenwerk wie
-    // bisher in einer Farbe, und der Schlüssel seines Vorrats bleibt kurz.
-    func punktfarben(_ spur: [Reisepunkt]) -> [Farbwert] {
-        guard spur.contains(where: { $0.art != nil }) else { return [] }
-        return spur.map { linienfarbe(fuer: $0.art) }
-    }
-
     // Die Farbe der gewöhnlichen Spur — die Akzentfarbe, außer es ist
     // ausdrücklich eine andere gewählt.
     var spurfarbe: Farbwert { linienfarbe(fuer: nil) }
 
-    // Die Spur in Stücken gleicher Farbe — für die lebenden Karten der
-    // App (`MapPolyline`). Dieselbe Teilung wie im `Kartenwerk`: Ein Stück
-    // beginnt am letzten Punkt davor und trägt die Farbe der Punkte, zu
-    // denen es führt.
-    func linienstuecke(_ spur: [Reisepunkt]) -> [Linienstueck] {
-        guard spur.count >= 2 else { return [] }
-        var stuecke: [Linienstueck] = []
-        var anfang = 1
-        while anfang < spur.count {
-            let art = spur[anfang].art
-            var ende = anfang
-            while ende + 1 < spur.count, spur[ende + 1].art == art { ende += 1 }
-            stuecke.append(Linienstueck(id: anfang,
-                                        punkte: spur[(anfang - 1)...ende].map(\.koordinate.clLocation),
-                                        farbe: linienfarbe(fuer: art).farbe))
-            anfang = ende + 1
+    // Welche Linienart ein Punkt trägt — „reisespur" für alles, was keine
+    // Fahrt und keine Wanderung ist (auch Foto- und Handpunkte).
+    static func linienart(_ art: String?) -> String {
+        switch art {
+        case "fahrt": return "fahrt"
+        case "wanderung": return "wanderung"
+        default: return "reisespur"
         }
-        return stuecke
+    }
+
+    var ebenen: Kartenebenen { kartenebenen ?? Kartenebenen() }
+
+    // DIE EINE STELLE, DIE DIE LINIEN EINER KARTE ZUSAMMENSETZT (ab 1.0.124):
+    // welche Punkte zu welchem Zug gehören, in welcher Farbe, ob blass, in
+    // welcher Reihenfolge (unten zuerst) und was ausgeblendet ist. Gefragt
+    // vom `Kartenwerk` (Seite und PDF) über `kartenlinien` und von den
+    // lebenden Karten über `linienstuecke`.
+    //
+    // Zwei Bauweisen, entschieden an den DATEN:
+    // - Liegen KEINE Punkte der Reisespur zeitlich zwischen den Punkten einer
+    //   Fahrt oder Wanderung (der Stand bis 1.0.123: Fernweh-Einfuhr ließ sie
+    //   innerhalb einer Fahrt weg), bleibt es bei den Stücken gleicher Art
+    //   nacheinander — jedes beginnt am letzten Punkt davor, damit keine
+    //   Lücke bleibt.
+    // - Liegen sie dazwischen (seit 1.0.124 behält die Einfuhr sie, wenn
+    //   Fernweh `reisespurZuruecknehmen` mitschickt; Wanderungen schnitten
+    //   sie nie), wären Stücke nach der Zeit ein Zickzack mit Farbwechsel an
+    //   jedem Punkt. Dann ist jede Art ihre EIGENE Linie: die Reisespur als
+    //   ein Zug, geteilt in kräftig/blass, jede Fahrt und Wanderung für sich
+    //   (getrennt an 15 Minuten ohne Punkt, wie `fahrtabschnitte`).
+    func linienzuege(_ spur: [Reisepunkt]) -> [Linienzug] {
+        guard spur.count >= 2 else { return [] }
+        let ebenen = self.ebenen
+        let arten = spur.map { Self.linienart($0.art) }
+
+        // Die Strecken (Fahrten, Wanderungen), jede für sich.
+        var strecken: [(art: String, indizes: [Int])] = []
+        for (i, art) in arten.enumerated() where art != "reisespur" {
+            if let letzte = strecken.last, letzte.art == art, let vorher = letzte.indizes.last,
+               Self.zusammenhaengend(spur[vorher].zeit, spur[i].zeit)
+            {
+                strecken[strecken.count - 1].indizes.append(i)
+            } else {
+                strecken.append((art: art, indizes: [i]))
+            }
+        }
+        let verschraenkt = strecken.contains { strecke -> Bool in
+            guard let erster = strecke.indizes.first, let letzter = strecke.indizes.last else { return false }
+            return letzter - erster + 1 > strecke.indizes.count
+        }
+
+        var zuege: [Linienzug] = []
+        if !verschraenkt {
+            var anfang = 1
+            while anfang < spur.count {
+                let art = arten[anfang]
+                var ende = anfang
+                while ende + 1 < spur.count, arten[ende + 1] == art { ende += 1 }
+                zuege.append(Linienzug(art: art, indizes: Array((anfang - 1)...ende),
+                                       farbe: linienfarbe(fuer: art), blass: false))
+                anfang = ende + 1
+            }
+        } else {
+            for strecke in strecken {
+                zuege.append(Linienzug(art: strecke.art, indizes: strecke.indizes,
+                                       farbe: linienfarbe(fuer: strecke.art), blass: false))
+            }
+            let innen = blassePunkte(spur, arten: arten, strecken: strecken, ebenen: ebenen)
+            let spurstellen = arten.indices.filter { arten[$0] == "reisespur" }
+            var k = 1
+            while k < spurstellen.count {
+                let blass = innen.contains(spurstellen[k])
+                var ende = k
+                while ende + 1 < spurstellen.count, innen.contains(spurstellen[ende + 1]) == blass { ende += 1 }
+                zuege.append(Linienzug(art: "reisespur", indizes: Array(spurstellen[(k - 1)...ende]),
+                                       farbe: spurfarbe, blass: blass))
+                k = ende + 1
+            }
+        }
+
+        // Ausgeblendet und Reihenfolge — STABIL sortiert, `sort` ist es in
+        // Swift nicht zugesichert.
+        let folge = ebenen.geltendeFolge
+        return zuege.enumerated()
+            .filter { ebenen.zeigt($0.element.art) }
+            .sorted {
+                let a = folge.firstIndex(of: $0.element.art) ?? 0
+                let b = folge.firstIndex(of: $1.element.art) ?? 0
+                return a != b ? a < b : $0.offset < $1.offset
+            }
+            .map { $0.element }
+    }
+
+    // Zwei Punkte derselben Strecke gehören zusammen, solange keine 15
+    // Minuten ohne Punkt dazwischen liegen. Ohne Uhrzeit: zusammen.
+    private static func zusammenhaengend(_ a: Date?, _ b: Date?) -> Bool {
+        guard let a, let b else { return true }
+        return abs(b.timeIntervalSince(a)) < 900
+    }
+
+    // Punkte der Reisespur, die blass gezeichnet werden: nur mit
+    // „Reisespur tritt zurück", nach der UHRZEIT im Zeitraum vom ersten bis
+    // zum letzten Punkt einer EINGEBLENDETEN Fahrt oder Wanderung — ist die
+    // Ebene aus, zeigt die Spur den Weg (wie Fernweh 1.0.38).
+    private func blassePunkte(_ spur: [Reisepunkt], arten: [String],
+                              strecken: [(art: String, indizes: [Int])],
+                              ebenen: Kartenebenen) -> Set<Int>
+    {
+        guard ebenen.zuruecknehmen else { return [] }
+        let zeitraeume: [ClosedRange<Date>] = strecken.compactMap { strecke -> ClosedRange<Date>? in
+            guard ebenen.zeigt(strecke.art),
+                  let von = strecke.indizes.compactMap({ spur[$0].zeit }).min(),
+                  let bis = strecke.indizes.compactMap({ spur[$0].zeit }).max()
+            else { return nil }
+            return von...bis
+        }
+        guard !zeitraeume.isEmpty else { return [] }
+        var innen = Set<Int>()
+        for i in arten.indices where arten[i] == "reisespur" {
+            guard let zeit = spur[i].zeit else { continue }
+            if zeitraeume.contains(where: { $0.contains(zeit) }) { innen.insert(i) }
+        }
+        return innen
+    }
+
+    // Alles, was das `Kartenwerk` zum Zeichnen braucht: die Züge und je
+    // Punkt seine Farbe (`nil` = kein Punkt zeichnen — ausgeblendet oder
+    // blass). Hashable, damit es in `kennung` und Vorratsschlüssel geht.
+    func kartenlinien(_ spur: [Reisepunkt]) -> Kartenlinien {
+        let zuege = linienzuege(spur)
+        let ebenen = self.ebenen
+        var blass = Set<Int>()
+        var kraeftig = Set<Int>()
+        for zug in zuege {
+            if zug.blass { blass.formUnion(zug.indizes) } else { kraeftig.formUnion(zug.indizes) }
+        }
+        let punkte: [Farbwert?] = spur.enumerated().map { (i, punkt) -> Farbwert? in
+            let art = Self.linienart(punkt.art)
+            guard ebenen.zeigt(art) else { return nil }
+            // Ein Punkt, der nur in einem blassen Zug liegt, bekommt keinen
+            // Kreis — sonst stünde die zurückgetretene Spur als Perlenkette
+            // über der Fahrt. (Den ersten Punkt eines Stücks teilt es mit dem
+            // Stück davor.)
+            if blass.contains(i), !kraeftig.contains(i) { return nil }
+            return linienfarbe(fuer: punkt.art)
+        }
+        return Kartenlinien(zuege: zuege, punkte: punkte)
+    }
+
+    // Die Spur in Stücken — für die lebenden Karten der App (`MapPolyline`).
+    // Dieselben Züge wie im `Kartenwerk`, in derselben Reihenfolge.
+    func linienstuecke(_ spur: [Reisepunkt]) -> [Linienstueck] {
+        linienzuege(spur).enumerated().compactMap { (nummer, zug) -> Linienstueck? in
+            guard zug.indizes.count >= 2 else { return nil }
+            return Linienstueck(id: nummer,
+                                punkte: zug.indizes.map { spur[$0].koordinate.clLocation },
+                                farbe: zug.farbe.farbe.opacity(zug.blass ? Linienzug.blassDeckung : 1),
+                                blass: zug.blass)
+        }
+    }
+}
+
+// Ein Zug auf der Karte: Stellen in der Spur des Tages, Farbe, ob blass.
+struct Linienzug: Hashable {
+    var art: String
+    var indizes: [Int]
+    var farbe: Farbwert
+    var blass: Bool
+
+    // Wie Fernweh 1.0.38: Deckkraft 0,4, schmaler, ohne weißen Rand.
+    static let blassDeckung = 0.4
+}
+
+struct Kartenlinien: Hashable {
+    var zuege: [Linienzug]
+    var punkte: [Farbwert?]
+
+    // Für den Vorratsschlüssel des Kartenwerks: Reihenfolge, Teilung,
+    // Farben, blass — alles, was das Bild ändert.
+    var merkmal: String {
+        let z = zuege.map { zug -> String in
+            let f = zug.farbe
+            return "\(zug.art)\(zug.blass ? "~" : ""):\(f.rot),\(f.gruen),\(f.blau):"
+                + "\(zug.indizes.first ?? -1)-\(zug.indizes.last ?? -1)#\(zug.indizes.count)"
+        }.joined(separator: ";")
+        let p = punkte.map { f in f.map { "\($0.rot),\($0.gruen),\($0.blau)" } ?? "-" }.joined(separator: ";")
+        return z + "|" + p
     }
 }
 
@@ -828,4 +1036,5 @@ struct Linienstueck: Identifiable {
     let id: Int
     let punkte: [CLLocationCoordinate2D]
     let farbe: Color
+    var blass: Bool = false
 }

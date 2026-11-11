@@ -40,6 +40,9 @@ enum Kartenebene: String, CaseIterable, Identifiable {
     /// Der Schlüssel in `UserDefaults`.
     var schluessel: String { "fernweh.ebene." + rawValue }
 
+    /// Ob die Ebene auf diesem Gerät eingeblendet ist (Vorgabe: an).
+    var eingeblendet: Bool { UserDefaults.standard.object(forKey: schluessel) as? Bool ?? true }
+
     static func an(_ art: Spurart) -> Kartenebene {
         switch art {
         case .reisespur: return .reisespur

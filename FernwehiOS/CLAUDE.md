@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36), 1.0.36 (Build 37), 1.0.37 (Build 38), 1.0.38 (Build 39).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36), 1.0.36 (Build 37), 1.0.37 (Build 38), 1.0.38 (Build 39), 1.0.39 (Build 40).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -764,10 +764,13 @@
     die Ebene aus, zeigt die Spur den Weg. Die Reisekarte rechnet die Stücke
     einmal je Laden bzw. Ebenenwechsel (Zehntausende Punkte), die Tageskarten
     beim Zeichnen. `Tagesfahrt` lässt die Spur dort ohnehin weg (1.0.31).
-  - **Übergabe**: `karte.folge` und `karte.reisespurZuruecknehmen`
-    (`docs/UEBERGABE.md`). **Das Reisebuch liest sie noch NICHT** — dort
-    (`Fernweheinfuhr`, `Linienfarben`) nachziehen, sonst zeichnet das Buch
-    wie bisher.
+  - **Übergabe**: `karte.folge`, `karte.reisespurZuruecknehmen` (1.0.38)
+    und `karte.ebenen` (1.0.39: welche der vier Ebenen eingeblendet sind,
+    `Kartenebene.eingeblendet`; die Linien gehen trotzdem alle mit), siehe
+    `docs/UEBERGABE.md`. Das Reisebuch liest alle drei ab 1.0.124
+    (Nachfrage des Nutzers 11/2026: „dass bei den GPS-Punkten eine Auswahl
+    der Ebenen und Festlegung der Reihenfolge … auch an die Fotobuch-App
+    übergeben werden soll").
   - **Nicht gemessen**: kein Gerät; ob die Stücke an den Grenzen sauber
     anschließen und ob die Reisekarte über eine lange Reise flüssig bleibt,
     ist nicht gesehen.

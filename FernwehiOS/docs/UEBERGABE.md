@@ -222,6 +222,8 @@ Beides ANGEHÄNGT; die Fassungsnummer bleibt 1. Gelesen seit Reisebuch 1.0.114.
 
 ### Ebenen der Karte (ab Fernweh 1.0.38)
 
+Gelesen seit Reisebuch 1.0.124 (alle drei Felder).
+
 Zwei Felder in `karte`, beide angehängt (Fassung bleibt 1); ein älterer Leser
 überliest sie und zeichnet wie bisher.
 
@@ -229,7 +231,8 @@ Zwei Felder in `karte`, beide angehängt (Fassung bleibt 1); ein älterer Leser
 "karte": {
   "farben": { "wanderung": "#2E9E5B", "fahrt": "#5A6475" },
   "folge": ["reisespur", "fahrt", "wanderung"],
-  "reisespurZuruecknehmen": true
+  "reisespurZuruecknehmen": true,
+  "ebenen": { "reisespur": true, "fahrt": true, "wanderung": true, "fotos": true }
 }
 ```
 
@@ -245,6 +248,11 @@ Zwei Felder in `karte`, beide angehängt (Fassung bleibt 1); ein älterer Leser
   Deckkraft 0,4, Strich 1,5 pt schmaler, ohne weißen Rand); davor und danach
   wie gewohnt. `false`: überall kräftig. Fehlt das Feld: wie bisher im
   Reisebuch.
+- **`karte.ebenen`** (ab Fernweh 1.0.39) — welche Ebenen in Fernweh
+  eingeblendet sind: `{ "reisespur": true, "fahrt": true, "wanderung": true,
+  "fotos": true }`. Die Linien gehen trotzdem ALLE mit; `false` heißt: im
+  Buch anfangs ausgeblendet, wieder einschaltbar. Fehlt das Feld oder ein
+  Schlüssel: an.
 
 ### Zeitzone, Tagebuch, mehrere Fahrten (gelesen seit Reisebuch 1.0.115)
 
