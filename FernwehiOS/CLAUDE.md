@@ -51,7 +51,7 @@
   `PHPhotoLibraryChangeObserver`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen
   im pbxproj (Debug + Release), KEINE Skript-Bauphase. **Jede Arbeitseinheit
-  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36), 1.0.36 (Build 37), 1.0.37 (Build 38), 1.0.38 (Build 39), 1.0.39 (Build 40).
+  hebt Patch- UND Build-Nummer um je +1.** Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), 1.0.12 (Build 13), 1.0.13 (Build 14), 1.0.14 (Build 15), 1.0.15 (Build 16), 1.0.16 (Build 17), 1.0.17 (Build 18), 1.0.18 (Build 19), 1.0.19 (Build 20), 1.0.20 (Build 21), 1.0.21 (Build 22), 1.0.22 (Build 23), 1.0.23 (Build 24), 1.0.24 (Build 25), 1.0.25 (Build 26), 1.0.26 (Build 27), 1.0.27 (Build 28), 1.0.28 (Build 29), 1.0.29 (Build 30), 1.0.30 (Build 31), 1.0.31 (Build 32), 1.0.32 (Build 33), 1.0.33 (Build 34), 1.0.34 (Build 35), 1.0.35 (Build 36), 1.0.36 (Build 37), 1.0.37 (Build 38), 1.0.38 (Build 39), 1.0.39 (Build 40), 1.0.40 (Build 41).
   `DEVELOPMENT_TEAM = F4989GSTWS`, Kategorie Reisen,
   `ITSAppUsesNonExemptEncryption = NO` in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen. Zwei Entitlements-Dateien
@@ -774,6 +774,42 @@
   - **Nicht gemessen**: kein Gerät; ob die Stücke an den Grenzen sauber
     anschließen und ob die Reisekarte über eine lange Reise flüssig bleibt,
     ist nicht gesehen.
+- **Kein Doppelimport von Fotos, Aufräumen, Fotos sammeln sich im
+  Tageseintrag** (`Model/Doppelfotos.swift`, `Views/AufraeumenView.swift`,
+  ab 1.0.40; gemeldet 11/2026 mit Bildschirmfotos: zweimal „Campingplatz
+  Pilsensee · 09:45" mit denselben Bildern, „Marienplatz" und „Terminal 2"
+  als getrennte Einträge um 18:34 — „dass ein solcher Doppelimport ab jetzt
+  nicht mehr möglich ist … eine Erkennungsfunktion für doppelte Aufnahmen …
+  warum einzelne Fotos neue separate Einträge für einen Tag … erzeugen").
+  - **Ursachen (am Quelltext, nicht gemessen):** Der Editor nahm nur die
+    Fotos DESSELBEN Eintrags aus dem Angebot; „Fotos übernehmen" verglich
+    nur `assetID` (= `localIdentifier`, gilt je GERÄT — auf dem iPad
+    übernommen, auf dem iPhone nicht wiedererkannt) und legte bei JEDEM Lauf
+    je Tag einen NEUEN Eintrag an.
+  - **Dasselbe Foto** = gleiche `cloudID` ODER `assetID` ODER Aufnahmezeit
+    auf die MILLISEKUNDE plus Pixelgröße (Serienbilder teilen die Sekunde).
+    **Wer Fotos übernimmt, filtert über `Doppelfotos.neue(_:ohne:)`** gegen
+    `bestand(reise:tag:)` (Reise: alle ihre Fotos; Tagebuch: Einträge ohne
+    Reise am Tag). Die letzte Sperre sitzt in `Fotodienst.uebernehmen`
+    selbst; Editor (Tagesfotos und „Andere") und „Fotos übernehmen" zeigen
+    Vergebenes gar nicht erst an und sagen, wie viele es waren.
+  - **„Fotos übernehmen" sammelt**: Gibt es am Tag schon einen
+    gewöhnlichen Eintrag, den ich bearbeiten darf, kommen die Fotos dorthin
+    (`Nachtrag.tageseintrag`: der mit Text, sonst der mit den meisten
+    Fotos); sonst entsteht einer wie bisher.
+  - **Aufräumen** (Reise → „…" → „Doppelte Fotos aufräumen …", dazu ein
+    oranger Hinweis oben in der Reise, sobald es etwas gibt): doppelte Fotos
+    entfernen (behalten wird das im Eintrag mit Text, sonst mit den meisten
+    Fotos; ein Bildtext eines Doppels geht ans behaltene, wenn dort keiner
+    steht) und **Tage mit mehreren Einträgen ohne Text** zu einem
+    zusammenführen (Fotos ohne Doppel und Orte wandern ins Ziel; ein
+    Eintrag mit eigenem Text wird NIE aufgelöst). Beides mit Rückgängig;
+    der Schnappschuss eines aufgelösten Eintrags entsteht ERST nach dem
+    Umhängen seiner Fotos, und `Schnappschuss` nimmt keine schon
+    gelöschten Kinder mehr mit — sonst kämen sie doppelt zurück.
+  - **Nicht gemessen**: kein Gerät, keine echte Mediathek; ob die
+    Wolkenkennung auf iPad und iPhone wirklich gleich ist, ist Apples
+    Zusage, nicht hier gesehen.
 - **ZIP64 heißt NICHT „über 4 GB"** (behoben in 1.0.7, gemeldet 09/2026: ein
   Day-One-Export von 250 MB wurde als „größer als 4 GB" abgewiesen). Day One
   schreibt die ZIP64-Erweiterung auch bei kleinen Archiven; die echten Zahlen

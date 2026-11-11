@@ -97,7 +97,7 @@ struct FotoimportView: View {
     private var liste: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Text("Je Tag entsteht ein Eintrag mit Uhrzeit, Ort und Wetter aus den Fotos. Tippe ein Foto an, um es wegzulassen. Texte — zum Tag und zu jedem Foto — schreibst du danach.")
+                Text("Steht an einem Tag schon ein Eintrag, kommen die Fotos dort hinzu; sonst entsteht einer mit Uhrzeit, Ort und Wetter aus den Fotos. Fotos, die schon in der Reise stehen — auch von einem anderen Gerät übernommen —, werden nicht noch einmal angeboten. Tippe ein Foto an, um es wegzulassen.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 quellenwahl

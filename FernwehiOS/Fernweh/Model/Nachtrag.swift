@@ -46,7 +46,9 @@ enum Nachtrag {
     /// Fotos liegen in einem dafür angelegten Album der Galerie") nur die
     /// Fotos dieses Albums, sonst alle Fotos im Zeitraum der Reise.
     static func fotos(fuer reise: Reise, album: PHAssetCollection? = nil) async -> Fund {
-        let vorhanden = Set(reise.eintragListe.flatMap(\.fotoListe).compactMap(\.assetID))
+        // Schon da: über lokale Kennung, Wolkenkennung (gilt auf allen
+        // Geräten) und Aufnahmezeit (ab 1.0.40, `Doppelfotos`).
+        let bestand = Doppelfotos.bestand(reise: reise, tag: nil)
         let quelle: [PHAsset]
         if let album {
             quelle = Fotodienst.shared.fotos(in: album)
@@ -57,7 +59,7 @@ enum Nachtrag {
             let bis = Tag.ende(reise.schluss).addingTimeInterval(86_400)
             quelle = Fotodienst.shared.fotos(von: von, bis: bis)
         }
-        let alle = quelle.filter { !vorhanden.contains($0.localIdentifier) }
+        let alle = Doppelfotos.neue(quelle, ohne: bestand)
         let zonen = await zonen(fuer: alle)
         // Die Tage der Reise — bei einer laufenden bis heute.
         let gueltig = Set(reise.bisherigeTage.map { Tag.schluessel($0) })
@@ -132,8 +134,12 @@ enum Nachtrag {
         return liste
     }
 
-    /// Legt je Tag einen Eintrag an. `fortschritt` meldet (fertige Fotos,
-    /// alle Fotos). Gibt die Zahl der neuen Einträge zurück.
+    /// Je Tag: Gibt es schon einen gewöhnlichen Eintrag, kommen die Fotos
+    /// DORT hinzu (ab 1.0.40, Ansage des Nutzers 11/2026: „warum einzelne
+    /// Fotos neue separate Einträge für einen Tag der Reise erzeugen.
+    /// Eigentlich reicht es doch, wenn zugefügte Fotos gesammelt
+    /// erscheinen"); sonst entsteht einer. `fortschritt` meldet (fertige
+    /// Fotos, alle Fotos). Gibt die Zahl der NEUEN Einträge zurück.
     static func uebernehmen(_ gruppen: [Tagesgruppe], in reise: Reise,
                             fortschritt: @escaping (Int, Int) -> Void) async -> Int {
         let persistenz = Persistenz.shared
@@ -142,6 +148,14 @@ enum Nachtrag {
         var neu = 0
         for gruppe in gruppen where !gruppe.assets.isEmpty {
             let assets = gruppe.assets.sorted { ($0.creationDate ?? .distantPast) < ($1.creationDate ?? .distantPast) }
+            if let schon = tageseintrag(gruppe.schluessel, in: reise) {
+                let vorher = fertig
+                await Fotodienst.shared.uebernehmen(assets, in: schon) { n in fortschritt(vorher + n, gesamt) }
+                schon.geaendert = Date()
+                fertig += assets.count
+                fortschritt(fertig, gesamt)
+                continue
+            }
             let e = persistenz.anlegen(Eintrag.self, bei: reise)
             e.kennung = UUID()
             e.erstellt = Date()
@@ -184,6 +198,21 @@ enum Nachtrag {
         }
         persistenz.sichern()
         return neu
+    }
+
+    /// Der Eintrag eines Tages, in den neue Fotos gehören: ein gewöhnlicher,
+    /// den ich bearbeiten darf — der mit Text, sonst der mit den meisten
+    /// Fotos.
+    static func tageseintrag(_ tag: String, in reise: Reise) -> Eintrag? {
+        let persistenz = Persistenz.shared
+        let liste = reise.eintragListe.filter {
+            $0.tagSchluessel == tag && $0.eintragsart == .eintrag && persistenz.darfBearbeiten($0)
+                && !Buecherei.shared.istGesperrt($0.tagebuchName)
+        }
+        return liste.max { a, b in
+            let ta = Doppelfotos.leer(a.text) ? 0 : 1, tb = Doppelfotos.leer(b.text) ? 0 : 1
+            return ta != tb ? ta < tb : a.fotoListe.count < b.fotoListe.count
+        }
     }
 }
 

@@ -107,7 +107,9 @@ struct Schnappschuss {
             if b.isToMany {
                 guard b.deleteRule == .cascadeDeleteRule,
                       let menge = o.value(forKey: feld) as? Set<NSManagedObject> else { continue }
-                k[feld] = menge.map { Schnappschuss($0) }
+                // Schon gelöschte Kinder nicht mit (bis zum Sichern stehen sie
+                // noch in der Beziehung) — sie kämen beim Zurückholen doppelt.
+                k[feld] = menge.filter { !$0.isDeleted }.map { Schnappschuss($0) }
             } else if let ziel = o.value(forKey: feld) as? NSManagedObject,
                       let kennung = ziel.value(forKey: "kennung") as? UUID, let zielart = ziel.entity.name {
                 z[feld] = (zielart, kennung)

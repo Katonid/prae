@@ -67,6 +67,9 @@ struct EintragEditor: View {
     /// ganzen Reise).
     @State private var zusatz: [PHAsset] = []
     @State private var pickerAuswahl: [PhotosPickerItem] = []
+    /// Fotos des Tages, die schon in der Reise stehen und deshalb nicht
+    /// angeboten werden (ab 1.0.40).
+    @State private var bereitsVergeben = 0
     /// Die Zone, in der dieser Eintrag gilt (ab 1.0.6). Neu: die des Geräts
     /// jetzt — unterwegs also die des Urlaubsorts. Bestehend: seine eigene;
     /// dann zeigt und nimmt der Zeitwähler die Uhrzeit von DORT.
@@ -592,6 +595,14 @@ struct EintragEditor: View {
                     .font(.subheadline.weight(.semibold))
                 }
             }
+            if bereitsVergeben > 0 && fotodienst.darfLesen {
+                Label(bereitsVergeben == 1
+                      ? "1 Foto dieses Tages steht schon in der Reise und wird nicht noch einmal angeboten."
+                      : "\(bereitsVergeben) Fotos dieses Tages stehen schon in der Reise und werden nicht noch einmal angeboten.",
+                      systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if !fotodienst.darfLesen {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Erlaube den Zugriff auf deine Fotos, dann liegen hier die Aufnahmen dieses Tages bereit.")
@@ -606,7 +617,9 @@ struct EintragEditor: View {
                     .buttonStyle(.borderedProminent)
                 }
             } else if assets.isEmpty {
-                Text("An diesem Tag gibt es keine Fotos in deiner Mediathek. Über „Andere“ wählst du Fotos von jedem Tag.")
+                Text(bereitsVergeben > 0
+                     ? "Alle Fotos dieses Tages stehen schon in der Reise. Über „Andere“ wählst du Fotos von jedem Tag."
+                     : "An diesem Tag gibt es keine Fotos in deiner Mediathek. Über „Andere“ wählst du Fotos von jedem Tag.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
@@ -644,15 +657,23 @@ struct EintragEditor: View {
         }
     }
 
+    /// Was schon da ist — in der Ziel-Reise, sonst im Tagebuch an diesem Tag.
+    private func schonDa() -> Doppelfotos.Bestand {
+        Doppelfotos.bestand(reise: zielReise, tag: eintrag?.tagSchluessel ?? Tag.schluessel(datum))
+    }
+
     /// Fotos von einem anderen Tag — aus Apples Auswahl (ab 1.0.17).
     private func andereFotos(_ items: [PhotosPickerItem]) {
         let kennungen = items.compactMap(\.itemIdentifier)
         guard !kennungen.isEmpty else { return }
         var neu: [PHAsset] = []
         PHAsset.fetchAssets(withLocalIdentifiers: kennungen, options: nil).enumerateObjects { a, _, _ in neu.append(a) }
-        let vorhanden = Set(eintrag?.fotoListe.compactMap(\.assetID) ?? [])
+        // Was in der Reise (bzw. an diesem Tag im Tagebuch) schon steht,
+        // lässt sich nicht noch einmal wählen (ab 1.0.40).
+        let frei = Doppelfotos.neue(neu, ohne: schonDa())
+        bereitsVergeben += neu.count - frei.count
         withAnimation {
-            for a in neu where !vorhanden.contains(a.localIdentifier) {
+            for a in frei {
                 if !zusatz.contains(where: { $0.localIdentifier == a.localIdentifier }) { zusatz.append(a) }
                 if !assets.contains(where: { $0.localIdentifier == a.localIdentifier }) { assets.append(a) }
                 if !auswahl.contains(a.localIdentifier) { auswahl.append(a.localIdentifier) }
@@ -732,8 +753,13 @@ struct EintragEditor: View {
         aufzeichner.uebertragen()
         let tagesfotos = fotodienst.fotos(am: datum)
         assets = tagesfotos + zusatz.filter { z in !tagesfotos.contains { $0.localIdentifier == z.localIdentifier } }
-        let vorhanden = Set(eintrag?.fotoListe.compactMap(\.assetID) ?? [])
-        assets.removeAll { vorhanden.contains($0.localIdentifier) }
+        // Ab 1.0.40 nicht nur die Fotos DIESES Eintrags heraus, sondern alle,
+        // die in der Reise (im Tagebuch: an diesem Tag) schon stehen — bis
+        // 1.0.39 ließen sich die eines anderen Eintrags desselben Tages
+        // noch einmal wählen, und sie standen doppelt da.
+        let vorher = assets.count
+        assets = Doppelfotos.neue(assets, ohne: schonDa())
+        bereitsVergeben = vorher - assets.count
         auswahl.removeAll { id in !assets.contains { $0.localIdentifier == id } }
 
         // Eine Seite und eine Tour brauchen keine Orte des Tages: Die Seite hat
