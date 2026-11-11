@@ -179,6 +179,9 @@ final class Regal: ObservableObject {
 
     func schliessen() {
         offen?.sofortSichern()
+        // Dateien entfernter Doppel erst jetzt (ab 1.0.128) — bis hierher
+        // konnte „Widerrufen" sie noch brauchen.
+        offen?.dateienFreigeben()
         offen = nil
         Bildarchiv.shared.aufraeumen()
         Task { await Kartenwerk.shared.vergessen() }

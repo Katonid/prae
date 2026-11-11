@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.127 (Build 128). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.128 (Build 129). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7834,6 +7834,50 @@ Befunde, und keiner davon war Geschmack:
     übrig bleibt, der IN der Gerätespur selbst liegt und den keines der
     Merkmale trifft — dann zeigt ihn auch Fernweh. **Nicht als erledigt
     darstellen.**
+- **DOPPELTE FOTOS SUCHEN UND ENTFERNEN** (`Dienste/Duplikate.swift`,
+  `Views/DuplikateView.swift`, `Reisewerk.duplikateEntfernen`, ab 1.0.128;
+  gemeldet 11/2026: „Durch die Fernweh-App sind offenbar Bilder doppelt
+  übergeben worden. Ich möchte, dass ich in der Reisebuch-App nach
+  Duplikaten suchen kann und diese automatisch entfernt werden.").
+  - **Warum die Einfuhr sie durchließ:** `fernwehUebernehmen` erkennt ein
+    Foto nur an seiner Fernweh-KENNUNG. Dasselbe Bild mit zwei Kennungen
+    (an zwei Einträgen, neu exportiert, oder zusätzlich über den
+    Fotowähler) kommt zweimal. Gesucht wird deshalb am BILD.
+  - **Dasselbe heißt alle drei zugleich:** gleiche Aufnahmezeit auf 2 s —
+    oder um ganze Viertelstunden bis 14 h verschoben (EXIF-Wanduhr gegen
+    umgerechnete Fernweh-Zeit; fehlt eine Zeit, entscheidet allein das
+    Bild); Seitenverhältnis auf 2 %; 16 × 16 Graustufen im Mittel ≤ 4/255,
+    nirgends > 40. Eine verkleinerte Kopie ist ein Doppel, eine
+    nachbearbeitete Fassung nicht. Die Vorschaubilder werden nur für Fotos
+    gerechnet, die nach Zeit und Format überhaupt in Frage kommen (Fächer
+    nach Sekunde in der Viertelstunde), abseits des Hauptfadens.
+  - **Behalten wird das größte Bild**, bei Gleichstand das auf einer Seite,
+    dann das zuerst eingelesene. Unterschrift, Ausrichtung, Ort und
+    Aufnahmezeit gehen hinüber, wo sie dem behaltenen fehlen.
+  - **Jeder Verweis wird umgebogen, ohne Liste der Stellen**
+    (`bezuegeUmbiegen`): das Buch als JSON über `Ablage.kodierer`/`leser`,
+    die Kennung in Anführungszeichen ersetzt. Das trifft Blöcke,
+    Bildunterschriften, Titelfoto, Rückseite, Hintergründe und jedes
+    künftige Feld. Danach steht jedes Foto an EINEM Tag (dem, an dem das
+    behaltene war) und dort EINMAL auf den Seiten; Grafiken ohne Tag
+    bleiben, wo sie sind. Tage ohne Handarbeit werden neu gesetzt
+    (`seitenNeuSetzen`, nicht `neuAnordnen` — das merkte je Tag einen
+    eigenen Schritt), die Spur der Tage neu gebaut.
+  - **EIN Schritt „Widerrufen"**, und **die Dateien gehen erst beim
+    Schließen des Buches** von der Platte (`zuLoeschen`,
+    `dateienFreigeben` in `schliessen()`), und nur, wenn kein Foto sie dann
+    noch nennt. `fotoEntfernen` löscht sofort — dort bringt „Widerrufen"
+    ein Foto ohne Bild zurück; diese Fassung macht es anders und ändert
+    jenes nicht.
+  - Weg: Drei-Punkte-Menü → Prüfen → „Doppelte Fotos suchen…", dazu ein
+    Eintrag im Handbuch mit Sprung.
+  - **Nicht gemessen (1.0.128):** an keinem echten Buch gelaufen, auf
+    keinem Gerät gesehen, nicht übersetzt (das sagt der Bau). Alle
+    Schwellen sind GEWÄHLT. Ungesehen: wie lange die Suche bei tausend
+    Fotos braucht, ob Serienbilder derselben Sekunde fälschlich als Doppel
+    gelten, und ob Fernwehs Zeiten wirklich um ganze Viertelstunden von den
+    EXIF-Zeiten abweichen. Fotos, die noch in iCloud liegen, werden nicht
+    verglichen und gezählt. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
