@@ -228,9 +228,13 @@ final class Fotodienst: NSObject, ObservableObject {
 
     // MARK: - Übernehmen
 
-    /// Übernimmt Fotos aus der Mediathek in einen Eintrag.
+    /// Übernimmt Fotos aus der Mediathek in einen Eintrag. Was in der Reise
+    /// (im Lebenstagebuch: an diesem Tag) schon steht, wird übersprungen
+    /// (ab 1.0.40, `Doppelfotos`) — die letzte Sperre gegen einen
+    /// Doppelimport, gleich von wo er kommt.
     func uebernehmen(_ assets: [PHAsset], in eintrag: Eintrag, fortschritt: (Int) -> Void) async {
         let persistenz = Persistenz.shared
+        let assets = Doppelfotos.neue(assets, ohne: Doppelfotos.bestand(reise: eintrag.reise, tag: eintrag.tagSchluessel))
         var reihenfolge = Int32((eintrag.fotoListe.map(\.reihenfolge).max() ?? -1) + 1)
         for (nummer, asset) in assets.enumerated() {
             fortschritt(nummer)

@@ -23,6 +23,10 @@ struct ReiseView: View {
     @State private var fahrtenimport = false
     @State private var sicherung = false
     @State private var texte = false
+    /// Doppelte Fotos aufräumen (ab 1.0.40, `Doppelfotos`).
+    @State private var aufraeumen = false
+    /// Wie viel es aufzuräumen gibt — für den Hinweis oben.
+    @State private var aufzuraeumen = 0
 
     /// Ein Wunsch trägt sein Ziel — kein Schalter daneben (Lehre aus
     /// Tafelbild und der Abfahrtstafel: `.sheet(item:)`, sonst baut SwiftUI
@@ -41,6 +45,7 @@ struct ReiseView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     titelBlock
                     kennzahlen
+                    if darf && aufzuraeumen > 0 { aufraeumHinweis }
                     if reise.laeuft && darf { SpurKarte(reise: reise) }
                     if freigabe != nil { beteiligtenZeile }
                     if !darf { betrachterHinweis }
@@ -92,6 +97,8 @@ struct ReiseView: View {
         .sheet(isPresented: $uebergabe) { UebergabeView(reise: reise) }
         .sheet(isPresented: $sicherung) { SicherungView(vorgabe: .reise(reise.objectID)) }
         .sheet(isPresented: $texte) { TexteView(reise: reise) }
+        .sheet(isPresented: $aufraeumen, onDismiss: aufraeumZaehlen) { AufraeumenView(reise: reise) }
+        .task(id: reise.fotoAnzahl) { aufraeumZaehlen() }
         .fullScreenCover(isPresented: $vollkarte) { Vollkarte(reise: reise) }
         .confirmationDialog("Reise löschen?", isPresented: $loeschenFragen, titleVisibility: .visible) {
             Button("Löschen — auf allen Geräten", role: .destructive) { loeschen() }
@@ -355,6 +362,11 @@ struct ReiseView: View {
                     Button { sicherung = true } label: { Label("Reise sichern …", systemImage: "externaldrive.badge.plus") }
                     Button { texte = true } label: { Label("Texte überarbeiten (KI) …", systemImage: "text.badge.checkmark") }
                 }
+                if darf {
+                    Button { aufraeumen = true } label: {
+                        Label("Doppelte Fotos aufräumen …", systemImage: "square.on.square.dashed")
+                    }
+                }
                 Section {
                     if besitzer {
                         Button(role: .destructive) { loeschenFragen = true } label: { Label("Reise löschen", systemImage: "trash") }
@@ -369,6 +381,34 @@ struct ReiseView: View {
                     .background(.regularMaterial, in: Circle())
             }
         }
+    }
+
+    private func aufraeumZaehlen() {
+        guard darf else { aufzuraeumen = 0; return }
+        aufzuraeumen = Doppelfotos.finden(in: reise).reduce(0) { $0 + $1.doppelte.count }
+            + Doppelfotos.buendel(in: reise).reduce(0) { $0 + $1.aufzuloesen.count }
+    }
+
+    /// Der Hinweis oben, wenn es Doppel gibt (ab 1.0.40).
+    private var aufraeumHinweis: some View {
+        Button { aufraeumen = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "square.on.square.dashed").font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Doppelte Fotos gefunden").font(.subheadline.weight(.semibold))
+                    Text("Fotos, die mehrfach in der Reise stehen, und Tage mit mehreren Fotoeinträgen ohne Text. Tippe zum Aufräumen.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
     }
 
     private func loeschen() {
