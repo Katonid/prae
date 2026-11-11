@@ -275,6 +275,17 @@ struct Schriftbild: Codable, Hashable {
     // Bearbeiten (TextKit) dagegen schon. Der ganze Befund steht in
     // `Model/Silbentrennung.swift`.
     var trennung: Bool = false
+    // EIN SCHATTEN HINTER DEN BUCHSTABEN (ab 1.0.126; Ansage des Nutzers
+    // 11/2026: „die Schrift auf der Titelseite [ist] nicht gut lesbar, wenn
+    // ein dunkleres Bild dort ist … dass diese Schrift mit einem Schatten
+    // hinterlegt ist. Dann würde mir das auch gestatten, eine dunkle
+    // Schriftart mit einem helleren Schatten auf dunklem Grund verwenden
+    // zu können."). `nil` heißt kein Schatten. WAHLWEISE mit Absicht: Der
+    // erzeugte Leser dieses Typs verlangt jeden nicht-optionalen
+    // Schlüssel — ein optionaler fehlt in alten Dateien einfach.
+    // Gezeichnet in `Seitensatz.zeichneText`, also auf dem Bildschirm UND
+    // im PDF gleich.
+    var schatten: Farbwert?
 
     var uiFont: UIFont { familie.uiFont(groesse: groesse, fett: fett, kursiv: kursiv) }
 
@@ -329,6 +340,7 @@ struct Schriftabweichung: Codable, Hashable {
     var versalien: Bool?
     var sperrung: Double?
     var trennung: Bool?
+    var schatten: Farbwert?
 
     static let keine = Schriftabweichung()
 
@@ -347,6 +359,7 @@ struct Schriftabweichung: Codable, Hashable {
         if let versalien { bild.versalien = versalien }
         if let sperrung { bild.sperrung = sperrung }
         if let trennung { bild.trennung = trennung }
+        if let schatten { bild.schatten = schatten }
         return bild
     }
 }

@@ -908,6 +908,41 @@ struct UmschlagView: View {
                                value: "\(Int((umschlag.titelfaktor * 100).rounded())) %")
                 Slider(value: $werk.reise.umschlag.titelfaktor, in: 0.6...1.8, step: 0.05)
             }
+            // FARBE UND SCHATTEN DER TITELSCHRIFT (ab 1.0.126).
+            Toggle("Eigene Schriftfarbe", isOn: Binding(
+                get: { umschlag.titelfarbe != nil },
+                set: { an in werk.reise.umschlag.titelfarbe = an ? .papier : nil }
+            ))
+            if umschlag.titelfarbe != nil {
+                ColorPicker("Schriftfarbe", selection: Binding(
+                    get: { (umschlag.titelfarbe ?? .tinte).farbe },
+                    set: { werk.reise.umschlag.titelfarbe = Farbwert($0) }
+                ), supportsOpacity: false)
+            }
+            Toggle("Schatten hinter der Schrift", isOn: Binding(
+                get: { umschlag.titelschatten != nil },
+                set: { an in
+                    werk.reise.umschlag.titelschatten = an ? Farbwert(rot: 0, gruen: 0, blau: 0, deckung: 0.85) : nil
+                }
+            ))
+            if let schatten = umschlag.titelschatten {
+                ColorPicker("Farbe des Schattens", selection: Binding(
+                    get: { schatten.farbe },
+                    set: { werk.reise.umschlag.titelschatten = Farbwert($0, deckung: schatten.deckung) }
+                ), supportsOpacity: false)
+                VStack(alignment: .leading) {
+                    LabeledContent("Deckkraft des Schattens",
+                                   value: "\(Int((schatten.deckung * 100).rounded())) %")
+                    Slider(value: Binding(
+                        get: { schatten.deckung },
+                        set: { neu in
+                            var s = schatten
+                            s.deckung = neu
+                            werk.reise.umschlag.titelschatten = s
+                        }
+                    ), in: 0.2...1, step: 0.05)
+                }
+            }
             VStack(alignment: .leading) {
                 LabeledContent("Titel senkrecht", value: titellagetext)
                 Slider(value: titellageregler, in: 0...1, step: 0.02)
@@ -940,6 +975,8 @@ struct UmschlagView: View {
                     werk.reise.umschlag.titelfaktor = 1
                     werk.reise.umschlag.schriftfamilie = nil
                     werk.reise.umschlag.titellage = nil
+                    werk.reise.umschlag.titelfarbe = nil
+                    werk.reise.umschlag.titelschatten = nil
                 }
             }
         } header: {

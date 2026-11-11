@@ -126,6 +126,22 @@ enum Seitensatz {
         let setzer = Textmass.rahmensetzer(text, bild: bild, breite: Double(rechteck.width))
         let pfad = CGPath(rect: gedreht, transform: nil)
         let rahmen = CTFramesetterCreateFrame(setzer, CFRange(location: 0, length: 0), pfad, nil)
+        if let schatten = bild.schatten {
+            // Ein HOF um jeden Buchstaben, ohne Versatz — er hebt die Schrift
+            // vom Grund ab, in welche Richtung das Bild auch hell oder dunkel
+            // ist. Unschärfe und Versatz eines Schattens gelten im
+            // GERÄTEraum und folgen der Skalierung nicht; auf einem Bildschirm
+            // mit vierfacher Rasterung wäre er sonst ein Viertel so groß wie
+            // im PDF. Deshalb wird mit dem Maßstab des Kontexts gerechnet.
+            // Zweimal gezeichnet: Ein einzelner weicher Schatten ist hinter
+            // dünner Schrift zu schwach, um sie zu tragen.
+            let t = zusammenhang.userSpaceToDeviceSpaceTransform
+            let massstab = max(Double(hypot(t.a, t.b)), 0.01)
+            let unschaerfe = max(bild.groesse * 0.22, 1.5) * massstab
+            zusammenhang.setShadow(offset: .zero, blur: CGFloat(unschaerfe),
+                                   color: schatten.cgFarbe)
+            CTFrameDraw(rahmen, zusammenhang)
+        }
         CTFrameDraw(rahmen, zusammenhang)
         zusammenhang.restoreGState()
     }
