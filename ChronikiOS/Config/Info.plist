@@ -2,10 +2,97 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Keine eigene Verschlüsselung: sonst fragt App Store Connect bei jedem
-	     TestFlight-Build nach der Export-Compliance. Steht zusätzlich als
-	     Build-Einstellung. Nie entfernen. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+
+	<!-- Die App ist deutsch und bringt keine Sprachdateien mit. Ohne diese
+	     beiden Schlüssel setzt Xcode „en", und iOS zeigt daraufhin ALLES
+	     Systemeigene englisch — Fotowähler, Dateiwähler, Teilen-Blatt,
+	     „Abbrechen". Dieselbe Falle wie bei Tafelbild 1.0.59. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+	</array>
+
+	<!-- Der Fotowähler selbst braucht KEINE Berechtigung — er läuft in einem
+	     eigenen Prozess. Die Berechtigung braucht nur der Umweg dahinter:
+	     Ohne sie entfernt iOS die Standortdaten aus den herausgegebenen
+	     Bilddaten, und die Reisespur bliebe leer. Mit ihr liest die App den
+	     Aufnahmeort am Mediathekseintrag nach. Wer ablehnt, kann alles
+	     weiter benutzen und setzt die Punkte auf der Karte. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Damit die App Aufnahmedatum und -ort deiner Fotos lesen und jedes Bild dem richtigen Kapitel zuordnen kann. Ohne diese Erlaubnis lassen sich die Fotos trotzdem einsetzen.</string>
+
+	<!-- Nur „WhenInUse", und nur als Bequemlichkeit: Wer gerade an dem Ort
+	     steht, den er eintragen will, soll ihn nicht auf der Karte suchen
+	     müssen. Ohne Ortung fehlt genau dieser eine Knopf. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Damit du beim Setzen eines Reisepunktes deinen jetzigen Standort übernehmen kannst, statt ihn auf der Karte zu suchen. Der Standort bleibt auf dem Gerät.</string>
+	<!-- Das eigene Dateiformat, damit der Dateiwähler es filtern kann und
+	     eine Buchdatei in „Dateien" ein Symbol und einen Namen hat statt
+	     „Dokument". -->
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>de.familie.chronik.buch</string>
+			<key>UTTypeDescription</key>
+			<string>Kapitelweise-Buch</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>kapitelweise</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+
+	<!-- Eine Buchdatei, die jemand in „Dateien" antippt oder per AirDrop
+	     schickt, soll bei dieser App landen. Nicht „an Ort und Stelle":
+	     Die App kopiert beim Einlesen ohnehin in ihre eigene Ablage, und
+	     ein Buch, das noch in einem fremden Ordner liegt, wäre beim
+	     nächsten Öffnen vielleicht nicht mehr da.
+
+	     Bis 1.0.61 stand hier `LSSupportsOpeningDocumentsInPlace` mit
+	     `false`. Genau das lehnt macOS ab: „'LSSupportsOpeningDocumentsIn-
+	     Place = NO' is not supported on macOS. Either remove the entry or
+	     set it to YES." Der Bau der Mac-Fassung scheiterte daran, im
+	     ersten Lauf, in dem es ihn gab.
+
+	     Weggelassen genügt nicht: Dann warnt der Bau, die App unterstütze
+	     das Öffnen von Dateien, sage aber nicht, ob an Ort und Stelle —
+	     und eine Warnung ist in diesem Repo keine Nebensache. Es steht
+	     deshalb auf `YES`, und das ist für DIESE App keine Zusage, die sie
+	     nicht hält: Sie liest die Datei und schreibt ihren Inhalt in die
+	     eigene Ablage, das Buch bleibt danach für sich. Das Einlesen
+	     meldet den Zugriff seit 1.0.62 ausdrücklich an
+	     (`startAccessingSecurityScopedResource`), denn an Ort und Stelle
+	     kommt die Datei aus einem fremden Ordner. Und `aufraeumen` löscht
+	     weiterhin NUR im Posteingang — ein Buch, das dem Nutzer gehört,
+	     wird nicht angefasst. -->
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Kapitelweise-Buch</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>de.familie.chronik.buch</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

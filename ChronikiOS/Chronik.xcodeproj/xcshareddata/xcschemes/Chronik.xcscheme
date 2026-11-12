@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CB2600000000000000000006"
+               BlueprintIdentifier = "CB2700000000000000000006"
                BuildableName = "Chronik.app"
                BlueprintName = "Chronik"
                ReferencedContainer = "container:Chronik.xcodeproj">
@@ -44,7 +44,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CB2600000000000000000006"
+            BlueprintIdentifier = "CB2700000000000000000006"
             BuildableName = "Chronik.app"
             BlueprintName = "Chronik"
             ReferencedContainer = "container:Chronik.xcodeproj">
@@ -61,7 +61,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CB2600000000000000000006"
+            BlueprintIdentifier = "CB2700000000000000000006"
             BuildableName = "Chronik.app"
             BlueprintName = "Chronik"
             ReferencedContainer = "container:Chronik.xcodeproj">
