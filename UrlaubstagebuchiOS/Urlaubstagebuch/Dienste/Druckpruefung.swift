@@ -620,6 +620,8 @@ enum Druckpruefung {
             woher += "ein Verlauf."
         case .papierstruktur:
             woher += "Papierkorn."
+        case .muster:
+            woher += grund.musterfoto == nil ? "Leinen als Muster." : "ein eigenes Bild als Muster."
         case .foto:
             return [fotogrundzeile(reise, grund: grund, woher: woher)]
         }

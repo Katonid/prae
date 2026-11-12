@@ -6772,7 +6772,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.128 (Build 129). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 11/2026: 1.0.129 (Build 130). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
@@ -7878,6 +7878,39 @@ Befunde, und keiner davon war Geschmack:
     gelten, und ob Fernwehs Zeiten wirklich um ganze Viertelstunden von den
     EXIF-Zeiten abweichen. Fotos, die noch in iCloud liegen, werden nicht
     verglichen und gezählt. **Nicht als erledigt darstellen.**
+- **MUSTER ALS SEITENHINTERGRUND — LEINEN WIE BEI SAAL**
+  (`Seitenhintergrund.Art.muster`, `.musterfoto`, `.kachel`, `.spiegeln`,
+  `Dienste/Musterkachel.swift`, ab 1.0.129; Ansage des Nutzers 11/2026: ein
+  Bildschirmfoto des Leinengrundes seiner Saal-Bücher, „wiederkehrendes
+  Muster … in einer bestimmten Größe über die Seite gelegt … müsste es die
+  Möglichkeit geben, diese einzustellen, also den Zoom").
+  - **Das Bildschirmfoto liegt NICHT im Repo** — es ist Saals Material.
+    Eingebaut ist ein GERECHNETES Leinen (drei Lagen: Wolken auf 256 px,
+    Fäden und Verdickungen auf 512 px, hochgerechnet auf 1024 — die
+    Weichheit kommt aus dem Hochrechnen). In Python nachgebaut und neben
+    das Bild des Nutzers gelegt; Mittelwert 237/231/197 und Streuung 4
+    seines Bildes sind gemessen und als `saalLeinen` bzw. Zielwert
+    genommen. Nahtlos (über die Kante fortgesetzt), feste Saat.
+  - **Ein eigenes Foto des Buches geht ebenso** (`musterfoto`, eigenes Feld
+    neben `fotoID`). Gemessen: Das Bildschirmfoto wiederholt sich in sich
+    NICHT (direkte Verschiebungskorrelation 0,08; ein Ausschlag der
+    kreisförmigen FFT bei 1074 px war ein Artefakt des Umlaufs). Deshalb
+    wird es GESPIEGELT gekachelt (Schalter, Vorgabe an).
+  - **Die Größe ist die Kachelbreite in mm** (Vorgabe 120; beim eigenen
+    Bild die Bildbreite, beim Wählen auf 300 dpi vorgeschlagen; Regler
+    logarithmisch 5–600 mm, daneben die dpi). Ursprung ist die Ecke des
+    Bogens samt Anschnitt — auf dem Bildschirm (`resizingMode: .tile` mit
+    einer `UIImage`, deren Punktgröße der Kachel entspricht) wie im PDF
+    (Schleife, JPEG-Strom einmal gebaut). An der Bundkante einer
+    Doppelseite stoßen zwei unabhängig gekachelte Seiten aneinander.
+  - Wer zum ersten Mal „Muster" wählt und weißes Papier hat, bekommt den
+    Saal-Ton. Eine Vorlage trägt das Leinen mit; ein eigenes Musterbild
+    fällt dort auf Leinen zurück (`ohneBild`).
+  - **Nicht gemessen (1.0.129):** auf keinem Gerät und in keinem Druck
+    gesehen, nicht übersetzt (das sagt der Bau). Welche Kachelgröße dem
+    Saal-Buch entspricht, weiß niemand — dafür ist der Regler da. Ob
+    `resizingMode: .tile` an der linken oberen Ecke beginnt wie das PDF,
+    ist die Lesart der Dokumentation. **Nicht als erledigt darstellen.**
 - **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
   wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
   benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als

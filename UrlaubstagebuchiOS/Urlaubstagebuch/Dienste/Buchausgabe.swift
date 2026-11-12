@@ -621,6 +621,14 @@ enum Buchausgabe {
         }
     }
 
+    // Ein Musterbild wird in voller Größe geholt, höchstens bis zur Kante
+    // des Auftrags: Es ist meist klein, und jede Kachel zeigt es ganz
+    // (ab 1.0.129).
+    static func musterkante(_ foto: Foto, _ auftrag: Auftrag) -> Int {
+        let lang = Int(max(foto.breite, foto.hoehe).rounded())
+        return max(256, min(lang > 0 ? lang : auftrag.bildkante, auftrag.bildkante))
+    }
+
     struct Auftrag {
         var bildkante: Int = 3600
         // WIE FEIN UND WOMIT (ab 1.0.70). `bildkante` ist die Obergrenze,
@@ -1048,6 +1056,9 @@ enum Buchausgabe {
                                                  ausschnitt: grund.ausschnitt,
                                                  hoechstens: auftrag.bildkante,
                                                  dpi: auftrag.zieldpi))
+        } else if grund.art == .muster, let id = grund.musterfoto, let foto = reise.foto(id) {
+            grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
+                                                      kante: Self.musterkante(foto, auftrag))
         }
         Seitensatz.zeichneHintergrund(
             grund, rechteck: bogenrechteck,
@@ -1488,6 +1499,9 @@ enum Buchausgabe {
                         foto: foto, rahmen: (bildflaeche ?? bogenrechteck).size,
                         ausschnitt: grund.ausschnitt,
                         hoechstens: auftrag.bildkante, dpi: auftrag.zieldpi))
+            } else if grund.art == .muster, let id = grund.musterfoto, let foto = reise.foto(id) {
+                grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
+                                                          kante: Self.musterkante(foto, auftrag))
             }
             // Gezeichnet wird die Hälfte davon, die auf DIESE Seite fällt.
             // Gerechnet hat das dieselbe Funktion, die auch die Ansicht

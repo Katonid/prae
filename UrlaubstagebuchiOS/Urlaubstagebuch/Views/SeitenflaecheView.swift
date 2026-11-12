@@ -1400,6 +1400,22 @@ struct HintergrundFlaeche: View {
             case .papierstruktur:
                 hintergrund.farbe.farbe
                 Papierkorn(staerke: hintergrund.koernung, saat: seite.id.saat)
+            case .muster:
+                // Dieselbe Kachel und derselbe Ursprung (Ecke des Bogens)
+                // wie im PDF — `Musterkachel`.
+                hintergrund.farbe.farbe
+                if let id = hintergrund.musterfoto, let foto = werk.reise.foto(id) {
+                    Ladebild(datei: foto.datei, reise: werk.reise.id,
+                             kante: min(max(Int(max(foto.breite, foto.hoehe).rounded()), 600), 3000),
+                             messer: werk.messer)
+                    { bild in
+                        musterflaeche(Musterkachel.kachel(hintergrund, bild: bild,
+                                                          schluessel: foto.datei),
+                                      eigenes: true)
+                    }
+                } else {
+                    musterflaeche(Musterkachel.leinen(farbe: hintergrund.farbe), eigenes: false)
+                }
             case .foto:
                 hintergrund.farbe.farbe
                 if let id = hintergrund.fotoID, let foto = werk.reise.foto(id) {
@@ -1438,6 +1454,15 @@ struct HintergrundFlaeche: View {
         // Nachbarseite ist ein eigenes Blatt Papier.
         .frame(width: bogen?.width, height: bogen?.height)
         .clipped()
+    }
+
+    @ViewBuilder
+    private func musterflaeche(_ kachel: CGImage?, eigenes: Bool) -> some View {
+        if let kachel {
+            Image(uiImage: Musterkachel.uiKachel(
+                kachel, breitePt: Musterkachel.breitePt(hintergrund, eigenesBild: eigenes)))
+                .resizable(resizingMode: .tile)
+        }
     }
 
     // Der Rahmen, den das Hintergrundfoto füllt — in den Koordinaten
