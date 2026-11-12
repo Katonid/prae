@@ -71,6 +71,44 @@ klein und stehen alle mit „KAPITELWEISE" im Quelltext.
   Buch → Kapitel und Zeitraster…". Handbuch und Aufbau-Assistent sprechen
   noch vom Reisebuch (nicht angepasst).
 
+## Das Lebensbuch (ab 1.0.4)
+
+Vorlage des Nutzers 11/2026 (PDF „Simon 18", sechs Seiten, ein Buch zum 18.
+Geburtstag des Sohnes): „Für jeden seiner Geburtstage die Titelseite einer
+lokalen Tageszeitung … einzelne Meldungen zur Weltgeschichte an diesem Tag …
+dann Fotos aus diesem Lebensjahr … relativ groß, aber doch leicht
+überlappend angeordnet." Umgesetzt — alles über gewöhnliche Blöcke, also mit
+allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
+
+- **Zeitraster „Lebensjahr (ab Geburtstag)"** (`Zeitraster.Vorgabe.lebensjahr`,
+  Beginn = Geburtsdatum, dazu `Reise.person`). Ein Kapitel heißt nach dem Jahr
+  des Geburtstags („2019", nicht „2019/20"), die zweite Überschrift sagt
+  „Simon wird 10 Jahre alt" (`Reise.alterszeile`), die Datumszeile ist der
+  Geburtstag, die Zeitungsüberschrift „Der Tag deines 10. Geburtstags".
+- **Stil „Lebensbuch"** (`Buchstil.lebensbuch`, erster in der Liste und
+  Vorgabe neuer Bücher, dazu Kopfzeile an und A4 hoch): Cremepapier, Didot
+  fett in Nachtblau, Gold als Akzent, Iowan kursiv, Unterschriften in
+  Handschrift, Fotos mit weißem Rand, Schatten, gedreht.
+- **Kopfzeile „KAPITEL 2019"** mittig, gesperrt, in der Akzentfarbe
+  (`Seitenbeiwerk`) — für jeden Stil, sobald die Kopfzeile an ist.
+- **Je Kapitel** (`Reisetag.zeitung`, `.zeitungstitel`, `.zeitungstext`,
+  `.meldungen`, Oberfläche `KapitelseitenView`, erreichbar im Kapitelinhalt):
+  die Zeitungsseite (Titelseite groß rechts, −1,2° gedreht; links Goldstrich,
+  Überschrift, Text) und „Was an diesem Tag geschah" (2×2 je Seite: Bild,
+  Goldbalken, Überschrift, Text). Die Bilder sind GRAFIKEN (`Foto.grafik`), aus
+  Mediathek oder Dateien; aus einer PDF zählt die erste Seite.
+- **Satz im Lebensbuch** (`Layoutautomat.lebensseiten`, Erweiterung am Ende von
+  `Layoutautomat.swift`): Zeitung → Meldungen → Fotoseiten → Text. Fotoseiten:
+  im Wechsel 4, 5, 3, 4, 5, 2 Fotos in festen, sich überlappenden Feldern
+  (`albumfelder`), jedes Foto eingepasst und 6 % größer, gedreht
+  (`drehwinkel` × 0,8), Ebene steigend. Der Kapiteltext kommt ans Ende: links
+  eine Spalte (42 %), rechts die letzten vier Fotos. Trägt ein Kapitel ein
+  eigenes Seitenmuster, setzt es wie im Reisebuch; Zeitung und Meldungen kommen
+  in JEDEM Stil vor die Seiten.
+- **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
+  ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
+  plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
+
 ## Konfiguration
 
 - **Bundle-Id `de.familie.kapitelweise`** (ab 1.0.3; gemeldet 11/2026: der
@@ -104,7 +142,7 @@ klein und stehen alle mit „KAPITELWEISE" im Quelltext.
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -118,3 +156,7 @@ klein und stehen alle mit „KAPITELWEISE" im Quelltext.
 - **1.0.3 (Build 4)**, 11/2026: Bundle-Id `de.familie.kapitelweise`,
   iCloud-Abgleich und Schriftenrecht eingetragen, Diktieren aus Fernweh.
   **Nicht gemessen:** Signieren mit den neuen Rechten, Abgleich, Diktat.
+- **1.0.4 (Build 5)**, 11/2026: Lebensbuch (Stil, Lebensjahr-Raster, Zeitung,
+  Meldungen, überlappende Fotoseiten). **Nicht gemessen:** wie die Seiten auf
+  dem Gerät aussehen; die Felder der Fotoseiten sind gerechnet, nicht
+  angesehen.

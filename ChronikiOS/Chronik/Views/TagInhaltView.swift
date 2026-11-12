@@ -9,6 +9,7 @@ struct TagInhaltView: View {
     @Environment(\.dismiss) private var schliessen
     @State private var aufraeumBefund: String?
     @State private var bearbeiten: Texteintrag?
+    @State private var sonderseiten = false
 
     private var stelle: Int? { werk.tagIndex(tagID) }
 
@@ -50,6 +51,23 @@ struct TagInhaltView: View {
                     } footer: {
                         Text("Überschrift und Datumszeile kommen aus dem Zeitraster und lassen sich hier ändern. Die zweite Überschrift ist für ein Schlagwort gedacht. Sie steht unter der ersten, kleiner und kursiv — beim Einlesen eines Tagebuchtextes findet die App sie in der Zeile nach dem Datum. Bleibt die Datumszeile leer, gilt das Format des Buches. Das Wetter steht als eigene Zeile unter den Überschriften, in der Schrift der Datumszeile; leer heißt keine Wetterzeile. Steht eine Wettertabelle aus Fernweh da, wird sie statt der Zeile gezeigt. Auf die Seite kommt es beim nächsten Anordnen des Tages. Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht ins Buch.")
                     }
+                    // KAPITELWEISE (ab 1.0.4): Zeitung und Meldungen vor den
+                    // Fotoseiten des Kapitels.
+                    Section {
+                        Button {
+                            sonderseiten = true
+                        } label: {
+                            let tag = werk.reise.tage[stelle]
+                            LabeledContent {
+                                Text("\(tag.zeitung == nil ? "keine Zeitung" : "Zeitung") · \(tag.meldungen.count) Meldungen")
+                            } label: {
+                                Label("Zeitung und Meldungen\u{2026}", systemImage: "newspaper")
+                            }
+                        }
+                    } footer: {
+                        Text("Die Titelseite einer Tageszeitung vom Stichtag und Meldungen aus der Welt \u{2014} sie stehen vor den Fotos des Kapitels.")
+                    }
+
                     // KAPITELWEISE: Der Text eines Kapitels besteht aus
                     // Einträgen mit Zeitstempel. Bearbeitet wird der
                     // EINTRAG; der Kapiteltext entsteht daraus.
@@ -112,6 +130,9 @@ struct TagInhaltView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .sheet(item: $bearbeiten) { eintrag in
                     EintragView(werk: werk, eintrag: eintrag)
+                }
+                .sheet(isPresented: $sonderseiten) {
+                    KapitelseitenView(werk: werk, tagID: tagID)
                 }
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {

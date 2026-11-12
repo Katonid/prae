@@ -251,4 +251,34 @@ extension Reisewerk {
             c.drawPDFPage(blatt)
         }
     }
+
+    // MARK: - Bilder für Zeitung und Meldungen (ab 1.0.4)
+
+    /// Legt eine Bild- oder PDF-Datei als GRAFIK ab (kein Kapitel, keine
+    /// Fotoliste) und gibt ihre Kennung zurück. Aus einer PDF wird die erste
+    /// Seite genommen — eine eingescannte Zeitungsseite ist meist genau das.
+    func grafikAblegen(vonDatei quelle: URL) -> UUID? {
+        let daten: Data
+        let endung: String
+        if quelle.pathExtension.lowercased() == "pdf" {
+            guard let dokument = CGPDFDocument(quelle as CFURL),
+                  let blatt = dokument.page(at: 1),
+                  let bild = Self.pdfseiteAlsBild(blatt, kante: 3000),
+                  let png = bild.pngData() else { return nil }
+            daten = png
+            endung = "png"
+        } else {
+            guard let gelesen = try? Data(contentsOf: quelle) else { return nil }
+            daten = gelesen
+            endung = quelle.pathExtension.isEmpty ? "jpg" : quelle.pathExtension.lowercased()
+        }
+        let befund = Bildleser.befund(datei: daten)
+        guard let datei = try? Bildarchiv.shared.ablegen(daten, reise: reise.id, endung: endung) else { return nil }
+        let foto = Foto(datei: datei,
+                        breite: befund.breite > 0 ? befund.breite : 1000,
+                        hoehe: befund.hoehe > 0 ? befund.hoehe : 1400,
+                        grafik: true)
+        reise.setzeFoto(foto)
+        return foto.id
+    }
 }

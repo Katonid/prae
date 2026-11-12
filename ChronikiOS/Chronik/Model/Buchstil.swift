@@ -36,7 +36,7 @@ struct Buchstil: Identifiable, Hashable {
     var musterVorliebe: [Seitenmuster]
     var seitenzahlen: Bool
 
-    static let alle: [Buchstil] = [tagebuch, magazin, album, journal, klar, postkarte]
+    static let alle: [Buchstil] = [lebensbuch, tagebuch, magazin, album, journal, klar, postkarte]
 
     // MARK: - Die sechs
 
@@ -222,6 +222,51 @@ struct Buchstil: Identifiable, Hashable {
         randabfallendErlaubt: true,
         lebendig: true,
         musterVorliebe: [.wechsel, .bildZuerst, .karteSeitlich, .album, .bilderbogen],
+        seitenzahlen: true
+    )
+
+    // KAPITELWEISE: DAS LEBENSBUCH (ab 1.0.4).
+    //
+    // Nach der Vorlage des Nutzers („Simon 18"): warmes, cremefarbenes
+    // Papier, große Didot in Nachtblau, Gold als Akzent, gesperrte
+    // Versalien („KAPITEL 2019"), Fließtext kursiv in einer Buchschrift,
+    // Fotos als Abzüge mit weißem Rand und Schatten, groß, leicht gedreht
+    // und einander überlappend (`Layoutautomat.lebensalbum`).
+    static let navy = Farbwert(rot: 0.075, gruen: 0.118, blau: 0.235)
+    static let gold = Farbwert(rot: 0.745, gruen: 0.592, blau: 0.310)
+
+    static let lebensbuch = Buchstil(
+        id: "lebensbuch",
+        name: "Lebensbuch",
+        beschreibung: "Cremefarbenes Papier, große Didot in Nachtblau, Gold als Akzent. Jedes Kapitel kann mit der Zeitung des Tages und Meldungen beginnen; die Fotos liegen groß, leicht gedreht und überlappend wie eingeklebte Abzüge.",
+        typografie: {
+            var t = Typografie()
+            t.titel = Schriftbild(familie: .didot, groesse: 46, zeilenabstand: 1.0,
+                                  absatzabstand: 0, ausrichtung: .mitte,
+                                  farbe: Buchstil.navy, fett: true)
+            t.unterueberschrift = Schriftbild(familie: .iowan, groesse: 20, zeilenabstand: 1.15,
+                                              absatzabstand: 0, ausrichtung: .mitte,
+                                              farbe: Buchstil.navy, kursiv: true)
+            t.datum = Schriftbild(familie: .iowan, groesse: 10, zeilenabstand: 1.2,
+                                  absatzabstand: 0, ausrichtung: .mitte,
+                                  farbe: Buchstil.navy, kursiv: true, sperrung: 1.6)
+            t.flieText = Schriftbild(familie: .iowan, groesse: 10.2, zeilenabstand: 1.42,
+                                     absatzabstand: 6, ausrichtung: .links,
+                                     farbe: Farbwert(rot: 0.12, gruen: 0.13, blau: 0.18),
+                                     kursiv: true, trennung: true)
+            t.bildunterschrift = Schriftbild(familie: .handschrift, groesse: 9.5,
+                                             zeilenabstand: 1.15, absatzabstand: 0,
+                                             ausrichtung: .mitte,
+                                             farbe: Farbwert(rot: 0.22, gruen: 0.20, blau: 0.18))
+            return t
+        }(),
+        papier: Farbwert(rot: 0.965, gruen: 0.945, blau: 0.905),
+        akzent: Buchstil.gold,
+        randAussen: 15, randOben: 20, randUnten: 18, fuge: 4,
+        eckenradius: 0, fotorand: 2.2, schatten: .weich,
+        randabfallendErlaubt: true,
+        lebendig: true,
+        musterVorliebe: [.album, .wechsel, .bildZuerst],
         seitenzahlen: true
     )
 

@@ -89,10 +89,15 @@ enum Seitenbeiwerk {
 
         if reise.gestaltung.kopfzeile {
             var kopf = klein
-            kopf.ausrichtung = .rechts
+            // KAPITELWEISE: „KAPITEL 2019", mittig, gesperrt, in der
+            // Akzentfarbe — wie in der Vorlage des Nutzers.
+            kopf.ausrichtung = .mitte
             kopf.versalien = true
-            kopf.sperrung = 1.2
-            let text = buchseite.tag?.datum.mittel ?? reise.titel
+            kopf.sperrung = 3
+            kopf.farbe = reise.akzent
+            let text = buchseite.tag.map {
+                "Kapitel " + ($0.ueberschrift.isEmpty ? $0.datum.mittel : $0.ueberschrift)
+            } ?? reise.titel
             let hoehe = kopf.zeilenhoehe * 1.6
             let gewuenscht = Druckmass.pt(reise.gestaltung.randOben) * 0.42
             let y = min(max(gewuenscht, zone.minY), max(satz.minY - hoehe, zone.minY))

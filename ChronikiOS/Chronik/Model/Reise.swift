@@ -63,6 +63,17 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // ins Buch. Ihn zu löschen wäre der einzige andere Weg gewesen — und
     // ein gelöschter Tagebuchtag ist weg.
     var ausgeblendet: Bool = false
+    // KAPITELWEISE (ab 1.0.4, Vorlage des Nutzers „Simon 18"): Jedes
+    // Kapitel kann mit einer ZEITUNGSSEITE beginnen — der Titelseite einer
+    // Tageszeitung vom Stichtag (meist dem Geburtstag), daneben ein kurzer
+    // Text — und einer Seite mit MELDUNGEN („Was an deinem Geburtstag
+    // geschah"). Beides setzt `Layoutautomat.sonderseiten` vor die
+    // Fotoseiten des Kapitels. Die Bilder sind Grafiken (`Foto.grafik`):
+    // Sie haben kein Kapitel und stehen in keiner Fotoliste.
+    var zeitung: UUID?
+    var zeitungstitel: String = ""
+    var zeitungstext: String = ""
+    var meldungen: [Meldung] = []
     // In welcher Zeitzone die Uhrzeiten dieses Tages gelten (Kennung, z. B.
     // `America/Toronto`). Gesetzt beim Einlesen der Reisespur; leer heißt,
     // dass es niemand feststellen konnte. **Die Uhrzeiten selbst sind schon
@@ -95,6 +106,10 @@ struct Reisetag: Identifiable, Codable, Hashable {
         kartentextZeigen = b.wert(.kartentextZeigen, false)
         kartentextAusrichtung = b.wahlweise(.kartentextAusrichtung)
         ausgeblendet = b.wert(.ausgeblendet, false)
+        zeitung = b.wahlweise(.zeitung)
+        zeitungstitel = b.wert(.zeitungstitel, "")
+        zeitungstext = b.wert(.zeitungstext, "")
+        meldungen = b.wert(.meldungen, [Meldung]())
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
@@ -160,6 +175,9 @@ struct Reise: Identifiable, Codable {
     // Tag zugeordnet wird (Fotos, eingelesener Text, Spur), geht hier über
     // `tagIndex(fuer:)` an das Kapitel, in das sein Datum fällt.
     var zeitraster = Zeitraster()
+    // Wessen Buch es ist — für „Simon wird 10 Jahre alt" im Raster
+    // „Lebensjahr".
+    var person: String = ""
     // Die Texte mit Zeitstempel. Der Text eines Kapitels wird daraus
     // zusammengesetzt (`kapiteltext`).
     var eintraege: [Texteintrag] = []
@@ -273,7 +291,14 @@ struct Reise: Identifiable, Codable {
     // geschrieben.
     var geaendertAuf: String?
 
-    init() {}
+    // KAPITELWEISE: Ein neues Buch beginnt im Stil „Lebensbuch", mit
+    // Kopfzeile („KAPITEL 2019") und im Hochformat.
+    init() {
+        stil = Buchstil.lebensbuch.id
+        stilAnwenden(.lebensbuch)
+        gestaltung.kopfzeile = true
+        format = .a4hoch
+    }
 
     // Derselbe nachsichtige Leser wie beim Tag — und aus demselben Grund.
     init(from decoder: Decoder) throws {
@@ -285,6 +310,7 @@ struct Reise: Identifiable, Codable {
         tage = b.wert(.tage, [])
         fotos = b.wert(.fotos, [])
         zeitraster = b.wert(.zeitraster, Zeitraster())
+        person = b.wert(.person, "")
         eintraege = b.wert(.eintraege, [Texteintrag]())
         typografie = b.wert(.typografie, Typografie())
         gestaltung = b.wert(.gestaltung, Gestaltung())
@@ -432,6 +458,14 @@ struct Reise: Identifiable, Codable {
         tag.ueberschrift = k.standardTitel
         tag.datumstext = k.zeitraum
         tag.karteZeigen = false
+        // Im Lebensjahr: „Simon wird 10 Jahre alt", und als Datumszeile der
+        // Geburtstag selbst.
+        if zeitraster.vorgabe == .lebensjahr {
+            tag.datumstext = Zeitraster.text(k.beginn, "d. MMMM yyyy")
+            let alter = zeitraster.alter(k.index)
+            tag.unterueberschrift = Self.alterszeile(person: person, alter: alter)
+            tag.zeitungstitel = alter <= 0 ? "Der Tag deiner Geburt" : "Der Tag deines \(alter). Geburtstags"
+        }
         return tag
     }
 
@@ -440,6 +474,17 @@ struct Reise: Identifiable, Codable {
         eintraege
             .filter { kapitelbeginn($0.tagesdatum) == beginn }
             .sorted { $0.zeit < $1.zeit }
+    }
+
+    static func alterszeile(person: String, alter: Int) -> String {
+        let name = person.trimmingCharacters(in: .whitespacesAndNewlines)
+        let wer = name.isEmpty ? "Du wirst" : "\(name) wird"
+        switch alter {
+        case ..<0: return ""
+        case 0: return name.isEmpty ? "Willkommen auf der Welt" : "\(name) wird geboren"
+        case 1: return "\(wer) 1 Jahr alt"
+        default: return "\(wer) \(alter) Jahre alt"
+        }
     }
 
     /// Der Text eines Kapitels, zusammengesetzt aus seinen Einträgen.

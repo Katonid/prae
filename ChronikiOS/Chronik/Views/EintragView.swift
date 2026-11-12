@@ -374,6 +374,7 @@ struct KapitelrasterView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
     @State private var raster = Zeitraster()
+    @State private var person = ""
     @State private var geladen = false
 
     var body: some View {
@@ -386,6 +387,10 @@ struct KapitelrasterView: View {
                     )) {
                         ForEach(Zeitraster.Vorgabe.allCases) { Text($0.name).tag($0) }
                     }
+                    if raster.vorgabe == .lebensjahr {
+                        TextField("Name, z. B. Simon", text: $person)
+                        DatePicker("Geboren am", selection: $raster.beginn, displayedComponents: .date)
+                    }
                     if raster.vorgabe == .eigene {
                         Stepper("Länge: \(raster.anzahl) \(raster.einheit.name(raster.anzahl))",
                                 value: $raster.anzahl, in: 1...100)
@@ -397,7 +402,9 @@ struct KapitelrasterView: View {
                 } header: {
                     Text("Zeitraster")
                 } footer: {
-                    Text("Fotos kommen nach ihrem Aufnahmetag in ein Kapitel, Texte nach ihrem Zeitstempel. Grundeinstellung: ein Kapitel je Kalenderjahr.")
+                    Text(raster.vorgabe == .lebensjahr
+                         ? "Jedes Kapitel ist ein Lebensjahr, von Geburtstag zu Geburtstag. Es heißt nach dem Jahr (\u{201E}2019\u{201C}), darunter steht \u{201E}\(person.isEmpty ? "Du wirst" : person + " wird") 10 Jahre alt\u{201C} und als Datum der Geburtstag."
+                         : "Fotos kommen nach ihrem Aufnahmetag in ein Kapitel, Texte nach ihrem Zeitstempel. Grundeinstellung: ein Kapitel je Kalenderjahr.")
                 }
 
                 Section("Vorschau") {
@@ -412,12 +419,13 @@ struct KapitelrasterView: View {
 
                 Section {
                     Button {
+                        werk.reise.person = person.trimmingCharacters(in: .whitespacesAndNewlines)
                         werk.rasterSetzen(raster)
                         schliessen()
                     } label: {
                         Label("Kapitel neu einteilen", systemImage: "rectangle.split.3x1")
                     }
-                    .disabled(raster == werk.reise.zeitraster)
+                    .disabled(raster == werk.reise.zeitraster && person == werk.reise.person)
                 } footer: {
                     Text("Danach werden alle Kapitel neu gesetzt. Was auf den Seiten von Hand verschoben wurde, gilt dann nicht mehr \u{2014} \u{201E}Widerrufen\u{201C} holt den vorigen Stand zurück.")
                 }
@@ -432,6 +440,7 @@ struct KapitelrasterView: View {
             .onAppear {
                 if !geladen {
                     raster = werk.reise.zeitraster
+                    person = werk.reise.person
                     geladen = true
                 }
             }

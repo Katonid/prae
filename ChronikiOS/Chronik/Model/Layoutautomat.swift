@@ -507,7 +507,17 @@ struct Layoutautomat {
         ich.kartenzeile = tag.kartentextZeigen
             ? (tag.kartentext.isEmpty ? "Kartenunterschrift" : tag.kartentext)
             : nil
-        return ich.seitenBauen(tag)
+        // KAPITELWEISE: Im Lebensbuch setzt das Kapitel seine Seiten selbst
+        // (Zeitung, Meldungen, Fotos, Text) — außer es trägt ein eigenes
+        // Muster. In jedem anderen Stil kommen Zeitung und Meldungen vor
+        // die gewohnten Seiten.
+        if ich.istLebensbuch, tag.muster == nil { return ich.lebensseiten(tag) }
+        let vorn = ich.sonderseiten(tag)
+        let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt }
+        if !vorn.isEmpty, fotos.isEmpty, tag.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return vorn
+        }
+        return vorn + ich.seitenBauen(tag)
     }
 
     private func seitenBauen(_ tag: Reisetag) -> [Seite] {
@@ -2057,5 +2067,344 @@ struct Layoutautomat {
         if let hoechstens { deckel = min(deckel, hoechstens - unten) }
         if bildhoehe > deckel { bildhoehe = max(deckel, 1) }
         return (reihe, bildhoehe + unten, bildhoehe)
+    }
+}
+
+// MARK: - KAPITELWEISE: Lebensbuch (ab 1.0.4)
+//
+// Vorlage des Nutzers 11/2026 (ein Buch „Simon 18" zum 18. Geburtstag):
+// Jedes Kapitel ist ein Lebensjahr und beginnt mit der ZEITUNG vom
+// Geburtstag (groß, leicht gedreht, daneben ein kurzer Text), dann
+// „Was an deinem Geburtstag geschah" (vier Meldungen mit Bild), dann die
+// Fotos des Jahres — „relativ groß, aber doch leicht überlappend" —, und am
+// Ende der Text des Kapitels neben vier Bildern.
+//
+// Alles hier sind gewöhnliche Blöcke: Titel, zweite Überschrift,
+// Datumszeile, Text mit eigener Schrift (`Schriftabweichung`), Fotos mit
+// Drehung und Ebene. Damit gilt für diese Seiten alles, was das Reisebuch
+// kann — anfassen, verschieben, drehen, Schrift ändern, Druckprüfung, PDF.
+// Steht in einem Kapitel ein eigenes Seitenmuster, gilt das Reisebuch-Satz
+// wie bisher; die Zeitungs- und Meldungsseiten kommen in jedem Stil davor.
+extension Layoutautomat {
+    var istLebensbuch: Bool { stil.id == Buchstil.lebensbuch.id }
+
+    /// Zeitungs- und Meldungsseiten eines Kapitels.
+    func sonderseiten(_ tag: Reisetag) -> [Seite] {
+        var seiten: [Seite] = []
+        if let id = tag.zeitung, let zeitung = fotoIndex[id] {
+            seiten.append(zeitungsseite(tag, zeitung: zeitung))
+        }
+        let meldungen = tag.meldungen.filter {
+            !$0.titel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || $0.foto != nil
+        }
+        if !meldungen.isEmpty { seiten.append(contentsOf: meldungsseiten(tag, meldungen)) }
+        return seiten
+    }
+
+    /// Das ganze Kapitel im Lebensbuch.
+    func lebensseiten(_ tag: Reisetag) -> [Seite] {
+        let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt }
+        let text = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var seiten = sonderseiten(tag)
+        seiten.append(contentsOf: lebensalbum(tag, fotos: fotos, text: text,
+                                              eroeffnet: !seiten.isEmpty))
+        if seiten.isEmpty {
+            var y = satz.minY
+            seiten.append(Seite(bloecke: lebenskopf(tag, y: &y, gross: true)))
+        }
+        return seiten
+    }
+
+    // MARK: Bausteine
+
+    private func abweichung(_ bild: Schriftbild) -> Schriftabweichung {
+        var a = Schriftabweichung()
+        a.familie = bild.familie
+        a.groesse = bild.groesse
+        a.zeilenabstand = bild.zeilenabstand
+        a.absatzabstand = bild.absatzabstand
+        a.ausrichtung = bild.ausrichtung
+        a.farbe = bild.farbe
+        a.fett = bild.fett
+        a.kursiv = bild.kursiv
+        a.versalien = bild.versalien
+        a.sperrung = bild.sperrung
+        a.trennung = bild.trennung
+        return a
+    }
+
+    /// Ein Text in eigener Schrift, gemessen mit genau dieser Schrift.
+    private func textblock(_ text: String, bild: Schriftbild, x: Double, y: Double,
+                           breite: Double, hoechstens: Double? = nil) -> Block {
+        var hoehe = Textmass.hoehe(text, bild: bild, breite: breite)
+        if let hoechstens { hoehe = min(hoehe, max(hoechstens, bild.zeilenhoehe)) }
+        return Block(inhalt: .text(text),
+                     rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
+                     abweichung: abweichung(bild))
+    }
+
+    private var navy: Farbwert { typografie.titel.farbe }
+
+    /// Der Kopf: großer Titel („2019"), eine Goldlinie, die zweite
+    /// Überschrift (oder `zusatz`), die Datumszeile — alles mittig.
+    private func lebenskopf(_ tag: Reisetag, y: inout CGFloat, gross: Bool,
+                            zusatz: String? = nil, datum: Bool = true) -> [Block] {
+        var bloecke: [Block] = []
+        let x = Double(satz.minX)
+        let breite = Double(satz.width)
+        var titelbild = typografie.titel
+        var titelabweichung = Schriftabweichung()
+        if !gross {
+            titelbild.groesse = (typografie.titel.groesse * 0.74).rounded()
+            titelabweichung.groesse = titelbild.groesse
+        }
+        let titel = tag.ueberschrift.isEmpty ? tag.datum.mittel : tag.ueberschrift
+        let titelhoehe = Textmass.hoehe(titel, bild: titelbild, breite: breite)
+        bloecke.append(Block(inhalt: .titel,
+                             rahmen: Rahmen(x: x, y: Double(y), breite: breite, hoehe: titelhoehe),
+                             abweichung: titelabweichung))
+        y += CGFloat(titelhoehe) + 1
+        bloecke.append(Block(inhalt: .linie,
+                             rahmen: Rahmen(x: x + breite * 0.34, y: Double(y), breite: breite * 0.32, hoehe: 1.4),
+                             rand: stil.akzent))
+        y += 7
+        let zweiteBild = typografie[.unterueberschrift]
+        if let zusatz {
+            if !zusatz.isEmpty {
+                let block = textblock(zusatz, bild: zweiteBild, x: x, y: Double(y), breite: breite)
+                bloecke.append(block)
+                y += CGFloat(block.rahmen.hoehe) + 3
+            }
+        } else if !tag.unterueberschrift.isEmpty {
+            let hoehe = Textmass.hoehe(tag.unterueberschrift, bild: zweiteBild, breite: breite)
+            bloecke.append(Block(inhalt: .unterueberschrift,
+                                 rahmen: Rahmen(x: x, y: Double(y), breite: breite, hoehe: hoehe)))
+            y += CGFloat(hoehe) + 3
+        }
+        if datum {
+            let hoehe = typografie.datum.zeilenhoehe + 2
+            bloecke.append(Block(inhalt: .datum,
+                                 rahmen: Rahmen(x: x, y: Double(y), breite: breite, hoehe: hoehe)))
+            y += CGFloat(hoehe)
+        }
+        y += 14
+        return bloecke
+    }
+
+    // MARK: Zeitungsseite
+
+    private func zeitungsseite(_ tag: Reisetag, zeitung: Foto) -> Seite {
+        var y = satz.minY
+        var bloecke = lebenskopf(tag, y: &y, gross: true)
+        let spalte = Double(satz.width) * 0.29
+        let zeitungX = Double(satz.minX) + spalte + fuge * 2.5
+        let platzBreite = Double(satz.maxX) - zeitungX
+        let platzHoehe = Double(satz.maxY - y)
+        let v = max(zeitung.seitenverhaeltnis, 0.3)
+        var breite = platzBreite
+        var hoehe = breite / v
+        if hoehe > platzHoehe {
+            hoehe = platzHoehe
+            breite = hoehe * v
+        }
+        bloecke.append(Block(inhalt: .foto(zeitung.id),
+                             rahmen: Rahmen(x: Double(satz.maxX) - breite, y: Double(y), breite: breite, hoehe: hoehe),
+                             drehung: -1.2, ebene: 1, fotorand: 0))
+
+        // Die Spalte links: Goldstrich, Überschrift, Text.
+        var sy = Double(y) + platzHoehe * 0.08
+        let sx = Double(satz.minX)
+        bloecke.append(Block(inhalt: .linie, rahmen: Rahmen(x: sx, y: sy, breite: 26, hoehe: 1.4),
+                             rand: stil.akzent))
+        sy += 10
+        let titel = tag.zeitungstitel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !titel.isEmpty {
+            var bild = typografie[.unterueberschrift]
+            bild.groesse = 15
+            bild.ausrichtung = .links
+            bild.fett = true
+            let block = textblock(titel, bild: bild, x: sx, y: sy, breite: spalte)
+            bloecke.append(block)
+            sy += block.rahmen.hoehe + 8
+        }
+        let text = tag.zeitungstext.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty {
+            var bild = typografie.flieText
+            bild.ausrichtung = .links
+            bloecke.append(textblock(text, bild: bild, x: sx, y: sy, breite: spalte,
+                                     hoechstens: Double(satz.maxY) - sy))
+        }
+        return Seite(bloecke: bloecke)
+    }
+
+    // MARK: Meldungen
+
+    private func meldungsseiten(_ tag: Reisetag, _ meldungen: [Meldung]) -> [Seite] {
+        var seiten: [Seite] = []
+        var rest = meldungen[...]
+        var erste = true
+        while !rest.isEmpty {
+            let gruppe = Array(rest.prefix(4))
+            rest = rest.dropFirst(4)
+            var y = satz.minY
+            var bloecke = lebenskopf(tag, y: &y, gross: false, zusatz: erste ? nil : "", datum: erste)
+            if erste {
+                var bild = typografie.titel
+                bild.groesse = 24
+                bild.fett = false
+                let block = textblock("Was an diesem Tag geschah", bild: bild,
+                                      x: Double(satz.minX), y: Double(y) - 4, breite: Double(satz.width))
+                bloecke.append(block)
+                y += CGFloat(block.rahmen.hoehe) + 8
+            }
+            erste = false
+            let spalten = gruppe.count == 1 ? 1 : 2
+            let zeilen = (gruppe.count + spalten - 1) / spalten
+            let luft = fuge * 4
+            let zelleB = (Double(satz.width) - luft * Double(spalten - 1)) / Double(spalten)
+            let zelleH = (Double(satz.maxY - y) - luft * Double(zeilen - 1)) / Double(zeilen)
+            var titelbild = typografie.titel
+            titelbild.groesse = 14
+            titelbild.ausrichtung = .links
+            titelbild.zeilenabstand = 1.1
+            var textbild = typografie.flieText
+            textbild.kursiv = false
+            textbild.groesse = 9.2
+            textbild.ausrichtung = .links
+            for (n, meldung) in gruppe.enumerated() {
+                let x = Double(satz.minX) + Double(n % spalten) * (zelleB + luft)
+                var zy = Double(y) + Double(n / spalten) * (zelleH + luft)
+                let unten = zy + zelleH
+                if let id = meldung.foto, let foto = fotoIndex[id] {
+                    let h = min(zelleB / max(foto.seitenverhaeltnis, 0.6), zelleH * 0.52)
+                    bloecke.append(Block(inhalt: .foto(foto.id),
+                                         rahmen: Rahmen(x: x, y: zy, breite: zelleB, hoehe: h),
+                                         fotorand: 0))
+                    zy += h + 8
+                }
+                let titel = meldung.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !titel.isEmpty {
+                    bloecke.append(Block(inhalt: .linie, rahmen: Rahmen(x: x, y: zy, breite: 2.2, hoehe: 15),
+                                         rand: stil.akzent, grund: stil.akzent))
+                    let block = textblock(titel, bild: titelbild, x: x + 8, y: zy, breite: zelleB - 8)
+                    bloecke.append(block)
+                    zy += block.rahmen.hoehe + 5
+                }
+                let text = meldung.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !text.isEmpty {
+                    bloecke.append(textblock(text, bild: textbild, x: x, y: zy, breite: zelleB,
+                                             hoechstens: unten - zy))
+                }
+            }
+            seiten.append(Seite(bloecke: bloecke))
+        }
+        return seiten
+    }
+
+    // MARK: Fotos — groß, gedreht, überlappend
+
+    /// Felder für n Fotos als Anteile der Fläche (x, y, Breite, Höhe). Sie
+    /// überlappen mit Absicht; jedes Foto wird in sein Feld eingepasst und
+    /// ein wenig größer gesetzt, damit die Ecken übereinandergreifen.
+    private static func albumfelder(_ n: Int) -> [(Double, Double, Double, Double)] {
+        switch n {
+        case 1: return [(0.04, 0.02, 0.92, 0.96)]
+        case 2: return [(0.0, 0.0, 0.64, 0.6), (0.36, 0.42, 0.64, 0.58)]
+        case 3: return [(0.0, 0.0, 0.62, 0.56), (0.58, 0.06, 0.42, 0.46), (0.16, 0.52, 0.68, 0.48)]
+        case 4: return [(0.0, 0.0, 0.6, 0.52), (0.56, 0.02, 0.44, 0.46),
+                        (0.0, 0.5, 0.46, 0.5), (0.44, 0.46, 0.56, 0.54)]
+        default: return [(0.0, 0.0, 0.6, 0.5), (0.57, 0.0, 0.43, 0.34), (0.57, 0.32, 0.43, 0.34),
+                         (0.0, 0.5, 0.5, 0.5), (0.47, 0.64, 0.53, 0.36)]
+        }
+    }
+
+    private func albumbloecke(_ fotos: [Foto], in flaeche: CGRect) -> [Block] {
+        var bloecke: [Block] = []
+        let felder = Self.albumfelder(fotos.count)
+        for (n, foto) in fotos.enumerated() where n < felder.count {
+            let f = felder[n]
+            var feld = CGRect(x: Double(flaeche.minX) + f.0 * Double(flaeche.width),
+                              y: Double(flaeche.minY) + f.1 * Double(flaeche.height),
+                              width: f.2 * Double(flaeche.width), height: f.3 * Double(flaeche.height))
+            // Platz für die Bildunterschrift.
+            let zeile = unterschriftHoehe(foto, breite: Double(feld.width) * 0.8)
+            feld.size.height -= CGFloat(zeile)
+            let v = max(foto.seitenverhaeltnis, 0.3)
+            var breite = Double(feld.width) * 1.06
+            var hoehe = breite / v
+            if hoehe > Double(feld.height) * 1.06 {
+                hoehe = Double(feld.height) * 1.06
+                breite = hoehe * v
+            }
+            let x = Double(feld.midX) - breite / 2
+            let y = Double(feld.midY) - hoehe / 2
+            let bild = Block(inhalt: .foto(foto.id),
+                             rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
+                             drehung: drehwinkel(foto.id) * 0.8,
+                             ebene: n)
+            bloecke.append(bild)
+            if let unterschrift = unterschriftBlock(foto, x: x + breite * 0.1, y: y + hoehe, breite: breite * 0.8) {
+                bloecke.append(angelegt(unterschrift, an: bild))
+            }
+        }
+        return bloecke
+    }
+
+    private func lebensalbum(_ tag: Reisetag, fotos alle: [Foto], text: String,
+                             eroeffnet: Bool) -> [Seite] {
+        var seiten: [Seite] = []
+        var fotos = alle
+        // Die letzten vier Fotos gehören neben den Text des Kapitels.
+        var nebenText: [Foto] = []
+        if !text.isEmpty {
+            let zahl = min(4, fotos.count)
+            nebenText = Array(fotos.suffix(zahl))
+            fotos.removeLast(zahl)
+        }
+        let groessen = [4, 5, 3, 4, 5, 2]
+        var nummer = 0
+        while !fotos.isEmpty {
+            var y = satz.minY
+            let erste = nummer == 0
+            var bloecke = lebenskopf(tag, y: &y, gross: !eroeffnet && erste,
+                                     zusatz: erste ? (eroeffnet ? "in diesem Jahr" : nil) : "",
+                                     datum: erste && !eroeffnet)
+            var zahl = min(groessen[nummer % groessen.count], fotos.count)
+            if fotos.count - zahl == 1 { zahl = min(zahl + 1, 5, fotos.count) }
+            let teil = Array(fotos.prefix(zahl))
+            fotos.removeFirst(zahl)
+            let flaeche = CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
+            bloecke.append(contentsOf: albumbloecke(teil, in: flaeche))
+            seiten.append(Seite(bloecke: bloecke))
+            nummer += 1
+        }
+        guard !text.isEmpty else { return seiten }
+
+        // Der Text des Kapitels: links eine Spalte, rechts bis zu vier Fotos.
+        var rest = text
+        var erste = true
+        var schutz = 0
+        while !rest.isEmpty, schutz < 40 {
+            schutz += 1
+            var y = satz.minY
+            var bloecke = lebenskopf(tag, y: &y, gross: false,
+                                     zusatz: erste ? "Was von diesem Jahr bleibt" : "", datum: false)
+            let mitFotos = erste && !nebenText.isEmpty
+            let spalte = mitFotos ? Double(satz.width) * 0.42 : Double(satz.width)
+            let vorher = rest
+            (bloecke, _, rest) = textSpalte(bloecke, y: y, x: satz.minX, breite: spalte, text: rest)
+            if mitFotos {
+                let x = Double(satz.minX) + spalte + fuge * 3
+                let flaeche = CGRect(x: x, y: Double(y), width: Double(satz.maxX) - x,
+                                     height: Double(satz.maxY - y))
+                bloecke.append(contentsOf: albumbloecke(nebenText, in: flaeche))
+            }
+            seiten.append(Seite(bloecke: bloecke))
+            erste = false
+            if rest == vorher { break }
+        }
+        return seiten
     }
 }
