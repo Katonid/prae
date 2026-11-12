@@ -1,0 +1,779 @@
+import PDFKit
+import SwiftUI
+
+// AUSGEBEN — und seit 1.0.37 auch DRUCKEN.
+//
+// Diese eine Ansicht bedient beide Einstiege: „Als PDF sichern…" und
+// „Broschüre drucken…". Ein zweiter Bildschirm für die Broschüre wäre ein
+// zweiter Weg zu derselben Sache und liefe irgendwann auseinander —
+// dieselbe Regel wie bei den Fotostilfeldern (1.0.10). Der Einstieg wählt
+// nur vor, was hier oben steht.
+struct AusgabeView: View {
+    @ObservedObject var werk: Reisewerk
+    @Environment(\.dismiss) private var schliessen
+
+    @State private var anteil: Double = 0
+    @State private var laeuft = false
+    @State private var fertig: URL?
+    @State private var befundAmPDF: [Druckpruefung.Zeile] = []
+    @State private var fehler: String?
+    @State private var teilen = false
+    @State private var guete: Bildguete = .druck
+    // WAS BEI DIESER GÜTE WIRKLICH IN DER DATEI LANDET (ab 1.0.59).
+    //
+    // Gerechnet und nicht behauptet — und gerechnet in einer Aufgabe und
+    // nicht im Körper: Der Lauf geht über jede Seite und jedes Bild des
+    // Buches, und der Körper einer Ansicht läuft bei jedem Neuzeichnen
+    // (dieselbe Falle wie bei der Druckprüfung in 1.0.0).
+    @State private var gueteBefund = ""
+    @State private var groessenbefund = ""
+    @State private var ohneTransparenz = false
+    @State private var umfang: Umfang
+    @State private var drucken = false
+
+    // WOMIT DER BILDSCHIRM AUFMACHT. Die Menüpunkte „Broschüre drucken…"
+    // und „Umschlag und Innenteil getrennt…" reichen ihren Umfang herein;
+    // ohne Vorgabe entscheidet das BUCH.
+    //
+    // Hat es einen Umschlagbogen, sind ZWEI Dateien die Vorwahl (ab
+    // 1.0.52, Ansage des Nutzers 09/2026: „dass automatisch ein Export von
+    // zwei PDF-Dateien vorgenommen werden soll"). Das ist nicht bloß
+    // Bequemlichkeit: Ein Bogen ist doppelt so breit wie eine Seite, und
+    // mitten in einer Datei mit Buchseiten hätte er dort nichts zu suchen.
+    // Umstellen lässt es sich weiterhin mit einem Tipp — der Picker steht
+    // sichtbar darüber, und still weglassen tut diese Vorwahl nichts:
+    // Ausgegeben wird in jedem Fall alles, nur eben in zwei Dateien.
+    //
+    // Gesetzt wird der Anfangswert HIER und nicht in `.task`: Ein Zustand,
+    // den eine Aufgabe nachträglich überschreibt, springt für einen
+    // Durchgang lang auf den falschen Wert — und wer in dieser Zeit schon
+    // umgestellt hat, sieht seine Wahl zurückgesetzt.
+    init(werk: Reisewerk, vorwahl: Umfang? = nil) {
+        self.werk = werk
+        // Ist im Buch ein Druckprodukt mit DOPPELSEITEN gewählt (Saal,
+        // ab 1.0.123), ist das die Vorwahl: Ansage des Nutzers 11/2026 —
+        // er fand nicht, wo man festlegt, dass Saal keine Einzelseiten,
+        // sondern fortlaufende Doppelseiten haben will.
+        let doppel = Druckprodukt.produkt(werk.reise.format.vorlage)?.doppelseiten == true
+        let ausDemBuch: Umfang
+        if doppel {
+            ausDemBuch = werk.reise.hatRueckseite ? .doppelseitenMitUmschlag : .doppelseiten
+        } else {
+            ausDemBuch = werk.reise.hatRueckseite ? .getrennt : .ganzesBuch
+        }
+        _umfang = State(initialValue: vorwahl ?? ausDemBuch)
+    }
+    // WIE VIELE INNENSEITEN BESTELLT SIND (ab 1.0.72). Als Text, weil ein
+    // leeres Feld „nichts bestellt" heißen muss und nicht „null Seiten".
+    @State private var bestellte = ""
+    @State private var teilenliste: [URL] = []
+    @State private var befundVorab: [Druckpruefung.Zeile] = []
+    @State private var rueckseitenDrehen = false
+
+    // WIE DIE SEITEN ANGEORDNET WERDEN.
+    //
+    // Der Picker hieß bis 1.0.36 „Umfang", und die Namen darin sagten
+    // nicht, was dahintersteht: Für „Broschüre" musste man wissen, dass es
+    // eine gibt. Dass der Nutzer sie nicht gefunden hat (09/2026: „Noch
+    // nicht gefunden habe ich die gewünschte Option, das Reisetagebuch auf
+    // dem heimischen Drucker doppelseitig als Broschüre drucken zu
+    // können"), obwohl sie seit 1.0.27 vollständig gebaut ist, liegt an
+    // drei Dingen auf einmal: falsches Menü, ein Wort, das nach Seitenzahl
+    // klingt, und ein zugeklappter Picker darüber. Alle drei sind geändert.
+    // NUR DER UMSCHLAG, NUR DER INNENTEIL (ab 1.0.67).
+    //
+    // Ansage des Nutzers, 09/2026: „Ich versuche herauszufinden, woran das
+    // liegen könnte, damit ich jetzt nicht wieder beide Teile exportieren
+    // muss, denn das PDF für das eigentliche Buch ist mittlerweile knapp
+    // 4 GB groß." Das ist der Grund, und er wiegt schwer: Ein Umschlagbogen
+    // ist in Sekunden gesetzt, der Innenteil braucht mit zweihundert Fotos
+    // seine Zeit und seinen Platz. Wer am Umschlag etwas ändert, soll nicht
+    // vier Gigabyte mitschreiben lassen, die er schon hat.
+    //
+    // Gebaut wird dafür KEIN zweiter Weg: Es sind dieselben zwei Aufträge,
+    // die `getrennt` nacheinander stellt — hier eben einzeln.
+    enum Umfang: String, CaseIterable, Identifiable {
+        case ganzesBuch
+        case getrennt
+        case nurUmschlag
+        case nurInnenteil
+        case doppelseiten
+        // Doppelseiten UND Umschlag, zwei Dateien (ab 1.0.123) — genau das,
+        // was Saal Digital für ein Fotobuch mit Hardcover haben will.
+        case doppelseitenMitUmschlag
+        case broschuere
+
+        var id: String { rawValue }
+        var name: String {
+            switch self {
+            case .ganzesBuch: return "Buchseiten der Reihe nach"
+            case .getrennt: return "Umschlag als eigene Datei"
+            case .nurUmschlag: return "Nur der Umschlagbogen"
+            case .nurInnenteil: return "Nur die Buchseiten"
+            case .doppelseiten: return "Doppelseiten (zwei auf einen Bogen)"
+            case .doppelseitenMitUmschlag: return "Doppelseiten + Umschlag (zwei Dateien)"
+            case .broschuere: return "Broschüre zum Selberfalten"
+            }
+        }
+
+        var erklaerung: String {
+            switch self {
+            case .ganzesBuch:
+                return "Eine Datei, Seite für Seite — das, was eine Druckerei oder ein Fotobuchdienst haben will."
+            case .getrennt:
+                return "Zwei Dateien: Innenteil und Umschlag. Viele Buchdienste verlangen das so. Der Umschlag ist EIN breiter Bogen — links die Rückseite, in der Mitte der Rücken, rechts die Titelseite."
+            case .nurUmschlag:
+                return "Nur der Umschlagbogen, ohne eine einzige Buchseite. Für den Fall, dass am Umschlag etwas zu ändern war und der Innenteil schon liegt — der ist bei einem vollen Buch mehrere Gigabyte groß und braucht seine Zeit."
+            case .nurInnenteil:
+                return "Nur die Buchseiten, ohne den Umschlagbogen. Die Gegenrichtung zu „Nur der Umschlagbogen“: Beide zusammen ergeben dasselbe wie „Umschlag als eigene Datei“, nur eben zu zwei Zeitpunkten."
+            case .doppelseiten:
+                return "Zwei Buchseiten auf eine PDF-Seite, links die gerade Nummer — so, wie das aufgeschlagene Buch aussieht. Der Bogen ist doppelt so breit wie eine Seite. Manche Fotobuchdienste wollen genau das. Der Umschlag gehört nicht hinein; den gibt es einzeln."
+            case .doppelseitenMitUmschlag:
+                return "Zwei Dateien: der Innenteil als fortlaufende Doppelseiten (links die gerade Nummer) und der Umschlagbogen. So will es Saal Digital beim Fotobuch mit Hardcover."
+            case .broschuere:
+                return "Zwei Seiten nebeneinander auf einen Bogen, in Heftfolge. Für den eigenen Drucker: beidseitig ausdrucken, in der Mitte falten, heften."
+            }
+        }
+    }
+
+    // WAS AUS DER PAARUNG GEWORDEN IST — als Zahl, nicht als Zusage.
+    //
+    // Ein halber erster und ein halber letzter Bogen sind Buchbinderei und
+    // sehen trotzdem wie ein Fehler aus, wenn niemand sie benennt. Gebaut
+    // wird der Satz Stück für Stück und nicht als Kette aus `?:`, `+` und
+    // Interpolation — daran hat sich in 1.0.38 der Typprüfer verschluckt.
+    private var doppelseitenzeile: Druckpruefung.Zeile {
+        let befund = Buchausgabe.doppelseitenbefund(werk.reise)
+        // `Double(…)` ausdrücklich — die Falle aus 1.0.37: Wo ein Wert
+        // aus einem `CGSize` in eine eigene Größe geht, steht die
+        // Umwandlung in diesem Repo dabei.
+        let breite = Double(werk.reise.format.groesse.width) * 2
+        let hoehe = Double(werk.reise.format.groesse.height)
+        var titel = "\(befund.bogen) Doppelseiten"
+        if befund.bogen == 1 { titel = "1 Doppelseite" }
+        titel += ", je \(Druckmass.mmText(breite)) x \(Druckmass.mmText(hoehe))"
+        var text = "Links steht immer die gerade Seitenzahl, rechts die "
+        text += "ungerade \u{2014} so, wie das Buch aufgeschlagen daliegt. "
+        text += "Der Umschlag steht nicht darin."
+        var stufe = Druckpruefung.Stufe.gut
+        if befund.halbe > 0 {
+            stufe = .hinweis
+            var wieviele = "\(befund.halbe) davon tragen"
+            if befund.halbe == 1 { wieviele = "Eine davon trägt" }
+            text += " " + wieviele
+            text += " nur eine Buchseite: Seite 1 hat links von sich die "
+            text += "Innenseite des Umschlags, und am Ende des Buches ist es "
+            text += "ebenso. Diese Hälfte bleibt weiß \u{2014} sie kommt von der "
+            text += "Druckerei und steht in keinem PDF."
+        }
+        return Druckpruefung.Zeile(stufe: stufe, titel: titel, text: text)
+    }
+
+    // Was am Umschlagbogen zu wissen ist — die Rückenbreite und dass sie
+    // gerechnet und nicht gemessen ist.
+    private var umschlagzusatz: String {
+        guard werk.reise.hatRueckseite else { return "" }
+        let mm = Umschlagmass.rueckenbreite(werk.reise.umschlag,
+                                            format: werk.reise.format,
+                                            innenseiten: werk.reise.innenseiten)
+        guard mm > 0.05 else { return "" }
+        let zahl = String(format: "%.1f", mm).replacingOccurrences(of: ".", with: ",")
+        var text = " \u{2014} ein Bogen, Rücken \(zahl) mm. "
+        text += "Die Breite ist "
+        text += Umschlagmass.rueckenherkunft(werk.reise.umschlag,
+                                             format: werk.reise.format,
+                                             innenseiten: werk.reise.innenseiten)
+        text += "; verbindlich ist die Angabe des Druckdienstes."
+        return text
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Seiten", value: "\(werk.reise.seitenzahl)")
+                    LabeledContent("Endformat", value: werk.reise.format.masstext)
+                    // DAS MASS, DAS DIE DRUCKEREI PRÜFT (ab 1.0.72).
+                    //
+                    // Bis 1.0.71 stand hier nur das Endformat — also die
+                    // Seite, wie sie geschnitten in der Hand liegt. Geprüft
+                    // wird aber die DATEI, und die ist um zwei Anschnitte
+                    // größer. Gemeldet 09/2026: „Das Format der erhaltenen
+                    // Daten stimmt nicht mit der Bestellung überein."
+                    // Diese Zeile ist die, die sich gegen eine Bestellung
+                    // halten lässt, und sie folgt der gewählten Anordnung:
+                    // Einzelseiten, Doppelseiten und Umschlag sind drei
+                    // verschiedene Maße.
+                    LabeledContent("Bogen im PDF", value: bogenmass)
+                    // DER ZWEITE ZUGANG ZUM STECKBRIEF (ab 1.0.75).
+                    //
+                    // Dieselbe Ansicht wie hinter „Ausgabeformat und
+                    // Maße…" im Menü, nur mit der HIER gewählten Bildgüte
+                    // — zwei Fassungen desselben Bildschirms liefen
+                    // auseinander (die Regel aus 1.0.10). Wer vor dem
+                    // Ausgeben wissen will, was in der Datei steht, ist
+                    // genau hier und soll dafür nicht erst das Blatt
+                    // zumachen müssen.
+                    NavigationLink {
+                        AusgabeformatView(werk: werk, guete: guete)
+                    } label: {
+                        Label("Alle Maße im Überblick", systemImage: "doc.text.magnifyingglass")
+                    }
+                    HStack {
+                        Text("Bestellt")
+                        Spacer()
+                        TextField("Seiten", text: $bestellte)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 70)
+                        Text("Innenseiten").foregroundStyle(.secondary)
+                    }
+                    Text(bestellhinweis)
+                        .font(.caption)
+                        .foregroundStyle(bestellpasst ? Color.secondary : Color.orange)
+                    Picker("Bildgüte", selection: $guete) {
+                        ForEach(Bildguete.allCases) { g in Text(g.name).tag(g) }
+                    }
+                    Text(guete.erklaerung)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if !gueteBefund.isEmpty {
+                        Text(gueteBefund)
+                            .font(.caption)
+                            .foregroundStyle(.primary)
+                    }
+                    // WIE GROSS DIE DATEI WIRD, BEVOR sie geschrieben ist
+                    // (ab 1.0.70). Vorher stand die Zahl erst danach da —
+                    // nach zwanzig Minuten Rechnen und mit einer Datei, die
+                    // kein Druckdienst annimmt.
+                    if !groessenbefund.isEmpty {
+                        Text(groessenbefund)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Picker("Anordnung", selection: $umfang) {
+                        ForEach(Umfang.allCases) { u in Text(u.name).tag(u) }
+                    }
+                    Text(umfang.erklaerung)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if umfang == .broschuere {
+                        LabeledContent("Bogen", value: broschuerenmass)
+                        Toggle("Rückseiten um 180° drehen", isOn: $rueckseitenDrehen)
+                        Text(broschuerenhinweis)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Toggle("Ohne Transparenz (PDF/X-1a, X-3)", isOn: $ohneTransparenz)
+                    if ohneTransparenz {
+                        Text("Schatten fallen weg, der Verlauf unter einer Überschrift auf einem Foto wird zu einem geschlossenen Feld, und ein Wasserzeichen entfällt ganz — deckend gezeichnet wäre es kein Wasserzeichen mehr. Nur nötig, wenn die Druckerei ausdrücklich danach fragt.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Was ausgegeben wird")
+                } footer: {
+                    Text("Der Text wird als Text gesetzt, nicht als Bild — das PDF bleibt durchsuchbar und wiegt einen Bruchteil. Endformat und Anschnitt stehen als TrimBox und BleedBox darin.")
+                }
+
+                // SEITEN AUFFÜLLEN (ab 1.0.98).
+                //
+                // Gemeldet 09/2026: „Der Druckdienst … nimmt die Datei
+                // mit 62 Innenseiten nicht an, wenn das nächste Raster
+                // bei ihm 64 Seiten ist. Das heißt, er fügt nicht selbst
+                // Seiten hinzu, sondern möchte, dass ich das mache."
+                // Bis 1.0.97 stand hier das Gegenteil als Auskunft: „Die
+                // fehlenden füllt die Druckerei meist mit leeren auf."
+                // Das gilt eben nicht überall — und wo es nicht gilt,
+                // kommt die Datei zurück.
+                //
+                // Die Schalter stehen genau hier, weil hier die Zahl
+                // steht, die den Anlass gibt.
+                Section {
+                    Toggle("Schmutztitel am Anfang", isOn: $werk.reise.schmutztitel)
+                    Toggle("Leere Schlussseite", isOn: $werk.reise.schlussseite)
+                    Text(fuellhinweis)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Seiten auffüllen")
+                } footer: {
+                    Text("Beide Seiten sind gewöhnliche Buchseiten: Sie stehen in der Bühne, zählen in der Seitenzahl mit, und es lassen sich Textfelder, Fotos oder Flächen darauf legen wie auf jeder anderen Seite \u{2014} über das \u{201E}+\u{201C}-Menü, wenn die Seite gewählt ist. Der Schmutztitel wiederholt Titel, Untertitel und Zeitraum auf weißem Grund; die Schlussseite bleibt leer und weiß.")
+                }
+
+                Section {
+                    ForEach(befundVorab) { zeile in BefundZeile(zeile: zeile) }
+                } header: {
+                    Text("Vor dem Ausgeben geprüft")
+                } footer: {
+                    // Dieselbe Prüfung steht seit 1.0.76 als eigener
+                    // Menüpunkt da („…" → Druckprüfung), denn hier findet
+                    // sie nur, wer ohnehin ausgeben will. Der Satz sagt,
+                    // wo sie sonst noch steht — zwei Zugänge, EINE Stelle.
+                    Text("Dieselbe Prüfung steht auch unter \u{201E}…\u{201C} \u{2192} Druckprüfung, ohne den Umweg über das Ausgeben.")
+                }
+
+                if laeuft {
+                    Section {
+                        ProgressView(value: anteil)
+                        Text(anteil < 0.45 ? "Kartenbilder werden geholt…" : "Seiten werden gesetzt…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if let fehler {
+                    Section {
+                        Label(fehler, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                if let fertig {
+                    Section("An der fertigen Datei gemessen") {
+                        ForEach(befundAmPDF) { zeile in BefundZeile(zeile: zeile) }
+                    }
+                    Section {
+                        PDFVorschau(adresse: fertig)
+                            .frame(height: 320)
+                            .listRowInsets(EdgeInsets())
+                        // DRUCKEN STEHT VOR TEILEN, wenn eine Broschüre
+                        // gesetzt wurde (ab 1.0.37). Sie ist für den
+                        // eigenen Drucker gebaut und für sonst nichts; eine
+                        // Datei, die man erst irgendwohin sichern und dann
+                        // von Hand wieder öffnen muss, wäre der Umweg um
+                        // genau den Knopf herum, um den gebeten wurde.
+                        Button {
+                            drucken = true
+                        } label: {
+                            Label("Drucken\u{2026}", systemImage: "printer")
+                        }
+                        Button {
+                            teilen = true
+                        } label: {
+                            Label("Sichern oder teilen", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                }
+
+                Section {
+                    Button {
+                        Task { await ausgeben() }
+                    } label: {
+                        Label(fertig == nil ? "PDF erzeugen" : "Noch einmal erzeugen",
+                              systemImage: "doc.badge.gearshape")
+                    }
+                    .disabled(laeuft)
+                }
+            }
+            .navigationTitle(titel)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fertig") { schliessen() }
+                }
+            }
+            .sheet(isPresented: $teilen) {
+                Teilenblatt(gegenstaende: teilenliste)
+            }
+            .onChange(of: drucken) { _, neu in
+                guard neu, let fertig else { return }
+                drucken = false
+                Druckauftrag.zeigen(fertig, titel: werk.reise.anzeigename,
+                                    beidseitig: umfang == .broschuere)
+            }
+            .task {
+                befundVorab = Druckpruefung.vorab(werk.reise)
+                if let wunsch = werk.reise.bestellteSeiten, bestellte.isEmpty {
+                    bestellte = String(wunsch)
+                }
+            }
+            // Geschrieben wird beim Tippen und nicht über einen Knopf: Ein
+            // Feld mit einem Knopf daneben, den man vergessen kann, ist die
+            // teurere Hälfte — dann stünde in der Prüfung die Zahl von
+            // vorhin. Ein leeres Feld heißt „nichts bestellt".
+            .onChange(of: bestellte) { _, neu in
+                let zahl = Int(neu.filter(\.isNumber))
+                werk.reise.bestellteSeiten = (zahl ?? 0) > 0 ? zahl : nil
+                befundVorab = Druckpruefung.vorab(werk.reise)
+            }
+            // Bei JEDEM Wechsel der Güte neu, denn genau sie ist die
+            // zweite Zahl in der Rechnung.
+            .task(id: guete) {
+                gueteBefund = Ausgabeguete.satz(werk.reise, guete: guete)
+                groessenbefund = Ausgabeguete.groessenschaetzung(werk.reise, guete: guete)
+            }
+        }
+    }
+
+    // MARK: - Broschüre
+
+    private var titel: String {
+        switch umfang {
+        case .broschuere: return "Broschüre"
+        case .getrennt: return "Zwei Dateien"
+        case .nurUmschlag: return "Nur der Umschlag"
+        case .nurInnenteil: return "Nur der Innenteil"
+        case .doppelseiten: return "Doppelseiten"
+        case .doppelseitenMitUmschlag: return "Doppelseiten + Umschlag"
+        case .ganzesBuch: return "Als PDF sichern"
+        }
+    }
+
+    // Was für DIESE Anordnung wirklich in der Datei steht — gerechnet über
+    // dieselben Stellen wie die Ausgabe. Zwei Fassungen nennten zwei
+    // Zahlen, und die Druckerei prüft eine.
+    // Passt die Seitenzahl zur Bestellung? Ohne Bestellung wird nichts
+    // behauptet — dann ist die Zeile eine Erklärung und keine Warnung.
+    private var bestellpasst: Bool {
+        guard let wunsch = Int(bestellte.filter(\.isNumber)), wunsch > 0 else { return true }
+        return werk.reise.innenseiten == wunsch
+    }
+
+    private var bestellhinweis: String {
+        let hat = werk.reise.innenseiten
+        guard let wunsch = Int(bestellte.filter(\.isNumber)), wunsch > 0 else {
+            return "Der Innenteil hat \(hat) Seiten \u{2014} der Umschlag zählt nicht mit, er ist ein eigenes Stück Papier. Wer die bestellte Zahl einträgt, sieht hier und in der Prüfung, ob es passt."
+        }
+        if hat == wunsch {
+            return "Der Innenteil hat \(hat) Seiten \u{2014} genau so viele wie bestellt."
+        }
+        let zuviel = hat > wunsch
+        return "Der Innenteil hat \(hat) Seiten, bestellt sind \(wunsch) \u{2014} "
+            + "\(abs(hat - wunsch)) \(zuviel ? "zu viele" : "zu wenige"). "
+            + (zuviel
+                ? "Eine Druckerei nimmt das nicht an. Seiten entfernt man über \u{201E}Seiten\u{201C} im Tagesmenü, einen ganzen Tag über \u{201E}ausblenden\u{201C}."
+                : "Manche Druckerei füllt selbst mit leeren Seiten auf, manche weist die Datei ab \u{2014} was gilt, sagt ihre Vorgabe. Auffüllen lässt sich hier: \u{201E}Seiten auffüllen\u{201C} gleich darunter.")
+    }
+
+    // Was die beiden Schalter gerade bewirken — als Zahl und nicht als
+    // Zusage. Beide Seiten zählen als Innenseiten; genau darum geht es.
+    // Was danach noch auf eine gerade Zahl fehlt, ergänzt die
+    // Ausgleichsseite wie bisher von selbst.
+    //
+    // Stückweise gebaut und nicht als eine lange Kette aus `+`, `?:` und
+    // Interpolation: Genau diese Mischung hat in 1.0.38 den Typprüfer
+    // gesprengt.
+    private var fuellhinweis: String {
+        var zahl = 0
+        if werk.reise.schmutztitel { zahl += 1 }
+        if werk.reise.schlussseite { zahl += 1 }
+        let hat = werk.reise.innenseiten
+        if zahl == 0 {
+            return "Zurzeit wird keine Seite ergänzt \u{2014} der Innenteil hat \(hat) Seiten."
+        }
+        var text = zahl == 1 ? "Eine Seite wird ergänzt; " : "Zwei Seiten werden ergänzt; "
+        text += "der Innenteil hat damit \(hat) Seiten. "
+        text += "Braucht der Druckdienst eine gerade Zahl, hängt die App wie bisher "
+        text += "eine leere Ausgleichsseite an."
+        return text
+    }
+
+    private var bogenmass: String {
+        let reise = werk.reise
+        let anschnitt = reise.gestaltung.anschnitt
+        // Am Bund liegt seit 1.0.85 unter Umständen keiner — bei
+        // Einzelseiten. Doppelseitenbogen und Umschlag rechnen unverändert:
+        // Dort lag am Bund nie einer.
+        let amBund = reise.gestaltung.anschnittAmBund
+        switch umfang {
+        case .nurUmschlag:
+            return Druckvorgabe.masstext(umschlagbogenMm) + " (U4+U1)"
+        case .doppelseiten:
+            let b = 2 * reise.format.breite + 2 * anschnitt
+            return Druckvorgabe.masstext(CGSize(width: b, height: reise.format.hoehe
+                + 2 * anschnitt)) + " (zwei Seiten)"
+        case .doppelseitenMitUmschlag:
+            let b = 2 * reise.format.breite + 2 * anschnitt
+            return Druckvorgabe.masstext(CGSize(width: b, height: reise.format.hoehe
+                + 2 * anschnitt)) + " \u{2B27} " + Druckvorgabe.masstext(umschlagbogenMm)
+        case .broschuere:
+            return broschuerenmass
+        case .getrennt:
+            let einzeln = Druckvorgabe.bogen(reise.format, anschnitt: anschnitt,
+                                             amBund: amBund)
+            return Druckvorgabe.masstext(einzeln) + " \u{2B27} "
+                + Druckvorgabe.masstext(umschlagbogenMm)
+        case .ganzesBuch, .nurInnenteil:
+            return Druckvorgabe.masstext(Druckvorgabe.bogen(reise.format, anschnitt: anschnitt,
+                                                            amBund: amBund))
+        }
+    }
+
+    private var umschlagbogenMm: CGSize {
+        let pt = Umschlagmass.bogen(werk.reise.format, gestaltung: werk.reise.gestaltung,
+                                    umschlag: werk.reise.umschlag,
+                                    innenseiten: werk.reise.innenseiten)
+        return CGSize(width: Druckmass.mm(pt.width), height: Druckmass.mm(pt.height))
+    }
+
+    private var broschuerenmass: String {
+        let end = werk.reise.format
+        let b = end.breite * 2
+        return "\(ganzzahl(b)) × \(ganzzahl(end.hoehe)) mm (zwei Seiten nebeneinander)"
+    }
+
+    private var broschuerenbefund: String {
+        let seiten = werk.reise.seitenzahl
+        let gefuellt = seiten % 4 == 0 ? seiten : seiten + (4 - seiten % 4)
+        let bogen = gefuellt / 2
+        let leer = gefuellt - seiten
+        var text = "\(bogen) Bogen, beidseitig zu bedrucken"
+        if leer > 0 { text += " · \(leer) leere Seite\(leer == 1 ? "" : "n") aufgefüllt" }
+        return text
+    }
+
+    private var broschuerenhinweis: String {
+        "Zwei Seiten kommen nebeneinander auf einen Bogen, in Heftfolge — gefaltet und in der Mitte geheftet liegt daraus ein Heft in der Hand. Die Bogenzahl ist immer durch vier teilbar; fehlende Seiten bleiben weiß.\n\nGedruckt wird beidseitig. Wendet der Drucker über die LANGE Kante, bleibt der Schalter aus; wendet er über die kurze, steht die Rückseite sonst auf dem Kopf. Welche der beiden Einstellungen gilt, sagt kein Dateiformat — das steht im Druckdialog.\n\nOhne Anschnitt: Ein Heimdrucker druckt nicht bis an die Kante, und ein Anschnitt, den niemand wegschneidet, wäre ein Rand aus abgeschnittenem Bild."
+    }
+
+    private func ganzzahl(_ wert: Double) -> String {
+        String(Int(wert.rounded()))
+    }
+
+    // DER AUFTRAG STEHT AN EINER STELLE (ab 1.0.70).
+    //
+    // An der Güte hängen seither drei Zahlen und nicht mehr eine: die
+    // Höchstkante, die Ziel-dpi und die JPEG-Güte. Sechsmal derselbe
+    // Aufruf mit drei Feldern wäre sechsmal die Gelegenheit, eines zu
+    // vergessen — und ein vergessenes `jpegGuete` fällt erst an der
+    // Dateigröße auf.
+    /// Wie viele Seiten in der VOLLEN Datei stehen müssten.
+    ///
+    /// `blockseiten` ist der Buchblock. Gilt der Umschlag als Bogen,
+    /// kommt die Titelseite dazu — sie steht in der vollen Datei vorn,
+    /// zählt aber nicht zum Block (Rückseite, U2 und U3 fehlen dort). Ohne
+    /// Bogen ist sie die gewöhnliche Seite 1 und in `blockseiten` schon
+    /// mitgezählt.
+    private var volleDatei: Int {
+        werk.reise.blockseiten + (werk.reise.hatRueckseite ? 1 : 0)
+    }
+
+    private func auftrag(nurUmschlag: Bool = false, ohneUmschlag: Bool = false,
+                         rueckseitenDrehen: Bool = false) -> Buchausgabe.Auftrag
+    {
+        Buchausgabe.Auftrag(bildkante: guete.kante,
+                            zieldpi: guete.zieldpi,
+                            jpegGuete: guete.jpegGuete,
+                            ohneTransparenz: ohneTransparenz,
+                            nurUmschlag: nurUmschlag,
+                            ohneUmschlag: ohneUmschlag,
+                            rueckseitenDrehen: rueckseitenDrehen)
+    }
+
+    private func ausgeben() async {
+        laeuft = true
+        fehler = nil
+        anteil = 0
+        befundAmPDF = []
+        do {
+            if umfang == .broschuere {
+                let ziel = try await Buchausgabe.broschuere(
+                    werk.reise,
+                    auftrag: auftrag(rueckseitenDrehen: rueckseitenDrehen),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                // KEINE Druckprüfung an der Broschüre: Sie misst TrimBox und
+                // BleedBox, und die gibt es hier bewusst nicht — ein
+                // Heimdrucker schneidet nichts ab. Eine Prüfung, die das
+                // Fehlen einer Box beanstandet, die nicht hingehört, wäre
+                // eine Fehlmeldung.
+                befundAmPDF = [Druckpruefung.Zeile(
+                    stufe: .gut, titel: "Broschüre gesetzt",
+                    text: broschuerenbefund)]
+                teilenliste = [ziel]
+            } else if umfang == .doppelseiten {
+                let ziel = try await Buchausgabe.doppelseitenPdf(
+                    werk.reise,
+                    auftrag: auftrag(),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                befundAmPDF = Druckpruefung.amPDF(ziel, erwartet: nil) + [doppelseitenzeile]
+                teilenliste = [ziel]
+            } else if umfang == .doppelseitenMitUmschlag {
+                // DIESELBEN BEIDEN AUFTRÄGE wie „Doppelseiten" und „Nur der
+                // Umschlagbogen", nacheinander — kein dritter Weg.
+                let umschlag = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: auftrag(nurUmschlag: true),
+                    fortschritt: { _ in })
+                let innen = try await Buchausgabe.doppelseitenPdf(
+                    werk.reise,
+                    auftrag: auftrag(),
+                    fortschritt: { wert in anteil = wert })
+                fertig = innen
+                befundAmPDF = Druckpruefung.amPDF(innen, erwartet: nil) + [doppelseitenzeile]
+                    + [Druckpruefung.Zeile(
+                        stufe: .gut, titel: "Umschlag getrennt gesichert",
+                        text: umschlag.lastPathComponent + umschlagzusatz)]
+                teilenliste = [innen, umschlag]
+            } else if umfang == .getrennt {
+                // Viele Buchdienste wollen Umschlag und Innenteil als zwei
+                // Dateien. Ausgegeben wird dann der Innenteil als Hauptdatei
+                // und der Umschlag daneben — beide liegen im selben Ordner
+                // und werden zusammen geteilt.
+                let umschlag = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: auftrag(nurUmschlag: true),
+                    fortschritt: { _ in })
+                let innen = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: auftrag(ohneUmschlag: true),
+                    fortschritt: { wert in anteil = wert })
+                fertig = innen
+                befundAmPDF = Druckpruefung.amPDF(innen, erwartet: werk.reise.blockseiten)
+                    + [Druckpruefung.Zeile(
+                        stufe: .gut, titel: "Umschlag getrennt gesichert",
+                        text: umschlag.lastPathComponent + umschlagzusatz)]
+                teilenliste = [innen, umschlag]
+            } else if umfang == .nurUmschlag || umfang == .nurInnenteil {
+                // DIESELBEN ZWEI AUFTRÄGE wie bei `getrennt`, nur einzeln
+                // gestellt. Ein eigener Weg daneben liefe irgendwann
+                // auseinander — dieselbe Regel wie bei den Fotostilfeldern.
+                let nur = umfang == .nurUmschlag
+                let ziel = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: auftrag(nurUmschlag: nur, ohneUmschlag: !nur),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                // Am Umschlagbogen misst die Druckprüfung TrimBox und
+                // BleedBox — die gibt es dort, anders als bei der
+                // Broschüre, und sie sind genau die Angaben, an denen eine
+                // Druckerei den Falz und den Schnitt festmacht.
+                //
+                // Der Satz wird Stück für Stück gebaut und nicht als
+                // `?:`-Kette mit `+` in einen Ausdruck geschrieben: Genau
+                // daran hat sich in 1.0.38 der Typprüfer verschluckt.
+                var einzeltitel = "Nur die Buchseiten"
+                var einzeltext = "In dieser Datei steht kein Umschlagbogen. "
+                einzeltext += "Den gibt es mit \u{201E}Nur der Umschlagbogen\u{201C} "
+                einzeltext += "als eigene Datei."
+                if nur {
+                    einzeltitel = "Nur der Umschlag"
+                    einzeltext = "In dieser Datei steht keine einzige Buchseite."
+                    einzeltext += umschlagzusatz
+                }
+                let einzelzeile = Druckpruefung.Zeile(stufe: .hinweis, titel: einzeltitel,
+                                                      text: einzeltext)
+                befundAmPDF = Druckpruefung.amPDF(ziel, erwartet: nur ? nil : werk.reise.blockseiten)
+                    + [einzelzeile]
+                teilenliste = [ziel]
+            } else {
+                let ziel = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: auftrag(),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                befundAmPDF = Druckpruefung.amPDF(ziel, erwartet: volleDatei)
+                teilenliste = [ziel]
+            }
+        } catch {
+            fehler = error.localizedDescription
+        }
+        laeuft = false
+    }
+
+}
+
+struct BefundZeile: View {
+    let zeile: Druckpruefung.Zeile
+    // WO ES STEHT, NICHT NUR DASS ES STEHT (ab 1.0.93). Ist ein `werk`
+    // dabei und nennt der Befund Stellen, bekommt er einen Knopf: Er
+    // umrandet sie im Buch rot und springt zur ersten. Ohne `werk` bleibt
+    // die Zeile, was sie war — dieselbe Ansicht, zwei Aufrufstellen.
+    var werk: Reisewerk?
+    var beimZeigen: (() -> Void)?
+    @State private var quittung: String?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: zeile.stufe.symbol)
+                .foregroundStyle(farbe)
+                .font(.system(size: 14))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(zeile.titel)
+                    .font(.subheadline.weight(.medium))
+                Text(zeile.text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let werk, !zeile.stellen.isEmpty {
+                    Button {
+                        werk.befundeZeigen(zeile.stellen)
+                        beimZeigen?()
+                    } label: {
+                        Label("Im Buch zeigen (\(zeile.stellen.count))",
+                              systemImage: "scope")
+                            .font(.caption)
+                    }
+                    // `.borderless`, sonst nähme der Knopf die ganze
+                    // Zeile — in einer `Form` ist jede Zeile tippbar.
+                    .buttonStyle(.borderless)
+                    .padding(.top, 2)
+                    // DER WEG VON DER MELDUNG ZUR LÖSUNG (ab 1.0.96).
+                    //
+                    // „Im Buch zeigen" sagt WO; hier steht, was man dagegen
+                    // tut. Einundzwanzig Kästen einzeln anzutippen ist die
+                    // Art Fleißarbeit, für die es eine App gibt — und der
+                    // Knopf nennt die Zahl, die er anfasst.
+                    if zeile.stellen.contains(where: { $0.art == .textUeberlauf }) {
+                        Button {
+                            anpassen(werk)
+                        } label: {
+                            Label(anpasstext(zeile), systemImage: "arrow.up.and.down")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    if let satz = quittung {
+                        Text(satz)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 1)
+    }
+
+    private func anpasstext(_ zeile: Druckpruefung.Zeile) -> String {
+        let zahl = zeile.stellen.filter { $0.art == .textUeberlauf }.count
+        return "Rahmen an Text anpassen (\(zahl))"
+    }
+
+    // Gemeldet wird IN der Zeile: Das Band der Bühne hängt an `ReiseView`,
+    // und die Druckprüfung liegt als Blatt darüber — die Quittung erschiene
+    // dahinter (die Lehre aus 1.0.52).
+    private func anpassen(_ werk: Reisewerk) {
+        let zahl = werk.alleRahmenAnpassen()
+        quittung = zahl == 0
+            ? "Kein Rahmen ließ sich anpassen."
+            : "\(zahl) angepasst. Diese Tage gelten damit als von Hand bearbeitet; mit \u{201E}Widerrufen\u{201C} zurückzunehmen. Prüfung neu öffnen, um den Stand zu sehen."
+    }
+
+    private var farbe: Color {
+        switch zeile.stufe {
+        case .gut: return .green
+        case .hinweis: return .secondary
+        case .warnung: return .orange
+        }
+    }
+}
+
+struct PDFVorschau: UIViewRepresentable {
+    let adresse: URL
+
+    func makeUIView(context: Context) -> PDFView {
+        let ansicht = PDFView()
+        ansicht.autoScales = true
+        ansicht.displayMode = .singlePageContinuous
+        ansicht.displayDirection = .vertical
+        ansicht.backgroundColor = .systemGroupedBackground
+        return ansicht
+    }
+
+    func updateUIView(_ ansicht: PDFView, context: Context) {
+        if ansicht.document?.documentURL != adresse {
+            ansicht.document = PDFDocument(url: adresse)
+        }
+    }
+}

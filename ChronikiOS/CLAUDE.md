@@ -1,104 +1,162 @@
-# Projekt Kapitelweise – Das Buch (Ordner/Ziel „Chronik", Fotobuch mit Kapiteln nach der Zeit, native iOS-App)
+# Projekt Kapitelweise – Das Buch (Ordner/Ziel „Chronik", native iOS-App)
 
 > Die übergreifenden Regeln (PR-Rhythmus, iOS-Pflichten, Bau in GitHub
 > Actions) stehen in der `CLAUDE.md` im Wurzelverzeichnis und gelten hier
 > genauso.
 
-- **Anlass** (Ansage des Nutzers, 11/2026): „eine Mischung aus der
-  Urlaubstagebuch- und der Urlaubsfotobuch-App: ein Fotobuch, das anhand von
-  Bildern und Texten automatisch Kapitel erstellt und die Inhalte darauf
-  verteilt. Das Zeitraster möchte ich frei einstellen können, die
-  Grundeinstellung soll jedoch Kalenderjahre sein. Texte in der App erstellen
-  (mit einstellbarem Zeitstempel) und sprachlich überarbeiten lassen. Fotos
-  laden. Freie Seiten an beliebiger Stelle einfügen und frei mit Text, Foto,
-  PDF-Datei belegen."
-- App-Code: `ChronikiOS/` (ein Target, iPhone + iPad, iOS 17, keine fremden
-  Abhängigkeiten, kein iCloud). Bundle-Id `de.familie.chronik`.
-- **Name: „Kapitelweise – Das Buch"** (Ansage des Nutzers, 11/2026, ab
-  1.0.1; vorher Arbeitsname „Chronik"). Das ist der **Store-Name** (23
-  Zeichen, Grenze 30) und der Name im Titel der Bücherliste und im PDF.
-  **Homescreen-Name ist „Kapitelweise"** (`CFBundleDisplayName`): Unter einem
-  Symbol stehen nur gut zwölf Zeichen, der volle Name würde zu
-  „Kapitelweise – D…" abgeschnitten. Store-Name und Anzeigename sind getrennte
-  Felder; den App-Eintrag von Hand in App Store Connect anlegen, nie über
-  Xcodes „Create App Record" (Lehre aus Anstoß). **Ordner `ChronikiOS/`,
-  Ziel/Schema „Chronik" und Bundle-Id `de.familie.chronik` bleiben** — sie
-  sieht niemand, und die Bundle-Id ist nach dem ersten Signieren ohnehin
-  nicht mehr änderbar.
-- **Versionierung:** `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` je
-  zweimal im pbxproj (Debug + Release), keine Skript-Bauphase. Jede
-  Arbeitseinheit hebt Patch- UND Build-Nummer um je +1. Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2).
-  `DEVELOPMENT_TEAM = F4989GSTWS`, `ITSAppUsesNonExemptEncryption = NO` in
-  `Config/Info.plist` UND als Build-Einstellung — nicht entfernen.
-- **Berechtigungstexte nur als Build-Einstellung**
-  (`INFOPLIST_KEY_NSPhotoLibraryUsageDescription`), nie in der Info.plist —
-  Lehre aus Fernweh 1.0.2 (Xcode stürzt beim Öffnen des Reiters „General" ab).
+## Was diese App ist: eine Abwandlung des Reisebuchs
 
-## Aufbau
+**Ab 1.0.2 ist Kapitelweise eine KOPIE des Reisebuchs** (`UrlaubstagebuchiOS/`,
+Stand Reisebuch 1.0.128). Ansage des Nutzers 11/2026: „Die Reisebuch-App ist
+mittlerweile perfekt für die Gestaltung von Urlaubstagebüchern. Aber diese App
+hier soll ja eigentlich gar nicht so viel anders sein. Die Quelle der Daten ist
+halt eine andere und es soll nicht nach Tagen, sondern nach anderen Zeiträumen
+sortiert werden. … Hier habe ich das Gefühl, als ob wir wieder bei Null
+anfangen würden. … Modifiziere die Reisebuch-App nur dahingehend, dass der
+Import von Daten so stattfinden kann, wie ich es dir anfangs beschrieben habe."
 
-- `Model/Buch.swift` — Datenmodell (Codable, eine JSON-Datei
-  `Buecher.json` unter Application Support; Fotos/PDFs als Kopien in
-  `Dokumente/Medien`). **Neue Felder nur mit Vorgabe anhängen** und in
-  `init(from:)` mit `c.wert(.feld, vorgabe)` lesen.
-- `Model/Zeitraster.swift` — Kapitel aus Zeitstempeln. Ein Raster ist
-  Einheit × Anzahl ab einem Beginn; Kapitel k beginnt bei
-  `beginn + k·anzahl·einheit`, für jedes ganze k. Vorgaben: Kalenderjahr
-  (Grundeinstellung), Schuljahr (1. August), Halbjahr, Quartal, Monat, Woche,
-  eigenes Raster. **Gerechnet wird mit dem Kalender, nie mit Sekunden**, und
-  jeder Kapitelbeginn vom Beginn aus (nicht vom Vorgänger) — sonst wandert ein
-  Raster ab dem 31. Januar dauerhaft auf den 28. Eigene Kapitelüberschriften
-  hängen am Datum des Kapitelbeginns (`schluessel`), bleiben also beim
-  Wechsel des Rasters nur, wo das Kapitel gleich beginnt.
-- `Model/Seitenbau.swift` — der Layoutautomat: Titelseite, je Kapitel eine
-  Kapitelseite und die Inhalte nach der Zeit. Ein Text nimmt bis zu zwei
-  unmittelbar folgende Fotos auf seine erste Seite und läuft bei Bedarf auf
-  Folgeseiten weiter; weitere Fotos füllen Seiten bis „Fotos je Seite".
-- **Freie Seiten hängen an einer `Einfuegestelle`, nicht an einer
-  Seitenzahl**: hinter einem Inhalt (`nachInhalt`), am Kapitelanfang, am
-  Buchanfang oder -ende. Seitenzahlen verschieben sich bei jedem neuen Foto,
-  der Inhalt dahinter nicht. Eine Seite hinter einem mehrseitigen Text steht
-  hinter dessen LETZTER Seite. Verschwindet der Anker (Inhalt gelöscht,
-  Kapitel weg), rückt die freie Seite ans Buchende — sie verschwindet nie
-  still. Mehrere freie Seiten an derselben Stelle stehen in der Reihenfolge
-  der Liste `freieSeiten`.
-- `Dienste/Textsatz.swift` — **gemessen und gezeichnet wird über TextKit**
-  (`NSLayoutManager` / `NSAttributedString.draw`). Keine zweite
-  Satzmaschine dazunehmen (SwiftUI-`Text`, CoreText) — sonst passt ein Stück
-  beim Messen und läuft beim Zeichnen aus dem Feld (Lehre aus dem Reisebuch).
-- `Dienste/Seitenzeichner.swift` — **Vorschau und PDF zeichnet DERSELBE
-  Zeichner.** Die Vorschau ist ein Bild aus genau diesen Funktionen. Neue
-  Seitenarten werden dort gezeichnet und nirgends sonst.
-- `Dienste/Medien.swift` — Ablage. Geladen werden DATEN, nie ein `UIImage`
-  (sonst ist das EXIF-Datum weg); Bilder verkleinert über
-  `CGImageSourceCreateThumbnailAtIndex` mit `…WithTransform` (sonst liegt
-  jedes Hochformat quer). Das EXIF-Datum wird aus den Ziffern gelesen (keine
-  Zeitzone, Uhr am Aufnahmeort). PDF-Seiten werden als VEKTOR gezeichnet
-  (`CGPDFPage.getDrawingTransform` — das verkleinert nur, darum erst auf
-  Zielgröße skalieren). Aufräumen löscht nur Dateien, auf die kein Buch
-  zeigt und die älter als eine Stunde sind, und **unterbleibt, wenn die
-  Bücherdatei nicht lesbar war** (sonst wären nach einem Lesefehler alle Fotos
-  weg). Eine unlesbare `Buecher.json` wird vor allem anderen beiseitegelegt.
-- `Dienste/Fotoeinfuhr.swift` — Fotowähler von UIKit
-  (`PHPickerConfiguration(photoLibrary: .shared())`, Lehre aus dem
-  Reisebuch); Datum: EXIF → Mediathek (nur mit Zugriff) → Dateidatum → jetzt.
-  Der Wähler schließt sich nicht selbst, sondern über den SwiftUI-Zustand.
-- `Dienste/Sprachhilfe.swift` — sprachliche Überarbeitung, vier Arten
-  (korrigieren, glätten, lebendiger, kürzen). Weg 1: Apple Intelligence auf
-  dem Gerät (`FoundationModels`, ab iOS 26, hinter `#if canImport` und
-  `#available`); lange Texte absatzweise in Stücken von ≤ 1800 Zeichen, je
-  eine frische Sitzung (kleines Kontextfenster). Weg 2: Auftrag in die
-  Zwischenablage → KI-Chat → Antwort zurück einsetzen. Immer erst Vorschlag,
-  dann „Übernehmen"; die alte Fassung bleibt als `vorfassung` und lässt sich
-  zurückholen.
-- `Dienste/Buchausgabe.swift` — PDF im Seitenformat, Fotos auf 300 dpi,
-  JPEG-verpackt (sonst landen Rohdaten im PDF). Kein Beschnitt, keine
-  Doppelseiten — für Fotobuchdienste mit eigenen Maßen ist das Reisebuch da.
+1.0.0–1.0.1 waren ein Neubau von Grund auf (eigener Seitensatz, eigene
+Vorschau). Er ist verworfen: In der Seitenübersicht ließ sich nichts machen,
+eine Seite öffnete sich nicht groß, Blöcke ließen sich nicht anfassen — alles,
+was das Reisebuch in 128 Fassungen gelernt hat. **Nicht wieder neu bauen.**
+
+**Deshalb gilt `UrlaubstagebuchiOS/CLAUDE.md` hier vollständig** — jede Lehre,
+jede Falle, jede Regel (Tagesdatum aus drei Zahlen, Seite und PDF aus einem
+Setzer, wortlautSichern, Handarbeit, Druck …). Vor jeder Änderung dort lesen.
+Wo ein Name „Tag" sagt, ist hier ein Kapitel gemeint.
+
+**Was das Reisebuch später lernt, wird NICHT automatisch übernommen.** Die
+beiden Apps sind getrennte Ordner. Eine Verbesserung dort hierher zu holen
+heißt, die betreffenden Dateien zu vergleichen — die Abweichungen unten sind
+klein und stehen alle mit „KAPITELWEISE" im Quelltext.
+
+## Die Abweichungen vom Reisebuch (alle mit „KAPITELWEISE" markiert)
+
+- **Ein „Tag" ist ein KAPITEL** (`Reisetag`, Feld `datum` = Beginn des
+  Abschnitts). Das Zeitraster steht in `Reise.zeitraster`
+  (`Model/Zeitraster.swift`): Einheit × Anzahl ab einem Beginn, Vorgaben
+  Kalenderjahr (**Grundeinstellung**), Schuljahr (1. August), Halbjahr,
+  Quartal, Monat, Woche, eigenes Raster. Gerechnet mit dem Kalender, jeder
+  Kapitelbeginn vom Beginn aus (nicht vom Vorgänger).
+- **Die Zuordnung geschieht an EINER Stelle: `Reise.tagIndex(fuer:)`.** Darüber
+  laufen Fotoeinfuhr, Texteinfuhr, Spureinfuhr, Fernweh und „Kapitel anlegen".
+  Ein neues Kapitel bekommt die Überschrift aus dem Raster („2009",
+  „1. Quartal 2024"), den Zeitraum als Datumszeile (`datumstext`) und
+  `karteZeigen = false` (ein Jahr mit Fotos von überall ergäbe ein Knäuel).
+- **Texte sind EINTRÄGE mit Zeitstempel** (`Model/Texteintrag.swift`,
+  `Reise.eintraege`). Der Kapiteltext wird daraus zusammengesetzt
+  (`Reise.kapiteltext`: je Eintrag eine Kopfzeile „Überschrift – Datum", dann
+  der Text). **`wortlautSichern` holt bei einem Kapitel mit Einträgen nichts
+  von der Seite zurück**, sondern setzt den Text aus den Einträgen neu —
+  sonst überschriebe der alte Wortlaut der Seite jeden geänderten Eintrag.
+  Folge: Text wird über die Einträge bearbeitet, nicht im Textblock.
+- Die Texteinfuhr aus einer Datei (`textVerteilen`) macht aus jedem
+  Datumsabschnitt einen Eintrag (früher: Text eines Tages).
+- `Dienste/Kapitelwerk.swift`: `eintragSichern`/`eintragLoeschen` (setzen das
+  Kapitel neu, außer bei Handarbeit — dann eine Meldung), `rasterSetzen` und
+  `kapitelNeuEinteilen` (Fotos nach Aufnahmetag, Einträge nach Zeitstempel;
+  alle Seiten neu, Handarbeit fällt weg — steht vorher in der Oberfläche,
+  „Widerrufen" holt zurück), `pdfEinfuegen`.
+- **PDF-Dateien** gehen über „Bild oder PDF aus Dateien": jede PDF-Seite wird
+  eine eigene, von Hand angelegte Buchseite mit der Seite als Bild (2400 px,
+  ~300 dpi auf A4) im Satzspiegel. Freie Seiten an beliebiger Stelle gibt es
+  über die Seitenliste des Reisebuchs (`seiteEinfuegen`).
+- **Sprachliche Überarbeitung** (`Dienste/Sprachhilfe.swift`,
+  `Views/EintragView.swift`): vier Arten; Apple Intelligence auf dem Gerät
+  (`FoundationModels`, iOS 26, hinter `#if canImport` + `#available`, Texte in
+  Stücken ≤ 1800 Zeichen) oder über einen KI-Chat per Zwischenablage. Erst
+  Vorschlag, dann „Übernehmen"; die vorige Fassung bleibt (`vorfassung`).
+- Oberfläche: „Kapitel" statt „Tage" in Kapitelliste und Kapitelinhalt,
+  Plusmenü „Neuer Text… / Alle Texte… / Texte aus einer Datei…", „Ganzes
+  Buch → Kapitel und Zeitraster…". Handbuch und Aufbau-Assistent sprechen
+  noch vom Reisebuch (nicht angepasst).
+
+## Das Lebensbuch (ab 1.0.4)
+
+Vorlage des Nutzers 11/2026 (PDF „Simon 18", sechs Seiten, ein Buch zum 18.
+Geburtstag des Sohnes): „Für jeden seiner Geburtstage die Titelseite einer
+lokalen Tageszeitung … einzelne Meldungen zur Weltgeschichte an diesem Tag …
+dann Fotos aus diesem Lebensjahr … relativ groß, aber doch leicht
+überlappend angeordnet." Umgesetzt — alles über gewöhnliche Blöcke, also mit
+allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
+
+- **Zeitraster „Lebensjahr (ab Geburtstag)"** (`Zeitraster.Vorgabe.lebensjahr`,
+  Beginn = Geburtsdatum, dazu `Reise.person`). Ein Kapitel heißt nach dem Jahr
+  des Geburtstags („2019", nicht „2019/20"), die zweite Überschrift sagt
+  „Simon wird 10 Jahre alt" (`Reise.alterszeile`), die Datumszeile ist der
+  Geburtstag, die Zeitungsüberschrift „Der Tag deines 10. Geburtstags".
+- **Stil „Lebensbuch"** (`Buchstil.lebensbuch`, erster in der Liste und
+  Vorgabe neuer Bücher, dazu Kopfzeile an und A4 hoch): Cremepapier, Didot
+  fett in Nachtblau, Gold als Akzent, Iowan kursiv, Unterschriften in
+  Handschrift, Fotos mit weißem Rand, Schatten, gedreht.
+- **Kopfzeile „KAPITEL 2019"** mittig, gesperrt, in der Akzentfarbe
+  (`Seitenbeiwerk`) — für jeden Stil, sobald die Kopfzeile an ist.
+- **Je Kapitel** (`Reisetag.zeitung`, `.zeitungstitel`, `.zeitungstext`,
+  `.meldungen`, Oberfläche `KapitelseitenView`, erreichbar im Kapitelinhalt):
+  die Zeitungsseite (Titelseite groß rechts, −1,2° gedreht; links Goldstrich,
+  Überschrift, Text) und „Was an diesem Tag geschah" (2×2 je Seite: Bild,
+  Goldbalken, Überschrift, Text). Die Bilder sind GRAFIKEN (`Foto.grafik`), aus
+  Mediathek oder Dateien; aus einer PDF zählt die erste Seite.
+- **Satz im Lebensbuch** (`Layoutautomat.lebensseiten`, Erweiterung am Ende von
+  `Layoutautomat.swift`): Zeitung → Meldungen → Fotoseiten → Text. Fotoseiten:
+  im Wechsel 4, 5, 3, 4, 5, 2 Fotos in festen, sich überlappenden Feldern
+  (`albumfelder`), jedes Foto eingepasst und 6 % größer, gedreht
+  (`drehwinkel` × 0,8), Ebene steigend. Der Kapiteltext kommt ans Ende: links
+  eine Spalte (42 %), rechts die letzten vier Fotos. Trägt ein Kapitel ein
+  eigenes Seitenmuster, setzt es wie im Reisebuch; Zeitung und Meldungen kommen
+  in JEDEM Stil vor die Seiten.
+- **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
+  ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
+  plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
+
+## Konfiguration
+
+- **Bundle-Id `de.familie.kapitelweise`** (ab 1.0.3; gemeldet 11/2026: der
+  Upload zu TestFlight scheiterte, weil `de.familie.chronik` bereits vergeben
+  war). Homescreen „Kapitelweise", Store-Name „Kapitelweise – Das Buch"
+  (getrennte Felder; den App-Eintrag von Hand in App Store Connect anlegen,
+  nie über Xcodes „Create App Record"). Ordner `ChronikiOS/`, Ziel/Schema
+  „Chronik" bleiben. Ist auch diese Id vergeben, eine andere wählen und an
+  ALLEN Stellen mitziehen: pbxproj (2×), beide Entitlements, `Info.plist`
+  (Behälter und Dateityp), `Wolke.behaelter`.
+- **iCloud-Abgleich und selbst installierte Schriften** (ab 1.0.3, Ansage
+  des Nutzers 11/2026). `Config/Chronik.entitlements`: Behälter
+  `iCloud.de.familie.kapitelweise` (CloudDocuments, wie das Reisebuch) und
+  `com.apple.developer.user-fonts` = `app-usage`. **Nicht gemessen, dass die
+  App-Id beides trägt** — der Nutzer bestätigt es einmal in Xcode (Signing &
+  Capabilities: „iCloud" mit dem Behälter angehakt, „Fonts" mit „Use
+  Installed Fonts"). Was das Profil danach wirklich bewilligt, nennt die App
+  unter „Schriften prüfen" (`Profilrechte`); steht dort etwas anderes als in
+  der Datei, gilt die Anzeige, und die Datei wird angeglichen (Lehre Reisebuch
+  1.0.44/1.0.45/1.0.66). Der iCloud-Ordner heißt im Laufwerk „Kapitelweise",
+  darin `Buecher` (`Wolke.ordnername`).
+- Mac (`Config/Chronik-Mac.entitlements`): Sandkasten-Rechte des Reisebuchs,
+  dazu `device.audio-input` (Mikrofon fürs Diktat) und derselbe Behälter.
+- **Diktieren** (`Dienste/Diktat.swift`, unverändert aus Fernweh 1.0.40 bis auf
+  den Text der Fehlermeldung; Knopf im Texteditor `EintragView`). Ab iOS 26
+  `SpeechAnalyzer`, davor `SFSpeechRecognizer`, beides auf dem Gerät; als
+  Hinweise gehen Buchtitel, Kapitel- und Textüberschriften mit.
+  Berechtigungstexte (Mikrofon, Spracherkennung) als Build-Einstellung.
+  Verbesserungen dort in Fernweh gehören auch hierher.
+- Eigenes Dateiformat `.kapitelweise` (`de.familie.kapitelweise.buch`) — nicht
+  das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
+- Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
+  pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
+  Mac Catalyst wie im Reisebuch.
 
 ## Stand
 
-- **1.0.0 (Build 1)**, 11/2026: erste Fassung. Unter Linux geprüft: Syntax
-  aller Dateien (`swiftc -parse`) und die Logik von Zeitraster, Datenmodell
-  (Speichern/Laden, alte Datei ohne Felder), Stückelung für die
-  Überarbeitung. CI-Bau grün. **Nicht gemessen:** auf keinem Gerät gesehen.
-- **1.0.1 (Build 2)**, 11/2026: umbenannt in „Kapitelweise – Das Buch"
-  (Homescreen „Kapitelweise").
+- **1.0.2 (Build 3)**, 11/2026: Neuaufbau als Abwandlung des Reisebuchs.
+  Bücher aus 1.0.0/1.0.1 (eigene Datei `Buecher.json`) werden NICHT übernommen
+  — es waren Probebücher; Fotos neu einlesen. **Nicht gemessen:** auf keinem
+  Gerät gesehen; ob die Kapitel-Einteilung bei tausenden Fotos je Jahr flüssig
+  bleibt (das Reisebuch ist für Dutzende Fotos je Tag gebaut).
+- **1.0.3 (Build 4)**, 11/2026: Bundle-Id `de.familie.kapitelweise`,
+  iCloud-Abgleich und Schriftenrecht eingetragen, Diktieren aus Fernweh.
+  **Nicht gemessen:** Signieren mit den neuen Rechten, Abgleich, Diktat.
+- **1.0.4 (Build 5)**, 11/2026: Lebensbuch (Stil, Lebensjahr-Raster, Zeitung,
+  Meldungen, überlappende Fotoseiten). **Nicht gemessen:** wie die Seiten auf
+  dem Gerät aussehen; die Felder der Fotoseiten sind gerechnet, nicht
+  angesehen.

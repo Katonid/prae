@@ -17,11 +17,12 @@ import Foundation
 // dauerhaft auf den 28.
 struct Zeitraster: Codable, Equatable {
     enum Vorgabe: String, Codable, CaseIterable, Identifiable {
-        case kalenderjahr, schuljahr, halbjahr, quartal, monat, woche, eigene
+        case kalenderjahr, lebensjahr, schuljahr, halbjahr, quartal, monat, woche, eigene
         var id: String { rawValue }
         var name: String {
             switch self {
             case .kalenderjahr: return "Kalenderjahr"
+            case .lebensjahr: return "Lebensjahr (ab Geburtstag)"
             case .schuljahr: return "Schuljahr (ab 1. August)"
             case .halbjahr: return "Halbjahr"
             case .quartal: return "Quartal"
@@ -70,6 +71,10 @@ struct Zeitraster: Codable, Equatable {
     static func nach(_ v: Vorgabe) -> Zeitraster {
         switch v {
         case .kalenderjahr, .eigene:
+            return Zeitraster(vorgabe: v, einheit: .jahr, anzahl: 1, beginn: datum(2000, 1, 1))
+        case .lebensjahr:
+            // Der Beginn ist der Tag der Geburt; eingestellt wird er in der
+            // Oberfläche. Bis dahin der 1. Januar 2000.
             return Zeitraster(vorgabe: v, einheit: .jahr, anzahl: 1, beginn: datum(2000, 1, 1))
         case .schuljahr:
             return Zeitraster(vorgabe: v, einheit: .jahr, anzahl: 1, beginn: datum(2000, 8, 1))
@@ -156,6 +161,9 @@ struct Zeitraster: Codable, Equatable {
         let istMonatsanfang = kal.component(.day, from: a) == 1
         switch einheit {
         case .jahr:
+            // Ein Lebensjahr heißt nach dem Jahr, in dem der Geburtstag
+            // liegt: „2019", nicht „2019/20".
+            if vorgabe == .lebensjahr { return "\(ja)" }
             if ja == je { return "\(ja)" }
             if schritt == 1 { return "\(ja)/\(String(String(je).suffix(2)))" }
             return "\(ja)–\(je)"
@@ -202,6 +210,9 @@ struct Zeitraster: Codable, Equatable {
         f.dateFormat = muster
         return f.string(from: d)
     }
+
+    /// Im Lebensjahr: wie alt jemand an diesem Kapitelbeginn wird.
+    func alter(_ k: Int) -> Int { k * schritt }
 
     /// Kurzbeschreibung für die Einstellungen.
     var beschreibung: String {

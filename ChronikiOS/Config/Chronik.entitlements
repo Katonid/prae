@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- KAPITELWEISE 1.0.3: iCloud-Abgleich und selbst installierte Schriften
+	     (Ansage des Nutzers 11/2026). Dieselben Rechte wie im Reisebuch, aber
+	     für DIESE App-Id (`de.familie.kapitelweise`) und ihren eigenen
+	     Behälter. NICHT GEMESSEN, dass die App-Id sie trägt: Sie müssen in
+	     Xcode unter „Signing & Capabilities" einmal bestätigt werden (siehe
+	     ChronikiOS/CLAUDE.md, Abschnitt Konfiguration). Ein grüner Bau sagt
+	     darüber nichts (Lehre Reisebuch 1.0.44).
+
+	     Das Schriftenrecht trägt NUR `app-usage` (Xcode: „Fonts" → „Use
+	     Installed Fonts") — das ist, was die App braucht. Das Reisebuch hat
+	     zusätzlich `system-installation`, weil SEINE App-Id beides trägt;
+	     für diese App-Id ist das nicht gemessen. -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.kapitelweise</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.kapitelweise</string>
+	</array>
+	<key>com.apple.developer.user-fonts</key>
+	<array>
+		<string>app-usage</string>
+	</array>
+</dict>
+</plist>

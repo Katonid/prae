@@ -1,160 +1,157 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
-// DAS BUCH, SEITE FÜR SEITE.
+// Die Seitenfolge EINES Tages, von Hand.
 //
-// Gesetzt wird abseits des Hauptfadens (der Textsatz misst jeden Text),
-// gemalt wird jede Seite einzeln und nur, wenn sie ins Bild kommt. Neu
-// gemalt wird eine Seite, wenn sich ihre `signatur` ändert — nicht bei
-// jeder Änderung irgendwo im Buch.
+// Gebaut auf Ansage des Nutzers (09/2026): „Für die manuelle Bearbeitung
+// brauche ich die Option Seiten an bestimmten Stellen hinzufügen zu können
+// oder eben auch löschen zu können."
 //
-// Freie Seiten kommen über das Kontextmenü (lange drücken) davor oder
-// dahinter — an jede Stelle, auch zwischen zwei Seiten desselben Kapitels.
+// Bis 1.0.32 gab es dafür zwei halbe Wege: „Seite anfügen" im Tagesmenü
+// hängte immer HINTEN an, und „Diese Seite entfernen" stand im Inspektor —
+// also dort, wo man einen Block bearbeitet, und nur für die Seite, auf der
+// der gewählte Block gerade liegt. Eine bestimmte STELLE ließ sich damit
+// nicht ansprechen.
+//
+// Deshalb eine Liste: Sie nennt jede Seite mit ihrer Nummer und sagt, was
+// darauf steht. Eine Nummer ist die einzige Angabe, mit der sich eine
+// Stelle benennen lässt — Miniaturbilder wären hübscher und beantworteten
+// die Frage nicht.
 struct SeitenView: View {
-    @Binding var buch: Buch
-    var oeffnen: (Blatt) -> Void
+    @ObservedObject var werk: Reisewerk
+    let tagID: UUID
+    @Environment(\.dismiss) private var schliessen
+    @State private var bearbeiten = EditMode.inactive
 
-    @State private var seiten: [Seite] = []
-    @State private var gesetzt = false
-    @State private var pdfNach: String?
-    @State private var pdfWahl = false
-    @State private var meldung: String?
+    private var tag: Reisetag? { werk.reise.tage.first { $0.id == tagID } }
 
     var body: some View {
-        ScrollView {
-            if gesetzt {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(seiten.count) Seiten · \(buch.format.name)")
-                        .font(.subheadline)
-                    Text("Antippen zum Bearbeiten. Lange drücken, um freie Seiten davor oder danach einzufügen.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-            }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 280), spacing: 18)], spacing: 22) {
-                ForEach(Array(seiten.enumerated()), id: \.element.id) { index, seite in
-                    VStack(spacing: 5) {
-                        Seitenbild(seite: seite, buch: buch)
-                            .overlay(
-                                Rectangle().stroke(seite.freieSeite != nil ? Color.accentColor : Color.black.opacity(0.12),
-                                                   lineWidth: seite.freieSeite != nil ? 2 : 0.5)
-                            )
-                            .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
-                            .onTapGesture { antippen(seite) }
-                            .contextMenu { menue(seite, index: index) }
-                        Text(unterzeile(seite))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+        NavigationStack {
+            Group {
+                if let tag {
+                    liste(tag)
+                } else {
+                    ContentUnavailableView("Diesen Tag gibt es nicht mehr",
+                                           systemImage: "calendar.badge.exclamationmark")
                 }
             }
-            .padding()
+            .navigationTitle(tag.map { "Seiten am \($0.datum.kurz)" } ?? "Seiten")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    EditButton()
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { schliessen() }
+                }
+            }
         }
-        .overlay {
-            if !gesetzt { ProgressView("Seiten werden gesetzt …") }
-        }
-        .task(id: buch) {
-            let b = buch
-            let neu = await Task.detached(priority: .userInitiated) { Seitenbau.seiten(b) }.value
-            if Task.isCancelled { return }
-            seiten = neu
-            gesetzt = true
-        }
-        .fileImporter(isPresented: $pdfWahl, allowedContentTypes: [.pdf]) { ergebnis in
-            pdfEinfuegen(ergebnis)
-        }
-        .alert("Hinweis", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
-            Button("OK") {}
-        } message: {
-            Text(meldung ?? "")
-        }
-    }
-
-    private func unterzeile(_ s: Seite) -> String {
-        switch s.art {
-        case .titel: return "Titelseite"
-        case .kapitel(let titel, _, _, _): return "\(s.nummer) · Kapitel \(titel)"
-        case .inhalt: return "\(s.nummer)"
-        case .frei: return "\(s.nummer) · freie Seite"
-        }
+        .environment(\.editMode, $bearbeiten)
     }
 
     @ViewBuilder
-    private func menue(_ seite: Seite, index: Int) -> some View {
-        if let f = seite.freieSeite {
-            Button { oeffnen(.frei(f.id)) } label: { Label("Bearbeiten", systemImage: "pencil") }
-            Button { _ = buch.verschieben(f.id, frueher: true) } label: { Label("Eine Seite nach vorn", systemImage: "arrow.backward") }
-                .disabled(index <= 1)
-            Button { _ = buch.verschieben(f.id, frueher: false) } label: { Label("Eine Seite nach hinten", systemImage: "arrow.forward") }
-                .disabled(index >= seiten.count - 1)
-            Divider()
-        }
-        if index > 0 {
-            Button { einfuegen(nach: seiten[index - 1]) } label: {
-                Label("Freie Seite davor einfügen", systemImage: "doc.badge.plus")
+    private func liste(_ tag: Reisetag) -> some View {
+        List {
+            Section {
+                ForEach(Array(tag.seiten.enumerated()), id: \.element.id) { stelle, seite in
+                    Zeile(nummer: stelle + 1, seite: seite)
+                        .swipeActions(edge: .leading) {
+                            Button("Davor", systemImage: "arrow.up.to.line") {
+                                werk.seiteEinfuegen(tagID, an: stelle)
+                            }
+                            .tint(.accentColor)
+                        }
+                        // Ein Kontextmenü ist ein langer Druck und damit
+                        // nichts, was jemand findet. Es steht hier neben
+                        // den Wischgesten und nicht statt ihrer — und die
+                        // beiden Knöpfe unter der Liste sagen dasselbe
+                        // noch einmal sichtbar.
+                        .contextMenu {
+                            Button("Leere Seite davor einfügen", systemImage: "arrow.up.to.line") {
+                                werk.seiteEinfuegen(tagID, an: stelle)
+                            }
+                            Button("Leere Seite danach einfügen",
+                                   systemImage: "arrow.down.to.line")
+                            {
+                                werk.seiteEinfuegen(tagID, an: stelle + 1)
+                            }
+                            if tag.seiten.count > 1 {
+                                Divider()
+                                Button(role: .destructive) {
+                                    werk.seiteLoeschen(tagID, seite: stelle)
+                                } label: {
+                                    Label("Diese Seite entfernen", systemImage: "trash")
+                                }
+                            }
+                        }
+                }
+                .onMove { von, nach in werk.seiteVerschieben(tagID, von: von, nach: nach) }
+                .onDelete { welche in
+                    // Rückwärts, sonst zeigt der zweite Index nach dem
+                    // ersten Entfernen auf die falsche Seite.
+                    for stelle in welche.sorted(by: >) {
+                        werk.seiteLoeschen(tagID, seite: stelle)
+                    }
+                }
+            } header: {
+                Text(tag.seiten.count == 1 ? "1 Seite" : "\(tag.seiten.count) Seiten")
+            } footer: {
+                Text("Wischen nach rechts fügt eine leere Seite DAVOR ein, wischen nach links entfernt eine. Über \u{201E}Bearbeiten\u{201C} lässt sich die Reihenfolge ziehen.")
+            }
+
+            Section {
+                Button("Leere Seite am Ende anfügen", systemImage: "plus.rectangle.on.rectangle") {
+                    werk.seiteHinzufuegen(tagID)
+                }
+            } footer: {
+                // Eine von Hand angelegte oder entfernte Seite ist
+                // Handarbeit — und die bleibt stehen. Das gehört dazugesagt:
+                // Der Tag wird danach beim Neuanordnen übersprungen, und wer
+                // das nicht weiß, hält den Automaten für kaputt.
+                Text("Wer hier etwas ändert, arbeitet von Hand an diesem Tag. Er wird danach beim automatischen Neuanordnen übersprungen \u{2014} \u{201E}Seiten neu anordnen\u{201C} im Tagesmenü fragt ausdrücklich nach, bevor es die Arbeit überschreibt.")
             }
         }
-        Button { einfuegen(nach: seite) } label: {
-            Label("Freie Seite danach einfügen", systemImage: "doc.badge.plus")
-        }
-        Button {
-            pdfNach = seite.id
-            pdfWahl = true
-        } label: {
-            Label("PDF-Datei danach einfügen …", systemImage: "doc.richtext")
-        }
-        if let f = seite.freieSeite {
-            Divider()
-            Button(role: .destructive) {
-                buch.freieSeiten.removeAll { $0.id == f.id }
-            } label: {
-                Label("Freie Seite löschen", systemImage: "trash")
+    }
+}
+
+private struct Zeile: View {
+    let nummer: Int
+    let seite: Seite
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(nummer)")
+                .font(.headline.monospacedDigit())
+                .frame(minWidth: 26, alignment: .trailing)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(inhalt)
+                if seite.vonHand {
+                    Label("von Hand", systemImage: "hand.draw")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
 
-    private func antippen(_ s: Seite) {
-        switch s.art {
-        case .titel:
-            oeffnen(.einstellungen)
-        case .kapitel:
-            break
-        case .inhalt(let text, let fotos):
-            if let text {
-                oeffnen(.text(text.eintrag))
-            } else if let f = fotos.first {
-                oeffnen(.foto(f.id))
+    // Was auf der Seite steht, in einer Zeile. Ohne diese Angabe wäre die
+    // Liste eine Folge von Nummern, und keine davon ließe sich wiedererkennen.
+    private var inhalt: String {
+        var texte = 0, fotos = 0, karten = 0, sonstige = 0
+        for block in seite.bloecke {
+            switch block.inhalt {
+            case .titel, .unterueberschrift, .datum, .wetter, .text, .bildunterschrift,
+                 .kartenunterschrift: texte += 1
+            case .foto: fotos += 1
+            case .karte: karten += 1
+            default: sonstige += 1
             }
-        case .frei(let f):
-            oeffnen(.frei(f.id))
         }
-    }
-
-    private func einfuegen(nach seite: Seite) {
-        let neu = FreieSeite()
-        buch.freieSeitenEinfuegen([neu], nach: seite)
-        oeffnen(.frei(neu.id))
-    }
-
-    /// Jede Seite der PDF wird eine eigene freie Seite, in ihrer Reihenfolge.
-    private func pdfEinfuegen(_ ergebnis: Result<URL, Error>) {
-        guard case .success(let adresse) = ergebnis,
-              let ziel = pdfNach, let seite = seiten.first(where: { $0.id == ziel }) else { return }
-        let zugriff = adresse.startAccessingSecurityScopedResource()
-        defer { if zugriff { adresse.stopAccessingSecurityScopedResource() } }
-        guard let datei = try? Medien.ablegen(kopieVon: adresse) else {
-            meldung = "Die PDF-Datei ließ sich nicht übernehmen."
-            return
-        }
-        let anzahl = Medien.pdfSeitenzahl(datei)
-        guard anzahl > 0 else {
-            meldung = "Die PDF-Datei hat keine lesbaren Seiten."
-            return
-        }
-        let neue = (1...anzahl).map { FreieSeite(vorlage: .eins, felder: [.pdf(datei, $0)]) }
-        buch.freieSeitenEinfuegen(neue, nach: seite)
+        var teile: [String] = []
+        if texte > 0 { teile.append(texte == 1 ? "1 Text" : "\(texte) Texte") }
+        if fotos > 0 { teile.append(fotos == 1 ? "1 Foto" : "\(fotos) Fotos") }
+        if karten > 0 { teile.append("Karte") }
+        if sonstige > 0 { teile.append(sonstige == 1 ? "1 Element" : "\(sonstige) Elemente") }
+        return teile.isEmpty ? "leer" : teile.joined(separator: " \u{00B7} ")
     }
 }

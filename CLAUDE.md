@@ -123,7 +123,7 @@ gilt.
 | Kamerablick (IP-Kameras) | `KamerablickiOS/` | Patch + Build je +1 |
 | Insta360Datum | `Insta360DatumiOS/` | Patch + Build je +1 |
 | PhotoLocator (Fotostandorte) | `PhotoLocatoriOS/` | Patch + Build je +1 |
-| Kapitelweise – Das Buch (Ziel „Chronik") | `ChronikiOS/` | Patch + Build je +1 |
+| Kapitelweise – Das Buch (Ziel „Chronik", Abwandlung des Reisebuchs) | `ChronikiOS/` | Patch + Build je +1 |
 | Galerie 360 (iOS- und Apple-TV-App) | `Galerie360iOS/` | Patch + Build je +1, beide Projekte gleich |
 | Notfallalarm (Android) | `NotfallalarmAndroid/` | eigener Linux-Bau `notfallalarm-build.yml` |
 | Wörterwerkstatt (Web) | `woerterwerkstatt/` | `js/version.js` + `FASSUNG` in `sw.js` |

@@ -1,0 +1,1772 @@
+import SwiftUI
+
+// Die Seite, wie sie gedruckt wird — und auf der man arbeiten kann.
+//
+// Gerechnet wird durchweg in SEITENPUNKTEN. Der Maßstab liegt als eine
+// einzige Skalierung über dem Ganzen; jede Geste wird durch ihn geteilt,
+// bevor sie ins Modell geht. Der Bildschirm ist damit nur ein Fenster auf
+// die Seite und nie ihr Maß.
+//
+// Gezeigt wird der ganze BOGEN, also Endformat plus Anschnitt. Wer nur das
+// Endformat sähe, könnte nicht beurteilen, ob ein Bild weit genug übersteht.
+struct SeitenflaecheView: View, Equatable {
+    @ObservedObject var werk: Reisewerk
+    let buchseite: Buchseite
+    var bearbeitbar: Bool = true
+    // OHNE EIGENEN GRUND (ab 1.0.63).
+    //
+    // Der Umschlagbogen zeichnet seinen Hintergrund als EIN Bild über
+    // Rückseite, Rücken und Titelseite — so, wie das PDF ihn schreibt.
+    // Die beiden Hälften dürfen dann nicht noch einmal ihren eigenen
+    // darüberlegen, und auch nicht das weiße Papier darunter: Beides
+    // verdeckte genau das Bild, um das es geht.
+    var ohneGrund: Bool = false
+    // AN WELCHER KANTE DIE NACHBARHÄLFTE ANSTÖSST (ab 1.0.78).
+    //
+    // `.keine` heißt: ringsum Anschnitt, die Schnittkante läuft an allen
+    // vier Kanten. Das ist die Einzelseitenansicht — es sei denn, der
+    // Anschnitt am Bund ist abgeschaltet (ab 1.0.85); dann hört auch eine
+    // einzelne Seite dort am Endformat auf, und der Aufrufer sagt es über
+    // `Gestaltung.offeneKante(_:)`. In einem BOGEN stößt eine Hälfte an
+    // die andere; dort wird gefalzt oder gebunden und nicht geschnitten,
+    // also gibt es an dieser Kante weder einen Anschnittstreifen noch eine
+    // Schnittkante. Ausführlich steht der Befund an `Bogenkante`.
+    var bogenkante: Bogenkante = .keine
+    var massstab: Double
+    // Der Maßstab des Bildschirms, an dem DIESE Seite hängt. Zusammen mit
+    // dem Maßstab der Bühne sagt er, wie fein gerastert werden muss —
+    // gerechnet in `Bildschaerfe`.
+    @Environment(\.displayScale) private var geraet
+
+    // `schiebt`/`zieht` gab es bis 1.0.7: Beim Verschieben bewegte sich nur
+    // ein Versatz beim ZEICHNEN, der Rahmen im Modell blieb stehen und
+    // wurde erst am Ende der Geste gesetzt. Damit lief der Block dem
+    // Finger nach, die Griffe blieben zurück (die lesen den Rahmen), und
+    // brach die Geste ab, ohne dass `onEnded` kam, stand das Bild für
+    // immer neben seinem eigenen Rahmen. Gemeldet 09/2026: „Warum wandert
+    // der nicht einfach mit?" **Merke: Was der Finger bewegt, wird SOFORT
+    // ins Modell geschrieben — eine zweite Wahrheit fürs Zeichnen läuft
+    // früher oder später auseinander.** Die Größenänderung machte das von
+    // Anfang an so, und genau die ging.
+    //
+    // Was der Finger beim Aufsetzen gegriffen hat. Entschieden wird EINMAL,
+    // beim ersten Bildpunkt der Bewegung — sonst wechselte mitten im Ziehen
+    // die Bedeutung, sobald der Finger über einen anderen Griff wandert.
+    @State private var gegriffen: Griffart?
+    @State private var ausgangsrahmen: Rahmen?
+    // Woran eine neue Ziehbewegung zu erkennen ist: am Aufsetzpunkt.
+    @State private var gestenstart: CGPoint?
+    // Der Ausschnitt beim Aufsetzen — für Zweifinger-Zoom und Schieben im
+    // Rahmen. Beide rechnen vom Anfangswert aus, nicht vom letzten:
+    // `translation` und `magnification` sind die GESAMTE Bewegung seit dem
+    // Aufsetzen, und wer sie aufaddiert, beschleunigt mit jedem Bildpunkt.
+    @State private var ausgangsausschnitt: Bildausschnitt?
+    // Woran der Block gerade einrastet. Gezeichnet wird das als Linie quer
+    // über die Seite — solange die Geste läuft und keinen Takt länger.
+    @State private var fangSenkrecht: Einrasten.Linie?
+    @State private var fangWaagerecht: Einrasten.Linie?
+    // Einrasten lässt sich abschalten. Das ist die zweite Hälfte des
+    // Wunsches („im Einzelfall auch veränderbar"): Eine Hilfe, aus der
+    // sich nicht aussteigen lässt, ist eine Bevormundung — und es gibt
+    // Lagen, in denen ein Block bewusst einen halben Millimeter neben der
+    // Kante stehen soll. Der genaue Wert steht daneben im Inspektor.
+    // `@AppStorage` gehört in eine VIEW und nie ins `Reisewerk`.
+    @AppStorage("einrasten") private var einrastenAn = true
+
+    // DIE SEITE ZEICHNET SICH BEIM ZOOMEN NICHT MEHR MIT (ab 1.0.59).
+    //
+    // Wunsch des Nutzers, 09/2026: „Dennoch würde ich mir wünschen, wenn
+    // Verschiebe- oder Zoom-Aktionen auf dem Bildschirm etwas flüssiger
+    // ablaufen könnten."
+    //
+    // Der Zoom WÄHREND der Geste ist seit 1.0.18 eine reine Skalierung
+    // (`lupe` in `ReiseView`) — gerechnet wird erst am Ende. Nur: `lupe`
+    // ist ein Zustand, der bei JEDEM Bildpunkt der Geste neu gesetzt
+    // wird, und er steht im Körper der Bühne. Damit läuft dort alles
+    // wieder durch, was Seiten aufbaut, und jede sichtbare Seitenfläche
+    // bekommt einen neuen Wert. Ist der nicht vergleichbar, muss SwiftUI
+    // von einer Änderung ausgehen und den ganzen Körper neu bauen: den
+    // Hintergrund, die Lage des Wasserzeichens (ein Suchlauf über 49
+    // Felder), jeden Textkasten und jedes Vorschaubild.
+    //
+    // Verglichen wird deshalb, was das Aussehen wirklich bestimmt. Das
+    // `werk` ist eine KLASSE und wird über die Identität verglichen — was
+    // sich IN ihm ändert, meldet es selbst (`@ObservedObject`), und diese
+    // Meldung geht an `.equatable()` vorbei. Es wird also nichts
+    // abgeschaltet; es fällt nur der Durchgang weg, bei dem sich gar
+    // nichts geändert hat. Dieselbe Bauweise wie bei der Netzkarte der
+    // Abfahrtstafel (1.1.17).
+    //
+    // **Wer eine gespeicherte Eigenschaft hinzufügt, trägt sie hier ein** —
+    // eine vergessene ließe die Seite auf einem alten Stand stehen.
+    static func == (links: SeitenflaecheView, rechts: SeitenflaecheView) -> Bool {
+        links.werk === rechts.werk
+            && links.bearbeitbar == rechts.bearbeitbar
+            && links.ohneGrund == rechts.ohneGrund
+            && links.bogenkante == rechts.bogenkante
+            && links.massstab == rechts.massstab
+            && links.buchseite == rechts.buchseite
+    }
+
+    // DAS MASS KOMMT VON DER SEITE, NICHT VOM BUCH (ab 1.0.91). Eine
+    // Umschlaghälfte darf ein eigenes Format und einen eigenen Anschnitt
+    // tragen — aufgelöst in `Reise.flaeche`/`anschnittPt`, also an
+    // derselben Stelle, die auch das PDF fragt.
+    private var seitenmass: Seitenformat { werk.reise.flaeche(buchseite) }
+    private var format: CGSize { seitenmass.groesse }
+    private var anschnitt: Double { werk.reise.anschnittPt(buchseite) }
+
+    // Der Anschnitt an der linken und an der rechten Kante. An der
+    // Bundkante eines Bogens ist er NULL — dort stößt die Nachbarhälfte an
+    // (siehe `Bogenkante`). Oben und unten steht er immer: Dort wird
+    // geschnitten, ganz gleich, wie das Buch gebunden ist.
+    private var anschnittLinks: Double { bogenkante == .links ? 0 : anschnitt }
+    private var anschnittRechts: Double { bogenkante == .rechts ? 0 : anschnitt }
+
+    // Die Fläche, die diese Seite in der Bühne einnimmt: das Endformat und
+    // der Anschnitt, den es an dieser Stelle wirklich gibt.
+    private var bogen: CGSize {
+        // `Double(...)` um jede Kante aus einem `CGSize`: Wo ein solcher
+        // Wert mit einem `Double` zusammenkommt, rechnet Swift nicht
+        // überall von selbst um — die Regel steht seit 1.0.0 im Papier und
+        // ist seither zweimal bezahlt worden.
+        CGSize(width: Double(format.width) + anschnittLinks + anschnittRechts,
+               height: Double(format.height) + 2 * anschnitt)
+    }
+    // Auf dem Umschlag gilt dessen Satzspiegel — derselbe, mit dem der
+    // Layoutautomat die Titelseite setzt. Bis 1.0.90 zeichnete die Bühne
+    // hier den des BUCHES, und damit lag die blaue Linie auf dem Umschlag
+    // woanders als der Titel darauf.
+    private var satz: CGRect { werk.reise.satzspiegel(buchseite) }
+
+    // DIE FANGKANTEN DES ANSCHNITTS — ohne die, die es hier nicht gibt.
+    //
+    // An einer offenen Bundkante wird kein Anschnittstreifen gezeichnet;
+    // eine Kante, an der etwas einrastet, ohne dass man sie sieht, wäre
+    // genau die Art stiller Widerspruch, gegen die seit 1.0.11 gilt: Eine
+    // Linie ohne Wirkung ist eine Behauptung — und eine Wirkung ohne Linie
+    // erst recht.
+    private var fangbogen: CGRect? {
+        guard anschnitt > Druckmass.pt(0.5) else { return nil }
+        let voll = CGRect(x: -anschnitt, y: -anschnitt,
+                          width: Double(format.width) + 2 * anschnitt,
+                          height: Double(format.height) + 2 * anschnitt)
+        switch bogenkante {
+        case .links:
+            return CGRect(x: 0, y: voll.minY,
+                          width: voll.maxX, height: voll.height)
+        case .rechts:
+            return CGRect(x: voll.minX, y: voll.minY,
+                          width: Double(format.width) - Double(voll.minX),
+                          height: voll.height)
+        case .keine:
+            return voll
+        }
+    }
+
+    // Der Streifen INNERHALB des Endformats, in dem nichts stehen soll, was
+    // gelesen werden muss (ab 1.0.73). `nil` heißt: abgeschaltet — dann
+    // wird auch keine Linie gezeichnet und an nichts gefangen; eine Linie
+    // ohne Wirkung wäre eine Behauptung (dieselbe Regel wie beim
+    // Einrasten seit 1.0.11).
+    //
+    // Seit 1.0.76 hängt er an der BUNDSEITE: Eine Druckerei verlangt innen
+    // oft mehr als außen, und welche Seite innen liegt, wechselt von Seite
+    // zu Seite (`Buchseite.bundlage`). Damit wandert die blaue Linie
+    // sichtbar mit — und das ist zugleich die Probe, dass die Zahl an der
+    // richtigen Kante ankommt.
+    // OB DER GRUND DIESER SEITE DUNKEL IST (ab 1.0.80).
+    //
+    // Gefragt 09/2026: „Ich frage mich, ob man diese Linien auch sieht,
+    // wenn der Seitenhintergrund dunkel gewählt wird." Man sah sie nicht —
+    // die Farben standen fest im Quelltext, obwohl `Seitenhintergrund.dunkel`
+    // seit 1.0.0 dasteht; gefragt hat sie nur der Textsatz.
+    private var grundIstDunkel: Bool { hintergrund.dunkel }
+
+    private var schutzzone: CGRect? {
+        guard werk.reise.gestaltung.hatSicherheitsabstand else { return nil }
+        return werk.reise.gestaltung.schutzzone(seitenmass,
+                                                bund: buchseite.bundlage)
+    }
+
+    // WAS IN DEN SICHERHEITSABSTAND RAGT (ab 1.0.76).
+    //
+    // Ansage des Nutzers, 09/2026: „Dann möchte ich, dass die App sich
+    // bemerkbar macht, falls an irgendeiner Stelle einer dieser
+    // Sicherheitsabstände nicht berücksichtigt wurde."
+    //
+    // Die Druckprüfung zählt es fürs ganze Buch — die sieht aber nur, wer
+    // sie öffnet. Hier wird es an der Stelle sichtbar, an der es passiert:
+    // ein orange gestrichelter Rahmen um den Block, in derselben Farbe wie
+    // die Linie, an der er zu nah steht.
+    //
+    // **Randabfallende Blöcke sind ausgenommen, und zwar ohne Ausnahme.**
+    // Sie SOLLEN über die Kante laufen; sie zu markieren hieße, das als
+    // Fehler auszugeben, was richtig ist — und nach der dritten falschen
+    // Marke sieht niemand mehr hin.
+    private var hintergrund: Seitenhintergrund {
+        buchseite.seite.hintergrund ?? werk.reise.gestaltung.hintergrund
+    }
+
+    // Die Blöcke DIESER Seite, an denen die Druckprüfung etwas
+    // auszusetzen hatte. Gesucht wird in der Liste des Werks — gerechnet
+    // wird dort und nur dort.
+    private var befundbloecke: [Block] {
+        guard werk.zeigeBefunde, !werk.befundstellen.isEmpty else { return [] }
+        let kennungen = Set(werk.befundstellen.filter { $0.seite == buchseite.seite.id }
+            .map(\.block))
+        guard !kennungen.isEmpty else { return [] }
+        return buchseite.seite.bloecke.filter { kennungen.contains($0.id) }
+    }
+
+    // Die rote Marke liegt um den gezeichneten UMRISS, nicht um den
+    // Rahmen: Der weiße Fotorand steht außerhalb (die Lehre seit 1.0.83).
+    @ViewBuilder
+    private func marke(um block: Block) -> some View {
+        let rand = Druckmass.pt(max(block.wirkung(werk.reise.gestaltung).fotorand, 0))
+        Randmarke(dunkel: grundIstDunkel)
+            .frame(width: block.rahmen.breite + 2 * rand,
+                   height: block.rahmen.hoehe + 2 * rand)
+            .rotationEffect(.degrees(block.drehung))
+            .offset(x: block.rahmen.x - rand, y: block.rahmen.y - rand)
+            .allowsHitTesting(false)
+    }
+
+    private var gewaehlterBlock: Block? {
+        guard let id = werk.gewaehlterBlock else { return nil }
+        return buchseite.seite.bloecke.first { $0.id == id }
+    }
+
+    // GEBAUT WIRD DER PROBENTEXT AUSSERHALB DES KÖRPERS.
+    //
+    // Eine `+`-Kette aus `??`, Text und Interpolation sprengt den
+    // Typprüfer — „unable to type-check this expression in reasonable
+    // time". Genau das ist beim Einbau der Schärfezeile passiert: Drei
+    // Teile gingen, der vierte kippte es. Die Lehre steht seit 1.0.38 im
+    // Papier und gilt auch für eine Kette aus lauter Zeichenketten.
+    private var probentext: String {
+        var zeilen: [String] = []
+        zeilen.append(werk.letzterGriff ?? "noch nichts gegriffen")
+        zeilen.append(werk.letzteBuehne ?? "noch nicht gezoomt")
+        zeilen.append(Schaerfeprobe.shared.befund)
+        zeilen.append(werk.messer.befund)
+        if let rand = randbefund { zeilen.append(rand) }
+        return zeilen.joined(separator: "\n")
+    }
+
+    // WARUM DIESER BLOCK MARKIERT IST — ODER WARUM NICHT (ab 1.0.83).
+    //
+    // Gemeldet 09/2026: Die rote Marke erschien erst, als der Block
+    // „definitiv über den weißen Rand" hinausragte. Gerechnet ist, woran
+    // das lag (Fotorand und Drehung wurden nicht gemessen, siehe
+    // `Block.umriss`) — GESEHEN hat es hier niemand, und es kann eine
+    // zweite Ursache darüberliegen. Deshalb steht in der Probe, was die
+    // App wirklich vor sich hat: der Rahmen, der daraus gerechnete
+    // Umriss, die beiden Flächen und das Urteil. Dasselbe Muster wie die
+    // Stufenprobe bei Schulalarm — **wo sich eine Ursache nicht
+    // erschließen lässt, muss eine Probe entscheiden.**
+    private var randbefund: String? {
+        guard let block = gewaehlterBlock else { return nil }
+        let gestaltung = werk.reise.gestaltung
+        let umriss = block.umriss(gestaltung)
+        let seite = CGRect(origin: .zero, size: format)
+        let fotorand = block.wirkung(gestaltung).fotorand
+
+        var text = "Rand: Rahmen "
+        text += kurzmass(block.rahmen.rect)
+        text += " \u{00B7} Umriss "
+        text += kurzmass(umriss)
+        text += " \u{00B7} Drehung "
+        text += String(format: "%.1f", block.drehung)
+        text += " Grad \u{00B7} Fotorand "
+        text += Druckmass.mmText(Druckmass.pt(fotorand))
+        text += "\nSeite "
+        text += kurzmass(seite)
+        if let zone = schutzzone {
+            text += " \u{00B7} Schutzzone "
+            text += kurzmass(zone)
+        } else {
+            text += " \u{00B7} Schutzzone: abgeschaltet"
+        }
+        text += "\nUrteil: "
+        if block.randabfallend {
+            text += "randabfallend, wird nie markiert"
+        } else if Reise.ragtHinaus(umriss, aus: seite) {
+            text += "ragt \u{00FC}ber die Schnittkante"
+        } else if let zone = schutzzone, Reise.ragtHinaus(umriss, aus: zone) {
+            text += "im Sicherheitsabstand"
+        } else {
+            text += "liegt ganz innen"
+        }
+        return text
+    }
+
+    private func kurzmass(_ rechteck: CGRect) -> String {
+        var text = Druckmass.mmText(Double(rechteck.minX))
+        text += "/"
+        text += Druckmass.mmText(Double(rechteck.minY))
+        text += " bis "
+        text += Druckmass.mmText(Double(rechteck.maxX))
+        text += "/"
+        text += Druckmass.mmText(Double(rechteck.maxY))
+        return text
+    }
+
+    // Wo das Wasserzeichen liegt. Gerechnet wird es VOR dem Bild, weil
+    // seine Größe sagt, wie fein das Bild geholt werden muss.
+    private func wasserzeichenort(_ zeichen: Wasserzeichen) -> Wasserzeichenlage.Ort? {
+        Wasserzeichenlage.ort(zeichen, satz: satz, seite: buchseite.seite)
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            // Die Probe meldet sich im KÖRPER an — der läuft bei jedem
+            // Neuzeichnen, und genau das ist die Zahl, die hier niemand
+            // nachmessen kann.
+            let _ = werk.messer.melde("Seite")
+            if !ohneGrund {
+                HintergrundFlaeche(werk: werk, hintergrund: hintergrund,
+                                   seite: buchseite.seite,
+                                   format: format, anschnitt: anschnitt,
+                                   bogen: bogen, liegtRechts: buchseite.liegtRechts,
+                                   bogenkante: bogenkante, massstab: massstab)
+                    .offset(x: -anschnittLinks, y: -anschnitt)
+                    .allowsHitTesting(false)
+            }
+
+            // Das Wasserzeichen: über dem Hintergrund, unter allem
+            // anderen. Wo es liegt, rechnet dieselbe Funktion, die auch
+            // das PDF fragt — zwei Fassungen ergäben eine Vorschau, die
+            // anders aussieht als der Druck.
+            if let zeichen = werk.reise.wasserzeichen(fuer: buchseite),
+               let ort = wasserzeichenort(zeichen),
+               // WELCHES der bis zu zehn Bilder hier liegt, sagt `ort`
+               // selbst (ab 1.0.56) — es steht in derselben Antwort wie
+               // der Rahmen, weil die Höhe am Seitenverhältnis genau
+               // dieses Bildes hängt.
+               let zeichenbild = ort.bild
+            {
+                // Gezählt wie jedes andere Vorschaubild (ab 1.0.59) und
+                // seit 1.0.81 auch abseits des Hauptfadens geholt: Ein
+                // Wasserzeichen liegt auf JEDER Seite, und damit ist es die
+                // Art Bild, die sich am ehesten summiert.
+                Ladebild(
+                    datei: zeichenbild.datei, reise: werk.reise.id,
+                    kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
+                                              massstab: massstab, groesste: 1600),
+                    messer: werk.messer)
+                { bild in
+                    // Gedreht wird um die Mitte des BILDRAHMENS, und die ist
+                    // nach `Wasserzeichenlage.ort` dieselbe wie die des
+                    // Platzes: `rotationEffect` dreht ohne weitere Angabe um
+                    // die Mitte der Ansicht, also genau darum.
+                    Image(uiImage: bild)
+                        .resizable()
+                        .scaledToFit()
+                }
+                .frame(width: ort.bildrahmen.width, height: ort.bildrahmen.height)
+                .rotationEffect(.degrees(ort.winkel))
+                .opacity(zeichen.deckung)
+                .offset(x: ort.bildrahmen.minX, y: ort.bildrahmen.minY)
+                .allowsHitTesting(false)
+            }
+
+            if bearbeitbar, werk.zeigeSatzspiegel {
+                Hilfslinie(art: .satz, offen: .keine, dunkel: grundIstDunkel)
+                    .frame(width: satz.width, height: satz.height)
+                    .offset(x: satz.minX, y: satz.minY)
+                    .allowsHitTesting(false)
+            }
+
+            ForEach(buchseite.seite.sortiert) { block in
+                // Der Block, der gerade im Textfeld steht, wird hier NICHT
+                // gezeichnet. Sonst liegen zwei Fassungen desselben Textes
+                // übereinander — eine von CoreText gesetzte und eine von
+                // TextKit —, und die brechen nie an derselben Stelle um.
+                // Gemeldet 09/2026: „erscheint das Textfeld dupliziert,
+                // übereinander liegend". **Merke: Zwei Zeichner für
+                // denselben Inhalt zeigen nie dasselbe.**
+                if werk.textBearbeitung != block.id {
+                    blockAnsicht(block)
+                }
+            }
+
+            // SEITENZAHL UND KOPFZEILE — dieselben Rechtecke, die auch das
+            // PDF bekommt (`Seitenbeiwerk`). Bis 1.0.49 wurden sie hier
+            // GAR NICHT gezeichnet; der Schalter im Menü blieb auf dem
+            // Bildschirm ohne jede Wirkung (gemeldet 09/2026). Sie liegen
+            // über den Blöcken, weil sie es im PDF auch tun — dort werden
+            // sie zuletzt gezeichnet.
+            ForEach(Seitenbeiwerk.zeilen(buchseite, reise: werk.reise)) { zeile in
+                Textkasten(text: zeile.text, bild: zeile.bild, massstab: massstab)
+                    .frame(width: zeile.rechteck.width, height: zeile.rechteck.height)
+                    .offset(x: zeile.rechteck.minX, y: zeile.rechteck.minY)
+                    .allowsHitTesting(false)
+            }
+
+            // WORAN der Block gerade einrastet, steht als Linie da.
+            //
+            // Sie liegt über den Blöcken und unter der Schnittkante, geht
+            // über den ganzen Bogen und trägt ihre Herkunft als Farbe: Der
+            // Satzspiegel und die Schnittkante sind die Ordnung der Seite,
+            // ein Nachbar ist eine Ausrichtung an etwas, das man sieht.
+            // Ohne diese Linie war das Einrasten ein Zucken ohne Auskunft.
+            if bearbeitbar, gegriffen != nil {
+                if let linie = fangSenkrecht {
+                    Fanglinie(linie: linie, senkrecht: true, laenge: bogen.height,
+                              massstab: massstab)
+                        .offset(x: linie.wert, y: -anschnitt)
+                }
+                if let linie = fangWaagerecht {
+                    Fanglinie(linie: linie, senkrecht: false, laenge: bogen.width,
+                              massstab: massstab)
+                        .offset(x: -anschnittLinks, y: linie.wert)
+                }
+            }
+
+            // Die Schnittkante liegt ÜBER allem. Sie ist die Linie, an der
+            // das Buch beschnitten wird; unter den randabfallenden Bildern
+            // gezeichnet wäre sie genau dort versteckt, wo sie gebraucht wird.
+            //
+            // AM BUND WIRD NICHT GESCHNITTEN (ab 1.0.78). Gemeldet 09/2026:
+            // „Laut Druckerei wird aber doch dort kein Beschnitt
+            // ausgeführt." Dort stößt die Nachbarhälfte an — gefalzt oder
+            // gebunden, nicht geschnitten —, und eine Linie, die einen
+            // Schnitt behauptet, den es nicht gibt, ist schlimmer als
+            // keine. `Schnittlinien` lässt genau diese eine Kante weg.
+            if bearbeitbar, anschnitt > 0.5, werk.zeigeSatzspiegel {
+                Hilfslinie(art: .schnitt, offen: bogenkante, dunkel: grundIstDunkel)
+                    .frame(width: format.width, height: format.height)
+                    .allowsHitTesting(false)
+            }
+
+            // DER SICHERHEITSABSTAND, gleich daneben (ab 1.0.73).
+            //
+            // Er ist die Gegenrichtung zur Schnittkante und muss deshalb
+            // anders aussehen. Bis 1.0.79 hieß das hier: orange und FEINER
+            // gestrichelt, ausdrücklich „nicht blau", weil Blau beim
+            // Einrasten der Nachbar ist. Beides ist seit 1.0.80 anders —
+            // der Nutzer konnte die feine Linie kaum erkennen, und die
+            // Abwägung gegen Blau war falsch herum: Die Fanglinie des
+            // Nachbarn trägt ihren Namen am Strich und erscheint nur
+            // während einer Ziehbewegung. Jetzt gleich dick wie die
+            // Schnittkante, blau, mit kürzeren Strichen — alles in
+            // `Seitenlinie`.
+            if bearbeitbar, werk.zeigeSatzspiegel, let zone = schutzzone {
+                // AM BUND LÄUFT SIE HERUM, anders als die Schnittkante:
+                // Dort wird zwar nicht geschnitten, aber im Falz
+                // verschwindet ein Streifen — genau dafür gibt es seit
+                // 1.0.76 den eigenen Innenwert.
+                Hilfslinie(art: .sicherheit, offen: .keine, dunkel: grundIstDunkel)
+                    .frame(width: zone.width, height: zone.height)
+                    .offset(x: zone.minX, y: zone.minY)
+                    .allowsHitTesting(false)
+
+            }
+
+            // WAS IN DEN ANSCHNITT ODER IN DEN SICHERHEITSABSTAND RAGT,
+            // BEKOMMT EINEN DICKEN ROTEN RAHMEN (ab 1.0.81).
+            //
+            // Ansage des Nutzers, 09/2026: „Ich möchte ab jetzt, dass ein
+            // Element, was in den Beschnittbereich oder den
+            // Sicherheitsbereich hineinragt, mit einem noch besser zu
+            // sehenden Rand versehen wird. Gerne ein dicker roter Rand."
+            //
+            // Zwei Dinge sind daran neu, und beide sind eigene Befunde:
+            //
+            // 1. **Der ANSCHNITT wurde gar nicht geprüft.** Markiert war
+            //    bis 1.0.80 nur der Sicherheitsabstand; ein Block, der über
+            //    die SCHNITTKANTE ragt und nicht randabfallend ist, wird im
+            //    gedruckten Buch angeschnitten — und das fiel erst am
+            //    Papier auf. `Reise.amRandGefaehrdet` prüft seither beides.
+            // 2. **Die Marke hängt NICHT mehr an „Linien zeigen".** Sie tat
+            //    es seit 1.0.76, und das war falsch: Die Linien sind eine
+            //    Hilfe beim Anordnen, die Marke ist eine WARNUNG. Eine
+            //    Warnung, die sich mit den Hilfslinien abschalten lässt,
+            //    ist keine.
+            //
+            // Rot — obwohl die Schnittkante auch rot ist. Das ist der
+            // Wunsch des Nutzers und es geht auf: Die Marke ist dreimal so
+            // dick, läuft um einen BLOCK und nicht am Blattrand, und sie
+            // trägt eine Kontur. Zu verwechseln sind die beiden nicht.
+            //
+            // Seit 1.0.83 liegt die Marke um den GEZEICHNETEN Umriss und
+            // nicht um den Rahmen: Der weiße Fotorand wird außerhalb des
+            // Rahmens gezeichnet (`padding(randPt)` in `blockAnsicht`), und
+            // eine Marke, die ihn ausließe, säße innerhalb dessen, was man
+            // sieht. Gedreht wird um dieselbe Mitte — der Fotorand liegt
+            // ringsum, die Mitte bleibt also, wo sie ist.
+            if bearbeitbar {
+                ForEach(werk.reise.amRandGefaehrdet(buchseite)) { block in
+                    marke(um: block)
+                }
+                // WAS DIE DRUCKPRÜFUNG BEANSTANDET HAT, STEHT AUF DER SEITE
+                // (ab 1.0.93).
+                //
+                // Ansage des Nutzers, 09/2026: „Ich möchte, dass nach der
+                // Dokumentprüfung alle Stellen im Dokument, an denen etwas
+                // auszusetzen war, rot umrandet erscheinen. Ich habe jetzt
+                // beispielsweise recht viel Zeit dafür verwendet, an den
+                // angegebenen Tagen die Textfelder zu suchen, die angeblich
+                // zu klein sind."
+                //
+                // Dieselbe Marke wie am Rand — es ist dieselbe Aussage
+                // („hier stimmt etwas nicht"), und zwei Rottöne
+                // nebeneinander wären eine Unterscheidung, die niemand
+                // lesen kann. Gezeigt wird sie nur, solange der Schalter an
+                // ist; die LISTE steht im Werk und wird nicht hier
+                // gerechnet (ein CoreText-Satz je Textblock, und dieser
+                // Körper läuft bei jedem Bildpunkt einer Zoomgeste mit).
+                ForEach(befundbloecke) { block in
+                    marke(um: block)
+                }
+            }
+
+            // Die Griffe sind eine ZEICHNUNG und nehmen keinen Finger an —
+            // wie alles andere auf dieser Seite. Angefasst wird die SEITE.
+            if bearbeitbar, let block = gewaehlterBlock, werk.ausschnittsmodus != block.id,
+               werk.textBearbeitung != block.id
+            {
+                Griffzeichnung(block: block, massstab: massstab, abstand: griffabstand)
+            }
+
+            // Die Ziehfläche liegt NUR über dem gewählten Block, und das ist
+            // kein Detail: Die Seite steckt in einem `ScrollView`, und eine
+            // Ziehgeste über der ganzen Fläche nähme ihm das Blättern ab.
+            // Ein Tipp tut das nicht — deshalb wählt man mit einem Tipp und
+            // fasst danach an. Der Rahmen ist um den Griffsaum größer, damit
+            // die Griffe darin liegen; wo keine Auswahl ist, scrollt die
+            // Seite wie zuvor.
+            if bearbeitbar, let block = gewaehlterBlock, werk.textBearbeitung != block.id {
+                let saum = ziehsaum(block)
+                // WÄHREND einer Geste bleibt diese Fläche stehen, wo sie war
+                // (`ausgangsrahmen`). Seit 1.0.8 schreiben Verschieben,
+                // Größe und Drehung bei JEDEM Bildpunkt ins Modell — die
+                // Fläche hinge sonst an einem Rahmen, der unter dem eigenen
+                // Finger wandert, und eine Geste, deren Ansicht sich
+                // darunter verändert, bricht ab. **Merke: Eine Fläche, die
+                // eine Geste trägt, darf sich während dieser Geste nicht
+                // bewegen.** Wo der Finger aufgesetzt hat, hängt davon seit
+                // 1.0.7 nicht mehr ab — das misst der Seitenraum.
+                let bezug = ausgangsrahmen ?? block.rahmen
+                Color.clear
+                    .frame(width: bezug.breite + 2 * saum,
+                           height: bezug.hoehe + 2 * saum)
+                    .contentShape(Rectangle())
+                    .offset(x: bezug.x - saum, y: bezug.y - saum)
+                    // Die Tipps gehören mit auf diese Fläche: Sie liegt über
+                    // dem Block, und ohne sie käme über dem gewählten Block
+                    // kein Tipp mehr an — also weder das Abwählen noch der
+                    // Doppeltipp, der den Text öffnet.
+                    //
+                    // GEMESSEN wird im Raum der SEITE und nicht im eigenen.
+                    // Siehe `Seitenraum` — diese Fläche ist verschoben und
+                    // ändert während einer Geste ihre Größe; was „lokal"
+                    // dann heißt, ist genau die Frage, an der es hing.
+                    .onTapGesture(count: 2, coordinateSpace: .named(Seitenraum.name)) { punkt in
+                        doppeltipp(punkt)
+                    }
+                    .onTapGesture(count: 1, coordinateSpace: .named(Seitenraum.name)) { punkt in
+                        einfachtipp(punkt)
+                    }
+                    .gesture(ziehgeste(block))
+                    // Zwei Finger über dem gewählten FOTO vergrößern den
+                    // Ausschnitt im Rahmen. `simultaneousGesture`, damit
+                    // sie sich mit dem Ziehen nicht ausschließt: Das eine
+                    // ist ein Finger, das andere zwei.
+                    .simultaneousGesture(zoomgeste(block), including: block.fotoID == nil ? .subviews : .all)
+            }
+
+            // Ein Textkasten, aus dem unten etwas herausfällt, sagt das.
+            // Dieselbe Marke wie in Pages: ein kleines Kästchen mit einem
+            // Pluszeichen an der Unterkante. Gezeichnet wird sie nur beim
+            // Bearbeiten und nie im PDF — sie ist ein Hinweis, kein Inhalt.
+            if bearbeitbar, let block = gewaehlterBlock, werk.textUeberlauf != nil,
+               werk.textBearbeitung != block.id
+            {
+                Ueberlaufmarke(block: block, massstab: massstab)
+            }
+
+            if bearbeitbar, let id = werk.textBearbeitung,
+               let block = buchseite.seite.bloecke.first(where: { $0.id == id })
+            {
+                // Ein Tipp NEBEN das Textfeld schließt es — und sonst
+                // nichts. Bis 1.0.8 kam so ein Tipp bei der Seite an, und
+                // traf er dabei einen anderen Textblock, ging gleich das
+                // nächste Feld auf: Für den Menschen davor ein Textfeld,
+                // das sich nicht schließen lässt.
+                Color.clear
+                    .frame(width: bogen.width, height: bogen.height)
+                    .offset(x: -anschnittLinks, y: -anschnitt)
+                    .contentShape(Rectangle())
+                    .onTapGesture { werk.textBearbeitung = nil }
+                InlineText(werk: werk, block: block, tag: buchseite.tag, massstab: massstab)
+            }
+
+            // Die Probe: Was hat die Seite zuletzt entgegengenommen? Sie
+            // steht nur da, wenn jemand sie eingeschaltet hat, und sie sagt
+            // nichts als das Gemessene.
+            if bearbeitbar, werk.zeigeGriffprobe {
+                Text(probentext)
+                    .font(.system(size: 9 / massstab, design: .monospaced))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize()
+                    .padding(.horizontal, 5 / massstab)
+                    .padding(.vertical, 3 / massstab)
+                    .background(Color.black.opacity(0.72),
+                                in: RoundedRectangle(cornerRadius: 6 / massstab))
+                    .foregroundStyle(.white)
+                    .offset(x: satz.minX, y: satz.minY - 16 / massstab)
+                    .allowsHitTesting(false)
+            }
+        }
+        // DER SEITENRAUM. Alles, was hier gemessen wird — jeder Tipp, jeder
+        // Aufsetzpunkt einer Ziehbewegung —, wird gegen DIESEN Ursprung
+        // gerechnet, und der ist die linke obere Ecke des Endformats. Damit
+        // ist „wo hat der Finger aufgesetzt" nicht mehr davon abhängig, an
+        // welcher Ansicht die Geste zufällig hängt.
+        // `coordinateSpace(name:)` ist seit iOS 17 abgekündigt — hier steht
+        // die Fassung mit `NamedCoordinateSpace`, sonst meldete der Bau eine
+        // Warnung, und Warnungen sind in diesem Repo keine Nebensache.
+        .coordinateSpace(.named(Seitenraum.name))
+        .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
+        // ALLE Gesten hängen an der SEITE, nicht an den Blöcken.
+        //
+        // Gemeldet 09/2026, nachdem schon das Verschieben zweimal nicht ging:
+        // „Ich habe mitunter auch Schwierigkeiten, Textblöcke auswählen zu
+        // können." Damit ist es nicht mehr die Geste, sondern schon der
+        // TIPP — und das erklärt beides auf einmal. Zwei Gründe, und beide
+        // sind am Quelltext nachzurechnen:
+        //
+        // 1. Ein Textblock ist FLACH. Eine Datumszeile misst rund 14
+        //    Seitenpunkte; bei einer A4-Seite auf einem iPhone (Maßstab
+        //    gut 0,5) sind das sieben Bildschirmpunkte. Apple nennt 44 als
+        //    Mindestmaß für ein Fingerziel. Ein Rahmen, der genau so groß
+        //    ist wie das Gezeichnete, ist bei Text also grundsätzlich zu
+        //    klein — unabhängig von jeder Gestenfrage.
+        // 2. Jeder Block trug seine eigenen Gesten, dazu lag in den
+        //    Textblöcken eine UIKit-Ansicht. Wer mehrere Gesten
+        //    übereinanderlegt, muss wissen, welche gewinnt.
+        //
+        // Deshalb dieselbe Bauweise wie bei der Netzkarte der Abfahrtstafel
+        // (1.1.18): Eine Geste gehört der FLÄCHE; was darauf liegt, ist ein
+        // Bild. Die Seite nimmt den Finger entgegen und sucht HINTERHER,
+        // was gemeint war — erst genau, dann im Umkreis einer Fingerbreite.
+        // Gerechnet wird also erst, wenn klar ist, dass ein Tipp gemeint
+        // war, und die Fangweite kostet keine Fläche.
+        //
+        // Hier bleibt es bei `.local`: Diese Ansicht ist nicht verschoben und
+        // ändert ihre Größe nicht, ihr Raum IST der Seitenraum — und das
+        // Auswählen über sie hat im Feld nachweislich funktioniert. Der
+        // benannte Raum steht eine Ebene tiefer und wäre von hier aus der
+        // Raum eines Nachkommen; darauf wird nicht gezeigt.
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2, coordinateSpace: .local) { punkt in doppeltipp(punkt) }
+        .onTapGesture(count: 1, coordinateSpace: .local) { punkt in einfachtipp(punkt) }
+        .offset(x: anschnittLinks, y: anschnitt)
+        .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
+        .clipped()
+        .background(ohneGrund ? Color.clear : Color.white)
+        .compositingGroup()
+        .scaleEffect(massstab, anchor: .topLeading)
+        // `alignment: .topLeading` IST DER GANZE PUNKT (ab 1.0.26).
+        //
+        // `scaleEffect` ändert nur die ZEICHNUNG, nie die Layoutgröße: Das
+        // Kind darüber meldet weiterhin `bogen`, also die UNSKALIERTE
+        // Größe. Der Rahmen hier ist die skalierte — und ein `.frame` ohne
+        // Ausrichtung stellt ein kleineres Kind MITTIG hinein. Der Zoom
+        // rechnete danach ab der Ecke DIESES Kindes, und die lag um
+        // `bogen · (Maßstab − 1) / 2` in der Mitte des Rahmens.
+        //
+        // Damit hing die gezeichnete Seite bei jedem Maßstab über 100 % aus
+        // ihrem eigenen Rahmen heraus — nach rechts und unten —, und oben
+        // links blieb genau so viel leer. **Alle drei Beschwerden des
+        // Nutzers sind dasselbe** (09/2026): „am oberen Rand bleibt
+        // grundsätzlich Abstand bis zur eigentlichen Buchseite" (die Lücke),
+        // „die untere rechte Ecke erreiche ich nie" (der Überhang; gerollt
+        // wird der Rahmen, nicht die Zeichnung), und „mit einer
+        // Zwei-Finger-Geste nicht wieder herauszoomen" — denn was außerhalb
+        // eines Frames liegt, nimmt in SwiftUI keinen Finger an, und der
+        // Zoom hängt an der Fläche der Bühne. Dieselbe Regel wie bei den
+        // Griffen in 1.0.2, eine Ebene höher.
+        //
+        // NACHGEMESSEN an zwei Bildschirmfotos desselben Buches, in beide
+        // Richtungen: bei 94 % steht die Blattkante 93 pt vom Bühnenrand,
+        // wo `Zoomanker` 121,5 erwartet (−28,5; gerechnet −28,0), bei 187 %
+        // liegt der Inhalt um +387/+272 daneben (gerechnet +373,5/+266,1).
+        // Deshalb stimmte die Probe (`Soll = Ist`) und das Bild trotzdem
+        // nicht: Gerollt wurde richtig, nur stand die Seite woanders, als
+        // die Rechnung annahm.
+        .frame(width: bogen.width * massstab, height: bogen.height * massstab,
+               alignment: .topLeading)
+        // DER SCHATTEN LIEGT AUSSERHALB DES MASSSTABS (ab 1.0.20).
+        //
+        // Bis 1.0.19 stand er davor und wurde mitskaliert: Bei eingepasster
+        // Ansicht (rund 0,4) blieben von neun Punkten dreieinhalb übrig —
+        // die Seite lag flach auf dem Grund, statt als Blatt darauf zu
+        // liegen. Hier gerechnet ist er in BILDSCHIRMpunkten und damit auf
+        // jedem Maßstab derselbe. Dieselbe Überlegung wie bei den Säumen
+        // der Werkzeugleiste in Tafelbild.
+        .shadow(color: .black.opacity(0.30), radius: 16, y: 7)
+        // WELCHE SEITE GEMEINT IST, MUSS MAN SEHEN (ab 1.0.61).
+        //
+        // Gemeldet 09/2026: „schwer zu erkennen, ob eine Seite ausgewählt
+        // wird bzw. auf welcher Seite die Änderungen, die ich vornehmen
+        // möchte, greifen werden." Deshalb ein Rahmen in der Akzentfarbe
+        // um das ganze Blatt — außerhalb des Maßstabs gezeichnet und in
+        // BILDSCHIRMpunkten, wie der Schatten: Eine Linie, die beim
+        // Herauszoomen dünner wird, ist genau dann weg, wenn man die
+        // Übersicht braucht.
+        .overlay {
+            if istGewaehlteSeite {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .padding(-3)
+                    .allowsHitTesting(false)
+            }
+        }
+        // EINMAL je Änderung, nicht bei jedem Neuzeichnen: Dahinter steckt
+        // ein voller CoreText-Satz. Der Schlüssel nennt nur, was den
+        // Befund ändern kann — Block, Rahmenmaße, Textlänge.
+        .task(id: ueberlaufschluessel) { werk.textUeberlauf = ueberlaufMessen() }
+    }
+
+    private var ueberlaufschluessel: String {
+        guard bearbeitbar, let block = gewaehlterBlock, block.inhalt.istText
+        else { return "-" }
+        // `tag` ist wahlweise: Auf einer Umschlagseite gibt es keinen, und
+        // seit 1.0.64 stehen dort eigene Textfelder — deren Text gehört
+        // dem Block selbst.
+        let text = Seitensatz.inhaltstext(block, tag: buchseite.tag, reise: werk.reise)
+        // Der Innenabstand gehört in den Schlüssel: Er nimmt dem Text
+        // Breite UND Höhe weg. Ohne ihn bliebe die Marke stehen, wo sie
+        // stand, obwohl der Kasten gerade enger geworden ist — ein Hinweis,
+        // der hinterherhinkt, ist schlimmer als keiner.
+        return "\(block.id)|\(Int(block.rahmen.breite))|\(Int(block.rahmen.hoehe))"
+            + "|\(Int(block.textrand(werk.reise.gestaltung)))|\(text.count)"
+    }
+
+    private func ueberlaufMessen() -> Double? {
+        guard bearbeitbar, let block = gewaehlterBlock else { return nil }
+        return werk.fehlendeHoehe(block, tag: buchseite.tag)
+    }
+
+    // Der Abstand des Drehgriffs über dem Block — an einer Stelle, weil
+    // Zeichnung und Treffprüfung denselben Wert brauchen.
+    private var griffabstand: Double { 32 / massstab }
+    private var grundgreifweite: Double { 24 / massstab }
+
+    // Die Greifweite eines EINZELNEN Blocks. Eine Fingerkuppe ist das Maß,
+    // aber sie darf einen kleinen Block nicht ganz ausfüllen: Läge jeder
+    // Punkt eines 60 x 40 grossen Blocks im Umkreis einer Ecke, liesse er
+    // sich nur noch in der Größe ziehen und nie mehr verschieben. Deshalb
+    // gedeckelt auf gut ein Drittel der kürzeren Seite — mit einem Boden,
+    // unter den es nicht geht, sonst wäre der Griff nicht zu treffen.
+    private func greifweite(_ block: Block) -> Double {
+        let kurz = min(block.rahmen.breite, block.rahmen.hoehe)
+        return min(grundgreifweite, max(10 / massstab, kurz * 0.35))
+    }
+
+    @ViewBuilder
+    private func blockAnsicht(_ block: Block) -> some View {
+        let rahmen = block.rahmen
+        let wirkung = block.wirkung(werk.reise.gestaltung)
+        let randPt = Druckmass.pt(wirkung.fotorand)
+
+        BlockInhaltView(werk: werk, block: block, tag: buchseite.tag, massstab: massstab)
+            .frame(width: rahmen.breite, height: rahmen.hoehe)
+            .padding(randPt)
+            .background {
+                if wirkung.fotorand > 0 {
+                    RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt)
+                        .fill(Color.white)
+                }
+            }
+            .schattenwurf(wirkung.schatten, massstab: format.width / 600)
+            .padding(-randPt)
+            .frame(width: rahmen.breite, height: rahmen.hoehe)
+            .rotationEffect(.degrees(block.drehung))
+            .offset(x: rahmen.x, y: rahmen.y)
+            // Ein Block ist eine ZEICHNUNG. Er trägt keine Geste mehr, und
+            // was in ihm liegt — Textkasten, Foto, Karte — nimmt erst recht
+            // keinen Finger an.
+            .allowsHitTesting(false)
+    }
+
+    // MARK: - Was liegt unter dem Finger?
+
+    // Die Fangweite für einen Block: eine knappe Fingerbreite, in
+    // Bildschirmpunkten gedacht und in Seitenpunkte umgerechnet. Sie ist
+    // kleiner als die der Griffe — ein Griff ist ein Punkt, ein Block hat
+    // eine Fläche, und ein zu großzügiger Fang schnappte über einen
+    // benachbarten Block hinweg.
+    private var fangweite: Double { 20 / massstab }
+
+    // Erst genau, dann im Umkreis — jeweils von OBEN nach unten, damit bei
+    // zwei übereinanderliegenden Blöcken der gewinnt, den man sieht.
+    private func blockUnter(_ punkt: CGPoint) -> Block? {
+        // GERECHNETE Blöcke werden übersprungen (ab 1.0.64). Auf der
+        // Titelseite liegen Titel, Zeitraum und Titelfoto — sie entstehen
+        // bei jedem Durchgang neu und lassen sich nicht anfassen. Wäre das
+        // randabfallende Titelfoto wählbar, träfe jeder Tipp auf freie
+        // Fläche es, und der Rahmen verspräche eine Geste, die es nicht
+        // gibt.
+        let oben = buchseite.seite.sortiert.reversed().filter { werk.anfassbar($0.id) }
+        if let treffer = oben.first(where: { trifft($0, punkt: punkt, luft: 0) }) {
+            return treffer
+        }
+        return oben.first { trifft($0, punkt: punkt, luft: fangweite) }
+    }
+
+    // Liegt der Punkt im Rahmen (zuzüglich Luft)? Bei einem gedrehten Block
+    // wird er vorher um dessen Mitte zurückgedreht — der Rahmen dreht ja mit.
+    private func trifft(_ block: Block, punkt: CGPoint, luft: Double) -> Bool {
+        let feld = block.rahmen.rect.insetBy(dx: -luft, dy: -luft)
+        return feld.contains(imBlock(punkt, block: block, absolut: true))
+    }
+
+    // Rechnet einen Punkt der SEITE in die Koordinaten eines Blocks um.
+    // `absolut` behält den Ursprung der Seite (für die Rahmenprüfung),
+    // sonst liegt (0,0) in der linken oberen Ecke des Blocks (für die
+    // Griffe).
+    private func imBlock(_ punkt: CGPoint, block: Block, absolut: Bool) -> CGPoint {
+        var stelle = punkt
+        if abs(block.drehung) > 0.01 {
+            let mitte = block.rahmen.mitte
+            let winkel = -block.drehung * .pi / 180
+            let dx = punkt.x - mitte.x
+            let dy = punkt.y - mitte.y
+            stelle = CGPoint(x: mitte.x + dx * cos(winkel) - dy * sin(winkel),
+                             y: mitte.y + dx * sin(winkel) + dy * cos(winkel))
+        }
+        if absolut { return stelle }
+        return CGPoint(x: stelle.x - block.rahmen.x, y: stelle.y - block.rahmen.y)
+    }
+
+    // Die AUSGLEICHSSEITE steht in keinem Tag und wird bei jedem
+    // Durchgang neu gerechnet; dort lässt sich nichts einsetzen, also wird
+    // sie auch nicht als Ziel angeboten. Ein Rahmen um ein Blatt, auf das
+    // nichts geht, wäre eine Zusage, die der nächste Knopf nicht hält.
+    //
+    // Titelseite und Rückseite gehörten bis 1.0.63 in dieselbe Zeile.
+    // Seit 1.0.64 nicht mehr: Was dort eingesetzt wird, liegt am Umschlag
+    // und wird der gerechneten Seite nur angehängt — es übersteht damit
+    // jeden Durchgang.
+    private var seitenwahlMoeglich: Bool {
+        bearbeitbar && !buchseite.ausgleich
+    }
+
+    private var istGewaehlteSeite: Bool {
+        seitenwahlMoeglich && werk.gewaehlteSeite == buchseite.seite.id
+    }
+
+    // MARK: - Tippen
+
+    private func einfachtipp(_ punkt: CGPoint) {
+        guard bearbeitbar else { return }
+        werk.textBearbeitung = nil
+        // EIN TIPP WÄHLT AUCH DIE SEITE (ab 1.0.61). Er tut es als
+        // Erstes und unabhängig davon, ob ein Block getroffen wurde: Wer
+        // ins Leere tippt, meint genau dieses Blatt — und danach sagt die
+        // Umrandung, dass er es bekommen hat.
+        if seitenwahlMoeglich { werk.gewaehlteSeite = buchseite.seite.id }
+        let treffer = blockUnter(punkt)
+        werk.letzterGriff = treffer.map { "Tipp auf \($0.inhalt.name)" } ?? "Tipp ins Leere"
+        guard let treffer else {
+            werk.gewaehlterBlock = nil
+            return
+        }
+        werk.gewaehlterBlock = werk.gewaehlterBlock == treffer.id ? nil : treffer.id
+    }
+
+    private func doppeltipp(_ punkt: CGPoint) {
+        guard bearbeitbar, let treffer = blockUnter(punkt) else { return }
+        werk.letzterGriff = "Doppeltipp auf \(treffer.inhalt.name)"
+        werk.gewaehlterBlock = treffer.id
+        // Eine Wettertabelle (ab 1.0.116) ist kein Text zum Tippen — das
+        // Feld zeigte die Zeile, die gar nicht gezeichnet wird.
+        if treffer.inhalt == .wetter, buchseite.tag?.geltendeWettertabelle != nil { return }
+        if treffer.inhalt.istText {
+            werk.textBearbeitung = treffer.id
+            return
+        }
+        // Ein Doppeltipp auf ein FOTO schreibt seine Unterschrift. Das ist
+        // derselbe Griff wie beim Text — man tippt zweimal auf das, was man
+        // beschriften will — und der einzige Weg dorthin, den man nicht
+        // vorher gelesen haben muss.
+        if let id = treffer.fotoID {
+            werk.unterschriftOeffnen(id)
+            return
+        }
+        // Und derselbe Griff auf einer KARTE (ab 1.0.87): Sie ist auch nur
+        // ein Bild, und wer sie beschriften will, tippt sie zweimal an.
+        if treffer.inhalt == .karte, let tag = buchseite.tag {
+            werk.kartenunterschriftOeffnen(tag.id)
+        }
+    }
+
+    // MARK: - Ziehen
+
+    // Wie weit die Ziehfläche über den Block hinausreicht: so weit, dass
+    // die Griffe samt Drehgriff darin liegen. Im Ausschnittsmodus gibt es
+    // keine Griffe — dort bleibt die Fläche beim Bild.
+    private func ziehsaum(_ block: Block) -> Double {
+        werk.ausschnittsmodus == block.id ? 0 : griffabstand + grundgreifweite
+    }
+
+    // Die Geste misst im SEITENRAUM, nicht im eigenen. Damit ist der
+    // Aufsetzpunkt dieselbe Zahl, die auch ein Tipp auf die Seite liefert —
+    // und die Umrechnung, an der es hing, gibt es gar nicht mehr.
+    private func ziehgeste(_ block: Block) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .named(Seitenraum.name))
+            .onChanged { wert in ziehen(block, wert: wert, endgueltig: false) }
+            .onEnded { wert in ziehen(block, wert: wert, endgueltig: true) }
+    }
+
+    private func ziehen(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
+        // Eine NEUE Geste erkennt man am Aufsetzpunkt. Ohne diese Prüfung
+        // bliebe nach einer abgebrochenen Geste der alte Griff stehen, und
+        // die nächste Bewegung täte etwas, das niemand angefasst hat.
+        if gegriffen == nil || gestenstart != wert.startLocation {
+            gestenstart = wert.startLocation
+            griffFestlegen(wert.startLocation, block: block)
+        }
+        guard let art = gegriffen else {
+            if endgueltig { gestenendeAufraeumen(wert) }
+            return
+        }
+        if werk.ausschnittsmodus == block.id {
+            ausschnittSchieben(block, wert: wert, endgueltig: endgueltig)
+            if endgueltig { gestenendeAufraeumen(wert) }
+            return
+        }
+        switch art {
+        case .verschieben:
+            verschieben(block, wert: wert)
+        case .drehen:
+            // UNGEDREHT: `drehen` setzt den Winkel absolut, gemessen im
+            // ruhenden Koordinatensystem der Seite. Mit dem
+            // zurückgedrehten Punkt wäre er relativ zur schon gesetzten
+            // Drehung, und der Block liefe dem Finger davon.
+            drehen(block, zeigt: CGPoint(x: wert.location.x - block.rahmen.x,
+                                         y: wert.location.y - block.rahmen.y))
+        default:
+            groesseAendern(block, wert: wert)
+        }
+        if endgueltig { gestenendeAufraeumen(wert) }
+    }
+
+    // Einmal beim Aufsetzen, und dann gilt es für die ganze Bewegung: Sonst
+    // wechselte die Bedeutung mitten im Ziehen, sobald der Finger über
+    // einen anderen Griff wandert.
+    private func griffFestlegen(_ punkt: CGPoint, block: Block) {
+        // Im Ausschnittsmodus gibt es keine Griffe, und gemerkt wird dort
+        // erst am Ende der Geste (`ausschnittSchieben`) — ein zweites
+        // Merken hier legte einen leeren Stand auf den Rückgängig-Stapel.
+        guard werk.ausschnittsmodus != block.id else {
+            gegriffen = .verschieben
+            werk.letzterGriff = "Ausschnitt an \(block.inhalt.name)"
+            return
+        }
+        let weite = greifweite(block)
+        let imEigenen = imBlock(punkt, block: block, absolut: false)
+        let art = Grifflage.getroffen(imEigenen,
+                                      breite: block.rahmen.breite,
+                                      hoehe: block.rahmen.hoehe,
+                                      abstand: griffabstand,
+                                      greifweite: weite) ?? .verschieben
+        gegriffen = art
+        ausgangsrahmen = block.rahmen
+        // Die Probe nennt ZAHLEN und keine Deutung: wo der Finger im Block
+        // aufgesetzt hat, wie groß der Block ist und wie weit ein Griff
+        // greift. Damit ist beim nächsten Mal nachzurechnen, ob der Punkt
+        // stimmt — und nicht wieder zu raten.
+        werk.letzterGriff = String(
+            format: "%@ an %@ \u{00B7} Punkt %.0f/%.0f in 0…%.0f/0…%.0f \u{00B7} greift %.0f",
+            art.name, block.inhalt.name,
+            imEigenen.x, imEigenen.y,
+            block.rahmen.breite, block.rahmen.hoehe, weite)
+        werk.merken()
+    }
+
+    private func gestenendeAufraeumen(_ wert: DragGesture.Value) {
+        if gegriffen != nil {
+            werk.letzterGriff = (werk.letzterGriff ?? "") + String(
+                format: " \u{00B7} %.1f / %.1f mm \u{00B7} Maßstab %.2f",
+                Druckmass.mm(wert.translation.width),
+                Druckmass.mm(wert.translation.height), massstab)
+        }
+        gegriffen = nil
+        ausgangsrahmen = nil
+        gestenstart = nil
+        ausgangsausschnitt = nil
+        fangSenkrecht = nil
+        fangWaagerecht = nil
+    }
+
+    // MARK: - Schieben
+
+    private func verschieben(_ block: Block, wert: DragGesture.Value) {
+        // OHNE Teilung durch den Maßstab. Eine Geste wird im SEITENRAUM
+        // gemeldet, und der liegt innerhalb des `scaleEffect` — die
+        // Strecke ist also schon in Seitenpunkten. Bis 1.0.4 wurde hier
+        // zusätzlich geteilt; bei halb gezeigter Seite lief der Block
+        // damit doppelt so weit wie der Finger.
+        //
+        // Gerechnet wird vom AUSGANGSRAHMEN aus, nicht vom jetzigen:
+        // `translation` ist die ganze Bewegung seit dem Aufsetzen, und auf
+        // den mitgewanderten Rahmen addiert liefe der Block davon.
+        // Geschrieben wird bei jedem Bildpunkt — dieselbe Bauweise wie
+        // beim Ändern der Größe, und deshalb wandern die Griffe mit.
+        guard let ausgang = ausgangsrahmen else { return }
+        var probe = block
+        probe.rahmen = ausgang
+        // Ohne Einrasten wird schlicht die Strecke genommen. Der Schalter
+        // sitzt unter „…" → Hilfen beim Anordnen; wer ihn ausmacht, bekommt auch keine
+        // Linien — eine Linie ohne Wirkung wäre eine Behauptung.
+        let gefangen: Einrasten.Fang
+        if einrastenAn {
+            gefangen = Einrasten.gefangen(
+                block: probe,
+                dx: wert.translation.width, dy: wert.translation.height,
+                nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id },
+                satz: satz,
+                bogen: fangbogen,
+                schutz: schutzzone,
+                // AM LETZTMÖGLICHEN PUNKT DAVOR (ab 1.0.87): An
+                // Schnittkante und Sicherheitsabstand fängt der
+                // gezeichnete Umriss und nicht der Rahmen — sonst rastet
+                // ein Bild sauber an der blauen Linie ein und trägt
+                // trotzdem die rote Marke.
+                ueberstand: probe.ueberstand(werk.reise.gestaltung),
+                toleranz: 6 / massstab
+            )
+        } else {
+            gefangen = Einrasten.Fang(dx: wert.translation.width,
+                                      dy: wert.translation.height,
+                                      senkrecht: nil, waagerecht: nil)
+        }
+        fangSenkrecht = gefangen.senkrecht
+        fangWaagerecht = gefangen.waagerecht
+        let neu = ausgang.verschoben(dx: gefangen.dx, dy: gefangen.dy)
+            .begrenzt(auf: format)
+        // DIE BILDUNTERSCHRIFT GEHT MIT (ab 1.0.86) — sie gehört zum Bild.
+        werk.schiebeMitUnterschrift(block.id, auf: neu)
+    }
+
+    // MARK: - Drehen
+
+    // Gedreht wird um die MITTE, und der Winkel kommt aus dem Zeiger von der
+    // Mitte zum Finger — nicht aus der Wegstrecke. Eine Drehung aus der
+    // Verschiebung dreht am Rand schneller als in der Mitte.
+    private func drehen(_ block: Block, zeigt: CGPoint) {
+        let mitte = CGPoint(x: block.rahmen.breite / 2, y: block.rahmen.hoehe / 2)
+        let zeiger = CGPoint(x: zeigt.x - mitte.x, y: zeigt.y - mitte.y)
+        var grad = atan2(zeiger.x, -zeiger.y) * 180 / .pi
+        // Bei Vielfachen von 45 Grad rastet sie ein: Ein Bild, das um 0,4
+        // Grad schief steht, sieht nicht gewollt aus, sondern nach einem
+        // Versehen.
+        for rast in stride(from: -180.0, through: 180.0, by: 45) where abs(grad - rast) < 3 {
+            grad = rast
+        }
+        // Gedreht wird das Bild MIT seiner Unterschrift (ab 1.0.86): Die
+        // Zeile dreht um die Mitte des Bildes mit, statt schief darunter
+        // stehen zu bleiben — und unter einem stark gedrehten Bild zu
+        // verschwinden.
+        werk.drehe(block.id, auf: grad)
+    }
+
+    // MARK: - Größe
+
+    private func groesseAendern(_ block: Block, wert: DragGesture.Value) {
+        guard let ausgang = ausgangsrahmen, let art = gegriffen else { return }
+        let richtung = art.zieht
+        let dx = wert.translation.width
+        let dy = wert.translation.height
+
+        var neu = ausgang
+        if richtung.waagerecht < 0 {
+            neu.x = ausgang.x + dx
+            neu.breite = ausgang.breite - dx
+        } else if richtung.waagerecht > 0 {
+            neu.breite = ausgang.breite + dx
+        }
+        if richtung.senkrecht < 0 {
+            neu.y = ausgang.y + dy
+            neu.hoehe = ausgang.hoehe - dy
+        } else if richtung.senkrecht > 0 {
+            neu.hoehe = ausgang.hoehe + dy
+        }
+        // Unter dieser Größe ist ein Block nicht mehr zu treffen — und ein
+        // Block, den man nicht mehr anfassen kann, ist verloren.
+        neu.breite = max(neu.breite, 24)
+        neu.hoehe = max(neu.hoehe, 14)
+
+        // Dieselben Kanten wie beim Schieben, aus derselben Quelle
+        // (`Einrasten.kanten`) — zwei Listen liefen auseinander, und dann
+        // finge eine Ecke an etwas, woran die Kante daneben nicht fängt.
+        let alle = Einrasten.kanten(
+            satz: satz,
+            bogen: fangbogen,
+            schutz: schutzzone,
+            nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id }
+        )
+        let toleranz = einrastenAn ? 7 / massstab : 0
+        // Derselbe Überstand wie beim Schieben (ab 1.0.87). Das Vorzeichen
+        // sagt, wo „innen" liegt: Beim Ziehen an der linken Kante rückt die
+        // Grenze nach rechts, an der rechten nach links.
+        let ueber = block.ueberstand(werk.reise.gestaltung)
+        var senkrecht: Einrasten.Linie?
+        var waagerecht: Einrasten.Linie?
+        if richtung.waagerecht < 0 {
+            let gefangen = Einrasten.kanteGefangen(neu.x, kanten: alle.x, toleranz: toleranz,
+                                                   versatz: Double(ueber.width))
+            neu.breite += neu.x - gefangen.wert
+            neu.x = gefangen.wert
+            senkrecht = gefangen.linie
+        } else if richtung.waagerecht > 0 {
+            let rechts = Einrasten.kanteGefangen(neu.x + neu.breite, kanten: alle.x,
+                                                 toleranz: toleranz,
+                                                 versatz: -Double(ueber.width))
+            neu.breite = rechts.wert - neu.x
+            senkrecht = rechts.linie
+        }
+        if richtung.senkrecht < 0 {
+            let gefangen = Einrasten.kanteGefangen(neu.y, kanten: alle.y, toleranz: toleranz,
+                                                   versatz: Double(ueber.height))
+            neu.hoehe += neu.y - gefangen.wert
+            neu.y = gefangen.wert
+            waagerecht = gefangen.linie
+        } else if richtung.senkrecht > 0 {
+            let unten = Einrasten.kanteGefangen(neu.y + neu.hoehe, kanten: alle.y,
+                                                toleranz: toleranz,
+                                                versatz: -Double(ueber.height))
+            neu.hoehe = unten.wert - neu.y
+            waagerecht = unten.linie
+        }
+        fangSenkrecht = senkrecht
+        fangWaagerecht = waagerecht
+
+        werk.aendere(block.id, merken: false) { b in
+            b.rahmen = neu
+            // Wird ein Foto größer gezogen, bleibt sein Ausschnitt gültig —
+            // aber nur, wenn er den neuen Rahmen noch füllt.
+            if let id = b.fotoID, let foto = werk.reise.foto(id) {
+                b.ausschnitt = b.ausschnitt.begrenzt(
+                    bildgroesse: CGSize(width: foto.breite, height: foto.hoehe),
+                    rahmen: neu.rect)
+            }
+        }
+    }
+
+    private func ausschnittSchieben(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
+        guard let id = block.fotoID, let foto = werk.reise.foto(id) else { return }
+        if ausgangsausschnitt == nil { ausgangsausschnitt = block.ausschnitt }
+        guard let ausgang = ausgangsausschnitt else { return }
+        let rahmen = block.rahmen.rect
+        let bildgroesse = CGSize(width: foto.breite, height: foto.hoehe)
+        // Vom AUSGANGSWERT aus. Bis 1.0.7 wurde die Gesamtstrecke bei jedem
+        // Bildpunkt aufaddiert — das Bild schoss unter dem Finger weg, und
+        // zwar immer schneller.
+        var neu = ausgang
+        neu.versatzX += wert.translation.width / max(rahmen.width, 1)
+        neu.versatzY += wert.translation.height / max(rahmen.height, 1)
+        werk.aendere(block.id, merken: false) {
+            $0.ausschnitt = neu.begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
+        }
+        if endgueltig { ausgangsausschnitt = nil }
+    }
+
+    // MARK: - Zwei Finger vergrößern das Bild IM Rahmen
+
+    // Gewünscht 09/2026: „Wäre schön, wenn man ein Foto einfach mit einer
+    // Zweifinger-Geste in den inneren Bereich ziehen könnte. Also die
+    // Vergrößerung des Fotos innerhalb des Rahmens."
+    //
+    // Der Rahmen ist der Platz auf der Seite, der Ausschnitt der sichtbare
+    // Teil des Bildes — zwei Dinge, und beide müssen zu machen sein. Die
+    // Kanten und Ecken ziehen den RAHMEN, zwei Finger den AUSSCHNITT. Die
+    // Seite selbst wird nicht mit zwei Fingern gezoomt (dafür stehen die
+    // Maßstab-Knopf unten), es gibt hier also nichts, womit sich diese Geste
+    // streiten könnte.
+    private func zoomgeste(_ block: Block) -> some Gesture {
+        MagnifyGesture(minimumScaleDelta: 0.01)
+            .onChanged { wert in bildZoomen(block, faktor: wert.magnification, endgueltig: false) }
+            .onEnded { wert in bildZoomen(block, faktor: wert.magnification, endgueltig: true) }
+    }
+
+    private func bildZoomen(_ block: Block, faktor: Double, endgueltig: Bool) {
+        guard let id = block.fotoID, let foto = werk.reise.foto(id) else { return }
+        if ausgangsausschnitt == nil {
+            ausgangsausschnitt = block.ausschnitt
+            // Einmal je Geste gemerkt, nicht je Bildpunkt — sonst wäre der
+            // Rückgängig-Stapel nach einem Zoom voll. Und nicht noch
+            // einmal, wenn daneben schon eine Ziehbewegung läuft: Die hat
+            // beim Aufsetzen gemerkt, und zwei Stände für eine Handbewegung
+            // wären zwei Schritte zurück.
+            if gegriffen == nil { werk.merken() }
+        }
+        guard let ausgang = ausgangsausschnitt else { return }
+        let rahmen = block.rahmen.rect
+        let bildgroesse = CGSize(width: foto.breite, height: foto.hoehe)
+        var neu = ausgang
+        neu.zoom = ausgang.zoom * faktor
+        let begrenzt = neu.begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
+        werk.aendere(block.id, merken: false) { $0.ausschnitt = begrenzt }
+        werk.letzterGriff = String(format: "Bild im Rahmen \u{00B7} Zoom %.2f", begrenzt.zoom)
+        if endgueltig { ausgangsausschnitt = nil }
+    }
+}
+
+// MARK: - Die Marke für abgeschnittenen Text
+
+// Ein kleines Kästchen mit einem Pluszeichen an der Unterkante des Blocks
+// — dieselbe Zeichensprache wie in Pages, und aus demselben Grund: Ein
+// Kasten, aus dem unten zwei Sätze herausfallen, sieht aus wie ein Kasten,
+// der zu Ende ist. In einem Tagebuch ist das der teuerste denkbare Fehler,
+// denn es gibt keine zweite Ausfertigung des Satzes.
+//
+// Sie ist eine ZEICHNUNG wie alles auf dieser Seite und nimmt keinen
+// Finger an; angefasst wird über den Knopf „Rahmen an Text anpassen".
+struct Ueberlaufmarke: View {
+    let block: Block
+    let massstab: Double
+
+    private var groesse: Double { 16 / massstab }
+
+    var body: some View {
+        let rahmen = block.rahmen.rect
+        ZStack {
+            RoundedRectangle(cornerRadius: 2 / massstab)
+                .fill(Color.orange)
+            Image(systemName: "plus")
+                .font(.system(size: groesse * 0.6, weight: .bold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: groesse, height: groesse)
+        .position(x: rahmen.width / 2, y: rahmen.height)
+        .frame(width: rahmen.width, height: rahmen.height, alignment: .topLeading)
+        .rotationEffect(.degrees(block.drehung))
+        .offset(x: rahmen.minX, y: rahmen.minY)
+        .allowsHitTesting(false)
+    }
+}
+
+// EINE HILFSLINIE — Kontur zuerst, dann die Farbe (ab 1.0.80).
+//
+// Die Kontur ist keine Zierde: Auf einem Seitenhintergrund, der dunkel ist
+// oder ein Foto trägt, verschwindet jede feste Farbe stellenweise. Erst die
+// breitere Linie in der Gegenfarbe, dann die schmalere farbige darauf —
+// dieselbe Bauweise wie bei den Linienzügen der Abfahrtstafel (1.1.9).
+//
+// Was WELCHE Linie ist, steht in `Seitenlinie` und nicht hier: Bis 1.0.79
+// standen die Farben in dieser Datei UND in `Fanglinie`, und zwei Fassungen
+// derselben Auskunft laufen auseinander.
+struct Hilfslinie: View {
+    let art: Seitenlinie
+    /// An welcher Kante der Rahmen offen bleibt — nur die Schnittkante
+    /// kennt das (am Bund wird nicht geschnitten, siehe `Bogenkante`).
+    var offen: Bogenkante = .keine
+    let dunkel: Bool
+
+    var body: some View {
+        ZStack {
+            Schnittlinien(offen: offen)
+                .stroke(Seitenlinie.kontur(aufDunklem: dunkel),
+                        style: StrokeStyle(lineWidth: art.breite + 1.1, dash: art.strich))
+            Schnittlinien(offen: offen)
+                .stroke(art.farbe(aufDunklem: dunkel),
+                        style: StrokeStyle(lineWidth: art.breite, dash: art.strich))
+        }
+    }
+}
+
+// DIE MARKE UM EINEN GEFÄHRDETEN BLOCK (ab 1.0.81).
+//
+// Dick, rot und durchgezogen — und mit einer Kontur darunter, damit sie
+// auch auf einem dunklen Grund oder auf einem Foto steht. Gestrichelt ist
+// sie bewusst NICHT mehr: Die drei Hilfslinien sind gestrichelt, und eine
+// Warnung soll anders aussehen als eine Hilfe.
+struct Randmarke: View {
+    let dunkel: Bool
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .strokeBorder(Seitenlinie.kontur(aufDunklem: dunkel),
+                              lineWidth: 5.2)
+            Rectangle()
+                .strokeBorder(dunkel ? Color(red: 1.0, green: 0.35, blue: 0.32)
+                                     : Color(red: 0.88, green: 0.07, blue: 0.07),
+                              lineWidth: 3.6)
+        }
+    }
+}
+
+// DIE SCHNITTKANTE — an der Bundkante eines Bogens fällt sie WEG (ab 1.0.78).
+//
+// Ein `Rectangle().strokeBorder` kann nur alle vier Kanten; gebraucht
+// werden drei. Gezeichnet wird deshalb ein Pfad, und die eine Kante, an
+// der die Nachbarhälfte anstößt, bleibt offen.
+//
+// Gestrichen wird NUR die senkrechte Kante am Bund. Oben und unten wird
+// immer geschnitten, ganz gleich, wie das Buch gebunden ist — und die
+// Außenkante ist die, an der das Messer ohnehin ansetzt.
+struct Schnittlinien: Shape {
+    var offen: Bogenkante
+
+    func path(in rahmen: CGRect) -> Path {
+        var pfad = Path()
+        let links = rahmen.minX
+        let rechts = rahmen.maxX
+        let oben = rahmen.minY
+        let unten = rahmen.maxY
+
+        pfad.move(to: CGPoint(x: links, y: oben))
+        pfad.addLine(to: CGPoint(x: rechts, y: oben))
+        pfad.move(to: CGPoint(x: links, y: unten))
+        pfad.addLine(to: CGPoint(x: rechts, y: unten))
+
+        if offen != .links {
+            pfad.move(to: CGPoint(x: links, y: oben))
+            pfad.addLine(to: CGPoint(x: links, y: unten))
+        }
+        if offen != .rechts {
+            pfad.move(to: CGPoint(x: rechts, y: oben))
+            pfad.addLine(to: CGPoint(x: rechts, y: unten))
+        }
+        return pfad
+    }
+}
+
+// MARK: - Hintergrund
+
+struct HintergrundFlaeche: View {
+    @ObservedObject var werk: Reisewerk
+    let hintergrund: Seitenhintergrund
+    let seite: Seite
+    let format: CGSize
+    let anschnitt: Double
+    // Der Bogen, auf den beschnitten wird — `nil` heißt „nimm, was der
+    // Platz hergibt" (die Probe im Hintergrund-Blatt).
+    var bogen: CGSize?
+    // Die Nummer im Buch. Daran hängt, ob diese Seite links oder rechts
+    // liegt; `nil` heißt „außerhalb des Buches", und dann gibt es keine
+    // Doppelseite, über die etwas gehen könnte.
+    var liegtRechts: Bool?
+    // An welcher Kante die Nachbarhälfte anstößt (ab 1.0.78) — dort gibt
+    // es keinen Anschnitt, und damit liegt die Ecke dieses Bogens auf der
+    // Kante des Endformats statt davor.
+    var bogenkante: Bogenkante = .keine
+    var massstab: Double = 1
+    @Environment(\.displayScale) private var geraet
+
+    // Wie weit die linke Bogenkante VOR dem Endformat liegt. An der
+    // Bundkante ist das null.
+    private var randLinks: Double { bogenkante == .links ? 0 : anschnitt }
+
+    // Die Fläche eines Bildes über die ganze Doppelseite, in
+    // SEITENkoordinaten — oder `nil`, wenn es schlicht diese eine Seite
+    // füllt.
+    //
+    // Gefragt wird `Bogenlage.bildflaeche`, also genau die Funktion, die
+    // auch das PDF bekommt. Bis 1.0.77 wurde hier selbst gerechnet
+    // (`bogen.width + format.width`), und das ging nur auf, solange der
+    // Bogen an beiden Seiten einen Anschnitt trug: Seit 1.0.78 fällt er
+    // am Bund weg, und die alte Zeile hätte die Fläche um einen Anschnitt
+    // zu schmal gemacht. **Merke: Wer eine Rechnung nachbaut, bezahlt sie
+    // beim nächsten Mal, wenn sich ihre Voraussetzung ändert.**
+    private var doppelflaeche: CGRect? {
+        guard hintergrund.ueberDoppelseite, let liegtRechts, bogen != nil else { return nil }
+        return Bogenlage.bildflaeche(rechts: liegtRechts, format: format,
+                                     anschnitt: anschnitt)
+    }
+
+    private var hintergrundkante: Int {
+        let breite = Double(doppelflaeche?.width ?? (bogen?.width ?? format.width))
+        let hoehe = Double(doppelflaeche?.height ?? (bogen?.height ?? format.height))
+        return Bildschaerfe.kante(CGSize(width: breite, height: hoehe),
+                                  geraet: Double(geraet), massstab: massstab,
+                                  kleinste: 600, groesste: doppelflaeche == nil ? 2000 : 2800)
+    }
+
+    var body: some View {
+        ZStack {
+            switch hintergrund.art {
+            case .einfarbig:
+                hintergrund.farbe.farbe
+            case .verlauf:
+                hintergrund.swiftUIVerlauf
+            case .papierstruktur:
+                hintergrund.farbe.farbe
+                Papierkorn(staerke: hintergrund.koernung, saat: seite.id.saat)
+            case .foto:
+                hintergrund.farbe.farbe
+                if let id = hintergrund.fotoID, let foto = werk.reise.foto(id) {
+                    // Über die Doppelseite deckt dasselbe Bild die
+                    // doppelte Breite ab — mit derselben Kante wäre es auf
+                    // dem Bildschirm halb so fein. Das PDF holt ohnehin die
+                    // volle Auflösung (`auftrag.bildkante`). Wie fein es auf
+                    // dem BILDSCHIRM sein muss, hängt am Maßstab der Bühne
+                    // und steht in `Bildschaerfe` — bis 1.0.52 stand hier
+                    // eine feste Zahl, und die war beim Hineinzoomen zu klein.
+                    //
+                    // Geholt wird es seit 1.0.81 abseits des Hauptfadens
+                    // (`Ladebild`). Gerade das HINTERGRUNDfoto ist das
+                    // größte Bild einer Seite — es füllt Seite oder
+                    // Doppelseite ganz aus.
+                    Ladebild(datei: foto.datei, reise: werk.reise.id,
+                                 kante: hintergrundkante,
+                                 farbkraft: hintergrund.farbkraftfaktor,
+                                 messer: werk.messer)
+                    { bild in
+                        // Der Raum wird GEMESSEN und nicht angenommen: Die
+                        // Probe im Hintergrund-Blatt hat keinen Bogen, und
+                        // dort ist die Fläche das, was die Zeile hergibt.
+                        GeometryReader { raum in
+                            fotoflaeche(bild, raum: raum.size)
+                        }
+                    }
+                }
+                hintergrund.farbe.farbe.opacity(hintergrund.schleier)
+            }
+        }
+        // Die Größe steht FEST am Bogen und richtet sich nicht nach dem
+        // größten Kind: Ein Bild über die Doppelseite ist breiter als diese
+        // Seite, und ohne diesen Rahmen wüchse der Stapel mit und zöge das
+        // Blatt auseinander. Beschnitten wird danach am Bogen — die
+        // Nachbarseite ist ein eigenes Blatt Papier.
+        .frame(width: bogen?.width, height: bogen?.height)
+        .clipped()
+    }
+
+    // Der Rahmen, den das Hintergrundfoto füllt — in den Koordinaten
+    // DIESER Fläche, deren linke obere Ecke bei (0,0) liegt.
+    //
+    // Es ist dieselbe Fläche, die das PDF über `Bogenlage.bildflaeche`
+    // bekommt, nur anders ausgedrückt: dort in Seitenkoordinaten (die am
+    // Anschnitt beginnen), hier am Bogen. Gerechnet wird beides aus
+    // derselben Zahl (`doppelflaeche`), damit die Vorschau nicht anders
+    // steht als der Druck.
+    private func bildrahmen(raum: CGSize) -> CGRect {
+        guard let flaeche = doppelflaeche else {
+            return CGRect(origin: .zero, size: raum)
+        }
+        // Von Seitenkoordinaten (Ursprung = Ecke des Endformats) in die
+        // dieser Fläche (Ursprung = Ecke des Bogens). Das ist eine
+        // Verschiebung und keine zweite Rechnung.
+        return flaeche.offsetBy(dx: CGFloat(randLinks), dy: CGFloat(anschnitt))
+    }
+
+    // Gezeichnet wird über `gefuelltesZiel` und nicht mehr über
+    // `scaledToFill` (ab 1.0.58). Bei `.voll` ist das dasselbe — Füllen
+    // und mittig —, mit einem eigenen Ausschnitt ist es das, was auch im
+    // PDF steht. Zwei Rechnungen für dieselbe Lage liefen auseinander,
+    // und der Unterschied fiele erst im gedruckten Buch auf.
+    //
+    // Der `GeometryReader` darüber richtet seine Kinder oben links aus;
+    // deshalb genügt der Versatz auf die Ecke des Ziels.
+    private func fotoflaeche(_ bild: UIImage, raum: CGSize) -> some View {
+        let rahmen = bildrahmen(raum: raum)
+        let ziel = hintergrund.ausschnitt.gefuelltesZiel(bildgroesse: bild.size, rahmen: rahmen)
+        return Image(uiImage: bild)
+            .resizable()
+            .frame(width: ziel.width, height: ziel.height)
+            .offset(x: ziel.minX, y: ziel.minY)
+    }
+}
+
+// Ein feines Korn, damit eine einfarbige Fläche nicht wie ein Bildschirm
+// aussieht. Gerechnet statt geladen — eine Bilddatei dafür wäre ein
+// Megabyte für etwas, das man kaum sieht und trotzdem vermisst.
+struct Papierkorn: View {
+    let staerke: Double
+    // An der SEITE festgemacht. Ohne diese Zahl würfelte jede Neuzeichnung
+    // ein neues Korn — auf dem Bildschirm ein Flimmern, und gedruckt eine
+    // andere Seite als die angesehene. Gerechnet wird es von derselben
+    // Funktion, die auch das PDF fragt.
+    let saat: UInt64
+
+    var body: some View {
+        Canvas { zusammenhang, groesse in
+            for punkt in Seitensatz.kornpunkte(groesse: groesse, koernung: staerke, saat: saat) {
+                zusammenhang.fill(
+                    Path(ellipseIn: CGRect(x: punkt.ort.x, y: punkt.ort.y,
+                                           width: 1.2, height: 1.2)),
+                    with: .color(.black.opacity(punkt.deckung))
+                )
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Blockinhalt
+
+struct BlockInhaltView: View {
+    @ObservedObject var werk: Reisewerk
+    let block: Block
+    let tag: Reisetag?
+    // Wie weit die Seite vergrößert ist — gebraucht von allem, was
+    // gerastert wird: Text, Foto, Wasserzeichen. Siehe `Bildschaerfe`.
+    var massstab: Double = 1
+
+    private var wirkung: Blockwirkung { block.wirkung(werk.reise.gestaltung) }
+
+    var body: some View {
+        ZStack {
+            // Der Grund kommt aus der WIRKUNG und nicht mehr vom Block
+            // allein: Seit 1.0.12 darf ihn auch das Buch vorgeben.
+            if let grund = wirkung.grund {
+                RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt)
+                    .fill(grund.farbe)
+            }
+            inhalt
+            if let rand = wirkung.randfarbe, wirkung.randbreite > 0, block.inhalt != .linie {
+                RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt)
+                    .strokeBorder(rand.farbe, lineWidth: wirkung.randbreite)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inhalt: some View {
+        switch block.inhalt {
+        case .wetter where tag?.geltendeWettertabelle != nil:
+            if let tabelle = tag?.geltendeWettertabelle {
+                Wetterkasten(
+                    tabelle: tabelle,
+                    bild: Seitensatz.schriftbild(block, reise: werk.reise, tag: tag),
+                    rand: wirkung.textrand,
+                    massstab: massstab
+                )
+            }
+        case .titel, .unterueberschrift, .datum, .wetter, .text:
+            Textkasten(
+                text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
+                bild: Seitensatz.schriftbild(block, reise: werk.reise, tag: tag),
+                rand: wirkung.textrand,
+                massstab: massstab
+            )
+        case .bildunterschrift, .kartenunterschrift:
+            let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
+            if text.isEmpty {
+                // KEIN WORT, SONDERN EINE MARKE (ab 1.0.36).
+                //
+                // Hier stand bis 1.0.35 das Wort „Bildunterschrift …".
+                // Gemeldet 09/2026: „an manchen Stellen steht Text, der wie
+                // eine Regieanweisung wirkt. Ich weiß nicht, wo das
+                // herkommt." Genau das war es — und wie es dorthin kam,
+                // ist am Quelltext abzulesen: Ein DOPPELTIPP auf ein Foto
+                // schaltet die Unterschrift ein (`unterschriftOeffnen`),
+                // und wer danach nichts schreibt, hat von da an dieses
+                // Wort unter dem Bild stehen. Ein Doppeltipp ist aber auch
+                // der Griff, mit dem man Text bearbeitet; man landet also
+                // versehentlich dort.
+                //
+                // Der Grund für die Anzeige bleibt trotzdem richtig: Eine
+                // eingeschaltete Unterschrift ohne Text wäre sonst eine
+                // unsichtbare Fläche, die sich nicht antippen lässt, weil
+                // niemand weiß, wo sie liegt. Also bleibt eine MARKE — eine
+                // dünne Linie, so lang wie ein paar Wörter — und kein Wort:
+                // Die sieht man als leeres Feld und liest sie nicht als Satz.
+                // Ins PDF geht sie so wenig wie das Wort vorher.
+                //
+                // Wie viele solcher leeren Unterschriften im Buch stehen und
+                // wie man sie in einem Zug wieder los wird, sagt
+                // `Druckpruefung.leereUnterschriften`.
+                let hoehe = max(werk.reise.typografie.bildunterschrift.groesse, 5)
+                Rectangle()
+                    .fill(.tertiary)
+                    .opacity(0.45)
+                    .frame(width: hoehe * 6, height: max(hoehe * 0.09, 0.5))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else {
+                Textkasten(text: text,
+                           bild: Seitensatz.schriftbild(block, reise: werk.reise, tag: tag),
+                           rand: wirkung.textrand,
+                           massstab: massstab)
+            }
+        case .linie:
+            Rectangle()
+                .fill((block.rand ?? werk.reise.akzent).farbe.opacity(0.55))
+                .frame(height: max(block.rahmen.hoehe, 0.6))
+        case .flaeche:
+            Color.clear
+        case .verlauf:
+            LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(0), location: 0),
+                    .init(color: .black.opacity(0.30), location: 0.45),
+                    .init(color: .black.opacity(0.72), location: 1),
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+        case let .foto(id):
+            FotoKachel(werk: werk, block: block, fotoID: id, massstab: massstab)
+        case .karte:
+            KartenKachel(werk: werk, block: block, tag: tag)
+        }
+    }
+}
+
+struct FotoKachel: View {
+    @ObservedObject var werk: Reisewerk
+    let block: Block
+    let fotoID: UUID
+    var massstab: Double = 1
+    // Der Maßstab des Bildschirms, an dem DIESE Ansicht hängt — nicht der
+    // von `UIScreen.main`. Hängt ein Beamer am iPad, wäre das die falsche
+    // Auskunft.
+    @Environment(\.displayScale) private var geraet
+
+    var body: some View {
+        GeometryReader { raum in
+            let rahmen = CGRect(origin: .zero, size: raum.size)
+            // GEMESSEN, weil es hier nicht zu rechnen ist: Ein
+            // Vorschaubild kommt beim ersten Mal von der Platte und wird
+            // entpackt — das läuft auf dem Hauptfaden, und wie lange es
+            // dauert, hängt am Gerät und an der Bildgröße. Gezählt werden
+            // ALLE Aufrufe samt Gesamtdauer; ein Treffer im Zwischenspeicher
+            // kostet nichts und fällt in der Summe nicht auf. Steht im
+            // Befund „Fotos 12× 900 ms", ist die Frage beantwortet.
+            if let foto = werk.reise.foto(fotoID) {
+                // GEHOLT WIRD ABSEITS DES HAUPTFADENS (ab 1.0.81) — siehe
+                // `Ladebild`. Bis 1.0.80 stand hier ein synchroner Griff
+                // auf die Platte, mitten im Körper der Seite; beim Scrollen
+                // baut der `LazyVStack` laufend neue Blätter, und jedes zog
+                // seine drei bis sechs Bilder nach. Genau das war das
+                // gemeldete Ruckeln.
+                Ladebild(datei: foto.datei, reise: werk.reise.id,
+                             kante: vorschaukante(raum.size),
+                             messer: werk.messer)
+                { bild in
+                    // Dieselbe Rechnung wie im PDF — `zielrechteck` steht an
+                    // einer Stelle und wird hier nur angewandt.
+                    let ziel = block.ausschnitt.zielrechteck(bildgroesse: bild.size,
+                                                             rahmen: rahmen)
+                    Image(uiImage: bild)
+                        .resizable()
+                        .frame(width: ziel.width, height: ziel.height)
+                        .offset(x: ziel.minX, y: ziel.minY)
+                        .clipped()
+                }
+            } else {
+                Rectangle()
+                    .fill(Color(.systemGray6))
+                    .overlay { Image(systemName: "photo").foregroundStyle(.tertiary) }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt))
+    }
+
+    // Kein Original auf der Seite: Ein Dutzend 12-Megapixel-Bilder machen
+    // aus dem Blättern eine Geduldsprobe.
+    //
+    // Bis 1.0.52 standen hier feste 2,2 Bildpunkte je Seitenpunkt. Das
+    // passte für die unvergrößerte Seite auf einem gewöhnlichen Gerät und
+    // sonst nirgends: Bei 400 % blieb davon ein halber Bildpunkt je
+    // Bildschirmpunkt — dieselbe Ursache wie beim Text, nur eine Ebene
+    // weiter. Gerechnet wird sie jetzt in `Bildschaerfe`, und zwar an
+    // derselben Stelle wie für den Text; die obere Grenze ist von 1600 auf
+    // 2000 gestiegen. Sie greift erst bei einem randabfallenden Bild —
+    // eine Kachel in einer Reihe misst ein paar hundert Punkte und wird
+    // so fein, wie sie darf.
+    private func vorschaukante(_ groesse: CGSize) -> Int {
+        Bildschaerfe.kante(groesse, geraet: Double(geraet), massstab: massstab,
+                           groesste: 2000)
+    }
+}
+
+struct KartenKachel: View {
+    @ObservedObject var werk: Reisewerk
+    let block: Block
+    let tag: Reisetag?
+    @State private var bild: UIImage?
+    // Ein leeres Feld hat zwei Gründe, und sie verlangen verschiedene
+    // Handgriffe: Entweder gibt es noch keine Punkte, oder die Karte ließ
+    // sich nicht holen (kein Netz, ein Kachelserver, der nicht antwortet,
+    // eine eigene Adresse ohne Lizenzhinweis). Beides gleich auszusehen
+    // wäre genau die Art stummer Befund, die diese App nicht abgibt.
+    @State private var gescheitert = false
+
+    var body: some View {
+        GeometryReader { raum in
+            ZStack {
+                Rectangle().fill(Color(.systemGray6))
+                if let bild {
+                    Image(uiImage: bild).resizable().scaledToFill()
+                } else {
+                    VStack(spacing: 5) {
+                        Image(systemName: gescheitert ? "map.trianglebadge.exclamationmark" : "map")
+                            .foregroundStyle(.tertiary)
+                        if (tag?.spur.isEmpty ?? true) {
+                            Text("Noch keine Reisepunkte")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.tertiary)
+                        } else if gescheitert {
+                            Text("Karte nicht geladen")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+            .task(id: kennung(raum.size)) { await laden(raum.size) }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt))
+        // Auf der Seite ist die Karte ein Bild und nimmt keinen Finger an —
+        // sonst schluckte sie jede Geste, die den Block bewegen wollte.
+        .allowsHitTesting(false)
+    }
+
+    // Was für DIESE Karte gilt — eigene Einstellung, sonst die des Tages,
+    // sonst die des Buches. Aufgelöst wird das in `Kartenwahl` und nur
+    // dort; das PDF fragt dieselbe Stelle.
+    private var geltend: Kartenwahl.Geltend {
+        Kartenwahl.geltend(block: block, tag: tag, reise: werk.reise)
+    }
+
+    private func kennung(_ groesse: CGSize) -> String {
+        let punkte = tag?.spur.map(\.koordinate) ?? []
+        // Die Linienfarben (ab 1.0.114) gehören dazu wie die Akzentfarbe:
+        // Wer die Farbe der Autofahrten ändert, will die Karte neu sehen.
+        // Ab 1.0.124 ebenso Reihenfolge, zurücktretende Reisespur und
+        // Ebenen — alles steckt in `kartenlinien`.
+        let farben = werk.reise.kartenlinien(tag?.spur ?? []).hashValue
+        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(geltend.merkmal)|\(werk.reise.spurfarbe.rot),\(werk.reise.spurfarbe.gruen),\(werk.reise.spurfarbe.blau)|\(farben)"
+    }
+
+    private func laden(_ groesse: CGSize) async {
+        guard let tag, !tag.spur.isEmpty, groesse.width > 8 else { return }
+        let gilt = geltend
+        let ergebnis = await Kartenwerk.shared.bild(
+            punkte: tag.spur.map(\.koordinate),
+            groesse: CGSize(width: groesse.width * 2, height: groesse.height * 2),
+            kartenbild: gilt.bild,
+            linienfarbe: werk.reise.spurfarbe,
+            linien: werk.reise.kartenlinien(tag.spur),
+            ausschnitt: gilt.ausschnitt
+        )
+        await MainActor.run {
+            bild = ergebnis
+            gescheitert = ergebnis == nil
+        }
+    }
+}
+
+// Derselbe Schatten wie im PDF — die Werte stehen in `Schattenart` und
+// nicht zweimal.
+extension View {
+    @ViewBuilder
+    func schattenwurf(_ art: Schattenart, massstab: Double) -> some View {
+        if art == .keiner {
+            self
+        } else {
+            let werte = art.werte
+            shadow(color: .black.opacity(werte.deckung),
+                   radius: werte.unschaerfe * massstab / 2,
+                   y: werte.versatz * massstab)
+        }
+    }
+}
