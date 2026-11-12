@@ -66,6 +66,13 @@ klein und stehen alle mit „KAPITELWEISE" im Quelltext.
   (`FoundationModels`, iOS 26, hinter `#if canImport` + `#available`, Texte in
   Stücken ≤ 1800 Zeichen) oder über einen KI-Chat per Zwischenablage. Erst
   Vorschlag, dann „Übernehmen"; die vorige Fassung bleibt (`vorfassung`).
+- **Fotos aus einem ALBUM der Galerie** (ab 1.0.5, Ansage des Nutzers 11/2026):
+  „Fotos aus der Mediathek…" hat neben dem Zeitraum einen Abschnitt „Alle
+  Fotos eines Albums" (`Albumeinfuhr` in `Dienste/Zeitraumeinfuhr.swift`):
+  eigene Alben und Favoriten, leere nicht; eingelesen über denselben Weg wie
+  der Zeitraum (`Zeitraumeinfuhr.rohbild` → `fotosAufnehmen`), also mit
+  Kapitel nach Aufnahmedatum. Braucht den Mediathekszugriff. Doppelt
+  eingelesene Fotos findet „Doppelte Fotos" (aus dem Reisebuch).
 - Oberfläche: „Kapitel" statt „Tage" in Kapitelliste und Kapitelinhalt,
   Plusmenü „Neuer Text… / Alle Texte… / Texte aus einer Datei…", „Ganzes
   Buch → Kapitel und Zeitraster…". Handbuch und Aufbau-Assistent sprechen
@@ -142,7 +149,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -160,3 +167,5 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Meldungen, überlappende Fotoseiten). **Nicht gemessen:** wie die Seiten auf
   dem Gerät aussehen; die Felder der Fotoseiten sind gerechnet, nicht
   angesehen.
+- **1.0.5 (Build 6)**, 11/2026: Fotos aus einem Album der Galerie einlesen.
+  **Nicht gemessen:** auf einem Gerät.
