@@ -24,6 +24,12 @@ struct SeitenView: View {
         ScrollView {
             if gesetzt {
                 VStack(alignment: .leading, spacing: 4) {
+                    Picker("Stil", selection: $buch.stil) {
+                        ForEach(Buchstil.allCases) { Text($0.name).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 420)
+                    .padding(.bottom, 6)
                     Text("\(seiten.count) Seiten · \(buch.format.name)")
                         .font(.subheadline)
                     Text("Antippen zum Bearbeiten. Lange drücken, um freie Seiten davor oder danach einzufügen.")
@@ -76,7 +82,7 @@ struct SeitenView: View {
     private func unterzeile(_ s: Seite) -> String {
         switch s.art {
         case .titel: return "Titelseite"
-        case .kapitel(let titel, _, _, _): return "\(s.nummer) · Kapitel \(titel)"
+        case .kapitel(let titel, _, _, _, _): return "\(s.nummer) · Kapitel \(titel)"
         case .inhalt: return "\(s.nummer)"
         case .frei: return "\(s.nummer) · freie Seite"
         }
@@ -120,9 +126,9 @@ struct SeitenView: View {
         switch s.art {
         case .titel:
             oeffnen(.einstellungen)
-        case .kapitel:
-            break
-        case .inhalt(let text, let fotos):
+        case .kapitel(_, _, _, _, let foto):
+            if let foto { oeffnen(.foto(foto.id)) }
+        case .inhalt(let text, let fotos, _):
             if let text {
                 oeffnen(.text(text.eintrag))
             } else if let f = fotos.first {

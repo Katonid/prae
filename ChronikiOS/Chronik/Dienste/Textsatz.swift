@@ -33,50 +33,79 @@ enum Textsatz {
         Zeitraster.text(d, "EEEE, d. MMMM yyyy · HH:mm")
     }
 
-    /// Ein Tagebuchtext mit Überschrift und Datumszeile.
-    static func eintrag(_ e: Texteintrag) -> NSAttributedString {
+    /// Ein Tagebuchtext mit Überschrift und Datumszeile, im Stil des Buches.
+    ///
+    /// Modern: Überschrift in Didot, Datumszeile in Versalien mit
+    /// Sperrung in der Akzentfarbe, die ersten Wörter des Textes als
+    /// Versal-Einstieg. Album: Überschrift in Handschrift. Klassisch:
+    /// Georgia. Gemessen und gezeichnet wird DIESER Text — darum steckt der
+    /// Stil hier und nicht erst im Zeichner.
+    static func eintrag(_ e: Texteintrag, stil: Buchstil) -> NSAttributedString {
         let a = NSMutableAttributedString()
         let titel = e.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let titelgroesse: CGFloat = stil == .modern ? 21 : (stil == .album ? 18 : 15)
         if !titel.isEmpty {
             a.append(NSAttributedString(string: titel + "\n", attributes: [
-                .font: schrift(fett, 15),
+                .font: schrift(stil.titelschrift, titelgroesse),
                 .foregroundColor: UIColor.black,
-                .paragraphStyle: absatz(.left, danach: 2, trennen: false),
+                .paragraphStyle: absatz(.left, danach: 3, trennen: false),
             ]))
         }
-        a.append(NSAttributedString(string: datumszeile(e.zeit) + "\n", attributes: [
-            .font: schrift(kursiv, 9),
-            .foregroundColor: UIColor.darkGray,
-            .paragraphStyle: absatz(.left, danach: 9, trennen: false),
-        ]))
+        var datum = datumszeile(e.zeit)
+        var datumsart: [NSAttributedString.Key: Any] = [
+            .font: schrift(stil.kleinschrift, stil == .album ? 10 : 9),
+            .foregroundColor: stil == .klassisch ? UIColor.darkGray : stil.akzent,
+            .paragraphStyle: absatz(.left, danach: stil == .modern ? 12 : 9, trennen: false),
+        ]
+        if stil == .modern {
+            datum = datum.uppercased()
+            datumsart[.font] = schrift(stil.kleinschrift, 7.5)
+            datumsart[.kern] = 1.4
+        }
+        a.append(NSAttributedString(string: datum + "\n", attributes: datumsart))
+
         let text = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !text.isEmpty {
-            a.append(NSAttributedString(string: text, attributes: [
-                .font: schrift(grund, 10.5),
-                .foregroundColor: UIColor.black,
-                .paragraphStyle: absatz(.justified, danach: 5),
-            ]))
+        guard !text.isEmpty else { return a }
+        let grund: [NSAttributedString.Key: Any] = [
+            .font: schrift(stil.grundschrift, 10.5),
+            .foregroundColor: UIColor(white: 0.1, alpha: 1),
+            .paragraphStyle: absatz(.justified, danach: 5),
+        ]
+        if stil == .modern {
+            // Versal-Einstieg: die ersten drei Wörter.
+            let woerter = text.split(separator: " ", maxSplits: 3, omittingEmptySubsequences: false)
+            if woerter.count > 3, !woerter[0...2].contains(where: { $0.contains("\n") }) {
+                let einstieg = woerter[0...2].joined(separator: " ")
+                var art = grund
+                art[.font] = schrift("AvenirNext-DemiBold", 9)
+                art[.kern] = 0.9
+                art[.foregroundColor] = UIColor.black
+                a.append(NSAttributedString(string: einstieg.uppercased() + " ", attributes: art))
+                a.append(NSAttributedString(string: String(woerter[3]), attributes: grund))
+                return a
+            }
         }
+        a.append(NSAttributedString(string: text, attributes: grund))
         return a
     }
 
     /// Text einer freien Seite. Eine Zeile, die mit „# " beginnt, wird
     /// als Überschrift gesetzt.
-    static func frei(_ roh: String) -> NSAttributedString {
+    static func frei(_ roh: String, stil: Buchstil) -> NSAttributedString {
         let a = NSMutableAttributedString()
         let zeilen = roh.components(separatedBy: "\n")
         for (n, zeile) in zeilen.enumerated() {
             let ende = n < zeilen.count - 1 ? "\n" : ""
             if zeile.hasPrefix("# ") {
                 a.append(NSAttributedString(string: String(zeile.dropFirst(2)) + ende, attributes: [
-                    .font: schrift(fett, 17),
+                    .font: schrift(stil.titelschrift, stil == .modern ? 22 : 17),
                     .foregroundColor: UIColor.black,
                     .paragraphStyle: absatz(.left, danach: 6, trennen: false),
                 ]))
             } else {
                 a.append(NSAttributedString(string: zeile + ende, attributes: [
-                    .font: schrift(grund, 11.5),
-                    .foregroundColor: UIColor.black,
+                    .font: schrift(stil.grundschrift, 11.5),
+                    .foregroundColor: UIColor(white: 0.1, alpha: 1),
                     .paragraphStyle: absatz(.left, danach: 4),
                 ]))
             }

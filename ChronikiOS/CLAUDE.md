@@ -27,7 +27,7 @@
   nicht mehr änderbar.
 - **Versionierung:** `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` je
   zweimal im pbxproj (Debug + Release), keine Skript-Bauphase. Jede
-  Arbeitseinheit hebt Patch- UND Build-Nummer um je +1. Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2).
+  Arbeitseinheit hebt Patch- UND Build-Nummer um je +1. Start: 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3).
   `DEVELOPMENT_TEAM = F4989GSTWS`, `ITSAppUsesNonExemptEncryption = NO` in
   `Config/Info.plist` UND als Build-Einstellung — nicht entfernen.
 - **Berechtigungstexte nur als Build-Einstellung**
@@ -61,6 +61,33 @@
   Kapitel weg), rückt die freie Seite ans Buchende — sie verschwindet nie
   still. Mehrere freie Seiten an derselben Stelle stehen in der Reihenfolge
   der Liste `freieSeiten`.
+- **GESTALTUNG MIT WOW STATT FORMULAR** (ab 1.0.2; Befund des Nutzers 11/2026
+  mit Bildschirmfoto zu 1.0.1: „diese nüchterne Aufteilung ist meilenweit von
+  einem Wow-Effekt entfernt. Da waren wir in den anderen Apps doch schon
+  weiter."). Jede Fotoseite war ein 2×2-Raster, jedes Bild auf dieselbe
+  Kachel beschnitten, die Kapitelseite eine Jahreszahl auf leerem Papier.
+  Dieselbe Lehre wie Reisebuch 1.0.35/1.0.36 — **nie wieder zurückbauen**:
+  - `Model/Buchstil.swift`: drei Stile, Vorgabe **Modern** (auch für
+    bestehende Bücher). Modern: Titel und Kapitel als ganzseitiges Foto mit
+    großer Didot darauf (Größe passend zur Breite), Aufmacher randlos,
+    Text-Erstseite mit Fotoband bis an drei Kanten, Fuge 4 pt, Datum in
+    gesperrten Versalien, Versal-Einstieg. Album: Cremepapier, Abzüge mit
+    weißem Rand, gedreht (±2,4°), Schatten, Handschrift (Noteworthy).
+    Klassisch: Satzspiegel, Georgia. Umschalter im Reiter „Buch" oben und in
+    „Buch einrichten".
+  - `Model/Fotolage.swift`: **Blocksatz nach Seitenverhältnis** — alle
+    Aufteilungen in Reihen durchprobiert, die der Fläche nächste gewinnt;
+    höchstens etwa 20 % beschnitten, sonst verkleinert. Kein festes Raster.
+  - Rhythmus im Seitenbau: Seitengrößen im Wechsel 3, 1, 4, 2, 5, 3, 1, 4
+    (begrenzt durch „Fotos je Seite"; klassisch gleichmäßig), eine Seite mit
+    einem Foto ist ein Aufmacher, jede zweite volle Seite „groß und klein".
+    Fotos eines TAGES bleiben auf ihren Seiten unter sich (Tage mit einem
+    Foto werden zusammengelegt).
+  - Jedes Kapitel öffnet mit seinem ersten Querformat (sonst erstem Foto);
+    das Bild steht dann nicht noch einmal auf einer Inhaltsseite. Die
+    Titelseite nimmt das gewählte Titelbild, sonst das erste Querformat.
+  - Drehwinkel und Abwechslung aus `Fotolage.zahl(id)` (UUID-Bytes), nie aus
+    `hashValue` oder dem Zufall — Vorschau und PDF müssen gleich sein.
 - `Dienste/Textsatz.swift` — **gemessen und gezeichnet wird über TextKit**
   (`NSLayoutManager` / `NSAttributedString.draw`). Keine zweite
   Satzmaschine dazunehmen (SwiftUI-`Text`, CoreText) — sonst passt ein Stück
@@ -102,3 +129,6 @@
   Überarbeitung. CI-Bau grün. **Nicht gemessen:** auf keinem Gerät gesehen.
 - **1.0.1 (Build 2)**, 11/2026: umbenannt in „Kapitelweise – Das Buch"
   (Homescreen „Kapitelweise").
+- **1.0.2 (Build 3)**, 11/2026: Gestaltung neu (Stile, Blocksatz, Rhythmus,
+  Kapitel- und Titelfoto). Blocksatz unter Linux nachgerechnet. **Nicht
+  gemessen:** wie die Seiten auf dem Gerät aussehen.

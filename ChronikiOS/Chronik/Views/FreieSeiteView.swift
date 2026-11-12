@@ -230,7 +230,7 @@ extension Seite {
     func mitSignatur(_ buch: Buch) -> Seite {
         var s = self
         if let f = freieSeite {
-            s.signatur = "\(buch.format.rawValue)|\(f.vorlage.rawValue)|\(String(describing: f.felder))"
+            s.signatur = "\(buch.format.rawValue)|\(buch.stil.rawValue)|\(f.vorlage.rawValue)|\(String(describing: f.felder))"
         }
         return s
     }

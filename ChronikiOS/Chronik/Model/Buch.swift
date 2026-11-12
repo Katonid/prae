@@ -26,6 +26,7 @@ struct Buch: Codable, Identifiable, Equatable {
     var erstellt = Date()
     var raster = Zeitraster()
     var format: Seitenformat = .hoch21x28
+    var stil: Buchstil = .modern
     var fotosJeSeite = 4
     var leereKapitelZeigen = false
     var titelfoto: UUID?
@@ -37,7 +38,7 @@ struct Buch: Codable, Identifiable, Equatable {
     var kapitelTitel: [String: String] = [:]
 
     enum CodingKeys: String, CodingKey {
-        case id, titel, untertitel, erstellt, raster, format, fotosJeSeite, leereKapitelZeigen
+        case id, titel, untertitel, erstellt, raster, format, stil, fotosJeSeite, leereKapitelZeigen
         case titelfoto, texte, fotos, freieSeiten, kapitelTitel
     }
 }
@@ -53,6 +54,7 @@ extension Buch {
         erstellt = c.wert(.erstellt, leer.erstellt)
         raster = c.wert(.raster, leer.raster)
         format = c.wert(.format, leer.format)
+        stil = c.wert(.stil, leer.stil)
         fotosJeSeite = c.wert(.fotosJeSeite, leer.fotosJeSeite)
         leereKapitelZeigen = c.wert(.leereKapitelZeigen, leer.leereKapitelZeigen)
         titelfoto = try? c.decode(UUID.self, forKey: .titelfoto)

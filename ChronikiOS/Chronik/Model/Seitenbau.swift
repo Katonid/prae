@@ -68,10 +68,20 @@ struct Textstueck {
 }
 
 struct Seite: Identifiable {
+    /// Wie die Fotos einer Inhaltsseite liegen.
+    enum Muster: String {
+        /// Ein Foto, groß — im modernen Stil bis an den Seitenrand.
+        case aufmacher
+        /// Blocksatz nach Seitenverhältnis.
+        case reihen
+        /// Ein großes Foto, die übrigen in Reihen daneben.
+        case grossUndKlein
+    }
+
     enum Art {
-        case titel(zeitraum: String)
-        case kapitel(titel: String, zeitraum: String, texte: Int, fotos: Int)
-        case inhalt(text: Textstueck?, fotos: [Fotoeintrag])
+        case titel(zeitraum: String, foto: Fotoeintrag?)
+        case kapitel(titel: String, zeitraum: String, texte: Int, fotos: Int, foto: Fotoeintrag?)
+        case inhalt(text: Textstueck?, fotos: [Fotoeintrag], muster: Muster)
         case frei(FreieSeite)
     }
 
@@ -122,8 +132,23 @@ enum Seitenbau {
         Seite(id: "frei-\(f.id.uuidString)", art: .frei(f), stelleDanach: f.stelle)
     }
 
+    /// Das Bild für eine große Fläche: das erste Querformat, sonst das erste.
+    static func aufmacherfoto(_ fotos: [Fotoeintrag], ausser: UUID? = nil) -> Fotoeintrag? {
+        let liste = fotos.filter { $0.id != ausser }
+        return liste.first { $0.seitenverhaeltnis >= 1.2 } ?? liste.first
+    }
+
+    /// Wie viele Fotos nacheinander auf eine Seite kommen. Der Wechsel
+    /// macht den Rhythmus: eine volle Seite, ein Aufmacher, wieder eine
+    /// volle. Der klassische Stil bleibt gleichmäßig.
+    private static func seitengroessen(_ stil: Buchstil, jeSeite: Int) -> [Int] {
+        if stil == .klassisch { return [jeSeite] }
+        return [3, 1, 4, 2, 5, 3, 1, 4].map { min($0, jeSeite) }
+    }
+
     static func seiten(_ buch: Buch) -> [Seite] {
-        let geo = Seitengeometrie(groesse: buch.format.groesse)
+        let stil = buch.stil
+        let geo = Seitengeometrie(groesse: buch.format.groesse, stil: stil)
         var liste: [Seite] = []
         var platziert = Set<UUID>()
 
@@ -134,22 +159,33 @@ enum Seitenbau {
             }
         }
 
-        liste.append(Seite(id: "titel", art: .titel(zeitraum: gesamtzeitraum(buch)), stelleDanach: .buchAnfang))
+        let titelfoto = titelbild(buch) ?? aufmacherfoto(buch.fotos.sorted { $0.zeit < $1.zeit })
+        liste.append(Seite(id: "titel", art: .titel(zeitraum: gesamtzeitraum(buch), foto: titelfoto),
+                           stelleDanach: .buchAnfang))
         freie { $0 == .buchAnfang }
 
         let jeSeite = min(6, max(1, buch.fotosJeSeite))
-        let beimText = min(2, jeSeite)
+        let beimText = min(stil.fotosBeimText, jeSeite)
+        let groessen = seitengroessen(stil, jeSeite: jeSeite)
+        var fotoseite = 0
 
         for g in gruppen(buch) {
             let texte = g.inhalte.filter(\.istText).count
             let schluessel = g.kapitel.schluessel
+            let kapitelfotos = g.inhalte.compactMap { inhalt -> Fotoeintrag? in
+                if case .foto(let f) = inhalt { return f }
+                return nil
+            }
+            // Das Kapitelbild steht groß auf der Kapitelseite und deshalb
+            // nicht noch einmal auf einer Inhaltsseite.
+            let kapitelfoto = aufmacherfoto(kapitelfotos, ausser: titelfoto?.id)
             liste.append(Seite(id: "kapitel-\(schluessel)",
                                art: .kapitel(titel: g.titel, zeitraum: g.kapitel.zeitraum,
-                                             texte: texte, fotos: g.inhalte.count - texte),
+                                             texte: texte, fotos: g.inhalte.count - texte, foto: kapitelfoto),
                                stelleDanach: .kapitelAnfang(schluessel)))
             freie { $0 == .kapitelAnfang(schluessel) }
 
-            let inhalte = g.inhalte
+            let inhalte = g.inhalte.filter { $0.id != kapitelfoto?.id }
             var i = 0
             while i < inhalte.count {
                 switch inhalte[i] {
@@ -163,11 +199,11 @@ enum Seitenbau {
                     let ids = [t.id] + fotos.map(\.id)
                     let anker = Einfuegestelle.nachInhalt(ids[ids.count - 1])
                     let erste = fotos.isEmpty ? geo.innen.size : geo.textMitFotos().text.size
-                    let stuecke = Textsatz.aufteilen(Textsatz.eintrag(t), erste: erste, folge: geo.innen.size)
+                    let stuecke = Textsatz.aufteilen(Textsatz.eintrag(t, stil: stil), erste: erste, folge: geo.innen.size)
                     for (n, s) in stuecke.enumerated() {
                         let stueck = Textstueck(eintrag: t.id, inhalt: s, teil: n, teile: stuecke.count)
                         liste.append(Seite(id: "t-\(t.id.uuidString)-\(n)",
-                                           art: .inhalt(text: stueck, fotos: n == 0 ? fotos : []),
+                                           art: .inhalt(text: stueck, fotos: n == 0 ? fotos : [], muster: .reihen),
                                            kopfzeile: g.titel,
                                            stelleDanach: anker))
                     }
@@ -177,20 +213,34 @@ enum Seitenbau {
                     }
                     i = j
                 case .foto:
-                    var fotos: [Fotoeintrag] = []
+                    var lauf: [Fotoeintrag] = []
                     var j = i
-                    while j < inhalte.count, fotos.count < jeSeite, case .foto(let f) = inhalte[j] {
-                        fotos.append(f)
+                    while j < inhalte.count, case .foto(let f) = inhalte[j] {
+                        lauf.append(f)
                         j += 1
                     }
-                    let ids = fotos.map(\.id)
-                    liste.append(Seite(id: "f-\(ids[0].uuidString)",
-                                       art: .inhalt(text: nil, fotos: fotos),
-                                       kopfzeile: g.titel,
-                                       stelleDanach: .nachInhalt(ids[ids.count - 1])))
-                    freie { stelle in
-                        if case .nachInhalt(let x) = stelle { return ids.contains(x) }
-                        return false
+                    for gruppe in tagesgruppen(lauf, getrennt: stil != .klassisch) {
+                        var rest = gruppe[...]
+                        while !rest.isEmpty {
+                            var zahl = min(groessen[fotoseite % groessen.count], rest.count)
+                            // Kein einzelnes Foto als Rest hinter einer vollen Seite.
+                            if rest.count - zahl == 1, zahl > 1, zahl < jeSeite { zahl += 1 }
+                            let fotos = Array(rest.prefix(zahl))
+                            rest = rest.dropFirst(zahl)
+                            let muster: Seite.Muster = fotos.count == 1
+                                ? .aufmacher
+                                : (fotos.count >= 3 && stil != .klassisch && fotoseite % 2 == 0 ? .grossUndKlein : .reihen)
+                            fotoseite += 1
+                            let ids = fotos.map(\.id)
+                            liste.append(Seite(id: "f-\(ids[0].uuidString)",
+                                               art: .inhalt(text: nil, fotos: fotos, muster: muster),
+                                               kopfzeile: g.titel,
+                                               stelleDanach: .nachInhalt(ids[ids.count - 1])))
+                            freie { stelle in
+                                if case .nachInhalt(let x) = stelle { return ids.contains(x) }
+                                return false
+                            }
+                        }
                     }
                     i = j
                 }
@@ -207,16 +257,46 @@ enum Seitenbau {
         return liste
     }
 
+    /// Fotos eines Tages bleiben auf ihren Seiten unter sich — so erzählt
+    /// das Buch Tag für Tag. Ein Tag mit nur einem Foto wird mit dem
+    /// nächsten zusammengelegt, sonst bestünde ein Urlaub aus Aufmachern.
+    private static func tagesgruppen(_ fotos: [Fotoeintrag], getrennt: Bool) -> [[Fotoeintrag]] {
+        guard getrennt else { return fotos.isEmpty ? [] : [fotos] }
+        let kal = Zeitraster.kalender
+        var gruppen: [[Fotoeintrag]] = []
+        for f in fotos {
+            if let letzte = gruppen.last?.last, kal.isDate(letzte.zeit, inSameDayAs: f.zeit) {
+                gruppen[gruppen.count - 1].append(f)
+            } else {
+                gruppen.append([f])
+            }
+        }
+        var zusammen: [[Fotoeintrag]] = []
+        for g in gruppen {
+            if let letzte = zusammen.last, letzte.count < 2 {
+                zusammen[zusammen.count - 1].append(contentsOf: g)
+            } else {
+                zusammen.append(g)
+            }
+        }
+        if zusammen.count > 1, let letzte = zusammen.last, letzte.count < 2 {
+            zusammen.removeLast()
+            zusammen[zusammen.count - 1].append(contentsOf: letzte)
+        }
+        return zusammen
+    }
+
     private static func signatur(_ s: Seite, buch: Buch) -> String {
-        let kopf = "\(buch.format.rawValue)|\(s.nummer)|\(s.kopfzeile ?? "")|"
+        let kopf = "\(buch.format.rawValue)|\(buch.stil.rawValue)|\(s.nummer)|\(s.kopfzeile ?? "")|"
+        func bild(_ f: Fotoeintrag?) -> String { f.map { "\($0.datei)~\($0.unterschrift)" } ?? "" }
         switch s.art {
-        case .titel(let zeitraum):
-            return kopf + "T|\(buch.titel)|\(buch.untertitel)|\(zeitraum)|\(titelbild(buch)?.datei ?? "")"
-        case .kapitel(let titel, let zeitraum, let texte, let fotos):
-            return kopf + "K|\(titel)|\(zeitraum)|\(texte)|\(fotos)"
-        case .inhalt(let text, let fotos):
-            let bilder = fotos.map { "\($0.datei)~\($0.unterschrift)" }.joined(separator: ",")
-            return kopf + "I|\(text?.inhalt.string.hashValue ?? 0)|\(text?.teil ?? -1)|\(bilder)"
+        case .titel(let zeitraum, let foto):
+            return kopf + "T|\(buch.titel)|\(buch.untertitel)|\(zeitraum)|\(bild(foto))"
+        case .kapitel(let titel, let zeitraum, let texte, let fotos, let foto):
+            return kopf + "K|\(titel)|\(zeitraum)|\(texte)|\(fotos)|\(bild(foto))"
+        case .inhalt(let text, let fotos, let muster):
+            let bilder = fotos.map { bild($0) }.joined(separator: ",")
+            return kopf + "I|\(muster.rawValue)|\(text?.inhalt.string.hashValue ?? 0)|\(text?.teil ?? -1)|\(bilder)"
         case .frei(let f):
             return kopf + "F|\(f.vorlage.rawValue)|\(String(describing: f.felder))"
         }
@@ -232,18 +312,39 @@ enum Seitenbau {
 
 struct Seitengeometrie {
     let groesse: CGSize
+    var stil: Buchstil = .klassisch
 
     var rand: CGFloat { (min(groesse.width, groesse.height) * 0.08).rounded() }
-    var abstand: CGFloat { 10 }
-    var innen: CGRect { CGRect(origin: .zero, size: groesse).insetBy(dx: rand, dy: rand) }
+    var abstand: CGFloat { stil.fuge }
+    var seite: CGRect { CGRect(origin: .zero, size: groesse) }
+    var innen: CGRect { seite.insetBy(dx: rand, dy: rand) }
     var istQuer: Bool { groesse.width > groesse.height * 1.05 }
 
-    /// Erste Seite eines Textes mit Fotos: Fotos oben (im Querformat links),
-    /// der Text darunter (daneben).
+    /// Wo die Fotos einer reinen Fotoseite liegen. Modern: schmaler Rand,
+    /// damit die Bilder die Seite tragen.
+    var fotoflaeche: CGRect {
+        stil == .modern ? seite.insetBy(dx: (rand * 0.55).rounded(), dy: (rand * 0.55).rounded()) : innen
+    }
+
+    /// Erste Seite eines Textes mit Fotos. Modern: die Fotos als Band bis
+    /// an drei Seitenkanten, der Text darunter (im Querformat: links die
+    /// Fotos bis an den Rand, rechts der Text). Sonst: Fotos oben im
+    /// Satzspiegel.
     func textMitFotos() -> (fotos: CGRect, text: CGRect) {
+        if stil == .modern {
+            if istQuer {
+                let b = (groesse.width * 0.5).rounded()
+                return (CGRect(x: 0, y: 0, width: b, height: groesse.height),
+                        CGRect(x: b + rand * 0.8, y: innen.minY, width: groesse.width - b - rand * 1.8, height: innen.height))
+            }
+            let h = (groesse.height * 0.46).rounded()
+            let oben = h + (rand * 0.7).rounded()
+            return (CGRect(x: 0, y: 0, width: groesse.width, height: h),
+                    CGRect(x: innen.minX, y: oben, width: innen.width, height: innen.maxY - oben))
+        }
         let teile = istQuer
-            ? Self.nebeneinander(innen, abstand: abstand * 2, anteil: 0.5)
-            : Self.untereinander(innen, abstand: abstand * 2, anteil: 0.48)
+            ? Self.nebeneinander(innen, abstand: rand * 0.5, anteil: 0.5)
+            : Self.untereinander(innen, abstand: rand * 0.4, anteil: 0.46)
         return (teile[0], teile[1])
     }
 
@@ -257,36 +358,6 @@ struct Seitengeometrie {
         let b1 = ((r.width - a) * anteil).rounded()
         return [CGRect(x: r.minX, y: r.minY, width: b1, height: r.height),
                 CGRect(x: r.minX + b1 + a, y: r.minY, width: r.width - b1 - a, height: r.height)]
-    }
-
-    /// Die Felder für n Fotos.
-    static func zellen(_ n: Int, in r: CGRect, abstand a: CGFloat) -> [CGRect] {
-        let quer = r.width > r.height
-        switch n {
-        case ..<1:
-            return []
-        case 1:
-            return [r]
-        case 2:
-            return quer ? nebeneinander(r, abstand: a, anteil: 0.5) : untereinander(r, abstand: a, anteil: 0.5)
-        case 3:
-            if quer {
-                let teile = nebeneinander(r, abstand: a, anteil: 0.6)
-                return [teile[0]] + untereinander(teile[1], abstand: a, anteil: 0.5)
-            }
-            let teile = untereinander(r, abstand: a, anteil: 0.58)
-            return [teile[0]] + nebeneinander(teile[1], abstand: a, anteil: 0.5)
-        default:
-            let spalten = n <= 4 ? 2 : (quer ? 3 : 2)
-            let zeilen = (n + spalten - 1) / spalten
-            let b = (r.width - a * CGFloat(spalten - 1)) / CGFloat(spalten)
-            let h = (r.height - a * CGFloat(zeilen - 1)) / CGFloat(zeilen)
-            return (0..<n).map { i in
-                CGRect(x: r.minX + CGFloat(i % spalten) * (b + a),
-                       y: r.minY + CGFloat(i / spalten) * (h + a),
-                       width: b, height: h)
-            }
-        }
     }
 }
 

@@ -35,6 +35,17 @@ struct EinstellungenView: View {
                 }
 
                 Section {
+                    Picker("Stil", selection: $buch.stil) {
+                        ForEach(Buchstil.allCases) { Text($0.name).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Gestaltung")
+                } footer: {
+                    Text(buch.stil.beschreibung)
+                }
+
+                Section {
                     Picker("Format", selection: $buch.format) {
                         ForEach(Seitenformat.allCases) { Text($0.name).tag($0) }
                     }
@@ -43,7 +54,7 @@ struct EinstellungenView: View {
                 } header: {
                     Text("Seiten")
                 } footer: {
-                    Text("Ein Text nimmt bis zu zwei der unmittelbar folgenden Fotos auf seine erste Seite; weitere Fotos füllen eigene Seiten. Das Titelbild wählt man beim Foto selbst.")
+                    Text("Ein Text nimmt die unmittelbar folgenden Fotos auf seine erste Seite (bis zu drei, klassisch zwei). Weitere Fotos füllen eigene Seiten, Tag für Tag, im Wechsel aus vollen Seiten und einzelnen großen Bildern. Jedes Kapitel öffnet mit seinem ersten Querformat. Das Titelbild wählt man beim Foto selbst.")
                 }
             }
             .navigationTitle("Buch einrichten")
