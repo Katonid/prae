@@ -73,24 +73,40 @@ klein und stehen alle mit „KAPITELWEISE" im Quelltext.
 
 ## Konfiguration
 
-- Bundle-Id `de.familie.chronik`, Homescreen „Kapitelweise", Store-Name
-  „Kapitelweise – Das Buch" (getrennte Felder; App-Eintrag von Hand in App
-  Store Connect anlegen). Ordner `ChronikiOS/`, Ziel/Schema „Chronik".
-- **Keine iOS-Entitlements-Datei.** Das Reisebuch trägt iCloud und das
-  Schriftenrecht — beides bewilligt für SEINE App-Id. Die App-Id dieser App
-  trägt nichts davon (Regel im Wurzelverzeichnis: nur Rechte eintragen, die die
-  App-Id nachweislich trägt; Lehre Reisebuch 1.0.44). Folge: kein
-  iCloud-Abgleich (die App sagt „Nur auf diesem Gerät"), selbst installierte
-  Schriften nicht lesbar. Soll das kommen: Fähigkeit in Xcode zufügen
-  (Container `iCloud.de.familie.chronik`, steht schon in `Wolke.behaelter`).
-  Die Mac-Datei `Config/Chronik-Mac.entitlements` trägt nur die
-  Sandkasten-Rechte.
-- Eigenes Dateiformat `.kapitelweise` (`de.familie.chronik.buch`) — nicht das
-  des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
+- **Bundle-Id `de.familie.kapitelweise`** (ab 1.0.3; gemeldet 11/2026: der
+  Upload zu TestFlight scheiterte, weil `de.familie.chronik` bereits vergeben
+  war). Homescreen „Kapitelweise", Store-Name „Kapitelweise – Das Buch"
+  (getrennte Felder; den App-Eintrag von Hand in App Store Connect anlegen,
+  nie über Xcodes „Create App Record"). Ordner `ChronikiOS/`, Ziel/Schema
+  „Chronik" bleiben. Ist auch diese Id vergeben, eine andere wählen und an
+  ALLEN Stellen mitziehen: pbxproj (2×), beide Entitlements, `Info.plist`
+  (Behälter und Dateityp), `Wolke.behaelter`.
+- **iCloud-Abgleich und selbst installierte Schriften** (ab 1.0.3, Ansage
+  des Nutzers 11/2026). `Config/Chronik.entitlements`: Behälter
+  `iCloud.de.familie.kapitelweise` (CloudDocuments, wie das Reisebuch) und
+  `com.apple.developer.user-fonts` = `app-usage`. **Nicht gemessen, dass die
+  App-Id beides trägt** — der Nutzer bestätigt es einmal in Xcode (Signing &
+  Capabilities: „iCloud" mit dem Behälter angehakt, „Fonts" mit „Use
+  Installed Fonts"). Was das Profil danach wirklich bewilligt, nennt die App
+  unter „Schriften prüfen" (`Profilrechte`); steht dort etwas anderes als in
+  der Datei, gilt die Anzeige, und die Datei wird angeglichen (Lehre Reisebuch
+  1.0.44/1.0.45/1.0.66). Der iCloud-Ordner heißt im Laufwerk „Kapitelweise",
+  darin `Buecher` (`Wolke.ordnername`).
+- Mac (`Config/Chronik-Mac.entitlements`): Sandkasten-Rechte des Reisebuchs,
+  dazu `device.audio-input` (Mikrofon fürs Diktat) und derselbe Behälter.
+- **Diktieren** (`Dienste/Diktat.swift`, unverändert aus Fernweh 1.0.40 bis auf
+  den Text der Fehlermeldung; Knopf im Texteditor `EintragView`). Ab iOS 26
+  `SpeechAnalyzer`, davor `SFSpeechRecognizer`, beides auf dem Gerät; als
+  Hinweise gehen Buchtitel, Kapitel- und Textüberschriften mit.
+  Berechtigungstexte (Mikrofon, Spracherkennung) als Build-Einstellung.
+  Verbesserungen dort in Fernweh gehören auch hierher.
+- Eigenes Dateiformat `.kapitelweise` (`de.familie.kapitelweise.buch`) — nicht
+  das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3). `DEVELOPMENT_TEAM = F4989GSTWS`, `ITSAppUsesNonExemptEncryption =
-  NO` (Info.plist UND Build-Einstellung). Mac Catalyst wie im Reisebuch.
+  1.0.2 (3), 1.0.3 (4). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
+  Mac Catalyst wie im Reisebuch.
 
 ## Stand
 
@@ -99,3 +115,6 @@ klein und stehen alle mit „KAPITELWEISE" im Quelltext.
   — es waren Probebücher; Fotos neu einlesen. **Nicht gemessen:** auf keinem
   Gerät gesehen; ob die Kapitel-Einteilung bei tausenden Fotos je Jahr flüssig
   bleibt (das Reisebuch ist für Dutzende Fotos je Tag gebaut).
+- **1.0.3 (Build 4)**, 11/2026: Bundle-Id `de.familie.kapitelweise`,
+  iCloud-Abgleich und Schriftenrecht eingetragen, Diktieren aus Fernweh.
+  **Nicht gemessen:** Signieren mit den neuen Rechten, Abgleich, Diktat.

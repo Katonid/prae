@@ -25,8 +25,8 @@ import Foundation
 //  * Ein Umschalten KOPIERT und löscht nichts. Lieber ein Buch doppelt als
 //    eines weniger.
 enum Wolke {
-    static let behaelter = "iCloud.de.familie.chronik"
-    static let ordnername = "Reisen"
+    static let behaelter = "iCloud.de.familie.kapitelweise"
+    static let ordnername = "Buecher"
     private static let schalter = "wolkeAn"
     static let konfliktmarke = "-konflikt-"
 

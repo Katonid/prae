@@ -84,6 +84,9 @@ struct EintragView: View {
     @Environment(\.dismiss) private var schliessen
     @State private var ueberarbeiten = false
     @State private var loeschenFragen = false
+    // Diktieren wie in Fernweh (ab 1.0.3): Knopf unten rechts im Textfeld,
+    // was gerade gehört wird, steht darunter; fester Text wird angehängt.
+    @StateObject private var diktat = Diktat()
 
     /// Ein neuer Eintrag beginnt im gewählten Kapitel — ein Buch über 2009
     /// soll seinen nächsten Text nicht auf heute datieren.
@@ -97,6 +100,38 @@ struct EintragView: View {
             neu.zeit = (heute >= k.beginn && heute <= ende) ? heute : tag.datum.mittag
         }
         return neu
+    }
+
+    private var diktatKnopf: some View {
+        Button {
+            Task { await diktat.umschalten(hinweise: diktatHinweise) }
+        } label: {
+            Group {
+                if diktat.bereitet {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: diktat.laeuft ? "stop.fill" : "mic.fill")
+                        .font(.headline)
+                }
+            }
+            .foregroundStyle(.white)
+            .frame(width: 44, height: 44)
+            .background(diktat.laeuft ? AnyShapeStyle(Color.red.gradient) : AnyShapeStyle(Color.accentColor.gradient),
+                        in: Circle())
+            .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(diktat.laeuft ? "Diktat beenden" : "Diktieren")
+    }
+
+    /// Wörter, die die Erkennung erwarten soll: Buchtitel, Kapitel- und
+    /// Textüberschriften — dort stehen die Namen, die in diesem Buch
+    /// vorkommen.
+    private var diktatHinweise: [String] {
+        var liste = [werk.reise.titel, eintrag.titel]
+        liste += werk.reise.tage.flatMap { [$0.ueberschrift, $0.unterueberschrift] }
+        liste += werk.reise.eintraege.map(\.titel)
+        return liste.flatMap { $0.components(separatedBy: CharacterSet(charactersIn: "\u{2013}\u{00B7},")) }
     }
 
     private var istNeu: Bool { !werk.reise.eintraege.contains { $0.id == eintrag.id } }
@@ -113,10 +148,31 @@ struct EintragView: View {
                     Text("Kommt in das Kapitel \u{201E}\(k.standardTitel)\u{201C} (\(k.zeitraum)).")
                 }
 
-                Section("Text") {
+                Section {
                     TextEditor(text: $eintrag.text)
                         .frame(minHeight: 260)
                         .font(.system(size: 15))
+                        .padding(.bottom, 44)
+                        .overlay(alignment: .bottomTrailing) { diktatKnopf.padding(.bottom, 4) }
+                    if diktat.laeuft || !diktat.zwischentext.isEmpty {
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle().fill(Color.red).frame(width: 8, height: 8).padding(.top, 5)
+                            Text(diktat.zwischentext.isEmpty ? "Ich höre zu \u{2026}" : diktat.zwischentext)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .italic()
+                        }
+                    }
+                } header: {
+                    Text("Text")
+                } footer: {
+                    if let fehler = diktat.fehler {
+                        Text(fehler).foregroundStyle(.red)
+                    } else if diktat.laeuft {
+                        Text(diktat.motor + " \u{00B7} Namen aus dem Buch sind als Hinweise hinterlegt")
+                    } else {
+                        Text("Mit dem Mikrofon-Knopf diktieren; der erkannte Text wird angehängt.")
+                    }
                 }
 
                 Section {
@@ -147,6 +203,17 @@ struct EintragView: View {
                     }
                 }
             }
+            .onAppear {
+                UIApplication.shared.isIdleTimerDisabled = true
+                diktat.anhaengen = { neu in
+                    let trenner = eintrag.text.isEmpty || eintrag.text.hasSuffix(" ") || eintrag.text.hasSuffix("\n") ? "" : " "
+                    eintrag.text += trenner + neu
+                }
+            }
+            .onDisappear {
+                UIApplication.shared.isIdleTimerDisabled = false
+                Task { await diktat.stoppen() }
+            }
             .navigationTitle(istNeu ? "Neuer Text" : "Text")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -155,8 +222,12 @@ struct EintragView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") {
-                        werk.eintragSichern(eintrag)
-                        schliessen()
+                        Task { @MainActor in
+                            // Was noch im Diktat steckt, gehört zum Text.
+                            await diktat.stoppen()
+                            werk.eintragSichern(eintrag)
+                            schliessen()
+                        }
                     }
                     .disabled(eintrag.titel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                               && eintrag.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

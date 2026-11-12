@@ -30,6 +30,22 @@
 	     müssen. Ohne Ortung fehlt genau dieser eine Knopf. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Damit du beim Setzen eines Reisepunktes deinen jetzigen Standort übernehmen kannst, statt ihn auf der Karte zu suchen. Der Standort bleibt auf dem Gerät.</string>
+	<!-- Der Ordner der App im iCloud-Laufwerk wird SICHTBAR (wie im
+	     Reisebuch): Ein Buch, das man nur mit der App wieder aufbekommt, ist
+	     bei einem Familienbuch die falsche Ablage. -->
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.de.familie.kapitelweise</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>Kapitelweise</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
+
 	<!-- Das eigene Dateiformat, damit der Dateiwähler es filtern kann und
 	     eine Buchdatei in „Dateien" ein Symbol und einen Namen hat statt
 	     „Dokument". -->
@@ -37,7 +53,7 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>de.familie.chronik.buch</string>
+			<string>de.familie.kapitelweise.buch</string>
 			<key>UTTypeDescription</key>
 			<string>Kapitelweise-Buch</string>
 			<key>UTTypeConformsTo</key>
@@ -90,7 +106,7 @@
 			<string>Editor</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>de.familie.chronik.buch</string>
+				<string>de.familie.kapitelweise.buch</string>
 			</array>
 		</dict>
 	</array>

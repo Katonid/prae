@@ -142,7 +142,7 @@ enum Profilrechte {
             zeile += "."
             zeilen.append(zeile)
             zeilen.append("  Seit 1.0.66 steht genau diese Zeichenkette in "
-                + "Config/Urlaubstagebuch.entitlements. Steht hier etwas "
+                + "ChronikiOS/Config/Chronik.entitlements. Steht hier etwas "
                 + "anderes, bitte melden \u{2014} geraten wird sie nicht.")
         } else {
             var zeile = "Schriftenrecht ("
@@ -153,7 +153,7 @@ enum Profilrechte {
                 + "Systems und die aus ihrem eigenen Bündel \u{2014} und die "
                 + "Zahlen darunter sagen nichts über das Gerät aus. Das Recht "
                 + "hängt an der App-Id: In der Entwicklerkonsole bekommt "
-                + "de.familie.urlaubstagebuch die Fähigkeit \u{201E}Fonts\u{201C}, "
+                + "de.familie.kapitelweise die Fähigkeit \u{201E}Fonts\u{201C}, "
                 + "danach in Xcode denselben Haken. Ein Recht, das die App-Id "
                 + "nicht trägt, lässt sich nicht signieren \u{2014} deshalb "
                 + "zuerst dort und erst dann im Repo.")
