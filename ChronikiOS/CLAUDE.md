@@ -106,7 +106,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Mediathek oder Dateien; aus einer PDF zählt die erste Seite.
 - **Satz im Lebensbuch** (`Layoutautomat.lebensseiten`, Erweiterung am Ende von
   `Layoutautomat.swift`): Zeitung → Meldungen → Fotoseiten → Text. Fotos und Texte
-  seit 1.0.9 als Fluss (siehe unten). Trägt ein Kapitel ein
+  seit 1.0.10 als frei aufgeteilter Fluss (siehe unten). Trägt ein Kapitel ein
   eigenes Seitenmuster, setzt es wie im Reisebuch; Zeitung und Meldungen kommen
   in JEDEM Stil vor die Seiten.
 - **Die große Jahreszahl steht NUR auf der Geburtstagsseite** (ab 1.0.6,
@@ -126,24 +126,31 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   des Nutzers: „Ja, das ist zu versteckt."): oben im Kapitel-Menü (Knopf unten
   rechts) und im Plusmenü, je als `Blatt.kapitelseiten`. Der Kapitel-Knopf
   heißt „Kapitel 2026" statt eines Datums.
-- **Fotos und Texte in EINEM Fluss** (ab 1.0.9; 1.0.8 gab jedem Text eine
-  eigene Textseite, Rückmeldung des Nutzers: „Nein! Nur der Text! Als
-  Textfeld. Dessen Größe hängt vom Inhalt ab: Kurze Kommentare passen
-  neben/unter ein Bild; längere Texte beanspruchen mehr Platz … möglichst
-  wenig Platz auf der Seite zu verschenken. Ich möchte möglichst wenig leere
-  Flächen!"). `Layoutautomat.flussseiten`: zwei Spalten (Querformat drei);
-  Fotos und Einträge laufen in ihrer Zeitfolge (`zeitfolge`: Foto nach
-  `aufnahme`, Eintrag nach `zeit`, bei Gleichstand der Text zuerst, Fotos ohne
-  Zeit ans Ende) in die jeweils kürzeste Spalte. Foto-Höhe aus dem
-  Seitenverhältnis (bis auf 72 % beschnitten, wenn es sonst nicht passt),
-  Text-Höhe GEMESSEN (`Textmass`); ein Text, der nicht passt, wird an der
-  Spaltenkante geteilt und läuft weiter. Danach wachsen die Fotos jeder
-  Spalte (bis 35 %), bis die Spalte unten voll ist. Fotos 5 % breiter als die
-  Spalte und leicht gedreht, damit sie über die Fuge greifen. Ein Text ist
-  ein Goldstrich, eine Kopfzeile „Überschrift – Datum" (fett) und der Text.
-  Ohne Einträge läuft ein freier Kapiteltext als letztes Feld mit. Die festen
-  Felder aus 1.0.4 (`albumfelder`) werden nicht mehr benutzt. **Nicht wieder
-  Textseiten bauen.**
+- **Fotos und Texte in EINEM Fluss, FREI aufgeteilt** (ab 1.0.10).
+  Vorgeschichte: 1.0.8 gab jedem Text eine eigene Textseite („Nein! Nur der
+  Text! Als Textfeld. Dessen Größe hängt vom Inhalt ab … möglichst wenig leere
+  Flächen!"), 1.0.9 setzte deshalb starre Spalten („‚Spalten' finde ich starr …
+  Ich möchte, dass so etwas wie im Bild weiterhin möglich ist" — mit einem
+  Bild der freien, überlappenden Felder aus 1.0.4). **Weder Textseiten noch
+  Spalten wieder bauen.**
+  - Folge: Fotos und Einträge in ihrer Zeitfolge (`zeitfolge`: Foto nach
+    `aufnahme`, Eintrag nach `zeit`, bei Gleichstand der Text zuerst, Fotos
+    ohne Zeit ans Ende); ohne Einträge läuft ein freier Kapiteltext als
+    letztes Stück mit. Lange Texte werden vorher geteilt (höchstens halbe
+    Seitenbreite × 78 % Höhe).
+  - Je Seite (`flussseiten`): Stückzahl aus dem Rhythmus 4, 3, 5, 4, 3, 5 ± 1
+    (notfalls weniger). Für diese Stücke werden ALLE Teilungen der Fläche in
+    zwei Hälften — nebeneinander oder übereinander, rekursiv, Reihenfolge
+    bleibt — durchprobiert (`Teilung`, bei 6 Stücken 1344). Ein Foto darf
+    dabei beschnitten werden (Verzug ≤ 1,45), ein Textfeld muss seinen
+    GEMESSENEN Text fassen (`Textmass`, mit Vorrat je Breite); was im
+    Textfeld frei bleibt, zählt als verschenkt, der Beschnitt im Mittel als
+    Strafe. Unter fast gleich guten (± 0,02) wechselt die Form mit der
+    Seitennummer.
+  - Danach Album: Fotos 4 % größer und gedreht (`drehwinkel` × 0,7), Ebene
+    steigend; Textfelder gerade, mit Goldstrich und Kopfzeile „Überschrift –
+    Datum" (fett). Simuliert (Python, je 200 Zufallsseiten): für 3–6 Fotos
+    findet sich immer eine Teilung, für 2 in gut der Hälfte der Fälle.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -181,7 +188,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -210,3 +217,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.9 (Build 10)**, 11/2026: Fotos und Texte in einem Fluss, Texte als
   Felder nach Inhalt, Spalten unten gefüllt. **Nicht gemessen:** auf einem
   Gerät; wie oft die letzte Seite eines Kapitels halb leer bleibt.
+- **1.0.10 (Build 11)**, 11/2026: freie Aufteilung statt Spalten, Texte als
+  Felder darin. **Nicht gemessen:** auf einem Gerät; wie lange das
+  Durchprobieren bei einem Kapitel mit Hunderten Fotos dauert.
