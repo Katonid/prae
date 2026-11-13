@@ -16,6 +16,7 @@ struct HintergrundView: View {
     var fuerUmschlag: Bool = false
     @Environment(\.dismiss) private var schliessen
     @State private var fotowahl = false
+    @State private var musterwahl = false
     // Was das Strecken kostet — GEMESSEN, nicht geschätzt (siehe
     // `Model/Farbkraft.swift`). Gerechnet wird in `.task(id:)` und nicht im
     // Körper: Der läuft bei jedem Neuzeichnen.
@@ -75,7 +76,20 @@ struct HintergrundView: View {
 
                 if aenderbar {
                     Section("Art") {
-                        Picker("Hintergrund", selection: binden(\.art)) {
+                        Picker("Hintergrund", selection: Binding(
+                            get: { grund.art },
+                            set: { neu in
+                                aendern { g in
+                                    g.art = neu
+                                    // Wer zum ersten Mal „Muster" wählt, sieht
+                                    // gleich das Leinen im Ton des Saal-Buches
+                                    // statt eines weißen Stoffes.
+                                    if neu == .muster, g.farbe == Farbwert.papier {
+                                        g.farbe = Musterkachel.saalLeinen
+                                    }
+                                }
+                            }
+                        )) {
                             ForEach(Seitenhintergrund.Art.allCases) { art in
                                 Text(art.name).tag(art)
                             }
@@ -151,6 +165,10 @@ struct HintergrundView: View {
 
                         ausschnittabschnitt
                     }
+
+                    if grund.art == .muster {
+                        musterabschnitt
+                    }
                 }
             }
             .navigationTitle(titelzeile)
@@ -158,6 +176,18 @@ struct HintergrundView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { schliessen() }
+                }
+            }
+            .sheet(isPresented: $musterwahl) {
+                HintergrundfotoView(werk: werk) { id in
+                    aendern { grund in
+                        grund.musterfoto = id
+                        // Vorschlag: so breit, dass das Bild mit 300 dpi
+                        // gedruckt wird. Ändern lässt es sich danach.
+                        if let id, let foto = werk.reise.foto(id), foto.breite > 0 {
+                            grund.kachel = Self.gerundet(foto.breite / 300 * 25.4)
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $fotowahl) {
@@ -179,6 +209,86 @@ struct HintergrundView: View {
                 ausschnittbild = b
             }
         }
+    }
+
+    // MARK: - Muster (ab 1.0.129)
+
+    private var musterbild: Foto? {
+        grund.musterfoto.flatMap { werk.reise.foto($0) }
+    }
+
+    private var musterabschnitt: some View {
+        Group {
+            Section {
+                Button {
+                    musterwahl = true
+                } label: {
+                    LabeledContent("Muster",
+                                   value: musterbild == nil ? "Leinen (eingebaut)" : "eigenes Bild")
+                }
+                if grund.musterfoto != nil {
+                    Button("Eingebautes Leinen verwenden") {
+                        aendern { $0.musterfoto = nil }
+                    }
+                }
+                Button("Farbton wie das Saal-Leinen") {
+                    aendern { $0.farbe = Musterkachel.saalLeinen }
+                }
+                .disabled(grund.farbe == Musterkachel.saalLeinen)
+            } header: {
+                Text("Muster")
+            } footer: {
+                Text(musterbild == nil
+                     ? "Das Leinen rechnet die App selbst, nahtlos und in der Grundfarbe oben. Der Farbton \u{201E}wie das Saal-Leinen\u{201C} ist der Mittelwert des Bildes, das du geschickt hast. Als eigenes Muster taugt jedes Foto dieses Buches \u{2014} etwa ein Bildschirmfoto eines Stoffes."
+                     : "Ein eigenes Bild aus diesem Buch, Kachel an Kachel über die ganze Seite samt Anschnitt.")
+            }
+
+            Section {
+                VStack(alignment: .leading) {
+                    LabeledContent(musterbild == nil ? "Kachelbreite" : "Bildbreite auf dem Papier",
+                                   value: kacheltext)
+                    // Logarithmisch: zwischen 1 und 2 cm ist der Unterschied
+                    // so groß wie zwischen 20 und 40.
+                    Slider(value: Binding(
+                        get: { log(max(grund.kachel, 5)) },
+                        set: { neu in aendern { $0.kachel = Self.gerundet(exp(neu)) } }
+                    ), in: log(5.0)...log(600.0))
+                }
+                if musterbild != nil {
+                    Toggle("Gespiegelt kacheln", isOn: binden(\.spiegeln))
+                }
+            } header: {
+                Text("Größe")
+            } footer: {
+                Text(groessenhinweis)
+            }
+        }
+    }
+
+    private var kacheltext: String {
+        var text = String(format: "%.0f mm", grund.kachel)
+        if let foto = musterbild, foto.breite > 0 {
+            let dpi = foto.breite / (grund.kachel / 25.4)
+            text += String(format: " \u{00B7} %.0f dpi", dpi)
+        }
+        return text
+    }
+
+    private var groessenhinweis: String {
+        var text = "Wie groß der Stoff auf dem Papier wirkt, sieht man erst auf der Seite: "
+        text += "Regler bewegen und die Seite dahinter ansehen. Die Probe oben zeigt nur einen Ausschnitt."
+        if let foto = musterbild, foto.breite > 0 {
+            let grenze = foto.breite / 300 * 25.4
+            text += String(format: " Bis %.0f mm wird das Bild mit mindestens 300 dpi gedruckt; ", grenze)
+            text += "darüber wird es weicher, bei einem feinen Stoff fällt das kaum auf."
+            text += " Gespiegelt passt jede Kante zu ihrer Nachbarin \u{2014} ein Bildschirmfoto "
+            text += "ist keine nahtlose Kachel, und ohne Spiegeln stünde an jeder Kante ein Sprung."
+        }
+        return text
+    }
+
+    static func gerundet(_ mm: Double) -> Double {
+        mm < 20 ? (mm * 2).rounded() / 2 : mm.rounded()
     }
 
     // MARK: - Bildausschnitt

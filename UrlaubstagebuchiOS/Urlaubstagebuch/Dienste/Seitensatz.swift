@@ -341,6 +341,17 @@ enum Seitensatz {
                                          y: rechteck.minY + punkt.ort.y,
                                          width: 1.2, height: 1.2))
             }
+        case .muster:
+            // Gekachelt vom Eck des Bogens aus — derselbe Ursprung wie auf
+            // dem Bildschirm (`HintergrundFlaeche`). `bild` ist hier das
+            // eigene Musterbild; ohne eines gilt das eingebaute Leinen.
+            if let kachel = Musterkachel.kachel(grund, bild: bild) {
+                let eigenes = grund.musterfoto != nil && bild != nil
+                Musterkachel.zeichne(kachel,
+                                     breitePt: Musterkachel.breitePt(grund, eigenesBild: eigenes),
+                                     in: rechteck, jpegGuete: jpegGuete,
+                                     zusammenhang: zusammenhang)
+            }
         case .foto:
             if let bild {
                 zusammenhang.saveGState()

@@ -288,6 +288,9 @@ struct Vorlagenwerte: Codable, Hashable {
         var neu = gestaltung.hintergrund
         neu.fotoID = alt.fotoID
         neu.ausschnitt = alt.ausschnitt
+        // Ein eigenes Musterbild gehört dem Buch wie das Foto; das
+        // eingebaute Leinen (`musterfoto == nil`) kommt mit (ab 1.0.129).
+        neu.musterfoto = alt.musterfoto
         return neu
     }
 
@@ -295,6 +298,7 @@ struct Vorlagenwerte: Codable, Hashable {
         guard var neu = umschlag.hintergrund else { return nil }
         neu.fotoID = alt?.fotoID
         neu.ausschnitt = alt?.ausschnitt ?? .voll
+        neu.musterfoto = alt?.musterfoto
         return neu
     }
 
@@ -333,6 +337,9 @@ extension Seitenhintergrund {
     var ohneBild: Seitenhintergrund {
         var kopie = self
         kopie.fotoID = nil
+        // Ein eigenes Musterbild fällt auf das eingebaute Leinen zurück —
+        // Größe und Farbe bleiben (ab 1.0.129).
+        kopie.musterfoto = nil
         if art == .foto { kopie.art = .einfarbig }
         return kopie
     }

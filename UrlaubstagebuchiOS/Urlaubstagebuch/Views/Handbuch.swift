@@ -339,10 +339,10 @@ enum Handbuch {
             Handbucheintrag(
                 id: "hintergrund",
                 titel: "Seitenhintergrund",
-                text: "Einfarbig, Verlauf, Foto mit Schleier oder Papierkorn. Ein Foto lässt sich zoomen und verschieben und darf über die ganze Doppelseite laufen. Nimmt der Schleier den Farben ihre Kraft, holt ein Regler sie zurück.",
+                text: "Einfarbig, Verlauf, Foto mit Schleier oder Papierkorn. Ein Foto lässt sich zoomen und verschieben und darf über die ganze Doppelseite laufen. Nimmt der Schleier den Farben ihre Kraft, holt ein Regler sie zurück.\n\nMUSTER (ab 1.0.129): ein Stoff, Kachel an Kachel über die ganze Seite. Eingebaut ist ein Leinen, das die App selbst rechnet \u{2014} nahtlos, in der Grundfarbe, auf Wunsch im Ton der Saal-Bücher. Ebenso geht ein eigenes Foto des Buches, etwa ein Bildschirmfoto eines Stoffes; es wird gespiegelt gekachelt, damit keine Kanten zu sehen sind. Die Kachelgröße in Millimetern ist frei einstellbar \u{2014} wie groß der Stoff wirkt, sieht man auf der Seite dahinter. Beim eigenen Bild steht daneben, mit wie viel dpi es gedruckt wird.",
                 weg: "Buchsymbol \u{2192} Seitenhintergrund",
                 ziel: .hintergrund,
-                stichworte: ["papier", "farbe", "verlauf", "doppelseite", "schleier"]),
+                stichworte: ["papier", "farbe", "verlauf", "doppelseite", "schleier", "muster", "leinen", "stoff", "kachel", "saal", "textur"]),
             Handbucheintrag(
                 id: "wasserzeichen",
                 titel: "Wasserzeichen",

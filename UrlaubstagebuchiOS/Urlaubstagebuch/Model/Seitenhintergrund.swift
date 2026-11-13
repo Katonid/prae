@@ -20,6 +20,10 @@ struct Seitenhintergrund: Codable, Hashable {
         case verlauf
         case foto
         case papierstruktur
+        // Ein Stoff oder ein eigenes Bild, gekachelt (ab 1.0.129,
+        // `Dienste/Musterkachel.swift`). Eine ältere Fassung kennt den Fall
+        // nicht und liest „einfarbig" — mit der Farbe des Musters.
+        case muster
 
         var id: String { rawValue }
 
@@ -29,6 +33,7 @@ struct Seitenhintergrund: Codable, Hashable {
             case .verlauf: return "Farbverlauf"
             case .foto: return "Foto"
             case .papierstruktur: return "Papierstruktur"
+            case .muster: return "Muster"
             }
         }
     }
@@ -78,6 +83,16 @@ struct Seitenhintergrund: Codable, Hashable {
     // Zoom" — also genau der Stand von vorher; jedes vorhandene Buch sieht
     // danach unverändert aus.
     var ausschnitt: Bildausschnitt = .voll
+    // DAS MUSTER (ab 1.0.129): ein eigenes Bild aus dem Buch oder, wenn
+    // keines gewählt ist, das eingebaute Leinen in der Grundfarbe. Ein
+    // eigenes Feld und nicht `fotoID` — wer zwischen „Foto" und „Muster"
+    // wechselt, soll nicht sein Hintergrundfoto als Kachel wiederfinden.
+    var musterfoto: UUID?
+    // Breite einer Kachel auf dem Papier in Millimetern (beim eigenen Bild:
+    // die Breite des Bildes).
+    var kachel: Double = 120
+    // Das eigene Bild gespiegelt kacheln, damit keine Kanten zu sehen sind.
+    var spiegeln: Bool = true
 
     static let weiss = Seitenhintergrund(art: .einfarbig, farbe: .papier)
 
@@ -103,6 +118,9 @@ struct Seitenhintergrund: Codable, Hashable {
         farbkraft = b.wert(.farbkraft, 0)
         ueberDoppelseite = b.wert(.ueberDoppelseite, false)
         ausschnitt = b.wert(.ausschnitt, Bildausschnitt.voll)
+        musterfoto = b.wahlweise(.musterfoto)
+        kachel = b.wert(.kachel, 120)
+        spiegeln = b.wert(.spiegeln, true)
     }
 
     // Der eigene Leser oben nimmt den erzeugten Initialisierer mit — wer
@@ -113,7 +131,8 @@ struct Seitenhintergrund: Codable, Hashable {
          winkel: Double = 90, fotoID: UUID? = nil,
          schleier: Double = 0.72, koernung: Double = 0.06,
          farbkraft: Double = 0, ueberDoppelseite: Bool = false,
-         ausschnitt: Bildausschnitt = .voll)
+         ausschnitt: Bildausschnitt = .voll,
+         musterfoto: UUID? = nil, kachel: Double = 120, spiegeln: Bool = true)
     {
         self.art = art
         self.farbe = farbe
@@ -125,6 +144,9 @@ struct Seitenhintergrund: Codable, Hashable {
         self.farbkraft = farbkraft
         self.ueberDoppelseite = ueberDoppelseite
         self.ausschnitt = ausschnitt
+        self.musterfoto = musterfoto
+        self.kachel = kachel
+        self.spiegeln = spiegeln
     }
 
     var istSchlicht: Bool { art == .einfarbig }
