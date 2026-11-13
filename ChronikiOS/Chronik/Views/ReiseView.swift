@@ -181,6 +181,9 @@ struct ReiseView: View {
         case texte
         case neuerText
         case kapitelraster
+        // Zeitung und Meldungen eines Kapitels (ab 1.0.7 direkt im
+        // Kapitel-Menü und im Plusmenü).
+        case kapitelseiten(UUID)
 
         var id: String {
             switch self {
@@ -224,6 +227,7 @@ struct ReiseView: View {
             case .texte: return "texte"
             case .neuerText: return "neuertext"
             case .kapitelraster: return "kapitelraster"
+            case let .kapitelseiten(id): return "kapitelseiten-\(id)"
             }
         }
     }
@@ -1658,6 +1662,12 @@ struct ReiseView: View {
             }
             Button("Buch aufbauen…", systemImage: "wand.and.sparkles") { blatt = .aufbau }
             Divider()
+            if let tag = werk.tag {
+                Button("Zeitung und Meldungen (\(tag.ueberschrift.isEmpty ? tag.datum.kurz : tag.ueberschrift))\u{2026}",
+                       systemImage: "newspaper") {
+                    blatt = .kapitelseiten(tag.id)
+                }
+            }
             Button("Neuer Text\u{2026}", systemImage: "square.and.pencil") { blatt = .neuerText }
             Button("Alle Texte\u{2026}", systemImage: "list.bullet.rectangle") { blatt = .texte }
             Button("Texte aus einer Datei\u{2026}", systemImage: "text.book.closed") { blatt = .textimport }
@@ -1974,6 +1984,12 @@ struct ReiseView: View {
     private var tagMenue: some View {
         if let tag = werk.tag {
             Menu {
+                // KAPITELWEISE (ab 1.0.7, Rückmeldung des Nutzers: „Ja, das
+                // ist zu versteckt."): Zeitung und Meldungen stehen OBEN im
+                // Kapitel-Menü und nicht erst im Blatt „Text und Fotos".
+                Button("Zeitung und Meldungen\u{2026}", systemImage: "newspaper") {
+                    blatt = .kapitelseiten(tag.id)
+                }
                 Button("Text und Fotos…", systemImage: "square.and.pencil") {
                     blatt = .tagInhalt(tag.id)
                 }
@@ -2045,9 +2061,12 @@ struct ReiseView: View {
                 // er einer von vier gleich aussehenden Kreisen in der
                 // Werkzeugleiste, und dass darin alles zu diesem einen Tag
                 // steht, stand nirgends.
+                // KAPITELWEISE: Der Knopf nennt das KAPITEL („Kapitel 2026")
+                // und nicht ein Datum — ein Datum sagt nicht, dass dahinter
+                // alles zu diesem Kapitel steht.
                 HStack(spacing: 5) {
-                    Image(systemName: "calendar")
-                    Text(tag.datum.kurz)
+                    Image(systemName: "bookmark")
+                    Text(tag.ueberschrift.isEmpty ? tag.datum.kurz : "Kapitel " + tag.ueberschrift)
                 }
             }
         }
@@ -2422,6 +2441,8 @@ struct ReiseView: View {
             EintragView(werk: werk, eintrag: EintragView.neuerEintrag(werk))
         case .kapitelraster:
             KapitelrasterView(werk: werk)
+        case let .kapitelseiten(id):
+            KapitelseitenView(werk: werk, tagID: id)
         }
     }
 }

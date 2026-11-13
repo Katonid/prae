@@ -95,6 +95,11 @@ struct Layoutautomat {
     // Karte setzen, sollen ihn trotzdem nicht einzeln durchreichen müssen.
     var kartenzeile: String?
 
+    // KAPITELWEISE (ab 1.0.8): die Texteinträge je Kapitel (Schlüssel: Beginn
+    // des Kapitels), gesetzt von `Reise.automat`. Im Lebensbuch stehen sie
+    // nach ihrem Datum zwischen den Fotos.
+    var kapiteltexte: [Tagesdatum: [Texteintrag]] = [:]
+
     private var satz: CGRect { gestaltung.satzspiegel(format) }
 
     // Der Satzspiegel des UMSCHLAGS. Er nimmt dessen eigenen Rand, wenn
@@ -2103,16 +2108,342 @@ extension Layoutautomat {
         return seiten
     }
 
-    /// Das ganze Kapitel im Lebensbuch.
+    /// Das ganze Kapitel im Lebensbuch: Zeitung und Meldungen, dann EIN
+    /// Fluss aus Fotos und Texten in ihrer Zeitfolge.
     func lebensseiten(_ tag: Reisetag) -> [Seite] {
         let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt }
-        let text = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let eintraege = kapiteltexte[tag.datum] ?? []
+        var fluss: [Fluss]
+        if eintraege.isEmpty {
+            fluss = fotos.map { .foto($0) }
+            let frei = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !frei.isEmpty { fluss.append(.text(kopf: "", rumpf: frei)) }
+        } else {
+            fluss = Self.zeitfolge(fotos: fotos, eintraege: eintraege)
+        }
         var seiten = sonderseiten(tag)
-        seiten.append(contentsOf: lebensalbum(tag, fotos: fotos, text: text,
-                                              eroeffnet: !seiten.isEmpty))
+        seiten.append(contentsOf: flussseiten(tag, fluss, mitKopf: seiten.isEmpty))
         if seiten.isEmpty {
             var y = satz.minY
             seiten.append(Seite(bloecke: lebenskopf(tag, y: &y, gross: true)))
+        }
+        return seiten
+    }
+
+    // MARK: Ein Fluss aus Fotos und Texten (ab 1.0.9)
+    //
+    // Ansage des Nutzers 11/2026 zu 1.0.8 (dort bekam jeder Text eine eigene
+    // Textseite): „Nein! Nur der Text! Als Textfeld. Dessen Größe hängt vom
+    // Inhalt ab: Kurze Kommentare passen neben/unter ein Bild; längere Texte
+    // beanspruchen mehr Platz (z. B. den Platz eines Bildes). Hier muss die
+    // App flexibel handeln und immer berücksichtigen, möglichst wenig Platz
+    // auf der Seite zu verschenken. Ich möchte möglichst wenig leere Flächen!"
+    //
+    // Deshalb gibt es keine Textseiten und keine festen Bildfelder mehr. Die
+    // Seite ist in Spalten geteilt (zwei im Hochformat, drei im Querformat).
+    // Fotos und Texte laufen in ihrer ZEITFOLGE nacheinander in die jeweils
+    // kürzeste Spalte: Ein Foto ist so hoch, wie sein Seitenverhältnis bei
+    // der Spaltenbreite verlangt; ein Text so hoch, wie er GEMESSEN ist
+    // (`Textmass`, derselbe Satz wie beim Zeichnen). Ein kurzer Kommentar
+    // steht damit als schmales Feld unter dem Foto davor, ein langer Text
+    // nimmt den Platz eines Bildes ein; passt er nicht mehr, wird er an der
+    // Spaltenkante geteilt und läuft in der nächsten Spalte weiter.
+    //
+    // Am Ende jeder Seite wird die Lücke unten geschlossen: Die Fotos einer
+    // Spalte wachsen (bis 35 %, sie werden dabei etwas stärker beschnitten),
+    // bis die Spalte voll ist. Fotos sind leicht gedreht und ein wenig
+    // breiter als ihre Spalte, damit sie über die Fuge greifen.
+    enum Fluss {
+        case foto(Foto)
+        case text(kopf: String, rumpf: String)
+    }
+
+    static func zeitfolge(fotos: [Foto], eintraege: [Texteintrag]) -> [Fluss] {
+        var liste: [(zeit: Date, text: Bool, nr: Int, element: Fluss)] = []
+        for (n, f) in fotos.enumerated() {
+            liste.append((f.aufnahme ?? .distantFuture, false, n, .foto(f)))
+        }
+        for (n, e) in eintraege.enumerated() {
+            liste.append((e.zeit, true, n, .text(kopf: e.kopfzeile,
+                                                 rumpf: e.text.trimmingCharacters(in: .whitespacesAndNewlines))))
+        }
+        liste.sort { a, b in
+            if a.zeit != b.zeit { return a.zeit < b.zeit }
+            if a.text != b.text { return a.text }
+            return a.nr < b.nr
+        }
+        return liste.map(\.element)
+    }
+
+    // MARK: Freie Aufteilung statt Spalten (ab 1.0.10)
+    //
+    // Rückmeldung des Nutzers 11/2026 zu den Spalten aus 1.0.9, mit einem
+    // Bildschirmfoto der freien, überlappenden Anordnung aus 1.0.4:
+    // „‚Spalten' finde ich starr. … Ich möchte, dass so etwas wie im Bild
+    // weiterhin möglich ist. Dort erkenne ich aber keine Spalten."
+    //
+    // Jede Seite wird deshalb FREI geteilt: Die Fläche wird für die Stücke
+    // dieser Seite (Fotos und Textfelder, in ihrer Zeitfolge) immer wieder
+    // in zwei Teile geschnitten — mal nebeneinander, mal übereinander —, und
+    // durchprobiert werden ALLE solchen Aufteilungen (bei sechs Stücken gut
+    // tausend). Ein großes Bild links und zwei gestapelt rechts, eine Reihe
+    // aus zweien darunter: genau die Form auf dem Bildschirmfoto.
+    //
+    // Gewählt wird, was am wenigsten Fläche verschenkt: Ein Foto darf dabei
+    // beschnitten werden (höchstens um den Faktor 1,45 im Seitenverhältnis),
+    // ein Textfeld muss seinen GEMESSENEN Text fassen, und was in einem
+    // Textfeld unter dem Text frei bleibt, zählt als verschenkt. Ein kurzer
+    // Kommentar bekommt so ein schmales Feld neben oder unter einem Bild, ein
+    // langer Text den Platz eines Bildes. Zu lange Texte werden vorher in
+    // Stücke geteilt, die höchstens eine halbe Seite breit und gut drei
+    // Viertel hoch sind.
+    //
+    // Danach greifen die Fotos wie im Album über ihre Nachbarn: 4 % größer und
+    // leicht gedreht (`drehwinkel`). Textfelder bleiben gerade.
+    private indirect enum Teilung {
+        case stueck(Int)
+        case nebeneinander(Teilung, Teilung)
+        case uebereinander(Teilung, Teilung)
+    }
+
+    private static func teilungen(_ von: Int, _ bis: Int) -> [Teilung] {
+        if bis - von == 1 { return [.stueck(von)] }
+        var liste: [Teilung] = []
+        for schnitt in (von + 1) ..< bis {
+            let links = teilungen(von, schnitt)
+            let rechts = teilungen(schnitt, bis)
+            for l in links {
+                for r in rechts {
+                    liste.append(.nebeneinander(l, r))
+                    liste.append(.uebereinander(l, r))
+                }
+            }
+        }
+        return liste
+    }
+
+    private static func mass(_ t: Teilung, _ v: [Double]) -> Double {
+        switch t {
+        case .stueck(let i): return v[i]
+        case .nebeneinander(let l, let r): return mass(l, v) + mass(r, v)
+        case .uebereinander(let l, let r): return 1 / (1 / mass(l, v) + 1 / mass(r, v))
+        }
+    }
+
+    private static func legen(_ t: Teilung, in r: CGRect, _ v: [Double], luft: Double,
+                              _ ergebnis: inout [CGRect]) {
+        switch t {
+        case .stueck(let i):
+            ergebnis[i] = r
+        case .nebeneinander(let l, let rechts):
+            let ml = mass(l, v)
+            let mr = mass(rechts, v)
+            let b = max(1, (Double(r.width) - luft) * ml / (ml + mr))
+            legen(l, in: CGRect(x: Double(r.minX), y: Double(r.minY), width: b, height: Double(r.height)), v, luft: luft, &ergebnis)
+            legen(rechts, in: CGRect(x: Double(r.minX) + b + luft, y: Double(r.minY),
+                                     width: max(1, Double(r.width) - b - luft), height: Double(r.height)), v, luft: luft, &ergebnis)
+        case .uebereinander(let l, let unten):
+            let ml = 1 / mass(l, v)
+            let mu = 1 / mass(unten, v)
+            let h = max(1, (Double(r.height) - luft) * ml / (ml + mu))
+            legen(l, in: CGRect(x: Double(r.minX), y: Double(r.minY), width: Double(r.width), height: h), v, luft: luft, &ergebnis)
+            legen(unten, in: CGRect(x: Double(r.minX), y: Double(r.minY) + h + luft,
+                                    width: Double(r.width), height: max(1, Double(r.height) - h - luft)), v, luft: luft, &ergebnis)
+        }
+    }
+
+    /// Ein Stück des Flusses, fertig zum Aufteilen.
+    private struct Stueck {
+        var element: Fluss
+        var foto: Foto?
+        var kopf: String
+        var rumpf: String
+        /// Bevorzugtes Seitenverhältnis (Breite durch Höhe).
+        var verhaeltnis: Double
+    }
+
+    /// Misst Textfelder — mit Vorrat, denn dieselbe Breite wird bei tausend
+    /// Aufteilungen immer wieder gefragt.
+    private final class Textvorrat {
+        var werte: [String: Double] = [:]
+    }
+
+    private func flussseiten(_ tag: Reisetag, _ eingang: [Fluss], mitKopf: Bool) -> [Seite] {
+        let luft = fuge * 2
+        var kopfbild = typografie[.unterueberschrift]
+        kopfbild.groesse = 12.5
+        kopfbild.ausrichtung = .links
+        kopfbild.fett = true
+        kopfbild.zeilenabstand = 1.15
+        var textbild = typografie.flieText
+        textbild.ausrichtung = .links
+        let textzugabe = 9.0
+        let vorrat = Textvorrat()
+        var baumvorrat: [Int: [Teilung]] = [:]
+
+        func textbedarf(_ kopf: String, _ rumpf: String, breite: Double) -> Double {
+            let schluessel = "\(Int(breite / 3))|\(kopf.hashValue)|\(rumpf.hashValue)"
+            if let w = vorrat.werte[schluessel] { return w }
+            let kh = kopf.isEmpty ? 0 : Textmass.hoehe(kopf, bild: kopfbild, breite: breite) + 3
+            let rh = rumpf.isEmpty ? 0 : Textmass.hoehe(rumpf, bild: textbild, breite: breite)
+            let w = textzugabe + kh + rh
+            vorrat.werte[schluessel] = w
+            return w
+        }
+
+        // Zu lange Texte in Stücke von höchstens halber Seitenbreite und gut
+        // drei Vierteln Höhe teilen.
+        let halbe = (Double(satz.width) - luft) / 2
+        let grenze = Double(satz.height) * 0.78
+        var stuecke: [Stueck] = []
+        for element in eingang {
+            switch element {
+            case .foto(let f):
+                stuecke.append(Stueck(element: element, foto: f, kopf: "", rumpf: "",
+                                      verhaeltnis: min(max(f.seitenverhaeltnis, 0.5), 2.4)))
+            case .text(let kopf, let rumpf):
+                var rest = rumpf
+                var k = kopf
+                var schutz = 0
+                repeat {
+                    schutz += 1
+                    var teil = rest
+                    var weiter = ""
+                    if textbedarf(k, rest, breite: halbe) > grenze, !rest.isEmpty {
+                        let kh = k.isEmpty ? 0 : Textmass.hoehe(k, bild: kopfbild, breite: halbe) + 3
+                        let (vorn, hinten) = Textmass.teilen(rest, bild: textbild,
+                                                            groesse: CGSize(width: halbe, height: grenze - textzugabe - kh))
+                        if !vorn.isEmpty {
+                            teil = vorn
+                            weiter = hinten.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                    }
+                    let hoehe = max(textbedarf(k, teil, breite: halbe), 20)
+                    stuecke.append(Stueck(element: .text(kopf: k, rumpf: teil), foto: nil, kopf: k, rumpf: teil,
+                                          verhaeltnis: halbe / hoehe))
+                    rest = weiter
+                    k = ""
+                } while !rest.isEmpty && schutz < 40
+            }
+        }
+
+        // Eine Seite: die beste Aufteilung für genau diese Stücke.
+        func bewerten(_ teil: [Stueck], in flaeche: CGRect, nummer: Int) -> (wert: Double, felder: [CGRect])? {
+            let v = teil.map(\.verhaeltnis)
+            let alle: [Teilung]
+            if let gemerkt = baumvorrat[teil.count] {
+                alle = gemerkt
+            } else {
+                alle = Self.teilungen(0, teil.count)
+                baumvorrat[teil.count] = alle
+            }
+            let gesamt = Double(flaeche.width * flaeche.height)
+            var kandidaten: [(wert: Double, felder: [CGRect])] = []
+            for t in alle {
+                var felder = Array(repeating: CGRect.zero, count: teil.count)
+                Self.legen(t, in: flaeche, v, luft: luft, &felder)
+                var verschenkt = 0.0
+                var strafe = 0.0
+                var geht = true
+                for (i, stueck) in teil.enumerated() {
+                    let feld = felder[i]
+                    let b = Double(feld.width)
+                    let h = Double(feld.height)
+                    if let f = stueck.foto {
+                        let zeile = unterschriftHoehe(f, breite: b)
+                        let bildH = max(h - zeile, 1)
+                        let ist = b / bildH
+                        let verzug = max(ist / stueck.verhaeltnis, stueck.verhaeltnis / ist)
+                        if verzug > 1.45 { geht = false; break }
+                        strafe += (verzug - 1) * 0.25
+                        if b * h < gesamt * 0.05 { strafe += 0.5 }
+                    } else {
+                        let bedarf = textbedarf(stueck.kopf, stueck.rumpf, breite: b)
+                        if bedarf > h + 0.5 || b < 90 { geht = false; break }
+                        verschenkt += (h - bedarf) * b / gesamt
+                    }
+                }
+                // Der Beschnitt zählt im MITTEL, nicht in der Summe — sonst
+                // wäre jede Seite mit weniger Fotos von vornherein besser.
+                if geht { kandidaten.append((verschenkt + strafe / Double(teil.count), felder)) }
+            }
+            guard let bestes = kandidaten.map(\.wert).min() else { return nil }
+            // Unter fast gleich guten wechselt die Form von Seite zu Seite.
+            let nahe = kandidaten.filter { $0.wert <= bestes + 0.02 }
+            let wahl = nahe[nummer % nahe.count]
+            return wahl
+        }
+
+        var seiten: [Seite] = []
+        var offen = stuecke[...]
+        var ersteSeite = true
+        let rhythmus = [4, 3, 5, 4, 3, 5]
+        var nummer = 0
+        while !offen.isEmpty {
+            var y = satz.minY
+            var bloecke: [Block] = []
+            if ersteSeite && mitKopf { bloecke = lebenskopf(tag, y: &y, gross: true) }
+            ersteSeite = false
+            let flaeche = CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
+            let ziel = rhythmus[nummer % rhythmus.count]
+            var beste: (zahl: Int, wert: Double, felder: [CGRect])?
+            let hoechstens = min(6, offen.count)
+            // Versucht werden die Zahl aus dem Rhythmus und ihre Nachbarn;
+            // erst wenn keine davon geht, weniger — bis zu einem Stück.
+            var zahlen = [ziel, ziel - 1, ziel + 1].filter { $0 >= 1 && $0 <= hoechstens }
+            if zahlen.isEmpty { zahlen = [hoechstens] }
+            for runde in 0 ..< 2 where beste == nil {
+                let liste = runde == 0 ? zahlen : Array((1 ... hoechstens).reversed())
+                for zahl in liste {
+                    let teil = Array(offen.prefix(zahl))
+                    guard let ergebnis = bewerten(teil, in: flaeche, nummer: nummer) else { continue }
+                    // Leicht bevorzugt: die Zahl aus dem Rhythmus.
+                    let wert = ergebnis.wert + (zahl == ziel ? 0 : 0.03)
+                    if beste == nil || wert < beste!.wert { beste = (zahl, wert, ergebnis.felder) }
+                }
+            }
+            let zahl = beste?.zahl ?? 1
+            let felder = beste?.felder ?? [flaeche]
+            let teil = Array(offen.prefix(zahl))
+            offen = offen.dropFirst(zahl)
+
+            for (i, stueck) in teil.enumerated() {
+                let feld = felder[i]
+                let x = Double(feld.minX)
+                let y0 = Double(feld.minY)
+                let b = Double(feld.width)
+                let h = Double(feld.height)
+                if let f = stueck.foto {
+                    let zeile = unterschriftHoehe(f, breite: b)
+                    let bildH = max(h - zeile, 20)
+                    let zugabe = 0.04
+                    let bild = Block(inhalt: .foto(f.id),
+                                     rahmen: Rahmen(x: x - b * zugabe / 2, y: y0 - bildH * zugabe / 2,
+                                                    breite: b * (1 + zugabe), hoehe: bildH * (1 + zugabe)),
+                                     drehung: drehwinkel(f.id) * 0.7,
+                                     ebene: i)
+                    bloecke.append(bild)
+                    if let unterschrift = unterschriftBlock(f, x: x, y: y0 + bildH, breite: b) {
+                        bloecke.append(angelegt(unterschrift, an: bild))
+                    }
+                } else {
+                    bloecke.append(Block(inhalt: .linie,
+                                         rahmen: Rahmen(x: x, y: y0 + 1, breite: 24, hoehe: 1.2),
+                                         rand: stil.akzent))
+                    var ty = y0 + textzugabe
+                    if !stueck.kopf.isEmpty {
+                        let k = textblock(stueck.kopf, bild: kopfbild, x: x, y: ty, breite: b)
+                        bloecke.append(k)
+                        ty += k.rahmen.hoehe + 3
+                    }
+                    if !stueck.rumpf.isEmpty {
+                        bloecke.append(textblock(stueck.rumpf, bild: textbild, x: x, y: ty, breite: b,
+                                                 hoechstens: y0 + h - ty))
+                    }
+                }
+            }
+            seiten.append(Seite(bloecke: bloecke))
+            nummer += 1
         }
         return seiten
     }
@@ -2365,62 +2696,4 @@ extension Layoutautomat {
         return bloecke
     }
 
-    private func lebensalbum(_ tag: Reisetag, fotos alle: [Foto], text: String,
-                             eroeffnet: Bool) -> [Seite] {
-        var seiten: [Seite] = []
-        var fotos = alle
-        // Die letzten vier Fotos gehören neben den Text des Kapitels.
-        var nebenText: [Foto] = []
-        if !text.isEmpty {
-            let zahl = min(4, fotos.count)
-            nebenText = Array(fotos.suffix(zahl))
-            fotos.removeLast(zahl)
-        }
-        let groessen = [4, 5, 3, 4, 5, 2]
-        var nummer = 0
-        while !fotos.isEmpty {
-            var y = satz.minY
-            let erste = nummer == 0
-            var bloecke: [Block] = []
-            if erste && !eroeffnet {
-                bloecke = lebenskopf(tag, y: &y, gross: true)
-            }
-            var zahl = min(groessen[nummer % groessen.count], fotos.count)
-            if fotos.count - zahl == 1 { zahl = min(zahl + 1, 5, fotos.count) }
-            let teil = Array(fotos.prefix(zahl))
-            fotos.removeFirst(zahl)
-            let flaeche = CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
-            bloecke.append(contentsOf: albumbloecke(teil, in: flaeche))
-            seiten.append(Seite(bloecke: bloecke))
-            nummer += 1
-        }
-        guard !text.isEmpty else { return seiten }
-
-        // Der Text des Kapitels: links eine Spalte, rechts bis zu vier Fotos.
-        var rest = text
-        var erste = true
-        var schutz = 0
-        while !rest.isEmpty, schutz < 40 {
-            schutz += 1
-            var y = satz.minY
-            var bloecke: [Block] = []
-            if erste {
-                bloecke = seitenueberschrift("Was von diesem Jahr bleibt", y: &y)
-            }
-            let mitFotos = erste && !nebenText.isEmpty
-            let spalte = mitFotos ? Double(satz.width) * 0.42 : Double(satz.width)
-            let vorher = rest
-            (bloecke, _, rest) = textSpalte(bloecke, y: y, x: satz.minX, breite: spalte, text: rest)
-            if mitFotos {
-                let x = Double(satz.minX) + spalte + fuge * 3
-                let flaeche = CGRect(x: x, y: Double(y), width: Double(satz.maxX) - x,
-                                     height: Double(satz.maxY - y))
-                bloecke.append(contentsOf: albumbloecke(nebenText, in: flaeche))
-            }
-            seiten.append(Seite(bloecke: bloecke))
-            erste = false
-            if rest == vorher { break }
-        }
-        return seiten
-    }
 }
