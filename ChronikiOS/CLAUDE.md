@@ -66,6 +66,13 @@ klein und stehen alle mit „KAPITELWEISE" im Quelltext.
   (`FoundationModels`, iOS 26, hinter `#if canImport` + `#available`, Texte in
   Stücken ≤ 1800 Zeichen) oder über einen KI-Chat per Zwischenablage. Erst
   Vorschlag, dann „Übernehmen"; die vorige Fassung bleibt (`vorfassung`).
+- **Fotos aus einem ALBUM der Galerie** (ab 1.0.5, Ansage des Nutzers 11/2026):
+  „Fotos aus der Mediathek…" hat neben dem Zeitraum einen Abschnitt „Alle
+  Fotos eines Albums" (`Albumeinfuhr` in `Dienste/Zeitraumeinfuhr.swift`):
+  eigene Alben und Favoriten, leere nicht; eingelesen über denselben Weg wie
+  der Zeitraum (`Zeitraumeinfuhr.rohbild` → `fotosAufnehmen`), also mit
+  Kapitel nach Aufnahmedatum. Braucht den Mediathekszugriff. Doppelt
+  eingelesene Fotos findet „Doppelte Fotos" (aus dem Reisebuch).
 - Oberfläche: „Kapitel" statt „Tage" in Kapitelliste und Kapitelinhalt,
   Plusmenü „Neuer Text… / Alle Texte… / Texte aus einer Datei…", „Ganzes
   Buch → Kapitel und Zeitraster…". Handbuch und Aufbau-Assistent sprechen
@@ -105,6 +112,19 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   eine Spalte (42 %), rechts die letzten vier Fotos. Trägt ein Kapitel ein
   eigenes Seitenmuster, setzt es wie im Reisebuch; Zeitung und Meldungen kommen
   in JEDEM Stil vor die Seiten.
+- **Die große Jahreszahl steht NUR auf der Geburtstagsseite** (ab 1.0.6,
+  Ansage des Nutzers zu Bildschirmfotos: „Die große Jahreszahl muss nicht auf
+  jeder Seite stehen. Dort steht ja bereits kleiner ‚Kapitel [Jahreszahl]'.").
+  Geburtstagsseite = die Zeitungsseite, sonst die erste Fotoseite. Meldungen
+  und Kapiteltext tragen eine Überschrift ohne Jahr (`seitenueberschrift`),
+  weitere Fotoseiten gar keine.
+- **Doppelseiten-Ansicht folgt dem Produkt** (ab 1.0.6, Frage des Nutzers:
+  „Das von mir eingestellte Format will eigentlich Doppelseiten. Warum werden
+  trotzdem Einzelseiten angezeigt?"). Die Ansicht war eine eigene Einstellung
+  (`@AppStorage("doppelseiten")`, Umschalter unten links). Verlangt
+  `Druckprodukt.produkt(format.vorlage)` Doppelseiten, schaltet `ReiseView`
+  beim Öffnen und beim Wechsel des Produkts auf Doppelseiten
+  (`ansichtNachProdukt`); zurück geht es unten links.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -142,7 +162,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -160,3 +180,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Meldungen, überlappende Fotoseiten). **Nicht gemessen:** wie die Seiten auf
   dem Gerät aussehen; die Felder der Fotoseiten sind gerechnet, nicht
   angesehen.
+- **1.0.5 (Build 6)**, 11/2026: Fotos aus einem Album der Galerie einlesen.
+  **Nicht gemessen:** auf einem Gerät.
+- **1.0.6 (Build 7)**, 11/2026: große Jahreszahl nur auf der Geburtstagsseite,
+  Doppelseitenansicht nach Produkt. **Nicht gemessen:** auf einem Gerät.

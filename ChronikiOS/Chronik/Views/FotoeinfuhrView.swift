@@ -18,6 +18,8 @@ struct FotoeinfuhrView: View {
     @State private var von = Date()
     @State private var bis = Date()
     @State private var gefunden: Int?
+    @State private var alben: [Albumeinfuhr.Album] = []
+    @State private var albumID: String?
 
     var body: some View {
         NavigationStack {
@@ -104,15 +106,49 @@ struct FotoeinfuhrView: View {
                     }
                 }
 
+                // KAPITELWEISE (ab 1.0.5): ein ganzes Album der Galerie.
+                Section {
+                    if stand == .authorized || stand == .limited {
+                        if alben.isEmpty {
+                            Text("Keine Alben mit Fotos gefunden.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker("Album", selection: $albumID) {
+                                Text("Bitte wählen").tag(String?.none)
+                                ForEach(alben) { album in
+                                    Text("\(album.name) (\(album.anzahl))").tag(String?.some(album.id))
+                                }
+                            }
+                            Button {
+                                Task { await albumHolen() }
+                            } label: {
+                                Label("Alle Fotos dieses Albums einlesen", systemImage: "rectangle.stack")
+                            }
+                            .disabled(laeuft || albumID == nil)
+                        }
+                    } else {
+                        Text("Dafür braucht die App Zugriff auf die Fotomediathek \u{2014} ohne ihn sieht sie keine Alben.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Alle Fotos eines Albums")
+                } footer: {
+                    Text("Jedes Foto kommt nach seinem Aufnahmedatum in sein Kapitel. Fotos, die in iCloud liegen, werden beim Einlesen geladen; das kann dauern.")
+                }
+                .task(id: stand.rawValue) {
+                    if stand == .authorized || stand == .limited { alben = Albumeinfuhr.alben() }
+                }
+
                 Section {
                     Picker("Fotos ohne Datum", selection: $ziel) {
                         Text("In die Ablage").tag(Fotoziel.ablage)
                         ForEach(werk.reise.tage) { tag in
-                            Text("Zu \(tag.datum.mittel)").tag(Fotoziel.tag(tag.id))
+                            Text("Zu \(tag.ueberschrift.isEmpty ? tag.datum.mittel : tag.ueberschrift)").tag(Fotoziel.tag(tag.id))
                         }
                     }
                 } footer: {
-                    Text("Die Fotos werden nach ihrem Aufnahmedatum auf die Tage verteilt, und ein Tag, den es noch nicht gibt, entsteht dabei von selbst. Steht kein Datum im Foto, sieht die App in der Mediathek und im Dateinamen nach. Bleibt auch dann keines übrig, trägt das Foto keine Auskunft darüber, wann es aufgenommen wurde — wohin es dann kommt, ist eine Entscheidung und keine Messung. Deshalb steht sie hier.")
+                    Text("Die Fotos werden nach ihrem Aufnahmedatum auf die Kapitel verteilt, und ein Kapitel, das es noch nicht gibt, entsteht dabei von selbst. Steht kein Datum im Foto, sieht die App in der Mediathek und im Dateinamen nach. Bleibt auch dann keines übrig, trägt das Foto keine Auskunft darüber, wann es aufgenommen wurde — wohin es dann kommt, ist eine Entscheidung und keine Messung. Deshalb steht sie hier.")
                 }
 
                 if laeuft {
@@ -204,6 +240,20 @@ struct FotoeinfuhrView: View {
         let b = Tagesdatum(max(von, bis))
         guard let treffer = Zeitraumeinfuhr.treffer(von: a, bis: b), treffer.count > 0 else {
             werk.meldung = .init(text: "In diesem Zeitraum liegt kein Foto.")
+            return
+        }
+        laeuft = true
+        let bericht = await werk.fotosAufnehmen(anzahl: treffer.count, ohneDatum: ziel) { stelle in
+            await Zeitraumeinfuhr.rohbild(treffer.object(at: stelle))
+        }
+        laeuft = false
+        werk.meldung = .init(text: bericht.text)
+        schliessen()
+    }
+
+    private func albumHolen() async {
+        guard let albumID, let treffer = Albumeinfuhr.treffer(albumID), treffer.count > 0 else {
+            werk.meldung = .init(text: "In diesem Album liegt kein Foto.")
             return
         }
         laeuft = true

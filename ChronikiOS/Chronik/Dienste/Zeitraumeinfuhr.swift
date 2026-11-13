@@ -104,3 +104,55 @@ enum Zeitraumeinfuhr {
         }
     }
 }
+
+// KAPITELWEISE: ALLE FOTOS EINES ALBUMS (ab 1.0.5, Ansage des Nutzers
+// 11/2026: „Für das Einlesen der Fotos möchte ich bitte auch auf ein Album
+// meiner Galerie zugreifen können.").
+//
+// Derselbe Weg wie der Zeitraum: eine Abfrage an die Mediathek, dann Foto
+// für Foto über `Zeitraumeinfuhr.rohbild` in `fotosAufnehmen` — dort
+// bekommt jedes Foto sein Kapitel nach dem Aufnahmedatum. Gezeigt werden
+// die eigenen Alben (auch geteilte und solche in Ordnern) und die
+// Favoriten; leere Alben nicht.
+enum Albumeinfuhr {
+    struct Album: Identifiable, Hashable {
+        let id: String
+        let name: String
+        let anzahl: Int
+    }
+
+    private static var nurBilder: PHFetchOptions {
+        let optionen = PHFetchOptions()
+        optionen.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+        optionen.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        return optionen
+    }
+
+    static func alben() -> [Album] {
+        var liste: [Album] = []
+        var gesehen = Set<String>()
+        let quellen = [
+            PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumFavorites, options: nil),
+            PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: nil),
+        ]
+        for quelle in quellen {
+            for stelle in 0 ..< quelle.count {
+                let sammlung = quelle.object(at: stelle)
+                guard !gesehen.contains(sammlung.localIdentifier) else { continue }
+                gesehen.insert(sammlung.localIdentifier)
+                let anzahl = PHAsset.fetchAssets(in: sammlung, options: nurBilder).count
+                guard anzahl > 0 else { continue }
+                liste.append(Album(id: sammlung.localIdentifier,
+                                   name: sammlung.localizedTitle ?? "Album",
+                                   anzahl: anzahl))
+            }
+        }
+        return liste.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    static func treffer(_ albumID: String) -> PHFetchResult<PHAsset>? {
+        guard let sammlung = PHAssetCollection.fetchAssetCollections(
+            withLocalIdentifiers: [albumID], options: nil).firstObject else { return nil }
+        return PHAsset.fetchAssets(in: sammlung, options: nurBilder)
+    }
+}
