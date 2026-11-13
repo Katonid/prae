@@ -2108,15 +2108,21 @@ extension Layoutautomat {
         return seiten
     }
 
-    /// Das ganze Kapitel im Lebensbuch.
+    /// Das ganze Kapitel im Lebensbuch: Zeitung und Meldungen, dann EIN
+    /// Fluss aus Fotos und Texten in ihrer Zeitfolge.
     func lebensseiten(_ tag: Reisetag) -> [Seite] {
         let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt }
         let eintraege = kapiteltexte[tag.datum] ?? []
-        if !eintraege.isEmpty { return chronologisch(tag, fotos: fotos, eintraege: eintraege) }
-        let text = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var fluss: [Fluss]
+        if eintraege.isEmpty {
+            fluss = fotos.map { .foto($0) }
+            let frei = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !frei.isEmpty { fluss.append(.text(kopf: "", rumpf: frei)) }
+        } else {
+            fluss = Self.zeitfolge(fotos: fotos, eintraege: eintraege)
+        }
         var seiten = sonderseiten(tag)
-        seiten.append(contentsOf: lebensalbum(tag, fotos: fotos, text: text,
-                                              eroeffnet: !seiten.isEmpty))
+        seiten.append(contentsOf: flussseiten(tag, fluss, mitKopf: seiten.isEmpty))
         if seiten.isEmpty {
             var y = satz.minY
             seiten.append(Seite(bloecke: lebenskopf(tag, y: &y, gross: true)))
@@ -2124,137 +2130,189 @@ extension Layoutautomat {
         return seiten
     }
 
-    // MARK: Texte nach ihrem Datum (ab 1.0.8)
+    // MARK: Ein Fluss aus Fotos und Texten (ab 1.0.9)
     //
-    // Ansage des Nutzers 11/2026: „Texte werden ja mit Datum versehen. Sie
-    // sollen dann genauso einsortiert werden wie Fotos. Also: Ein Text zum
-    // 16.10. soll an der Stelle erscheinen, an der auch Fotos zum 16.10.
-    // sind." Bis 1.0.7 stand der ganze Kapiteltext am Ende des Kapitels.
+    // Ansage des Nutzers 11/2026 zu 1.0.8 (dort bekam jeder Text eine eigene
+    // Textseite): „Nein! Nur der Text! Als Textfeld. Dessen Größe hängt vom
+    // Inhalt ab: Kurze Kommentare passen neben/unter ein Bild; längere Texte
+    // beanspruchen mehr Platz (z. B. den Platz eines Bildes). Hier muss die
+    // App flexibel handeln und immer berücksichtigen, möglichst wenig Platz
+    // auf der Seite zu verschenken. Ich möchte möglichst wenig leere Flächen!"
     //
-    // Fotos und Einträge laufen jetzt in EINER Zeitfolge (Foto nach
-    // `aufnahme`, Eintrag nach `zeit`; bei gleicher Zeit zuerst der Text,
-    // Fotos ohne Aufnahmezeit ans Ende). Fotos davor werden zu Fotoseiten;
-    // ein Eintrag (mit allen unmittelbar folgenden Einträgen) wird eine
-    // Textseite — links der Text, rechts die bis zu drei Fotos, die gleich
-    // danach kommen, also die desselben Tages.
-    private enum Stueck {
+    // Deshalb gibt es keine Textseiten und keine festen Bildfelder mehr. Die
+    // Seite ist in Spalten geteilt (zwei im Hochformat, drei im Querformat).
+    // Fotos und Texte laufen in ihrer ZEITFOLGE nacheinander in die jeweils
+    // kürzeste Spalte: Ein Foto ist so hoch, wie sein Seitenverhältnis bei
+    // der Spaltenbreite verlangt; ein Text so hoch, wie er GEMESSEN ist
+    // (`Textmass`, derselbe Satz wie beim Zeichnen). Ein kurzer Kommentar
+    // steht damit als schmales Feld unter dem Foto davor, ein langer Text
+    // nimmt den Platz eines Bildes ein; passt er nicht mehr, wird er an der
+    // Spaltenkante geteilt und läuft in der nächsten Spalte weiter.
+    //
+    // Am Ende jeder Seite wird die Lücke unten geschlossen: Die Fotos einer
+    // Spalte wachsen (bis 35 %, sie werden dabei etwas stärker beschnitten),
+    // bis die Spalte voll ist. Fotos sind leicht gedreht und ein wenig
+    // breiter als ihre Spalte, damit sie über die Fuge greifen.
+    enum Fluss {
         case foto(Foto)
-        case text(Texteintrag)
-
-        var zeit: Date {
-            switch self {
-            case .foto(let f): return f.aufnahme ?? .distantFuture
-            case .text(let t): return t.zeit
-            }
-        }
-
-        var istText: Bool {
-            if case .text = self { return true }
-            return false
-        }
+        case text(kopf: String, rumpf: String)
     }
 
-    private func chronologisch(_ tag: Reisetag, fotos: [Foto], eintraege: [Texteintrag]) -> [Seite] {
-        var folge: [Stueck] = fotos.map { .foto($0) } + eintraege.map { .text($0) }
-        folge = folge.enumerated().sorted { a, b in
-            if a.element.zeit != b.element.zeit { return a.element.zeit < b.element.zeit }
-            if a.element.istText != b.element.istText { return a.element.istText }
-            return a.offset < b.offset
-        }.map(\.element)
-
-        var seiten = sonderseiten(tag)
-        var kopfOffen = seiten.isEmpty
-        var puffer: [Foto] = []
-        var i = 0
-
-        func fotosAbgeben() {
-            guard !puffer.isEmpty else { return }
-            seiten.append(contentsOf: albumseiten(tag, puffer, mitKopf: kopfOffen))
-            kopfOffen = false
-            puffer = []
+    static func zeitfolge(fotos: [Foto], eintraege: [Texteintrag]) -> [Fluss] {
+        var liste: [(zeit: Date, text: Bool, nr: Int, element: Fluss)] = []
+        for (n, f) in fotos.enumerated() {
+            liste.append((f.aufnahme ?? .distantFuture, false, n, .foto(f)))
         }
-
-        while i < folge.count {
-            switch folge[i] {
-            case .foto(let f):
-                puffer.append(f)
-                i += 1
-            case .text:
-                fotosAbgeben()
-                var texte: [Texteintrag] = []
-                while i < folge.count, case .text(let t) = folge[i] {
-                    texte.append(t)
-                    i += 1
-                }
-                var neben: [Foto] = []
-                while i < folge.count, neben.count < 3, case .foto(let f) = folge[i] {
-                    neben.append(f)
-                    i += 1
-                }
-                let text = texte.map(\.satz).joined(separator: "\n\n")
-                seiten.append(contentsOf: textseiten(tag, text, neben: neben, mitKopf: kopfOffen))
-                kopfOffen = false
-            }
+        for (n, e) in eintraege.enumerated() {
+            liste.append((e.zeit, true, n, .text(kopf: e.kopfzeile,
+                                                 rumpf: e.text.trimmingCharacters(in: .whitespacesAndNewlines))))
         }
-        fotosAbgeben()
-        if seiten.isEmpty {
-            var y = satz.minY
-            seiten.append(Seite(bloecke: lebenskopf(tag, y: &y, gross: true)))
+        liste.sort { a, b in
+            if a.zeit != b.zeit { return a.zeit < b.zeit }
+            if a.text != b.text { return a.text }
+            return a.nr < b.nr
         }
-        return seiten
+        return liste.map(\.element)
     }
 
-    /// Fotoseiten im Wechsel 4, 5, 3, 4, 5, 2 — die erste mit dem großen
-    /// Kopf, wenn sie die Geburtstagsseite ist.
-    private func albumseiten(_ tag: Reisetag, _ alle: [Foto], mitKopf: Bool) -> [Seite] {
+    private struct Platz {
+        var element: Fluss
+        var hoehe: Double
+        var istFoto: Bool
+    }
+
+    private func flussseiten(_ tag: Reisetag, _ eingang: [Fluss], mitKopf: Bool) -> [Seite] {
+        var offen = eingang
         var seiten: [Seite] = []
-        var fotos = alle
-        let groessen = [4, 5, 3, 4, 5, 2]
-        var nummer = 0
-        while !fotos.isEmpty {
-            var y = satz.minY
-            var bloecke: [Block] = []
-            if nummer == 0 && mitKopf { bloecke = lebenskopf(tag, y: &y, gross: true) }
-            var zahl = min(groessen[nummer % groessen.count], fotos.count)
-            if fotos.count - zahl == 1 { zahl = min(zahl + 1, 5, fotos.count) }
-            let teil = Array(fotos.prefix(zahl))
-            fotos.removeFirst(zahl)
-            let flaeche = CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
-            bloecke.append(contentsOf: albumbloecke(teil, in: flaeche))
-            seiten.append(Seite(bloecke: bloecke))
-            nummer += 1
-        }
-        return seiten
-    }
-
-    /// Ein Text mit bis zu drei Fotos daneben; was nicht passt, läuft auf
-    /// Folgeseiten über die volle Breite weiter.
-    private func textseiten(_ tag: Reisetag, _ text: String, neben: [Foto], mitKopf: Bool) -> [Seite] {
-        var seiten: [Seite] = []
-        var rest = text
-        var erste = true
+        let spalten = satz.width > satz.height * 1.1 ? 3 : 2
+        let luft = fuge * 2.2
+        let breite = (Double(satz.width) - luft * Double(spalten - 1)) / Double(spalten)
+        var kopfbild = typografie[.unterueberschrift]
+        kopfbild.groesse = 12.5
+        kopfbild.ausrichtung = .links
+        kopfbild.fett = true
+        kopfbild.zeilenabstand = 1.15
+        var textbild = typografie.flieText
+        textbild.ausrichtung = .links
+        let textzugabe = 9.0  // Goldstrich und Luft über dem Text
+        var ersteSeite = true
         var schutz = 0
-        while !rest.isEmpty, schutz < 40 {
+
+        while !offen.isEmpty, schutz < 400 {
             schutz += 1
             var y = satz.minY
             var bloecke: [Block] = []
-            if erste && mitKopf { bloecke = lebenskopf(tag, y: &y, gross: true) }
-            let mitFotos = erste && !neben.isEmpty
-            let spalte = mitFotos ? Double(satz.width) * 0.42 : Double(satz.width)
-            let vorher = rest
-            (bloecke, _, rest) = textSpalte(bloecke, y: y, x: satz.minX, breite: spalte, text: rest)
-            if mitFotos {
-                let x = Double(satz.minX) + spalte + fuge * 3
-                let flaeche = CGRect(x: x, y: Double(y), width: Double(satz.maxX) - x,
-                                     height: Double(satz.maxY - y))
-                bloecke.append(contentsOf: albumbloecke(neben, in: flaeche))
+            if ersteSeite && mitKopf { bloecke = lebenskopf(tag, y: &y, gross: true) }
+            ersteSeite = false
+            let oben = Double(y)
+            let hoehe = Double(satz.maxY) - oben
+            var saeulen: [[Platz]] = Array(repeating: [], count: spalten)
+
+            func belegt(_ s: Int) -> Double {
+                saeulen[s].reduce(0) { $0 + $1.hoehe } + luft * Double(max(0, saeulen[s].count - 1))
+            }
+
+            var voll = false
+            while let naechstes = offen.first, !voll {
+                var kuerzeste = 0
+                for s in 1..<spalten where belegt(s) < belegt(kuerzeste) { kuerzeste = s }
+                let frei = hoehe - belegt(kuerzeste) - (saeulen[kuerzeste].isEmpty ? 0 : luft)
+                switch naechstes {
+                case .foto(let f):
+                    let v = min(max(f.seitenverhaeltnis, 0.62), 2.2)
+                    let zeile = unterschriftHoehe(f, breite: breite)
+                    let gewuenscht = breite / v + zeile
+                    let mindestens = breite / v * 0.72 + zeile
+                    if frei >= mindestens {
+                        saeulen[kuerzeste].append(Platz(element: naechstes, hoehe: min(gewuenscht, frei), istFoto: true))
+                        offen.removeFirst()
+                    } else {
+                        voll = true
+                    }
+                case .text(let kopf, let rumpf):
+                    let kh = kopf.isEmpty ? 0 : Textmass.hoehe(kopf, bild: kopfbild, breite: breite) + 3
+                    let rh = rumpf.isEmpty ? 0 : Textmass.hoehe(rumpf, bild: textbild, breite: breite)
+                    let ganz = textzugabe + kh + rh
+                    if frei >= ganz {
+                        saeulen[kuerzeste].append(Platz(element: naechstes, hoehe: ganz, istFoto: false))
+                        offen.removeFirst()
+                    } else if frei >= textzugabe + kh + textbild.zeilenhoehe * 3, !rumpf.isEmpty {
+                        let raum = CGSize(width: breite, height: frei - textzugabe - kh)
+                        let (teil, rest) = Textmass.teilen(rumpf, bild: textbild, groesse: raum)
+                        if teil.isEmpty {
+                            voll = true
+                        } else {
+                            let th = Textmass.hoehe(teil, bild: textbild, breite: breite)
+                            saeulen[kuerzeste].append(Platz(element: .text(kopf: kopf, rumpf: teil),
+                                                            hoehe: textzugabe + kh + th, istFoto: false))
+                            let weiter = rest.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if weiter.isEmpty {
+                                offen.removeFirst()
+                            } else {
+                                offen[0] = .text(kopf: "", rumpf: weiter)
+                            }
+                        }
+                    } else {
+                        voll = true
+                    }
+                }
+                // Eine Seite ohne jeden Platz für das Nächste wäre eine
+                // Endlosschleife — dann muss es auf die nächste.
+                if voll, saeulen.allSatisfy({ $0.isEmpty }) {
+                    var istFoto = false
+                    if case .foto = naechstes { istFoto = true }
+                    saeulen[0].append(Platz(element: naechstes, hoehe: hoehe, istFoto: istFoto))
+                    offen.removeFirst()
+                }
+            }
+
+            // Die Lücke unten schließen: Fotos der Spalte wachsen.
+            for s in 0..<spalten {
+                let frei = hoehe - belegt(s)
+                guard frei > 1 else { continue }
+                let fotohoehe = saeulen[s].filter(\.istFoto).reduce(0) { $0 + $1.hoehe }
+                guard fotohoehe > 0 else { continue }
+                let faktor = min(1 + frei / fotohoehe, 1.35)
+                for i in saeulen[s].indices where saeulen[s][i].istFoto {
+                    saeulen[s][i].hoehe *= faktor
+                }
+            }
+
+            for s in 0..<spalten {
+                var yy = oben
+                let x = Double(satz.minX) + Double(s) * (breite + luft)
+                for (n, platz) in saeulen[s].enumerated() {
+                    switch platz.element {
+                    case .foto(let f):
+                        let zeile = unterschriftHoehe(f, breite: breite)
+                        let bildhoehe = max(platz.hoehe - zeile, 20)
+                        let bild = Block(inhalt: .foto(f.id),
+                                         rahmen: Rahmen(x: x - breite * 0.025, y: yy,
+                                                        breite: breite * 1.05, hoehe: bildhoehe),
+                                         drehung: drehwinkel(f.id) * 0.6,
+                                         ebene: s + n % 2)
+                        bloecke.append(bild)
+                        if let unterschrift = unterschriftBlock(f, x: x, y: yy + bildhoehe, breite: breite) {
+                            bloecke.append(angelegt(unterschrift, an: bild))
+                        }
+                    case .text(let kopf, let rumpf):
+                        bloecke.append(Block(inhalt: .linie,
+                                             rahmen: Rahmen(x: x, y: yy + 1, breite: 24, hoehe: 1.2),
+                                             rand: stil.akzent))
+                        var ty = yy + textzugabe
+                        if !kopf.isEmpty {
+                            let k = textblock(kopf, bild: kopfbild, x: x, y: ty, breite: breite)
+                            bloecke.append(k)
+                            ty += k.rahmen.hoehe + 3
+                        }
+                        if !rumpf.isEmpty {
+                            bloecke.append(textblock(rumpf, bild: textbild, x: x, y: ty, breite: breite))
+                        }
+                    }
+                    yy += platz.hoehe + luft
+                }
             }
             seiten.append(Seite(bloecke: bloecke))
-            erste = false
-            if rest == vorher { break }
-        }
-        if seiten.isEmpty, !neben.isEmpty {
-            seiten.append(contentsOf: albumseiten(tag, neben, mitKopf: mitKopf))
         }
         return seiten
     }
@@ -2507,62 +2565,4 @@ extension Layoutautomat {
         return bloecke
     }
 
-    private func lebensalbum(_ tag: Reisetag, fotos alle: [Foto], text: String,
-                             eroeffnet: Bool) -> [Seite] {
-        var seiten: [Seite] = []
-        var fotos = alle
-        // Die letzten vier Fotos gehören neben den Text des Kapitels.
-        var nebenText: [Foto] = []
-        if !text.isEmpty {
-            let zahl = min(4, fotos.count)
-            nebenText = Array(fotos.suffix(zahl))
-            fotos.removeLast(zahl)
-        }
-        let groessen = [4, 5, 3, 4, 5, 2]
-        var nummer = 0
-        while !fotos.isEmpty {
-            var y = satz.minY
-            let erste = nummer == 0
-            var bloecke: [Block] = []
-            if erste && !eroeffnet {
-                bloecke = lebenskopf(tag, y: &y, gross: true)
-            }
-            var zahl = min(groessen[nummer % groessen.count], fotos.count)
-            if fotos.count - zahl == 1 { zahl = min(zahl + 1, 5, fotos.count) }
-            let teil = Array(fotos.prefix(zahl))
-            fotos.removeFirst(zahl)
-            let flaeche = CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
-            bloecke.append(contentsOf: albumbloecke(teil, in: flaeche))
-            seiten.append(Seite(bloecke: bloecke))
-            nummer += 1
-        }
-        guard !text.isEmpty else { return seiten }
-
-        // Der Text des Kapitels: links eine Spalte, rechts bis zu vier Fotos.
-        var rest = text
-        var erste = true
-        var schutz = 0
-        while !rest.isEmpty, schutz < 40 {
-            schutz += 1
-            var y = satz.minY
-            var bloecke: [Block] = []
-            if erste {
-                bloecke = seitenueberschrift("Was von diesem Jahr bleibt", y: &y)
-            }
-            let mitFotos = erste && !nebenText.isEmpty
-            let spalte = mitFotos ? Double(satz.width) * 0.42 : Double(satz.width)
-            let vorher = rest
-            (bloecke, _, rest) = textSpalte(bloecke, y: y, x: satz.minX, breite: spalte, text: rest)
-            if mitFotos {
-                let x = Double(satz.minX) + spalte + fuge * 3
-                let flaeche = CGRect(x: x, y: Double(y), width: Double(satz.maxX) - x,
-                                     height: Double(satz.maxY - y))
-                bloecke.append(contentsOf: albumbloecke(nebenText, in: flaeche))
-            }
-            seiten.append(Seite(bloecke: bloecke))
-            erste = false
-            if rest == vorher { break }
-        }
-        return seiten
-    }
 }

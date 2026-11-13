@@ -36,6 +36,13 @@ struct Texteintrag: Codable, Identifiable, Hashable {
 
     var tagesdatum: Tagesdatum { Tagesdatum(zeit) }
 
+    /// Die Kopfzeile im Buch: „Überschrift – 16. Oktober 2019" oder nur das Datum.
+    var kopfzeile: String {
+        let datum = Zeitraster.text(zeit, "d. MMMM yyyy")
+        let t = titel.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? datum : "\(t) \u{2013} \(datum)"
+    }
+
     /// Wie der Eintrag im Kapiteltext steht: eine Kopfzeile mit Datum (und
     /// Überschrift), darunter der Text.
     var satz: String {
