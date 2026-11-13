@@ -129,6 +129,16 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   des Nutzers: „Ja, das ist zu versteckt."): oben im Kapitel-Menü (Knopf unten
   rechts) und im Plusmenü, je als `Blatt.kapitelseiten`. Der Kapitel-Knopf
   heißt „Kapitel 2026" statt eines Datums.
+- **Texte stehen nach ihrem DATUM zwischen den Fotos** (ab 1.0.8, Ansage des
+  Nutzers: „Ein Text zum 16.10. soll an der Stelle erscheinen, an der auch
+  Fotos zum 16.10. sind."). `Reise.automat` reicht die Einträge je Kapitel
+  durch (`Layoutautomat.kapiteltexte`); `chronologisch` legt Fotos (nach
+  `aufnahme`) und Einträge (nach `zeit`) in eine Folge — bei gleicher Zeit
+  zuerst der Text, Fotos ohne Zeit ans Ende. Fotos davor → Fotoseiten,
+  Einträge (aufeinanderfolgende zusammen) → Textseite mit den bis zu drei
+  Fotos, die unmittelbar folgen. Ein Kapitel ohne Einträge (nur freier Text)
+  setzt wie bisher den Text ans Ende. Gilt im Lebensbuch; die anderen Stile
+  setzen wie das Reisebuch (Text am Stück).
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -166,7 +176,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -190,3 +200,5 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Doppelseitenansicht nach Produkt. **Nicht gemessen:** auf einem Gerät.
 - **1.0.7 (Build 8)**, 11/2026: Zeitung und Meldungen im Kapitel- und
   Plusmenü, Kapitel-Knopf mit Kapitelname. **Nicht gemessen:** auf einem Gerät.
+- **1.0.8 (Build 9)**, 11/2026: Texte nach Datum zwischen den Fotos.
+  **Nicht gemessen:** auf einem Gerät.

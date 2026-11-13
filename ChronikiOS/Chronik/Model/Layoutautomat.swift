@@ -95,6 +95,11 @@ struct Layoutautomat {
     // Karte setzen, sollen ihn trotzdem nicht einzeln durchreichen müssen.
     var kartenzeile: String?
 
+    // KAPITELWEISE (ab 1.0.8): die Texteinträge je Kapitel (Schlüssel: Beginn
+    // des Kapitels), gesetzt von `Reise.automat`. Im Lebensbuch stehen sie
+    // nach ihrem Datum zwischen den Fotos.
+    var kapiteltexte: [Tagesdatum: [Texteintrag]] = [:]
+
     private var satz: CGRect { gestaltung.satzspiegel(format) }
 
     // Der Satzspiegel des UMSCHLAGS. Er nimmt dessen eigenen Rand, wenn
@@ -2106,6 +2111,8 @@ extension Layoutautomat {
     /// Das ganze Kapitel im Lebensbuch.
     func lebensseiten(_ tag: Reisetag) -> [Seite] {
         let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt }
+        let eintraege = kapiteltexte[tag.datum] ?? []
+        if !eintraege.isEmpty { return chronologisch(tag, fotos: fotos, eintraege: eintraege) }
         let text = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
         var seiten = sonderseiten(tag)
         seiten.append(contentsOf: lebensalbum(tag, fotos: fotos, text: text,
@@ -2113,6 +2120,141 @@ extension Layoutautomat {
         if seiten.isEmpty {
             var y = satz.minY
             seiten.append(Seite(bloecke: lebenskopf(tag, y: &y, gross: true)))
+        }
+        return seiten
+    }
+
+    // MARK: Texte nach ihrem Datum (ab 1.0.8)
+    //
+    // Ansage des Nutzers 11/2026: „Texte werden ja mit Datum versehen. Sie
+    // sollen dann genauso einsortiert werden wie Fotos. Also: Ein Text zum
+    // 16.10. soll an der Stelle erscheinen, an der auch Fotos zum 16.10.
+    // sind." Bis 1.0.7 stand der ganze Kapiteltext am Ende des Kapitels.
+    //
+    // Fotos und Einträge laufen jetzt in EINER Zeitfolge (Foto nach
+    // `aufnahme`, Eintrag nach `zeit`; bei gleicher Zeit zuerst der Text,
+    // Fotos ohne Aufnahmezeit ans Ende). Fotos davor werden zu Fotoseiten;
+    // ein Eintrag (mit allen unmittelbar folgenden Einträgen) wird eine
+    // Textseite — links der Text, rechts die bis zu drei Fotos, die gleich
+    // danach kommen, also die desselben Tages.
+    private enum Stueck {
+        case foto(Foto)
+        case text(Texteintrag)
+
+        var zeit: Date {
+            switch self {
+            case .foto(let f): return f.aufnahme ?? .distantFuture
+            case .text(let t): return t.zeit
+            }
+        }
+
+        var istText: Bool {
+            if case .text = self { return true }
+            return false
+        }
+    }
+
+    private func chronologisch(_ tag: Reisetag, fotos: [Foto], eintraege: [Texteintrag]) -> [Seite] {
+        var folge: [Stueck] = fotos.map { .foto($0) } + eintraege.map { .text($0) }
+        folge = folge.enumerated().sorted { a, b in
+            if a.element.zeit != b.element.zeit { return a.element.zeit < b.element.zeit }
+            if a.element.istText != b.element.istText { return a.element.istText }
+            return a.offset < b.offset
+        }.map(\.element)
+
+        var seiten = sonderseiten(tag)
+        var kopfOffen = seiten.isEmpty
+        var puffer: [Foto] = []
+        var i = 0
+
+        func fotosAbgeben() {
+            guard !puffer.isEmpty else { return }
+            seiten.append(contentsOf: albumseiten(tag, puffer, mitKopf: kopfOffen))
+            kopfOffen = false
+            puffer = []
+        }
+
+        while i < folge.count {
+            switch folge[i] {
+            case .foto(let f):
+                puffer.append(f)
+                i += 1
+            case .text:
+                fotosAbgeben()
+                var texte: [Texteintrag] = []
+                while i < folge.count, case .text(let t) = folge[i] {
+                    texte.append(t)
+                    i += 1
+                }
+                var neben: [Foto] = []
+                while i < folge.count, neben.count < 3, case .foto(let f) = folge[i] {
+                    neben.append(f)
+                    i += 1
+                }
+                let text = texte.map(\.satz).joined(separator: "\n\n")
+                seiten.append(contentsOf: textseiten(tag, text, neben: neben, mitKopf: kopfOffen))
+                kopfOffen = false
+            }
+        }
+        fotosAbgeben()
+        if seiten.isEmpty {
+            var y = satz.minY
+            seiten.append(Seite(bloecke: lebenskopf(tag, y: &y, gross: true)))
+        }
+        return seiten
+    }
+
+    /// Fotoseiten im Wechsel 4, 5, 3, 4, 5, 2 — die erste mit dem großen
+    /// Kopf, wenn sie die Geburtstagsseite ist.
+    private func albumseiten(_ tag: Reisetag, _ alle: [Foto], mitKopf: Bool) -> [Seite] {
+        var seiten: [Seite] = []
+        var fotos = alle
+        let groessen = [4, 5, 3, 4, 5, 2]
+        var nummer = 0
+        while !fotos.isEmpty {
+            var y = satz.minY
+            var bloecke: [Block] = []
+            if nummer == 0 && mitKopf { bloecke = lebenskopf(tag, y: &y, gross: true) }
+            var zahl = min(groessen[nummer % groessen.count], fotos.count)
+            if fotos.count - zahl == 1 { zahl = min(zahl + 1, 5, fotos.count) }
+            let teil = Array(fotos.prefix(zahl))
+            fotos.removeFirst(zahl)
+            let flaeche = CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
+            bloecke.append(contentsOf: albumbloecke(teil, in: flaeche))
+            seiten.append(Seite(bloecke: bloecke))
+            nummer += 1
+        }
+        return seiten
+    }
+
+    /// Ein Text mit bis zu drei Fotos daneben; was nicht passt, läuft auf
+    /// Folgeseiten über die volle Breite weiter.
+    private func textseiten(_ tag: Reisetag, _ text: String, neben: [Foto], mitKopf: Bool) -> [Seite] {
+        var seiten: [Seite] = []
+        var rest = text
+        var erste = true
+        var schutz = 0
+        while !rest.isEmpty, schutz < 40 {
+            schutz += 1
+            var y = satz.minY
+            var bloecke: [Block] = []
+            if erste && mitKopf { bloecke = lebenskopf(tag, y: &y, gross: true) }
+            let mitFotos = erste && !neben.isEmpty
+            let spalte = mitFotos ? Double(satz.width) * 0.42 : Double(satz.width)
+            let vorher = rest
+            (bloecke, _, rest) = textSpalte(bloecke, y: y, x: satz.minX, breite: spalte, text: rest)
+            if mitFotos {
+                let x = Double(satz.minX) + spalte + fuge * 3
+                let flaeche = CGRect(x: x, y: Double(y), width: Double(satz.maxX) - x,
+                                     height: Double(satz.maxY - y))
+                bloecke.append(contentsOf: albumbloecke(neben, in: flaeche))
+            }
+            seiten.append(Seite(bloecke: bloecke))
+            erste = false
+            if rest == vorher { break }
+        }
+        if seiten.isEmpty, !neben.isEmpty {
+            seiten.append(contentsOf: albumseiten(tag, neben, mitKopf: mitKopf))
         }
         return seiten
     }
