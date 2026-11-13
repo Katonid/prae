@@ -125,6 +125,10 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   `Druckprodukt.produkt(format.vorlage)` Doppelseiten, schaltet `ReiseView`
   beim Öffnen und beim Wechsel des Produkts auf Doppelseiten
   (`ansichtNachProdukt`); zurück geht es unten links.
+- **Zeitung und Meldungen sind direkt erreichbar** (ab 1.0.7, Rückmeldung
+  des Nutzers: „Ja, das ist zu versteckt."): oben im Kapitel-Menü (Knopf unten
+  rechts) und im Plusmenü, je als `Blatt.kapitelseiten`. Der Kapitel-Knopf
+  heißt „Kapitel 2026" statt eines Datums.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -162,7 +166,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -184,3 +188,5 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   **Nicht gemessen:** auf einem Gerät.
 - **1.0.6 (Build 7)**, 11/2026: große Jahreszahl nur auf der Geburtstagsseite,
   Doppelseitenansicht nach Produkt. **Nicht gemessen:** auf einem Gerät.
+- **1.0.7 (Build 8)**, 11/2026: Zeitung und Meldungen im Kapitel- und
+  Plusmenü, Kapitel-Knopf mit Kapitelname. **Nicht gemessen:** auf einem Gerät.
