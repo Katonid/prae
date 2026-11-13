@@ -228,6 +228,12 @@ struct ReiseView: View {
         }
     }
 
+    private func ansichtNachProdukt() {
+        if Druckprodukt.produkt(werk.reise.format.vorlage)?.doppelseiten == true {
+            doppelseiten = true
+        }
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: $spalten) {
             TagListeView(werk: werk, blatt: $blatt)
@@ -235,6 +241,15 @@ struct ReiseView: View {
             buehne
         }
         .navigationSplitViewStyle(.balanced)
+        // KAPITELWEISE (ab 1.0.6, Frage des Nutzers: „Das von mir
+        // eingestellte Format will eigentlich Doppelseiten. Warum werden
+        // trotzdem Einzelseiten angezeigt?"): Die Ansicht war eine eigene
+        // Einstellung (unten links) und wusste nichts vom Produkt. Verlangt
+        // das Fotobuch der Druckerei Doppelseiten, öffnet das Buch jetzt in
+        // der Doppelseitenansicht — und schaltet um, sobald so ein Produkt
+        // gewählt wird. Zurück auf Einzelseiten geht es weiter unten links.
+        .onAppear { ansichtNachProdukt() }
+        .onChange(of: werk.reise.format.vorlage) { _, _ in ansichtNachProdukt() }
         .sheet(item: $blatt, onDismiss: {
             guard let wunsch = alsNaechstes else { return }
             // Nach einem Einleseschritt geht es zurück in den Aufbau — dort

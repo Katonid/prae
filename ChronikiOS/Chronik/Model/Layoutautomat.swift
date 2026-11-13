@@ -2193,6 +2193,25 @@ extension Layoutautomat {
         return bloecke
     }
 
+    /// Eine Überschrift OHNE Jahreszahl (ab 1.0.6, Ansage des Nutzers:
+    /// „Die große Jahreszahl muss nicht auf jeder Seite stehen. Dort steht ja
+    /// bereits kleiner ‚Kapitel [Jahreszahl]'. Auf der Geburtstagsseite soll
+    /// sie natürlich stehen.") — mittig, mit Goldlinie darunter.
+    private func seitenueberschrift(_ text: String, y: inout CGFloat) -> [Block] {
+        var bild = typografie.titel
+        bild.groesse = 24
+        bild.fett = false
+        let x = Double(satz.minX)
+        let breite = Double(satz.width)
+        let block = textblock(text, bild: bild, x: x, y: Double(y), breite: breite)
+        y += CGFloat(block.rahmen.hoehe) + 2
+        let linie = Block(inhalt: .linie,
+                          rahmen: Rahmen(x: x + breite * 0.38, y: Double(y), breite: breite * 0.24, hoehe: 1.2),
+                          rand: stil.akzent)
+        y += 14
+        return [block, linie]
+    }
+
     // MARK: Zeitungsseite
 
     private func zeitungsseite(_ tag: Reisetag, zeitung: Foto) -> Seite {
@@ -2249,15 +2268,9 @@ extension Layoutautomat {
             let gruppe = Array(rest.prefix(4))
             rest = rest.dropFirst(4)
             var y = satz.minY
-            var bloecke = lebenskopf(tag, y: &y, gross: false, zusatz: erste ? nil : "", datum: erste)
+            var bloecke: [Block] = []
             if erste {
-                var bild = typografie.titel
-                bild.groesse = 24
-                bild.fett = false
-                let block = textblock("Was an diesem Tag geschah", bild: bild,
-                                      x: Double(satz.minX), y: Double(y) - 4, breite: Double(satz.width))
-                bloecke.append(block)
-                y += CGFloat(block.rahmen.hoehe) + 8
+                bloecke = seitenueberschrift("Was an diesem Tag geschah", y: &y)
             }
             erste = false
             let spalten = gruppe.count == 1 ? 1 : 2
@@ -2368,9 +2381,10 @@ extension Layoutautomat {
         while !fotos.isEmpty {
             var y = satz.minY
             let erste = nummer == 0
-            var bloecke = lebenskopf(tag, y: &y, gross: !eroeffnet && erste,
-                                     zusatz: erste ? (eroeffnet ? "in diesem Jahr" : nil) : "",
-                                     datum: erste && !eroeffnet)
+            var bloecke: [Block] = []
+            if erste && !eroeffnet {
+                bloecke = lebenskopf(tag, y: &y, gross: true)
+            }
             var zahl = min(groessen[nummer % groessen.count], fotos.count)
             if fotos.count - zahl == 1 { zahl = min(zahl + 1, 5, fotos.count) }
             let teil = Array(fotos.prefix(zahl))
@@ -2389,8 +2403,10 @@ extension Layoutautomat {
         while !rest.isEmpty, schutz < 40 {
             schutz += 1
             var y = satz.minY
-            var bloecke = lebenskopf(tag, y: &y, gross: false,
-                                     zusatz: erste ? "Was von diesem Jahr bleibt" : "", datum: false)
+            var bloecke: [Block] = []
+            if erste {
+                bloecke = seitenueberschrift("Was von diesem Jahr bleibt", y: &y)
+            }
             let mitFotos = erste && !nebenText.isEmpty
             let spalte = mitFotos ? Double(satz.width) * 0.42 : Double(satz.width)
             let vorher = rest
