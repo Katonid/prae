@@ -457,6 +457,9 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     /// Anteil des Fotos an einem Monatsblatt (0,4…0,85, gemessen am
     /// Endformat); 0 = automatisch je nach Kalendarium.
     var photoShare: Double = 0
+    /// Den Monat vor dem Startmonat voranstellen — bei Beginn im Januar der
+    /// Dezember des Vorjahres (ab 1.0.17). Er hat den Index −1.
+    var leadMonth = false
     /// Lage des Kalenderfelds; `auto` = hoch unten, quer rechts (wie bisher).
     var calendarSide: CalendarSide = .auto
     var coverStyle: CoverStyle = .hero
@@ -481,7 +484,8 @@ struct CalendarProject: Codable, Identifiable, Equatable {
     /// 4: Jahresaufbau „Halbmonat (beidseitig)“ (1.0.12).
     /// 5: Jahreszahl, Zahlen-/Eintragslage, Foto über die ganze Seite (1.0.14).
     /// 6: Lage des Kalenderfelds `calendarSide` (1.0.15).
-    static let currentFormat = 6
+    /// 7: vorangestellter Vormonat `leadMonth` (1.0.17).
+    static let currentFormat = 7
 
     init(name: String, kind: CalendarKind, year: Int, format: PageFormat, design: Design) {
         self.name = name
@@ -494,7 +498,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, modified, kind, year, startMonth, yearLayout, weekLayout, gridLayout,
-             photoStyle, photoShare, calendarSide, coverStyle, hasCover, title, subtitle, format, design, dates,
+             photoStyle, photoShare, calendarSide, leadMonth, coverStyle, hasCover, title, subtitle, format, design, dates,
              personalDates, photos, placements, captions, formatVersion
     }
 
@@ -514,6 +518,7 @@ struct CalendarProject: Codable, Identifiable, Equatable {
         p.photoStyle = c.value(.photoStyle, PhotoStyle.full)
         p.photoShare = c.value(.photoShare, 0.0)
         p.calendarSide = c.value(.calendarSide, CalendarSide.auto)
+        p.leadMonth = c.value(.leadMonth, false)
         p.coverStyle = c.value(.coverStyle, CoverStyle.hero)
         p.hasCover = c.value(.hasCover, true)
         p.title = c.value(.title, p.name)
@@ -534,6 +539,18 @@ struct CalendarProject: Codable, Identifiable, Equatable {
             return (year + total / 12, total % 12 + 1)
         }
     }
+
+    /// Der Monat zu einem Seitenindex: 0…11 ab dem Startmonat, −1 der
+    /// vorangestellte Vormonat (bei Start im Januar der Dezember des Vorjahres).
+    func month(_ i: Int) -> (y: Int, m: Int) {
+        guard i >= 0 else {
+            return startMonth == 1 ? (year - 1, 12) : (year, startMonth - 1)
+        }
+        return months[min(i, 11)]
+    }
+
+    /// Die Seitenindizes der Monatsseiten — mit Vormonat beginnend bei −1.
+    var monthIndices: [Int] { (leadMonth && monthsInUse ? [-1] : []) + Array(0..<12) }
 
     var monthsInUse: Bool {
         switch kind {

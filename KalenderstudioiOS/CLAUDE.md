@@ -46,6 +46,7 @@
   durchscheinendem Kalenderfeld.
   1.0.15 (16) Kalenderfeld oben, unten, links oder rechts — für alle Formate.
   1.0.16 (17) Halbmonat ohne Akzentleiste vor den Wochen.
+  1.0.17 (18) Vormonat voranstellen (bei Januar: Dezember des Vorjahres).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -205,6 +206,24 @@ Transparenz darüber.“ Alles in `Design` — damit auch in eigenen Vorlagen.
   Woche. In eigenen Vorlagen enthalten. Probe: `k-oben`, `k-links`,
   `k-rechts`, `k-unten`.
 
+## Vormonat voranstellen (ab 1.0.17)
+
+Ansage des Nutzers: „noch eine Dezemberseite des Vorjahres mit aufnehmen“.
+`CalendarProject.leadMonth`; Aufbau › Kalenderart › „<Monat> <Jahr>
+voranstellen“ (unter „Beginnt mit“). Bei Start im Januar ist es der
+Dezember des Vorjahres, sonst der Monat vor dem Startmonat.
+
+- Der Vormonat hat den **Seitenindex −1** (`CalendarProject.month(_:)`,
+  `monthIndices`); Fotoschlüssel `m-1` (Halbmonat `m-1b`). So behalten die
+  zwölf Monate ihre Indizes und Fotos — das Einschalten verschiebt nichts.
+  `months` bleibt bei zwölf; Poster, Mosaik und Jahresplaner zeigen
+  weiter zwölf Monate.
+- Gilt für Monatsblätter, Halbmonat und Monat auf zwei Seiten.
+- Halbmonat beim Druckhaus Bochum: mit Vormonat 28 statt 26 Seiten (14
+  Blätter) — das Standardprodukt hat 12 Monate + Deckblatt.
+- `alternateDark` rechnet die Wechsel mit `(i % 2 + 2) % 2`, damit −1
+  mitzählt.
+
 ## Halbmonat, beidseitig (ab 1.0.12)
 
 Ansage des Nutzers (11.10.2026): Monatskalender vom **Druckhaus Bochum**
@@ -328,7 +347,7 @@ möchte ich dieses als Vorlage speichern können.“ `Model/DesignTemplates.swif
   geht die Arbeitskopie wieder hinauf. **Regel: Ein Abgleich darf eine
   Arbeitskopie nur durch etwas NEUERES ersetzen.** Verlorene Einstellungen
   ließen sich nicht zurückholen.
-- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 6): Eine ältere
+- **`formatVersion` im Kalender** (ab 1.0.10, aktuell 7): Eine ältere
   App kennt neue Felder nicht und würde sie beim Zurückschreiben löschen
   (z. B. ein iPhone mit 1.0.8 die Fotodarstellung „ganz“). Kalender mit
   höherer `formatVersion` als `CalendarProject.currentFormat` schreibt

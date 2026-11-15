@@ -33,7 +33,7 @@ struct PageView: View {
            let id = backgroundPhotoID, let c = ImageStore.shared.dominantColor(id) {
             p.design = p.design.tinted(with: c)
         }
-        if p.design.alternateDark, let i = monthIndex, i % 2 == 1 {
+        if p.design.alternateDark, let i = monthIndex, (i % 2 + 2) % 2 == 1 {
             p.design = p.design.inverted()
         }
         return p
@@ -345,7 +345,7 @@ struct PageLayout: View {
     /// und hervorgehobener Hälfte im Kalendarium.
     @ViewBuilder
     private func monthSheet(_ i: Int, half: Int? = nil) -> some View {
-        let mo = p.months[i]
+        let mo = p.month(i)
         let key = half == 1 ? "m\(i)b" : "m\(i)"
         let rc = half.map { self.rc.focused(on: CalendarMath.halfRange(mo.y, mo.m, $0)) } ?? self.rc
         let s = g.safeRect
@@ -420,7 +420,7 @@ struct PageLayout: View {
 
     @ViewBuilder
     private func monthGrid(_ i: Int) -> some View {
-        let mo = p.months[i]
+        let mo = p.month(i)
         let s = g.safeRect
         let headH = s.height * 0.15
         let legendH: CGFloat = hasLegend ? u * 3 : 0
