@@ -64,6 +64,7 @@ APPS = [
     ("KartenwalletiOS", "Kartenwallet"),
     ("PhotoLocatoriOS", "PhotoLocator"),
     ("PhotoSpotRadariOS", "PhotoSpotRadar"),
+    ("PosterdruckiOS", "Posterdruck"),
     ("ReisekasseiOS", "Reisekasse"),
     ("RoutenplaneriOS", "Routenplaner"),
     ("SchreibspuriOS", "Schreibspur"),

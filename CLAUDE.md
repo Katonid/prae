@@ -125,6 +125,7 @@ gilt.
 | PhotoLocator (Fotostandorte) | `PhotoLocatoriOS/` | Patch + Build je +1 |
 | Kapitelweise – Das Buch (Ziel „Chronik", Abwandlung des Reisebuchs) | `ChronikiOS/` | Patch + Build je +1 |
 | Galerie 360 (iOS- und Apple-TV-App) | `Galerie360iOS/` | Patch + Build je +1, beide Projekte gleich |
+| Posterdruck (Poster-PDF für die Druckerei) | `PosterdruckiOS/` | Patch + Build je +1 |
 | Notfallalarm (Android) | `NotfallalarmAndroid/` | eigener Linux-Bau `notfallalarm-build.yml` |
 | Wörterwerkstatt (Web) | `woerterwerkstatt/` | `js/version.js` + `FASSUNG` in `sw.js` |
 | Terminkonverter (Web) | `terminkonverter/` | `FASSUNG` in `sw.js`, `einzeldatei.html` neu bauen |
