@@ -267,7 +267,7 @@ struct PageLayout: View {
                 .placed(g.fullRect)
             // Als Bild ins PDF (`PrintFlatten`) — als Verlauf wurde er
             // deckend schwarz und verdeckte das Titelfoto (bis 1.0.17).
-            PrintFlatten(size: g.fullRect.size) {
+            PrintFlatten(size: g.fullRect.size, scale: 1) {
                 LinearGradient(colors: [.clear, .black.opacity(0.15), .black.opacity(0.6)],
                                startPoint: .center, endPoint: .bottom)
             }

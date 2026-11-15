@@ -11,7 +11,7 @@ struct PageBackground: View {
     var body: some View {
         // Beim Druck als Bild mit Transparenz (`PrintFlatten`): Die Muster
         // bestehen aus Verläufen, die im PDF sonst ihr Alpha verlieren.
-        PrintFlatten(size: geometry.size) { layers }
+        PrintFlatten(size: geometry.size, opaque: true) { layers }
     }
 
     private var layers: some View {

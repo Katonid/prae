@@ -417,8 +417,11 @@ möchte ich dieses als Vorlage speichern können.“ `Model/DesignTemplates.swif
   NICHT** (in 1.0.18 versucht und im PDF gemessen: weiter Shading ohne
   Alpha). Bilder mit Transparenz dagegen kommen mit sauberer SMask an.
   Abhilfe: `PrintFlatten` (`Render/PageKit.swift`) rechnet seinen Inhalt
-  NUR im Druckmodus vorab per `ImageRenderer` in ein Bild mit Alpha
-  (150 dpi; die Auslaufmaske 72 dpi) und setzt das Bild ein; in der
+  NUR im Druckmodus vorab per `ImageRenderer` in ein Bild und setzt das
+  Bild ein. Der Seitenhintergrund ist deckend: 150 dpi, als JPEG (`opaque`)
+  — mit Alphamaske und unkomprimiert wuchs eine 26-Seiten-Datei von 2 auf
+  108 MB. Verläufe mit Transparenz (Titelverlauf, Glas-Glanz, Platzhalter,
+  Auslaufmaske) mit Alpha in 72 dpi — weich genug, klein genug; in der
   Vorschau bleibt alles Vektor. Gesetzt auf dem ganzen `PageBackground`,
   dem Titelverlauf („Vollbild“), dem Glanz der Glas-Karte, der
   Auslaufmaske (`fadeOut`) und dem Fotoplatzhalter. **Regel: Jeder neue
