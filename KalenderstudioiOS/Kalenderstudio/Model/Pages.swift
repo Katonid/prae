@@ -63,7 +63,8 @@ extension CalendarProject {
         case .year:
             switch yearLayout {
             case .monthly:
-                for (i, mo) in months.enumerated() {
+                for i in monthIndices {
+                    let mo = month(i)
                     list.append(PageSpec(content: .monthSheet(i), label: CalendarMath.monthName(mo.m), spread: spread))
                     spread += 1
                 }
@@ -72,8 +73,8 @@ extension CalendarProject {
                 // Vorder- und Rückseiten im Wechsel. Mit Deckblatt sind es 26
                 // Seiten (13 Blätter); die letzte Rückseite trägt die
                 // Jahresübersicht.
-                for (i, mo) in months.enumerated() {
-                    let name = CalendarMath.monthName(mo.m)
+                for i in monthIndices {
+                    let name = CalendarMath.monthName(month(i).m)
                     for h in 0..<2 {
                         list.append(PageSpec(content: .halfMonth(i, h), label: "\(name) · \(h + 1). Hälfte",
                                              spread: spread))
@@ -91,8 +92,8 @@ extension CalendarProject {
                 list.append(PageSpec(content: .yearPlanner, label: "Jahr \(yearText)", spread: spread))
             }
         case .doubleMonth:
-            for (i, mo) in months.enumerated() {
-                let name = CalendarMath.monthName(mo.m)
+            for i in monthIndices {
+                let name = CalendarMath.monthName(month(i).m)
                 list.append(PageSpec(content: .monthPhoto(i), label: "\(name) · Foto", spread: spread))
                 list.append(PageSpec(content: .monthGrid(i), label: "\(name) · Kalender", spread: spread))
                 spread += 1
@@ -135,7 +136,7 @@ extension CalendarProject {
             let label: String
             switch page.content {
             case .cover: label = "Titel"
-            case .monthPhoto(let i), .monthSheet(let i): label = CalendarMath.monthName(months[i].m)
+            case .monthPhoto(let i), .monthSheet(let i): label = CalendarMath.monthName(month(i).m)
             case .halfMonth: label = page.label
             default: label = page.label
             }

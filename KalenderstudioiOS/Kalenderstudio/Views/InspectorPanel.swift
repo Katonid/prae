@@ -67,6 +67,12 @@ struct LayoutPanel: View {
                             Text(CalendarMath.monthName(m)).tag(m)
                         }
                     }
+                    // Vormonat voranstellen (ab 1.0.17) — bei Januar der
+                    // Dezember des Vorjahres.
+                    let lead = project.month(-1)
+                    Toggle(isOn: $project.leadMonth) {
+                        Text(verbatim: "\(CalendarMath.monthName(lead.m)) \(lead.y) voranstellen")
+                    }
                 }
             }
 
