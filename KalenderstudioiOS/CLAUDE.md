@@ -47,6 +47,8 @@
   1.0.15 (16) Kalenderfeld oben, unten, links oder rechts — für alle Formate.
   1.0.16 (17) Halbmonat ohne Akzentleiste vor den Wochen.
   1.0.17 (18) Vormonat voranstellen (bei Januar: Dezember des Vorjahres).
+  1.0.18 (19) **Titelblatt „Vollbild“ im PDF schwarz (behoben)**, weiche
+  Hintergrundflecken im PDF wieder weich.
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich `ITSAppUsesNonExemptEncryption` in
   `Config/Info.plist`. `Config/` liegt absichtlich außerhalb des
@@ -404,6 +406,24 @@ möchte ich dieses als Vorlage speichern können.“ `Model/DesignTemplates.swif
   Wandkalender A3 hoch, Wire-O): 297 × 420 mm, 3 mm Beschnitt, 4 mm
   Sicherheitsabstand, 20 mm oben, Daumenloch 1 cm oben mittig; ein
   mehrseitiges PDF, Deckblatt zuerst.
+- **VERLÄUFE MIT TRANSPARENZ VERLIEREN IM PDF IHR ALPHA** (gemeldet
+  15.11.2026: „Die Titelseite wird nur mit schwarzer Fläche statt Bild
+  ausgegeben“; bis 1.0.17). `ImageRenderer` schreibt `LinearGradient`/
+  `RadialGradient` als PDF-Shading OHNE Alphakanal: Der dunkle Verlauf
+  über dem Titelfoto (`.clear` → Schwarz) wurde deckend schwarz, die
+  weichen Flecken (`Blob`, Aquarell, Nordlicht, Lichter, Leinen) harte
+  Vollkreise. Konstante Deckkraft (`.opacity`, `alpha(_)` auf Flächen)
+  ist harmlos — nur VERLÄUFE sind betroffen. Abhilfe: `.drawingGroup()`
+  — der Inhalt kommt als Bild mit Transparenzmaske ins PDF (in der
+  `rasterizationScale` des Exports), Text bleibt Vektor. Gesetzt auf dem
+  ganzen `PageBackground`, dem Titelverlauf, dem Glanz der Glas-Karte,
+  der Auslaufmaske (`fadeOut`) und dem Fotoplatzhalter. **Regel: Jeder
+  neue Verlauf mit Transparenz auf einer Druckseite bekommt
+  `.drawingGroup()`.** Nachgewiesen und geprüft mit der Probe `…:pdf`
+  (schreibt die Druckdatei nach Documents, der Arbeitsablauf legt sie
+  unter „Artifacts“ ab; Seiten hier mit `pdftoppm` gerendert) und
+  `…:titel` (Titelblatt mit Testfoto; `maske`/`rahmen` für die anderen
+  Titelgestaltungen).
 - **`ImageRenderer.render(rasterizationScale:)` immer setzen.** Ohne
   Angabe werden Schatten, Masken (Foto in der Jahreszahl) und
   Weichzeichner im PDF mit 72 dpi gerastert.

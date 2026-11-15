@@ -267,6 +267,9 @@ struct PageLayout: View {
                 .placed(g.fullRect)
             LinearGradient(colors: [.clear, .black.opacity(0.15), .black.opacity(0.6)],
                            startPoint: .center, endPoint: .bottom)
+                // Ohne Gruppe schrieb Core Graphics den Verlauf ohne Alpha ins
+                // PDF — das Titelblatt war schwarz (gemeldet 15.11.2026).
+                .drawingGroup()
                 .allowsHitTesting(false)
                 .placed(g.fullRect)
             VStack(alignment: .leading, spacing: u * 1.2) {
@@ -794,10 +797,11 @@ extension View {
             let stops: [Gradient.Stop] = [.init(color: .black, location: 0), .init(color: .black, location: 0.72),
                                           .init(color: .black.opacity(0.35), location: 0.9), .init(color: .clear, location: 1)]
             switch edge {
-            case .bottom: mask { LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom) }
-            case .trailing: mask { LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing) }
-            case .top: mask { LinearGradient(stops: stops, startPoint: .bottom, endPoint: .top) }
-            case .leading: mask { LinearGradient(stops: stops, startPoint: .trailing, endPoint: .leading) }
+            // Als Gruppe gezeichnet, sonst verliert der Verlauf im PDF sein Alpha.
+            case .bottom: mask { LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom) }.drawingGroup()
+            case .trailing: mask { LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing) }.drawingGroup()
+            case .top: mask { LinearGradient(stops: stops, startPoint: .bottom, endPoint: .top) }.drawingGroup()
+            case .leading: mask { LinearGradient(stops: stops, startPoint: .trailing, endPoint: .leading) }.drawingGroup()
             }
         } else {
             self

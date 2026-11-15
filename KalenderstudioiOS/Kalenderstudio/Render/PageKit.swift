@@ -106,7 +106,8 @@ struct CardModifier: ViewModifier {
             content.background(
                 shape.fill(design.card.color)
                     .overlay(shape.fill(LinearGradient(colors: [.white.opacity(0.18), .white.opacity(0.02)],
-                                                       startPoint: .topLeading, endPoint: .bottomTrailing)))
+                                                       startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .drawingGroup())
                     .overlay(shape.strokeBorder(Color.white.opacity(design.isDark ? 0.22 : 0.7), lineWidth: max(unit * 0.12, 0.4)))
                     .designShadow(design, unit: unit, strength: 0.8)
             )
@@ -289,6 +290,7 @@ struct PhotoPlaceholder: View {
             ZStack {
                 LinearGradient(colors: [design.bg3.alpha(0.55), design.accent.alpha(0.45), design.bg2.alpha(0.8)],
                                startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .drawingGroup()
                 if interactive {
                     VStack(spacing: m * 0.04) {
                         Image(systemName: fromCloud ? "icloud.and.arrow.down" : "photo.badge.plus")
