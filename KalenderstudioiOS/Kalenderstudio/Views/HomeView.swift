@@ -165,6 +165,8 @@ struct HomeView: View {
         if parts.contains("neben") { p.design.entryPlacement = .beside }
         if parts.contains("oben") { p.design.entryPlacement = .above }
         if parts.contains("ohnejahr") { p.design.showYear = false }
+        // „vormonat“ (ab 1.0.17): Start im Januar mit Dezember des Vorjahres.
+        if parts.contains("vormonat") { p.startMonth = 1; p.leadMonth = true }
         // Lage des Kalenderfelds (ab 1.0.15): „k-oben“, „k-links“, „k-rechts“, „k-unten“.
         for (tag, side) in [("k-oben", CalendarSide.top), ("k-links", .left), ("k-rechts", .right), ("k-unten", .bottom)]
         where parts.contains(tag) { p.calendarSide = side }
