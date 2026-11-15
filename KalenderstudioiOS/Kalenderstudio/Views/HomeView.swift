@@ -187,8 +187,37 @@ struct HomeView: View {
             for i in 0..<12 { p.placements["m\(i)"] = [pl] }
             PhotoInfo.register(p.photos)
         }
+        // „titel“: Titelblatt behalten, mit dem Testfoto; „maske“/„rahmen“
+        // wählen die Titelgestaltung. „pdf“ schreibt die Druckdatei nach
+        // Documents (der Arbeitsablauf holt sie ab).
+        if parts.contains("titel") {
+            p.hasCover = true
+            if let first = p.photos.first { p.placements["cover"] = [PhotoPlacement(photoID: first.id)] }
+        }
+        if parts.contains("maske") { p.coverStyle = .yearMask }
+        if parts.contains("rahmen") { p.coverStyle = .framed }
         p.dates.schoolStates = [SchoolSelection(state: .BY, color: SchoolSelection.palette[0])]
         store.add(p)
+        if parts.contains("pdf") {
+            let project = p
+            let name = arg.dropFirst("-probe=".count).replacingOccurrences(of: ":", with: "-")
+            Task { @MainActor in
+                do {
+                    var options = ExportOptions()
+                    options.dpi = 150
+                    let urls = try await Exporter.export(project: project, options: options) { _, _ in }
+                    let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    for url in urls {
+                        let target = docs.appendingPathComponent("probe-\(name).pdf")
+                        try? FileManager.default.removeItem(at: target)
+                        try FileManager.default.copyItem(at: url, to: target)
+                    }
+                    NSLog("PDF-Probe: geschrieben")
+                } catch {
+                    NSLog("PDF-Probe FEHLER: \(error.localizedDescription)")
+                }
+            }
+        }
         // „…:sicherung“: sichern, wieder einladen, Ergebnis ins Protokoll.
         if arg.hasSuffix(":sicherung") {
             do {
