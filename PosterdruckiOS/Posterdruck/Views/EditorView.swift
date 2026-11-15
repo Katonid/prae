@@ -8,6 +8,8 @@ struct EditorView: View {
 
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var showFiles = false
+    @State private var showPhotos = false
+    @State private var showAddChoice = false
     @State private var showFormat = false
     @State private var showExport = false
     @State private var editing: EditTarget?
@@ -32,6 +34,7 @@ struct EditorView: View {
                         ForEach(Array(project.items.enumerated()), id: \.element.id) { index, item in
                             tile(item, index: index)
                         }
+                        addTile
                     }
                 }
             }
@@ -42,18 +45,14 @@ struct EditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Menu {
-                    PhotosPicker(selection: $pickerItems, maxSelectionCount: nil, matching: .images,
-                                 preferredItemEncoding: .current) {
-                        Label("Aus Fotos", systemImage: "photo.on.rectangle")
-                    }
-                    Button {
-                        showFiles = true
-                    } label: {
-                        Label("Aus Dateien", systemImage: "folder")
-                    }
+                Button {
+                    showAddChoice = true
                 } label: {
                     Label("Bilder hinzufügen", systemImage: "plus")
+                }
+                .confirmationDialog("Bilder hinzufügen", isPresented: $showAddChoice) {
+                    Button("Aus Fotos") { present { showPhotos = true } }
+                    Button("Aus Dateien") { present { showFiles = true } }
                 }
                 Button {
                     showExport = true
@@ -81,6 +80,8 @@ struct EditorView: View {
             pickerItems = []
             importFromPhotos(items)
         }
+        .photosPicker(isPresented: $showPhotos, selection: $pickerItems, maxSelectionCount: nil,
+                      matching: .images, preferredItemEncoding: .current)
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result {
                 importFromFiles(urls)
@@ -152,8 +153,9 @@ struct EditorView: View {
             Text("Jedes Bild wird ein Poster — eine Seite in der PDF. Oben rechts mit „+“ hinzufügen.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-            PhotosPicker(selection: $pickerItems, maxSelectionCount: nil, matching: .images,
-                         preferredItemEncoding: .current) {
+            Button {
+                showPhotos = true
+            } label: {
                 Label("Bilder aus Fotos wählen", systemImage: "photo.on.rectangle")
                     .font(.headline)
             }
@@ -166,6 +168,45 @@ struct EditorView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 50)
+    }
+
+    /// Immer sichtbare Kachel am Ende des Rasters — Bilder hinzufügen geht
+    /// so auch ohne die Symbolleiste (1.0.1: das Plus oben reagierte nicht).
+    private var addTile: some View {
+        VStack(spacing: 10) {
+            Button {
+                showPhotos = true
+            } label: {
+                Label("Aus Fotos", systemImage: "photo.on.rectangle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            Button {
+                showFiles = true
+            } label: {
+                Label("Aus Dateien", systemImage: "folder")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 210)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+        )
+        .overlay(alignment: .top) {
+            Label("Weitere Bilder", systemImage: "plus")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 14)
+        }
+    }
+
+    /// Öffnet eine Auswahl erst, wenn der Dialog davor ganz geschlossen ist —
+    /// zwei Darstellungen gleichzeitig verschluckt iOS sonst still.
+    private func present(_ action: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: action)
     }
 
     private func tile(_ item: PosterItem, index: Int) -> some View {

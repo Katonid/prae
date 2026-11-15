@@ -16,7 +16,8 @@
   (Seitengeometrie in Punkt, Boxen in der PDF, Schnittmarken).
 - **Versionierung:** Patch + Build je +1 bei jeder neuen Fassung
   (`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION`, Debug und Release).
-  Erste Fassung: 1.0.0 (1).
+  Erste Fassung: 1.0.0 (1). 1.0.1 (2): weitere Bilder hinzufügen ging nicht
+  (Plus reagierte nicht, siehe Fallen).
 - Team `F4989GSTWS`, `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
   als Build-Einstellung, zusätzlich in `Config/Info.plist`. `Config/`
   liegt absichtlich außerhalb des synchronisierten Ordners. Keine
@@ -65,3 +66,11 @@
   `shortMM`/`longMM`.
 - Schriften mit `fixedSize` sind hier nicht nötig — die Seite enthält
   keinen Text.
+- **Kein `PhotosPicker` in einem `Menu` der Symbolleiste** (Befund des
+  Nutzers zu 1.0.0: „nachdem eine Datei erstellt wurde, lassen sich keine
+  weiteren Bilder zufügen, das Plus zeigt keine Reaktion“). Seit 1.0.1:
+  Plus = gewöhnlicher Knopf → Auswahldialog → `.photosPicker(isPresented:)`
+  bzw. `.fileImporter`, mit 0,4 s Abstand (zwei Darstellungen kurz
+  nacheinander verschluckt iOS). Zusätzlich steht am Ende des Rasters immer
+  eine Kachel „Weitere Bilder“ (Aus Fotos / Aus Dateien) — der Weg geht
+  also auch ohne die Symbolleiste.
