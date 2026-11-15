@@ -9,8 +9,14 @@ struct PageBackground: View {
     var seed: String = ""
 
     var body: some View {
+        // Beim Druck als Bild mit Transparenz (`PrintFlatten`): Die Muster
+        // bestehen aus Verläufen, die im PDF sonst ihr Alpha verlieren.
+        PrintFlatten(size: geometry.size, opaque: true) { layers }
+    }
+
+    private var layers: some View {
         let size = geometry.size
-        ZStack {
+        return ZStack {
             LinearGradient(colors: [design.bg1.color, design.bg2.color],
                            startPoint: .top, endPoint: .bottom)
             switch design.backgroundSource {

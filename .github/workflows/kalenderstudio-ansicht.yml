@@ -91,6 +91,14 @@ jobs:
               || echo "NICHT MEHR AKTIV" >> ansicht/diagnose.txt
           done
 
+      - name: Druckdateien der Probe einsammeln
+        if: always()
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          C=$(xcrun simctl get_app_container "$UDID" de.familie.kalenderstudio data 2>/dev/null || true)
+          [ -n "$C" ] && cp "$C"/Documents/probe-*.pdf ansicht/ 2>/dev/null || true
+          ls -la ansicht/*.pdf 2>/dev/null || echo "keine PDF"
+
       - name: Absturzberichte einsammeln
         if: always()
         run: |
@@ -100,7 +108,7 @@ jobs:
           done
           cat ansicht/diagnose.txt || true
           grep -iE "fault|error|fatal|crash|navigation" ansicht/protokoll.txt | head -60 || true
-          grep -i "Sicherungsprobe" ansicht/protokoll.txt || true
+          grep -iE "Sicherungsprobe|PDF-Probe" ansicht/protokoll.txt || true
 
       - name: Bilder ablegen
         if: always()

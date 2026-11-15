@@ -105,8 +105,12 @@ struct CardModifier: ViewModifier {
         case .glass:
             content.background(
                 shape.fill(design.card.color)
-                    .overlay(shape.fill(LinearGradient(colors: [.white.opacity(0.18), .white.opacity(0.02)],
-                                                       startPoint: .topLeading, endPoint: .bottomTrailing)))
+                    .overlay(GeometryReader { geo in
+                        PrintFlatten(size: geo.size, scale: 1) {
+                            shape.fill(LinearGradient(colors: [.white.opacity(0.18), .white.opacity(0.02)],
+                                                      startPoint: .topLeading, endPoint: .bottomTrailing))
+                        }
+                    })
                     .overlay(shape.strokeBorder(Color.white.opacity(design.isDark ? 0.22 : 0.7), lineWidth: max(unit * 0.12, 0.4)))
                     .designShadow(design, unit: unit, strength: 0.8)
             )
@@ -121,6 +125,55 @@ struct CardModifier: ViewModifier {
                     .background(shape.fill(design.card.alpha(0.6)))
             )
         }
+    }
+}
+
+/// Zeichnet seinen Inhalt beim DRUCK vorab in ein Bild mit Transparenz.
+///
+/// Warum (gemeldet 15.11.2026: „Die Titelseite wird nur mit schwarzer Fläche
+/// statt Bild ausgegeben“): `ImageRenderer` schreibt Farbverläufe als
+/// PDF-Shading OHNE Alphakanal. Ein Verlauf von durchsichtig nach Schwarz
+/// wird so deckend schwarz, weiche Farbflecken werden harte Kreise.
+/// `.drawingGroup()` ändert daran nichts (gemessen). Bilder mit Transparenz
+/// dagegen kommen mit sauberer Maske ins PDF. In der Vorschau wird nichts
+/// vorab gerechnet.
+struct PrintFlatten<Content: View>: View {
+    let size: CGSize
+    /// Bildpunkte je Punkt; 150 dpi genügen für Verläufe und Muster.
+    var scale: CGFloat = 150 / 72
+    /// Deckender Inhalt (Seitenhintergrund): als JPEG ins PDF, ohne Maske.
+    /// Unkomprimiert mit Maske wuchs eine 26-Seiten-Datei von 2 auf 108 MB.
+    var opaque = false
+    @ViewBuilder let content: () -> Content
+
+    @Environment(\.renderMode) private var mode
+
+    var body: some View {
+        if mode == .print, size.width > 0, size.height > 0, let image = rendered() {
+            Image(uiImage: image)
+                .resizable()
+                .frame(width: size.width, height: size.height)
+        } else {
+            content()
+                .frame(width: size.width, height: size.height)
+        }
+    }
+
+    @MainActor
+    private func rendered() -> UIImage? {
+        let renderer = ImageRenderer(content: content()
+            .frame(width: size.width, height: size.height)
+            .environment(\.renderMode, .print))
+        renderer.proposedSize = ProposedViewSize(size)
+        renderer.scale = scale
+        renderer.isOpaque = opaque
+        guard let image = renderer.uiImage else { return nil }
+        // Aus JPEG-Daten erzeugt, übernimmt das PDF die komprimierten Daten
+        // (wie bei den Fotos, siehe `ImageStore.full`).
+        if opaque, let data = image.jpegData(compressionQuality: 0.9), let jpeg = UIImage(data: data) {
+            return jpeg
+        }
+        return image
     }
 }
 
@@ -287,8 +340,10 @@ struct PhotoPlaceholder: View {
         GeometryReader { geo in
             let m = min(geo.size.width, geo.size.height)
             ZStack {
-                LinearGradient(colors: [design.bg3.alpha(0.55), design.accent.alpha(0.45), design.bg2.alpha(0.8)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                PrintFlatten(size: geo.size, scale: 1) {
+                    LinearGradient(colors: [design.bg3.alpha(0.55), design.accent.alpha(0.45), design.bg2.alpha(0.8)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
                 if interactive {
                     VStack(spacing: m * 0.04) {
                         Image(systemName: fromCloud ? "icloud.and.arrow.down" : "photo.badge.plus")
