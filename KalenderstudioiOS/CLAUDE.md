@@ -413,17 +413,21 @@ möchte ich dieses als Vorlage speichern können.“ `Model/DesignTemplates.swif
   über dem Titelfoto (`.clear` → Schwarz) wurde deckend schwarz, die
   weichen Flecken (`Blob`, Aquarell, Nordlicht, Lichter, Leinen) harte
   Vollkreise. Konstante Deckkraft (`.opacity`, `alpha(_)` auf Flächen)
-  ist harmlos — nur VERLÄUFE sind betroffen. Abhilfe: `.drawingGroup()`
-  — der Inhalt kommt als Bild mit Transparenzmaske ins PDF (in der
-  `rasterizationScale` des Exports), Text bleibt Vektor. Gesetzt auf dem
-  ganzen `PageBackground`, dem Titelverlauf, dem Glanz der Glas-Karte,
-  der Auslaufmaske (`fadeOut`) und dem Fotoplatzhalter. **Regel: Jeder
-  neue Verlauf mit Transparenz auf einer Druckseite bekommt
-  `.drawingGroup()`.** Nachgewiesen und geprüft mit der Probe `…:pdf`
+  ist harmlos — nur VERLÄUFE sind betroffen. **`.drawingGroup()` hilft
+  NICHT** (in 1.0.18 versucht und im PDF gemessen: weiter Shading ohne
+  Alpha). Bilder mit Transparenz dagegen kommen mit sauberer SMask an.
+  Abhilfe: `PrintFlatten` (`Render/PageKit.swift`) rechnet seinen Inhalt
+  NUR im Druckmodus vorab per `ImageRenderer` in ein Bild mit Alpha
+  (150 dpi; die Auslaufmaske 72 dpi) und setzt das Bild ein; in der
+  Vorschau bleibt alles Vektor. Gesetzt auf dem ganzen `PageBackground`,
+  dem Titelverlauf („Vollbild“), dem Glanz der Glas-Karte, der
+  Auslaufmaske (`fadeOut`) und dem Fotoplatzhalter. **Regel: Jeder neue
+  Verlauf mit Transparenz auf einer Druckseite gehört in ein
+  `PrintFlatten`.** Nachgewiesen und geprüft mit der Probe `…:pdf`
   (schreibt die Druckdatei nach Documents, der Arbeitsablauf legt sie
-  unter „Artifacts“ ab; Seiten hier mit `pdftoppm` gerendert) und
-  `…:titel` (Titelblatt mit Testfoto; `maske`/`rahmen` für die anderen
-  Titelgestaltungen).
+  unter „Artifacts“ ab; Seiten hier mit `pdftoppm` gerendert, Inhalt mit
+  `pypdf` gelesen) und `…:titel` (Titelblatt mit Testfoto; `maske`/
+  `rahmen` für die anderen Titelgestaltungen).
 - **`ImageRenderer.render(rasterizationScale:)` immer setzen.** Ohne
   Angabe werden Schatten, Masken (Foto in der Jahreszahl) und
   Weichzeichner im PDF mit 72 dpi gerastert.

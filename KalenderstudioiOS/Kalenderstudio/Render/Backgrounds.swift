@@ -9,8 +9,14 @@ struct PageBackground: View {
     var seed: String = ""
 
     var body: some View {
+        // Beim Druck als Bild mit Transparenz (`PrintFlatten`): Die Muster
+        // bestehen aus Verläufen, die im PDF sonst ihr Alpha verlieren.
+        PrintFlatten(size: geometry.size) { layers }
+    }
+
+    private var layers: some View {
         let size = geometry.size
-        ZStack {
+        return ZStack {
             LinearGradient(colors: [design.bg1.color, design.bg2.color],
                            startPoint: .top, endPoint: .bottom)
             switch design.backgroundSource {
@@ -24,12 +30,6 @@ struct PageBackground: View {
         }
         .frame(width: size.width, height: size.height)
         .clipped()
-        // Im PDF verlieren Verläufe ihre Transparenz (Core Graphics schreibt
-        // die Farbverläufe ohne Alpha): weiche Flecken wurden harte Kreise,
-        // der dunkle Verlauf des Titelblatts eine schwarze Fläche (gemeldet
-        // 15.11.2026). Als Gruppe gezeichnet wird der Hintergrund ein Bild
-        // mit sauberer Transparenz — in Druckauflösung, Text bleibt Vektor.
-        .drawingGroup()
     }
 
     @ViewBuilder

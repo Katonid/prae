@@ -265,13 +265,14 @@ struct PageLayout: View {
             let pl = p.placements(for: key, count: 1)
             PhotoFill(placement: pl[0], design: d, key: key)
                 .placed(g.fullRect)
-            LinearGradient(colors: [.clear, .black.opacity(0.15), .black.opacity(0.6)],
-                           startPoint: .center, endPoint: .bottom)
-                // Ohne Gruppe schrieb Core Graphics den Verlauf ohne Alpha ins
-                // PDF — das Titelblatt war schwarz (gemeldet 15.11.2026).
-                .drawingGroup()
-                .allowsHitTesting(false)
-                .placed(g.fullRect)
+            // Als Bild ins PDF (`PrintFlatten`) — als Verlauf wurde er
+            // deckend schwarz und verdeckte das Titelfoto (bis 1.0.17).
+            PrintFlatten(size: g.fullRect.size) {
+                LinearGradient(colors: [.clear, .black.opacity(0.15), .black.opacity(0.6)],
+                               startPoint: .center, endPoint: .bottom)
+            }
+            .allowsHitTesting(false)
+            .placed(g.fullRect)
             VStack(alignment: .leading, spacing: u * 1.2) {
                 Spacer(minLength: 0)
                 yearLine(p.yearText, size: u * 20, color: .white, onPhoto: true)
@@ -797,14 +798,21 @@ extension View {
             let stops: [Gradient.Stop] = [.init(color: .black, location: 0), .init(color: .black, location: 0.72),
                                           .init(color: .black.opacity(0.35), location: 0.9), .init(color: .clear, location: 1)]
             switch edge {
-            // Als Gruppe gezeichnet, sonst verliert der Verlauf im PDF sein Alpha.
-            case .bottom: mask { LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom) }.drawingGroup()
-            case .trailing: mask { LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing) }.drawingGroup()
-            case .top: mask { LinearGradient(stops: stops, startPoint: .bottom, endPoint: .top) }.drawingGroup()
-            case .leading: mask { LinearGradient(stops: stops, startPoint: .trailing, endPoint: .leading) }.drawingGroup()
+            // Die Maske als Bild (`PrintFlatten`) — ein Verlauf verliert im
+            // PDF sein Alpha.
+            case .bottom: mask { fadeMask(LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)) }
+            case .trailing: mask { fadeMask(LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing)) }
+            case .top: mask { fadeMask(LinearGradient(stops: stops, startPoint: .bottom, endPoint: .top)) }
+            case .leading: mask { fadeMask(LinearGradient(stops: stops, startPoint: .trailing, endPoint: .leading)) }
             }
         } else {
             self
         }
+    }
+}
+
+private func fadeMask(_ gradient: LinearGradient) -> some View {
+    GeometryReader { geo in
+        PrintFlatten(size: geo.size, scale: 72 / 72) { gradient }
     }
 }
