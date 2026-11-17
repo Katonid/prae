@@ -260,6 +260,16 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   auch selbst installierte), Größe, Zeilen- und Absatzabstand, Ausrichtung,
   kursiv, Trennung, Farbe, Probe in Druckgröße. Beim Sichern fließt der Text
   neu, die Fotos bleiben stehen. Die Überschrift behält die Titelschrift.
+- **Fotos im Vorwort-Blatt über `photosPicker`** (ab 1.0.17, gemeldet
+  11/2026: „Fotos, die ich auswähle, werden leider nicht ins Vorwort
+  eingefügt"). Vorher `Fotowahl` (UIKit) in einem `.sheet`: Der Wähler
+  schließt sich selbst (`picker.dismiss`), dazu `mediathek = false` — in einem
+  Blatt IM Blatt kann der zweite Befehl das Vorwort-Blatt mitschließen, und
+  mit ihm geht die Fotoliste verloren. **Ursache nicht auf einem Gerät
+  bestätigt**, nur aus dem Quelltext geschlossen. Dieselbe Bauweise steht noch
+  in `KapitelseitenView` (Zeitung, Meldungen; dort je ein Bild) — klemmt es
+  dort auch, genauso umbauen. Nach dem Hinzufügen sagt ein Hinweis, dass erst
+  „Sichern" die Fotos ins Buch bringt.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -348,5 +358,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Textverarbeitung um geschobene und eingefügte Fotos. **Nicht gemessen:**
   auf einem Gerät; wie lange das Umfließen bei zehn und mehr Seiten nach dem
   Loslassen dauert.
-- **1.0.17 (Build 18)**, 11/2026: eigene Schrift fürs Vorwort.
+- **1.0.17 (Build 18)**, 11/2026: eigene Schrift fürs Vorwort, Fotos im
+  Vorwort-Blatt über den SwiftUI-Fotowähler.
   **Nicht gemessen:** auf einem Gerät.

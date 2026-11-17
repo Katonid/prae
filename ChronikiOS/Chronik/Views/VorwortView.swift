@@ -23,9 +23,12 @@ struct VorwortView: View {
     @State private var fotos: [UUID] = []
     @State private var geladen = false
     @State private var mediathek = false
+    @State private var auswahl: [PhotosPickerItem] = []
+    @State private var laedt = false
     @State private var dateiwahl = false
     @State private var entfernenFragen = false
     @State private var hinweis: String?
+    @State private var fotohinweis: String?
     // Die Schrift des Vorworts (ab 1.0.17). `eigeneSchrift` aus heißt: wie
     // der Fließtext des Buches — dann folgt das Vorwort jeder späteren
     // Änderung an der Typografie.
@@ -96,6 +99,12 @@ struct VorwortView: View {
                     }
                     .onMove { von, nach in fotos.move(fromOffsets: von, toOffset: nach) }
                     .onDelete { stellen in fotos.remove(atOffsets: stellen) }
+                    if let fotohinweis {
+                        Text(fotohinweis).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if laedt {
+                        HStack { ProgressView(); Text("Fotos werden geladen \u{2026}").foregroundStyle(.secondary) }
+                    }
                     Menu {
                         Button("Aus der Mediathek", systemImage: "photo.on.rectangle") { mediathek = true }
                         Button("Aus Dateien", systemImage: "folder") { dateiwahl = true }
@@ -153,23 +162,22 @@ struct VorwortView: View {
                     schrift = werk.automat.vorwortbild()
                 }
             }
-            .sheet(isPresented: $mediathek) {
-                Fotowahl { treffer in
-                    mediathek = false
-                    Task { @MainActor in
-                        var neu = 0
-                        for eintrag in treffer {
-                            guard let datei = await KapitelseitenView.ladeDatei(eintrag) else { continue }
-                            if let id = werk.grafikAblegen(vonDatei: datei) {
-                                fotos.append(id)
-                                neu += 1
-                            }
-                            try? FileManager.default.removeItem(at: datei)
-                        }
-                        if neu < treffer.count { hinweis = "\(treffer.count - neu) Fotos ließen sich nicht laden." }
-                    }
-                }
-                .ignoresSafeArea()
+            // DER FOTOWÄHLER VON SWIFTUI (ab 1.0.17). Gemeldet 11/2026:
+            // „Fotos, die ich auswähle, werden leider nicht ins Vorwort
+            // eingefügt." Bis dahin lief hier `Fotowahl` in einem Blatt: Der
+            // UIKit-Wähler schließt sich selbst (`picker.dismiss`), und das
+            // Blatt wurde zusätzlich über `mediathek = false` geschlossen.
+            // In einem Blatt IM Blatt (das Vorwort ist selbst eines) kann der
+            // zweite Schließbefehl das Vorwort-Blatt treffen — mit ihm
+            // verschwindet die Fotoliste, bevor die Fotos geladen sind.
+            // `photosPicker` schließt SwiftUI selbst, genau einmal.
+            .photosPicker(isPresented: $mediathek, selection: $auswahl,
+                          maxSelectionCount: nil, matching: .images,
+                          preferredItemEncoding: .current)
+            .onChange(of: auswahl) { _, neu in
+                guard !neu.isEmpty else { return }
+                auswahl = []
+                Task { @MainActor in await fotosLaden(neu) }
             }
             .fileImporter(isPresented: $dateiwahl, allowedContentTypes: [.image], allowsMultipleSelection: true) { ergebnis in
                 guard case .success(let adressen) = ergebnis else { return }
@@ -178,6 +186,7 @@ struct VorwortView: View {
                     defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
                     if let id = werk.grafikAblegen(vonDatei: adresse) { fotos.append(id) }
                 }
+                fotohinweis = "Mit \u{201E}Sichern\u{201C} kommen die Fotos ins Vorwort."
             }
             .confirmationDialog("Vorwort entfernen?", isPresented: $entfernenFragen, titleVisibility: .visible) {
                 Button("Entfernen", role: .destructive) {
@@ -247,6 +256,34 @@ struct VorwortView: View {
         let anfang = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !anfang.isEmpty else { return "Dieses Buch erzählt von den ersten Jahren \u{2014} Kapitel für Kapitel, Foto für Foto." }
         return String(anfang.prefix(220)) + (anfang.count > 220 ? "\u{2026}" : "")
+    }
+
+
+    // MARK: Fotos laden
+
+    /// Lädt die gewählten Fotos als Datei, legt sie im Buch ab und hängt sie
+    /// an die Liste. Die Datei wird in voller Güte genommen (`.current`).
+    private func fotosLaden(_ treffer: [PhotosPickerItem]) async {
+        laedt = true
+        defer { laedt = false }
+        var neu = 0
+        for eintrag in treffer {
+            guard let daten = try? await eintrag.loadTransferable(type: Data.self) else { continue }
+            let endung = eintrag.supportedContentTypes.first?.preferredFilenameExtension ?? "jpg"
+            let datei = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString + "." + endung)
+            guard (try? daten.write(to: datei)) != nil else { continue }
+            if let id = werk.grafikAblegen(vonDatei: datei) {
+                fotos.append(id)
+                neu += 1
+            }
+            try? FileManager.default.removeItem(at: datei)
+        }
+        if neu < treffer.count {
+            fotohinweis = "\(treffer.count - neu) von \(treffer.count) Fotos ließen sich nicht laden."
+        } else {
+            fotohinweis = "\(neu) Fotos hinzugefügt. Mit \u{201E}Sichern\u{201C} kommen sie ins Vorwort."
+        }
     }
 
 }
