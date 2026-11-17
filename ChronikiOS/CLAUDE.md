@@ -289,6 +289,17 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Linux geprüft). Die Zeile Abstand war eine leere Zeile im eingefügten
   Text — im Satz ein leerer Absatz. Einen Erstzeileneinzug gibt es nicht
   (`Schriftbild` kennt keinen; bräuchte `Seitensatz` und Abweichung).
+- **Schriftwahl des Vorworts als eigenes Blatt** (ab 1.0.18, gemeldet
+  11/2026: „Die App stürzt ab, wenn ich eine andere Schriftart für das
+  Vorwort wählen möchte."). **Ursache nicht gefunden** — kein Absturzbericht,
+  aus dem Quelltext nicht abzulesen. 1.0.17 schob `SchriftwahlView` per
+  `NavigationLink` in den Stapel des Vorwort-Blatts, direkt an `schrift`
+  gebunden (jede Wahl zeichnete das Blatt mit dem langen Textfeld neu).
+  Jetzt wie im `BlockInspektor`: eigenes Blatt mit eigenem Stapel, Entwurf
+  (`schriftEntwurf`), übernommen mit „Fertig". Dazu `Absturzspur`-Marken
+  („Vorwort: Schriftwahl öffnen …", „… übernehmen …"): Stürzt es wieder ab,
+  nennt die App beim nächsten Start den Schritt und den freien Speicher —
+  danach fragen, bevor weiter geraten wird.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -326,7 +337,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -381,3 +392,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Leerzeilen weg, Textänderung im Vorwort-Blatt kommt an, Fotos über den
   SwiftUI-Fotowähler.
   **Nicht gemessen:** auf einem Gerät.
+- **1.0.18 (Build 19)**, 11/2026: Schriftwahl des Vorworts als eigenes Blatt
+  (Absturz beim Wählen gemeldet). **Nicht gemessen:** ob der Absturz damit
+  weg ist.
