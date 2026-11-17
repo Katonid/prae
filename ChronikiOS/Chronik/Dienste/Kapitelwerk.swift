@@ -282,10 +282,15 @@ extension Reisewerk {
         }
         let befund = Bildleser.befund(datei: daten)
         guard let datei = try? Bildarchiv.shared.ablegen(daten, reise: reise.id, endung: endung) else { return nil }
-        let foto = Foto(datei: datei,
+        var foto = Foto(datei: datei,
                         breite: befund.breite > 0 ? befund.breite : 1000,
                         hoehe: befund.hoehe > 0 ? befund.hoehe : 1400,
                         grafik: true)
+        // Die Aufnahmezeit wird gemerkt (ab 1.0.19), damit das Vorwort seine
+        // Fotos der Zeit nach ordnen kann. Ohne Tagesschlüssel: Eine Grafik
+        // gehört keinem Kapitel, und `kapitelNeuEinteilen` soll sie nicht
+        // nach Datum verteilen.
+        foto.aufnahme = befund.aufnahme
         reise.setzeFoto(foto)
         return foto.id
     }
@@ -496,15 +501,26 @@ extension Reisewerk {
                let k = seiten[0].bloecke.firstIndex(where: { $0.inhalt == .text(vorher.ueberschrift) }) {
                 seiten[0].bloecke[k].inhalt = .text(titel)
             }
-            let stehen = Set(seiten.flatMap { $0.bloecke.compactMap(\.fotoID) })
+            var seiteVon: [UUID: Int] = [:]
+            for (i, seite) in seiten.enumerated() {
+                for id in seite.bloecke.compactMap(\.fotoID) where seiteVon[id] == nil { seiteVon[id] = i }
+            }
             var wechsel = 0
-            for id in fotos where !stehen.contains(id) {
+            for (stelleInListe, id) in fotos.enumerated() where seiteVon[id] == nil {
                 guard let foto = reise.foto(id) else { continue }
-                // Auf die Seite mit den wenigsten Fotos, vorn zuerst.
-                let ziel = seiten.indices.min { a, b in
-                    seiten[a].bloecke.filter { $0.fotoID != nil }.count
-                        < seiten[b].bloecke.filter { $0.fotoID != nil }.count
-                } ?? 0
+                // DER REIHE NACH (ab 1.0.19, Wunsch des Nutzers 11/2026: „dass
+                // die eingefügten Fotos im Vorwort in chronologischer
+                // Reihenfolge erscheinen"). Die Liste ist der Zeit nach
+                // geordnet; ein neues Foto kommt zwischen die Seite seines
+                // Vorgängers und die seines Nachfolgers — dort auf die mit den
+                // wenigsten Fotos. Stehende Fotos bleiben, wo sie sind.
+                let vorher = fotos[..<stelleInListe].reversed().compactMap { seiteVon[$0] }.first
+                let nachher = fotos[(stelleInListe + 1)...].compactMap { seiteVon[$0] }.first
+                let von = vorher ?? 0
+                let bis = max(von, nachher ?? (vorher ?? seiten.count - 1))
+                let zahl: (Int) -> Int = { i in seiten[i].bloecke.filter { $0.fotoID != nil }.count }
+                let ziel = (von ... min(bis, seiten.count - 1)).min { zahl($0) < zahl($1) } ?? von
+                seiteVon[id] = ziel
                 seiten[ziel].bloecke.append(contentsOf: werkzeug.vorwortFoto(foto, auf: seiten[ziel],
                                                                             wechsel: ziel + wechsel))
                 wechsel += 1

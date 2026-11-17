@@ -34,7 +34,6 @@ struct VorwortView: View {
     // Änderung an der Typografie.
     @State private var leerzeilenBehalten = false
     @State private var schriftwahlOffen = false
-    @State private var schriftEntwurf = Schriftfamilie.serifeSystem
     @State private var schrift = Schriftbild()
 
     private var gibtEs: Bool { werk.reise.vorwortIndex != nil }
@@ -120,7 +119,7 @@ struct VorwortView: View {
                         EditButton().font(.caption)
                     }
                 } footer: {
-                    Text("Die Fotos verteilen sich in dieser Reihenfolge gleichmäßig über die Seiten des Vorworts, je in einer Spalte oben oder unten, im Wechsel rechts und links \u{2014} der Text fließt darum herum. Sie gehören zu keinem Kapitel.")
+                    Text("Der Aufnahmezeit nach geordnet und in dieser Reihenfolge über die Seiten des Vorworts verteilt, je in einer Spalte oben oder unten, im Wechsel rechts und links \u{2014} der Text fließt darum herum. Sie gehören zu keinem Kapitel." + (ohneZeit > 0 ? " \(ohneZeit) Fotos tragen keine Aufnahmezeit und stehen am Ende." : ""))
                 }
 
                 if gibtEs {
@@ -131,18 +130,12 @@ struct VorwortView: View {
             }
             .sheet(isPresented: $schriftwahlOffen) {
                 NavigationStack {
-                    SchriftwahlView(auswahl: $schriftEntwurf, titel: "Schrift des Vorworts")
+                    // Direkt gebunden: Jede Wahl gilt sofort, auch wenn das
+                    // Blatt anders als über „Fertig" zugeht (Wischen).
+                    SchriftwahlView(auswahl: $schrift.familie, titel: "Schrift des Vorworts")
                         .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Abbrechen") { schriftwahlOffen = false }
-                            }
                             ToolbarItem(placement: .confirmationAction) {
-                                Button("Fertig") {
-                                    Absturzspur.beginnt("Vorwort: Schrift \u{00FC}bernehmen (\(schriftEntwurf.vollerName))")
-                                    schrift.familie = schriftEntwurf
-                                    schriftwahlOffen = false
-                                    Absturzspur.endetSpaeter()
-                                }
+                                Button("Fertig") { schriftwahlOffen = false }
                             }
                         }
                 }
@@ -174,6 +167,17 @@ struct VorwortView: View {
                     titel = tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift
                     text = tag.text
                     fotos = tag.fotos
+                    // Fotos aus 1.0.15–1.0.18 tragen keine Aufnahmezeit:
+                    // einmal aus der abgelegten Datei nachlesen.
+                    for id in fotos {
+                        guard var foto = werk.reise.foto(id), foto.aufnahme == nil, foto.grafik else { continue }
+                        let adresse = Bildarchiv.shared.pfad(werk.reise.id, datei: foto.datei)
+                        if let zeit = Bildleser.befund(datei: adresse).aufnahme {
+                            foto.aufnahme = zeit
+                            werk.reise.setzeFoto(foto)
+                        }
+                    }
+                    zeitlichOrdnen()
                     schrift = werk.automat.vorwortbild(tag)
                 } else {
                     schrift = werk.automat.vorwortbild()
@@ -203,6 +207,7 @@ struct VorwortView: View {
                     defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
                     if let id = werk.grafikAblegen(vonDatei: adresse) { fotos.append(id) }
                 }
+                zeitlichOrdnen()
                 fotohinweis = "Mit \u{201E}Sichern\u{201C} kommen die Fotos ins Vorwort."
             }
             .confirmationDialog("Vorwort entfernen?", isPresented: $entfernenFragen, titleVisibility: .visible) {
@@ -233,12 +238,12 @@ struct VorwortView: View {
                 // wählen möchte."). Bis 1.0.17 ein `NavigationLink` im Stapel
                 // des Vorwort-Blatts, gebunden direkt an `schrift` — jede
                 // Wahl zeichnete das ganze Blatt samt Textfeld mit dem
-                // langen Vorworttext neu. Jetzt wie im Inspektor (dort seit
-                // Reisebuch 1.0.29 ohne Klage): eigenes Blatt, eigener
-                // Stapel, ein Entwurf, übernommen erst mit „Fertig".
+                // langen Vorworttext neu. Jetzt wie im Inspektor: eigenes
+                // Blatt, eigener Stapel. Die eigentliche Ursache war wohl der
+                // doppelt geschlossene Wähler von iOS (siehe `Schriftwahl` in
+                // `Waehler.swift`, behoben 1.0.19).
                 Button {
                     Absturzspur.beginnt("Vorwort: Schriftwahl \u{00F6}ffnen (jetzt \(schrift.familie.vollerName))")
-                    schriftEntwurf = schrift.familie
                     schriftwahlOffen = true
                 } label: {
                     LabeledContent("Schriftart", value: schrift.familie.vollerName)
@@ -331,11 +336,35 @@ struct VorwortView: View {
             }
             try? FileManager.default.removeItem(at: datei)
         }
+        zeitlichOrdnen()
         if neu < treffer.count {
             fotohinweis = "\(treffer.count - neu) von \(treffer.count) Fotos ließen sich nicht laden."
         } else {
             fotohinweis = "\(neu) Fotos hinzugefügt. Mit \u{201E}Sichern\u{201C} kommen sie ins Vorwort."
         }
+    }
+
+
+    /// Die Fotos der Aufnahmezeit nach (ab 1.0.19, Wunsch des Nutzers
+    /// 11/2026: „dass die eingefügten Fotos im Vorwort in chronologischer
+    /// Reihenfolge erscheinen"). Fotos ohne Zeit bleiben in ihrer Folge am
+    /// Ende; bei gleicher Zeit bleibt die gewählte Folge.
+    private func zeitlichOrdnen() {
+        var stelle: [UUID: Int] = [:]
+        for (i, id) in fotos.enumerated() where stelle[id] == nil { stelle[id] = i }
+        let zeit: (UUID) -> Date? = { werk.reise.foto($0)?.aufnahme }
+        fotos.sort { a, b in
+            switch (zeit(a), zeit(b)) {
+            case let (x?, y?) where x != y: return x < y
+            case (.some, nil): return true
+            case (nil, .some): return false
+            default: return (stelle[a] ?? 0) < (stelle[b] ?? 0)
+            }
+        }
+    }
+
+    private var ohneZeit: Int {
+        fotos.filter { werk.reise.foto($0)?.aufnahme == nil }.count
     }
 
 }

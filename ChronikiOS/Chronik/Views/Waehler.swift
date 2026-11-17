@@ -187,14 +187,24 @@ struct Schriftwahl: UIViewControllerRepresentable {
         let fertig: (UIFontDescriptor?) -> Void
         init(fertig: @escaping (UIFontDescriptor?) -> Void) { self.fertig = fertig }
 
+        // KAPITELWEISE (ab 1.0.19): KEIN `dismiss` hier. Gemeldet 11/2026:
+        // „Offenbar ist es immer wieder ein Problem, tatsächlich eine
+        // Schrift auszuwählen, die ich per Profil auf dem Gerät installiert
+        // habe … wann immer ich eine solche Schrift auswählen möchte,
+        // funktioniert es nicht" (und im Vorwort: Absturz). Der Wähler
+        // schloss sich selbst UND `SchriftwahlView` schloss sein Blatt über
+        // `waehlerOffen = false`. Der zweite Befehl findet sein Blatt schon
+        // geschlossen und trifft das darunter — die Schriftwahl selbst oder
+        // gleich das Vorwort-Blatt, und mit ihm die eben gewählte Schrift.
+        // In der Typografie fiel das nicht auf: Dort schreibt die Wahl
+        // sofort ins Buch, ein mitgeschlossenes Blatt verliert nichts.
+        // Geschlossen wird jetzt NUR über SwiftUI (der Aufrufer setzt seinen
+        // Schalter zurück — `SchriftwahlView` ist der einzige).
         func fontPickerViewControllerDidPickFont(_ waehler: UIFontPickerViewController) {
-            let deskriptor = waehler.selectedFontDescriptor
-            waehler.dismiss(animated: true)
-            fertig(deskriptor)
+            fertig(waehler.selectedFontDescriptor)
         }
 
         func fontPickerViewControllerDidCancel(_ waehler: UIFontPickerViewController) {
-            waehler.dismiss(animated: true)
             fertig(nil)
         }
     }
