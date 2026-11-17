@@ -211,6 +211,21 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Ein Foto eine Seite zurück holt das Blockmenü des Reisebuchs („Eine Seite
   zurück"); seit 1.0.14 geht dabei die Bildunterschrift mit
   (`blockVerschieben`).
+- **Vorwort** (ab 1.0.15, Ansage des Nutzers 11/2026: „einen einleitenden
+  Text dem eigentlichen Chronikbuch voranstellen … persönliche Worte …
+  mindestens 7 Seiten … einzelne Fotos … zweispaltig … dass der Text sie
+  umfließt"). Ein besonderes Kapitel (`Reisetag.vorwort`, Datum 1.1.1900,
+  immer vorn; `Reise.vorwortIndex`), bearbeitet in `Views/VorwortView.swift`
+  (Plusmenü und „Ganzes Buch → Vorwort…": Überschrift, Text aus der
+  Zwischenablage, Aufräumen nach Textpflege, Fotos aus Mediathek/Dateien in
+  fester Reihenfolge). Es zählt nicht zum Zeitraum, `kapitelNeuEinteilen`
+  lässt es stehen, die Kopfzeile sagt seine Überschrift. Satz:
+  `Layoutautomat.vorwortseiten` — zwei Spalten, Blocksatz mit Trennung, Fotos
+  gleichmäßig auf die geschätzten Seiten verteilt, je eins in einer Spalte
+  oben oder unten (≤ 42 % der Höhe, Lage wechselt reihum), der Text füllt die
+  freien Stücke jeder Spalte darüber/darunter (`Textmass.teilen`). Übrige
+  Fotos nach dem Text auf eine Albumseite. Text wird im Vorwort-Blatt
+  bearbeitet, nicht auf der Seite (Sichern setzt neu).
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -248,7 +263,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -292,3 +307,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Bildunterschrift wandert beim Verschieben mit. **Nicht gemessen:** auf
   einem Gerät; ob die Schwellen (50 % verdeckt, 25 % außerhalb) treffen,
   was der Nutzer als „passt nicht mehr" empfindet.
+- **1.0.15 (Build 16)**, 11/2026: Vorwort, zweispaltig, Text fließt um die
+  Fotos. **Nicht gemessen:** auf einem Gerät; ob die Seitenschätzung bei sehr
+  langen Texten die Fotos gut verteilt.

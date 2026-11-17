@@ -516,6 +516,7 @@ struct Layoutautomat {
         // (Zeitung, Meldungen, Fotos, Text) — außer es trägt ein eigenes
         // Muster. In jedem anderen Stil kommen Zeitung und Meldungen vor
         // die gewohnten Seiten.
+        if tag.vorwort { return ich.vorwortseiten(tag) }
         if ich.istLebensbuch, tag.muster == nil { return ich.lebensseiten(tag) }
         let vorn = ich.sonderseiten(tag)
         let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt }
@@ -2747,4 +2748,125 @@ extension Layoutautomat {
         return bloecke
     }
 
+
+    // MARK: - Vorwort: zwei Spalten, Fotos umflossen (ab 1.0.15)
+    //
+    // Der Text läuft in zwei Spalten. Fotos stehen jeweils in EINER Spalte —
+    // oben oder unten, im Wechsel rechts und links —, und der Text fließt
+    // in seiner Spalte darüber und darunter weiter. Fotos über beide Spalten
+    // gibt es mit Absicht nicht: Dann müsste die Lesefolge mitten auf der
+    // Seite von der linken in die rechte Spalte springen und zurück.
+    //
+    // Die Fotos verteilen sich gleichmäßig über die Seiten, die der Text
+    // braucht (gemessen, nicht geschätzt), höchstens vier je Seite. Ist der
+    // Text zu Ende und sind noch Fotos übrig, kommen sie auf eine letzte
+    // Seite wie im Album. Ein Foto ist gerade (nicht gedreht), damit der
+    // Text an ihm entlang laufen kann; sein weißer Rand zählt zum Abstand.
+    func vorwortseiten(_ tag: Reisetag) -> [Seite] {
+        var bild = typografie.flieText
+        bild.kursiv = false
+        bild.ausrichtung = .blocksatz
+        bild.trennung = true
+        let luft = fuge * 3
+        let spalte = (Double(satz.width) - luft) / 2
+        let abstand = fuge * 2 + Druckmass.pt(max(gestaltung.fotorand, 0)) + 2
+        var rest = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var fotos = tag.fotos.compactMap { fotoIndex[$0] }
+        let titel = tag.ueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let gesamt = rest.isEmpty ? 0 : Textmass.hoehe(rest, bild: bild, breite: spalte)
+        let jeSeiteText = 2 * Double(satz.height) * 0.78
+        let seitenzahl = max(1, Int((gesamt / jeSeiteText).rounded(.up)))
+        let jeSeite = fotos.isEmpty ? 0 : min(4, Int((Double(fotos.count) / Double(seitenzahl)).rounded(.up)))
+
+        var seiten: [Seite] = []
+        var nummer = 0
+        while (!rest.isEmpty || !fotos.isEmpty), nummer < 80 {
+            var bloecke: [Block] = []
+            var oben = satz.minY
+            if nummer == 0 {
+                bloecke.append(contentsOf: seitenueberschrift(titel.isEmpty ? "Vorwort" : titel, y: &oben))
+            }
+            let unten = Double(satz.maxY)
+            let hoehe = unten - Double(oben)
+
+            if rest.isEmpty {
+                // Nur noch Fotos: eine Seite im Album.
+                let teil = Array(fotos.prefix(5))
+                fotos.removeFirst(teil.count)
+                let flaeche = CGRect(x: satz.minX, y: oben, width: satz.width, height: satz.maxY - oben)
+                bloecke.append(contentsOf: albumbloecke(teil, in: flaeche))
+                seiten.append(Seite(bloecke: bloecke))
+                nummer += 1
+                continue
+            }
+
+            // Fotos dieser Seite und die Flächen, die sie in ihrer Spalte
+            // belegen (samt Abstand).
+            var belegt: [[(von: Double, bis: Double)]] = [[], []]
+            let zahl = min(jeSeite, fotos.count)
+            for j in 0 ..< zahl {
+                let foto = fotos.removeFirst()
+                // Im Wechsel: rechts oben, links unten, rechts unten, links oben.
+                let lage = (nummer + j) % 4
+                let s = (lage == 0 || lage == 2) ? 1 : 0
+                let obenHin = lage == 0 || lage == 3
+                let v = max(foto.seitenverhaeltnis, 0.5)
+                let h = min(spalte / v, hoehe * 0.42)
+                let b = min(spalte, h * v)
+                let x = Double(satz.minX) + Double(s) * (spalte + luft) + (spalte - b) / 2
+                let y = obenHin ? Double(oben) : unten - h
+                bloecke.append(Block(inhalt: .foto(foto.id),
+                                     rahmen: Rahmen(x: x, y: y, breite: b, hoehe: h),
+                                     ebene: 1))
+                if let zeile = unterschriftBlock(foto, x: x, y: y + h, breite: b) {
+                    bloecke.append(zeile)
+                }
+                let zeile = unterschriftHoehe(foto, breite: b)
+                belegt[s].append((max(Double(oben), y - abstand), min(unten, y + h + zeile + abstand)))
+            }
+
+            // Der Text: Spalte für Spalte, in jeder freien Strecke.
+            var gesetzt = false
+            for s in 0 ... 1 where !rest.isEmpty {
+                let x = Double(satz.minX) + Double(s) * (spalte + luft)
+                var frei: [(von: Double, bis: Double)] = [(Double(oben), unten)]
+                for besetzt in belegt[s] {
+                    var neu: [(von: Double, bis: Double)] = []
+                    for f in frei {
+                        if besetzt.bis <= f.von || besetzt.von >= f.bis {
+                            neu.append(f)
+                        } else {
+                            if besetzt.von > f.von { neu.append((f.von, besetzt.von)) }
+                            if besetzt.bis < f.bis { neu.append((besetzt.bis, f.bis)) }
+                        }
+                    }
+                    frei = neu
+                }
+                for strecke in frei.sorted(by: { $0.von < $1.von }) where !rest.isEmpty {
+                    let h = strecke.bis - strecke.von
+                    guard h > bild.zeilenhoehe * 2 else { continue }
+                    let (kopf, weiter) = Textmass.teilen(rest, bild: bild,
+                                                        groesse: CGSize(width: spalte, height: h),
+                                                        anAbsatz: false)
+                    guard !kopf.isEmpty else { continue }
+                    let gemessen = Textmass.hoehe(kopf, bild: bild, breite: spalte)
+                    bloecke.append(Block(inhalt: .text(kopf),
+                                         rahmen: Rahmen(x: x, y: strecke.von, breite: spalte,
+                                                        hoehe: min(gemessen + 1, h)),
+                                         abweichung: abweichung(bild)))
+                    rest = String(weiter.drop(while: { $0 == "\n" || $0 == " " }))
+                    gesetzt = true
+                }
+            }
+            seiten.append(Seite(bloecke: bloecke))
+            nummer += 1
+            if !gesetzt, !rest.isEmpty, belegt.allSatisfy({ $0.isEmpty }) { break }
+        }
+        if seiten.isEmpty {
+            var y = satz.minY
+            seiten.append(Seite(bloecke: seitenueberschrift(titel.isEmpty ? "Vorwort" : titel, y: &y)))
+        }
+        return seiten
+    }
 }

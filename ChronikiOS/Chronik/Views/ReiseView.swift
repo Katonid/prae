@@ -186,6 +186,8 @@ struct ReiseView: View {
         case kapitelseiten(UUID)
         // Eine Erinnerung zu einem Foto einsprechen (ab 1.0.11).
         case erinnerung(UUID)
+        // Das Vorwort (ab 1.0.15).
+        case vorwort
 
         var id: String {
             switch self {
@@ -231,6 +233,7 @@ struct ReiseView: View {
             case .kapitelraster: return "kapitelraster"
             case let .kapitelseiten(id): return "kapitelseiten-\(id)"
             case let .erinnerung(id): return "erinnerung-\(id)"
+            case .vorwort: return "vorwort"
             }
         }
     }
@@ -1684,6 +1687,7 @@ struct ReiseView: View {
                     blatt = .kapitelseiten(tag.id)
                 }
             }
+            Button("Vorwort\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
             Button("Neuer Text\u{2026}", systemImage: "square.and.pencil") { blatt = .neuerText }
             Button("Alle Texte\u{2026}", systemImage: "list.bullet.rectangle") { blatt = .texte }
             Button("Texte aus einer Datei\u{2026}", systemImage: "text.book.closed") { blatt = .textimport }
@@ -1731,6 +1735,7 @@ struct ReiseView: View {
                 Button("Kapitel und Zeitraster\u{2026}", systemImage: "rectangle.split.3x1") {
                     blatt = .kapitelraster
                 }
+                Button("Vorwort\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
                 Button("Vorlagen: Aussehen und Druckerei…", systemImage: "square.on.square") {
                     blatt = .vorlagen
                 }
@@ -2467,6 +2472,8 @@ struct ReiseView: View {
             KapitelrasterView(werk: werk)
         case let .kapitelseiten(id):
             KapitelseitenView(werk: werk, tagID: id)
+        case .vorwort:
+            VorwortView(werk: werk)
         case let .erinnerung(fotoID):
             EintragView(werk: werk, eintrag: EintragView.erinnerung(zu: fotoID, werk: werk),
                         sofortDiktieren: true)

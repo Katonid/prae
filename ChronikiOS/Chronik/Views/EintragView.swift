@@ -522,7 +522,7 @@ struct KapitelrasterView: View {
         probe.zeitraster = raster
         var zaehler: [Tagesdatum: (fotos: Int, texte: Int)] = [:]
         let index = probe.fotoIndex
-        for tag in probe.tage {
+        for tag in probe.tage where !tag.vorwort {
             for id in tag.fotos {
                 let datum = index[id]?.tagesschluessel.flatMap { Tagesdatum(schluessel: $0) } ?? tag.datum
                 zaehler[probe.kapitelbeginn(datum), default: (0, 0)].fotos += 1

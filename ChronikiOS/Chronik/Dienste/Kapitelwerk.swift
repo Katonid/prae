@@ -141,7 +141,7 @@ extension Reisewerk {
         var altesWerk = reise
         if let altesRaster { altesWerk.zeitraster = altesRaster }
 
-        for tag in vorher {
+        for tag in vorher where !tag.vorwort {
             for fotoID in tag.fotos {
                 let aufnahme = index[fotoID]?.tagesschluessel.flatMap { Tagesdatum(schluessel: $0) }
                 let datum = aufnahme ?? tag.datum
@@ -165,6 +165,8 @@ extension Reisewerk {
                 neu[i].text = reise.kapiteltext(neu[i].datum)
             }
         }
+        // Das Vorwort gehört zu keinem Raster und bleibt, wie es ist.
+        if let vorwort = vorher.first(where: { $0.vorwort }) { neu.append(vorwort) }
         neu.sort { $0.datum < $1.datum }
         reise.tage = neu
         for kapitel in neu { spurAktualisieren(kapitel.id) }
@@ -441,5 +443,42 @@ extension Reisewerk {
         }
         meldung = .init(text: satz)
         return satz
+    }
+
+    // MARK: - Vorwort (ab 1.0.15)
+    //
+    // Ansage des Nutzers 11/2026: „einen einleitenden Text dem eigentlichen
+    // Chronikbuch voranstellen … persönliche Worte … mindestens 7 Seiten …
+    // einzelne Fotos beifügen … in einer zweispaltigen Ansicht. Die Fotos …
+    // sollen bewirken, dass der Text sie umfließt."
+
+    /// Legt das Vorwort an oder ändert es, und setzt seine Seiten neu.
+    func vorwortSichern(titel: String, text: String, fotos: [UUID]) {
+        merken()
+        let stelle: Int
+        if let i = reise.vorwortIndex {
+            stelle = i
+        } else {
+            var neu = Reisetag(datum: Reise.vorwortdatum)
+            neu.vorwort = true
+            neu.karteZeigen = false
+            reise.tage.insert(neu, at: 0)
+            stelle = 0
+        }
+        reise.tage[stelle].ueberschrift = titel
+        reise.tage[stelle].text = text
+        reise.tage[stelle].fotos = fotos
+        reise.tage[stelle].datumstext = ""
+        let id = reise.tage[stelle].id
+        neuAnordnen(id, erzwingen: true)
+        sofortSichern()
+    }
+
+    func vorwortEntfernen() {
+        guard let i = reise.vorwortIndex else { return }
+        merken()
+        if gewaehlterTag == reise.tage[i].id { gewaehlterTag = nil }
+        reise.tage.remove(at: i)
+        sofortSichern()
     }
 }
