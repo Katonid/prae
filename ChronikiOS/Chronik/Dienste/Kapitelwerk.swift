@@ -342,4 +342,104 @@ extension Reisewerk {
         reise.eintraege[i].fertig.toggle()
         sofortSichern()
     }
+
+    // MARK: - Ab hier neu verteilen (ab 1.0.14)
+    //
+    // Ansage des Nutzers 11/2026: „Wenn ich also ein groß angelegtes Foto
+    // verkleinere und einen zugehörigen Text neben dieses Foto schiebe, dann
+    // möchte ich, dass die folgenden Fotos neu angeordnet werden. Im
+    // umgekehrten Fall … wenn ich ein Foto vergrößere, sodass der Platz für
+    // die ursprünglich auf dieser Seite geplanten weiteren Fotos zu klein
+    // wird, dann möchte ich, dass die automatisch auf gegebenenfalls spätere
+    // Seiten verteilt werden." Ausgelöst auf Knopfdruck (seine Wahl), und
+    // frei gewordener Platz auf der bearbeiteten Seite bleibt frei (ebenso).
+    //
+    // Was geschieht:
+    // 1. Auf der gewählten Seite fliegt jedes Foto heraus, das „nicht mehr
+    //    passt": zu mehr als der Hälfte von darüberliegenden Blöcken verdeckt
+    //    oder zu mehr als einem Viertel außerhalb der Seite. Seine
+    //    Bildunterschrift geht mit.
+    // 2. Fest bleiben: alle Seiten bis einschließlich der gewählten und
+    //    jede spätere Seite mit Handarbeit.
+    // 3. Alles übrige des Kapitels (Fotos nach Kennung, Texte nach Wortlaut,
+    //    die nicht auf festen Seiten stehen) wird mit dem Satz des
+    //    Lebensbuchs neu gesetzt und HINTER die gewählte Seite gestellt;
+    //    spätere Seiten mit Handarbeit folgen danach.
+    @discardableResult
+    func abHierNeuVerteilen(seite seiteID: UUID) -> String {
+        guard let stelle = seitenstelle(seiteID) else {
+            let satz = "Erst eine Seite des Kapitels antippen, dann neu verteilen."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        guard automat.istLebensbuch else {
+            let satz = "\u{201E}Ab hier neu verteilen\u{201C} gibt es im Stil \u{201E}Lebensbuch\u{201C}. In anderen Stilen: \u{201E}Seiten neu anordnen\u{201C}."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        merken()
+        let t = stelle.tag
+        let p = stelle.seite
+
+        // 1. Was auf der gewählten Seite nicht mehr passt.
+        let seite = reise.tage[t].seiten[p]
+        let flaeche = CGRect(origin: .zero, size: reise.format.groesse)
+        let ordnung = seite.sortiert
+        var verdraengt = Set<UUID>()
+        for (n, block) in ordnung.enumerated() {
+            guard let fotoID = block.fotoID else { continue }
+            let r = block.rahmen.rect
+            let inhalt = Double(r.width * r.height)
+            guard inhalt > 1 else { continue }
+            let drin = r.intersection(flaeche)
+            let draussen = 1 - Double(drin.isNull ? 0 : drin.width * drin.height) / inhalt
+            var verdeckt = 0.0
+            for oben in ordnung[(n + 1)...] {
+                if case .bildunterschrift = oben.inhalt { continue }
+                let schnitt = r.intersection(oben.rahmen.rect)
+                if !schnitt.isNull { verdeckt += Double(schnitt.width * schnitt.height) }
+            }
+            if draussen > 0.25 || min(verdeckt, inhalt) / inhalt > 0.5 {
+                verdraengt.insert(fotoID)
+            }
+        }
+        if !verdraengt.isEmpty {
+            reise.tage[t].seiten[p].bloecke.removeAll { block in
+                if let id = block.fotoID, verdraengt.contains(id) { return true }
+                if case let .bildunterschrift(id) = block.inhalt, verdraengt.contains(id) { return true }
+                return false
+            }
+        }
+
+        // 2. Feste Seiten und was darauf steht.
+        let vorn = Array(reise.tage[t].seiten[0...p])
+        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand }
+        var fotos = Set<UUID>()
+        var texte = Set<String>()
+        for s in vorn + spaeter {
+            for b in s.bloecke {
+                if let id = b.fotoID { fotos.insert(id) }
+                if let wort = b.text { texte.insert(wort.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            }
+        }
+
+        // 3. Den Rest neu setzen.
+        let neu = automat.restseiten(reise.tage[t], ohneFotos: fotos, ohneTexte: texte)
+        let vorher = reise.tage[t].seiten.count
+        reise.tage[t].seiten = vorn + neu + spaeter
+        seitenzeiger = p
+        sofortSichern()
+        var satz = "Ab Seite \(p + 1) des Kapitels neu verteilt: \(neu.count) Seiten neu gesetzt"
+        satz += vorher == reise.tage[t].seiten.count ? "." : " (vorher \(vorher), jetzt \(reise.tage[t].seiten.count) Seiten im Kapitel)."
+        if !verdraengt.isEmpty {
+            satz += verdraengt.count == 1
+                ? " 1 Foto passte auf der bearbeiteten Seite nicht mehr und steht jetzt dahinter."
+                : " \(verdraengt.count) Fotos passten auf der bearbeiteten Seite nicht mehr und stehen jetzt dahinter."
+        }
+        if !spaeter.isEmpty {
+            satz += " \(spaeter.count) später von Hand gestaltete Seiten blieben stehen."
+        }
+        meldung = .init(text: satz)
+        return satz
+    }
 }

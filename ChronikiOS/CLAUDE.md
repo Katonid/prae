@@ -195,6 +195,22 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Texten ein graues Häkchen (die Prüfung überspringt sie von selbst, seit
   1.0.12). Abgleich über iCloud: Einstellungen im Regal → „Über iCloud
   abgleichen", je Gerät einschalten (aus dem Reisebuch, Vorgabe aus).
+- **„Ab der gewählten Seite neu verteilen"** (ab 1.0.14, Ansage des Nutzers
+  11/2026: nach Handarbeit an einer Seite — Foto verkleinert und Text daneben,
+  oder Foto vergrößert — sollen die folgenden Fotos neu angeordnet bzw. auf
+  spätere Seiten verteilt werden). Seine Wahl: **auf Knopfdruck** (Kapitel-Menü),
+  und **frei gewordener Platz auf der bearbeiteten Seite bleibt frei**.
+  `Reisewerk.abHierNeuVerteilen` (Kapitelwerk): Auf der gewählten Seite
+  fliegen Fotos heraus, die zu mehr als 50 % von darüberliegenden Blöcken
+  verdeckt sind oder zu mehr als 25 % außerhalb der Seite liegen (samt
+  Bildunterschrift). Fest bleiben die Seiten bis zur gewählten und jede
+  spätere Seite mit Handarbeit; der Rest des Kapitels (Fotos nach Kennung,
+  Texte nach Wortlaut, die auf keiner festen Seite stehen) wird mit
+  `Layoutautomat.restseiten` neu gesetzt und HINTER die gewählte Seite
+  gestellt, spätere Handarbeitsseiten folgen danach. Nur im Stil Lebensbuch.
+  Ein Foto eine Seite zurück holt das Blockmenü des Reisebuchs („Eine Seite
+  zurück"); seit 1.0.14 geht dabei die Bildunterschrift mit
+  (`blockVerschieben`).
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -232,7 +248,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -272,3 +288,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.13 (Build 14)**, 11/2026: Sicherung eines oder aller Bücher aus dem
   Regal, Häkchen für geprüfte Texte. **Nicht gemessen:** auf einem Gerät;
   wie lange die Sicherung aller Bücher mit Hunderten Fotos dauert.
+- **1.0.14 (Build 15)**, 11/2026: ab der gewählten Seite neu verteilen,
+  Bildunterschrift wandert beim Verschieben mit. **Nicht gemessen:** auf
+  einem Gerät; ob die Schwellen (50 % verdeckt, 25 % außerhalb) treffen,
+  was der Nutzer als „passt nicht mehr" empfindet.

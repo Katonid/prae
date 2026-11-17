@@ -2013,6 +2013,14 @@ struct ReiseView: View {
                     blatt = .spur(tag.id)
                 }
                 Divider()
+                // KAPITELWEISE (ab 1.0.14): die gewählte Seite bleibt, wie
+                // sie ist; alles danach wird neu verteilt.
+                Button("Ab der gewählten Seite neu verteilen", systemImage: "arrow.down.right.and.arrow.up.left") {
+                    if let seite = werk.gewaehlteSeite { werk.abHierNeuVerteilen(seite: seite) }
+                }
+                .disabled(werk.gewaehlteSeite.flatMap { werk.seitenstelle($0) }.map {
+                    werk.reise.tage[$0.tag].id != tag.id
+                } ?? true)
                 Button("Seiten neu anordnen", systemImage: "wand.and.stars") {
                     if werk.hatHandarbeit(tag.id) {
                         neuAnordnenFrage = tag.id

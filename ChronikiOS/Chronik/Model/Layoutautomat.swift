@@ -2130,6 +2130,29 @@ extension Layoutautomat {
         return seiten
     }
 
+    /// KAPITELWEISE (ab 1.0.14): Seiten für alles, was im Kapitel NICHT
+    /// schon auf festen Seiten steht — für „Ab hier neu verteilen". Fotos
+    /// werden an ihrer Kennung erkannt, Texte an ihrem Wortlaut.
+    func restseiten(_ tag: Reisetag, ohneFotos: Set<UUID>, ohneTexte: Set<String>) -> [Seite] {
+        let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt && !ohneFotos.contains($0.id) }
+        let eintraege = kapiteltexte[tag.datum] ?? []
+        var fluss: [Fluss]
+        if eintraege.isEmpty {
+            fluss = fotos.map { .foto($0) }
+            let frei = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !frei.isEmpty { fluss.append(.text(kopf: "", rumpf: frei, zu: nil)) }
+        } else {
+            fluss = Self.zeitfolge(fotos: fotos, eintraege: eintraege)
+        }
+        fluss = fluss.filter { stueck in
+            if case .text(_, let rumpf, _) = stueck {
+                return !ohneTexte.contains(rumpf.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+            return true
+        }
+        return flussseiten(tag, fluss, mitKopf: false)
+    }
+
     // MARK: Ein Fluss aus Fotos und Texten (ab 1.0.9)
     //
     // Ansage des Nutzers 11/2026 zu 1.0.8 (dort bekam jeder Text eine eigene

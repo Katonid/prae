@@ -2040,6 +2040,18 @@ final class Reisewerk: ObservableObject, Identifiable {
         // verschöbe etwas, das niemand angefasst hat.
         reise.tage[stelle.tag].seiten[ziel].bloecke.append(geschoben)
         reise.tage[stelle.tag].seiten[ziel].heben(geschoben.id)
+        // KAPITELWEISE (ab 1.0.14): Die Bildunterschrift eines Fotos geht
+        // mit — sonst stünde sie allein auf der alten Seite.
+        if let fotoID = geschoben.fotoID,
+           let zeile = reise.tage[stelle.tag].seiten[stelle.seite].bloecke.firstIndex(where: {
+               if case let .bildunterschrift(id) = $0.inhalt { return id == fotoID }
+               return false
+           })
+        {
+            var mit = reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: zeile)
+            mit.vonHand = true
+            reise.tage[stelle.tag].seiten[ziel].bloecke.append(mit)
+        }
         gewaehlterBlock = geschoben.id
         seitenzeiger = ziel
         return true
