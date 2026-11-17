@@ -26,6 +26,11 @@ struct VorwortView: View {
     @State private var dateiwahl = false
     @State private var entfernenFragen = false
     @State private var hinweis: String?
+    // Die Schrift des Vorworts (ab 1.0.17). `eigeneSchrift` aus heißt: wie
+    // der Fließtext des Buches — dann folgt das Vorwort jeder späteren
+    // Änderung an der Typografie.
+    @State private var eigeneSchrift = false
+    @State private var schrift = Schriftbild()
 
     private var gibtEs: Bool { werk.reise.vorwortIndex != nil }
 
@@ -70,6 +75,8 @@ struct VorwortView: View {
                     Text("\(text.count) Zeichen. Im Buch läuft der Text in zwei Spalten im Blocksatz; Absätze (eine Leerzeile) bleiben erhalten.")
                 }
 
+                schriftAbschnitt
+
                 Section {
                     ForEach(fotos, id: \.self) { id in
                         HStack(spacing: 12) {
@@ -111,6 +118,11 @@ struct VorwortView: View {
                     }
                 }
             }
+            .onChange(of: eigeneSchrift) { _, an in
+                // Zurück auf „wie das Buch": Die Werte zeigen wieder, was
+                // dann gilt.
+                if !an { schrift = werk.automat.vorwortbild() }
+            }
             .navigationTitle("Vorwort")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -120,7 +132,8 @@ struct VorwortView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") {
                         let t = titel.trimmingCharacters(in: .whitespacesAndNewlines)
-                        werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: text, fotos: fotos)
+                        werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: text, fotos: fotos,
+                                            schrift: eigeneSchrift ? schrift : nil)
                         schliessen()
                     }
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && fotos.isEmpty)
@@ -134,6 +147,10 @@ struct VorwortView: View {
                     titel = tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift
                     text = tag.text
                     fotos = tag.fotos
+                    eigeneSchrift = tag.vorwortschrift != nil
+                    schrift = werk.automat.vorwortbild(tag)
+                } else {
+                    schrift = werk.automat.vorwortbild()
                 }
             }
             .sheet(isPresented: $mediathek) {
@@ -172,4 +189,64 @@ struct VorwortView: View {
             }
         }
     }
+
+    // MARK: Schrift
+
+    private var schriftAbschnitt: some View {
+        Section {
+            Toggle("Eigene Schrift für das Vorwort", isOn: $eigeneSchrift)
+            if eigeneSchrift {
+                NavigationLink {
+                    SchriftwahlView(auswahl: $schrift.familie, titel: "Vorwort")
+                } label: {
+                    LabeledContent("Schriftart", value: schrift.familie.vollerName)
+                }
+                Stepper(value: $schrift.groesse, in: 7...24, step: 0.5) {
+                    LabeledContent("Größe", value: String(format: "%.1f pt", schrift.groesse))
+                }
+                VStack(alignment: .leading) {
+                    LabeledContent("Zeilenabstand", value: String(format: "%.2f", schrift.zeilenabstand))
+                    Slider(value: $schrift.zeilenabstand, in: 1.0...2.2)
+                }
+                VStack(alignment: .leading) {
+                    LabeledContent("Abstand nach Absätzen", value: String(format: "%.0f pt", schrift.absatzabstand))
+                    Slider(value: $schrift.absatzabstand, in: 0...24, step: 1)
+                }
+                Picker("Ausrichtung", selection: $schrift.ausrichtung) {
+                    ForEach(Ausrichtung.allCases) { art in
+                        Label(art.name, systemImage: art.symbol).tag(art)
+                    }
+                }
+                .pickerStyle(.menu)
+                Toggle("Kursiv", isOn: $schrift.kursiv)
+                Toggle("Silben trennen", isOn: $schrift.trennung)
+                ColorPicker("Farbe", selection: Binding(
+                    get: { schrift.farbe.farbe },
+                    set: { schrift.farbe = Farbwert($0) }
+                ), supportsOpacity: false)
+            }
+            // Eine Probe in der gewählten Schrift — in der Größe, die
+            // gedruckt wird, damit 12 pt hier auch nach 12 pt aussehen.
+            Text(probe)
+                .font(Font(schrift.uiFont))
+                .foregroundStyle(schrift.farbe.farbe)
+                .lineSpacing(CGFloat(schrift.groesse * (schrift.zeilenabstand - 1)))
+                .multilineTextAlignment(schrift.ausrichtung.swiftUIWert)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+        } header: {
+            Text("Schrift")
+        } footer: {
+            Text(eigeneSchrift
+                 ? "Gilt nur für den Text des Vorworts. Beim Sichern fließt er neu; Fotos bleiben, wo sie stehen."
+                 : "Wie der Fließtext des Buches, gerade, im Blocksatz mit Silbentrennung.")
+        }
+    }
+
+    private var probe: String {
+        let anfang = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !anfang.isEmpty else { return "Dieses Buch erzählt von den ersten Jahren \u{2014} Kapitel für Kapitel, Foto für Foto." }
+        return String(anfang.prefix(220)) + (anfang.count > 220 ? "\u{2026}" : "")
+    }
+
 }

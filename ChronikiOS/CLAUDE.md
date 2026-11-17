@@ -251,6 +251,15 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   die Seite mit den wenigsten Fotos (`vorwortFoto`). Kapitel-Menü:
   „Vorwort bearbeiten…", „Text neu umfließen lassen" (nach Änderungen im
   Inspektor). „Seiten neu anordnen" setzt alles neu.
+- **Eigene Schrift fürs Vorwort** (ab 1.0.17, Ansage des Nutzers 11/2026:
+  „Ich möchte die Schriftart des Vorwortes auch einstellen können").
+  `Reisetag.vorwortschrift: Schriftbild?`, `nil` = Fließtext des Buches,
+  gerade, Blocksatz, Trennung (`Layoutautomat.vorwortbild(tag)`, von
+  `vorwortseiten` und `vorwortUmflossen` benutzt). Im Vorwort-Blatt Abschnitt
+  „Schrift": Schalter „Eigene Schrift", Schriftart (`SchriftwahlView`, also
+  auch selbst installierte), Größe, Zeilen- und Absatzabstand, Ausrichtung,
+  kursiv, Trennung, Farbe, Probe in Druckgröße. Beim Sichern fließt der Text
+  neu, die Fotos bleiben stehen. Die Überschrift behält die Titelschrift.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -288,7 +297,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -339,3 +348,5 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Textverarbeitung um geschobene und eingefügte Fotos. **Nicht gemessen:**
   auf einem Gerät; wie lange das Umfließen bei zehn und mehr Seiten nach dem
   Loslassen dauert.
+- **1.0.17 (Build 18)**, 11/2026: eigene Schrift fürs Vorwort.
+  **Nicht gemessen:** auf einem Gerät.

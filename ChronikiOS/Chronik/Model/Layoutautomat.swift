@@ -2763,7 +2763,7 @@ extension Layoutautomat {
     // Seite wie im Album. Ein Foto ist gerade (nicht gedreht), damit der
     // Text an ihm entlang laufen kann; sein weißer Rand zählt zum Abstand.
     func vorwortseiten(_ tag: Reisetag) -> [Seite] {
-        let bild = vorwortbild()
+        let bild = vorwortbild(tag)
         let luft = fuge * 3
         let spalte = (Double(satz.width) - luft) / 2
         let abstand = fuge * 2 + Druckmass.pt(max(gestaltung.fotorand, 0)) + 2
@@ -2887,7 +2887,8 @@ extension Layoutautomat {
     // Stücke übereinander werden zu einem Textkasten. So läuft der Text
     // auch NEBEN einem Foto weiter, das nur einen Teil der Spalte belegt —
     // wie „Umfließen: Rechteck" in Pages oder Word.
-    func vorwortbild() -> Schriftbild {
+    func vorwortbild(_ tag: Reisetag? = nil) -> Schriftbild {
+        if let eigen = tag?.vorwortschrift { return eigen }
         var bild = typografie.flieText
         bild.kursiv = false
         bild.ausrichtung = .blocksatz
@@ -2896,7 +2897,7 @@ extension Layoutautomat {
     }
 
     func vorwortUmflossen(_ tag: Reisetag, fliesst: (Block) -> Bool) -> [Seite] {
-        let bild = vorwortbild()
+        let bild = vorwortbild(tag)
         let luft = fuge * 3
         let spalte = (Double(satz.width) - luft) / 2
         let abstand = CGFloat(fuge * 1.5 + 2)
