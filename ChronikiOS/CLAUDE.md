@@ -317,6 +317,17 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   in `Fotowahl` hier (dort schließen `GrafikEinfuehrView` und
   `FotoeinfuhrView` NICHT selbst — nur `KapitelseitenView` doppelt). **Nicht
   gemessen:** auf einem Gerät.
+- **Vorwortfotos der Zeit nach** (ab 1.0.19, Wunsch des Nutzers 11/2026:
+  „dass die eingefügten Fotos im Vorwort in chronologischer Reihenfolge
+  erscheinen"). `grafikAblegen` merkt jetzt `Foto.aufnahme` aus dem
+  Bildbefund (OHNE `tagesschluessel` — eine Grafik gehört keinem Kapitel);
+  ältere Vorwortfotos lesen sie beim Öffnen des Vorwort-Blatts einmal aus der
+  abgelegten Datei nach. Die Liste im Blatt wird nach jedem Hinzufügen und
+  beim Öffnen sortiert (`VorwortView.zeitlichOrdnen`, ohne Zeit ans Ende,
+  sonst stabil). Beim Sichern bleiben stehende Fotos, wo sie sind; ein neues
+  kommt zwischen die Seite seines Vorgängers und die seines Nachfolgers in
+  der Liste, dort auf die mit den wenigsten Fotos (`vorwortSichern`). Alles
+  der Reihe nach von vorn: Kapitel-Menü → „Seiten neu anordnen".
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -413,5 +424,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   (Absturz beim Wählen gemeldet). **Nicht gemessen:** ob der Absturz damit
   weg ist.
 - **1.0.19 (Build 20)**, 11/2026: Wähler von iOS schließt nicht mehr doppelt
-  (selbst installierte Schriften gingen verloren). **Nicht gemessen:** auf
+  (selbst installierte Schriften gingen verloren), Vorwortfotos der Zeit
+  nach. **Nicht gemessen:** auf
   einem Gerät.
