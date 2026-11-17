@@ -24,6 +24,13 @@ struct RegalView: View {
     // Abgebrochen wird die ABGESETZTE Aufgabe: `Task.detached` erbt den
     // Abbruch des Aufrufers nicht.
     @State private var abbruch: (() -> Void)?
+    // KAPITELWEISE (ab 1.0.13): Sicherungsdateien eines oder aller Bücher.
+    @State private var sicherung: Sicherungswunsch?
+
+    struct Sicherungswunsch: Identifiable {
+        let id = UUID()
+        let orte: [URL]
+    }
 
     var body: some View {
         NavigationStack {
@@ -51,12 +58,26 @@ struct RegalView: View {
                         Label("Neues Buch", systemImage: "plus")
                     }
                 }
+                // KAPITELWEISE (ab 1.0.13, Ansage des Nutzers 11/2026: „die
+                // Möglichkeit haben, eine Sicherungsdatei eines oder aller
+                // Projekte anlegen zu können").
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        sichern(regal.reisen)
+                    } label: {
+                        Label("Alle Bücher sichern", systemImage: "externaldrive.badge.icloud")
+                    }
+                    .disabled(regal.reisen.isEmpty || arbeitsaufgabe != nil)
+                }
             }
             .sheet(isPresented: $einstellungen) {
                 EinstellungenView()
                     .environmentObject(regal)
             }
             .arbeitsanzeige(arbeit, titel: "Buchdatei", abbrechen: abbruch)
+            .sheet(item: $sicherung) { wunsch in
+                Teilenblatt(gegenstaende: wunsch.orte)
+            }
             // Eine hereingereichte Buchdatei — aus „Dateien", per AirDrop
             // oder über den Wähler in den Einstellungen. Die Frage steht
             // hier und nur hier.
@@ -360,10 +381,17 @@ struct RegalView: View {
                     Button("Umbenennen") { umbenennen(reise) }
                         .tint(.gray)
                 }
+                .swipeActions(edge: .leading) {
+                    Button("Sichern") { sichern([reise]) }
+                        .tint(.green)
+                }
                 // Daneben im Kontextmenü, und zwar bewusst zweimal: Eine
                 // Wischgeste kennt, wer sie kennt. Beides ruft dieselbe
                 // Stelle — zwei Wege zu einer Sache, nicht zwei Sachen.
                 .contextMenu {
+                    Button("Als Sicherungsdatei sichern\u{2026}", systemImage: "externaldrive") {
+                        sichern([reise])
+                    }
                     Button("Umbenennen", systemImage: "pencil") { umbenennen(reise) }
                     Button("Duplizieren", systemImage: "plus.square.on.square") {
                         duplizieren(reise)
@@ -378,6 +406,41 @@ struct RegalView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    /// Schreibt für jedes Buch eine `.kapitelweise`-Datei (das ganze Buch
+    /// samt aller Bilder, derselbe Weg wie „Buch als Datei sichern" im Buch)
+    /// und bietet sie danach zum Sichern an — „In Dateien sichern" legt alle
+    /// zusammen in einen Ordner, etwa in iCloud Drive oder auf einen Stick.
+    /// Geschrieben wird abseits des Hauptfadens, Buch für Buch.
+    private func sichern(_ liste: [Reise]) {
+        guard arbeitsaufgabe == nil, !liste.isEmpty else { return }
+        arbeit = Buchdatei.Fortschritt(text: "Wird vorbereitet\u{2026}")
+        let halt = Haltesignal()
+        abbruch = { halt.an = true }
+        arbeitsaufgabe = Task { @MainActor in
+            defer {
+                arbeit = nil
+                arbeitsaufgabe = nil
+                abbruch = nil
+            }
+            var orte: [URL] = []
+            var fehler: [String] = []
+            for (n, reise) in liste.enumerated() {
+                if halt.an { break }
+                arbeit = Buchdatei.Fortschritt(text: "Buch \(n + 1) von \(liste.count): \(reise.anzeigename)")
+                let lauf = Task.detached(priority: .userInitiated) { try Buchdatei.schreiben(reise) }
+                do {
+                    orte.append(try await lauf.value.ort)
+                } catch {
+                    fehler.append(reise.anzeigename)
+                }
+            }
+            if !fehler.isEmpty {
+                einlesefehler = "Nicht gesichert: " + fehler.joined(separator: ", ")
+            }
+            if !orte.isEmpty, !halt.an { sicherung = Sicherungswunsch(orte: orte) }
+        }
     }
 }
 
@@ -559,4 +622,9 @@ private struct NeueReiseBlatt: View {
         guard let id else { return nil }
         return vorlagen.first { $0.id == id && $0.art == art }
     }
+}
+
+/// Ein Abbruchwunsch, den der Knopf setzt und die Schleife liest.
+private final class Haltesignal: @unchecked Sendable {
+    var an = false
 }

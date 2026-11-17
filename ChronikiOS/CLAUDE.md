@@ -184,6 +184,17 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   `geprueft == text` (seit der letzten Prüfung unverändert; auch nach
   bewusstem Wechsel zur anderen Fassung). Die alte Fassung landet in
   `vorfassung`.
+- **Sicherungsdateien eines oder aller Bücher** (ab 1.0.13, Ansage des
+  Nutzers 11/2026). Im Regal: Knopf oben rechts „Alle Bücher sichern", je
+  Buch Wischgeste nach rechts „Sichern" und Kontextmenü. `RegalView.sichern`
+  schreibt Buch für Buch eine `.kapitelweise`-Datei (`Buchdatei.schreiben`,
+  abseits des Hauptfadens, abbrechbar über `Haltesignal`) und bietet alle über
+  das Teilen-Blatt an („In Dateien sichern"). Eingelesen wird eine Datei wie
+  im Reisebuch (antippen/öffnen). Im offenen Buch bleibt „Buch als Datei
+  sichern…" unter „Mehr". Die Textliste zeigt bei geprüften, unveränderten
+  Texten ein graues Häkchen (die Prüfung überspringt sie von selbst, seit
+  1.0.12). Abgleich über iCloud: Einstellungen im Regal → „Über iCloud
+  abgleichen", je Gerät einschalten (aus dem Reisebuch, Vorgabe aus).
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -221,7 +232,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -258,3 +269,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.12 (Build 13)**, 11/2026: automatische Textpflege, Texte als fertig
   markieren. **Nicht gemessen:** auf einem Gerät; wie zuverlässig das
   Sprachmodell nur Tippfehler korrigiert.
+- **1.0.13 (Build 14)**, 11/2026: Sicherung eines oder aller Bücher aus dem
+  Regal, Häkchen für geprüfte Texte. **Nicht gemessen:** auf einem Gerät;
+  wie lange die Sicherung aller Bücher mit Hunderten Fotos dauert.
