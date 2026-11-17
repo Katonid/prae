@@ -96,7 +96,8 @@ enum Seitenbeiwerk {
             kopf.sperrung = 3
             kopf.farbe = reise.akzent
             let text = buchseite.tag.map {
-                "Kapitel " + ($0.ueberschrift.isEmpty ? $0.datum.mittel : $0.ueberschrift)
+                $0.vorwort ? ($0.ueberschrift.isEmpty ? "Vorwort" : $0.ueberschrift)
+                    : "Kapitel " + ($0.ueberschrift.isEmpty ? $0.datum.mittel : $0.ueberschrift)
             } ?? reise.titel
             let hoehe = kopf.zeilenhoehe * 1.6
             let gewuenscht = Druckmass.pt(reise.gestaltung.randOben) * 0.42

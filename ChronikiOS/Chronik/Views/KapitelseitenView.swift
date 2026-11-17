@@ -211,7 +211,7 @@ struct KapitelseitenView: View {
 
     /// Holt die Bilddatei eines Treffers (wie `BildAusFotosView`): als
     /// Datei, nicht als Bytes, und nur einmal fortgesetzt.
-    private static func ladeDatei(_ eintrag: PHPickerResult) async -> URL? {
+    static func ladeDatei(_ eintrag: PHPickerResult) async -> URL? {
         let anbieter = eintrag.itemProvider
         guard anbieter.hasItemConformingToTypeIdentifier(UTType.image.identifier) else { return nil }
         return await withCheckedContinuation { (fortsetzen: CheckedContinuation<URL?, Never>) in

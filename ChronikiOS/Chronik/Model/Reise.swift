@@ -74,6 +74,13 @@ struct Reisetag: Identifiable, Codable, Hashable {
     var zeitungstitel: String = ""
     var zeitungstext: String = ""
     var meldungen: [Meldung] = []
+    // KAPITELWEISE (ab 1.0.15): Dieser „Tag" ist das VORWORT — der Abschnitt
+    // vor dem ersten Kapitel. Er trägt das Datum 1. Januar 1900, damit er in
+    // der sortierten Liste vorn steht, gehört aber zu keinem Zeitraster:
+    // `kapitelNeuEinteilen` lässt ihn stehen, der Zeitraum des Buches zählt
+    // ihn nicht mit, und gesetzt wird er zweispaltig mit umflossenen Fotos
+    // (`Layoutautomat.vorwortseiten`).
+    var vorwort: Bool = false
     // In welcher Zeitzone die Uhrzeiten dieses Tages gelten (Kennung, z. B.
     // `America/Toronto`). Gesetzt beim Einlesen der Reisespur; leer heißt,
     // dass es niemand feststellen konnte. **Die Uhrzeiten selbst sind schon
@@ -110,6 +117,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         zeitungstitel = b.wert(.zeitungstitel, "")
         zeitungstext = b.wert(.zeitungstext, "")
         meldungen = b.wert(.meldungen, [Meldung]())
+        vorwort = b.wert(.vorwort, false)
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
@@ -476,6 +484,10 @@ struct Reise: Identifiable, Codable {
             .sorted { $0.zeit < $1.zeit }
     }
 
+    static let vorwortdatum = Tagesdatum(jahr: 1900, monat: 1, tag: 1)
+
+    var vorwortIndex: Int? { tage.firstIndex { $0.vorwort } }
+
     static func alterszeile(person: String, alter: Int) -> String {
         let name = person.trimmingCharacters(in: .whitespacesAndNewlines)
         let wer = name.isEmpty ? "Du wirst" : "\(name) wird"
@@ -529,7 +541,7 @@ struct Reise: Identifiable, Codable {
     // ausgeblendeter erster Tag den Zeitraum nach vorn, und zwar still —
     // die Seite, die ihn erklärte, war ja gerade weggenommen worden.
     var gerechneterZeitraum: String {
-        let sichtbar = tage.filter { !$0.ausgeblendet }
+        let sichtbar = tage.filter { !$0.ausgeblendet && !$0.vorwort }
         guard let erster = sichtbar.first?.datum, let letzter = sichtbar.last?.datum
         else { return "" }
         if erster == letzter { return erster.mittel }

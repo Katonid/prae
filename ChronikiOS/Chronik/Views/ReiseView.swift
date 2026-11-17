@@ -186,6 +186,8 @@ struct ReiseView: View {
         case kapitelseiten(UUID)
         // Eine Erinnerung zu einem Foto einsprechen (ab 1.0.11).
         case erinnerung(UUID)
+        // Das Vorwort (ab 1.0.15).
+        case vorwort
 
         var id: String {
             switch self {
@@ -231,6 +233,7 @@ struct ReiseView: View {
             case .kapitelraster: return "kapitelraster"
             case let .kapitelseiten(id): return "kapitelseiten-\(id)"
             case let .erinnerung(id): return "erinnerung-\(id)"
+            case .vorwort: return "vorwort"
             }
         }
     }
@@ -1684,6 +1687,7 @@ struct ReiseView: View {
                     blatt = .kapitelseiten(tag.id)
                 }
             }
+            Button("Vorwort\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
             Button("Neuer Text\u{2026}", systemImage: "square.and.pencil") { blatt = .neuerText }
             Button("Alle Texte\u{2026}", systemImage: "list.bullet.rectangle") { blatt = .texte }
             Button("Texte aus einer Datei\u{2026}", systemImage: "text.book.closed") { blatt = .textimport }
@@ -1731,6 +1735,7 @@ struct ReiseView: View {
                 Button("Kapitel und Zeitraster\u{2026}", systemImage: "rectangle.split.3x1") {
                     blatt = .kapitelraster
                 }
+                Button("Vorwort\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
                 Button("Vorlagen: Aussehen und Druckerei…", systemImage: "square.on.square") {
                     blatt = .vorlagen
                 }
@@ -2013,6 +2018,24 @@ struct ReiseView: View {
                     blatt = .spur(tag.id)
                 }
                 Divider()
+                // KAPITELWEISE (ab 1.0.16): Im Vorwort fließt der Text von
+                // selbst; der Knopf ist der Weg, wenn etwas über den
+                // Inspektor verstellt wurde.
+                if tag.vorwort {
+                    Button("Vorwort bearbeiten\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
+                    Button("Text neu umfließen lassen", systemImage: "text.justify") {
+                        werk.merken()
+                        werk.vorwortNachfuehren(werk.tagIndex(tag.id))
+                    }
+                }
+                // KAPITELWEISE (ab 1.0.14): die gewählte Seite bleibt, wie
+                // sie ist; alles danach wird neu verteilt.
+                Button("Ab der gewählten Seite neu verteilen", systemImage: "arrow.down.right.and.arrow.up.left") {
+                    if let seite = werk.gewaehlteSeite { werk.abHierNeuVerteilen(seite: seite) }
+                }
+                .disabled(werk.gewaehlteSeite.flatMap { werk.seitenstelle($0) }.map {
+                    werk.reise.tage[$0.tag].id != tag.id
+                } ?? true)
                 Button("Seiten neu anordnen", systemImage: "wand.and.stars") {
                     if werk.hatHandarbeit(tag.id) {
                         neuAnordnenFrage = tag.id
@@ -2459,6 +2482,8 @@ struct ReiseView: View {
             KapitelrasterView(werk: werk)
         case let .kapitelseiten(id):
             KapitelseitenView(werk: werk, tagID: id)
+        case .vorwort:
+            VorwortView(werk: werk)
         case let .erinnerung(fotoID):
             EintragView(werk: werk, eintrag: EintragView.erinnerung(zu: fotoID, werk: werk),
                         sofortDiktieren: true)
