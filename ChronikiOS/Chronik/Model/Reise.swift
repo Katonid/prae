@@ -81,6 +81,10 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // ihn nicht mit, und gesetzt wird er zweispaltig mit umflossenen Fotos
     // (`Layoutautomat.vorwortseiten`).
     var vorwort: Bool = false
+    // KAPITELWEISE (ab 1.0.17): die eigene Schrift des Vorworts. `nil`
+    // heißt: der Fließtext des Buches, gerade, im Blocksatz mit Trennung
+    // (`Layoutautomat.vorwortbild`).
+    var vorwortschrift: Schriftbild?
     // In welcher Zeitzone die Uhrzeiten dieses Tages gelten (Kennung, z. B.
     // `America/Toronto`). Gesetzt beim Einlesen der Reisespur; leer heißt,
     // dass es niemand feststellen konnte. **Die Uhrzeiten selbst sind schon
@@ -118,6 +122,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         zeitungstext = b.wert(.zeitungstext, "")
         meldungen = b.wert(.meldungen, [Meldung]())
         vorwort = b.wert(.vorwort, false)
+        vorwortschrift = b.wahlweise(.vorwortschrift)
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu

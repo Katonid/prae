@@ -251,6 +251,44 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   die Seite mit den wenigsten Fotos (`vorwortFoto`). Kapitel-Menü:
   „Vorwort bearbeiten…", „Text neu umfließen lassen" (nach Änderungen im
   Inspektor). „Seiten neu anordnen" setzt alles neu.
+- **Eigene Schrift fürs Vorwort** (ab 1.0.17, Ansage des Nutzers 11/2026:
+  „Ich möchte die Schriftart des Vorwortes auch einstellen können").
+  `Reisetag.vorwortschrift: Schriftbild?`, `nil` = Fließtext des Buches,
+  gerade, Blocksatz, Trennung (`Layoutautomat.vorwortbild(tag)`, von
+  `vorwortseiten` und `vorwortUmflossen` benutzt). Im Vorwort-Blatt Abschnitt
+  „Schrift": Schalter „Eigene Schrift", Schriftart (`SchriftwahlView`, also
+  auch selbst installierte), Größe, Zeilen- und Absatzabstand, Ausrichtung,
+  kursiv, Trennung, Farbe, Probe in Druckgröße. Beim Sichern fließt der Text
+  neu, die Fotos bleiben stehen. Die Überschrift behält die Titelschrift.
+- **Fotos im Vorwort-Blatt über `photosPicker`** (ab 1.0.17, gemeldet
+  11/2026: „Fotos, die ich auswähle, werden leider nicht ins Vorwort
+  eingefügt"). Vorher `Fotowahl` (UIKit) in einem `.sheet`: Der Wähler
+  schließt sich selbst (`picker.dismiss`), dazu `mediathek = false` — in einem
+  Blatt IM Blatt kann der zweite Befehl das Vorwort-Blatt mitschließen, und
+  mit ihm geht die Fotoliste verloren. **Ursache nicht auf einem Gerät
+  bestätigt**, nur aus dem Quelltext geschlossen. Dieselbe Bauweise steht noch
+  in `KapitelseitenView` (Zeitung, Meldungen; dort je ein Bild) — klemmt es
+  dort auch, genauso umbauen. Nach dem Hinzufügen sagt ein Hinweis, dass erst
+  „Sichern" die Fotos ins Buch bringt.
+- **Textänderung im Vorwort-Blatt kam nicht an** (behoben 1.0.17, gemeldet
+  11/2026: „Wenn ich dies im Menüfenster tu, dann werden die Änderungen nicht
+  übernommen"). `imVorwortfluss` erkannte Fließtext daran, dass sein
+  Wortlaut im Vorworttext steht — nach dem Ändern im Blatt stand er dort
+  nicht mehr, die alten Kästen galten als eigene Kästen und blieben, der neue
+  Text floss um sie herum. Jetzt: `vorwortNachfuehren(_:frueher:)` prüft auch
+  den alten Text, und jeder Kasten mit `vonHand == false` zählt als Fließtext
+  (eigene Kästen tragen `vonHand`, `blockHinzufuegen`) — das räumt auch Reste
+  aus 1.0.16 weg.
+- **Schrift und Absätze immer sichtbar** (ab 1.0.17, Ansage des Nutzers
+  11/2026: „Schriftfarbe und Absatzformatierungen … nach jedem Absatz eine
+  Reihenhöhe Abstand … Das möchte ich nicht"). Kein Schalter „Eigene Schrift"
+  mehr: gleich der Buchschrift → `nil` gesichert. Abschnitt „Absätze":
+  Ausrichtung, Zeilenabstand, Abstand nach jedem Absatz (0–24 pt),
+  „Leerzeilen zwischen Absätzen behalten" (Vorgabe AUS: beim Sichern werden
+  Leerzeilen zu einem Zeilenwechsel, `VorwortView.ohneLeerzeilen`, unter
+  Linux geprüft). Die Zeile Abstand war eine leere Zeile im eingefügten
+  Text — im Satz ein leerer Absatz. Einen Erstzeileneinzug gibt es nicht
+  (`Schriftbild` kennt keinen; bräuchte `Seitensatz` und Abweichung).
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -288,7 +326,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -339,3 +377,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Textverarbeitung um geschobene und eingefügte Fotos. **Nicht gemessen:**
   auf einem Gerät; wie lange das Umfließen bei zehn und mehr Seiten nach dem
   Loslassen dauert.
+- **1.0.17 (Build 18)**, 11/2026: Schrift und Absätze fürs Vorwort,
+  Leerzeilen weg, Textänderung im Vorwort-Blatt kommt an, Fotos über den
+  SwiftUI-Fotowähler.
+  **Nicht gemessen:** auf einem Gerät.

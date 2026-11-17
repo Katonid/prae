@@ -23,9 +23,17 @@ struct VorwortView: View {
     @State private var fotos: [UUID] = []
     @State private var geladen = false
     @State private var mediathek = false
+    @State private var auswahl: [PhotosPickerItem] = []
+    @State private var laedt = false
     @State private var dateiwahl = false
     @State private var entfernenFragen = false
     @State private var hinweis: String?
+    @State private var fotohinweis: String?
+    // Die Schrift des Vorworts (ab 1.0.17). Gleich der des Buches heißt: wie
+    // der Fließtext des Buches — dann folgt das Vorwort jeder späteren
+    // Änderung an der Typografie.
+    @State private var leerzeilenBehalten = false
+    @State private var schrift = Schriftbild()
 
     private var gibtEs: Bool { werk.reise.vorwortIndex != nil }
 
@@ -70,6 +78,8 @@ struct VorwortView: View {
                     Text("\(text.count) Zeichen. Im Buch läuft der Text in zwei Spalten im Blocksatz; Absätze (eine Leerzeile) bleiben erhalten.")
                 }
 
+                schriftAbschnitt
+
                 Section {
                     ForEach(fotos, id: \.self) { id in
                         HStack(spacing: 12) {
@@ -89,6 +99,12 @@ struct VorwortView: View {
                     }
                     .onMove { von, nach in fotos.move(fromOffsets: von, toOffset: nach) }
                     .onDelete { stellen in fotos.remove(atOffsets: stellen) }
+                    if let fotohinweis {
+                        Text(fotohinweis).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if laedt {
+                        HStack { ProgressView(); Text("Fotos werden geladen \u{2026}").foregroundStyle(.secondary) }
+                    }
                     Menu {
                         Button("Aus der Mediathek", systemImage: "photo.on.rectangle") { mediathek = true }
                         Button("Aus Dateien", systemImage: "folder") { dateiwahl = true }
@@ -120,7 +136,10 @@ struct VorwortView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") {
                         let t = titel.trimmingCharacters(in: .whitespacesAndNewlines)
-                        werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: text, fotos: fotos)
+                        let gesetzt = leerzeilenBehalten ? text : Self.ohneLeerzeilen(text)
+                        let buch = werk.automat.vorwortbild()
+                        werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: gesetzt, fotos: fotos,
+                                            schrift: schrift == buch ? nil : schrift)
                         schliessen()
                     }
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && fotos.isEmpty)
@@ -134,25 +153,27 @@ struct VorwortView: View {
                     titel = tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift
                     text = tag.text
                     fotos = tag.fotos
+                    schrift = werk.automat.vorwortbild(tag)
+                } else {
+                    schrift = werk.automat.vorwortbild()
                 }
             }
-            .sheet(isPresented: $mediathek) {
-                Fotowahl { treffer in
-                    mediathek = false
-                    Task { @MainActor in
-                        var neu = 0
-                        for eintrag in treffer {
-                            guard let datei = await KapitelseitenView.ladeDatei(eintrag) else { continue }
-                            if let id = werk.grafikAblegen(vonDatei: datei) {
-                                fotos.append(id)
-                                neu += 1
-                            }
-                            try? FileManager.default.removeItem(at: datei)
-                        }
-                        if neu < treffer.count { hinweis = "\(treffer.count - neu) Fotos ließen sich nicht laden." }
-                    }
-                }
-                .ignoresSafeArea()
+            // DER FOTOWÄHLER VON SWIFTUI (ab 1.0.17). Gemeldet 11/2026:
+            // „Fotos, die ich auswähle, werden leider nicht ins Vorwort
+            // eingefügt." Bis dahin lief hier `Fotowahl` in einem Blatt: Der
+            // UIKit-Wähler schließt sich selbst (`picker.dismiss`), und das
+            // Blatt wurde zusätzlich über `mediathek = false` geschlossen.
+            // In einem Blatt IM Blatt (das Vorwort ist selbst eines) kann der
+            // zweite Schließbefehl das Vorwort-Blatt treffen — mit ihm
+            // verschwindet die Fotoliste, bevor die Fotos geladen sind.
+            // `photosPicker` schließt SwiftUI selbst, genau einmal.
+            .photosPicker(isPresented: $mediathek, selection: $auswahl,
+                          maxSelectionCount: nil, matching: .images,
+                          preferredItemEncoding: .current)
+            .onChange(of: auswahl) { _, neu in
+                guard !neu.isEmpty else { return }
+                auswahl = []
+                Task { @MainActor in await fotosLaden(neu) }
             }
             .fileImporter(isPresented: $dateiwahl, allowedContentTypes: [.image], allowsMultipleSelection: true) { ergebnis in
                 guard case .success(let adressen) = ergebnis else { return }
@@ -161,6 +182,7 @@ struct VorwortView: View {
                     defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
                     if let id = werk.grafikAblegen(vonDatei: adresse) { fotos.append(id) }
                 }
+                fotohinweis = "Mit \u{201E}Sichern\u{201C} kommen die Fotos ins Vorwort."
             }
             .confirmationDialog("Vorwort entfernen?", isPresented: $entfernenFragen, titleVisibility: .visible) {
                 Button("Entfernen", role: .destructive) {
@@ -172,4 +194,115 @@ struct VorwortView: View {
             }
         }
     }
+
+    // MARK: Schrift
+
+    // Schrift und Absätze (ab 1.0.17, Ansage des Nutzers 11/2026: „Ich
+    // möchte auch Schriftfarbe und Absatzformatierungen vornehmen können.
+    // Konkret wird im Vorwort nach jedem Absatz eine Reihenhöhe Abstand
+    // gehalten. Das möchte ich nicht."). Immer sichtbar, ohne Schalter
+    // davor: Gilt beim Sichern genau die Schrift des Buches, wird `nil`
+    // gesichert — dann folgt das Vorwort späteren Änderungen an der
+    // Typografie.
+    private var schriftAbschnitt: some View {
+        Group {
+            Section {
+                NavigationLink {
+                    SchriftwahlView(auswahl: $schrift.familie, titel: "Vorwort")
+                } label: {
+                    LabeledContent("Schriftart", value: schrift.familie.vollerName)
+                }
+                Stepper(value: $schrift.groesse, in: 7...24, step: 0.5) {
+                    LabeledContent("Größe", value: String(format: "%.1f pt", schrift.groesse))
+                }
+                ColorPicker("Schriftfarbe", selection: Binding(
+                    get: { schrift.farbe.farbe },
+                    set: { schrift.farbe = Farbwert($0) }
+                ), supportsOpacity: false)
+                Toggle("Fett", isOn: $schrift.fett)
+                Toggle("Kursiv", isOn: $schrift.kursiv)
+                if schrift != werk.automat.vorwortbild() {
+                    Button("Wie der Fließtext des Buches") { schrift = werk.automat.vorwortbild() }
+                }
+            } header: {
+                Text("Schrift")
+            }
+
+            Section {
+                Picker("Ausrichtung", selection: $schrift.ausrichtung) {
+                    ForEach(Ausrichtung.allCases) { art in
+                        Label(art.name, systemImage: art.symbol).tag(art)
+                    }
+                }
+                .pickerStyle(.menu)
+                VStack(alignment: .leading) {
+                    LabeledContent("Zeilenabstand", value: String(format: "%.2f", schrift.zeilenabstand))
+                    Slider(value: $schrift.zeilenabstand, in: 1.0...2.2, step: 0.05)
+                }
+                VStack(alignment: .leading) {
+                    LabeledContent("Abstand nach jedem Absatz", value: String(format: "%.0f pt", schrift.absatzabstand))
+                    Slider(value: $schrift.absatzabstand, in: 0...24, step: 1)
+                }
+                Toggle("Leerzeilen zwischen Absätzen behalten", isOn: $leerzeilenBehalten)
+                Toggle("Silben trennen", isOn: $schrift.trennung)
+                // Eine Probe in der gewählten Schrift — in der Größe, die
+                // gedruckt wird, damit 12 pt hier auch nach 12 pt aussehen.
+                Text(probe)
+                    .font(Font(schrift.uiFont))
+                    .foregroundStyle(schrift.farbe.farbe)
+                    .lineSpacing(CGFloat(schrift.groesse * (schrift.zeilenabstand - 1)))
+                    .multilineTextAlignment(schrift.ausrichtung.swiftUIWert)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+            } header: {
+                Text("Absätze")
+            } footer: {
+                Text("Eine leere Zeile zwischen zwei Absätzen steht im Buch als ganze Zeile Abstand. Ohne Haken werden solche Leerzeilen beim Sichern entfernt; den Abstand bestimmt dann allein \u{201E}Abstand nach jedem Absatz\u{201C} (0 pt: gar keiner). Beim Sichern fließt der Text neu, die Fotos bleiben, wo sie stehen.")
+            }
+        }
+    }
+
+    /// Leerzeilen zwischen Absätzen zu EINEM Zeilenwechsel. Ein Absatz ist im
+    /// Satz ein Zeilenwechsel (`Textmass.absatzgrenze`); eine leere Zeile
+    /// dazwischen ist ein zusätzlicher, leerer Absatz — eine Zeilenhöhe plus
+    /// zweimal der Absatzabstand.
+    static func ohneLeerzeilen(_ text: String) -> String {
+        text.replacingOccurrences(of: "\n[ \t\u{00A0}]*(\n[ \t\u{00A0}]*)+", with: "\n",
+                                  options: .regularExpression)
+    }
+
+    private var probe: String {
+        let anfang = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !anfang.isEmpty else { return "Dieses Buch erzählt von den ersten Jahren \u{2014} Kapitel für Kapitel, Foto für Foto." }
+        return String(anfang.prefix(220)) + (anfang.count > 220 ? "\u{2026}" : "")
+    }
+
+
+    // MARK: Fotos laden
+
+    /// Lädt die gewählten Fotos als Datei, legt sie im Buch ab und hängt sie
+    /// an die Liste. Die Datei wird in voller Güte genommen (`.current`).
+    private func fotosLaden(_ treffer: [PhotosPickerItem]) async {
+        laedt = true
+        defer { laedt = false }
+        var neu = 0
+        for eintrag in treffer {
+            guard let daten = try? await eintrag.loadTransferable(type: Data.self) else { continue }
+            let endung = eintrag.supportedContentTypes.first?.preferredFilenameExtension ?? "jpg"
+            let datei = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString + "." + endung)
+            guard (try? daten.write(to: datei)) != nil else { continue }
+            if let id = werk.grafikAblegen(vonDatei: datei) {
+                fotos.append(id)
+                neu += 1
+            }
+            try? FileManager.default.removeItem(at: datei)
+        }
+        if neu < treffer.count {
+            fotohinweis = "\(treffer.count - neu) von \(treffer.count) Fotos ließen sich nicht laden."
+        } else {
+            fotohinweis = "\(neu) Fotos hinzugefügt. Mit \u{201E}Sichern\u{201C} kommen sie ins Vorwort."
+        }
+    }
+
 }
