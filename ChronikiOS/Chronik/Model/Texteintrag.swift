@@ -20,6 +20,12 @@ struct Texteintrag: Codable, Identifiable, Hashable {
     /// eingesprochen wurde. Sie steht im Buch unmittelbar hinter diesem Foto
     /// und auf derselben Seite, unabhängig von ihrer Uhrzeit.
     var foto: UUID?
+    /// KAPITELWEISE (ab 1.0.12): Vom Nutzer als FERTIG markiert — die
+    /// automatische Korrektur fasst diesen Text nicht mehr an.
+    var fertig: Bool = false
+    /// Der Wortlaut nach der letzten automatischen Prüfung. Steht der Text
+    /// noch genau so da, wird er nicht noch einmal geprüft.
+    var geprueft: String?
 
     init() {}
 
@@ -37,6 +43,8 @@ struct Texteintrag: Codable, Identifiable, Hashable {
         zeit = b.wert(.zeit, Date())
         vorfassung = b.wahlweise(.vorfassung)
         foto = b.wahlweise(.foto)
+        fertig = b.wert(.fertig, false)
+        geprueft = b.wahlweise(.geprueft)
     }
 
     var tagesdatum: Tagesdatum { Tagesdatum(zeit) }
