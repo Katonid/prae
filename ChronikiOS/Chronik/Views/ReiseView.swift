@@ -184,6 +184,8 @@ struct ReiseView: View {
         // Zeitung und Meldungen eines Kapitels (ab 1.0.7 direkt im
         // Kapitel-Menü und im Plusmenü).
         case kapitelseiten(UUID)
+        // Eine Erinnerung zu einem Foto einsprechen (ab 1.0.11).
+        case erinnerung(UUID)
 
         var id: String {
             switch self {
@@ -228,6 +230,7 @@ struct ReiseView: View {
             case .neuerText: return "neuertext"
             case .kapitelraster: return "kapitelraster"
             case let .kapitelseiten(id): return "kapitelseiten-\(id)"
+            case let .erinnerung(id): return "erinnerung-\(id)"
             }
         }
     }
@@ -1325,6 +1328,19 @@ struct ReiseView: View {
             // ist so wenig wert wie ein Schalter, den niemand findet —
             // deshalb beides.
             if let fotoID = gewaehlterBlock?.fotoID {
+                // KAPITELWEISE (ab 1.0.11, Ansage des Nutzers 11/2026: „auf
+                // ein Foto tippen und die Möglichkeit haben, einen Text
+                // einsprechen zu können, der dann neben dieses Foto sortiert
+                // wird"). Das Diktat startet sofort; der Text steht danach
+                // direkt hinter dem Foto, auf derselben Seite.
+                if werk.reise.foto(fotoID)?.grafik == false {
+                    Button {
+                        blatt = .erinnerung(fotoID)
+                    } label: {
+                        Label("Erinnerung einsprechen", systemImage: "mic.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
                 Button {
                     werk.unterschriftOeffnen(fotoID)
                 } label: {
@@ -2443,6 +2459,9 @@ struct ReiseView: View {
             KapitelrasterView(werk: werk)
         case let .kapitelseiten(id):
             KapitelseitenView(werk: werk, tagID: id)
+        case let .erinnerung(fotoID):
+            EintragView(werk: werk, eintrag: EintragView.erinnerung(zu: fotoID, werk: werk),
+                        sofortDiktieren: true)
         }
     }
 }

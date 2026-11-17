@@ -16,6 +16,10 @@ struct Texteintrag: Codable, Identifiable, Hashable {
     var zeit: Date = Date()
     /// Die Fassung vor der letzten sprachlichen Überarbeitung.
     var vorfassung: String?
+    /// KAPITELWEISE (ab 1.0.11): Eine Erinnerung, die zu EINEM Foto
+    /// eingesprochen wurde. Sie steht im Buch unmittelbar hinter diesem Foto
+    /// und auf derselben Seite, unabhängig von ihrer Uhrzeit.
+    var foto: UUID?
 
     init() {}
 
@@ -32,6 +36,7 @@ struct Texteintrag: Codable, Identifiable, Hashable {
         text = b.wert(.text, "")
         zeit = b.wert(.zeit, Date())
         vorfassung = b.wahlweise(.vorfassung)
+        foto = b.wahlweise(.foto)
     }
 
     var tagesdatum: Tagesdatum { Tagesdatum(zeit) }

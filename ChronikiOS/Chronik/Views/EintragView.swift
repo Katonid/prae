@@ -81,6 +81,8 @@ struct TexteintragZeile: View {
 struct EintragView: View {
     @ObservedObject var werk: Reisewerk
     @State var eintrag: Texteintrag
+    /// Gleich beim Öffnen zuhören (Erinnerung zu einem Foto).
+    var sofortDiktieren = false
     @Environment(\.dismiss) private var schliessen
     @State private var ueberarbeiten = false
     @State private var loeschenFragen = false
@@ -134,11 +136,38 @@ struct EintragView: View {
         return liste.flatMap { $0.components(separatedBy: CharacterSet(charactersIn: "\u{2013}\u{00B7},")) }
     }
 
+    /// Eine neue Erinnerung zu einem Foto: Sie trägt dessen Zeit (eine
+    /// Sekunde danach), damit sie im richtigen Kapitel landet, und die
+    /// Kennung des Fotos, damit sie direkt dahinter steht.
+    static func erinnerung(zu fotoID: UUID, werk: Reisewerk) -> Texteintrag {
+        var neu = Texteintrag()
+        neu.foto = fotoID
+        if let foto = werk.reise.foto(fotoID) {
+            if let wann = foto.aufnahme {
+                neu.zeit = wann.addingTimeInterval(1)
+            } else if let tag = werk.reise.tage.first(where: { $0.fotos.contains(fotoID) }) {
+                neu.zeit = tag.datum.mittag
+            }
+        }
+        return neu
+    }
+
     private var istNeu: Bool { !werk.reise.eintraege.contains { $0.id == eintrag.id } }
 
     var body: some View {
         NavigationStack {
             Form {
+                if let fotoID = eintrag.foto, let foto = werk.reise.foto(fotoID) {
+                    Section {
+                        Ladebild(datei: foto.datei, reise: werk.reise.id, kante: 900) { bild in
+                            Image(uiImage: bild).resizable().scaledToFit()
+                        }
+                        .frame(maxHeight: 220)
+                        .frame(maxWidth: .infinity)
+                    } footer: {
+                        Text("Die Erinnerung steht im Buch direkt neben diesem Foto.")
+                    }
+                }
                 Section {
                     TextField("Überschrift (freiwillig)", text: $eintrag.titel)
                         .font(.headline)
@@ -204,6 +233,9 @@ struct EintragView: View {
                 }
             }
             .onAppear {
+                if sofortDiktieren, !diktat.laeuft {
+                    Task { await diktat.umschalten(hinweise: diktatHinweise) }
+                }
                 UIApplication.shared.isIdleTimerDisabled = true
                 diktat.anhaengen = { neu in
                     let trenner = eintrag.text.isEmpty || eintrag.text.hasSuffix(" ") || eintrag.text.hasSuffix("\n") ? "" : " "
@@ -214,7 +246,7 @@ struct EintragView: View {
                 UIApplication.shared.isIdleTimerDisabled = false
                 Task { await diktat.stoppen() }
             }
-            .navigationTitle(istNeu ? "Neuer Text" : "Text")
+            .navigationTitle(eintrag.foto != nil ? "Erinnerung zum Foto" : (istNeu ? "Neuer Text" : "Text"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

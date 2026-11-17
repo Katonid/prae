@@ -2117,7 +2117,7 @@ extension Layoutautomat {
         if eintraege.isEmpty {
             fluss = fotos.map { .foto($0) }
             let frei = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !frei.isEmpty { fluss.append(.text(kopf: "", rumpf: frei)) }
+            if !frei.isEmpty { fluss.append(.text(kopf: "", rumpf: frei, zu: nil)) }
         } else {
             fluss = Self.zeitfolge(fotos: fotos, eintraege: eintraege)
         }
@@ -2155,24 +2155,45 @@ extension Layoutautomat {
     // breiter als ihre Spalte, damit sie über die Fuge greifen.
     enum Fluss {
         case foto(Foto)
-        case text(kopf: String, rumpf: String)
+        /// `zu`: das Foto, zu dem der Text eingesprochen wurde.
+        case text(kopf: String, rumpf: String, zu: UUID?)
     }
 
     static func zeitfolge(fotos: [Foto], eintraege: [Texteintrag]) -> [Fluss] {
+        // Erinnerungen zu einem Foto dieses Kapitels stehen direkt hinter
+        // ihm (ab 1.0.11); alle anderen Texte nach ihrer Zeit.
+        let hier = Set(fotos.map(\.id))
+        var anFoto: [UUID: [Texteintrag]] = [:]
         var liste: [(zeit: Date, text: Bool, nr: Int, element: Fluss)] = []
+        for (n, e) in eintraege.enumerated() {
+            if let f = e.foto, hier.contains(f) {
+                anFoto[f, default: []].append(e)
+                continue
+            }
+            liste.append((e.zeit, true, n, .text(kopf: e.kopfzeile,
+                                                 rumpf: e.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                                                 zu: nil)))
+        }
         for (n, f) in fotos.enumerated() {
             liste.append((f.aufnahme ?? .distantFuture, false, n, .foto(f)))
-        }
-        for (n, e) in eintraege.enumerated() {
-            liste.append((e.zeit, true, n, .text(kopf: e.kopfzeile,
-                                                 rumpf: e.text.trimmingCharacters(in: .whitespacesAndNewlines))))
         }
         liste.sort { a, b in
             if a.zeit != b.zeit { return a.zeit < b.zeit }
             if a.text != b.text { return a.text }
             return a.nr < b.nr
         }
-        return liste.map(\.element)
+        var folge: [Fluss] = []
+        for eintrag in liste {
+            folge.append(eintrag.element)
+            if case .foto(let f) = eintrag.element, let dazu = anFoto[f.id] {
+                for e in dazu.sorted(by: { $0.zeit < $1.zeit }) {
+                    folge.append(.text(kopf: e.titel.trimmingCharacters(in: .whitespacesAndNewlines),
+                                       rumpf: e.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                                       zu: f.id))
+                }
+            }
+        }
+        return folge
     }
 
     // MARK: Freie Aufteilung statt Spalten (ab 1.0.10)
@@ -2260,6 +2281,8 @@ extension Layoutautomat {
         var rumpf: String
         /// Bevorzugtes Seitenverhältnis (Breite durch Höhe).
         var verhaeltnis: Double
+        /// Bei einer Erinnerung: das Foto, zu dem sie gehört.
+        var zu: UUID? = nil
     }
 
     /// Misst Textfelder — mit Vorrat, denn dieselbe Breite wird bei tausend
@@ -2301,7 +2324,7 @@ extension Layoutautomat {
             case .foto(let f):
                 stuecke.append(Stueck(element: element, foto: f, kopf: "", rumpf: "",
                                       verhaeltnis: min(max(f.seitenverhaeltnis, 0.5), 2.4)))
-            case .text(let kopf, let rumpf):
+            case .text(let kopf, let rumpf, let zu):
                 var rest = rumpf
                 var k = kopf
                 var schutz = 0
@@ -2319,8 +2342,8 @@ extension Layoutautomat {
                         }
                     }
                     let hoehe = max(textbedarf(k, teil, breite: halbe), 20)
-                    stuecke.append(Stueck(element: .text(kopf: k, rumpf: teil), foto: nil, kopf: k, rumpf: teil,
-                                          verhaeltnis: halbe / hoehe))
+                    stuecke.append(Stueck(element: .text(kopf: k, rumpf: teil, zu: zu), foto: nil, kopf: k, rumpf: teil,
+                                          verhaeltnis: halbe / hoehe, zu: zu))
                     rest = weiter
                     k = ""
                 } while !rest.isEmpty && schutz < 40
@@ -2397,8 +2420,13 @@ extension Layoutautomat {
                 for zahl in liste {
                     let teil = Array(offen.prefix(zahl))
                     guard let ergebnis = bewerten(teil, in: flaeche, nummer: nummer) else { continue }
-                    // Leicht bevorzugt: die Zahl aus dem Rhythmus.
-                    let wert = ergebnis.wert + (zahl == ziel ? 0 : 0.03)
+                    // Leicht bevorzugt: die Zahl aus dem Rhythmus. Eine
+                    // Erinnerung wird nicht von ihrem Foto getrennt.
+                    var wert = ergebnis.wert + (zahl == ziel ? 0 : 0.03)
+                    if zahl < offen.count, let zu = offen[offen.startIndex + zahl].zu,
+                       teil.contains(where: { $0.foto?.id == zu }) {
+                        wert += 0.5
+                    }
                     if beste == nil || wert < beste!.wert { beste = (zahl, wert, ergebnis.felder) }
                 }
             }

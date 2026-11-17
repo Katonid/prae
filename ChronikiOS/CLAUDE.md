@@ -151,6 +151,22 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     steigend; Textfelder gerade, mit Goldstrich und Kopfzeile „Überschrift –
     Datum" (fett). Simuliert (Python, je 200 Zufallsseiten): für 3–6 Fotos
     findet sich immer eine Teilung, für 2 in gut der Hälfte der Fälle.
+- **Nachladen ohne Doppel und Erinnerungen zum Foto** (ab 1.0.11, Ansage des
+  Nutzers 11/2026: „regelmäßig in ein bestehendes Projekt neue Fotos
+  hineinladen … Vorhandene Fotos werden automatisch nicht importiert. …
+  auf ein Foto tippen und … einen Text einsprechen, der dann neben dieses Foto
+  sortiert wird").
+  - `fotosAufnehmen` überspringt Vorhandenes: gleicher Mediathekseintrag
+    (`Foto.mediathek`, ab 1.0.11 gemerkt) ODER gleiche Aufnahmesekunde und
+    gleiche Maße (`fingerabdruck`, für ältere Fotos und Dateien). Fotos in der
+    Ablage zählen mit. Der Bericht nennt die Zahl.
+  - Ist ein Foto gewählt, steht unten „Erinnerung einsprechen" (nicht bei
+    Grafiken). Es öffnet `EintragView` mit dem Foto oben und startet das Diktat
+    sofort (`sofortDiktieren`). Der Eintrag trägt `Texteintrag.foto` und die
+    Aufnahmezeit + 1 s (fürs Kapitel). Im Satz steht er DIREKT hinter seinem
+    Foto (`zeitfolge`), ohne Datumszeile (nur Überschrift, wenn eine da ist),
+    und wird nicht von ihm auf die nächste Seite getrennt (Strafe 0,5 in
+    `flussseiten`).
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -188,7 +204,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -220,3 +236,5 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.10 (Build 11)**, 11/2026: freie Aufteilung statt Spalten, Texte als
   Felder darin. **Nicht gemessen:** auf einem Gerät; wie lange das
   Durchprobieren bei einem Kapitel mit Hunderten Fotos dauert.
+- **1.0.11 (Build 12)**, 11/2026: Nachladen ohne Doppel, Erinnerung zum Foto
+  einsprechen. **Nicht gemessen:** auf einem Gerät.

@@ -38,12 +38,18 @@ struct Einfuhrbericht {
     var zieltag: String = ""
     var abgewiesen: Int = 0
     var neueTage: Int = 0
+    var schonVorhanden: Int = 0
 
     // Der Bericht ist keine Zierde. Beim Einlesen von zweihundert Fotos
     // fällt sonst niemandem auf, dass dreißig davon keinen Ort tragen — und
     // die Spur dieser Tage ist dann unerklärlich kurz.
     var text: String {
         var zeilen: [String] = ["\(aufgenommen) Fotos eingelesen."]
+        if schonVorhanden > 0 {
+            zeilen.append(schonVorhanden == 1
+                          ? "1 Foto war schon im Buch und wurde übersprungen."
+                          : "\(schonVorhanden) Fotos waren schon im Buch und wurden übersprungen.")
+        }
         if neueTage > 0 { zeilen.append("\(neueTage) neue Tage angelegt.") }
         if ortAusMediathek > 0 {
             zeilen.append("Bei \(ortAusMediathek) Fotos kam der Ort aus der Fotomediathek.")
@@ -112,6 +118,18 @@ extension Reisewerk {
         let bekannteTage = Set(reise.tage.map(\.schluessel))
         var neueSchluessel = Set<String>()
         var heimatlose: [UUID] = []
+        // KAPITELWEISE (ab 1.0.11, Ansage des Nutzers 11/2026: „regelmäßig in
+        // ein bestehendes Projekt neue Fotos hineinladen … egal, ob ich auch
+        // Fotos markiere, die bereits vorhanden sind … Vorhandene Fotos werden
+        // automatisch nicht importiert."): Ein Foto gilt als vorhanden, wenn
+        // es denselben Mediathekseintrag hat — oder, für Fotos von vor dieser
+        // Fassung und aus Dateien, dieselbe Aufnahmesekunde und dieselben
+        // Maße. Auch Fotos in der Ablage zählen: Wer eines aus dem Buch
+        // genommen hat, will es nicht beim nächsten Einlesen zurück.
+        var bekannteKennungen = Set(reise.fotos.compactMap(\.mediathek))
+        var bekannteAufnahmen = Set(reise.fotos.filter { !$0.grafik }.compactMap { f in
+            f.aufnahme.map { Self.fingerabdruck($0, breite: f.breite, hoehe: f.hoehe) }
+        })
         merken()
 
         for stelle in 0 ..< anzahl {
@@ -163,6 +181,16 @@ extension Reisewerk {
                 continue
             }
 
+            if let kennung = bild.kennung, bekannteKennungen.contains(kennung) {
+                bericht.schonVorhanden += 1
+                continue
+            }
+            if let wann = befund.aufnahme,
+               bekannteAufnahmen.contains(Self.fingerabdruck(wann, breite: befund.breite, hoehe: befund.hoehe)) {
+                bericht.schonVorhanden += 1
+                continue
+            }
+
             let name: String
             do {
                 name = try Bildarchiv.shared.ablegen(bild.daten, reise: reise.id, endung: bild.endung)
@@ -171,7 +199,7 @@ extension Reisewerk {
                 continue
             }
 
-            let foto = Foto(
+            var foto = Foto(
                 datei: name,
                 breite: befund.breite,
                 hoehe: befund.hoehe,
@@ -180,6 +208,11 @@ extension Reisewerk {
                 koordinate: befund.koordinate,
                 ortsquelle: befund.koordinate == nil ? .keiner : befund.quelle
             )
+            foto.mediathek = bild.kennung
+            if let k = bild.kennung { bekannteKennungen.insert(k) }
+            if let wann = foto.aufnahme {
+                bekannteAufnahmen.insert(Self.fingerabdruck(wann, breite: foto.breite, hoehe: foto.hoehe))
+            }
             reise.fotos.append(foto)
             bericht.aufgenommen += 1
             if foto.koordinate == nil { bericht.ohneOrt += 1 }
@@ -232,6 +265,10 @@ extension Reisewerk {
         alleNeuAnordnen(nurUnberuehrte: true)
         sofortSichern()
         return bericht
+    }
+
+    nonisolated static func fingerabdruck(_ wann: Date, breite: Double, hoehe: Double) -> String {
+        "\(Int(wann.timeIntervalSinceReferenceDate.rounded()))|\(Int(breite.rounded()))x\(Int(hoehe.rounded()))"
     }
 
     private static func mediathekOrt(_ kennung: String) -> (ort: Koordinate, wann: Date?)? {
