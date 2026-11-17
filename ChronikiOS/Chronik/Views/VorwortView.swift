@@ -34,7 +34,6 @@ struct VorwortView: View {
     // Änderung an der Typografie.
     @State private var leerzeilenBehalten = false
     @State private var schriftwahlOffen = false
-    @State private var schriftEntwurf = Schriftfamilie.serifeSystem
     @State private var schrift = Schriftbild()
 
     private var gibtEs: Bool { werk.reise.vorwortIndex != nil }
@@ -131,18 +130,12 @@ struct VorwortView: View {
             }
             .sheet(isPresented: $schriftwahlOffen) {
                 NavigationStack {
-                    SchriftwahlView(auswahl: $schriftEntwurf, titel: "Schrift des Vorworts")
+                    // Direkt gebunden: Jede Wahl gilt sofort, auch wenn das
+                    // Blatt anders als über „Fertig" zugeht (Wischen).
+                    SchriftwahlView(auswahl: $schrift.familie, titel: "Schrift des Vorworts")
                         .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Abbrechen") { schriftwahlOffen = false }
-                            }
                             ToolbarItem(placement: .confirmationAction) {
-                                Button("Fertig") {
-                                    Absturzspur.beginnt("Vorwort: Schrift \u{00FC}bernehmen (\(schriftEntwurf.vollerName))")
-                                    schrift.familie = schriftEntwurf
-                                    schriftwahlOffen = false
-                                    Absturzspur.endetSpaeter()
-                                }
+                                Button("Fertig") { schriftwahlOffen = false }
                             }
                         }
                 }
@@ -233,12 +226,12 @@ struct VorwortView: View {
                 // wählen möchte."). Bis 1.0.17 ein `NavigationLink` im Stapel
                 // des Vorwort-Blatts, gebunden direkt an `schrift` — jede
                 // Wahl zeichnete das ganze Blatt samt Textfeld mit dem
-                // langen Vorworttext neu. Jetzt wie im Inspektor (dort seit
-                // Reisebuch 1.0.29 ohne Klage): eigenes Blatt, eigener
-                // Stapel, ein Entwurf, übernommen erst mit „Fertig".
+                // langen Vorworttext neu. Jetzt wie im Inspektor: eigenes
+                // Blatt, eigener Stapel. Die eigentliche Ursache war wohl der
+                // doppelt geschlossene Wähler von iOS (siehe `Schriftwahl` in
+                // `Waehler.swift`, behoben 1.0.19).
                 Button {
                     Absturzspur.beginnt("Vorwort: Schriftwahl \u{00F6}ffnen (jetzt \(schrift.familie.vollerName))")
-                    schriftEntwurf = schrift.familie
                     schriftwahlOffen = true
                 } label: {
                     LabeledContent("Schriftart", value: schrift.familie.vollerName)

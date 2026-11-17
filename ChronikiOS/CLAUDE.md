@@ -300,6 +300,23 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   („Vorwort: Schriftwahl öffnen …", „… übernehmen …"): Stürzt es wieder ab,
   nennt die App beim nächsten Start den Schritt und den freien Speicher —
   danach fragen, bevor weiter geraten wird.
+- **Der Wähler von iOS schloss sich doppelt** (behoben 1.0.19, gemeldet
+  11/2026: „Offenbar ist es immer wieder ein Problem, tatsächlich eine
+  Schrift auszuwählen, die ich per Profil auf dem Gerät installiert habe …
+  wann immer ich eine solche Schrift auswählen möchte, funktioniert es
+  nicht."). `Schriftwahl` (`Views/Waehler.swift`, aus dem Reisebuch) rief im
+  Delegaten `waehler.dismiss(animated:)`, und `SchriftwahlView` schloss
+  dasselbe Blatt zusätzlich über `waehlerOffen = false`. Der zweite Befehl
+  traf das Blatt DARUNTER — die Schriftwahl oder gleich das Vorwort-Blatt —,
+  und die eben gewählte Schrift ging mit ihm verloren (im Vorwort in 1.0.17
+  wohl auch der Absturz). In der Typografie fiel es nicht auf, weil die Wahl
+  dort sofort ins Buch schreibt. Jetzt schließt NUR SwiftUI; die
+  Schriftwahl im Vorwort ist direkt an `schrift.familie` gebunden (der
+  Entwurf aus 1.0.18 ist weg). **Dieselbe Bauweise steht noch im
+  Reisebuch** (`UrlaubstagebuchiOS/Urlaubstagebuch/Views/Waehler.swift`) und
+  in `Fotowahl` hier (dort schließen `GrafikEinfuehrView` und
+  `FotoeinfuhrView` NICHT selbst — nur `KapitelseitenView` doppelt). **Nicht
+  gemessen:** auf einem Gerät.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -337,7 +354,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -395,3 +412,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.18 (Build 19)**, 11/2026: Schriftwahl des Vorworts als eigenes Blatt
   (Absturz beim Wählen gemeldet). **Nicht gemessen:** ob der Absturz damit
   weg ist.
+- **1.0.19 (Build 20)**, 11/2026: Wähler von iOS schließt nicht mehr doppelt
+  (selbst installierte Schriften gingen verloren). **Nicht gemessen:** auf
+  einem Gerät.
