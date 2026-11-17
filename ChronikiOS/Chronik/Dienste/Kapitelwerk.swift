@@ -49,6 +49,12 @@ extension Reisewerk {
         }
         gewaehlterTag = kapitelID
         sofortSichern()
+        // Automatische Textpflege (ab 1.0.12) — im Hintergrund, nur für
+        // diesen Text, und nur wenn er nicht als fertig markiert ist.
+        if !eintrag.fertig {
+            let id = eintrag.id
+            Task { @MainActor in await self.texteAutomatischPruefen([id], melden: false) }
+        }
     }
 
     func eintragLoeschen(_ id: UUID) {
@@ -280,5 +286,60 @@ extension Reisewerk {
                         grafik: true)
         reise.setzeFoto(foto)
         return foto.id
+    }
+
+    // MARK: - Automatische Textpflege (ab 1.0.12)
+
+    /// Prüft Texteinträge (ohne Angabe: alle) und setzt die Kapitel neu,
+    /// deren Text sich geändert hat. Gibt einen Satz für die Meldung zurück.
+    @discardableResult
+    func texteAutomatischPruefen(_ nur: Set<UUID>? = nil, melden: Bool = true) async -> String {
+        let kandidaten = reise.eintraege.filter { e in
+            (nur == nil || nur!.contains(e.id)) && !e.fertig && e.geprueft != e.text
+                && !e.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        guard !kandidaten.isEmpty else {
+            let satz = "Nichts zu prüfen \u{2014} alle Texte sind fertig oder seit der letzten Prüfung unverändert."
+            if melden { meldung = .init(text: satz) }
+            return satz
+        }
+        if kandidaten.count > 1 { beschaeftigt = "Texte werden geprüft \u{2026}" }
+        var geaendert = 0
+        var kapitel = Set<Tagesdatum>()
+        var vorherGemerkt = false
+        for (n, e) in kandidaten.enumerated() {
+            if kandidaten.count > 1 { beschaeftigt = "Text \(n + 1) von \(kandidaten.count) wird geprüft" }
+            let vorher = e.text
+            let neu = await Textpflege.pruefen(vorher)
+            // Inzwischen von Hand geändert? Dann nichts überschreiben.
+            guard let i = reise.eintraege.firstIndex(where: { $0.id == e.id }),
+                  reise.eintraege[i].text == vorher else { continue }
+            if neu != vorher {
+                if !vorherGemerkt { merken(); vorherGemerkt = true }
+                reise.eintraege[i].vorfassung = vorher
+                reise.eintraege[i].text = neu
+                geaendert += 1
+                kapitel.insert(reise.kapitelbeginn(reise.eintraege[i].tagesdatum))
+            }
+            reise.eintraege[i].geprueft = reise.eintraege[i].text
+        }
+        beschaeftigt = nil
+        for beginn in kapitel {
+            if let tag = reise.tage.first(where: { $0.datum == beginn }) { kapitelAuffrischen(tag.id) }
+        }
+        sofortSichern()
+        let art = Sprachhilfe.aufDemGeraet ? "Leerzeichen, Satzzeichen und Tippfehler" : "Leerzeichen und Satzzeichen"
+        let satz = geaendert == 0
+            ? "\(kandidaten.count) Texte geprüft (\(art)) \u{2014} nichts zu korrigieren."
+            : "\(kandidaten.count) Texte geprüft (\(art)), \(geaendert) korrigiert. Die vorige Fassung lässt sich im Text zurückholen."
+        if melden || geaendert > 0 { meldung = .init(text: satz) }
+        return satz
+    }
+
+    func fertigUmschalten(_ id: UUID) {
+        guard let i = reise.eintraege.firstIndex(where: { $0.id == id }) else { return }
+        merken()
+        reise.eintraege[i].fertig.toggle()
+        sofortSichern()
     }
 }

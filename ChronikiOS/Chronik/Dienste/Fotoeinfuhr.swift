@@ -321,6 +321,8 @@ extension Reisewerk {
 
         alleNeuAnordnen(nurUnberuehrte: true)
         sofortSichern()
+        // Eingelesene Texte gleich durch die automatische Textpflege.
+        Task { @MainActor in await self.texteAutomatischPruefen(melden: false) }
 
         var zeilen = ["\(befund.abschnitte.count) Texte übernommen."]
         if !neueKapitel.isEmpty { zeilen.append("\(neueKapitel.count) neue Kapitel angelegt.") }

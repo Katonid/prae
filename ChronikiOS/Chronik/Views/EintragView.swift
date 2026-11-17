@@ -32,6 +32,12 @@ struct TexteView: View {
                                     .swipeActions {
                                         Button("Löschen", role: .destructive) { werk.eintragLoeschen(eintrag.id) }
                                     }
+                                    .swipeActions(edge: .leading) {
+                                        Button(eintrag.fertig ? "Nicht fertig" : "Fertig") {
+                                            werk.fertigUmschalten(eintrag.id)
+                                        }
+                                        .tint(eintrag.fertig ? .gray : .green)
+                                    }
                             }
                         }
                     }
@@ -50,6 +56,13 @@ struct TexteView: View {
                         Label("Neuer Text", systemImage: "square.and.pencil")
                     }
                 }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        Task { @MainActor in await werk.texteAutomatischPruefen() }
+                    } label: {
+                        Label("Alle Texte prüfen", systemImage: "checkmark.bubble")
+                    }
+                }
             }
             .sheet(item: $bearbeiten) { eintrag in
                 EintragView(werk: werk, eintrag: eintrag)
@@ -63,9 +76,16 @@ struct TexteintragZeile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(eintrag.titel.isEmpty ? "Ohne Überschrift" : eintrag.titel)
-                .font(.headline)
-                .foregroundStyle(eintrag.titel.isEmpty ? .secondary : .primary)
+            HStack(spacing: 6) {
+                Text(eintrag.titel.isEmpty ? "Ohne Überschrift" : eintrag.titel)
+                    .font(.headline)
+                    .foregroundStyle(eintrag.titel.isEmpty ? .secondary : .primary)
+                if eintrag.fertig {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                        .accessibilityLabel("fertig")
+                }
+            }
             Text(Zeitraster.text(eintrag.zeit, "EEEE, d. MMMM yyyy · HH:mm"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -211,11 +231,18 @@ struct EintragView: View {
                         Label("Sprachlich überarbeiten \u{2026}", systemImage: "wand.and.stars")
                     }
                     .disabled(eintrag.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Toggle(isOn: $eintrag.fertig) {
+                        Label("Fertig \u{2014} nicht mehr automatisch prüfen", systemImage: "checkmark.seal")
+                    }
                     if let alt = eintrag.vorfassung {
                         Button {
                             let jetzt = eintrag.text
                             eintrag.text = alt
                             eintrag.vorfassung = jetzt
+                            // Wer bewusst zur anderen Fassung wechselt, will
+                            // sie behalten — die automatische Pflege soll sie
+                            // beim Sichern nicht gleich wieder ändern.
+                            eintrag.geprueft = alt
                         } label: {
                             Label("Zur anderen Fassung wechseln", systemImage: "arrow.uturn.backward")
                         }
@@ -223,7 +250,7 @@ struct EintragView: View {
                 } header: {
                     Text("Sprache")
                 } footer: {
-                    Text("Die Überarbeitung schlägt eine neue Fassung vor; übernommen wird erst auf Wunsch, und die vorige bleibt erhalten. Ab iOS 18.1 gibt es außerdem Apples Schreibtools: Text markieren \u{2192} \u{201E}Schreibtools\u{201C}.")
+                    Text("Beim Sichern räumt die App den Text automatisch auf: doppelte Leerzeichen, Leerzeichen an Satzzeichen und \u{2014} mit Apple Intelligence \u{2014} offensichtliche Tippfehler. Ein als fertig markierter Text bleibt, wie er ist. \u{201E}Sprachlich überarbeiten\u{201C} schlägt dagegen eine neue Fassung vor, die erst auf Wunsch gilt; die vorige bleibt jeweils erhalten.")
                 }
 
                 if !istNeu {

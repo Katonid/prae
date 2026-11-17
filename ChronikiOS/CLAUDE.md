@@ -167,6 +167,23 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     Foto (`zeitfolge`), ohne Datumszeile (nur Überschrift, wenn eine da ist),
     und wird nicht von ihm auf die nächste Seite getrennt (Strafe 0,5 in
     `flussseiten`).
+- **Automatische Textpflege, „fertig" schützt** (ab 1.0.12, Ansage des
+  Nutzers 11/2026: „Texte automatisch mittels KI korrigieren … offensichtliche
+  Tippfehler und vor allem … doppelte Leerzeichen oder Leerzeichenfehler bei
+  Satzzeichen … automatisch … einen bereits überarbeiteten Text als fertig
+  markieren, sodass er bei erneuten Prüfungen nicht mehr berücksichtigt
+  wird"). `Dienste/Textpflege.swift`: Stufe 1 feste Regeln (`aufraeumen`:
+  Mehrfach-Leerzeichen, Leerzeichen vor/nach Satzzeichen und Klammern,
+  Leerzeichen nach , ; ! ? und nach Wortende-Punkt vor Großbuchstaben — NICHT
+  in „z.B.", „3.5", Adressen; doppelte Kommas/Punkte, Leerzeilen), unter Linux
+  an Beispielsätzen geprüft. Stufe 2 Apple Intelligence „Nur korrigieren",
+  Ergebnis VERWORFEN bei mehr als 10 % Längenänderung. Ausgelöst beim Sichern
+  eines Eintrags (`eintragSichern`), nach der Texteinfuhr und mit „Alle Texte
+  prüfen" in der Textliste (`texteAutomatischPruefen`). Übersprungen: `fertig`
+  (Schalter im Editor, Wischgeste in der Liste, Siegel in der Zeile) und
+  `geprueft == text` (seit der letzten Prüfung unverändert; auch nach
+  bewusstem Wechsel zur anderen Fassung). Die alte Fassung landet in
+  `vorfassung`.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -204,7 +221,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -238,3 +255,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Durchprobieren bei einem Kapitel mit Hunderten Fotos dauert.
 - **1.0.11 (Build 12)**, 11/2026: Nachladen ohne Doppel, Erinnerung zum Foto
   einsprechen. **Nicht gemessen:** auf einem Gerät.
+- **1.0.12 (Build 13)**, 11/2026: automatische Textpflege, Texte als fertig
+  markieren. **Nicht gemessen:** auf einem Gerät; wie zuverlässig das
+  Sprachmodell nur Tippfehler korrigiert.
