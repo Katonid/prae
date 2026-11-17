@@ -224,8 +224,33 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   gleichmäßig auf die geschätzten Seiten verteilt, je eins in einer Spalte
   oben oder unten (≤ 42 % der Höhe, Lage wechselt reihum), der Text füllt die
   freien Stücke jeder Spalte darüber/darunter (`Textmass.teilen`). Übrige
-  Fotos nach dem Text auf eine Albumseite. Text wird im Vorwort-Blatt
-  bearbeitet, nicht auf der Seite (Sichern setzt neu).
+  Fotos nach dem Text auf eine Albumseite.
+- **Vorwort wie in einer Textverarbeitung** (ab 1.0.16, Ansage des Nutzers
+  11/2026: „dass die App sich an dieser Stelle wirklich wie eine
+  Textverarbeitung verhält … ein Foto, das ich irgendwo einfüge oder
+  hinschiebe, bewirkt, dass der Text es umfließt"). Nach JEDER Änderung an
+  einer Vorwortseite fließt der Text neu (`Reisewerk.vorwortNachfuehren` →
+  `Layoutautomat.vorwortUmflossen`): beim Loslassen nach Schieben, Drehen,
+  Größe ändern (`SeitenflaecheView.gestenendeAufraeumen`, nicht je
+  Bildpunkt — CoreText-Messung), nach Einfügen, Löschen, Kopieren,
+  Verschieben auf eine andere Seite, Bild einsetzen (je ein `defer` in den
+  Funktionen von `Reisewerk`), nach Textänderung auf der Seite
+  (`textSchreiben` → `vorwortWortlaut` ersetzt das Stück im Vorworttext).
+  Alles außer dem Fließtext bleibt stehen und wird umflossen. Fließtext =
+  `.text`-Kasten höchstens eine Spalte breit, dessen Wortlaut im Vorworttext
+  steht (`imVorwortfluss`); die Überschrift und eigene Kästen bleiben.
+  Umflossen wird „rechteckig": jede Spalte in Bänder an den Kanten der
+  Hindernisse, je Band das breiteste freie Stück (mindestens 38 % der
+  Spalte), so läuft der Text auch NEBEN einem schmalen oder überstehenden
+  Foto. Seiten kommen dazu oder fallen am Ende weg; die Kennungen der
+  Textkästen werden der Reihe nach wiederverwendet (gleicher Stand → gleiche
+  Seiten). `wortlautSichern` lässt das Vorwort aus (`fliesstexte` läse über
+  beide Spalten quer und nähme die Überschrift mit — mit 1.0.15 hätte ein
+  zweites Sichern im Vorwort-Blatt den neuen Text so überschrieben).
+  Erneutes Sichern im Vorwort-Blatt lässt die Fotos stehen, neue kommen auf
+  die Seite mit den wenigsten Fotos (`vorwortFoto`). Kapitel-Menü:
+  „Vorwort bearbeiten…", „Text neu umfließen lassen" (nach Änderungen im
+  Inspektor). „Seiten neu anordnen" setzt alles neu.
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -263,7 +288,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -310,3 +335,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.15 (Build 16)**, 11/2026: Vorwort, zweispaltig, Text fließt um die
   Fotos. **Nicht gemessen:** auf einem Gerät; ob die Seitenschätzung bei sehr
   langen Texten die Fotos gut verteilt.
+- **1.0.16 (Build 17)**, 11/2026: Vorwort fließt wie in einer
+  Textverarbeitung um geschobene und eingefügte Fotos. **Nicht gemessen:**
+  auf einem Gerät; wie lange das Umfließen bei zehn und mehr Seiten nach dem
+  Loslassen dauert.

@@ -990,6 +990,14 @@ struct SeitenflaecheView: View, Equatable {
     }
 
     private func gestenendeAufraeumen(_ wert: DragGesture.Value) {
+        // KAPITELWEISE (ab 1.0.16): Im Vorwort fließt der Text nach jedem
+        // Schieben, Drehen und Ziehen neu um das Bild — beim Loslassen,
+        // nicht bei jedem Bildpunkt (gemessen wird mit CoreText, Seite für
+        // Seite).
+        if gegriffen != nil, werk.ausschnittsmodus == nil,
+           let tag = buchseite.tag, tag.vorwort {
+            werk.vorwortNachfuehren(werk.tagIndex(tag.id))
+        }
         if gegriffen != nil {
             werk.letzterGriff = (werk.letzterGriff ?? "") + String(
                 format: " \u{00B7} %.1f / %.1f mm \u{00B7} Maßstab %.2f",

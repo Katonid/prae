@@ -791,6 +791,11 @@ final class Reisewerk: ObservableObject, Identifiable {
     func wortlautSichern(_ stelle: Int) -> Bool {
         guard reise.tage.indices.contains(stelle) else { return false }
         let tag = reise.tage[stelle]
+        // KAPITELWEISE (ab 1.0.16): Das Vorwort hält seinen Text selbst
+        // aktuell (`textSchreiben` → `vorwortWortlaut`). Aus den Seiten
+        // zurückgeholt käme er in falscher Folge — `fliesstexte` liest
+        // zeilenweise über beide Spalten — und mit der Überschrift darin.
+        if tag.vorwort { return false }
         // KAPITELWEISE: Trägt das Kapitel Texteinträge, SIND sie sein Text.
         // Dann wird nichts von der Seite zurückgeholt, sondern der Text aus
         // den Einträgen neu zusammengesetzt — sonst überschriebe der alte
@@ -1689,6 +1694,20 @@ final class Reisewerk: ObservableObject, Identifiable {
         case .datum:
             // Leer heißt: wieder das Format des Buches.
             reise.tage[stelle.tag].datumstext = text.isEmpty ? nil : text
+        case let .text(alt) where reise.tage[stelle.tag].vorwort:
+            // KAPITELWEISE (ab 1.0.16): Im Vorwort ist ein Textkasten nur
+            // ein Stück des einen Fließtextes. Die Änderung geht in den
+            // Text, und der fließt neu — wie in einer Textverarbeitung.
+            if vorwortWortlaut(stelle.tag, alt: alt, neu: text) {
+                // Der Kasten trägt jetzt den neuen Wortlaut — sonst hielte
+                // ihn das Umfließen für einen fremden Kasten und ließe ihn
+                // stehen.
+                reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt = .text(text)
+                vorwortNachfuehren(stelle.tag)
+                return
+            }
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt = .text(text)
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
         case .text:
             reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt = .text(text)
             reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
@@ -1992,6 +2011,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     }
 
     func blockLoeschen(_ id: UUID) {
+        let vw = vorwortZu(block: id); defer { vorwortNachfuehren(vw) }
         if let stelle = eigenblock(id) {
             merken()
             var bloecke = eigenbloecke(stelle.flaeche)
@@ -2025,6 +2045,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Frage gestellt wird — in der Fotoliste des Tages.
     @discardableResult
     func blockVerschieben(_ id: UUID, aufSeite ziel: Int) -> Bool {
+        let vw = vorwortZu(block: id); defer { vorwortNachfuehren(vw) }
         guard let stelle = block(id) else { return false }
         guard reise.tage[stelle.tag].seiten.indices.contains(ziel),
               ziel != stelle.seite
@@ -2077,6 +2098,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     // schieben. Ohne das endet „auf die nächste Seite" auf der letzten
     // Seite in einem Knopf, der nichts tut.
     func blockAufNeueSeite(_ id: UUID) {
+        let vw = vorwortZu(block: id); defer { vorwortNachfuehren(vw) }
         guard let stelle = block(id) else { return }
         merken()
         reise.tage[stelle.tag].seiten.insert(Seite(), at: stelle.seite + 1)
@@ -2110,6 +2132,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     // nichts geschehen, und man verschöbe beim nächsten Griff das Original.
     @discardableResult
     func blockKopieren(_ id: UUID, aufSeite ziel: Int? = nil) -> Bool {
+        let vw = vorwortZu(block: id); defer { vorwortNachfuehren(vw) }
         guard let stelle = block(id) else { return false }
         let vorlage = reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block]
         guard kopierbar(vorlage) else {
@@ -2205,6 +2228,7 @@ final class Reisewerk: ObservableObject, Identifiable {
 
     @discardableResult
     func blockEinfuegen(auf seiteID: UUID) -> Bool {
+        let vw = vorwortZu(seite: seiteID); defer { vorwortNachfuehren(vw) }
         guard let inhalt = ablage else { return false }
         if let grund = einfuegenGrund(auf: seiteID) {
             meldung = .init(text: grund, schwer: true)
@@ -2289,6 +2313,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     }
 
     func blockHinzufuegen(_ inhalt: Blockinhalt, tag tagID: UUID, seite: Int) {
+        let vw = tagIndex(tagID).flatMap { reise.tage[$0].vorwort ? $0 : nil }; defer { vorwortNachfuehren(vw) }
         guard let t = tagIndex(tagID), reise.tage[t].seiten.indices.contains(seite) else { return }
         merken()
         let satz = reise.gestaltung.satzspiegel(reise.format)
@@ -2453,6 +2478,7 @@ final class Reisewerk: ObservableObject, Identifiable {
     private func grafikSetzen(datei: String, befund: Bildbefund,
                               aufSeite seiteID: UUID, wo: String) -> Bool
     {
+        let vw = vorwortZu(seite: seiteID); defer { vorwortNachfuehren(vw) }
         let flaeche = eigenflaeche(seiteID)
         Absturzspur.beginnt("Bild einsetzen auf \(wo): Block setzen (\(datei))")
         merken()

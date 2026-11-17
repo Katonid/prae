@@ -465,13 +465,108 @@ extension Reisewerk {
             reise.tage.insert(neu, at: 0)
             stelle = 0
         }
+        let vorher = reise.tage[stelle]
         reise.tage[stelle].ueberschrift = titel
         reise.tage[stelle].text = text
         reise.tage[stelle].fotos = fotos
         reise.tage[stelle].datumstext = ""
-        let id = reise.tage[stelle].id
-        neuAnordnen(id, erzwingen: true)
+        // Beim ersten Mal setzt der Automat alles. Danach (ab 1.0.16) bleibt
+        // jedes Foto, wo es hingeschoben wurde: Entfernte Fotos gehen von
+        // den Seiten, neue kommen in eine freie Ecke, und der Text fließt
+        // neu darum herum.
+        if vorher.seiten.isEmpty {
+            neuAnordnen(reise.tage[stelle].id, erzwingen: true)
+        } else {
+            let werkzeug = automat
+            var seiten = vorher.seiten
+            let bleiben = Set(fotos)
+            for i in seiten.indices {
+                seiten[i].bloecke.removeAll { block in
+                    switch block.inhalt {
+                    case let .foto(id), let .bildunterschrift(id):
+                        return vorher.fotos.contains(id) && !bleiben.contains(id)
+                    default:
+                        return false
+                    }
+                }
+            }
+            // Die Überschrift ist ein Textkasten über die ganze Breite.
+            if vorher.ueberschrift != titel, !seiten.isEmpty,
+               let k = seiten[0].bloecke.firstIndex(where: { $0.inhalt == .text(vorher.ueberschrift) }) {
+                seiten[0].bloecke[k].inhalt = .text(titel)
+            }
+            let stehen = Set(seiten.flatMap { $0.bloecke.compactMap(\.fotoID) })
+            var wechsel = 0
+            for id in fotos where !stehen.contains(id) {
+                guard let foto = reise.foto(id) else { continue }
+                // Auf die Seite mit den wenigsten Fotos, vorn zuerst.
+                let ziel = seiten.indices.min { a, b in
+                    seiten[a].bloecke.filter { $0.fotoID != nil }.count
+                        < seiten[b].bloecke.filter { $0.fotoID != nil }.count
+                } ?? 0
+                seiten[ziel].bloecke.append(contentsOf: werkzeug.vorwortFoto(foto, auf: seiten[ziel],
+                                                                            wechsel: ziel + wechsel))
+                wechsel += 1
+            }
+            reise.tage[stelle].seiten = seiten
+            vorwortNachfuehren(stelle)
+        }
         sofortSichern()
+    }
+
+    // MARK: Vorwort wie in einer Textverarbeitung (ab 1.0.16)
+
+    /// Das Kapitel des Vorworts, wenn der Block darin steht.
+    func vorwortZu(block id: UUID) -> Int? {
+        guard let stelle = block(id), reise.tage[stelle.tag].vorwort else { return nil }
+        return stelle.tag
+    }
+
+    func vorwortZu(seite seiteID: UUID) -> Int? {
+        guard let stelle = seitenstelle(seiteID), reise.tage[stelle.tag].vorwort else { return nil }
+        return stelle.tag
+    }
+
+    /// Ist der Block ein Stück des Fließtextes? Dann ist er schmal (eine
+    /// Spalte oder weniger — die Überschrift läuft über die ganze Breite)
+    /// und sein Wortlaut steht im Vorworttext. Ein eigener Textkasten, den
+    /// jemand dazugestellt hat, bleibt stehen und wird umflossen.
+    private func imVorwortfluss(_ block: Block, text: String, spalte: Double) -> Bool {
+        guard case let .text(inhalt) = block.inhalt else { return false }
+        let sauber = inhalt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard block.rahmen.breite <= spalte + 1 else { return false }
+        return sauber.isEmpty || text.contains(sauber)
+    }
+
+    /// Fotos, Unterschriften und Überschrift bleiben stehen; der Text
+    /// fließt neu darum herum. Nach jeder Änderung an einer Seite des
+    /// Vorworts aufgerufen — ohne eigenes `merken`, es gehört zum Schritt
+    /// davor.
+    func vorwortNachfuehren(_ stelle: Int?) {
+        guard let stelle, reise.tage.indices.contains(stelle), reise.tage[stelle].vorwort else { return }
+        let tag = reise.tage[stelle]
+        let werkzeug = automat
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        let spalte = (Double(satz.width) - reise.gestaltung.fugePt * 3) / 2
+        let text = tag.text
+        let neu = werkzeug.vorwortUmflossen(tag) { imVorwortfluss($0, text: text, spalte: spalte) }
+        guard neu != tag.seiten else { return }
+        reise.tage[stelle].seiten = neu
+        if let g = gewaehlterBlock, !neu.contains(where: { $0.bloecke.contains { $0.id == g } }) {
+            gewaehlterBlock = nil
+        }
+    }
+
+    /// Eine Änderung in einem Textkasten des Vorworts in den Vorworttext
+    /// übernehmen. Der alte Wortlaut des Kastens steht genau so im Text
+    /// (er ist ein Stück davon); er wird ersetzt. Falsch, wenn er dort nicht
+    /// steht — dann war es ein eigener Kasten.
+    func vorwortWortlaut(_ stelle: Int, alt: String, neu: String) -> Bool {
+        let sauber = alt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sauber.isEmpty, let bereich = reise.tage[stelle].text.range(of: sauber) else { return false }
+        reise.tage[stelle].text.replaceSubrange(bereich,
+                                                with: neu.trimmingCharacters(in: .whitespacesAndNewlines))
+        return true
     }
 
     func vorwortEntfernen() {

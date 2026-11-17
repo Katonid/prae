@@ -2018,6 +2018,16 @@ struct ReiseView: View {
                     blatt = .spur(tag.id)
                 }
                 Divider()
+                // KAPITELWEISE (ab 1.0.16): Im Vorwort fließt der Text von
+                // selbst; der Knopf ist der Weg, wenn etwas über den
+                // Inspektor verstellt wurde.
+                if tag.vorwort {
+                    Button("Vorwort bearbeiten\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
+                    Button("Text neu umfließen lassen", systemImage: "text.justify") {
+                        werk.merken()
+                        werk.vorwortNachfuehren(werk.tagIndex(tag.id))
+                    }
+                }
                 // KAPITELWEISE (ab 1.0.14): die gewählte Seite bleibt, wie
                 // sie ist; alles danach wird neu verteilt.
                 Button("Ab der gewählten Seite neu verteilen", systemImage: "arrow.down.right.and.arrow.up.left") {
