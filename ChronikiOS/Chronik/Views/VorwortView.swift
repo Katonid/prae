@@ -33,6 +33,8 @@ struct VorwortView: View {
     // der Fließtext des Buches — dann folgt das Vorwort jeder späteren
     // Änderung an der Typografie.
     @State private var leerzeilenBehalten = false
+    @State private var schriftwahlOffen = false
+    @State private var schriftEntwurf = Schriftfamilie.serifeSystem
     @State private var schrift = Schriftbild()
 
     private var gibtEs: Bool { werk.reise.vorwortIndex != nil }
@@ -127,6 +129,25 @@ struct VorwortView: View {
                     }
                 }
             }
+            .sheet(isPresented: $schriftwahlOffen) {
+                NavigationStack {
+                    SchriftwahlView(auswahl: $schriftEntwurf, titel: "Schrift des Vorworts")
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Abbrechen") { schriftwahlOffen = false }
+                            }
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Fertig") {
+                                    Absturzspur.beginnt("Vorwort: Schrift \u{00FC}bernehmen (\(schriftEntwurf.vollerName))")
+                                    schrift.familie = schriftEntwurf
+                                    schriftwahlOffen = false
+                                    Absturzspur.endetSpaeter()
+                                }
+                            }
+                        }
+                }
+                .onAppear { Absturzspur.endetSpaeter() }
+            }
             .navigationTitle("Vorwort")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -207,11 +228,23 @@ struct VorwortView: View {
     private var schriftAbschnitt: some View {
         Group {
             Section {
-                NavigationLink {
-                    SchriftwahlView(auswahl: $schrift.familie, titel: "Vorwort")
+                // ALS EIGENES BLATT (ab 1.0.18, gemeldet 11/2026: „Die App
+                // stürzt ab, wenn ich eine andere Schriftart für das Vorwort
+                // wählen möchte."). Bis 1.0.17 ein `NavigationLink` im Stapel
+                // des Vorwort-Blatts, gebunden direkt an `schrift` — jede
+                // Wahl zeichnete das ganze Blatt samt Textfeld mit dem
+                // langen Vorworttext neu. Jetzt wie im Inspektor (dort seit
+                // Reisebuch 1.0.29 ohne Klage): eigenes Blatt, eigener
+                // Stapel, ein Entwurf, übernommen erst mit „Fertig".
+                Button {
+                    Absturzspur.beginnt("Vorwort: Schriftwahl \u{00F6}ffnen (jetzt \(schrift.familie.vollerName))")
+                    schriftEntwurf = schrift.familie
+                    schriftwahlOffen = true
                 } label: {
                     LabeledContent("Schriftart", value: schrift.familie.vollerName)
+                        .contentShape(Rectangle())
                 }
+                .foregroundStyle(.primary)
                 Stepper(value: $schrift.groesse, in: 7...24, step: 0.5) {
                     LabeledContent("Größe", value: String(format: "%.1f pt", schrift.groesse))
                 }
