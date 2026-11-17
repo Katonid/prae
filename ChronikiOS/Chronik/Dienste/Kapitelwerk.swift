@@ -510,7 +510,14 @@ extension Reisewerk {
                 wechsel += 1
             }
             reise.tage[stelle].seiten = seiten
-            vorwortNachfuehren(stelle)
+            // MIT DEM ALTEN TEXT (ab 1.0.17, gemeldet 11/2026: „Wenn ich dies
+            // im Menüfenster tu, dann werden die Änderungen nicht
+            // übernommen."). Ein Kasten zählt zum Fließtext, wenn sein
+            // Wortlaut im Vorworttext steht — nach einer Änderung steht er
+            // aber nur noch im ALTEN. Ohne diesen Blick galt jeder geänderte
+            // Kasten als eigener Kasten des Nutzers, blieb stehen, und der
+            // neue Text floss nur um ihn herum.
+            vorwortNachfuehren(stelle, frueher: vorher.text)
         }
         sofortSichern()
     }
@@ -536,21 +543,28 @@ extension Reisewerk {
         guard case let .text(inhalt) = block.inhalt else { return false }
         let sauber = inhalt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard block.rahmen.breite <= spalte + 1 else { return false }
-        return sauber.isEmpty || text.contains(sauber)
+        // Den Automaten erkennt man auch an `vonHand == false`: Ein Kasten,
+        // den jemand dazustellt, trägt `vonHand` (`blockHinzufuegen`). So
+        // fallen auch Reste weg, die der Fehler bis 1.0.16 stehen ließ (ein
+        // geänderter Text galt als fremder Kasten, siehe `vorwortSichern`).
+        return sauber.isEmpty || !block.vonHand || text.contains(sauber)
     }
 
     /// Fotos, Unterschriften und Überschrift bleiben stehen; der Text
     /// fließt neu darum herum. Nach jeder Änderung an einer Seite des
     /// Vorworts aufgerufen — ohne eigenes `merken`, es gehört zum Schritt
     /// davor.
-    func vorwortNachfuehren(_ stelle: Int?) {
+    func vorwortNachfuehren(_ stelle: Int?, frueher: String? = nil) {
         guard let stelle, reise.tage.indices.contains(stelle), reise.tage[stelle].vorwort else { return }
         let tag = reise.tage[stelle]
         let werkzeug = automat
         let satz = reise.gestaltung.satzspiegel(reise.format)
         let spalte = (Double(satz.width) - reise.gestaltung.fugePt * 3) / 2
         let text = tag.text
-        let neu = werkzeug.vorwortUmflossen(tag) { imVorwortfluss($0, text: text, spalte: spalte) }
+        let neu = werkzeug.vorwortUmflossen(tag) { block in
+            imVorwortfluss(block, text: text, spalte: spalte)
+                || frueher.map { imVorwortfluss(block, text: $0, spalte: spalte) } ?? false
+        }
         guard neu != tag.seiten else { return }
         reise.tage[stelle].seiten = neu
         if let g = gewaehlterBlock, !neu.contains(where: { $0.bloecke.contains { $0.id == g } }) {

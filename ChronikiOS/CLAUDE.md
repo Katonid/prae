@@ -270,6 +270,25 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   in `KapitelseitenView` (Zeitung, Meldungen; dort je ein Bild) — klemmt es
   dort auch, genauso umbauen. Nach dem Hinzufügen sagt ein Hinweis, dass erst
   „Sichern" die Fotos ins Buch bringt.
+- **Textänderung im Vorwort-Blatt kam nicht an** (behoben 1.0.17, gemeldet
+  11/2026: „Wenn ich dies im Menüfenster tu, dann werden die Änderungen nicht
+  übernommen"). `imVorwortfluss` erkannte Fließtext daran, dass sein
+  Wortlaut im Vorworttext steht — nach dem Ändern im Blatt stand er dort
+  nicht mehr, die alten Kästen galten als eigene Kästen und blieben, der neue
+  Text floss um sie herum. Jetzt: `vorwortNachfuehren(_:frueher:)` prüft auch
+  den alten Text, und jeder Kasten mit `vonHand == false` zählt als Fließtext
+  (eigene Kästen tragen `vonHand`, `blockHinzufuegen`) — das räumt auch Reste
+  aus 1.0.16 weg.
+- **Schrift und Absätze immer sichtbar** (ab 1.0.17, Ansage des Nutzers
+  11/2026: „Schriftfarbe und Absatzformatierungen … nach jedem Absatz eine
+  Reihenhöhe Abstand … Das möchte ich nicht"). Kein Schalter „Eigene Schrift"
+  mehr: gleich der Buchschrift → `nil` gesichert. Abschnitt „Absätze":
+  Ausrichtung, Zeilenabstand, Abstand nach jedem Absatz (0–24 pt),
+  „Leerzeilen zwischen Absätzen behalten" (Vorgabe AUS: beim Sichern werden
+  Leerzeilen zu einem Zeilenwechsel, `VorwortView.ohneLeerzeilen`, unter
+  Linux geprüft). Die Zeile Abstand war eine leere Zeile im eingefügten
+  Text — im Satz ein leerer Absatz. Einen Erstzeileneinzug gibt es nicht
+  (`Schriftbild` kennt keinen; bräuchte `Seitensatz` und Abweichung).
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -358,6 +377,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Textverarbeitung um geschobene und eingefügte Fotos. **Nicht gemessen:**
   auf einem Gerät; wie lange das Umfließen bei zehn und mehr Seiten nach dem
   Loslassen dauert.
-- **1.0.17 (Build 18)**, 11/2026: eigene Schrift fürs Vorwort, Fotos im
-  Vorwort-Blatt über den SwiftUI-Fotowähler.
+- **1.0.17 (Build 18)**, 11/2026: Schrift und Absätze fürs Vorwort,
+  Leerzeilen weg, Textänderung im Vorwort-Blatt kommt an, Fotos über den
+  SwiftUI-Fotowähler.
   **Nicht gemessen:** auf einem Gerät.

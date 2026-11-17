@@ -29,10 +29,10 @@ struct VorwortView: View {
     @State private var entfernenFragen = false
     @State private var hinweis: String?
     @State private var fotohinweis: String?
-    // Die Schrift des Vorworts (ab 1.0.17). `eigeneSchrift` aus heißt: wie
+    // Die Schrift des Vorworts (ab 1.0.17). Gleich der des Buches heißt: wie
     // der Fließtext des Buches — dann folgt das Vorwort jeder späteren
     // Änderung an der Typografie.
-    @State private var eigeneSchrift = false
+    @State private var leerzeilenBehalten = false
     @State private var schrift = Schriftbild()
 
     private var gibtEs: Bool { werk.reise.vorwortIndex != nil }
@@ -127,11 +127,6 @@ struct VorwortView: View {
                     }
                 }
             }
-            .onChange(of: eigeneSchrift) { _, an in
-                // Zurück auf „wie das Buch": Die Werte zeigen wieder, was
-                // dann gilt.
-                if !an { schrift = werk.automat.vorwortbild() }
-            }
             .navigationTitle("Vorwort")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -141,8 +136,10 @@ struct VorwortView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") {
                         let t = titel.trimmingCharacters(in: .whitespacesAndNewlines)
-                        werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: text, fotos: fotos,
-                                            schrift: eigeneSchrift ? schrift : nil)
+                        let gesetzt = leerzeilenBehalten ? text : Self.ohneLeerzeilen(text)
+                        let buch = werk.automat.vorwortbild()
+                        werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: gesetzt, fotos: fotos,
+                                            schrift: schrift == buch ? nil : schrift)
                         schliessen()
                     }
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && fotos.isEmpty)
@@ -156,7 +153,6 @@ struct VorwortView: View {
                     titel = tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift
                     text = tag.text
                     fotos = tag.fotos
-                    eigeneSchrift = tag.vorwortschrift != nil
                     schrift = werk.automat.vorwortbild(tag)
                 } else {
                     schrift = werk.automat.vorwortbild()
@@ -201,10 +197,16 @@ struct VorwortView: View {
 
     // MARK: Schrift
 
+    // Schrift und Absätze (ab 1.0.17, Ansage des Nutzers 11/2026: „Ich
+    // möchte auch Schriftfarbe und Absatzformatierungen vornehmen können.
+    // Konkret wird im Vorwort nach jedem Absatz eine Reihenhöhe Abstand
+    // gehalten. Das möchte ich nicht."). Immer sichtbar, ohne Schalter
+    // davor: Gilt beim Sichern genau die Schrift des Buches, wird `nil`
+    // gesichert — dann folgt das Vorwort späteren Änderungen an der
+    // Typografie.
     private var schriftAbschnitt: some View {
-        Section {
-            Toggle("Eigene Schrift für das Vorwort", isOn: $eigeneSchrift)
-            if eigeneSchrift {
+        Group {
+            Section {
                 NavigationLink {
                     SchriftwahlView(auswahl: $schrift.familie, titel: "Vorwort")
                 } label: {
@@ -213,43 +215,60 @@ struct VorwortView: View {
                 Stepper(value: $schrift.groesse, in: 7...24, step: 0.5) {
                     LabeledContent("Größe", value: String(format: "%.1f pt", schrift.groesse))
                 }
-                VStack(alignment: .leading) {
-                    LabeledContent("Zeilenabstand", value: String(format: "%.2f", schrift.zeilenabstand))
-                    Slider(value: $schrift.zeilenabstand, in: 1.0...2.2)
+                ColorPicker("Schriftfarbe", selection: Binding(
+                    get: { schrift.farbe.farbe },
+                    set: { schrift.farbe = Farbwert($0) }
+                ), supportsOpacity: false)
+                Toggle("Fett", isOn: $schrift.fett)
+                Toggle("Kursiv", isOn: $schrift.kursiv)
+                if schrift != werk.automat.vorwortbild() {
+                    Button("Wie der Fließtext des Buches") { schrift = werk.automat.vorwortbild() }
                 }
-                VStack(alignment: .leading) {
-                    LabeledContent("Abstand nach Absätzen", value: String(format: "%.0f pt", schrift.absatzabstand))
-                    Slider(value: $schrift.absatzabstand, in: 0...24, step: 1)
-                }
+            } header: {
+                Text("Schrift")
+            }
+
+            Section {
                 Picker("Ausrichtung", selection: $schrift.ausrichtung) {
                     ForEach(Ausrichtung.allCases) { art in
                         Label(art.name, systemImage: art.symbol).tag(art)
                     }
                 }
                 .pickerStyle(.menu)
-                Toggle("Kursiv", isOn: $schrift.kursiv)
+                VStack(alignment: .leading) {
+                    LabeledContent("Zeilenabstand", value: String(format: "%.2f", schrift.zeilenabstand))
+                    Slider(value: $schrift.zeilenabstand, in: 1.0...2.2, step: 0.05)
+                }
+                VStack(alignment: .leading) {
+                    LabeledContent("Abstand nach jedem Absatz", value: String(format: "%.0f pt", schrift.absatzabstand))
+                    Slider(value: $schrift.absatzabstand, in: 0...24, step: 1)
+                }
+                Toggle("Leerzeilen zwischen Absätzen behalten", isOn: $leerzeilenBehalten)
                 Toggle("Silben trennen", isOn: $schrift.trennung)
-                ColorPicker("Farbe", selection: Binding(
-                    get: { schrift.farbe.farbe },
-                    set: { schrift.farbe = Farbwert($0) }
-                ), supportsOpacity: false)
+                // Eine Probe in der gewählten Schrift — in der Größe, die
+                // gedruckt wird, damit 12 pt hier auch nach 12 pt aussehen.
+                Text(probe)
+                    .font(Font(schrift.uiFont))
+                    .foregroundStyle(schrift.farbe.farbe)
+                    .lineSpacing(CGFloat(schrift.groesse * (schrift.zeilenabstand - 1)))
+                    .multilineTextAlignment(schrift.ausrichtung.swiftUIWert)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+            } header: {
+                Text("Absätze")
+            } footer: {
+                Text("Eine leere Zeile zwischen zwei Absätzen steht im Buch als ganze Zeile Abstand. Ohne Haken werden solche Leerzeilen beim Sichern entfernt; den Abstand bestimmt dann allein \u{201E}Abstand nach jedem Absatz\u{201C} (0 pt: gar keiner). Beim Sichern fließt der Text neu, die Fotos bleiben, wo sie stehen.")
             }
-            // Eine Probe in der gewählten Schrift — in der Größe, die
-            // gedruckt wird, damit 12 pt hier auch nach 12 pt aussehen.
-            Text(probe)
-                .font(Font(schrift.uiFont))
-                .foregroundStyle(schrift.farbe.farbe)
-                .lineSpacing(CGFloat(schrift.groesse * (schrift.zeilenabstand - 1)))
-                .multilineTextAlignment(schrift.ausrichtung.swiftUIWert)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4)
-        } header: {
-            Text("Schrift")
-        } footer: {
-            Text(eigeneSchrift
-                 ? "Gilt nur für den Text des Vorworts. Beim Sichern fließt er neu; Fotos bleiben, wo sie stehen."
-                 : "Wie der Fließtext des Buches, gerade, im Blocksatz mit Silbentrennung.")
         }
+    }
+
+    /// Leerzeilen zwischen Absätzen zu EINEM Zeilenwechsel. Ein Absatz ist im
+    /// Satz ein Zeilenwechsel (`Textmass.absatzgrenze`); eine leere Zeile
+    /// dazwischen ist ein zusätzlicher, leerer Absatz — eine Zeilenhöhe plus
+    /// zweimal der Absatzabstand.
+    static func ohneLeerzeilen(_ text: String) -> String {
+        text.replacingOccurrences(of: "\n[ \t\u{00A0}]*(\n[ \t\u{00A0}]*)+", with: "\n",
+                                  options: .regularExpression)
     }
 
     private var probe: String {
