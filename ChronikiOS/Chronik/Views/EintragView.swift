@@ -84,6 +84,12 @@ struct TexteintragZeile: View {
                     Image(systemName: "checkmark.seal.fill")
                         .foregroundStyle(.green)
                         .accessibilityLabel("fertig")
+                } else if eintrag.geprueft == eintrag.text, !eintrag.text.isEmpty {
+                    // Seit der letzten automatischen Prüfung unverändert —
+                    // die nächste Prüfung überspringt ihn von selbst.
+                    Image(systemName: "checkmark.circle")
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("geprüft")
                 }
             }
             Text(Zeitraster.text(eintrag.zeit, "EEEE, d. MMMM yyyy · HH:mm"))
