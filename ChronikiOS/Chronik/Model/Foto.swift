@@ -88,6 +88,10 @@ struct Foto: Identifiable, Codable, Hashable {
     // fehlendem Ort fragt. In die Reisespur kommt sie ohnehin nicht: Die
     // wird aus `tag.fotos` gebaut, und dort steht sie nicht.
     var grafik: Bool = false
+    // KAPITELWEISE (ab 1.0.11): die Kennung des Mediathekseintrags, aus dem
+    // das Foto kam. Daran erkennt das nächste Einlesen, dass es schon im
+    // Buch ist — auch wenn es inzwischen bearbeitet wurde.
+    var mediathek: String?
 
     // Ein Leser von Hand — dieselbe Vorsorge wie bei Reise und Reisetag
     // (siehe `Model/Nachsicht.swift`). Ohne ihn machte jedes neue Feld am
@@ -111,6 +115,7 @@ struct Foto: Identifiable, Codable, Hashable {
         unterschriftAusrichtung = b.wahlweise(.unterschriftAusrichtung)
         abgelegt = b.wert(.abgelegt, false)
         grafik = b.wert(.grafik, false)
+        mediathek = b.wahlweise(.mediathek)
     }
 
     // Von Hand geschrieben, weil der eigene Leser den erzeugten Erzeuger
