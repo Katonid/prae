@@ -25,19 +25,54 @@ final class Formatwerkzeug: NSObject, UIFontPickerViewControllerDelegate {
     var letzter: String = ""
     var geaendert: (String) -> Void
     private var bereichFuerWaehler: NSRange?
+    /// LESBAR ZEIGEN (ab 1.0.25, gemeldet 11/2026 mit Bildschirmfoto: „Der
+    /// Text ist leider nicht lesbar." — Nachtblau in 11 pt auf dunklem
+    /// Grund). In Formularen zeigt das Feld die Schrift des Buches in der
+    /// Farbe des Bildschirms und mindestens 16 pt; gespeichert wird
+    /// unverändert (`massstab` rechnet Größenmarken hin und zurück). Auf der
+    /// Seite (`TextflaecheBruecke`) bleibt es bei Druckgröße und -farbe —
+    /// dort liegt das Feld über der Seite und soll aussehen wie sie.
+    var lesbar: Bool
 
-    init(bild: Schriftbild, schriften: [Schriftfamilie], geaendert: @escaping (String) -> Void) {
+    init(bild: Schriftbild, schriften: [Schriftfamilie], lesbar: Bool = false,
+         geaendert: @escaping (String) -> Void) {
         self.bild = bild
         self.schriften = schriften
+        self.lesbar = lesbar
         self.geaendert = geaendert
+    }
+
+    private var massstab: Double { lesbar ? max(1, 16 / max(bild.groesse, 1)) : 1 }
+
+    /// Die Schrift, in der das Feld zeigt.
+    private var anzeige: Schriftbild {
+        var b = bild
+        b.groesse = bild.groesse * massstab
+        return b
+    }
+
+    private func anzeigen(_ text: String) -> NSAttributedString {
+        let gesetzt = NSMutableAttributedString(attributedString:
+            Auszeichnung.gesetzt(text, bild: anzeige, massstab: massstab))
+        if lesbar {
+            gesetzt.addAttribute(.foregroundColor, value: UIColor.label,
+                                 range: NSRange(location: 0, length: gesetzt.length))
+        }
+        return gesetzt
+    }
+
+    private var tippwerte: [NSAttributedString.Key: Any] {
+        var werte = anzeige.attribute()
+        if lesbar { werte[.foregroundColor] = UIColor.label }
+        return werte
     }
 
     // MARK: Anzeigen
 
     func zeigen(_ text: String, in feld: UITextView) {
         let auswahl = feld.selectedRange
-        feld.attributedText = bild.gesetzt(text)
-        feld.typingAttributes = bild.attribute()
+        feld.attributedText = anzeigen(text)
+        feld.typingAttributes = tippwerte
         letzter = text
         let laenge = (feld.text as NSString).length
         feld.selectedRange = NSRange(location: min(auswahl.location, laenge),
@@ -46,7 +81,7 @@ final class Formatwerkzeug: NSObject, UIFontPickerViewControllerDelegate {
 
     /// Nach dem Tippen: zurück in Marken.
     func uebernehmen(_ feld: UITextView) {
-        let text = Auszeichnung.auszeichnen(feld.attributedText, bild: bild)
+        let text = Auszeichnung.auszeichnen(feld.attributedText, bild: anzeige, massstab: massstab)
         letzter = text
         geaendert(text)
     }
@@ -114,7 +149,7 @@ final class Formatwerkzeug: NSObject, UIFontPickerViewControllerDelegate {
     @objc private func groesser() { groesseAendern(+1) }
 
     @objc private func normal() {
-        let grund = bild.uiFont
+        let grund = anzeige.uiFont
         aendern { text, bereich in
             text.addAttribute(.font, value: grund, range: bereich)
             text.removeAttribute(.underlineStyle, range: bereich)
@@ -162,14 +197,14 @@ final class Formatwerkzeug: NSObject, UIFontPickerViewControllerDelegate {
     private func familieSetzen(_ familie: Schriftfamilie, bereich fest: NSRange? = nil) {
         aendern(bereich: fest) { text, bereich in
             text.enumerateAttribute(.font, in: bereich) { wert, teil, _ in
-                let f = wert as? UIFont ?? self.bild.uiFont
+                let f = wert as? UIFont ?? self.anzeige.uiFont
                 let m = f.fontDescriptor.symbolicTraits
                 text.addAttribute(.font, value: familie.uiFont(groesse: Double(f.pointSize),
                                                                fett: m.contains(.traitBold),
                                                                kursiv: m.contains(.traitItalic)), range: teil)
             }
         } tippen: { werte in
-            let f = werte[.font] as? UIFont ?? self.bild.uiFont
+            let f = werte[.font] as? UIFont ?? self.anzeige.uiFont
             let m = f.fontDescriptor.symbolicTraits
             werte[.font] = familie.uiFont(groesse: Double(f.pointSize), fett: m.contains(.traitBold),
                                           kursiv: m.contains(.traitItalic))
@@ -192,7 +227,7 @@ final class Formatwerkzeug: NSObject, UIFontPickerViewControllerDelegate {
         let text = NSMutableAttributedString(attributedString: feld.attributedText)
         guard NSMaxRange(bereich) <= text.length else { return }
         arbeit(text, bereich)
-        let marken = Auszeichnung.auszeichnen(text, bild: bild)
+        let marken = Auszeichnung.auszeichnen(text, bild: anzeige, massstab: massstab)
         zeigen(marken, in: feld)
         feld.selectedRange = bereich
         geaendert(marken)
@@ -267,7 +302,7 @@ struct Formatfeld: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Bote {
-        Bote(werkzeug: Formatwerkzeug(bild: bild, schriften: schriften, geaendert: { _ in }))
+        Bote(werkzeug: Formatwerkzeug(bild: bild, schriften: schriften, lesbar: true, geaendert: { _ in }))
     }
 
     final class Bote: NSObject, UITextViewDelegate {
