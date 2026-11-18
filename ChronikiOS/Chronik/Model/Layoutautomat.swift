@@ -2553,12 +2553,34 @@ extension Layoutautomat {
                        teil.contains(where: { $0.foto?.id == zu }) {
                         wert += 0.5
                     }
+                    // KEIN EINSAMER REST AM KAPITELENDE (ab 1.0.22, Befund
+                    // des Nutzers 11/2026: „gegebenenfalls Fotos am Ende des
+                    // vorangegangenen Kapitels unsinnig groß gezogen"). Blieben
+                    // nach dieser Seite nur ein oder zwei Stücke übrig, füllten
+                    // sie allein die letzte Seite. Lieber hier eines weniger
+                    // (dann bleiben drei) oder gleich alle.
+                    let rest = offen.count - zahl
+                    if rest == 1 { wert += 0.3 } else if rest == 2 { wert += 0.15 }
                     if beste == nil || wert < beste!.wert { beste = (zahl, wert, ergebnis.felder) }
                 }
             }
             let zahl = beste?.zahl ?? 1
-            let felder = beste?.felder ?? [flaeche]
+            var felder = beste?.felder ?? [flaeche]
             let teil = Array(offen.prefix(zahl))
+            // DIE LETZTE SEITE WIRD NICHT AUFGEBLASEN (ab 1.0.22). Stehen dort
+            // nur noch ein oder zwei Stücke, bekommen sie den oberen Teil der
+            // Seite (60 %, sonst 80 %) statt der ganzen — ein Foto in der
+            // Größe seiner Nachbarn, darunter Luft, statt eines Posters.
+            if zahl == offen.count, zahl <= 2 {
+                for anteil in [0.6, 0.8] {
+                    let oben = CGRect(x: flaeche.minX, y: flaeche.minY, width: flaeche.width,
+                                      height: flaeche.height * CGFloat(anteil))
+                    if let klein = bewerten(teil, in: oben, nummer: nummer) {
+                        felder = klein.felder
+                        break
+                    }
+                }
+            }
             offen = offen.dropFirst(zahl)
 
             for (i, stueck) in teil.enumerated() {

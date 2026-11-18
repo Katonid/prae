@@ -428,6 +428,21 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   zurückgeben, „Zurück" holt es sofort. Eine Kopie auf einer anderen Seite
   hält es im Kapitel. Die Bildunterschrift geht mit dem Foto von der Seite.
   `AblageView` spricht von „Kapitel" statt „Tag".
+- **Kein aufgeblasenes Kapitelende** (ab 1.0.22, Befund des Nutzers
+  11/2026: „Ich habe den Eindruck, dass [ein neues Kapitel] immer nur zu
+  Beginn einer Doppelseite beginnen kann. Daraus resultiert, dass … Fotos am
+  Ende des vorangegangenen Kapitels unsinnig groß gezogen werden müssen.").
+  **Ein Kapitel beginnt NICHT an einer Doppelseite** — es beginnt immer auf
+  der nächsten Seite, links oder rechts; nirgends im Quelltext wird auf
+  einen Bogen ausgerichtet (geprüft: `doppelseiten`, `Bogenlage`,
+  `sonderseiten`). Was er sah: Jede Seite eines Kapitels gehört nur ihm, und
+  `flussseiten` füllt die letzte immer ganz — ein oder zwei übrige Fotos
+  wurden zum Poster. Jetzt: Strafe 0,3/0,15, wenn nach einer Seite nur 1/2
+  Stücke übrig blieben (lieber eines weniger oder alle); und hat die letzte
+  Seite nur 1–2 Stücke, bekommen sie die oberen 60 % (sonst 80 %) der Fläche.
+  **Zwei Kapitel auf EINER Seite gibt es nicht** — eine Seite gehört einem
+  `Reisetag`; geteilte Seiten hießen, Neuverteilen, Handarbeit, Kopfzeile und
+  „Ab hier neu verteilen" über Kapitelgrenzen hinweg zu bauen.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -547,5 +562,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   sofort am Foto, direkt bearbeiten, Löschen löscht den Eintrag.
   **Nicht gemessen:** auf einem Gerät.
 - **1.0.22 (Build 23)**, 11/2026: gelöschtes Foto geht aus dem Kapitel in die
-  Fotoablage und kommt beim Neuverteilen nicht zurück. **Nicht gemessen:**
+  Fotoablage und kommt beim Neuverteilen nicht zurück; kein aufgeblasenes
+  Kapitelende. **Nicht gemessen:**
   auf einem Gerät.
