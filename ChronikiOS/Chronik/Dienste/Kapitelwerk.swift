@@ -76,7 +76,7 @@ extension Reisewerk {
         let datum = reise.tage[stelle].datum
         reise.tage[stelle].text = reise.kapiteltext(datum)
         if hatHandarbeit(id) {
-            meldung = .init(text: "Das Kapitel \u{201E}\(reise.tage[stelle].ueberschrift)\u{201C} trägt Handarbeit und wurde deshalb nicht neu gesetzt. Über \u{201E}Seiten neu anordnen\u{201C} kommt der geänderte Text auf die Seite.")
+            meldung = .init(text: "Das Kapitel \u{201E}\(reise.tage[stelle].ueberschrift)\u{201C} trägt Handarbeit und wurde deshalb nicht neu gesetzt. Über \u{201E}Automatisch neu verteilen\u{201C} kommt der geänderte Text auf die Seite.")
         } else {
             neuAnordnen(id, erzwingen: true)
         }
@@ -380,7 +380,7 @@ extension Reisewerk {
             return satz
         }
         guard automat.istLebensbuch else {
-            let satz = "\u{201E}Ab hier neu verteilen\u{201C} gibt es im Stil \u{201E}Lebensbuch\u{201C}. In anderen Stilen: \u{201E}Seiten neu anordnen\u{201C}."
+            let satz = "\u{201E}Ab hier neu verteilen\u{201C} gibt es im Stil \u{201E}Lebensbuch\u{201C}. In anderen Stilen: \u{201E}Automatisch neu verteilen\u{201C}."
             meldung = .init(text: satz, schwer: true)
             return satz
         }

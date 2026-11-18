@@ -287,17 +287,23 @@ struct ReiseView: View {
             if neu != nil { inspektor = false }
         }
         .overlay(alignment: .top) { baender }
-        .alert("Seiten neu anordnen?", isPresented: .init(
+        .alert("Automatisch neu verteilen?", isPresented: .init(
             get: { neuAnordnenFrage != nil },
             set: { if !$0 { neuAnordnenFrage = nil } }
         )) {
-            Button("Neu anordnen", role: .destructive) {
+            Button("Neu verteilen", role: .destructive) {
                 if let id = neuAnordnenFrage { werk.neuAnordnen(id, erzwingen: true) }
                 neuAnordnenFrage = nil
             }
             Button("Abbrechen", role: .cancel) { neuAnordnenFrage = nil }
         } message: {
-            Text("An diesem Tag wurde von Hand gearbeitet. Beim Neuanordnen gehen die verschobenen und veränderten Blöcke verloren. Mit „Zurück“ oben lässt sich das rückgängig machen.")
+            // KAPITELWEISE (ab 1.0.20, Frage des Nutzers 11/2026: „dass es
+            // tatsächlich eine Funktion gibt, manuelle Verschiebungen quasi
+            // wieder zurückzusetzen … abschnittsweise … für das Vorwort …
+            // für alle einzelnen Jahre"). Es gab sie (Kapitel-Menü), nur
+            // hieß sie „Seiten neu anordnen" und sprach vom „Tag". Was
+            // wegfällt und was bleibt, steht jetzt hier.
+            Text("In diesem Abschnitt wurde von Hand gearbeitet. Alle seine Seiten werden so gesetzt, wie die App es von selbst tun würde: Verschobene, gedrehte und in der Größe geänderte Bilder und Texte sowie von Hand eingefügte Seiten (auch PDF-Seiten) fallen weg. Texte, Erinnerungen, Fotos und Bildunterschriften bleiben. Mit „Zurück“ oben lässt sich das rückgängig machen.")
         }
         .task { werk.fehlendeSeitenNachholen() }
         // NACHSEHEN, OB DIE BILDER DA SIND — UND SIE ANSTOSSEN (ab 1.0.71).
@@ -2036,7 +2042,7 @@ struct ReiseView: View {
                 .disabled(werk.gewaehlteSeite.flatMap { werk.seitenstelle($0) }.map {
                     werk.reise.tage[$0.tag].id != tag.id
                 } ?? true)
-                Button("Seiten neu anordnen", systemImage: "wand.and.stars") {
+                Button("Automatisch neu verteilen", systemImage: "wand.and.stars") {
                     if werk.hatHandarbeit(tag.id) {
                         neuAnordnenFrage = tag.id
                     } else {

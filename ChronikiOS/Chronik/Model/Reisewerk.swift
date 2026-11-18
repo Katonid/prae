@@ -646,10 +646,10 @@ final class Reisewerk: ObservableObject, Identifiable {
         befundeAuffrischen()
         if weggenommen > 0 {
             return "An \(weggenommen) Tagen mit Handarbeit ist die zweite Überschrift weggenommen; "
-                + "der Platz darüber bleibt, bis du dort \u{201E}Seiten neu anordnen\u{201C} wählst."
+                + "der Platz darüber bleibt, bis du dort \u{201E}Automatisch neu verteilen\u{201C} wählst."
         }
         if ohne > 0 {
-            return "An \(ohne) Tagen mit Handarbeit erscheint sie erst nach \u{201E}Seiten neu anordnen\u{201C}."
+            return "An \(ohne) Tagen mit Handarbeit erscheint sie erst nach \u{201E}Automatisch neu verteilen\u{201C}."
         }
         return ""
     }
@@ -692,7 +692,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         guard angepasst > 0 else { return "" }
         return "Auf Tagen mit Handarbeit ist die Tabelle an \(angepasst) Stellen angepasst; "
             + (groesser ? "sie kann dort jetzt über das reichen, was darunter liegt."
-                        : "der frei gewordene Platz darunter bleibt, bis du dort \u{201E}Seiten neu anordnen\u{201C} wählst.")
+                        : "der frei gewordene Platz darunter bleibt, bis du dort \u{201E}Automatisch neu verteilen\u{201C} wählst.")
     }
 
     // Gibt zurück, ob an diesem Tag von Hand gearbeitet wurde. Die Ansicht
@@ -909,7 +909,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         var satz = "\(name): \(gesetzt) Tage neu gesetzt."
         if verschont > 0 {
             satz += " \(verschont) Tage tragen Handarbeit und blieben stehen — "
-                + "sie lassen sich einzeln über „Seiten neu anordnen\u{201C} nachziehen."
+                + "sie lassen sich einzeln über „Automatisch neu verteilen\u{201C} nachziehen."
         }
         meldung = .init(text: satz)
         return satz

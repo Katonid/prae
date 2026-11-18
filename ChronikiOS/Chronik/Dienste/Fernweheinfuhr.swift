@@ -1286,7 +1286,7 @@ extension Reisewerk {
         }
         if mitWetter > 0 { zeilen.append("Bei \(mitWetter) Tagen steht das Wetter als eigene Zeile.") }
         if wetterNachAnordnen > 0 {
-            zeilen.append("\(wetterNachAnordnen) davon tragen Handarbeit \u{2014} dort erscheint das Wetter erst nach \u{201E}Seiten neu anordnen\u{201C} in voller Gr\u{00F6}\u{00DF}e.")
+            zeilen.append("\(wetterNachAnordnen) davon tragen Handarbeit \u{2014} dort erscheint das Wetter erst nach \u{201E}Automatisch neu verteilen\u{201C} in voller Gr\u{00F6}\u{00DF}e.")
         }
         if !wunsch.texte { zeilen.append("Texte und Überschriften wurden nicht übernommen.") }
         if !wunsch.fotos { zeilen.append("Fotos wurden nicht übernommen.") }

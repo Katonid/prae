@@ -107,7 +107,7 @@ struct SeitenView: View {
                 // Handarbeit — und die bleibt stehen. Das gehört dazugesagt:
                 // Der Tag wird danach beim Neuanordnen übersprungen, und wer
                 // das nicht weiß, hält den Automaten für kaputt.
-                Text("Wer hier etwas ändert, arbeitet von Hand an diesem Tag. Er wird danach beim automatischen Neuanordnen übersprungen \u{2014} \u{201E}Seiten neu anordnen\u{201C} im Tagesmenü fragt ausdrücklich nach, bevor es die Arbeit überschreibt.")
+                Text("Wer hier etwas ändert, arbeitet von Hand an diesem Tag. Er wird danach beim automatischen Neuanordnen übersprungen \u{2014} \u{201E}Automatisch neu verteilen\u{201C} im Kapitel-Menü fragt ausdrücklich nach, bevor es die Arbeit überschreibt.")
             }
         }
     }

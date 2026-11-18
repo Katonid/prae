@@ -135,7 +135,7 @@ struct BedienungView: View {
               wie: "Element antippen \u{2192} das Menü mit seinem Namen unten in der Leiste \u{2192} \u{201E}Ausschneiden\u{201C} oder \u{201E}Kopieren\u{201C}. Danach die ZIELSEITE antippen \u{2014} eine beliebige, auch in einem anderen Tag oder auf dem Umschlag \u{2014} und unten auf \u{201E}\u{2026} einfügen\u{201C} tippen. Der Knopf steht dort, solange etwas in der Ablage liegt; im Plus-Menü steht er ebenfalls.\n\nDas ist der allgemeine Weg; die beiden Abschnitte \u{201E}Verschieben\u{201C} und \u{201E}Kopieren\u{201C} darunter sind die Abkürzungen für die Nachbarseite desselben Tages.\n\nWandert ein FOTO in einen anderen Tag, wechselt auch seine Zuordnung: Es steht danach in der Fotoliste dieses Tages. Ein Tagebuchtext bleibt bei seinem Tag \u{2014} sein Text steht am Tag und nicht im Block."),
         Griff(zeichen: "wand.and.stars",
               was: "Seiten neu setzen lassen",
-              wie: "Das Tagesmenü unten rechts (mit dem Datum) → Seiten neu anordnen. Von Hand geänderte Tage fragt die App vorher."),
+              wie: "Das Kapitel-Menü unten rechts → Automatisch neu verteilen. Bei Handarbeit fragt die App vorher."),
         Griff(zeichen: "arrow.triangle.2.circlepath",
               was: "Das ganze Buch neu verteilen lassen",
               wie: "„…“ oben rechts → „Alles neu verteilen…“. Nötig, wenn eine neue Fassung der App anders setzt als früher: Ein fertiges Buch wird davon NICHT von selbst umgestellt. Vorher steht Tag für Tag da, was wegfällt — und Text, der auf einer Seite bearbeitet wurde, wandert zuerst in den Tagebuchtext zurück."),

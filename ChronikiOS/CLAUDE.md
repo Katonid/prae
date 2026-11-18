@@ -250,7 +250,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Erneutes Sichern im Vorwort-Blatt lässt die Fotos stehen, neue kommen auf
   die Seite mit den wenigsten Fotos (`vorwortFoto`). Kapitel-Menü:
   „Vorwort bearbeiten…", „Text neu umfließen lassen" (nach Änderungen im
-  Inspektor). „Seiten neu anordnen" setzt alles neu.
+  Inspektor). „Automatisch neu verteilen" setzt alles neu.
 - **Eigene Schrift fürs Vorwort** (ab 1.0.17, Ansage des Nutzers 11/2026:
   „Ich möchte die Schriftart des Vorwortes auch einstellen können").
   `Reisetag.vorwortschrift: Schriftbild?`, `nil` = Fließtext des Buches,
@@ -327,7 +327,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   sonst stabil). Beim Sichern bleiben stehende Fotos, wo sie sind; ein neues
   kommt zwischen die Seite seines Vorgängers und die seines Nachfolgers in
   der Liste, dort auf die mit den wenigsten Fotos (`vorwortSichern`). Alles
-  der Reihe nach von vorn: Kapitel-Menü → „Seiten neu anordnen".
+  der Reihe nach von vorn: Kapitel-Menü → „Automatisch neu verteilen".
 - **Foto und Erinnerung sind EIN Stück** (ab 1.0.20, Ansage des Nutzers
   11/2026: „Der Text soll auf jeden Fall mit dem Foto verbunden werden, also
   bei Verschiebungen immer an ihm haften bleiben … links oder rechts daneben
@@ -394,6 +394,19 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     Listen zeigen den Text ohne Marken (`Auszeichnung.ohne`).
   - **Nicht gemessen:** auf einem Gerät; ob iOS bei „Format" im
     Bearbeiten-Menü dieselben Attribute setzt, die `auszeichnen` erkennt.
+- **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
+  Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
+  manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
+  sondern abschnittsweise. Also für das Vorwort, für das Nachwort … und für
+  alle einzelnen Jahre"). Es GAB sie: Kapitel-Menü → bis 1.0.19 „Seiten neu
+  anordnen" (`neuAnordnen(erzwingen: true)`), sprach aber vom „Tag" und
+  sagte nicht, was bleibt. Heißt jetzt „Automatisch neu verteilen"; die
+  Rückfrage (nur bei Handarbeit) nennt, was wegfällt (Lage, Drehung, Größe,
+  von Hand eingefügte Seiten samt PDF-Seiten) und was bleibt (Texte,
+  Erinnerungen, Fotos, Unterschriften). Gilt für jedes Kapitel und das
+  Vorwort; ein künftiges NACHWORT bekommt sie, wenn es wie das Vorwort ein
+  `Reisetag` ist, von selbst. Für das ganze Buch: „Ganzes Buch → Alles neu
+  verteilen…" (Vorschau, `NeuverteilenView`). Rückgängig: „Zurück".
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
