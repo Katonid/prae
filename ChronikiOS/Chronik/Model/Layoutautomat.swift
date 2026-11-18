@@ -3038,7 +3038,7 @@ extension Layoutautomat {
         let bild = vorwortbild(tag)
         let luft = fuge * 3
         let spalte = (Double(satz.width) - luft) / 2
-        let abstand = fuge * 2 + Druckmass.pt(max(gestaltung.fotorand, 0)) + 2
+        let abstand = Druckmass.pt(max(gestaltung.fotorand, 0)) + Self.vorwortabstand(tag)
         var rest = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
         var fotos = tag.fotos.compactMap { fotoIndex[$0] }
         let titel = tag.ueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3083,7 +3083,10 @@ extension Layoutautomat {
                 let v = max(foto.seitenverhaeltnis, 0.5)
                 let h = min(spalte / v, hoehe * 0.42)
                 let b = min(spalte, h * v)
-                let x = Double(satz.minX) + Double(s) * (spalte + luft) + (spalte - b) / 2
+                // An die AUSSENKANTE der Spalte (ab 1.0.26): Ist das Foto
+                // schmaler als die Spalte, bleibt EIN breiter Streifen für
+                // den Text daneben statt zwei schmaler, in die keiner passt.
+                let x = Double(satz.minX) + Double(s) * (spalte + luft) + (s == 1 ? spalte - b : 0)
                 let y = obenHin ? Double(oben) : unten - h
                 bloecke.append(Block(inhalt: .foto(foto.id),
                                      rahmen: Rahmen(x: x, y: y, breite: b, hoehe: h),
@@ -3159,6 +3162,9 @@ extension Layoutautomat {
     // Stücke übereinander werden zu einem Textkasten. So läuft der Text
     // auch NEBEN einem Foto weiter, das nur einen Teil der Spalte belegt —
     // wie „Umfließen: Rechteck" in Pages oder Word.
+    /// Abstand Text–Foto im Vorwort in Punkt (ab 1.0.26).
+    static func vorwortabstand(_ tag: Reisetag) -> Double { max(0, tag.vorwortabstand ?? 6) }
+
     func vorwortbild(_ tag: Reisetag? = nil) -> Schriftbild {
         if let eigen = tag?.vorwortschrift { return eigen }
         var bild = typografie.flieText
@@ -3172,7 +3178,12 @@ extension Layoutautomat {
         let bild = vorwortbild(tag)
         let luft = fuge * 3
         let spalte = (Double(satz.width) - luft) / 2
-        let abstand = CGFloat(fuge * 1.5 + 2)
+        // ENGER (ab 1.0.26, gemeldet 11/2026: „Gerade im Vorwort wird bei
+        // einem Foto ringsum zu viel Abstand zum Text gelassen. Ich könnte
+        // wesentlich mehr Text unterbringen."). Bis dahin 1,5 Fugen + 2 pt
+        // rund um den Umriss (samt weißem Rand) — gut 6 mm. Jetzt einstellbar
+        // im Vorwort-Blatt, Vorgabe 6 pt.
+        let abstand = CGFloat(Self.vorwortabstand(tag))
         var rest = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
         // Die Kennungen der alten Textkästen werden der Reihe nach wieder
         // vergeben: Ändert sich nichts, kommt dieselbe Seite heraus — und
@@ -3247,7 +3258,9 @@ extension Layoutautomat {
             kanten.insert(min(max(h.maxY, oben), unten))
         }
         let folge = kanten.sorted()
-        let mindest = CGFloat(max(breite * 0.38, 60))
+        // Ein Streifen neben einem Foto nimmt Text ab gut einem Viertel der
+        // Spalte (bis 1.0.25: 38 %) — sonst blieb er leer.
+        let mindest = CGFloat(max(breite * 0.28, 50))
         var felder: [CGRect] = []
         for k in 0 ..< max(folge.count - 1, 0) {
             let a = folge[k], b = folge[k + 1]
@@ -3289,7 +3302,7 @@ extension Layoutautomat {
             let lage = (wechsel + versuch) % 4
             let s = (lage == 0 || lage == 2) ? 1 : 0
             let obenHin = lage == 0 || lage == 3
-            let x = Double(satz.minX) + Double(s) * (spalte + luft) + (spalte - b) / 2
+            let x = Double(satz.minX) + Double(s) * (spalte + luft) + (s == 1 ? spalte - b : 0)
             // Oben: unter allem, was schon oben in dieser Spalte steht
             // (der Überschrift der ersten Seite).
             var y = obenHin ? Double(satz.minY) : Double(satz.maxY) - h

@@ -33,6 +33,8 @@ struct VorwortView: View {
     // der Fließtext des Buches — dann folgt das Vorwort jeder späteren
     // Änderung an der Typografie.
     @State private var leerzeilenBehalten = false
+    // Abstand Text–Foto (ab 1.0.26).
+    @State private var fotoabstand = 6.0
     @State private var schriftwahlOffen = false
     @State private var schrift = Schriftbild()
 
@@ -154,7 +156,8 @@ struct VorwortView: View {
                         let gesetzt = leerzeilenBehalten ? text : Self.ohneLeerzeilen(text)
                         let buch = werk.automat.vorwortbild()
                         werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: gesetzt, fotos: fotos,
-                                            schrift: schrift == buch ? nil : schrift)
+                                            schrift: schrift == buch ? nil : schrift,
+                                            abstand: fotoabstand)
                         schliessen()
                     }
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && fotos.isEmpty)
@@ -168,6 +171,7 @@ struct VorwortView: View {
                     titel = tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift
                     text = tag.text
                     fotos = tag.fotos
+                    fotoabstand = tag.vorwortabstand ?? 6
                     // Fotos aus 1.0.15–1.0.18 tragen keine Aufnahmezeit:
                     // einmal aus der abgelegten Datei nachlesen.
                     for id in fotos {
@@ -283,6 +287,10 @@ struct VorwortView: View {
                     Slider(value: $schrift.absatzabstand, in: 0...24, step: 1)
                 }
                 Toggle("Leerzeilen zwischen Absätzen behalten", isOn: $leerzeilenBehalten)
+                VStack(alignment: .leading) {
+                    LabeledContent("Abstand Text \u{2013} Foto", value: String(format: "%.0f pt (%.1f mm)", fotoabstand, fotoabstand * 25.4 / 72))
+                    Slider(value: $fotoabstand, in: 0...24, step: 1)
+                }
                 Toggle("Silben trennen", isOn: $schrift.trennung)
                 // Eine Probe in der gewählten Schrift — in der Größe, die
                 // gedruckt wird, damit 12 pt hier auch nach 12 pt aussehen.

@@ -504,6 +504,17 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Schnitt, wird die Kontur verstärkt (`strokeWidth` −3, Seite und PDF).
   Das „Format" von iOS (`allowsEditingTextAttributes`) ist AUS — es kennt
   die Merkmale nicht, ein Wort ließe sich damit nicht wieder entfetten.
+- **Vorwort: weniger Abstand um Fotos, einstellbar** (ab 1.0.26, gemeldet
+  11/2026: „Gerade im Vorwort wird bei einem Foto ringsum zu viel Abstand zum
+  Text gelassen."). Bis 1.0.25 rund um den Umriss 1,5 Fugen + 2 pt (gut
+  6 mm, plus weißer Rand), dazu Fotos MITTIG in der Spalte (zwei schmale
+  Streifen daneben, beide leer) und Text neben Fotos erst ab 38 % der
+  Spaltenbreite. Jetzt: `Reisetag.vorwortabstand` (pt, Vorgabe 6, Regler
+  0–24 im Vorwort-Blatt unter „Absätze", `Layoutautomat.vorwortabstand`),
+  neue Fotos an der AUSSENKANTE ihrer Spalte (`vorwortseiten`,
+  `vorwortFoto`), Text daneben ab 28 % / 50 pt. Stehende Fotos bleiben, wo
+  sie sind; enger wird es beim nächsten Umfließen (Sichern im Blatt oder
+  „Text neu umfließen lassen").
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -635,4 +646,4 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.25 (Build 26)**, 11/2026: Eingabefeld lesbar (Bildschirmfarbe, ≥ 16 pt),
   Textliste mit vollem Text. **Nicht gemessen:** auf einem Gerät.
 - **1.0.26 (Build 27)**, 11/2026: Fett/kursiv als eigenes Merkmal, bleibt
-  erhalten. **Nicht gemessen:** auf einem Gerät.
+  erhalten; Vorwort mit engerem, einstellbarem Abstand um Fotos. **Nicht gemessen:** auf einem Gerät.
