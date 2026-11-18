@@ -466,7 +466,8 @@ extension Reisewerk {
     // sollen bewirken, dass der Text sie umfließt."
 
     /// Legt das Vorwort an oder ändert es, und setzt seine Seiten neu.
-    func vorwortSichern(titel: String, text: String, fotos: [UUID], schrift: Schriftbild? = nil) {
+    func vorwortSichern(titel: String, text: String, fotos: [UUID], schrift: Schriftbild? = nil,
+                        abstand: Double? = nil) {
         merken()
         let stelle: Int
         if let i = reise.vorwortIndex {
@@ -484,6 +485,7 @@ extension Reisewerk {
         reise.tage[stelle].fotos = fotos
         reise.tage[stelle].datumstext = ""
         reise.tage[stelle].vorwortschrift = schrift
+        if let abstand { reise.tage[stelle].vorwortabstand = abstand }
         // Beim ersten Mal setzt der Automat alles. Danach (ab 1.0.16) bleibt
         // jedes Foto, wo es hingeschoben wurde: Entfernte Fotos gehen von
         // den Seiten, neue kommen in eine freie Ecke, und der Text fließt

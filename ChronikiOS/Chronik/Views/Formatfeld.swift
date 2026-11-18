@@ -57,6 +57,8 @@ final class Formatwerkzeug: NSObject, UIFontPickerViewControllerDelegate {
         if lesbar {
             gesetzt.addAttribute(.foregroundColor, value: UIColor.label,
                                  range: NSRange(location: 0, length: gesetzt.length))
+            gesetzt.addAttribute(.strokeColor, value: UIColor.label,
+                                 range: NSRange(location: 0, length: gesetzt.length))
         }
         return gesetzt
     }
@@ -152,26 +154,42 @@ final class Formatwerkzeug: NSObject, UIFontPickerViewControllerDelegate {
         let grund = anzeige.uiFont
         aendern { text, bereich in
             text.addAttribute(.font, value: grund, range: bereich)
-            text.removeAttribute(.underlineStyle, range: bereich)
+            for k in [NSAttributedString.Key.underlineStyle, .kwFett, .kwKursiv, .kwSchrift, .strokeWidth] {
+                text.removeAttribute(k, range: bereich)
+            }
         } tippen: { werte in
             werte[.font] = grund
-            werte[.underlineStyle] = nil
+            for k in [NSAttributedString.Key.underlineStyle, .kwFett, .kwKursiv, .kwSchrift, .strokeWidth] {
+                werte[k] = nil
+            }
         }
     }
 
+    // Fett/kursiv hängen am EIGENEN Merkmal (`kwFett`/`kwKursiv`, ab
+    // 1.0.26), nicht daran, ob iOS eine fette Schrift herausgibt — eine auf
+    // einen Schnitt festgelegte Buchschrift gab sie nicht, und das Fett war
+    // nach dem Zurückschreiben weg. Gezeigt wird danach aus den Marken neu
+    // (fehlt der fette Schnitt, mit verstärkter Kontur).
     private func merkmalUmschalten(_ merkmal: UIFontDescriptor.SymbolicTraits) {
+        let schluessel: NSAttributedString.Key = merkmal == .traitBold ? .kwFett : .kwKursiv
+        func gilt(_ werte: [NSAttributedString.Key: Any]) -> Bool {
+            if let an = werte[schluessel] as? Bool { return an }
+            return (werte[.font] as? UIFont)?.fontDescriptor.symbolicTraits.contains(merkmal) ?? false
+        }
         aendern { text, bereich in
             var alle = true
-            text.enumerateAttribute(.font, in: bereich) { wert, _, _ in
-                if let f = wert as? UIFont, !f.fontDescriptor.symbolicTraits.contains(merkmal) { alle = false }
+            text.enumerateAttributes(in: bereich) { werte, _, _ in
+                if !gilt(werte) { alle = false }
             }
+            text.addAttribute(schluessel, value: !alle, range: bereich)
             text.enumerateAttribute(.font, in: bereich) { wert, teil, _ in
                 guard let f = wert as? UIFont else { return }
                 text.addAttribute(.font, value: Self.mit(f, merkmal, an: !alle), range: teil)
             }
         } tippen: { werte in
-            guard let f = werte[.font] as? UIFont else { return }
-            werte[.font] = Self.mit(f, merkmal, an: !f.fontDescriptor.symbolicTraits.contains(merkmal))
+            let an = !gilt(werte)
+            werte[schluessel] = an
+            if let f = werte[.font] as? UIFont { werte[.font] = Self.mit(f, merkmal, an: an) }
         }
     }
 
@@ -203,11 +221,17 @@ final class Formatwerkzeug: NSObject, UIFontPickerViewControllerDelegate {
                                                                fett: m.contains(.traitBold),
                                                                kursiv: m.contains(.traitItalic)), range: teil)
             }
+            if let name = familie.familienname {
+                text.addAttribute(.kwSchrift, value: name, range: bereich)
+            } else {
+                text.removeAttribute(.kwSchrift, range: bereich)
+            }
         } tippen: { werte in
             let f = werte[.font] as? UIFont ?? self.anzeige.uiFont
             let m = f.fontDescriptor.symbolicTraits
             werte[.font] = familie.uiFont(groesse: Double(f.pointSize), fett: m.contains(.traitBold),
                                           kursiv: m.contains(.traitItalic))
+            werte[.kwSchrift] = familie.familienname
         }
     }
 
@@ -281,7 +305,11 @@ struct Formatfeld: UIViewRepresentable {
         feld.delegate = context.coordinator
         feld.backgroundColor = .clear
         feld.isScrollEnabled = true
-        feld.allowsEditingTextAttributes = true
+        // Das „Format" von iOS (B/I/U in der Tastaturleiste) bleibt AUS
+        // (ab 1.0.26): Es ändert nur die Schrift und nicht das Merkmal
+        // `kwFett` — ein Wort ließe sich damit nicht wieder entfetten. Die
+        // Leiste über der Tastatur kann alles.
+        feld.allowsEditingTextAttributes = false
         feld.textContainerInset = UIEdgeInsets(top: 6, left: 2, bottom: 6, right: 2)
         context.coordinator.werkzeug.feld = feld
         feld.inputAccessoryView = context.coordinator.werkzeug.leiste()

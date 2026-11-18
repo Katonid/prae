@@ -85,6 +85,9 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // heißt: der Fließtext des Buches, gerade, im Blocksatz mit Trennung
     // (`Layoutautomat.vorwortbild`).
     var vorwortschrift: Schriftbild?
+    // KAPITELWEISE (ab 1.0.26): Abstand zwischen Vorworttext und Foto in
+    // Punkt (außerhalb des weißen Fotorands). `nil` = 6 pt.
+    var vorwortabstand: Double?
     // In welcher Zeitzone die Uhrzeiten dieses Tages gelten (Kennung, z. B.
     // `America/Toronto`). Gesetzt beim Einlesen der Reisespur; leer heißt,
     // dass es niemand feststellen konnte. **Die Uhrzeiten selbst sind schon
@@ -123,6 +126,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         meldungen = b.wert(.meldungen, [Meldung]())
         vorwort = b.wert(.vorwort, false)
         vorwortschrift = b.wahlweise(.vorwortschrift)
+        vorwortabstand = b.wahlweise(.vorwortabstand)
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
