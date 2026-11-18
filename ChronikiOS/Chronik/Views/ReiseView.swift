@@ -1352,6 +1352,19 @@ struct ReiseView: View {
                     Label("Ab hier neu aufbauen", systemImage: "arrow.down.to.line.compact")
                 }
             }
+            // TEXT BEARBEITEN (ab 1.0.24, Frage des Nutzers 11/2026: „Ich
+            // suche nach wie vor nach der Bearbeitungsfunktion für einen
+            // Text."). Ein Textkasten eines Kapitels führt zu SEINEM Eintrag —
+            // dort ist die Änderung sicher gespeichert.
+            if let block = gewaehlterBlock, block.zuFoto == nil, block.inhalt.istText,
+               case .text = block.inhalt, let e = werk.eintrag(zuText: block) {
+                Button {
+                    blatt = .eintrag(e.id)
+                } label: {
+                    Label("Text bearbeiten", systemImage: "square.and.pencil")
+                }
+                .buttonStyle(.borderedProminent)
+            }
             if let fotoID = gewaehlterBlock?.zuFoto {
                 // Der Text einer Erinnerung ist gewählt (ab 1.0.21): zu ihrem
                 // Eintrag — dort ändern, neu diktieren oder löschen.

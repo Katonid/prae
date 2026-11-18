@@ -2368,7 +2368,9 @@ extension Layoutautomat {
         // im Album etwas übergreifen, den Text nicht verdecken). Gewählt
         // wird, was das Foto am wenigsten verzerrt und im Textstreifen am
         // wenigsten frei lässt.
-        let notizluft = fuge * 1.2
+        // Der weiße Fotorand liegt AUSSERHALB des Rahmens (Lehre 1.0.86) —
+        // er gehört in die Fuge, sonst läge er auf dem Text.
+        let notizluft = fuge * 1.2 + Druckmass.pt(max(gestaltung.fotorand, 0))
         func notizteilung(_ stueck: Stueck, feld: CGRect)
             -> (lage: Notizlage, bild: CGRect, text: CGRect, strafe: Double, verschenkt: Double)?
         {
@@ -2662,7 +2664,7 @@ extension Layoutautomat {
             return kh + rh + 4
         }
         let b = Double(feld.width), h = Double(feld.height)
-        let luft = fuge * 1.2
+        let luft = fuge * 1.2 + Druckmass.pt(max(gestaltung.fotorand, 0))
         let soll = min(max(f.seitenverhaeltnis, 0.5), 2.4)
         let zeile = unterschriftHoehe(f, breite: b)
         var beste: (Notizlage, CGRect, CGRect, Double)?
@@ -2708,7 +2710,9 @@ extension Layoutautomat {
         let r = teilung.bild
         let zeile = unterschriftHoehe(f, breite: Double(r.width))
         let bildH = max(Double(r.height) - zeile, 20)
-        let zugabe = 0.03
+        // Kein Übergreifen beim Foto mit Erinnerung: Es soll den Text
+        // nicht berühren (ab 1.0.24).
+        let zugabe = 0.0
         let bild = Block(inhalt: .foto(f.id),
                          rahmen: Rahmen(x: Double(r.minX) - Double(r.width) * zugabe / 2,
                                         y: Double(r.minY) - bildH * zugabe / 2,
@@ -2733,12 +2737,38 @@ extension Layoutautomat {
             bloecke.append(angelegt(k, an: bild).mitEbene(ebene + 50))
             ty += k.rahmen.hoehe + 2
         }
+        var textUnten = ty
         if !stueck.notizRumpf.isEmpty {
             var k = textblock(stueck.notizRumpf, bild: notiz, x: Double(t.minX), y: ty, breite: Double(t.width),
                               hoechstens: Double(t.maxY) - ty + 2)
             k.zuFoto = f.id
+            textUnten = k.rahmen.y + k.rahmen.hoehe
             bloecke.append(angelegt(k, an: bild).mitEbene(ebene + 50))
         }
+        // WOZU GEHÖRT DER TEXT? (ab 1.0.24, Frage des Nutzers 11/2026: „Oder
+        // kann er theoretisch auch neben einem Bild stehen? Wenn ja, dann
+        // müssen wir … sicherstellen …, zu welchem Bild der Text gehört.")
+        // Ein Strich in der Akzentfarbe in der Fuge ZWISCHEN Text und Bild:
+        // daneben senkrecht über die Höhe des Textes, darunter waagerecht
+        // über seinem Anfang. Er hängt am Foto (`zuFoto`) wie der Text.
+        let luft = Double(teilung.lage == .unten ? t.minY - r.maxY : (teilung.lage == .rechts
+            ? t.minX - r.maxX : r.minX - t.maxX))
+        // Nah am Text, nicht im weißen Rand des Fotos.
+        let mitte = max(min(luft / 2, fuge * 0.6), 1.5)
+        let strich: Rahmen
+        switch teilung.lage {
+        case .unten:
+            strich = Rahmen(x: Double(t.minX), y: Double(t.minY) - mitte + 1, breite: min(36, Double(t.width) * 0.3), hoehe: 1.2)
+        case .rechts:
+            strich = Rahmen(x: Double(t.minX) - mitte, y: Double(t.minY) + 2, breite: 1.2,
+                            hoehe: max(textUnten - Double(t.minY) - 4, 8))
+        case .links:
+            strich = Rahmen(x: Double(t.maxX) + mitte - 1.2, y: Double(t.minY) + 2, breite: 1.2,
+                            hoehe: max(textUnten - Double(t.minY) - 4, 8))
+        }
+        var linie = Block(inhalt: .linie, rahmen: strich, rand: stil.akzent)
+        linie.zuFoto = f.id
+        bloecke.append(angelegt(linie, an: bild).mitEbene(ebene + 50))
         return bloecke
     }
 
