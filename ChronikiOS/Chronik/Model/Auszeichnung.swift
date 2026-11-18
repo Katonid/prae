@@ -119,7 +119,9 @@ enum Auszeichnung {
 
     // MARK: - Setzen
 
-    static func gesetzt(_ urtext: String, bild: Schriftbild) -> NSAttributedString {
+    /// `massstab` (ab 1.0.25): Das Eingabefeld zeigt größer, als gedruckt
+    /// wird; Größenmarken werden dann mit vergrößert.
+    static func gesetzt(_ urtext: String, bild: Schriftbild, massstab: Double = 1) -> NSAttributedString {
         let zerlegt = zerlegen(urtext)
         let grund = bild.attribute()
         let sichtbar = bild.versalien ? zerlegt.text.uppercased() : zerlegt.text
@@ -135,14 +137,14 @@ enum Auszeichnung {
             while ende < laenge, zerlegt.formate[ende] == format { ende += 1 }
             if !format.istLeer {
                 let bereich = NSRange(location: anfang, length: ende - anfang)
-                ergebnis.addAttribute(.font, value: schrift(format, bild: bild), range: bereich)
+                ergebnis.addAttribute(.font, value: schrift(format, bild: bild, massstab: massstab), range: bereich)
                 if format.unterstrichen > 0 {
                     ergebnis.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: bereich)
                 }
                 // Die feste Zeilenhöhe des Blocks gilt für die Grundschrift.
                 // Ein größeres Wort braucht mehr — sonst ragte es in die
                 // Zeile darüber.
-                if let g = format.groessen.last, g > bild.groesse,
+                if let roh = format.groessen.last, case let g = roh * massstab, g > bild.groesse,
                    let absatz = (grund[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle
                 {
                     let zeile = g * bild.zeilenabstand
@@ -157,10 +159,10 @@ enum Auszeichnung {
         return ergebnis
     }
 
-    static func schrift(_ format: Format, bild: Schriftbild) -> UIFont {
+    static func schrift(_ format: Format, bild: Schriftbild, massstab: Double = 1) -> UIFont {
         let familie = format.schriften.last.map { $0.isEmpty ? bild.familie : Schriftfamilie(familienname: $0) }
             ?? bild.familie
-        let groesse = format.groessen.last.flatMap { $0 > 0 ? $0 : nil } ?? bild.groesse
+        let groesse = format.groessen.last.flatMap { $0 > 0 ? $0 * massstab : nil } ?? bild.groesse
         return familie.uiFont(groesse: groesse, fett: bild.fett || format.fett > 0,
                               kursiv: bild.kursiv || format.kursiv > 0)
     }
@@ -221,7 +223,7 @@ enum Auszeichnung {
     /// Was im Textfeld anders aussieht als die Schrift des Blocks, wird zu
     /// Marken. Verglichen wird mit der Grundschrift: Was ihr gleicht, bleibt
     /// unmarkiert — sonst trüge jeder Text nach dem ersten Öffnen Marken.
-    static func auszeichnen(_ text: NSAttributedString, bild: Schriftbild) -> String {
+    static func auszeichnen(_ text: NSAttributedString, bild: Schriftbild, massstab: Double = 1) -> String {
         let grund = bild.uiFont
         let grundFett = bild.fett
         let grundKursiv = bild.kursiv
@@ -234,8 +236,8 @@ enum Auszeichnung {
                 let merkmale = schrift.fontDescriptor.symbolicTraits
                 if merkmale.contains(.traitBold) && !grundFett { f.fett = 1 }
                 if merkmale.contains(.traitItalic) && !grundKursiv { f.kursiv = 1 }
-                if abs(Double(schrift.pointSize) - bild.groesse) > 0.25 {
-                    f.groessen = [Double((schrift.pointSize * 2).rounded() / 2)]
+                if abs(Double(schrift.pointSize) - bild.groesse) > 0.25 * massstab {
+                    f.groessen = [(Double(schrift.pointSize) / massstab * 2).rounded() / 2]
                 }
                 if schrift.familyName != grund.familyName {
                     f.schriften = [schrift.familyName]

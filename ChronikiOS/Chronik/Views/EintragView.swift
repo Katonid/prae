@@ -96,7 +96,11 @@ struct TexteintragZeile: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if !eintrag.text.isEmpty {
-                Text(Auszeichnung.ohne(eintrag.text)).font(.callout).lineLimit(2)
+                // Der ganze Text (ab 1.0.25, Wunsch des Nutzers 11/2026: „in
+                // der Gesamtübersicht aller Texte werden immer nur 2 Reihen
+                // angezeigt. Hier möchte ich eine vollständige Ansicht").
+                Text(Auszeichnung.ohne(eintrag.text)).font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
