@@ -48,6 +48,11 @@ extension Reisewerk {
             }
         }
         gewaehlterTag = kapitelID
+        // Eine Erinnerung zu einem Foto auf einer Seite mit Handarbeit kommt
+        // trotzdem sofort neben ihr Foto (ab 1.0.21).
+        if let fotoID = eintrag.foto ?? vorher?.foto, hatHandarbeit(kapitelID) {
+            erinnerungEinhaengen(fotoID)
+        }
         sofortSichern()
         // Automatische Textpflege (ab 1.0.12) — im Hintergrund, nur für
         // diesen Text, und nur wenn er nicht als fertig markiert ist.
@@ -64,6 +69,7 @@ extension Reisewerk {
         let beginn = reise.kapitelbeginn(eintrag.tagesdatum)
         if let kapitel = reise.tage.first(where: { $0.datum == beginn }) {
             kapitelAuffrischen(kapitel.id)
+            if let fotoID = eintrag.foto, hatHandarbeit(kapitel.id) { erinnerungEinhaengen(fotoID) }
             leeresKapitelEntfernen(kapitel.id)
         }
         sofortSichern()
@@ -637,6 +643,67 @@ extension Reisewerk {
         // neue Wortlaut für den ersten, die übrigen bleiben.
         if stellen.count == 1 {
             reise.eintraege[stellen[0]].text = sauberNeu
+        }
+    }
+
+
+    /// Die Erinnerungen zu einem Foto, in ihrer Zeitfolge.
+    func erinnerungen(_ fotoID: UUID) -> [Texteintrag] {
+        reise.eintraege.filter { $0.foto == fotoID }.sorted { $0.zeit < $1.zeit }
+    }
+
+    /// DIE ERINNERUNG AUF DIE SEITE IHRES FOTOS (ab 1.0.21).
+    ///
+    /// Gemeldet 11/2026: „Ich habe jetzt zu einem Fototext eingesprochen. Da
+    /// das Foto am unteren Rand der Seite war, erschien er komischerweise
+    /// nicht … habe ich ihn ein zweites Mal aufgenommen. Auch dieser
+    /// erschien nicht. Erst als ich auf Alles neu verteilen gegangen bin,
+    /// wurde der Text sichtbar." Ursache: Ein Kapitel mit Handarbeit wird
+    /// nach einem neuen Eintrag NICHT neu gesetzt (`kapitelAuffrischen`) —
+    /// es kam nur eine Meldung. Jetzt wird hier gezielt das eine Foto
+    /// umgebaut: Sein Feld ist das Rechteck aus Foto UND bisheriger
+    /// Erinnerung (so wird es bei jedem Aufruf nicht kleiner), darin Foto
+    /// und Text neu (`Layoutautomat.fotoMitNotiz`). Lage, Ausschnitt,
+    /// Drehung und Wirkung des Fotos bleiben, nur sein Rahmen ändert sich.
+    func erinnerungEinhaengen(_ fotoID: UUID) {
+        guard let foto = reise.foto(fotoID) else { return }
+        for t in reise.tage.indices {
+            for p in reise.tage[t].seiten.indices {
+                let bloecke = reise.tage[t].seiten[p].bloecke
+                guard let i = bloecke.firstIndex(where: { $0.fotoID == fotoID }) else { continue }
+                let alt = bloecke[i]
+                let dran = anhaengsel(alt, in: bloecke)
+                var feld = alt.rahmen.rect
+                for d in dran where bloecke[d].zuFoto == fotoID { feld = feld.union(bloecke[d].rahmen.rect) }
+                let eintraege = erinnerungen(fotoID)
+                let kopf = eintraege.map { $0.titel.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .first { !$0.isEmpty } ?? ""
+                let rumpf = eintraege.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }.joined(separator: "\n")
+                var neu: [Block]
+                if kopf.isEmpty && rumpf.isEmpty {
+                    var bild = alt
+                    bild.rahmen = Rahmen(x: Double(feld.minX), y: Double(feld.minY),
+                                         breite: Double(feld.width), hoehe: Double(feld.height))
+                    neu = [bild] + dran.filter { bloecke[$0].zuFoto == nil }.map { bloecke[$0] }
+                } else {
+                    neu = automat.fotoMitNotiz(foto, kopf: kopf, rumpf: rumpf, feld: feld, ebene: alt.ebene)
+                    // Das Foto behält alles außer dem Rahmen.
+                    if let k = neu.firstIndex(where: { $0.fotoID == fotoID }) {
+                        var bild = alt
+                        bild.rahmen = neu[k].rahmen
+                        neu[k] = bild
+                    }
+                    neu = neu.map { var b = $0; b.vonHand = true; return b }
+                }
+                var rest = bloecke
+                for d in ([i] + dran).sorted(by: >) { rest.remove(at: d) }
+                reise.tage[t].seiten[p].bloecke = rest + neu
+                meldung = .init(text: eintraege.isEmpty
+                    ? "Die Erinnerung ist vom Foto genommen."
+                    : "Die Erinnerung steht jetzt bei ihrem Foto.")
+                return
+            }
         }
     }
 

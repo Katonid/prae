@@ -2605,6 +2605,63 @@ extension Layoutautomat {
         return seiten
     }
 
+    /// KAPITELWEISE (ab 1.0.21): Foto und Erinnerung in ein GEGEBENES Feld
+    /// setzen — für eine Seite, die von Hand gestaltet ist und deshalb nicht
+    /// neu gesetzt wird (`Reisewerk.erinnerungEinhaengen`). Dieselben drei
+    /// Lagen wie im Fluss (darunter, daneben zur Außenkante); passt keine
+    /// ohne starken Beschnitt, gewinnt die mit dem kleinsten — eine
+    /// Erinnerung, die nicht erscheint, ist der schlimmere Fehler (gemeldet
+    /// 11/2026: ein Foto am unteren Seitenrand, zweimal eingesprochen, beide
+    /// Male nichts zu sehen).
+    func fotoMitNotiz(_ f: Foto, kopf: String, rumpf: String, feld: CGRect, ebene: Int) -> [Block] {
+        var kopfbild = typografie[.unterueberschrift]
+        kopfbild.groesse = 12.5
+        kopfbild.ausrichtung = .links
+        kopfbild.fett = true
+        kopfbild.zeilenabstand = 1.15
+        var textbild = typografie.flieText
+        textbild.ausrichtung = .links
+        func bedarf(_ breite: Double) -> Double {
+            let kh = kopf.isEmpty ? 0 : Textmass.hoehe(kopf, bild: kopfbild, breite: breite) + 3
+            let rh = rumpf.isEmpty ? 0 : Textmass.hoehe(rumpf, bild: textbild, breite: breite)
+            return kh + rh + 4
+        }
+        let b = Double(feld.width), h = Double(feld.height)
+        let luft = fuge * 1.2
+        let soll = min(max(f.seitenverhaeltnis, 0.5), 2.4)
+        let zeile = unterschriftHoehe(f, breite: b)
+        var beste: (Notizlage, CGRect, CGRect, Double)?
+        func probe(_ lage: Notizlage, _ bild: CGRect, _ text: CGRect) {
+            guard bild.width >= 40, bild.height - CGFloat(zeile) >= 30 else { return }
+            let ist = Double(bild.width) / max(Double(bild.height) - zeile, 1)
+            let verzug = max(ist / soll, soll / ist)
+            if beste == nil || verzug < beste!.3 { beste = (lage, bild, text, verzug) }
+        }
+        let unten = bedarf(b)
+        probe(.unten, CGRect(x: Double(feld.minX), y: Double(feld.minY), width: b, height: h - unten - luft),
+              CGRect(x: Double(feld.minX), y: Double(feld.maxY) - unten, width: b, height: unten))
+        let aussen: Notizlage = feld.midX < satz.midX ? .links : .rechts
+        for anteil in [0.30, 0.38, 0.46, 0.55] {
+            let tb = b * anteil
+            guard tb >= 70 else { continue }
+            let tbedarf = bedarf(tb)
+            guard tbedarf <= h else { continue }
+            let bb = b - tb - luft
+            let bildX = aussen == .links ? Double(feld.minX) + tb + luft : Double(feld.minX)
+            let textX = aussen == .links ? Double(feld.minX) : Double(feld.minX) + bb + luft
+            probe(aussen, CGRect(x: bildX, y: Double(feld.minY), width: bb, height: h),
+                  CGRect(x: textX, y: Double(feld.maxY) - tbedarf, width: tb, height: tbedarf))
+        }
+        // Nichts passt ins Feld (kleines Foto, langer Text): darunter, und
+        // das Feld wächst nach unten — sichtbar ist besser als verschluckt.
+        let wahl = beste ?? (.unten, feld,
+                             CGRect(x: Double(feld.minX), y: Double(feld.maxY) + luft, width: b, height: unten), 9)
+        let stueck = Stueck(element: .foto(f), foto: f, kopf: "", rumpf: "", verhaeltnis: soll,
+                            notizKopf: kopf, notizRumpf: rumpf)
+        return notizbloecke(f, stueck: stueck, teilung: (wahl.0, wahl.1, wahl.2, 0, 0),
+                            ebene: ebene, kopfbild: kopfbild, textbild: textbild)
+    }
+
     /// Foto und Erinnerung in ihrem gemeinsamen Feld (ab 1.0.20). Der
     /// Text trägt `zuFoto` und hängt damit am Bild (`Reisewerk.anhaengsel`);
     /// er liegt über den Nachbarbildern (Ebene + 50), damit ein übergreifendes

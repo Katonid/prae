@@ -2045,6 +2045,28 @@ final class Reisewerk: ObservableObject, Identifiable {
         // stünde sie neben einem Loch und gehörte zu nichts mehr. Der Text
         // selbst bleibt als Eintrag erhalten.
         let bloecke = reise.tage[stelle.tag].seiten[stelle.seite].bloecke
+        // KAPITELWEISE (ab 1.0.21): Wer den TEXT einer Erinnerung löscht,
+        // meint die Erinnerung. Gemeldet 11/2026: gelöscht, und beim
+        // nächsten Neuverteilen „waren wieder beide Texte da" — der Eintrag
+        // stand noch. Jetzt geht er mit („Zurück" holt ihn wieder).
+        if let fotoID = bloecke[stelle.block].zuFoto, case let .text(wortlaut) = bloecke[stelle.block].inhalt {
+            let sauber = wortlaut.trimmingCharacters(in: .whitespacesAndNewlines)
+            let passend = reise.eintraege.filter { e in
+                e.foto == fotoID && {
+                    let t = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let k = e.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return (!t.isEmpty && sauber.contains(t)) || (!k.isEmpty && sauber == k)
+                }()
+            }
+            let alle = passend.isEmpty ? reise.eintraege.filter { $0.foto == fotoID } : passend
+            let weg = Set(alle.map(\.id))
+            reise.eintraege.removeAll { weg.contains($0.id) }
+            if gewaehlterBlock == id { gewaehlterBlock = nil }
+            erinnerungEinhaengen(fotoID)
+            meldung = .init(text: alle.count == 1 ? "Die Erinnerung ist gelöscht. \u{201E}Zurück\u{201C} holt sie wieder."
+                            : "\(alle.count) Erinnerungen zu diesem Foto sind gelöscht. \u{201E}Zurück\u{201C} holt sie wieder.")
+            return
+        }
         let weg = Set([stelle.block] + anhaengsel(bloecke[stelle.block], in: bloecke).filter {
             bloecke[$0].zuFoto != nil
         })

@@ -394,6 +394,29 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     Listen zeigen den Text ohne Marken (`Auszeichnung.ohne`).
   - **Nicht gemessen:** auf einem Gerät; ob iOS bei „Format" im
     Bearbeiten-Menü dieselben Attribute setzt, die `auszeichnen` erkennt.
+- **Erinnerung erscheint sofort, lässt sich direkt bearbeiten und löschen**
+  (ab 1.0.21, gemeldet 11/2026: Erinnerung zu einem Foto am unteren
+  Seitenrand eingesprochen — nichts zu sehen, ein zweites Mal — wieder
+  nichts; erst „Alles neu verteilen" zeigte beide; einen Textkasten gelöscht,
+  nach erneutem Neuverteilen waren beide wieder da; „Ich brauche eine direkte
+  Zugriffsmöglichkeit auf den eingesprochenen Text.").
+  - Ursache 1: `kapitelAuffrischen` setzt ein Kapitel mit Handarbeit NICHT
+    neu (nur Meldung). Jetzt: `eintragSichern`/`eintragLoeschen` rufen bei
+    einer Erinnerung in einem Kapitel mit Handarbeit
+    `erinnerungEinhaengen(fotoID)` — nur dieses Foto wird umgebaut: Feld =
+    Foto ∪ bisherige Erinnerung (so schrumpft das Foto bei wiederholtem
+    Aufruf nicht), darin `Layoutautomat.fotoMitNotiz` (drei Lagen wie im
+    Fluss plus 55 % daneben; passt nichts, unter das Feld). Das Foto behält
+    Ausschnitt, Drehung, Wirkung; alles neu Gesetzte ist `vonHand`.
+  - Ursache 2: `blockLoeschen` nahm nur den Kasten weg, der Eintrag blieb.
+    Jetzt löscht das Löschen eines Erinnerungskastens (`zuFoto`) den/die
+    Einträge, deren Text darin steht (oder deren Überschrift er ist); sonst
+    alle des Fotos. „Zurück" holt sie wieder (`merken` vorher).
+  - Zugriff: Foto gewählt → unten „Erinnerungen (n)" (Menü: jede Erinnerung
+    zum Bearbeiten, „Weitere Erinnerung einsprechen"); Erinnerungstext
+    gewählt → „Erinnerung bearbeiten". Beides öffnet `EintragView` über
+    `Blatt.eintrag(id)` (dort ändern, nachdiktieren, löschen). Daneben
+    weiter Plusmenü → „Alle Texte…".
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -444,7 +467,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -508,4 +531,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   einem Gerät.
 - **1.0.20 (Build 21)**, 11/2026: Erinnerung im Feld ihres Fotos (daneben
   oder darunter, haftet beim Verschieben), einzelne Wörter formatieren.
+  **Nicht gemessen:** auf einem Gerät.
+- **1.0.21 (Build 22)**, 11/2026: Erinnerung erscheint auch bei Handarbeit
+  sofort am Foto, direkt bearbeiten, Löschen löscht den Eintrag.
   **Nicht gemessen:** auf einem Gerät.
