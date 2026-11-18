@@ -314,7 +314,10 @@ struct Schriftbild: Codable, Hashable {
     }
 
     func gesetzt(_ text: String) -> NSAttributedString {
-        NSAttributedString(string: versalien ? text.uppercased() : text, attributes: attribute())
+        // KAPITELWEISE (ab 1.0.20): Marken für einzelne Wörter
+        // (`Auszeichnung`) — fett, kursiv, unterstrichen, Größe, Schrift.
+        if Auszeichnung.hat(text) { return Auszeichnung.gesetzt(text, bild: self) }
+        return NSAttributedString(string: versalien ? text.uppercased() : text, attributes: attribute())
     }
 }
 

@@ -283,7 +283,7 @@ enum Handbuch {
                 id: "handarbeit",
                 titel: "Was von Hand geändert wurde, bleibt",
                 text: "Sobald ein Block verschoben, gedreht oder in der Größe geändert wurde, gilt der Tag als Handarbeit und wird beim automatischen Neuanordnen übersprungen. Ein ausdrückliches Neuanordnen fragt vorher nach. In der Tagesliste steht an solchen Tagen ein Zeichen.",
-                weg: "Tagesmenü \u{2192} Seiten neu anordnen",
+                weg: "Kapitel-Menü \u{2192} Automatisch neu verteilen",
                 ziel: nil,
                 stichworte: ["neu anordnen", "zurücksetzen", "automatik", "überschreiben"]),
             Handbucheintrag(

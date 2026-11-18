@@ -143,7 +143,41 @@ enum Seitensatz {
             CTFrameDraw(rahmen, zusammenhang)
         }
         CTFrameDraw(rahmen, zusammenhang)
+        unterstreichen(rahmen, ursprung: gedreht.origin, in: zusammenhang)
         zusammenhang.restoreGState()
+    }
+
+    // UNTERSTRICHEN ZEICHNET CORETEXT NICHT (KAPITELWEISE, ab 1.0.20).
+    // `CTFrameDraw` setzt nur Glyphen; das Attribut liegt am Lauf und wird
+    // still übergangen. Gezogen wird die Linie hier selbst — mit Lage und
+    // Stärke aus der Schrift des Laufs, in seiner Farbe. Auf dem Bildschirm
+    // und im PDF dieselbe Funktion.
+    private static func unterstreichen(_ rahmen: CTFrame, ursprung: CGPoint, in zusammenhang: CGContext) {
+        let schluessel = NSAttributedString.Key.underlineStyle.rawValue
+        guard let zeilen = CTFrameGetLines(rahmen) as? [CTLine], !zeilen.isEmpty else { return }
+        var punkte = [CGPoint](repeating: .zero, count: zeilen.count)
+        CTFrameGetLineOrigins(rahmen, CFRange(location: 0, length: 0), &punkte)
+        for (n, zeile) in zeilen.enumerated() {
+            guard let laeufe = CTLineGetGlyphRuns(zeile) as? [CTRun] else { continue }
+            for lauf in laeufe {
+                let werte = CTRunGetAttributes(lauf) as NSDictionary
+                guard let art = werte[schluessel] as? Int, art != 0 else { continue }
+                let bereich = CTRunGetStringRange(lauf)
+                let x = CTLineGetOffsetForStringIndex(zeile, bereich.location, nil)
+                let breite = CTRunGetTypographicBounds(lauf, CFRange(location: 0, length: 0), nil, nil, nil)
+                guard breite > 0.5 else { continue }
+                let roh = werte[kCTFontAttributeName as String]
+                let schrift: CTFont = roh != nil ? (roh as! CTFont) : CTFontCreateWithName("Helvetica" as CFString, 12, nil)
+                let lage = CTFontGetUnderlinePosition(schrift)
+                let staerke = max(CTFontGetUnderlineThickness(schrift), 0.5)
+                let farbe = (werte[NSAttributedString.Key.foregroundColor.rawValue] as? UIColor)?.cgColor
+                    ?? UIColor.black.cgColor
+                zusammenhang.setFillColor(farbe)
+                zusammenhang.fill(CGRect(x: ursprung.x + punkte[n].x + x,
+                                         y: ursprung.y + punkte[n].y + lage - staerke / 2,
+                                         width: CGFloat(breite), height: staerke))
+            }
+        }
     }
 
     // `jpegGuete` ist NUR für die Ausgabe: `nil` heißt „wie bisher“, und so

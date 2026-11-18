@@ -2305,9 +2305,20 @@ extension Layoutautomat {
         var rumpf: String
         /// Bevorzugtes Seitenverhältnis (Breite durch Höhe).
         var verhaeltnis: Double
+        /// Das Seitenverhältnis des FOTOS allein (bei einer Erinnerung im
+        /// Feld ist `verhaeltnis` das des ganzen Stücks).
+        var verhaeltnisFoto: Double { foto.map { min(max($0.seitenverhaeltnis, 0.5), 2.4) } ?? verhaeltnis }
         /// Bei einer Erinnerung: das Foto, zu dem sie gehört.
         var zu: UUID? = nil
+        /// KAPITELWEISE (ab 1.0.20): die Erinnerung, die IM Feld ihres Fotos
+        /// steht — neben oder unter ihm, als ein Stück.
+        var notizKopf: String = ""
+        var notizRumpf: String = ""
+        var hatNotiz: Bool { !notizKopf.isEmpty || !notizRumpf.isEmpty }
     }
+
+    /// Wie Foto und Erinnerung in einem Feld liegen.
+    private enum Notizlage { case unten, links, rechts }
 
     /// Misst Textfelder — mit Vorrat, denn dieselbe Breite wird bei tausend
     /// Aufteilungen immer wieder gefragt.
@@ -2338,6 +2349,65 @@ extension Layoutautomat {
             return w
         }
 
+        // Eine Erinnerung im Feld ihres Fotos: kleinere Zugabe, kein
+        // Goldstrich — sie gehört sichtbar zum Bild und nicht in den Fluss.
+        let notizfuge = 4.0
+        func notizbedarf(_ kopf: String, _ rumpf: String, breite: Double, kopfOben: String = "") -> Double {
+            let k = kopf.isEmpty ? kopfOben : kopf
+            return textbedarf(k, rumpf, breite: breite) - textzugabe + notizfuge
+        }
+
+        // Wie Foto und Erinnerung ein Feld am besten teilen: darunter oder
+        // daneben (zur Außenkante der Seite, damit die Nachbarbilder, die
+        // im Album etwas übergreifen, den Text nicht verdecken). Gewählt
+        // wird, was das Foto am wenigsten verzerrt und im Textstreifen am
+        // wenigsten frei lässt.
+        let notizluft = fuge * 1.2
+        func notizteilung(_ stueck: Stueck, feld: CGRect)
+            -> (lage: Notizlage, bild: CGRect, text: CGRect, strafe: Double, verschenkt: Double)?
+        {
+            guard let f = stueck.foto else { return nil }
+            let b = Double(feld.width), h = Double(feld.height)
+            let zeile = unterschriftHoehe(f, breite: b)
+            var beste: (lage: Notizlage, bild: CGRect, text: CGRect, strafe: Double, verschenkt: Double)?
+            func probe(_ lage: Notizlage, _ bild: CGRect, _ text: CGRect, bedarf: Double) {
+                let bildH = max(Double(bild.height) - zeile, 1)
+                let ist = Double(bild.width) / bildH
+                let verzug = max(ist / stueck.verhaeltnisFoto, stueck.verhaeltnisFoto / ist)
+                guard verzug <= 1.45, bild.width >= 60, bildH >= 50 else { return }
+                let frei = max(0, Double(text.height) - bedarf) * Double(text.width)
+                let wert = (verzug - 1) * 0.25 + frei / max(b * h, 1) * 0.5
+                if beste == nil || wert < beste!.strafe + beste!.verschenkt {
+                    beste = (lage, bild, text, (verzug - 1) * 0.25, frei / max(b * h, 1) * 0.5)
+                }
+            }
+            // Darunter.
+            let untenBedarf = notizbedarf(stueck.notizKopf, stueck.notizRumpf, breite: b)
+            if untenBedarf < h * 0.5 {
+                let bildH = h - untenBedarf - notizluft
+                probe(.unten, CGRect(x: feld.minX, y: feld.minY, width: b, height: bildH),
+                      CGRect(x: Double(feld.minX), y: Double(feld.minY) + bildH + notizluft,
+                             width: b, height: untenBedarf), bedarf: untenBedarf)
+            }
+            // Daneben, in drei Breiten.
+            let aussen: Notizlage = feld.midX < satz.midX ? .links : .rechts
+            for anteil in [0.30, 0.38, 0.46] {
+                let tb = b * anteil
+                guard tb >= 85 else { continue }
+                let bedarf = notizbedarf(stueck.notizKopf, stueck.notizRumpf, breite: tb)
+                guard bedarf <= h else { continue }
+                let bb = b - tb - notizluft
+                let bildX = aussen == .links ? Double(feld.minX) + tb + notizluft : Double(feld.minX)
+                let textX = aussen == .links ? Double(feld.minX) : Double(feld.minX) + bb + notizluft
+                // Der Text steht auf Höhe der Bildunterkante, wenn er kurz
+                // ist — so liest er sich wie eine Beschriftung.
+                let textY = Double(feld.maxY) - max(bedarf, min(h, bedarf))
+                probe(aussen, CGRect(x: bildX, y: Double(feld.minY), width: bb, height: h),
+                      CGRect(x: textX, y: textY, width: tb, height: bedarf), bedarf: bedarf)
+            }
+            return beste
+        }
+
         // Zu lange Texte in Stücke von höchstens halber Seitenbreite und gut
         // drei Vierteln Höhe teilen.
         let halbe = (Double(satz.width) - luft) / 2
@@ -2349,6 +2419,33 @@ extension Layoutautomat {
                 stuecke.append(Stueck(element: element, foto: f, kopf: "", rumpf: "",
                                       verhaeltnis: min(max(f.seitenverhaeltnis, 0.5), 2.4)))
             case .text(let kopf, let rumpf, let zu):
+                // FOTO UND ERINNERUNG SIND EIN STÜCK (ab 1.0.20, Ansage des
+                // Nutzers 11/2026: „Der Text soll auf jeden Fall mit dem Foto
+                // verbunden werden … links oder rechts daneben erscheinen,
+                // oder darunter … Ein Text aus einem Satz bestehend darf
+                // nicht dazu führen, dass ein anderes Foto … auf die nächste
+                // Seite wandert und eine Riesenlücke hinterlässt."). Bis
+                // 1.0.19 war eine Erinnerung ein eigenes Feld der Aufteilung
+                // — ein Satz kostete damit ein ganzes Feld und verdrängte
+                // ein Bild. Jetzt liegt sie im Feld IHRES Fotos; das Foto
+                // gibt ihr einen Streifen ab. Nur wenn sie dafür zu lang ist
+                // (mehr als gut ein Drittel der Seite bei halber Breite),
+                // bleibt sie ein eigenes Feld.
+                if let zu, let letztes = stuecke.indices.last, stuecke[letztes].foto?.id == zu,
+                   notizbedarf(stuecke[letztes].notizKopf, stuecke[letztes].notizRumpf.isEmpty ? rumpf
+                               : stuecke[letztes].notizRumpf + "\n" + rumpf, breite: halbe, kopfOben: kopf)
+                       <= Double(satz.height) * 0.36
+                {
+                    if stuecke[letztes].notizKopf.isEmpty { stuecke[letztes].notizKopf = kopf }
+                    stuecke[letztes].notizRumpf = stuecke[letztes].notizRumpf.isEmpty
+                        ? rumpf : stuecke[letztes].notizRumpf + "\n" + rumpf
+                    let f = stuecke[letztes].foto!
+                    let r = min(max(f.seitenverhaeltnis, 0.5), 2.4)
+                    let hoch = halbe / r + notizbedarf(stuecke[letztes].notizKopf,
+                                                       stuecke[letztes].notizRumpf, breite: halbe)
+                    stuecke[letztes].verhaeltnis = min(max(halbe / hoch, 0.45), 2.4)
+                    continue
+                }
                 var rest = rumpf
                 var k = kopf
                 var schutz = 0
@@ -2396,7 +2493,12 @@ extension Layoutautomat {
                     let feld = felder[i]
                     let b = Double(feld.width)
                     let h = Double(feld.height)
-                    if let f = stueck.foto {
+                    if stueck.hatNotiz {
+                        guard let teilung = notizteilung(stueck, feld: feld) else { geht = false; break }
+                        strafe += teilung.strafe
+                        verschenkt += teilung.verschenkt
+                        if b * h < gesamt * 0.05 { strafe += 0.5 }
+                    } else if let f = stueck.foto {
                         let zeile = unterschriftHoehe(f, breite: b)
                         let bildH = max(h - zeile, 1)
                         let ist = b / bildH
@@ -2465,7 +2567,10 @@ extension Layoutautomat {
                 let y0 = Double(feld.minY)
                 let b = Double(feld.width)
                 let h = Double(feld.height)
-                if let f = stueck.foto {
+                if stueck.hatNotiz, let f = stueck.foto, let teilung = notizteilung(stueck, feld: feld) {
+                    bloecke.append(contentsOf: notizbloecke(f, stueck: stueck, teilung: teilung,
+                                                            ebene: i, kopfbild: kopfbild, textbild: textbild))
+                } else if let f = stueck.foto {
                     let zeile = unterschriftHoehe(f, breite: b)
                     let bildH = max(h - zeile, 20)
                     let zugabe = 0.04
@@ -2498,6 +2603,51 @@ extension Layoutautomat {
             nummer += 1
         }
         return seiten
+    }
+
+    /// Foto und Erinnerung in ihrem gemeinsamen Feld (ab 1.0.20). Der
+    /// Text trägt `zuFoto` und hängt damit am Bild (`Reisewerk.anhaengsel`);
+    /// er liegt über den Nachbarbildern (Ebene + 50), damit ein übergreifendes
+    /// Foto ihn nicht verdeckt, und dreht mit seinem Bild.
+    private func notizbloecke(_ f: Foto, stueck: Stueck,
+                              teilung: (lage: Notizlage, bild: CGRect, text: CGRect, strafe: Double, verschenkt: Double),
+                              ebene: Int, kopfbild: Schriftbild, textbild: Schriftbild) -> [Block] {
+        var bloecke: [Block] = []
+        let r = teilung.bild
+        let zeile = unterschriftHoehe(f, breite: Double(r.width))
+        let bildH = max(Double(r.height) - zeile, 20)
+        let zugabe = 0.03
+        let bild = Block(inhalt: .foto(f.id),
+                         rahmen: Rahmen(x: Double(r.minX) - Double(r.width) * zugabe / 2,
+                                        y: Double(r.minY) - bildH * zugabe / 2,
+                                        breite: Double(r.width) * (1 + zugabe), hoehe: bildH * (1 + zugabe)),
+                         drehung: drehwinkel(f.id) * 0.5,
+                         ebene: ebene)
+        bloecke.append(bild)
+        if let unterschrift = unterschriftBlock(f, x: Double(r.minX), y: Double(r.minY) + bildH,
+                                                breite: Double(r.width)) {
+            bloecke.append(angelegt(unterschrift, an: bild))
+        }
+        let t = teilung.text
+        var ty = Double(t.minY) + (teilung.lage == .unten ? 2 : 0)
+        var notiz = textbild
+        notiz.ausrichtung = teilung.lage == .links ? .rechts : .links
+        var kopf = kopfbild
+        kopf.ausrichtung = notiz.ausrichtung
+        if !stueck.notizKopf.isEmpty {
+            var k = textblock(stueck.notizKopf, bild: kopf, x: Double(t.minX), y: ty, breite: Double(t.width))
+            k.zuFoto = f.id
+            k.ebene = ebene + 50
+            bloecke.append(angelegt(k, an: bild).mitEbene(ebene + 50))
+            ty += k.rahmen.hoehe + 2
+        }
+        if !stueck.notizRumpf.isEmpty {
+            var k = textblock(stueck.notizRumpf, bild: notiz, x: Double(t.minX), y: ty, breite: Double(t.width),
+                              hoechstens: Double(t.maxY) - ty + 2)
+            k.zuFoto = f.id
+            bloecke.append(angelegt(k, an: bild).mitEbene(ebene + 50))
+        }
+        return bloecke
     }
 
     // MARK: Bausteine

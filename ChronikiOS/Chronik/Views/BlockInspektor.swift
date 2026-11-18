@@ -319,12 +319,12 @@ struct BlockInspektor: View {
         Section {
             LabeledContent("Art", value: block.inhalt.name)
             if case let .text(wert) = block.inhalt {
-                TextEditor(text: Binding(
+                // Mit Formatleiste (KAPITELWEISE, ab 1.0.20).
+                Formatfeld(text: Binding(
                     get: { wert },
                     set: { neu in werk.aendere(block.id, merken: false) { $0.inhalt = .text(neu) } }
-                ))
+                ), bild: Seitensatz.schriftbild(block, reise: werk.reise), schriften: werk.reise.buchschriften)
                 .frame(minHeight: 120)
-                .font(.system(size: 13))
             }
             if block.vonHand {
                 Label("Von Hand geändert — das Neuanordnen lässt diesen Block in Ruhe.",

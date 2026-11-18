@@ -205,7 +205,8 @@ struct InlineText: View {
         // `topLeading` und der Maßangabe in `sizeThatFits` kann das nicht
         // mehr passieren.
         TextflaecheBruecke(text: $text, bild: bild,
-                           rand: block.textrand(werk.reise.gestaltung)) {
+                           rand: block.textrand(werk.reise.gestaltung),
+                           schriften: werk.reise.buchschriften) {
             fertig()
         }
         .frame(width: rahmen.width, alignment: .topLeading)
@@ -242,11 +243,18 @@ struct TextflaecheBruecke: UIViewRepresentable {
     // spränge der Text beim Doppeltipp an die Kante und beim Schließen
     // wieder zurück — dieselbe Art Unterschied wie zwischen zwei Setzern.
     var rand: Double = 0
+    // KAPITELWEISE (ab 1.0.20): Schriften für das Menü der Formatleiste.
+    var schriften: [Schriftfamilie] = []
     var fertig: () -> Void
 
     func makeUIView(context: Context) -> UITextView {
         let feld = UITextView()
         feld.delegate = context.coordinator
+        // Einzelne Wörter formatieren (ab 1.0.20): Leiste über der
+        // Tastatur und „Format" im Bearbeiten-Menü (`Formatwerkzeug`).
+        feld.allowsEditingTextAttributes = true
+        context.coordinator.werkzeug.feld = feld
+        feld.inputAccessoryView = context.coordinator.werkzeug.leiste()
         feld.backgroundColor = .clear
         feld.textContainerInset = .zero
         feld.textContainer.lineFragmentPadding = 0
@@ -287,30 +295,35 @@ struct TextflaecheBruecke: UIViewRepresentable {
 
     func updateUIView(_ feld: UITextView, context: Context) {
         feld.textContainerInset = UIEdgeInsets(top: rand, left: rand, bottom: rand, right: rand)
-        let attribute = bild.attribute()
-        feld.typingAttributes = attribute
-        if feld.text != text {
-            feld.attributedText = NSAttributedString(string: text, attributes: attribute)
+        let werkzeug = context.coordinator.werkzeug
+        werkzeug.geaendert = { neu in text = neu }
+        if werkzeug.bild != bild {
+            werkzeug.bild = bild
+            werkzeug.zeigen(text, in: feld)
+        } else if text != werkzeug.letzter {
+            werkzeug.zeigen(text, in: feld)
         }
     }
 
-    func makeCoordinator() -> Bote { Bote(text: $text, fertig: fertig) }
+    func makeCoordinator() -> Bote {
+        Bote(werkzeug: Formatwerkzeug(bild: bild, schriften: schriften, geaendert: { _ in }), fertig: fertig)
+    }
 
     final class Bote: NSObject, UITextViewDelegate {
-        @Binding var text: String
+        let werkzeug: Formatwerkzeug
         let fertig: () -> Void
 
-        init(text: Binding<String>, fertig: @escaping () -> Void) {
-            _text = text
+        init(werkzeug: Formatwerkzeug, fertig: @escaping () -> Void) {
+            self.werkzeug = werkzeug
             self.fertig = fertig
         }
 
         func textViewDidChange(_ feld: UITextView) {
-            text = feld.text
+            werkzeug.uebernehmen(feld)
         }
 
         func textViewDidEndEditing(_ feld: UITextView) {
-            text = feld.text
+            werkzeug.uebernehmen(feld)
             fertig()
         }
     }

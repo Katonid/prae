@@ -49,9 +49,10 @@ struct VorwortView: View {
                 }
 
                 Section {
-                    TextEditor(text: $text)
+                    // Mit Formatleiste (ab 1.0.20): einzelne Wörter fett,
+                    // kursiv, unterstrichen, größer, in anderer Schrift.
+                    Formatfeld(text: $text, bild: schrift, schriften: werk.reise.buchschriften)
                         .frame(minHeight: 320)
-                        .font(.system(size: 15))
                     Button {
                         if let s = UIPasteboard.general.string, !s.isEmpty {
                             text = text.isEmpty ? s : text + "\n\n" + s

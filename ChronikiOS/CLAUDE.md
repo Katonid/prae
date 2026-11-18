@@ -250,7 +250,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Erneutes Sichern im Vorwort-Blatt lässt die Fotos stehen, neue kommen auf
   die Seite mit den wenigsten Fotos (`vorwortFoto`). Kapitel-Menü:
   „Vorwort bearbeiten…", „Text neu umfließen lassen" (nach Änderungen im
-  Inspektor). „Seiten neu anordnen" setzt alles neu.
+  Inspektor). „Automatisch neu verteilen" setzt alles neu.
 - **Eigene Schrift fürs Vorwort** (ab 1.0.17, Ansage des Nutzers 11/2026:
   „Ich möchte die Schriftart des Vorwortes auch einstellen können").
   `Reisetag.vorwortschrift: Schriftbild?`, `nil` = Fließtext des Buches,
@@ -327,7 +327,86 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   sonst stabil). Beim Sichern bleiben stehende Fotos, wo sie sind; ein neues
   kommt zwischen die Seite seines Vorgängers und die seines Nachfolgers in
   der Liste, dort auf die mit den wenigsten Fotos (`vorwortSichern`). Alles
-  der Reihe nach von vorn: Kapitel-Menü → „Seiten neu anordnen".
+  der Reihe nach von vorn: Kapitel-Menü → „Automatisch neu verteilen".
+- **Foto und Erinnerung sind EIN Stück** (ab 1.0.20, Ansage des Nutzers
+  11/2026: „Der Text soll auf jeden Fall mit dem Foto verbunden werden, also
+  bei Verschiebungen immer an ihm haften bleiben … links oder rechts daneben
+  … oder darunter … Es muss aber jeweils klar sein, zu welchem Foto der Text
+  gehört … Ein Text aus einem Satz bestehend darf nicht dazu führen, dass ein
+  anderes Foto … auf die nächste Seite wandert und eine Riesenlücke
+  hinterlässt."). Bis 1.0.19 war eine Erinnerung ein eigenes Feld der
+  Aufteilung: Ein Satz kostete ein Feld und verdrängte ein Bild.
+  - `flussseiten`: Eine Erinnerung (`Fluss.text(zu:)`) direkt hinter ihrem
+    Foto wird an dessen `Stueck` gehängt (`notizKopf`/`notizRumpf`), solange
+    sie bei halber Breite höchstens 36 % der Satzhöhe braucht; sonst bleibt
+    sie ein eigenes Feld (wie bisher, mit Trennstrafe). Das Stück zählt in
+    der Aufteilung mit dem Seitenverhältnis von Foto PLUS Text.
+  - `notizteilung`: Im Feld gibt das Foto der Erinnerung einen Streifen ab —
+    darunter (wenn der Text < halbe Feldhöhe braucht) oder daneben in 30/38/46 %
+    der Breite, und zwar zur AUSSENKANTE der Seite (die Nachbarbilder greifen
+    im Album über). Gewählt wird der kleinste Verzug des Fotos (≤ 1,45 wie
+    sonst) plus frei bleibender Textstreifen. Daneben steht der Text unten
+    bündig zum Bild, links davon rechtsbündig.
+  - `notizbloecke`: Foto 3 % größer, halbe Drehung; Text ohne Goldstrich,
+    Ebene + 50 (über übergreifenden Nachbarn), mit dem Bild mitgedreht
+    (`angelegt`) und mit `Block.zuFoto` = Kennung des Fotos.
+  - **`Block.zuFoto` hält zusammen** (`Reisewerk.anhaengsel`: Unterschrift
+    UND Erinnerung): `schiebeMitUnterschrift`, `drehe`, `blockVerschieben`,
+    `blockAufNeueSeite` nehmen alles mit; `blockLoeschen` eines Fotos nimmt
+    die Erinnerung von der Seite (der Eintrag bleibt); `abHierNeuVerteilen`
+    zählt sie nicht als Verdeckung und nimmt sie mit dem Foto heraus.
+  - Auf der Seite geänderte Erinnerung geht in den EINTRAG zurück
+    (`textSchreiben` → `erinnerungSchreiben`, Kapitelwerk) — sonst setzte das
+    nächste Neuanordnen den alten Wortlaut ein.
+  - **Nicht gemessen:** wie die Felder aussehen; die Varianten sind
+    gerechnet, nicht angesehen.
+- **Einzelne Wörter formatieren** (ab 1.0.20, Ansage des Nutzers 11/2026:
+  „in allen Bereichen … einzelne Wörter oder Abschnitte anders zu
+  formatieren. Also Schriftgröße, Schriftart, fett oder unterstrichen").
+  - **Gespeichert wird Text mit Marken** (`Model/Auszeichnung.swift`):
+    `[b]…[/b]`, `[i]…[/i]`, `[u]…[/u]`, `[gr=14]…[/gr]`,
+    `[schrift=Hoefler+Text]…[/schrift]` (`+` statt Leerzeichen — das Teilen
+    sucht rückwärts ein Leerzeichen und darf nie in einer Marke landen).
+    Kein zweites Format im Modell: Jeder Weg (Einträge, Vorwort, Teilen,
+    Wiederfinden am Wortlaut, Buchdatei, iCloud) rechnet mit Text.
+  - Gesetzt an EINER Stelle: `Schriftbild.gesetzt` → `Auszeichnung.gesetzt`
+    (Schrift je Lauf, Unterstreichung, größere Zeilenhöhe im Absatz eines
+    größeren Wortes). Damit messen, teilen und zeichnen Seite und PDF
+    gleich. `Textmass.passtBis` rechnet die sichtbare Länge über
+    `Zerlegt.quelle` in den Urtext zurück und nie in eine Marke
+    (`ausserhalbMarke`); `teilenMitArt` schließt offene Marken im Kopf und
+    öffnet sie im Rest wieder (`ausgleichen`) — unter Linux geprüft.
+  - **Text mit Marken wird nicht getrennt** (Silbentrennung rechnet mit einer
+    Schrift; mit fetten/größeren Wörtern stünden Striche mitten in der
+    Zeile). Betrifft nur Kästen, in denen eine Marke steht.
+  - **Unterstrichen zeichnet CoreText nicht** — `Seitensatz.unterstreichen`
+    zieht die Linie selbst (Lage/Stärke aus der Schrift des Laufs).
+  - Bearbeiten: `Views/Formatfeld.swift` — `Formatwerkzeug` (Leiste über der
+    Tastatur: Fett, Kursiv, Unterstrichen, kleiner, größer, Schrift mit den
+    Schriften des Buches und „Weitere Schriften…" = Wähler von iOS, von
+    UIKit dargestellt, schließt sich selbst EINMAL; „Normal"; dazu
+    `allowsEditingTextAttributes`). Nach jeder Änderung zurück in Marken
+    (`auszeichnen`, verglichen mit der Grundschrift des Blocks) und aus
+    ihnen neu gezeigt. Eingebaut in den Text auf der Seite
+    (`TextflaecheBruecke`), den Eintrag (`EintragView`), das Vorwort und den
+    Textkasten im Inspektor (`Formatfeld`).
+  - Texte mit Marken gehen NICHT ans Sprachmodell (`Textpflege.pruefen`).
+    Listen zeigen den Text ohne Marken (`Auszeichnung.ohne`).
+  - **Nicht gemessen:** auf einem Gerät; ob iOS bei „Format" im
+    Bearbeiten-Menü dieselben Attribute setzt, die `auszeichnen` erkennt.
+- **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
+  Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
+  manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
+  sondern abschnittsweise. Also für das Vorwort, für das Nachwort … und für
+  alle einzelnen Jahre"). Es GAB sie: Kapitel-Menü → bis 1.0.19 „Seiten neu
+  anordnen" (`neuAnordnen(erzwingen: true)`), sprach aber vom „Tag" und
+  sagte nicht, was bleibt. Heißt jetzt „Automatisch neu verteilen"; die
+  Rückfrage (nur bei Handarbeit) nennt, was wegfällt (Lage, Drehung, Größe,
+  von Hand eingefügte Seiten samt PDF-Seiten) und was bleibt (Texte,
+  Erinnerungen, Fotos, Unterschriften). Gilt für jedes Kapitel und das
+  Vorwort; ein künftiges NACHWORT bekommt sie, wenn es wie das Vorwort ein
+  `Reisetag` ist, von selbst. Für das ganze Buch: „Ganzes Buch → Alles neu
+  verteilen…" (Vorschau, `NeuverteilenView`). Rückgängig: „Zurück".
 - **Nicht gebaut:** die Titelseite der Vorlage (Filmstreifen, Collage) — sie
   ist ein gemaltes Plakat; die Titelseite bleibt die des Reisebuchs (Titelbild
   plus Schrift). Ebenso der QR-Code-Kasten und die Stadtsilhouette.
@@ -365,7 +444,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -427,3 +506,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   (selbst installierte Schriften gingen verloren), Vorwortfotos der Zeit
   nach. **Nicht gemessen:** auf
   einem Gerät.
+- **1.0.20 (Build 21)**, 11/2026: Erinnerung im Feld ihres Fotos (daneben
+  oder darunter, haftet beim Verschieben), einzelne Wörter formatieren.
+  **Nicht gemessen:** auf einem Gerät.

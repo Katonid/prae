@@ -59,6 +59,10 @@ enum Textpflege {
     static func pruefen(_ text: String) async -> String {
         let sauber = aufraeumen(text)
         guard Sprachhilfe.aufDemGeraet, !sauber.isEmpty else { return sauber }
+        // KAPITELWEISE (ab 1.0.20): Ein Text mit Formatmarken (`[b]…[/b]`)
+        // geht nicht ans Sprachmodell — es schriebe sie um oder ließe sie
+        // weg, und die Längenprobe fiele darauf nicht zuverlässig herein.
+        guard !Auszeichnung.hat(sauber) else { return sauber }
         guard let ki = try? await Sprachhilfe.ueberarbeiten(sauber, art: .korrigieren) else { return sauber }
         let korrigiert = aufraeumen(ki)
         let a = Double(sauber.count)
