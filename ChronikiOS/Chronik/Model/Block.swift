@@ -246,6 +246,12 @@ struct Block: Identifiable, Codable, Hashable {
     // global."
     var kartenbild: Kartenbild?
     var kartenausschnitt: Kartenausschnitt?
+    // KAPITELWEISE (ab 1.0.20): Ein Text, der zu einem FOTO gehört (die
+    // Erinnerung zu einem Bild). Er hängt an ihm wie die Bildunterschrift:
+    // geht beim Schieben, Drehen und Verschieben auf eine andere Seite mit
+    // (`Reisewerk.anhaengsel`). Die Kennung ist die des Fotos, nicht die des
+    // Fotoblocks — die wechselt bei jedem Neusetzen.
+    var zuFoto: UUID?
 
     // Von Hand geschrieben, weil es daneben einen eigenen Leser gibt —
     // damit fällt der erzeugte Merkmalsinitialisierer weg. Die Reihenfolge
@@ -315,6 +321,7 @@ struct Block: Identifiable, Codable, Hashable {
         randabfallend = b.wert(.randabfallend, false)
         kartenbild = b.wahlweise(.kartenbild)
         kartenausschnitt = b.wahlweise(.kartenausschnitt)
+        zuFoto = b.wahlweise(.zuFoto)
     }
 
     var istFoto: Bool { inhalt.istFoto }
@@ -597,5 +604,14 @@ struct Seite: Identifiable, Codable, Hashable {
                 return links.offset < rechts.offset
             }
             .map(\.element)
+    }
+}
+
+extension Block {
+    /// Derselbe Block auf einer anderen Ebene (KAPITELWEISE, ab 1.0.20).
+    func mitEbene(_ ebene: Int) -> Block {
+        var neu = self
+        neu.ebene = ebene
+        return neu
     }
 }

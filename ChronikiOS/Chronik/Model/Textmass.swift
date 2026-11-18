@@ -27,7 +27,11 @@ enum Textmass {
     private static func getrennt(_ text: String, bild: Schriftbild, breite: Double)
         -> (setzer: CTFramesetter, trennung: Silbentrennung.Ergebnis)
     {
-        let trennung = Silbentrennung.getrennt(text, bild: bild, breite: breite)
+        // KAPITELWEISE (ab 1.0.20): Ein Text mit Marken wird nicht getrennt
+        // (siehe `Auszeichnung`) — die Trennung rechnet mit EINER Schrift.
+        let trennung = Auszeichnung.hat(text)
+            ? Silbentrennung.Ergebnis(text: text, stellen: [])
+            : Silbentrennung.getrennt(text, bild: bild, breite: breite)
         let setzer = CTFramesetterCreateWithAttributedString(
             bild.gesetzt(trennung.text) as CFAttributedString
         )
@@ -81,6 +85,13 @@ enum Textmass {
         let pfad = CGPath(rect: CGRect(origin: .zero, size: groesse), transform: nil)
         let rahmen = CTFramesetterCreateFrame(setzer, CFRange(location: 0, length: 0), pfad, nil)
         let sichtbar = CTFrameGetVisibleStringRange(rahmen)
+        // KAPITELWEISE (ab 1.0.20): Gesetzt wurde der Text OHNE Marken —
+        // zurück an die Stelle im Urtext, und nie mitten in eine Marke.
+        if Auszeichnung.hat(text) {
+            let zerlegt = Auszeichnung.zerlegen(text)
+            let k = min(max(sichtbar.length, 0), zerlegt.quelle.count - 1)
+            return Auszeichnung.ausserhalbMarke(Array(text.utf16), zerlegt.quelle[k])
+        }
         // ZURÜCK IN DEN URTEXT. `sichtbar.length` zählt Zeichen des
         // GESETZTEN Textes, also samt der eingefügten Trennstriche —
         // `teilen` schneidet damit aber den Tagebuchtext. Ohne diese
@@ -184,7 +195,10 @@ enum Textmass {
             if !kopf.isEmpty {
                 let rest = String(utf16: Array(utf16[grenze...]))
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !rest.isEmpty { return (kopf, rest, .absatz) }
+                if !rest.isEmpty {
+                    let (k, r) = Auszeichnung.ausgleichen(kopf, rest)
+                    return (k, r, .absatz)
+                }
             }
         }
 
@@ -197,9 +211,9 @@ enum Textmass {
         if schnitt == 0 { schnitt = laenge }
         let kopf = String(utf16: Array(utf16[0..<schnitt]))
         let rest = String(utf16: Array(utf16[schnitt...]))
-        return (kopf.trimmingCharacters(in: .whitespacesAndNewlines),
-                rest.trimmingCharacters(in: .whitespacesAndNewlines),
-                .wort)
+        let (k, r) = Auszeichnung.ausgleichen(kopf.trimmingCharacters(in: .whitespacesAndNewlines),
+                                              rest.trimmingCharacters(in: .whitespacesAndNewlines))
+        return (k, r, .wort)
     }
 
     // Die letzte Absatzgrenze vor `bis` — also hinter dem letzten

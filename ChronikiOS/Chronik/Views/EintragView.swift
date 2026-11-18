@@ -96,7 +96,7 @@ struct TexteintragZeile: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if !eintrag.text.isEmpty {
-                Text(eintrag.text).font(.callout).lineLimit(2)
+                Text(Auszeichnung.ohne(eintrag.text)).font(.callout).lineLimit(2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -204,9 +204,12 @@ struct EintragView: View {
                 }
 
                 Section {
-                    TextEditor(text: $eintrag.text)
+                    // KAPITELWEISE (ab 1.0.20): mit Formatleiste über der
+                    // Tastatur — einzelne Wörter fett, kursiv, unterstrichen,
+                    // größer, in anderer Schrift (`Auszeichnung`).
+                    Formatfeld(text: $eintrag.text, bild: werk.reise.typografie.flieText,
+                               schriften: werk.reise.buchschriften)
                         .frame(minHeight: 260)
-                        .font(.system(size: 15))
                         .padding(.bottom, 44)
                         .overlay(alignment: .bottomTrailing) { diktatKnopf.padding(.bottom, 4) }
                     if diktat.laeuft || !diktat.zwischentext.isEmpty {

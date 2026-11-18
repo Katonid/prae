@@ -403,6 +403,7 @@ extension Reisewerk {
             var verdeckt = 0.0
             for oben in ordnung[(n + 1)...] {
                 if case .bildunterschrift = oben.inhalt { continue }
+                if oben.zuFoto == fotoID { continue }
                 let schnitt = r.intersection(oben.rahmen.rect)
                 if !schnitt.isNull { verdeckt += Double(schnitt.width * schnitt.height) }
             }
@@ -414,6 +415,7 @@ extension Reisewerk {
             reise.tage[t].seiten[p].bloecke.removeAll { block in
                 if let id = block.fotoID, verdraengt.contains(id) { return true }
                 if case let .bildunterschrift(id) = block.inhalt, verdraengt.contains(id) { return true }
+                if let id = block.zuFoto, verdraengt.contains(id) { return true }
                 return false
             }
         }
@@ -607,4 +609,35 @@ extension Reisewerk {
         reise.tage.remove(at: i)
         sofortSichern()
     }
+
+    // MARK: Erinnerung am Foto (ab 1.0.20)
+
+    /// Ein auf der Seite geänderter Text, der an einem Foto hängt, geht in
+    /// den Eintrag zurück: Wortlaut gleich dem Text eines Eintrags → dessen
+    /// Text; gleich seiner Überschrift → die Überschrift. Mehrere Einträge
+    /// zu einem Foto stehen im Feld untereinander; dann wird das Stück
+    /// gesucht, das sich geändert hat.
+    func erinnerungSchreiben(_ fotoID: UUID, alt: String, neu: String) {
+        let sauberAlt = alt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sauberNeu = neu.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stellen = reise.eintraege.indices.filter { reise.eintraege[$0].foto == fotoID }
+        guard !stellen.isEmpty else { return }
+        for i in stellen {
+            if reise.eintraege[i].text.trimmingCharacters(in: .whitespacesAndNewlines) == sauberAlt {
+                reise.eintraege[i].text = sauberNeu
+                return
+            }
+            if reise.eintraege[i].titel.trimmingCharacters(in: .whitespacesAndNewlines) == sauberAlt {
+                reise.eintraege[i].titel = sauberNeu
+                return
+            }
+        }
+        // Mehrere Einträge in einem Kasten (durch Zeilenwechsel getrennt):
+        // Zeile für Zeile vergleichen geht nicht verlässlich — dann gilt der
+        // neue Wortlaut für den ersten, die übrigen bleiben.
+        if stellen.count == 1 {
+            reise.eintraege[stellen[0]].text = sauberNeu
+        }
+    }
+
 }

@@ -1342,7 +1342,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         let delta = grad - bloecke[stelle.block].drehung
         bloecke[stelle.block].drehung = grad
         bloecke[stelle.block].vonHand = true
-        if let u = unterschriftZu(bloecke[stelle.block], in: bloecke) {
+        for u in anhaengsel(bloecke[stelle.block], in: bloecke) {
             let mitte = bloecke[stelle.block].rahmen.mitte
             bloecke[u].rahmen = bloecke[u].rahmen.gedreht(um: mitte, grad: delta)
             bloecke[u].drehung += delta
@@ -1372,7 +1372,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         let alt = bloecke[stelle.block].rahmen
         bloecke[stelle.block].rahmen = neu
         bloecke[stelle.block].vonHand = true
-        if let u = unterschriftZu(bloecke[stelle.block], in: bloecke) {
+        for u in anhaengsel(bloecke[stelle.block], in: bloecke) {
             // NICHT auf die Seite geklemmt: Starr ist starr. Schiebt jemand
             // das Bild an den Rand, soll die Unterschrift ihren Abstand
             // behalten — was dabei über die Kante gerät, meldet die rote
@@ -1393,6 +1393,17 @@ final class Reisewerk: ObservableObject, Identifiable {
     private func unterschriftZu(_ block: Block, in bloecke: [Block]) -> Int? {
         guard let fotoID = block.fotoID else { return nil }
         return bloecke.firstIndex { $0.inhalt == .bildunterschrift(fotoID) }
+    }
+
+    /// KAPITELWEISE (ab 1.0.20): Was an einem Foto HÄNGT — seine
+    /// Bildunterschrift und die Texte seiner Erinnerung (`Block.zuFoto`).
+    /// Alles davon geht beim Schieben, Drehen und Verschieben mit.
+    func anhaengsel(_ block: Block, in bloecke: [Block]) -> [Int] {
+        guard let fotoID = block.fotoID else { return [] }
+        return bloecke.indices.filter {
+            bloecke[$0].id != block.id
+                && (bloecke[$0].inhalt == .bildunterschrift(fotoID) || bloecke[$0].zuFoto == fotoID)
+        }
     }
 
     // EINE KARTENEINSTELLUNG IST KEINE HANDARBEIT AM SATZ (ab 1.0.51).
@@ -1694,6 +1705,14 @@ final class Reisewerk: ObservableObject, Identifiable {
         case .datum:
             // Leer heißt: wieder das Format des Buches.
             reise.tage[stelle.tag].datumstext = text.isEmpty ? nil : text
+        case let .text(alt) where reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].zuFoto != nil:
+            // KAPITELWEISE (ab 1.0.20): Die Erinnerung am Foto ist ein
+            // EINTRAG — die Änderung geht dorthin, sonst setzte das nächste
+            // Neuanordnen den alten Wortlaut wieder ein.
+            let fotoID = reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].zuFoto!
+            erinnerungSchreiben(fotoID, alt: alt, neu: text)
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt = .text(text)
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
         case let .text(alt) where reise.tage[stelle.tag].vorwort:
             // KAPITELWEISE (ab 1.0.16): Im Vorwort ist ein Textkasten nur
             // ein Stück des einen Fließtextes. Die Änderung geht in den
@@ -2022,7 +2041,16 @@ final class Reisewerk: ObservableObject, Identifiable {
         }
         guard let stelle = block(id) else { return }
         merken()
-        reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: stelle.block)
+        // KAPITELWEISE (ab 1.0.20): Die Erinnerung am Foto geht mit — allein
+        // stünde sie neben einem Loch und gehörte zu nichts mehr. Der Text
+        // selbst bleibt als Eintrag erhalten.
+        let bloecke = reise.tage[stelle.tag].seiten[stelle.seite].bloecke
+        let weg = Set([stelle.block] + anhaengsel(bloecke[stelle.block], in: bloecke).filter {
+            bloecke[$0].zuFoto != nil
+        })
+        for i in weg.sorted(by: >) {
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: i)
+        }
         if gewaehlterBlock == id { gewaehlterBlock = nil }
     }
 
@@ -2063,12 +2091,9 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.tage[stelle.tag].seiten[ziel].heben(geschoben.id)
         // KAPITELWEISE (ab 1.0.14): Die Bildunterschrift eines Fotos geht
         // mit — sonst stünde sie allein auf der alten Seite.
-        if let fotoID = geschoben.fotoID,
-           let zeile = reise.tage[stelle.tag].seiten[stelle.seite].bloecke.firstIndex(where: {
-               if case let .bildunterschrift(id) = $0.inhalt { return id == fotoID }
-               return false
-           })
-        {
+        // Seit 1.0.20 auch die Erinnerung, die am Foto hängt.
+        let alt = reise.tage[stelle.tag].seiten[stelle.seite].bloecke
+        for zeile in anhaengsel(geschoben, in: alt).sorted(by: >) {
             var mit = reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: zeile)
             mit.vonHand = true
             reise.tage[stelle.tag].seiten[ziel].bloecke.append(mit)
@@ -2102,9 +2127,20 @@ final class Reisewerk: ObservableObject, Identifiable {
         guard let stelle = block(id) else { return }
         merken()
         reise.tage[stelle.tag].seiten.insert(Seite(), at: stelle.seite + 1)
-        var geschoben = reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: stelle.block)
+        let alt = reise.tage[stelle.tag].seiten[stelle.seite].bloecke
+        let mitnehmen = anhaengsel(alt[stelle.block], in: alt)
+        var geschoben = reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block]
         geschoben.vonHand = true
         reise.tage[stelle.tag].seiten[stelle.seite + 1].bloecke.append(geschoben)
+        // KAPITELWEISE (ab 1.0.20): Unterschrift und Erinnerung gehen mit.
+        for i in mitnehmen {
+            var mit = alt[i]
+            mit.vonHand = true
+            reise.tage[stelle.tag].seiten[stelle.seite + 1].bloecke.append(mit)
+        }
+        for i in (mitnehmen + [stelle.block]).sorted(by: >) {
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: i)
+        }
         gewaehlterBlock = geschoben.id
         seitenzeiger = stelle.seite + 1
     }
