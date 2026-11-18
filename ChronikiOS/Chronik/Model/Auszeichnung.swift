@@ -137,7 +137,27 @@ enum Auszeichnung {
             while ende < laenge, zerlegt.formate[ende] == format { ende += 1 }
             if !format.istLeer {
                 let bereich = NSRange(location: anfang, length: ende - anfang)
-                ergebnis.addAttribute(.font, value: schrift(format, bild: bild, massstab: massstab), range: bereich)
+                let gewaehlt = schrift(format, bild: bild, massstab: massstab)
+                ergebnis.addAttribute(.font, value: gewaehlt, range: bereich)
+                // Fett und kursiv werden als EIGENES Merkmal gemerkt (ab
+                // 1.0.26) — nicht nur über die Schrift. Gemeldet 11/2026:
+                // „Das wird dann aber automatisch wieder zurückgeändert."
+                // Eine Buchschrift ist oft auf EINEN Schnitt festgelegt (im
+                // Lebensbuch Iowan kursiv); iOS gab für „fett" stillschweigend
+                // dieselbe Schrift zurück, und beim Zurückschreiben sah das
+                // Wort wieder normal aus. Das Merkmal überlebt das.
+                if format.fett > 0 { ergebnis.addAttribute(.kwFett, value: true, range: bereich) }
+                if format.kursiv > 0 { ergebnis.addAttribute(.kwKursiv, value: true, range: bereich) }
+                if let name = format.schriften.last, !name.isEmpty {
+                    ergebnis.addAttribute(.kwSchrift, value: name, range: bereich)
+                }
+                // Hat die Familie keinen fetten Schnitt, wird die Kontur
+                // verstärkt — sichtbar fett auf der Seite UND im PDF
+                // (CoreText kennt `strokeWidth`).
+                if format.fett > 0, !bild.fett, !gewaehlt.fontDescriptor.symbolicTraits.contains(.traitBold) {
+                    ergebnis.addAttribute(.strokeWidth, value: -3.0, range: bereich)
+                    ergebnis.addAttribute(.strokeColor, value: bild.farbe.uiFarbe, range: bereich)
+                }
                 if format.unterstrichen > 0 {
                     ergebnis.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: bereich)
                 }
@@ -234,12 +254,19 @@ enum Auszeichnung {
             var f = Format()
             if let schrift = werte[.font] as? UIFont {
                 let merkmale = schrift.fontDescriptor.symbolicTraits
-                if merkmale.contains(.traitBold) && !grundFett { f.fett = 1 }
-                if merkmale.contains(.traitItalic) && !grundKursiv { f.kursiv = 1 }
+                // Erst das eigene Merkmal (ab 1.0.26), dann die Schrift.
+                if let an = werte[.kwFett] as? Bool {
+                    if an && !grundFett { f.fett = 1 }
+                } else if merkmale.contains(.traitBold) && !grundFett { f.fett = 1 }
+                if let an = werte[.kwKursiv] as? Bool {
+                    if an && !grundKursiv { f.kursiv = 1 }
+                } else if merkmale.contains(.traitItalic) && !grundKursiv { f.kursiv = 1 }
                 if abs(Double(schrift.pointSize) - bild.groesse) > 0.25 * massstab {
                     f.groessen = [(Double(schrift.pointSize) / massstab * 2).rounded() / 2]
                 }
-                if schrift.familyName != grund.familyName {
+                if let name = werte[.kwSchrift] as? String {
+                    f.schriften = [name]
+                } else if schrift.familyName != grund.familyName {
                     f.schriften = [schrift.familyName]
                 }
             }
@@ -268,4 +295,11 @@ enum Auszeichnung {
         }
         return t
     }
+}
+
+extension NSAttributedString.Key {
+    /// Merkmale im Textfeld (ab 1.0.26), unabhängig von der Schrift.
+    static let kwFett = NSAttributedString.Key("kapitelweise.fett")
+    static let kwKursiv = NSAttributedString.Key("kapitelweise.kursiv")
+    static let kwSchrift = NSAttributedString.Key("kapitelweise.schrift")
 }

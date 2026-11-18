@@ -252,7 +252,9 @@ struct TextflaecheBruecke: UIViewRepresentable {
         feld.delegate = context.coordinator
         // Einzelne Wörter formatieren (ab 1.0.20): Leiste über der
         // Tastatur und „Format" im Bearbeiten-Menü (`Formatwerkzeug`).
-        feld.allowsEditingTextAttributes = true
+        // Ab 1.0.26 aus — siehe `Formatfeld`: das „Format" von iOS kennt
+        // das Merkmal `kwFett` nicht.
+        feld.allowsEditingTextAttributes = false
         context.coordinator.werkzeug.feld = feld
         feld.inputAccessoryView = context.coordinator.werkzeug.leiste()
         feld.backgroundColor = .clear

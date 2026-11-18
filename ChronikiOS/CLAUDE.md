@@ -492,6 +492,18 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Zurückschreiben zurück (`Auszeichnung.gesetzt/auszeichnen(massstab:)`) —
   gespeichert wird unverändert. Die Textliste („Alle Texte") zeigt den ganzen
   Text statt zwei Zeilen.
+- **Fett bleibt fett** (ab 1.0.26, gemeldet 11/2026: „Das wird dann aber
+  automatisch wieder zurückgeändert."). Die Leiste setzte Fett über
+  `fontDescriptor.withSymbolicTraits` und las es beim Zurückschreiben aus
+  der Schrift. Eine auf einen Schnitt festgelegte Buchschrift (Lebensbuch:
+  Iowan kursiv) bekam von iOS stillschweigend DIESELBE Schrift zurück — das
+  Fett war nach dem Zurückschreiben weg. Jetzt eigene Merkmale am Text
+  (`NSAttributedString.Key.kwFett/kwKursiv/kwSchrift`, `Auszeichnung`):
+  `gesetzt` setzt sie aus den Marken, `auszeichnen` liest zuerst sie, dann
+  die Schrift; die Leiste schaltet sie um. Hat eine Familie keinen fetten
+  Schnitt, wird die Kontur verstärkt (`strokeWidth` −3, Seite und PDF).
+  Das „Format" von iOS (`allowsEditingTextAttributes`) ist AUS — es kennt
+  die Merkmale nicht, ein Wort ließe sich damit nicht wieder entfetten.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -542,7 +554,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -622,3 +634,5 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   **Nicht gemessen:** auf einem Gerät.
 - **1.0.25 (Build 26)**, 11/2026: Eingabefeld lesbar (Bildschirmfarbe, ≥ 16 pt),
   Textliste mit vollem Text. **Nicht gemessen:** auf einem Gerät.
+- **1.0.26 (Build 27)**, 11/2026: Fett/kursiv als eigenes Merkmal, bleibt
+  erhalten. **Nicht gemessen:** auf einem Gerät.
