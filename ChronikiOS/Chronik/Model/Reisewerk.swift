@@ -1713,6 +1713,18 @@ final class Reisewerk: ObservableObject, Identifiable {
             erinnerungSchreiben(fotoID, alt: alt, neu: text)
             reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt = .text(text)
             reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
+        case let .text(alt) where !reise.tage[stelle.tag].vorwort
+            && !reise.kapiteleintraege(reise.tage[stelle.tag].datum).isEmpty:
+            // KAPITELWEISE (ab 1.0.24, gemeldet 11/2026: „Vor allem möchte
+            // ich, dass diese Bearbeitung auch intern gespeichert wird.
+            // Nicht, dass beim Neuaufbau einer Seite plötzlich wieder der
+            // alte Text dort steht."). In einem Kapitel mit Einträgen setzt
+            // `wortlautSichern` den Text beim Neusetzen aus den EINTRÄGEN —
+            // eine Änderung nur im Kasten ging dabei verloren. Sie geht jetzt
+            // in den Eintrag, aus dem der Kasten stammt.
+            textInEintrag(stelle.tag, alt: alt, neu: text)
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt = .text(text)
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
         case let .text(alt) where reise.tage[stelle.tag].vorwort:
             // KAPITELWEISE (ab 1.0.16): Im Vorwort ist ein Textkasten nur
             // ein Stück des einen Fließtextes. Die Änderung geht in den

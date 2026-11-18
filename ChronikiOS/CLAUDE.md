@@ -462,6 +462,26 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   aufbauen" bei gewähltem Foto/Text (Lebensbuch, nicht Vorwort) und im
   Kapitel-Menü. **Nicht gemessen:** auf einem Gerät; der freie Rest ist nur
   der Streifen unten — Lücken neben bleibenden Blöcken werden nicht gefüllt.
+- **Text auf der Seite ändern wird gespeichert** (ab 1.0.24, gemeldet
+  11/2026: „Ich suche nach wie vor nach der Bearbeitungsfunktion für einen
+  Text. Vor allem möchte ich, dass diese Bearbeitung auch intern gespeichert
+  wird. Nicht, dass beim Neuaufbau einer Seite plötzlich wieder der alte Text
+  dort steht."). In einem Kapitel mit Einträgen setzt `wortlautSichern` den
+  Text beim Neusetzen aus den EINTRÄGEN — eine Änderung nur im Kasten ging
+  verloren. Jetzt `textSchreiben` → `textInEintrag` (Kapitelwerk): Das
+  Kastenstück wird im Eintragstext ersetzt; ist der Kasten die Kopfzeile,
+  wird der Titel gesetzt (ohne „ – Datum"). Findet sich kein Eintrag, sagt
+  eine Meldung, dass die Änderung nur auf der Seite steht. Dazu unten
+  „Text bearbeiten" bei gewähltem Textkasten (`eintrag(zuText:)` →
+  `Blatt.eintrag`).
+- **Wozu gehört eine Erinnerung?** (ab 1.0.24, Frage des Nutzers: „kann er …
+  auch neben einem Bild stehen? Wenn ja … sicherstellen …, zu welchem Bild
+  der Text gehört."). Ja: darunter ODER daneben (zur Außenkante). Jetzt ein
+  Strich in der Akzentfarbe in der Fuge zwischen Text und Bild (daneben
+  senkrecht über die Texthöhe, darunter kurz waagerecht über dem
+  Textanfang), `.linie` mit `zuFoto` — wandert mit. Das Foto mit Erinnerung
+  greift nicht mehr über (Zugabe 0), und der weiße Fotorand zählt zur Fuge
+  (`notizluft`), sonst läge er auf dem Text.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -512,7 +532,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -587,3 +607,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.23 (Build 24)**, 11/2026: „Ab hier neu aufbauen" ab gewähltem Foto
   oder Text, frei gewordener Platz wird gefüllt. **Nicht gemessen:** auf
   einem Gerät.
+- **1.0.24 (Build 25)**, 11/2026: Textänderung auf der Seite geht in den
+  Eintrag, „Text bearbeiten", Strich zwischen Erinnerung und Foto.
+  **Nicht gemessen:** auf einem Gerät.

@@ -829,4 +829,55 @@ extension Reisewerk {
         return antwort
     }
 
+
+    // MARK: Text auf der Seite → Eintrag (ab 1.0.24)
+
+    /// Der Eintrag, aus dem ein Textkasten eines Kapitels stammt: sein Text
+    /// steht im Kasten (oder der Kasten ist ein Stück davon), oder der
+    /// Kasten ist seine Kopfzeile.
+    func eintrag(zuText block: Block) -> Texteintrag? {
+        guard let wort = block.text?.trimmingCharacters(in: .whitespacesAndNewlines), !wort.isEmpty,
+              let stelle = self.block(block.id) else { return nil }
+        let liste = reise.kapiteleintraege(reise.tage[stelle.tag].datum)
+        if let f = block.zuFoto {
+            return liste.first { $0.foto == f && wort.contains($0.text.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                ?? liste.first { $0.foto == f }
+        }
+        return liste.first {
+            let t = $0.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !t.isEmpty && (t.contains(wort) || wort.contains(t))
+        } ?? liste.first { $0.kopfzeile == wort || $0.titel.trimmingCharacters(in: .whitespacesAndNewlines) == wort }
+    }
+
+    /// Schreibt eine Änderung aus einem Textkasten in seinen Eintrag zurück.
+    func textInEintrag(_ kapitel: Int, alt: String, neu: String) {
+        let a = alt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let n = neu.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !a.isEmpty, a != n else { return }
+        let beginn = reise.tage[kapitel].datum
+        let ids = Set(reise.kapiteleintraege(beginn).map(\.id))
+        for i in reise.eintraege.indices where ids.contains(reise.eintraege[i].id) {
+            let e = reise.eintraege[i]
+            if let bereich = e.text.range(of: a) {
+                reise.eintraege[i].text.replaceSubrange(bereich, with: n)
+                reise.tage[kapitel].text = reise.kapiteltext(beginn)
+                return
+            }
+            if e.kopfzeile == a || e.titel.trimmingCharacters(in: .whitespacesAndNewlines) == a {
+                // Die Kopfzeile trägt das Datum („Titel – 3. Mai 2019"); es
+                // steht am Zeitstempel, nicht im Titel.
+                let datum = " \u{2013} " + Zeitraster.text(e.zeit, "d. MMMM yyyy")
+                var titel = n
+                if titel.hasSuffix(datum) { titel = String(titel.dropLast(datum.count)) }
+                if titel == Zeitraster.text(e.zeit, "d. MMMM yyyy") { titel = "" }
+                reise.eintraege[i].titel = titel
+                reise.tage[kapitel].text = reise.kapiteltext(beginn)
+                return
+            }
+        }
+        meldung = .init(text: "Dieser Text ließ sich keinem Eintrag zuordnen \u{2014} die Änderung steht nur auf der Seite "
+                        + "und ginge beim Neuverteilen verloren. Sicherer: Text antippen \u{2192} \u{201E}Text bearbeiten\u{201C}.",
+                        schwer: true)
+    }
+
 }
