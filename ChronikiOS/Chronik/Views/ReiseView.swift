@@ -1340,6 +1340,18 @@ struct ReiseView: View {
             // Unterschrift. Eine Geste, die niemand kennt (der Doppeltipp),
             // ist so wenig wert wie ein Schalter, den niemand findet —
             // deshalb beides.
+            // AB HIER NEU AUFBAUEN (ab 1.0.23, Ansage des Nutzers 11/2026:
+            // „ein Foto markiere oder eine Textstelle und dann die Möglichkeit
+            // geboten bekomme, ab hier neu aufbauen"). Steht beim gewählten
+            // Foto oder Text eines Kapitels im Lebensbuch.
+            if let block = gewaehlterBlock, block.fotoID != nil || block.inhalt.istText,
+               werk.automat.istLebensbuch, werk.tag?.vorwort == false {
+                Button {
+                    werk.abHierNeuAufbauen(block: block.id)
+                } label: {
+                    Label("Ab hier neu aufbauen", systemImage: "arrow.down.to.line.compact")
+                }
+            }
             if let fotoID = gewaehlterBlock?.zuFoto {
                 // Der Text einer Erinnerung ist gewählt (ab 1.0.21): zu ihrem
                 // Eintrag — dort ändern, neu diktieren oder löschen.
@@ -2080,6 +2092,13 @@ struct ReiseView: View {
                         werk.vorwortNachfuehren(werk.tagIndex(tag.id))
                     }
                 }
+                // KAPITELWEISE (ab 1.0.23): ab dem gewählten Foto oder Text.
+                Button("Ab dem gewählten Foto/Text neu aufbauen", systemImage: "arrow.down.to.line.compact") {
+                    if let id = werk.gewaehlterBlock { werk.abHierNeuAufbauen(block: id) }
+                }
+                .disabled(werk.gewaehlterBlock.flatMap { werk.block($0) }.map {
+                    werk.reise.tage[$0.tag].id != tag.id
+                } ?? true)
                 // KAPITELWEISE (ab 1.0.14): die gewählte Seite bleibt, wie
                 // sie ist; alles danach wird neu verteilt.
                 Button("Ab der gewählten Seite neu verteilen", systemImage: "arrow.down.right.and.arrow.up.left") {

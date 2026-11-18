@@ -2134,7 +2134,8 @@ extension Layoutautomat {
     /// KAPITELWEISE (ab 1.0.14): Seiten für alles, was im Kapitel NICHT
     /// schon auf festen Seiten steht — für „Ab hier neu verteilen". Fotos
     /// werden an ihrer Kennung erkannt, Texte an ihrem Wortlaut.
-    func restseiten(_ tag: Reisetag, ohneFotos: Set<UUID>, ohneTexte: Set<String>) -> [Seite] {
+    func restseiten(_ tag: Reisetag, ohneFotos: Set<UUID>, ohneTexte: Set<String>,
+                    ersteFlaeche: CGRect? = nil) -> [Seite] {
         let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt && !ohneFotos.contains($0.id) }
         let eintraege = kapiteltexte[tag.datum] ?? []
         var fluss: [Fluss]
@@ -2151,7 +2152,7 @@ extension Layoutautomat {
             }
             return true
         }
-        return flussseiten(tag, fluss, mitKopf: false)
+        return flussseiten(tag, fluss, mitKopf: false, ersteFlaeche: ersteFlaeche)
     }
 
     // MARK: Ein Fluss aus Fotos und Texten (ab 1.0.9)
@@ -2326,7 +2327,12 @@ extension Layoutautomat {
         var werte: [String: Double] = [:]
     }
 
-    private func flussseiten(_ tag: Reisetag, _ eingang: [Fluss], mitKopf: Bool) -> [Seite] {
+    /// `ersteFlaeche` (ab 1.0.23, „Ab hier neu aufbauen"): Die erste Seite
+    /// ist nur dieses Stück einer schon teilweise belegten Seite. Passt
+    /// dort nichts hinein, kommt eine LEERE erste Seite zurück — der
+    /// Aufrufer legt die Blöcke der ersten Seite auf die vorhandene.
+    private func flussseiten(_ tag: Reisetag, _ eingang: [Fluss], mitKopf: Bool,
+                             ersteFlaeche: CGRect? = nil) -> [Seite] {
         let luft = fuge * 2
         var kopfbild = typografie[.unterueberschrift]
         kopfbild.groesse = 12.5
@@ -2532,8 +2538,9 @@ extension Layoutautomat {
             var y = satz.minY
             var bloecke: [Block] = []
             if ersteSeite && mitKopf { bloecke = lebenskopf(tag, y: &y, gross: true) }
+            let teilflaeche = ersteSeite ? ersteFlaeche : nil
             ersteSeite = false
-            let flaeche = CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
+            let flaeche = teilflaeche ?? CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
             let ziel = rhythmus[nummer % rhythmus.count]
             var beste: (zahl: Int, wert: Double, felder: [CGRect])?
             let hoechstens = min(6, offen.count)
@@ -2563,6 +2570,12 @@ extension Layoutautomat {
                     if rest == 1 { wert += 0.3 } else if rest == 2 { wert += 0.15 }
                     if beste == nil || wert < beste!.wert { beste = (zahl, wert, ergebnis.felder) }
                 }
+            }
+            if teilflaeche != nil, beste == nil {
+                // In den Rest der Seite passt nichts ohne starken Beschnitt.
+                seiten.append(Seite())
+                nummer += 1
+                continue
             }
             let zahl = beste?.zahl ?? 1
             var felder = beste?.felder ?? [flaeche]

@@ -707,4 +707,126 @@ extension Reisewerk {
         }
     }
 
+
+    // MARK: Ab hier neu aufbauen (ab 1.0.23)
+
+    /// AB EINEM FOTO ODER TEXT NEU AUFBAUEN.
+    ///
+    /// Ansage des Nutzers 11/2026: „Es kann ja durchaus sein, dass ich Fotos
+    /// auf einer Seite lösche. Dann möchte ich eine schnelle Möglichkeit
+    /// haben, die folgenden Fotos hochzuziehen … bei der ich ein Foto
+    /// markiere oder eine Textstelle und dann die Möglichkeit geboten
+    /// bekomme, ab hier neu aufbauen."
+    ///
+    /// Anders als „Ab der gewählten Seite neu verteilen" (1.0.14, dort bleibt
+    /// frei gewordener Platz frei): Alles VOR dem gewählten Stück bleibt —
+    /// frühere Seiten ganz, auf dieser Seite die Stücke, die in der Zeitfolge
+    /// des Kapitels davor kommen. Das gewählte Stück und alles danach wird
+    /// neu gesetzt: zuerst in den freien Rest dieser Seite (unter dem
+    /// untersten bleibenden Block, volle Breite), dann Seite für Seite bis
+    /// zum Kapitelende. Von Hand angelegte Seiten dahinter folgen danach.
+    @discardableResult
+    func abHierNeuAufbauen(block blockID: UUID) -> String {
+        guard let stelle = block(blockID) else { return "" }
+        guard automat.istLebensbuch, !reise.tage[stelle.tag].vorwort else {
+            let satz = "\u{201E}Ab hier neu aufbauen\u{201C} gibt es in den Kapiteln im Stil \u{201E}Lebensbuch\u{201C}."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        let t = stelle.tag, p = stelle.seite
+        let tag = reise.tage[t]
+        // Die Zeitfolge des Kapitels — dieselbe, nach der gesetzt wird.
+        let fotos = tag.fotos.compactMap { reise.foto($0) }.filter { !$0.abgelegt }
+        let eintraege = reise.kapiteleintraege(tag.datum)
+        var folge: [Layoutautomat.Fluss]
+        if eintraege.isEmpty {
+            folge = fotos.map { .foto($0) }
+            let frei = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !frei.isEmpty { folge.append(.text(kopf: "", rumpf: frei, zu: nil)) }
+        } else {
+            folge = Layoutautomat.zeitfolge(fotos: fotos, eintraege: eintraege)
+        }
+        var fotoRang: [UUID: Int] = [:]
+        var texte: [(rang: Int, kopf: String, rumpf: String)] = []
+        for (n, stueck) in folge.enumerated() {
+            switch stueck {
+            case .foto(let f): if fotoRang[f.id] == nil { fotoRang[f.id] = n }
+            case let .text(kopf, rumpf, _):
+                texte.append((n, kopf.trimmingCharacters(in: .whitespacesAndNewlines),
+                              rumpf.trimmingCharacters(in: .whitespacesAndNewlines)))
+            }
+        }
+        func rang(_ b: Block) -> Int? {
+            if let f = b.fotoID { return fotoRang[f] }
+            if let f = b.zuFoto { return fotoRang[f] }
+            if case let .bildunterschrift(f) = b.inhalt { return fotoRang[f] }
+            if case let .text(wort) = b.inhalt {
+                let w = wort.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !w.isEmpty else { return nil }
+                return texte.first { (!$0.rumpf.isEmpty && $0.rumpf.contains(w)) || (!$0.kopf.isEmpty && $0.kopf == w) }?.rang
+            }
+            return nil
+        }
+        let seite = reise.tage[t].seiten[p]
+        guard let ab = rang(seite.bloecke[stelle.block]) else {
+            let satz = "Bitte ein Foto oder einen Text des Kapitels antippen \u{2014} ab dort wird neu aufgebaut."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        merken()
+
+        // 1. Auf dieser Seite: was ab dem gewählten Stück kommt, geht weg.
+        var weg = Set(seite.bloecke.filter { (rang($0) ?? -1) >= ab }.map(\.id))
+        // Der Goldstrich über einem Textfeld gehört zu ihm.
+        for linie in seite.bloecke where linie.inhalt == .linie {
+            if seite.bloecke.contains(where: { weg.contains($0.id) && abs($0.rahmen.x - linie.rahmen.x) < 3
+                && $0.rahmen.y >= linie.rahmen.y && $0.rahmen.y - linie.rahmen.y < 20 }) {
+                weg.insert(linie.id)
+            }
+        }
+        let bleiben = seite.bloecke.filter { !weg.contains($0.id) }
+        var neueSeite = seite
+        neueSeite.bloecke = bleiben
+
+        // 2. Der freie Rest dieser Seite: unter dem untersten bleibenden Block.
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        let unten = bleiben.map { Double($0.umriss(reise.gestaltung).maxY) }.max() ?? Double(satz.minY)
+        let oben = max(unten + reise.gestaltung.fugePt * 2, Double(satz.minY))
+        let rest: CGRect? = Double(satz.maxY) - oben >= 70
+            ? CGRect(x: Double(satz.minX), y: oben, width: Double(satz.width), height: Double(satz.maxY) - oben)
+            : nil
+
+        // 3. Fest: frühere Seiten, das Bleibende hier, spätere Handarbeitsseiten.
+        let vorn = Array(reise.tage[t].seiten[..<p])
+        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand }
+        var festFotos = Set<UUID>()
+        var festTexte = Set<String>()
+        for b in vorn.flatMap(\.bloecke) + bleiben + spaeter.flatMap(\.bloecke) {
+            if let id = b.fotoID { festFotos.insert(id) }
+            if let wort = b.text { festTexte.insert(wort.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        }
+        // Was in der Zeitfolge VOR dem gewählten Stück liegt, ist fest —
+        // auch ein Text, der über eine Seitengrenze geteilt steht (sein
+        // Wortlaut steht dann in keinem Kasten ganz).
+        for (id, n) in fotoRang where n < ab { festFotos.insert(id) }
+        for text in texte where text.rang < ab { festTexte.insert(text.rumpf) }
+        var neu = automat.restseiten(reise.tage[t], ohneFotos: festFotos, ohneTexte: festTexte,
+                                     ersteFlaeche: rest)
+        if rest != nil, !neu.isEmpty {
+            let hoechste = bleiben.map(\.ebene).max() ?? 0
+            neueSeite.bloecke += neu.removeFirst().bloecke.map { $0.mitEbene($0.ebene + hoechste + 1) }
+        }
+        let vorher = reise.tage[t].seiten.count
+        reise.tage[t].seiten = vorn + [neueSeite] + neu + spaeter
+        gewaehlterBlock = nil
+        seitenzeiger = p
+        sofortSichern()
+        var antwort = "Ab hier neu aufgebaut"
+        let jetzt = reise.tage[t].seiten.count
+        antwort += jetzt == vorher ? "." : " \u{2014} das Kapitel hat jetzt \(jetzt) statt \(vorher) Seiten."
+        if !spaeter.isEmpty { antwort += " \(spaeter.count) von Hand angelegte Seiten folgen danach." }
+        meldung = .init(text: antwort)
+        return antwort
+    }
+
 }

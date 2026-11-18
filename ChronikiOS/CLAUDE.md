@@ -443,6 +443,25 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   **Zwei Kapitel auf EINER Seite gibt es nicht** — eine Seite gehört einem
   `Reisetag`; geteilte Seiten hießen, Neuverteilen, Handarbeit, Kopfzeile und
   „Ab hier neu verteilen" über Kapitelgrenzen hinweg zu bauen.
+- **„Ab hier neu aufbauen" ab einem Foto oder Text** (ab 1.0.23, Ansage des
+  Nutzers 11/2026: „wenn ich Fotos auf einer Seite lösche … eine schnelle
+  Möglichkeit …, die folgenden Fotos hochzuziehen, ohne dass ich erst mühsam
+  von der folgenden Seite zurück verschieben muss … ein Foto markiere oder
+  eine Textstelle und dann … ab hier neu aufbauen"). Unterschied zu „Ab der
+  gewählten Seite neu verteilen" (1.0.14): dort bleibt frei gewordener Platz
+  FREI, hier wird er gefüllt. `Reisewerk.abHierNeuAufbauen(block:)`
+  (Kapitelwerk): Rang jedes Blocks in der Zeitfolge des Kapitels (Foto,
+  Erinnerung und Unterschrift über ihr Foto, Text über seinen Wortlaut in
+  einem Fluss-Text). Auf der Seite gehen alle Blöcke mit Rang ≥ dem gewählten
+  weg (samt Goldstrich über einem Textfeld); fest sind frühere Seiten, das
+  Bleibende hier, spätere `vonHand`-Seiten und alles mit kleinerem Rang. Der
+  Rest wird mit `restseiten(…, ersteFlaeche:)` gesetzt: zuerst in den freien
+  Streifen UNTER dem untersten bleibenden Block (volle Breite, ab 70 pt Höhe;
+  `flussseiten` gibt eine leere erste Seite zurück, wenn dort nichts ohne
+  starken Beschnitt passt), dann Seite für Seite. Knopf unten „Ab hier neu
+  aufbauen" bei gewähltem Foto/Text (Lebensbuch, nicht Vorwort) und im
+  Kapitel-Menü. **Nicht gemessen:** auf einem Gerät; der freie Rest ist nur
+  der Streifen unten — Lücken neben bleibenden Blöcken werden nicht gefüllt.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -493,7 +512,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -565,3 +584,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Fotoablage und kommt beim Neuverteilen nicht zurück; kein aufgeblasenes
   Kapitelende. **Nicht gemessen:**
   auf einem Gerät.
+- **1.0.23 (Build 24)**, 11/2026: „Ab hier neu aufbauen" ab gewähltem Foto
+  oder Text, frei gewordener Platz wird gefüllt. **Nicht gemessen:** auf
+  einem Gerät.
