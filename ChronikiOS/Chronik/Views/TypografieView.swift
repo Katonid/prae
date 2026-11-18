@@ -130,7 +130,7 @@ struct TypografieView: View {
             VStack(alignment: .leading) {
                 LabeledContent("Zeilenabstand",
                                value: String(format: "%.2f", bild.wrappedValue.zeilenabstand))
-                Slider(value: bild.zeilenabstand, in: 0.9...2.6)
+                Slider(value: bild.zeilenabstand, in: 0.5...2.6, step: 0.01)
             }
             VStack(alignment: .leading) {
                 LabeledContent("Absatzabstand",
