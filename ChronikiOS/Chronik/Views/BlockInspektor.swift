@@ -467,7 +467,7 @@ struct BlockInspektor: View {
             Toggle("Silben trennen", isOn: binden(block, \.trennung, gilt.trennung))
             VStack(alignment: .leading) {
                 LabeledContent("Zeilenabstand", value: String(format: "%.2f", gilt.zeilenabstand))
-                Slider(value: binden(block, \.zeilenabstand, gilt.zeilenabstand), in: 0.9...2.6)
+                Slider(value: binden(block, \.zeilenabstand, gilt.zeilenabstand), in: 0.5...2.6, step: 0.01)
             }
             // Der Abstand NACH einem Absatz — hier, weil die Frage an
             // diesem einen Kasten gestellt wird (09/2026: „warum bei dem

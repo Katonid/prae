@@ -280,7 +280,7 @@ struct VorwortView: View {
                 .pickerStyle(.menu)
                 VStack(alignment: .leading) {
                     LabeledContent("Zeilenabstand", value: String(format: "%.2f", schrift.zeilenabstand))
-                    Slider(value: $schrift.zeilenabstand, in: 1.0...2.2, step: 0.05)
+                    Slider(value: $schrift.zeilenabstand, in: 0.5...2.6, step: 0.01)
                 }
                 VStack(alignment: .leading) {
                     LabeledContent("Abstand nach jedem Absatz", value: String(format: "%.0f pt", schrift.absatzabstand))
