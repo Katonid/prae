@@ -2067,13 +2067,31 @@ final class Reisewerk: ObservableObject, Identifiable {
                             : "\(alle.count) Erinnerungen zu diesem Foto sind gelöscht. \u{201E}Zurück\u{201C} holt sie wieder.")
             return
         }
-        let weg = Set([stelle.block] + anhaengsel(bloecke[stelle.block], in: bloecke).filter {
-            bloecke[$0].zuFoto != nil
-        })
+        // Seit 1.0.22 geht auch die Bildunterschrift mit — allein stünde sie
+        // unter nichts.
+        let weg = Set([stelle.block] + anhaengsel(bloecke[stelle.block], in: bloecke))
         for i in weg.sorted(by: >) {
             reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: i)
         }
         if gewaehlterBlock == id { gewaehlterBlock = nil }
+        // KAPITELWEISE (ab 1.0.22, gemeldet 11/2026: „Wenn ich ein Foto
+        // lösche, dann bleibt es im Hintergrund trotzdem immer noch
+        // gespeichert. Wenn ich auf Seiten neu verteilen gehe, wird dieses
+        // Foto wieder eingefügt."). Das Foto stand weiter in der Fotoliste
+        // des Kapitels (`tag.fotos`), und daraus setzt das Neuverteilen.
+        // Steht es auf keiner Seite des Kapitels mehr, geht es jetzt auch
+        // aus der Liste — in die Ablage („Fotos ohne Tag"), nicht von der
+        // Platte: Von dort lässt es sich wieder einem Kapitel geben, und
+        // „Zurück" holt es sofort. Eine Kopie desselben Fotos auf einer
+        // anderen Seite hält es im Kapitel.
+        if let fotoID = bloecke[stelle.block].fotoID,
+           reise.tage[stelle.tag].fotos.contains(fotoID),
+           !reise.tage[stelle.tag].seiten.contains(where: { $0.bloecke.contains { $0.fotoID == fotoID } })
+        {
+            reise.tage[stelle.tag].fotos.removeAll { $0 == fotoID }
+            meldung = .init(text: "Foto aus dem Buch genommen. Es liegt in der Fotoablage (Plusmenü) "
+                            + "und kommt beim Neuverteilen nicht zurück. \u{201E}Zurück\u{201C} holt es sofort wieder.")
+        }
     }
 
     // EINEN BLOCK AUF EINE ANDERE SEITE SCHIEBEN (ab 1.0.29, Ansage des

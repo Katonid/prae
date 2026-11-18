@@ -417,6 +417,17 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     gewählt → „Erinnerung bearbeiten". Beides öffnet `EintragView` über
     `Blatt.eintrag(id)` (dort ändern, nachdiktieren, löschen). Daneben
     weiter Plusmenü → „Alle Texte…".
+- **Ein gelöschtes Foto kommt nicht zurück** (ab 1.0.22, gemeldet 11/2026:
+  „Wenn ich ein Foto lösche, dann bleibt es im Hintergrund trotzdem immer
+  noch gespeichert. Wenn ich auf Seiten neu verteilen gehe, wird dieses Foto
+  wieder eingefügt."). `blockLoeschen` nahm nur den Block; das Foto blieb in
+  `tag.fotos`, und daraus setzt jedes Neuverteilen. Jetzt: Steht das Foto
+  danach auf keiner Seite des Kapitels mehr, geht es auch aus `tag.fotos` —
+  in die Fotoablage („Fotos ohne Kapitel", `Reise.heimatlose`, Plusmenü →
+  Fotoablage), NICHT von der Platte; von dort lässt es sich einem Kapitel
+  zurückgeben, „Zurück" holt es sofort. Eine Kopie auf einer anderen Seite
+  hält es im Kapitel. Die Bildunterschrift geht mit dem Foto von der Seite.
+  `AblageView` spricht von „Kapitel" statt „Tag".
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -467,7 +478,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -535,3 +546,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.21 (Build 22)**, 11/2026: Erinnerung erscheint auch bei Handarbeit
   sofort am Foto, direkt bearbeiten, Löschen löscht den Eintrag.
   **Nicht gemessen:** auf einem Gerät.
+- **1.0.22 (Build 23)**, 11/2026: gelöschtes Foto geht aus dem Kapitel in die
+  Fotoablage und kommt beim Neuverteilen nicht zurück. **Nicht gemessen:**
+  auf einem Gerät.
