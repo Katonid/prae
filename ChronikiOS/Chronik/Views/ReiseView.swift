@@ -186,6 +186,9 @@ struct ReiseView: View {
         case kapitelseiten(UUID)
         // Eine Erinnerung zu einem Foto einsprechen (ab 1.0.11).
         case erinnerung(UUID)
+        // Einen vorhandenen Eintrag bearbeiten (ab 1.0.21) — die Erinnerung
+        // zu einem Foto direkt von der Seite aus.
+        case eintrag(UUID)
         // Das Vorwort (ab 1.0.15).
         case vorwort
 
@@ -234,6 +237,7 @@ struct ReiseView: View {
             case let .kapitelseiten(id): return "kapitelseiten-\(id)"
             case let .erinnerung(id): return "erinnerung-\(id)"
             case .vorwort: return "vorwort"
+            case let .eintrag(id): return "eintrag-\(id)"
             }
         }
     }
@@ -1336,6 +1340,35 @@ struct ReiseView: View {
             // Unterschrift. Eine Geste, die niemand kennt (der Doppeltipp),
             // ist so wenig wert wie ein Schalter, den niemand findet —
             // deshalb beides.
+            // AB HIER NEU AUFBAUEN (ab 1.0.23, Ansage des Nutzers 11/2026:
+            // „ein Foto markiere oder eine Textstelle und dann die Möglichkeit
+            // geboten bekomme, ab hier neu aufbauen"). Steht beim gewählten
+            // Foto oder Text eines Kapitels im Lebensbuch.
+            if let block = gewaehlterBlock, block.fotoID != nil || block.inhalt.istText,
+               werk.automat.istLebensbuch, werk.tag?.vorwort == false {
+                Button {
+                    werk.abHierNeuAufbauen(block: block.id)
+                } label: {
+                    Label("Ab hier neu aufbauen", systemImage: "arrow.down.to.line.compact")
+                }
+            }
+            if let fotoID = gewaehlterBlock?.zuFoto {
+                // Der Text einer Erinnerung ist gewählt (ab 1.0.21): zu ihrem
+                // Eintrag — dort ändern, neu diktieren oder löschen.
+                let liste = werk.erinnerungen(fotoID)
+                let wortlaut = gewaehlterBlock?.text ?? ""
+                if let treffer = liste.first(where: {
+                    let t = $0.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return !t.isEmpty && wortlaut.contains(t)
+                }) ?? liste.first {
+                    Button {
+                        blatt = .eintrag(treffer.id)
+                    } label: {
+                        Label("Erinnerung bearbeiten", systemImage: "square.and.pencil")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
             if let fotoID = gewaehlterBlock?.fotoID {
                 // KAPITELWEISE (ab 1.0.11, Ansage des Nutzers 11/2026: „auf
                 // ein Foto tippen und die Möglichkeit haben, einen Text
@@ -1343,12 +1376,37 @@ struct ReiseView: View {
                 // wird"). Das Diktat startet sofort; der Text steht danach
                 // direkt hinter dem Foto, auf derselben Seite.
                 if werk.reise.foto(fotoID)?.grafik == false {
-                    Button {
-                        blatt = .erinnerung(fotoID)
-                    } label: {
-                        Label("Erinnerung einsprechen", systemImage: "mic.fill")
+                    // Direkter Zugriff auf eingesprochene Texte (ab 1.0.21,
+                    // Ansage des Nutzers 11/2026: „Ich brauche eine direkte
+                    // Zugriffsmöglichkeit auf den eingesprochenen Text.").
+                    let vorhanden = werk.erinnerungen(fotoID)
+                    if vorhanden.isEmpty {
+                        Button {
+                            blatt = .erinnerung(fotoID)
+                        } label: {
+                            Label("Erinnerung einsprechen", systemImage: "mic.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    } else {
+                        Menu {
+                            ForEach(vorhanden) { e in
+                                Button {
+                                    blatt = .eintrag(e.id)
+                                } label: {
+                                    Label(Self.anriss(e), systemImage: "square.and.pencil")
+                                }
+                            }
+                            Divider()
+                            Button {
+                                blatt = .erinnerung(fotoID)
+                            } label: {
+                                Label("Weitere Erinnerung einsprechen", systemImage: "mic.fill")
+                            }
+                        } label: {
+                            Label("Erinnerungen (\(vorhanden.count))", systemImage: "text.bubble.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .buttonStyle(.borderedProminent)
                 }
                 Button {
                     werk.unterschriftOeffnen(fotoID)
@@ -2034,6 +2092,13 @@ struct ReiseView: View {
                         werk.vorwortNachfuehren(werk.tagIndex(tag.id))
                     }
                 }
+                // KAPITELWEISE (ab 1.0.23): ab dem gewählten Foto oder Text.
+                Button("Ab dem gewählten Foto/Text neu aufbauen", systemImage: "arrow.down.to.line.compact") {
+                    if let id = werk.gewaehlterBlock { werk.abHierNeuAufbauen(block: id) }
+                }
+                .disabled(werk.gewaehlterBlock.flatMap { werk.block($0) }.map {
+                    werk.reise.tage[$0.tag].id != tag.id
+                } ?? true)
                 // KAPITELWEISE (ab 1.0.14): die gewählte Seite bleibt, wie
                 // sie ist; alles danach wird neu verteilt.
                 Button("Ab der gewählten Seite neu verteilen", systemImage: "arrow.down.right.and.arrow.up.left") {
@@ -2490,9 +2555,25 @@ struct ReiseView: View {
             KapitelseitenView(werk: werk, tagID: id)
         case .vorwort:
             VorwortView(werk: werk)
+        case let .eintrag(id):
+            if let eintrag = werk.reise.eintraege.first(where: { $0.id == id }) {
+                EintragView(werk: werk, eintrag: eintrag)
+            }
         case let .erinnerung(fotoID):
             EintragView(werk: werk, eintrag: EintragView.erinnerung(zu: fotoID, werk: werk),
                         sofortDiktieren: true)
         }
+    }
+
+}
+
+extension ReiseView {
+    /// Die ersten Worte einer Erinnerung, für das Menü am Foto (ab 1.0.21).
+    static func anriss(_ e: Texteintrag) -> String {
+        let titel = e.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = Auszeichnung.ohne(e.text).trimmingCharacters(in: .whitespacesAndNewlines)
+        let roh = titel.isEmpty ? text : titel
+        guard !roh.isEmpty else { return "Leere Erinnerung" }
+        return roh.count > 40 ? String(roh.prefix(40)) + "\u{2026}" : roh
     }
 }

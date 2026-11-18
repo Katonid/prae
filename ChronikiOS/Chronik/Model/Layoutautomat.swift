@@ -2134,7 +2134,8 @@ extension Layoutautomat {
     /// KAPITELWEISE (ab 1.0.14): Seiten für alles, was im Kapitel NICHT
     /// schon auf festen Seiten steht — für „Ab hier neu verteilen". Fotos
     /// werden an ihrer Kennung erkannt, Texte an ihrem Wortlaut.
-    func restseiten(_ tag: Reisetag, ohneFotos: Set<UUID>, ohneTexte: Set<String>) -> [Seite] {
+    func restseiten(_ tag: Reisetag, ohneFotos: Set<UUID>, ohneTexte: Set<String>,
+                    ersteFlaeche: CGRect? = nil) -> [Seite] {
         let fotos = tag.fotos.compactMap { fotoIndex[$0] }.filter { !$0.abgelegt && !ohneFotos.contains($0.id) }
         let eintraege = kapiteltexte[tag.datum] ?? []
         var fluss: [Fluss]
@@ -2151,7 +2152,7 @@ extension Layoutautomat {
             }
             return true
         }
-        return flussseiten(tag, fluss, mitKopf: false)
+        return flussseiten(tag, fluss, mitKopf: false, ersteFlaeche: ersteFlaeche)
     }
 
     // MARK: Ein Fluss aus Fotos und Texten (ab 1.0.9)
@@ -2326,7 +2327,12 @@ extension Layoutautomat {
         var werte: [String: Double] = [:]
     }
 
-    private func flussseiten(_ tag: Reisetag, _ eingang: [Fluss], mitKopf: Bool) -> [Seite] {
+    /// `ersteFlaeche` (ab 1.0.23, „Ab hier neu aufbauen"): Die erste Seite
+    /// ist nur dieses Stück einer schon teilweise belegten Seite. Passt
+    /// dort nichts hinein, kommt eine LEERE erste Seite zurück — der
+    /// Aufrufer legt die Blöcke der ersten Seite auf die vorhandene.
+    private func flussseiten(_ tag: Reisetag, _ eingang: [Fluss], mitKopf: Bool,
+                             ersteFlaeche: CGRect? = nil) -> [Seite] {
         let luft = fuge * 2
         var kopfbild = typografie[.unterueberschrift]
         kopfbild.groesse = 12.5
@@ -2532,8 +2538,9 @@ extension Layoutautomat {
             var y = satz.minY
             var bloecke: [Block] = []
             if ersteSeite && mitKopf { bloecke = lebenskopf(tag, y: &y, gross: true) }
+            let teilflaeche = ersteSeite ? ersteFlaeche : nil
             ersteSeite = false
-            let flaeche = CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
+            let flaeche = teilflaeche ?? CGRect(x: satz.minX, y: y, width: satz.width, height: satz.maxY - y)
             let ziel = rhythmus[nummer % rhythmus.count]
             var beste: (zahl: Int, wert: Double, felder: [CGRect])?
             let hoechstens = min(6, offen.count)
@@ -2553,12 +2560,40 @@ extension Layoutautomat {
                        teil.contains(where: { $0.foto?.id == zu }) {
                         wert += 0.5
                     }
+                    // KEIN EINSAMER REST AM KAPITELENDE (ab 1.0.22, Befund
+                    // des Nutzers 11/2026: „gegebenenfalls Fotos am Ende des
+                    // vorangegangenen Kapitels unsinnig groß gezogen"). Blieben
+                    // nach dieser Seite nur ein oder zwei Stücke übrig, füllten
+                    // sie allein die letzte Seite. Lieber hier eines weniger
+                    // (dann bleiben drei) oder gleich alle.
+                    let rest = offen.count - zahl
+                    if rest == 1 { wert += 0.3 } else if rest == 2 { wert += 0.15 }
                     if beste == nil || wert < beste!.wert { beste = (zahl, wert, ergebnis.felder) }
                 }
             }
+            if teilflaeche != nil, beste == nil {
+                // In den Rest der Seite passt nichts ohne starken Beschnitt.
+                seiten.append(Seite())
+                nummer += 1
+                continue
+            }
             let zahl = beste?.zahl ?? 1
-            let felder = beste?.felder ?? [flaeche]
+            var felder = beste?.felder ?? [flaeche]
             let teil = Array(offen.prefix(zahl))
+            // DIE LETZTE SEITE WIRD NICHT AUFGEBLASEN (ab 1.0.22). Stehen dort
+            // nur noch ein oder zwei Stücke, bekommen sie den oberen Teil der
+            // Seite (60 %, sonst 80 %) statt der ganzen — ein Foto in der
+            // Größe seiner Nachbarn, darunter Luft, statt eines Posters.
+            if zahl == offen.count, zahl <= 2 {
+                for anteil in [0.6, 0.8] {
+                    let oben = CGRect(x: flaeche.minX, y: flaeche.minY, width: flaeche.width,
+                                      height: flaeche.height * CGFloat(anteil))
+                    if let klein = bewerten(teil, in: oben, nummer: nummer) {
+                        felder = klein.felder
+                        break
+                    }
+                }
+            }
             offen = offen.dropFirst(zahl)
 
             for (i, stueck) in teil.enumerated() {
@@ -2603,6 +2638,63 @@ extension Layoutautomat {
             nummer += 1
         }
         return seiten
+    }
+
+    /// KAPITELWEISE (ab 1.0.21): Foto und Erinnerung in ein GEGEBENES Feld
+    /// setzen — für eine Seite, die von Hand gestaltet ist und deshalb nicht
+    /// neu gesetzt wird (`Reisewerk.erinnerungEinhaengen`). Dieselben drei
+    /// Lagen wie im Fluss (darunter, daneben zur Außenkante); passt keine
+    /// ohne starken Beschnitt, gewinnt die mit dem kleinsten — eine
+    /// Erinnerung, die nicht erscheint, ist der schlimmere Fehler (gemeldet
+    /// 11/2026: ein Foto am unteren Seitenrand, zweimal eingesprochen, beide
+    /// Male nichts zu sehen).
+    func fotoMitNotiz(_ f: Foto, kopf: String, rumpf: String, feld: CGRect, ebene: Int) -> [Block] {
+        var kopfbild = typografie[.unterueberschrift]
+        kopfbild.groesse = 12.5
+        kopfbild.ausrichtung = .links
+        kopfbild.fett = true
+        kopfbild.zeilenabstand = 1.15
+        var textbild = typografie.flieText
+        textbild.ausrichtung = .links
+        func bedarf(_ breite: Double) -> Double {
+            let kh = kopf.isEmpty ? 0 : Textmass.hoehe(kopf, bild: kopfbild, breite: breite) + 3
+            let rh = rumpf.isEmpty ? 0 : Textmass.hoehe(rumpf, bild: textbild, breite: breite)
+            return kh + rh + 4
+        }
+        let b = Double(feld.width), h = Double(feld.height)
+        let luft = fuge * 1.2
+        let soll = min(max(f.seitenverhaeltnis, 0.5), 2.4)
+        let zeile = unterschriftHoehe(f, breite: b)
+        var beste: (Notizlage, CGRect, CGRect, Double)?
+        func probe(_ lage: Notizlage, _ bild: CGRect, _ text: CGRect) {
+            guard bild.width >= 40, bild.height - CGFloat(zeile) >= 30 else { return }
+            let ist = Double(bild.width) / max(Double(bild.height) - zeile, 1)
+            let verzug = max(ist / soll, soll / ist)
+            if beste == nil || verzug < beste!.3 { beste = (lage, bild, text, verzug) }
+        }
+        let unten = bedarf(b)
+        probe(.unten, CGRect(x: Double(feld.minX), y: Double(feld.minY), width: b, height: h - unten - luft),
+              CGRect(x: Double(feld.minX), y: Double(feld.maxY) - unten, width: b, height: unten))
+        let aussen: Notizlage = feld.midX < satz.midX ? .links : .rechts
+        for anteil in [0.30, 0.38, 0.46, 0.55] {
+            let tb = b * anteil
+            guard tb >= 70 else { continue }
+            let tbedarf = bedarf(tb)
+            guard tbedarf <= h else { continue }
+            let bb = b - tb - luft
+            let bildX = aussen == .links ? Double(feld.minX) + tb + luft : Double(feld.minX)
+            let textX = aussen == .links ? Double(feld.minX) : Double(feld.minX) + bb + luft
+            probe(aussen, CGRect(x: bildX, y: Double(feld.minY), width: bb, height: h),
+                  CGRect(x: textX, y: Double(feld.maxY) - tbedarf, width: tb, height: tbedarf))
+        }
+        // Nichts passt ins Feld (kleines Foto, langer Text): darunter, und
+        // das Feld wächst nach unten — sichtbar ist besser als verschluckt.
+        let wahl = beste ?? (.unten, feld,
+                             CGRect(x: Double(feld.minX), y: Double(feld.maxY) + luft, width: b, height: unten), 9)
+        let stueck = Stueck(element: .foto(f), foto: f, kopf: "", rumpf: "", verhaeltnis: soll,
+                            notizKopf: kopf, notizRumpf: rumpf)
+        return notizbloecke(f, stueck: stueck, teilung: (wahl.0, wahl.1, wahl.2, 0, 0),
+                            ebene: ebene, kopfbild: kopfbild, textbild: textbild)
     }
 
     /// Foto und Erinnerung in ihrem gemeinsamen Feld (ab 1.0.20). Der

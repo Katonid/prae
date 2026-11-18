@@ -394,6 +394,74 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     Listen zeigen den Text ohne Marken (`Auszeichnung.ohne`).
   - **Nicht gemessen:** auf einem Gerät; ob iOS bei „Format" im
     Bearbeiten-Menü dieselben Attribute setzt, die `auszeichnen` erkennt.
+- **Erinnerung erscheint sofort, lässt sich direkt bearbeiten und löschen**
+  (ab 1.0.21, gemeldet 11/2026: Erinnerung zu einem Foto am unteren
+  Seitenrand eingesprochen — nichts zu sehen, ein zweites Mal — wieder
+  nichts; erst „Alles neu verteilen" zeigte beide; einen Textkasten gelöscht,
+  nach erneutem Neuverteilen waren beide wieder da; „Ich brauche eine direkte
+  Zugriffsmöglichkeit auf den eingesprochenen Text.").
+  - Ursache 1: `kapitelAuffrischen` setzt ein Kapitel mit Handarbeit NICHT
+    neu (nur Meldung). Jetzt: `eintragSichern`/`eintragLoeschen` rufen bei
+    einer Erinnerung in einem Kapitel mit Handarbeit
+    `erinnerungEinhaengen(fotoID)` — nur dieses Foto wird umgebaut: Feld =
+    Foto ∪ bisherige Erinnerung (so schrumpft das Foto bei wiederholtem
+    Aufruf nicht), darin `Layoutautomat.fotoMitNotiz` (drei Lagen wie im
+    Fluss plus 55 % daneben; passt nichts, unter das Feld). Das Foto behält
+    Ausschnitt, Drehung, Wirkung; alles neu Gesetzte ist `vonHand`.
+  - Ursache 2: `blockLoeschen` nahm nur den Kasten weg, der Eintrag blieb.
+    Jetzt löscht das Löschen eines Erinnerungskastens (`zuFoto`) den/die
+    Einträge, deren Text darin steht (oder deren Überschrift er ist); sonst
+    alle des Fotos. „Zurück" holt sie wieder (`merken` vorher).
+  - Zugriff: Foto gewählt → unten „Erinnerungen (n)" (Menü: jede Erinnerung
+    zum Bearbeiten, „Weitere Erinnerung einsprechen"); Erinnerungstext
+    gewählt → „Erinnerung bearbeiten". Beides öffnet `EintragView` über
+    `Blatt.eintrag(id)` (dort ändern, nachdiktieren, löschen). Daneben
+    weiter Plusmenü → „Alle Texte…".
+- **Ein gelöschtes Foto kommt nicht zurück** (ab 1.0.22, gemeldet 11/2026:
+  „Wenn ich ein Foto lösche, dann bleibt es im Hintergrund trotzdem immer
+  noch gespeichert. Wenn ich auf Seiten neu verteilen gehe, wird dieses Foto
+  wieder eingefügt."). `blockLoeschen` nahm nur den Block; das Foto blieb in
+  `tag.fotos`, und daraus setzt jedes Neuverteilen. Jetzt: Steht das Foto
+  danach auf keiner Seite des Kapitels mehr, geht es auch aus `tag.fotos` —
+  in die Fotoablage („Fotos ohne Kapitel", `Reise.heimatlose`, Plusmenü →
+  Fotoablage), NICHT von der Platte; von dort lässt es sich einem Kapitel
+  zurückgeben, „Zurück" holt es sofort. Eine Kopie auf einer anderen Seite
+  hält es im Kapitel. Die Bildunterschrift geht mit dem Foto von der Seite.
+  `AblageView` spricht von „Kapitel" statt „Tag".
+- **Kein aufgeblasenes Kapitelende** (ab 1.0.22, Befund des Nutzers
+  11/2026: „Ich habe den Eindruck, dass [ein neues Kapitel] immer nur zu
+  Beginn einer Doppelseite beginnen kann. Daraus resultiert, dass … Fotos am
+  Ende des vorangegangenen Kapitels unsinnig groß gezogen werden müssen.").
+  **Ein Kapitel beginnt NICHT an einer Doppelseite** — es beginnt immer auf
+  der nächsten Seite, links oder rechts; nirgends im Quelltext wird auf
+  einen Bogen ausgerichtet (geprüft: `doppelseiten`, `Bogenlage`,
+  `sonderseiten`). Was er sah: Jede Seite eines Kapitels gehört nur ihm, und
+  `flussseiten` füllt die letzte immer ganz — ein oder zwei übrige Fotos
+  wurden zum Poster. Jetzt: Strafe 0,3/0,15, wenn nach einer Seite nur 1/2
+  Stücke übrig blieben (lieber eines weniger oder alle); und hat die letzte
+  Seite nur 1–2 Stücke, bekommen sie die oberen 60 % (sonst 80 %) der Fläche.
+  **Zwei Kapitel auf EINER Seite gibt es nicht** — eine Seite gehört einem
+  `Reisetag`; geteilte Seiten hießen, Neuverteilen, Handarbeit, Kopfzeile und
+  „Ab hier neu verteilen" über Kapitelgrenzen hinweg zu bauen.
+- **„Ab hier neu aufbauen" ab einem Foto oder Text** (ab 1.0.23, Ansage des
+  Nutzers 11/2026: „wenn ich Fotos auf einer Seite lösche … eine schnelle
+  Möglichkeit …, die folgenden Fotos hochzuziehen, ohne dass ich erst mühsam
+  von der folgenden Seite zurück verschieben muss … ein Foto markiere oder
+  eine Textstelle und dann … ab hier neu aufbauen"). Unterschied zu „Ab der
+  gewählten Seite neu verteilen" (1.0.14): dort bleibt frei gewordener Platz
+  FREI, hier wird er gefüllt. `Reisewerk.abHierNeuAufbauen(block:)`
+  (Kapitelwerk): Rang jedes Blocks in der Zeitfolge des Kapitels (Foto,
+  Erinnerung und Unterschrift über ihr Foto, Text über seinen Wortlaut in
+  einem Fluss-Text). Auf der Seite gehen alle Blöcke mit Rang ≥ dem gewählten
+  weg (samt Goldstrich über einem Textfeld); fest sind frühere Seiten, das
+  Bleibende hier, spätere `vonHand`-Seiten und alles mit kleinerem Rang. Der
+  Rest wird mit `restseiten(…, ersteFlaeche:)` gesetzt: zuerst in den freien
+  Streifen UNTER dem untersten bleibenden Block (volle Breite, ab 70 pt Höhe;
+  `flussseiten` gibt eine leere erste Seite zurück, wenn dort nichts ohne
+  starken Beschnitt passt), dann Seite für Seite. Knopf unten „Ab hier neu
+  aufbauen" bei gewähltem Foto/Text (Lebensbuch, nicht Vorwort) und im
+  Kapitel-Menü. **Nicht gemessen:** auf einem Gerät; der freie Rest ist nur
+  der Streifen unten — Lücken neben bleibenden Blöcken werden nicht gefüllt.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -444,7 +512,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -509,3 +577,13 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.20 (Build 21)**, 11/2026: Erinnerung im Feld ihres Fotos (daneben
   oder darunter, haftet beim Verschieben), einzelne Wörter formatieren.
   **Nicht gemessen:** auf einem Gerät.
+- **1.0.21 (Build 22)**, 11/2026: Erinnerung erscheint auch bei Handarbeit
+  sofort am Foto, direkt bearbeiten, Löschen löscht den Eintrag.
+  **Nicht gemessen:** auf einem Gerät.
+- **1.0.22 (Build 23)**, 11/2026: gelöschtes Foto geht aus dem Kapitel in die
+  Fotoablage und kommt beim Neuverteilen nicht zurück; kein aufgeblasenes
+  Kapitelende. **Nicht gemessen:**
+  auf einem Gerät.
+- **1.0.23 (Build 24)**, 11/2026: „Ab hier neu aufbauen" ab gewähltem Foto
+  oder Text, frei gewordener Platz wird gefüllt. **Nicht gemessen:** auf
+  einem Gerät.

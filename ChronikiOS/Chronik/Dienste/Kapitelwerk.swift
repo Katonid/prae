@@ -48,6 +48,11 @@ extension Reisewerk {
             }
         }
         gewaehlterTag = kapitelID
+        // Eine Erinnerung zu einem Foto auf einer Seite mit Handarbeit kommt
+        // trotzdem sofort neben ihr Foto (ab 1.0.21).
+        if let fotoID = eintrag.foto ?? vorher?.foto, hatHandarbeit(kapitelID) {
+            erinnerungEinhaengen(fotoID)
+        }
         sofortSichern()
         // Automatische Textpflege (ab 1.0.12) — im Hintergrund, nur für
         // diesen Text, und nur wenn er nicht als fertig markiert ist.
@@ -64,6 +69,7 @@ extension Reisewerk {
         let beginn = reise.kapitelbeginn(eintrag.tagesdatum)
         if let kapitel = reise.tage.first(where: { $0.datum == beginn }) {
             kapitelAuffrischen(kapitel.id)
+            if let fotoID = eintrag.foto, hatHandarbeit(kapitel.id) { erinnerungEinhaengen(fotoID) }
             leeresKapitelEntfernen(kapitel.id)
         }
         sofortSichern()
@@ -638,6 +644,189 @@ extension Reisewerk {
         if stellen.count == 1 {
             reise.eintraege[stellen[0]].text = sauberNeu
         }
+    }
+
+
+    /// Die Erinnerungen zu einem Foto, in ihrer Zeitfolge.
+    func erinnerungen(_ fotoID: UUID) -> [Texteintrag] {
+        reise.eintraege.filter { $0.foto == fotoID }.sorted { $0.zeit < $1.zeit }
+    }
+
+    /// DIE ERINNERUNG AUF DIE SEITE IHRES FOTOS (ab 1.0.21).
+    ///
+    /// Gemeldet 11/2026: „Ich habe jetzt zu einem Fototext eingesprochen. Da
+    /// das Foto am unteren Rand der Seite war, erschien er komischerweise
+    /// nicht … habe ich ihn ein zweites Mal aufgenommen. Auch dieser
+    /// erschien nicht. Erst als ich auf Alles neu verteilen gegangen bin,
+    /// wurde der Text sichtbar." Ursache: Ein Kapitel mit Handarbeit wird
+    /// nach einem neuen Eintrag NICHT neu gesetzt (`kapitelAuffrischen`) —
+    /// es kam nur eine Meldung. Jetzt wird hier gezielt das eine Foto
+    /// umgebaut: Sein Feld ist das Rechteck aus Foto UND bisheriger
+    /// Erinnerung (so wird es bei jedem Aufruf nicht kleiner), darin Foto
+    /// und Text neu (`Layoutautomat.fotoMitNotiz`). Lage, Ausschnitt,
+    /// Drehung und Wirkung des Fotos bleiben, nur sein Rahmen ändert sich.
+    func erinnerungEinhaengen(_ fotoID: UUID) {
+        guard let foto = reise.foto(fotoID) else { return }
+        for t in reise.tage.indices {
+            for p in reise.tage[t].seiten.indices {
+                let bloecke = reise.tage[t].seiten[p].bloecke
+                guard let i = bloecke.firstIndex(where: { $0.fotoID == fotoID }) else { continue }
+                let alt = bloecke[i]
+                let dran = anhaengsel(alt, in: bloecke)
+                var feld = alt.rahmen.rect
+                for d in dran where bloecke[d].zuFoto == fotoID { feld = feld.union(bloecke[d].rahmen.rect) }
+                let eintraege = erinnerungen(fotoID)
+                let kopf = eintraege.map { $0.titel.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .first { !$0.isEmpty } ?? ""
+                let rumpf = eintraege.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }.joined(separator: "\n")
+                var neu: [Block]
+                if kopf.isEmpty && rumpf.isEmpty {
+                    var bild = alt
+                    bild.rahmen = Rahmen(x: Double(feld.minX), y: Double(feld.minY),
+                                         breite: Double(feld.width), hoehe: Double(feld.height))
+                    neu = [bild] + dran.filter { bloecke[$0].zuFoto == nil }.map { bloecke[$0] }
+                } else {
+                    neu = automat.fotoMitNotiz(foto, kopf: kopf, rumpf: rumpf, feld: feld, ebene: alt.ebene)
+                    // Das Foto behält alles außer dem Rahmen.
+                    if let k = neu.firstIndex(where: { $0.fotoID == fotoID }) {
+                        var bild = alt
+                        bild.rahmen = neu[k].rahmen
+                        neu[k] = bild
+                    }
+                    neu = neu.map { var b = $0; b.vonHand = true; return b }
+                }
+                var rest = bloecke
+                for d in ([i] + dran).sorted(by: >) { rest.remove(at: d) }
+                reise.tage[t].seiten[p].bloecke = rest + neu
+                meldung = .init(text: eintraege.isEmpty
+                    ? "Die Erinnerung ist vom Foto genommen."
+                    : "Die Erinnerung steht jetzt bei ihrem Foto.")
+                return
+            }
+        }
+    }
+
+
+    // MARK: Ab hier neu aufbauen (ab 1.0.23)
+
+    /// AB EINEM FOTO ODER TEXT NEU AUFBAUEN.
+    ///
+    /// Ansage des Nutzers 11/2026: „Es kann ja durchaus sein, dass ich Fotos
+    /// auf einer Seite lösche. Dann möchte ich eine schnelle Möglichkeit
+    /// haben, die folgenden Fotos hochzuziehen … bei der ich ein Foto
+    /// markiere oder eine Textstelle und dann die Möglichkeit geboten
+    /// bekomme, ab hier neu aufbauen."
+    ///
+    /// Anders als „Ab der gewählten Seite neu verteilen" (1.0.14, dort bleibt
+    /// frei gewordener Platz frei): Alles VOR dem gewählten Stück bleibt —
+    /// frühere Seiten ganz, auf dieser Seite die Stücke, die in der Zeitfolge
+    /// des Kapitels davor kommen. Das gewählte Stück und alles danach wird
+    /// neu gesetzt: zuerst in den freien Rest dieser Seite (unter dem
+    /// untersten bleibenden Block, volle Breite), dann Seite für Seite bis
+    /// zum Kapitelende. Von Hand angelegte Seiten dahinter folgen danach.
+    @discardableResult
+    func abHierNeuAufbauen(block blockID: UUID) -> String {
+        guard let stelle = block(blockID) else { return "" }
+        guard automat.istLebensbuch, !reise.tage[stelle.tag].vorwort else {
+            let satz = "\u{201E}Ab hier neu aufbauen\u{201C} gibt es in den Kapiteln im Stil \u{201E}Lebensbuch\u{201C}."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        let t = stelle.tag, p = stelle.seite
+        let tag = reise.tage[t]
+        // Die Zeitfolge des Kapitels — dieselbe, nach der gesetzt wird.
+        let fotos = tag.fotos.compactMap { reise.foto($0) }.filter { !$0.abgelegt }
+        let eintraege = reise.kapiteleintraege(tag.datum)
+        var folge: [Layoutautomat.Fluss]
+        if eintraege.isEmpty {
+            folge = fotos.map { .foto($0) }
+            let frei = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !frei.isEmpty { folge.append(.text(kopf: "", rumpf: frei, zu: nil)) }
+        } else {
+            folge = Layoutautomat.zeitfolge(fotos: fotos, eintraege: eintraege)
+        }
+        var fotoRang: [UUID: Int] = [:]
+        var texte: [(rang: Int, kopf: String, rumpf: String)] = []
+        for (n, stueck) in folge.enumerated() {
+            switch stueck {
+            case .foto(let f): if fotoRang[f.id] == nil { fotoRang[f.id] = n }
+            case let .text(kopf, rumpf, _):
+                texte.append((n, kopf.trimmingCharacters(in: .whitespacesAndNewlines),
+                              rumpf.trimmingCharacters(in: .whitespacesAndNewlines)))
+            }
+        }
+        func rang(_ b: Block) -> Int? {
+            if let f = b.fotoID { return fotoRang[f] }
+            if let f = b.zuFoto { return fotoRang[f] }
+            if case let .bildunterschrift(f) = b.inhalt { return fotoRang[f] }
+            if case let .text(wort) = b.inhalt {
+                let w = wort.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !w.isEmpty else { return nil }
+                return texte.first { (!$0.rumpf.isEmpty && $0.rumpf.contains(w)) || (!$0.kopf.isEmpty && $0.kopf == w) }?.rang
+            }
+            return nil
+        }
+        let seite = reise.tage[t].seiten[p]
+        guard let ab = rang(seite.bloecke[stelle.block]) else {
+            let satz = "Bitte ein Foto oder einen Text des Kapitels antippen \u{2014} ab dort wird neu aufgebaut."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        merken()
+
+        // 1. Auf dieser Seite: was ab dem gewählten Stück kommt, geht weg.
+        var weg = Set(seite.bloecke.filter { (rang($0) ?? -1) >= ab }.map(\.id))
+        // Der Goldstrich über einem Textfeld gehört zu ihm.
+        for linie in seite.bloecke where linie.inhalt == .linie {
+            if seite.bloecke.contains(where: { weg.contains($0.id) && abs($0.rahmen.x - linie.rahmen.x) < 3
+                && $0.rahmen.y >= linie.rahmen.y && $0.rahmen.y - linie.rahmen.y < 20 }) {
+                weg.insert(linie.id)
+            }
+        }
+        let bleiben = seite.bloecke.filter { !weg.contains($0.id) }
+        var neueSeite = seite
+        neueSeite.bloecke = bleiben
+
+        // 2. Der freie Rest dieser Seite: unter dem untersten bleibenden Block.
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        let unten = bleiben.map { Double($0.umriss(reise.gestaltung).maxY) }.max() ?? Double(satz.minY)
+        let oben = max(unten + reise.gestaltung.fugePt * 2, Double(satz.minY))
+        let rest: CGRect? = Double(satz.maxY) - oben >= 70
+            ? CGRect(x: Double(satz.minX), y: oben, width: Double(satz.width), height: Double(satz.maxY) - oben)
+            : nil
+
+        // 3. Fest: frühere Seiten, das Bleibende hier, spätere Handarbeitsseiten.
+        let vorn = Array(reise.tage[t].seiten[..<p])
+        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand }
+        var festFotos = Set<UUID>()
+        var festTexte = Set<String>()
+        for b in vorn.flatMap(\.bloecke) + bleiben + spaeter.flatMap(\.bloecke) {
+            if let id = b.fotoID { festFotos.insert(id) }
+            if let wort = b.text { festTexte.insert(wort.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        }
+        // Was in der Zeitfolge VOR dem gewählten Stück liegt, ist fest —
+        // auch ein Text, der über eine Seitengrenze geteilt steht (sein
+        // Wortlaut steht dann in keinem Kasten ganz).
+        for (id, n) in fotoRang where n < ab { festFotos.insert(id) }
+        for text in texte where text.rang < ab { festTexte.insert(text.rumpf) }
+        var neu = automat.restseiten(reise.tage[t], ohneFotos: festFotos, ohneTexte: festTexte,
+                                     ersteFlaeche: rest)
+        if rest != nil, !neu.isEmpty {
+            let hoechste = bleiben.map(\.ebene).max() ?? 0
+            neueSeite.bloecke += neu.removeFirst().bloecke.map { $0.mitEbene($0.ebene + hoechste + 1) }
+        }
+        let vorher = reise.tage[t].seiten.count
+        reise.tage[t].seiten = vorn + [neueSeite] + neu + spaeter
+        gewaehlterBlock = nil
+        seitenzeiger = p
+        sofortSichern()
+        var antwort = "Ab hier neu aufgebaut"
+        let jetzt = reise.tage[t].seiten.count
+        antwort += jetzt == vorher ? "." : " \u{2014} das Kapitel hat jetzt \(jetzt) statt \(vorher) Seiten."
+        if !spaeter.isEmpty { antwort += " \(spaeter.count) von Hand angelegte Seiten folgen danach." }
+        meldung = .init(text: antwort)
+        return antwort
     }
 
 }

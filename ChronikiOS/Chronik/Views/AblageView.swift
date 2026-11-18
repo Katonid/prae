@@ -21,7 +21,7 @@ struct AblageView: View {
                     ContentUnavailableView {
                         Label("Nichts in der Ablage", systemImage: "tray")
                     } description: {
-                        Text("Jedes Foto gehört zu einem Tag.")
+                        Text("Jedes Foto gehört zu einem Kapitel.")
                     }
                 } else {
                     liste
@@ -40,8 +40,8 @@ struct AblageView: View {
     private var liste: some View {
         List {
             Section {
-                Picker("Einem Tag zuordnen", selection: $zielTag) {
-                    Text("Tag wählen").tag(UUID?.none)
+                Picker("Einem Kapitel zuordnen", selection: $zielTag) {
+                    Text("Kapitel wählen").tag(UUID?.none)
                     ForEach(werk.reise.tage) { tag in
                         Text(tag.datum.mittel).tag(UUID?.some(tag.id))
                     }
@@ -54,10 +54,10 @@ struct AblageView: View {
                 }
                 .disabled(zielTag == nil || gewaehlt.isEmpty)
             } footer: {
-                Text("Danach stehen die Fotos in der Reihenfolge ihrer Aufnahme am Ende des Tages.")
+                Text("Danach stehen die Fotos in der Reihenfolge ihrer Aufnahme am Ende des Kapitels.")
             }
 
-            Section("\(heimatlose.count) Fotos ohne Tag") {
+            Section("\(heimatlose.count) Fotos ohne Kapitel") {
                 ForEach(heimatlose) { foto in
                     HStack {
                         Image(systemName: gewaehlt.contains(foto.id)
