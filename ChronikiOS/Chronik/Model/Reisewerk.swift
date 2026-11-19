@@ -725,6 +725,12 @@ final class Reisewerk: ObservableObject, Identifiable {
     // das ist eine Entscheidung und keine Messung, und die Oberfläche sagt
     // sie auch.
     private func seitenNeuSetzen(_ stelle: Int, mit werkzeug: Layoutautomat) {
+        // KAPITELWEISE (ab 1.0.28): Ein gesperrtes Kapitel wird nie neu
+        // gesetzt — HIER geprüft, weil jeder Weg zum Neusetzen hier
+        // vorbeikommt (Neuanordnen, Alles neu verteilen, Stil, Muster,
+        // Wetter, Doppelte Fotos …). Ein neuer Weg kann die Sperre so nicht
+        // vergessen.
+        guard !reise.tage[stelle].gesperrt else { return }
         var bild: Kartenbild?
         var ausschnitt: Kartenausschnitt?
         for seite in reise.tage[stelle].seiten {
@@ -750,6 +756,10 @@ final class Reisewerk: ObservableObject, Identifiable {
 
     func neuAnordnen(_ id: UUID, erzwingen: Bool) {
         guard let stelle = tagIndex(id) else { return }
+        if reise.tage[stelle].gesperrt {
+            if erzwingen { gesperrtMelden(stelle) }
+            return
+        }
         if !erzwingen, hatHandarbeit(id) { return }
         merken()
         wortlautSichern(stelle)

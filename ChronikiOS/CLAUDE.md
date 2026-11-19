@@ -522,6 +522,46 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   (vorher 0,9 bzw. 1,0 als Untergrenze). Der Wert ist ein Faktor auf die
   Schriftgröße und wird als feste Zeilenhöhe gesetzt (`Schriftbild.attribute`,
   min = max) — darunter überlappen sich die Zeilen, das ist dann gewollt.
+- **Bedienung nach dem Gegenstand, Funktionssuche** (ab 1.0.28, Ansage des
+  Nutzers 11/2026: „die Bedienung der App [wird] immer unübersichtlicher …
+  Funktionen, von denen ich weiß, dass sie vorhanden sind, [springen] mir
+  nicht auf den ersten Blick entgegen … Dann frage ich dich und bin
+  überrascht, in welchem Menü sie gelandet sind."). **Die Regel für jede neue
+  Funktion:**
+  - Plus (`hinzufuegenMenue`) = HINZUFÜGEN: Abschnitte „Texte" (Neuer Text,
+    Text vor dem gewählten Foto, Alle Texte, Texte aus Datei), „Fotos"
+    (Mediathek, Dateien, Fotoablage), „Auf die gewählte Seite"; Reisebuch-
+    Erbe (Buch aufbauen, Reisespur, Fernweh) unter „Weitere Quellen".
+  - „Ganzes Buch" (`gestaltenMenue`) = gilt für das ganze Buch: „Aufbau"
+    (Vorwort, Kapitel und Zeitraster, Titel/Umschlag), „Aussehen" (Karten,
+    Wetter, Vorlagen unter „Weitere"), „Neu verteilen" (Alles neu verteilen —
+    bis 1.0.27 unter „Mehr"!), „Druck".
+  - Kapitel-Menü unten rechts (`tagMenue`) = dieses Kapitel: „Inhalt",
+    „Neu verteilen" (gesperrt → ausgegraut), „Kapitel" (Sperre, Seiten
+    setzen, Seiten, Seite anfügen, Reisepunkte). Zeitung/Vorwort nicht mehr
+    im Plusmenü.
+  - „Mehr" = Prüfen, Ausgeben, Sichern, Hilfe.
+  - **Funktionssuche** (`Views/BefehleView.swift`, Lupe oben, `Blatt.befehle`):
+    Suchfeld über ~45 Funktionen in Alltagswörtern („fett", „aufrücken",
+    „sperren", „zurückholen"); jede Zeile nennt, wo die Funktion sonst steht,
+    und führt sie aus, wo es geht (sonst Weg als Hinweis, etwa bei Gesten).
+    **Neue Funktionen dort eintragen.** Umschalten auf ein anderes Blatt: erst
+    schließen, nach 0,45 s öffnen.
+  - Unten bei gewähltem Foto zusätzlich „Text davor" (`Blatt.textVor`,
+    `EintragView.textVor`: freier Eintrag 60 s vor der Aufnahme, kein
+    `foto` — steht als eigenes Feld VOR der Bildgruppe; Antwort auf „Texte …
+    auf einen ganzen Abschnitt von Bildern").
+- **Kapitel sperren** (ab 1.0.28, Ansage des Nutzers 11/2026: „ein Kapitel,
+  nachdem ich es fertig bearbeitet habe, so sperren können, dass es nicht
+  versehentlich noch einmal zurückgesetzt [wird]"). `Reisetag.gesperrt`,
+  Kapitel-Menü „Kapitel sperren (fertig)" / „Sperre aufheben"
+  (`sperreUmschalten`), Schloss im Kapitel-Knopf und in der Kapitelliste.
+  Geprüft in `seitenNeuSetzen` — JEDER Weg zum Neusetzen läuft dort durch
+  (Neuanordnen, Alles neu verteilen, Stil, Muster, Wetter, Doppelte …) —,
+  dazu Meldung in `neuAnordnen(erzwingen:)`, `abHierNeuVerteilen`,
+  `abHierNeuAufbauen`; `kapitelNeuEinteilen` verweigert ganz, solange ein
+  Kapitel gesperrt ist; `kapitelAuffrischen` setzt nicht neu (Meldung),
+  Erinnerungen kommen trotzdem lokal ans Foto. Handarbeit bleibt möglich.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -572,7 +612,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -656,3 +696,5 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   erhalten; Vorwort mit engerem, einstellbarem Abstand um Fotos. **Nicht gemessen:** auf einem Gerät.
 - **1.0.27 (Build 28)**, 11/2026: Zeilenabstand-Regler bis 0,5.
   **Nicht gemessen:** auf einem Gerät.
+- **1.0.28 (Build 29)**, 11/2026: Menüs nach dem Gegenstand, Funktionssuche,
+  „Text davor", Kapitel sperren. **Nicht gemessen:** auf einem Gerät.

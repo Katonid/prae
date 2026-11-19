@@ -50,7 +50,8 @@ extension Reisewerk {
         gewaehlterTag = kapitelID
         // Eine Erinnerung zu einem Foto auf einer Seite mit Handarbeit kommt
         // trotzdem sofort neben ihr Foto (ab 1.0.21).
-        if let fotoID = eintrag.foto ?? vorher?.foto, hatHandarbeit(kapitelID) {
+        if let fotoID = eintrag.foto ?? vorher?.foto,
+           hatHandarbeit(kapitelID) || reise.tage[stelle].gesperrt {
             erinnerungEinhaengen(fotoID)
         }
         sofortSichern()
@@ -69,7 +70,7 @@ extension Reisewerk {
         let beginn = reise.kapitelbeginn(eintrag.tagesdatum)
         if let kapitel = reise.tage.first(where: { $0.datum == beginn }) {
             kapitelAuffrischen(kapitel.id)
-            if let fotoID = eintrag.foto, hatHandarbeit(kapitel.id) { erinnerungEinhaengen(fotoID) }
+            if let fotoID = eintrag.foto, hatHandarbeit(kapitel.id) || kapitel.gesperrt { erinnerungEinhaengen(fotoID) }
             leeresKapitelEntfernen(kapitel.id)
         }
         sofortSichern()
@@ -81,6 +82,11 @@ extension Reisewerk {
         guard let stelle = tagIndex(id) else { return }
         let datum = reise.tage[stelle].datum
         reise.tage[stelle].text = reise.kapiteltext(datum)
+        if reise.tage[stelle].gesperrt {
+            meldung = .init(text: "Gespeichert. Das Kapitel ist gesperrt und wird deshalb nicht neu gesetzt "
+                            + "\u{2014} ein neuer Text erscheint erst nach dem Entsperren (oder als Erinnerung am Foto sofort).")
+            return
+        }
         if hatHandarbeit(id) {
             meldung = .init(text: "Das Kapitel \u{201E}\(reise.tage[stelle].ueberschrift)\u{201C} trägt Handarbeit und wurde deshalb nicht neu gesetzt. Über \u{201E}Automatisch neu verteilen\u{201C} kommt der geänderte Text auf die Seite.")
         } else {
@@ -122,6 +128,15 @@ extension Reisewerk {
     /// die Oberfläche vorher.
     @discardableResult
     func kapitelNeuEinteilen(altesRaster: Zeitraster? = nil) -> String {
+        // Gesperrte Kapitel würden dabei aufgelöst — dann lieber gar nicht
+        // (ab 1.0.28).
+        let zu = reise.tage.filter(\.gesperrt)
+        guard zu.isEmpty else {
+            let satz = "\(zu.count) Kapitel sind gesperrt. Das Neueinteilen setzt ALLE Kapitel neu zusammen "
+                + "\u{2014} zuerst die Sperre aufheben (Kapitel-Menü \u{2192} \u{201E}Sperre aufheben\u{201C})."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
         let vorher = reise.tage
         let index = reise.fotoIndex
         var neu: [Reisetag] = []
@@ -385,6 +400,7 @@ extension Reisewerk {
             meldung = .init(text: satz, schwer: true)
             return satz
         }
+        if reise.tage[stelle.tag].gesperrt { return gesperrtMelden(stelle.tag) }
         guard automat.istLebensbuch else {
             let satz = "\u{201E}Ab hier neu verteilen\u{201C} gibt es im Stil \u{201E}Lebensbuch\u{201C}. In anderen Stilen: \u{201E}Automatisch neu verteilen\u{201C}."
             meldung = .init(text: satz, schwer: true)
@@ -736,6 +752,7 @@ extension Reisewerk {
             return satz
         }
         let t = stelle.tag, p = stelle.seite
+        if reise.tage[t].gesperrt { return gesperrtMelden(t) }
         let tag = reise.tage[t]
         // Die Zeitfolge des Kapitels — dieselbe, nach der gesetzt wird.
         let fotos = tag.fotos.compactMap { reise.foto($0) }.filter { !$0.abgelegt }
@@ -880,6 +897,28 @@ extension Reisewerk {
         meldung = .init(text: "Dieser Text ließ sich keinem Eintrag zuordnen \u{2014} die Änderung steht nur auf der Seite "
                         + "und ginge beim Neuverteilen verloren. Sicherer: Text antippen \u{2192} \u{201E}Text bearbeiten\u{201C}.",
                         schwer: true)
+    }
+
+
+    // MARK: Kapitel sperren (ab 1.0.28)
+
+    func sperreUmschalten(_ id: UUID) {
+        guard let i = tagIndex(id) else { return }
+        merken()
+        reise.tage[i].gesperrt.toggle()
+        let name = reise.tage[i].vorwort ? "Das Vorwort" : "Kapitel \u{201E}\(reise.tage[i].ueberschrift)\u{201C}"
+        meldung = .init(text: reise.tage[i].gesperrt
+            ? "\(name) ist gesperrt: Es wird nicht mehr automatisch neu gesetzt. Von Hand bearbeiten geht weiter."
+            : "\(name) ist wieder frei.")
+        sofortSichern()
+    }
+
+    @discardableResult
+    func gesperrtMelden(_ stelle: Int) -> String {
+        let name = reise.tage[stelle].vorwort ? "Das Vorwort" : "Kapitel \u{201E}\(reise.tage[stelle].ueberschrift)\u{201C}"
+        let satz = "\(name) ist gesperrt und wird nicht neu gesetzt. Entsperren: Kapitel-Menü \u{2192} \u{201E}Sperre aufheben\u{201C}."
+        meldung = .init(text: satz, schwer: true)
+        return satz
     }
 
 }

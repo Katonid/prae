@@ -88,6 +88,13 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // KAPITELWEISE (ab 1.0.26): Abstand zwischen Vorworttext und Foto in
     // Punkt (außerhalb des weißen Fotorands). `nil` = 6 pt.
     var vorwortabstand: Double?
+    // KAPITELWEISE (ab 1.0.28, Wunsch des Nutzers 11/2026: „ein Kapitel,
+    // nachdem ich es fertig bearbeitet habe, so sperren können, dass es nicht
+    // versehentlich noch einmal zurückgesetzt [wird]"). Gesperrt heißt: KEIN
+    // Neusetzen — weder „Automatisch neu verteilen" noch „Alles neu
+    // verteilen", Stilwechsel, Seitenmuster, „Ab hier …" oder Neueinteilen.
+    // Bearbeiten von Hand bleibt möglich (Sperre = Schutz vor dem Automaten).
+    var gesperrt: Bool = false
     // In welcher Zeitzone die Uhrzeiten dieses Tages gelten (Kennung, z. B.
     // `America/Toronto`). Gesetzt beim Einlesen der Reisespur; leer heißt,
     // dass es niemand feststellen konnte. **Die Uhrzeiten selbst sind schon
@@ -127,6 +134,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         vorwort = b.wert(.vorwort, false)
         vorwortschrift = b.wahlweise(.vorwortschrift)
         vorwortabstand = b.wahlweise(.vorwortabstand)
+        gesperrt = b.wert(.gesperrt, false)
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu

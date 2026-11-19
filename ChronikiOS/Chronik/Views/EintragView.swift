@@ -182,6 +182,22 @@ struct EintragView: View {
         return neu
     }
 
+    /// Ein FREIER Text eine Minute vor einem Foto (ab 1.0.28, Wunsch des
+    /// Nutzers 11/2026: Texte, die sich „auf einen ganzen Abschnitt von
+    /// Bildern beziehen"). Er hängt an keinem Foto, steht in der Zeitfolge
+    /// aber direkt vor ihm — als eigenes Textfeld vor der Bildgruppe.
+    static func textVor(_ fotoID: UUID, werk: Reisewerk) -> Texteintrag {
+        var neu = Texteintrag()
+        if let foto = werk.reise.foto(fotoID) {
+            if let wann = foto.aufnahme {
+                neu.zeit = wann.addingTimeInterval(-60)
+            } else if let tag = werk.reise.tage.first(where: { $0.fotos.contains(fotoID) }) {
+                neu.zeit = tag.datum.mittag
+            }
+        }
+        return neu
+    }
+
     private var istNeu: Bool { !werk.reise.eintraege.contains { $0.id == eintrag.id } }
 
     var body: some View {

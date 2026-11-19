@@ -189,6 +189,10 @@ struct ReiseView: View {
         // Einen vorhandenen Eintrag bearbeiten (ab 1.0.21) — die Erinnerung
         // zu einem Foto direkt von der Seite aus.
         case eintrag(UUID)
+        // Ab 1.0.28: freier Text eine Minute vor einem Foto, die
+        // Funktionssuche.
+        case textVor(UUID)
+        case befehle
         // Das Vorwort (ab 1.0.15).
         case vorwort
 
@@ -238,6 +242,8 @@ struct ReiseView: View {
             case let .erinnerung(id): return "erinnerung-\(id)"
             case .vorwort: return "vorwort"
             case let .eintrag(id): return "eintrag-\(id)"
+            case let .textVor(id): return "textvor-\(id)"
+            case .befehle: return "befehle"
             }
         }
     }
@@ -1198,6 +1204,14 @@ struct ReiseView: View {
             .disabled(!werk.kannZurueck)
         }
 
+        // Die Funktionssuche (ab 1.0.28): eine Lupe vor den Menüs.
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                blatt = .befehle
+            } label: {
+                Label("Funktion suchen", systemImage: "magnifyingglass")
+            }
+        }
         ToolbarItem(placement: .topBarTrailing) { hinzufuegenMenue }
         ToolbarItem(placement: .topBarTrailing) { gestaltenMenue }
         ToolbarItem(placement: .topBarTrailing) { mehrMenue }
@@ -1419,6 +1433,16 @@ struct ReiseView: View {
                             Label("Erinnerungen (\(vorhanden.count))", systemImage: "text.bubble.fill")
                         }
                         .buttonStyle(.borderedProminent)
+                    }
+                }
+                if werk.reise.foto(fotoID)?.grafik == false {
+                    // Ein Text über einen ganzen Abschnitt (ab 1.0.28): ein
+                    // freier Eintrag eine Minute VOR diesem Foto — er steht
+                    // dann als eigenes Feld vor der Bildgruppe.
+                    Button {
+                        blatt = .textVor(fotoID)
+                    } label: {
+                        Label("Text davor", systemImage: "text.insert")
                     }
                 }
                 Button {
@@ -1681,22 +1705,41 @@ struct ReiseView: View {
 
 
     // WAS KOMMT INS BUCH HINEIN?
+    // DIE MENÜS NACH DEM GEGENSTAND (KAPITELWEISE, ab 1.0.28).
+    //
+    // Ansage des Nutzers 11/2026: „Funktionen, von denen ich weiß, dass sie
+    // vorhanden sind, [springen] mir nicht auf den ersten Blick entgegen …
+    // Dann frage ich dich und bin überrascht, in welchem Menü sie gelandet
+    // sind." Die Regel seitdem: Plus = etwas HINZUFÜGEN (Texte, Fotos, auf
+    // die Seite); „Ganzes Buch" = was für das ganze Buch gilt (Aufbau,
+    // Aussehen, Neu verteilen, Druck); Kapitel-Menü unten rechts = was ein
+    // Kapitel betrifft (Inhalt, Neu verteilen, Sperre, Seiten); „Mehr" =
+    // Prüfen, Ausgeben, Sichern, Hilfe. Und für alles: die Funktionssuche
+    // (Lupe, `BefehleView`). Reisebuch-Erbe ohne Bedeutung für eine Chronik
+    // (Reisespur, Fernweh, Buch aufbauen, Karten, Wetter) steht unter
+    // „Weitere …", nicht mehr zwischen den täglichen Wegen.
     private var hinzufuegenMenue: some View {
         Menu {
-            // Zuerst der geführte Weg: Er sagt, in welcher Reihenfolge die
-            // drei Schritte zusammengehören, und zeigt hinterher, was
-            // zugeordnet wurde.
-            // ZUERST DAS, WAS AUF DIE GEWÄHLTE SEITE GEHT (ab 1.0.61).
-            //
-            // Ansage des Nutzers, 09/2026: „Ich möchte in das Buch manuell
-            // Bilder oder Grafiken einfügen können. Dies soll über den
-            // Plus-Button geschehen, sowie bei den Textfeldern auch."
-            // Den Textblock gab es seit 1.0.0 — im Block-Inspektor unter
-            // „Auf die Seite legen", also hinter dem Regler in der
-            // Werkzeugleiste und nur, wenn gerade KEIN Block gewählt ist.
-            // Gefunden hat ihn niemand. Der Abschnitt nennt deshalb die
-            // Seite beim Namen: Ein Menü, das nicht sagt, worauf es wirkt,
-            // ist die Frage von vorhin noch einmal.
+            Section("Texte") {
+                Button("Neuer Text\u{2026}", systemImage: "square.and.pencil") { blatt = .neuerText }
+                if let fotoID = gewaehlterBlock?.fotoID, werk.reise.foto(fotoID)?.grafik == false {
+                    Button("Text vor dem gewählten Foto\u{2026}", systemImage: "text.insert") { blatt = .textVor(fotoID) }
+                }
+                Button("Alle Texte\u{2026}", systemImage: "list.bullet.rectangle") { blatt = .texte }
+                Button("Texte aus einer Datei\u{2026}", systemImage: "doc.text") { blatt = .textimport }
+            }
+            Section("Fotos") {
+                Button("Fotos aus der Mediathek\u{2026}", systemImage: "photo.on.rectangle") { blatt = .fotos }
+                Button("Bilder aus Dateien\u{2026}", systemImage: "folder") { blatt = .dateien }
+                Button {
+                    blatt = .ablage
+                } label: {
+                    Label(werk.reise.heimatlose.isEmpty
+                          ? "Fotoablage\u{2026}"
+                          : "Fotoablage (\(werk.reise.heimatlose.count))\u{2026}",
+                          systemImage: "tray")
+                }
+            }
             if let seite = werk.einsetzbareSeite {
                 Section(werk.seitenname(seite).map { "Auf " + $0 } ?? "Auf die gewählte Seite") {
                     einfuegenKnopf
@@ -1756,114 +1799,57 @@ struct ReiseView: View {
                     }
                 }
             }
-            Button("Buch aufbauen…", systemImage: "wand.and.sparkles") { blatt = .aufbau }
-            Divider()
-            if let tag = werk.tag {
-                Button("Zeitung und Meldungen (\(tag.ueberschrift.isEmpty ? tag.datum.kurz : tag.ueberschrift))\u{2026}",
-                       systemImage: "newspaper") {
-                    blatt = .kapitelseiten(tag.id)
+            Menu("Weitere Quellen") {
+                Button("Buch aufbauen\u{2026}", systemImage: "wand.and.sparkles") { blatt = .aufbau }
+                Button("Reisespur\u{2026}", systemImage: "point.topleft.down.curvedto.point.bottomright.up") {
+                    blatt = .tagesspur
                 }
-            }
-            Button("Vorwort\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
-            Button("Neuer Text\u{2026}", systemImage: "square.and.pencil") { blatt = .neuerText }
-            Button("Alle Texte\u{2026}", systemImage: "list.bullet.rectangle") { blatt = .texte }
-            Button("Texte aus einer Datei\u{2026}", systemImage: "text.book.closed") { blatt = .textimport }
-            Button("Fotos aus der Mediathek…", systemImage: "photo.on.rectangle") {
-                blatt = .fotos
-            }
-            Button("Bilder aus Dateien…", systemImage: "folder") { blatt = .dateien }
-            Button("Reisespur…", systemImage: "point.topleft.down.curvedto.point.bottomright.up") {
-                blatt = .tagesspur
-            }
-            Button("Aus Fernweh…", systemImage: "suitcase") { blatt = .fernweh }
-            Divider()
-            Button {
-                blatt = .ablage
-            } label: {
-                // Die Zahl gehört auf den Eintrag: Fotos ohne Tag liegen
-                // sonst unbemerkt in der Ablage.
-                Label(werk.reise.heimatlose.isEmpty
-                      ? "Fotoablage…"
-                      : "Fotoablage (\(werk.reise.heimatlose.count))…",
-                      systemImage: "tray")
+                Button("Aus Fernweh\u{2026}", systemImage: "suitcase") { blatt = .fernweh }
             }
         } label: {
             Label("Hinzufügen", systemImage: "plus")
         }
     }
 
-    // WIE SIEHT DAS BUCH AUS?
-    //
-    // Der Abschnittstitel steht hier nicht als Zierde: Er beantwortet die
-    // Frage, mit der der Nutzer vor dem Menü steht — gilt das jetzt für
-    // alles oder nur für das, was ich gerade angetippt habe? Dieselbe
-    // Frage beantwortet der Pinsel daneben andersherum.
     private var gestaltenMenue: some View {
         Menu {
-            Section("Gilt für das ganze Buch") {
-                // VORLAGEN STEHEN GANZ OBEN (ab 1.0.95).
-                //
-                // Sie setzen dasselbe wie die Punkte darunter, nur alles
-                // auf einmal und aus einem anderen Buch. Wer für den
-                // nächsten Urlaub „dieselben Einstellungen" sucht, sucht
-                // sie hier — und nicht in den Einstellungen der App: Dort
-                // steht, wie diese App arbeitet, hier steht, wie dieses
-                // Buch aussieht.
-                Button("Kapitel und Zeitraster\u{2026}", systemImage: "rectangle.split.3x1") {
-                    blatt = .kapitelraster
-                }
+            Section("Aufbau") {
                 Button("Vorwort\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
-                Button("Vorlagen: Aussehen und Druckerei…", systemImage: "square.on.square") {
-                    blatt = .vorlagen
+                Button("Kapitel und Zeitraster\u{2026}", systemImage: "rectangle.split.3x1") { blatt = .kapitelraster }
+                Button("Titel, Umschlag und Rücken\u{2026}", systemImage: "book.closed.fill") { blatt = .umschlag }
+            }
+            Section("Aussehen") {
+                Button("Stil wählen\u{2026}", systemImage: "paintpalette") { blatt = .stil }
+                Button("Schrift und Ausrichtung\u{2026}", systemImage: "textformat") { blatt = .typografie }
+                Button("Überschriften\u{2026}", systemImage: "textformat.size.larger") { blatt = .ueberschriften }
+                Button("Fotos\u{2026}", systemImage: "photo.stack") { blatt = .fotostil }
+                Button("Textfelder\u{2026}", systemImage: "text.alignleft") { blatt = .textstil }
+                Button("Seitenhintergrund\u{2026}", systemImage: "square.fill.on.square.fill") { blatt = .hintergrund }
+                Button("Wasserzeichen\u{2026}", systemImage: "drop") { blatt = .wasserzeichen }
+                Menu("Weitere") {
+                    Button("Vorlagen: Aussehen und Druckerei\u{2026}", systemImage: "square.on.square") { blatt = .vorlagen }
+                    Button("Karten\u{2026}", systemImage: "map") { blatt = .kartenstil }
+                    Button("Wetter\u{2026}", systemImage: "cloud.sun") { blatt = .wetterstil }
                 }
-                Divider()
-                Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
-                Button("Schrift und Ausrichtung…", systemImage: "textformat") {
-                    blatt = .typografie
+            }
+            Section("Neu verteilen") {
+                // Mit Vorschau: Was wegfällt, steht vorher da. Bis 1.0.27
+                // unter „Mehr" — dort suchte es niemand.
+                Button("Alles neu verteilen\u{2026}", systemImage: "arrow.triangle.2.circlepath") { blatt = .neuverteilen }
+                Button("Alle unberührten Kapitel neu anordnen", systemImage: "arrow.clockwise") {
+                    werk.alleNeuAnordnen(nurUnberuehrte: true)
                 }
-                Button("Überschriften…", systemImage: "textformat.size.larger") { blatt = .ueberschriften }
-                Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
-                Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
-                Button("Karten…", systemImage: "map") { blatt = .kartenstil }
-                Button("Wetter…", systemImage: "cloud.sun") { blatt = .wetterstil }
-                Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
-                    blatt = .hintergrund
-                }
-                // Das Wasserzeichen steht neben dem Hintergrund, weil es
-                // dieselbe Frage beantwortet: Was liegt auf jeder Seite, ohne
-                // dass es jemand dorthin gestellt hat.
-                Button("Wasserzeichen…", systemImage: "drop") { blatt = .wasserzeichen }
-                Divider()
-                // DER UMSCHLAG HAT SEINE EIGENE GESTALTUNG (ab 1.0.50) —
-                // und deshalb einen eigenen Menüpunkt und keine Unterseite
-                // der Gestaltung. Er ist nicht eine Seite unter Seiten,
-                // sondern das eine Stück Papier, das außen um das Buch
-                // liegt: Rückseite, Rücken, Titelseite.
-                // ER NENNT SEIT 1.0.84 AUCH DEN TITEL — weil der jetzt
-                // dahinterliegt. Ein Menüpunkt, der nicht sagt, was hinter
-                // ihm steht, ist so wenig wert wie ein Knopf, den niemand
-                // findet (dieselbe Lehre wie 1.0.79, wo eine Umbenennung
-                // die Karteneinstellung verschwinden ließ).
-                Button("Titel, Umschlag und Rücken…", systemImage: "book.closed.fill") {
-                    blatt = .umschlag
-                }
-                // Wer ein Fotobuch bestellt, sucht das PRODUKT und nicht ein
-                // Maß (ab 1.0.123, gemeldet 11/2026). Derselbe Bildschirm,
-                // nur unter dem Namen, unter dem man ihn sucht.
-                Button("Fotobuch der Druckerei wählen (Saal, WhiteWall)…", systemImage: "printer") {
-                    blatt = .seitenformat
-                }
-                Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
-                Button("Ränder und Druckzugaben…", systemImage: "ruler") {
-                    blatt = .gestaltung
-                }
+            }
+            Section("Druck") {
+                Button("Fotobuch der Druckerei wählen\u{2026}", systemImage: "printer") { blatt = .seitenformat }
+                Button("Seitenformat\u{2026}", systemImage: "square.resize") { blatt = .seitenformat }
+                Button("Ränder und Druckzugaben\u{2026}", systemImage: "ruler") { blatt = .gestaltung }
             }
         } label: {
             Label("Ganzes Buch", systemImage: "book.closed")
         }
     }
 
-    // ALLES SELTENE.
     private var mehrMenue: some View {
         Menu {
             // DAS MENÜ IST NACH FRAGEN GEORDNET (ab 1.0.77).
@@ -1990,25 +1976,8 @@ struct ReiseView: View {
                         werk.meldung = Reisewerk.Meldung(text: satz)
                     }
                 }
-                Divider()
-                // ALLES NEU VERTEILEN LASSEN (ab 1.0.38).
-                //
-                // „Alle unberührten Tage neu anordnen" gab es schon — es
-                // überspringt aber jeden Tag mit Handarbeit, und Handarbeit ist
-                // bereits ein verschobener Block. Wer eine neue Fassung der
-                // Satzmaschine auf ein fertiges Buch anwenden will, kam damit
-                // nicht weiter und musste jeden angefassten Tag einzeln über
-                // das Tagesmenü nachziehen.
-                //
-                // Der Menüpunkt heißt nach der SACHE und nicht nach dem
-                // Handwerk, und er führt auf eine Vorschau statt sofort
-                // loszulegen: Was wegfällt, steht vorher da, Tag für Tag.
-                Button("Alles neu verteilen…", systemImage: "arrow.triangle.2.circlepath") {
-                    blatt = .neuverteilen
-                }
-                Button("Alle unberührten Tage neu anordnen", systemImage: "arrow.clockwise") {
-                    werk.alleNeuAnordnen(nurUnberuehrte: true)
-                }
+                // „Alles neu verteilen…" steht seit 1.0.28 unter „Ganzes Buch"
+                // → „Neu verteilen" (KAPITELWEISE, Aufräumen der Menüs).
             }
             Section("Hilfen beim Anordnen") {
                 // DER SCHALTER HEISST NACH ALLEN DREI LINIEN (ab 1.0.76).
@@ -2081,115 +2050,93 @@ struct ReiseView: View {
     @ViewBuilder
     private var tagMenue: some View {
         if let tag = werk.tag {
+            let frei = !tag.gesperrt
             Menu {
-                // KAPITELWEISE (ab 1.0.7, Rückmeldung des Nutzers: „Ja, das
-                // ist zu versteckt."): Zeitung und Meldungen stehen OBEN im
-                // Kapitel-Menü und nicht erst im Blatt „Text und Fotos".
-                Button("Zeitung und Meldungen\u{2026}", systemImage: "newspaper") {
-                    blatt = .kapitelseiten(tag.id)
-                }
-                Button("Text und Fotos…", systemImage: "square.and.pencil") {
-                    blatt = .tagInhalt(tag.id)
-                }
-                Button("Reisepunkte…", systemImage: "mappin.and.ellipse") {
-                    blatt = .spur(tag.id)
-                }
-                Divider()
-                // KAPITELWEISE (ab 1.0.16): Im Vorwort fließt der Text von
-                // selbst; der Knopf ist der Weg, wenn etwas über den
-                // Inspektor verstellt wurde.
-                if tag.vorwort {
-                    Button("Vorwort bearbeiten\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
-                    Button("Text neu umfließen lassen", systemImage: "text.justify") {
-                        werk.merken()
-                        werk.vorwortNachfuehren(werk.tagIndex(tag.id))
-                    }
-                }
-                // KAPITELWEISE (ab 1.0.23): ab dem gewählten Foto oder Text.
-                Button("Ab dem gewählten Foto/Text neu aufbauen", systemImage: "arrow.down.to.line.compact") {
-                    if let id = werk.gewaehlterBlock { werk.abHierNeuAufbauen(block: id) }
-                }
-                .disabled(werk.gewaehlterBlock.flatMap { werk.block($0) }.map {
-                    werk.reise.tage[$0.tag].id != tag.id
-                } ?? true)
-                // KAPITELWEISE (ab 1.0.14): die gewählte Seite bleibt, wie
-                // sie ist; alles danach wird neu verteilt.
-                Button("Ab der gewählten Seite neu verteilen", systemImage: "arrow.down.right.and.arrow.up.left") {
-                    if let seite = werk.gewaehlteSeite { werk.abHierNeuVerteilen(seite: seite) }
-                }
-                .disabled(werk.gewaehlteSeite.flatMap { werk.seitenstelle($0) }.map {
-                    werk.reise.tage[$0.tag].id != tag.id
-                } ?? true)
-                Button("Automatisch neu verteilen", systemImage: "wand.and.stars") {
-                    if werk.hatHandarbeit(tag.id) {
-                        neuAnordnenFrage = tag.id
+                Section("Inhalt") {
+                    Button("Text und Fotos\u{2026}", systemImage: "square.and.pencil") { blatt = .tagInhalt(tag.id) }
+                    if tag.vorwort {
+                        Button("Vorwort bearbeiten\u{2026}", systemImage: "text.book.closed.fill") { blatt = .vorwort }
                     } else {
-                        werk.neuAnordnen(tag.id, erzwingen: true)
+                        Button("Zeitung und Meldungen\u{2026}", systemImage: "newspaper") { blatt = .kapitelseiten(tag.id) }
                     }
+                    Button("Neuer Text\u{2026}", systemImage: "plus.bubble") { blatt = .neuerText }
                 }
-                // WIE DIE SEITEN DIESES TAGES GESETZT WERDEN.
-                //
-                // Hieß bis 1.0.30 „Seitenmuster" und wurde nicht gefunden
-                // (gemeldet 09/2026: „Die angekündigte Option Tagebuch,
-                // Text und Bilder im Wechsel finde ich nicht."). Zwei
-                // Gründe, und beide sind behoben: Der Menüpunkt nannte
-                // ein Fachwort statt einer Frage, und der Knopf darüber
-                // trug nur ein Kalendersymbol — man sah dem Menü nicht an,
-                // dass DIESER Tag dahintersteckt. Der Name des geltenden
-                // Musters steht jetzt daneben; ein Menü, das seinen
-                // eigenen Stand verschweigt, lässt einen raten.
-                Menu {
-                    Button {
-                        musterSetzen(nil)
-                    } label: {
-                        if tag.muster == nil {
-                            Label("Automatisch wählen", systemImage: "checkmark")
+                Section(tag.gesperrt ? "Neu verteilen \u{2014} gesperrt" : "Neu verteilen") {
+                    if tag.vorwort {
+                        Button("Text neu umfließen lassen", systemImage: "text.justify") {
+                            werk.merken()
+                            werk.vorwortNachfuehren(werk.tagIndex(tag.id))
+                        }
+                    } else {
+                        Button("Ab dem gewählten Foto/Text neu aufbauen", systemImage: "arrow.down.to.line.compact") {
+                            if let id = werk.gewaehlterBlock { werk.abHierNeuAufbauen(block: id) }
+                        }
+                        .disabled(!frei || (werk.gewaehlterBlock.flatMap { werk.block($0) }.map {
+                            werk.reise.tage[$0.tag].id != tag.id
+                        } ?? true))
+                        Button("Ab der gewählten Seite neu verteilen", systemImage: "arrow.down.right.and.arrow.up.left") {
+                            if let seite = werk.gewaehlteSeite { werk.abHierNeuVerteilen(seite: seite) }
+                        }
+                        .disabled(!frei || (werk.gewaehlteSeite.flatMap { werk.seitenstelle($0) }.map {
+                            werk.reise.tage[$0.tag].id != tag.id
+                        } ?? true))
+                    }
+                    Button("Automatisch neu verteilen", systemImage: "wand.and.stars") {
+                        if werk.hatHandarbeit(tag.id) {
+                            neuAnordnenFrage = tag.id
                         } else {
-                            Text("Automatisch wählen")
+                            werk.neuAnordnen(tag.id, erzwingen: true)
                         }
                     }
-                    Divider()
-                    ForEach(Seitenmuster.allCases) { muster in
+                    .disabled(!frei)
+                }
+                Section("Kapitel") {
+                    // SPERREN (ab 1.0.28): Schutz vor jedem automatischen
+                    // Neusetzen (`Reisetag.gesperrt`, geprüft in
+                    // `seitenNeuSetzen`).
+                    Button(tag.gesperrt ? "Sperre aufheben" : "Kapitel sperren (fertig)",
+                           systemImage: tag.gesperrt ? "lock.open" : "lock") {
+                        werk.sperreUmschalten(tag.id)
+                    }
+                    Menu {
                         Button {
-                            musterSetzen(muster)
+                            musterSetzen(nil)
                         } label: {
-                            if tag.muster == muster {
-                                Label(muster.name, systemImage: "checkmark")
+                            if tag.muster == nil {
+                                Label("Automatisch wählen", systemImage: "checkmark")
                             } else {
-                                Text(muster.name)
+                                Text("Automatisch wählen")
                             }
                         }
+                        Divider()
+                        ForEach(Seitenmuster.allCases) { muster in
+                            Button {
+                                musterSetzen(muster)
+                            } label: {
+                                if tag.muster == muster {
+                                    Label(muster.name, systemImage: "checkmark")
+                                } else {
+                                    Text(muster.name)
+                                }
+                            }
+                        }
+                        Divider()
+                        Button("Für ALLE Kapitel übernehmen", systemImage: "square.stack.3d.up") {
+                            werk.musterFuerAlle(werk.tag?.muster)
+                        }
+                    } label: {
+                        Text("Seiten setzen: \(mustername(tag))")
                     }
-                    Divider()
-                    Button("Für ALLE Tage übernehmen", systemImage: "square.stack.3d.up") {
-                        werk.musterFuerAlle(werk.tag?.muster)
-                    }
-                } label: {
-                    Text("Seiten setzen: \(mustername(tag))")
-                }
-                // SEITEN AN BESTIMMTEN STELLEN (ab 1.0.33).
-                //
-                // Bis 1.0.32 stand hier nur „Seite anfügen", und das hängte
-                // immer hinten an. Eine Stelle mitten im Tag ließ sich gar
-                // nicht ansprechen, und das Entfernen lag im Inspektor —
-                // also dort, wo man einen Block bearbeitet.
-                Button("Seiten…", systemImage: "rectangle.stack") {
-                    blatt = .seiten(tag.id)
-                }
-                Button("Seite anfügen", systemImage: "plus.rectangle.on.rectangle") {
-                    werk.seiteHinzufuegen(tag.id)
+                    .disabled(!frei)
+                    Button("Seiten\u{2026}", systemImage: "rectangle.stack") { blatt = .seiten(tag.id) }
+                    Button("Seite anfügen", systemImage: "plus.rectangle.on.rectangle") { werk.seiteHinzufuegen(tag.id) }
+                    Button("Reisepunkte\u{2026}", systemImage: "mappin.and.ellipse") { blatt = .spur(tag.id) }
                 }
             } label: {
-                // Der Knopf trägt das DATUM sichtbar. Als reines Symbol war
-                // er einer von vier gleich aussehenden Kreisen in der
-                // Werkzeugleiste, und dass darin alles zu diesem einen Tag
-                // steht, stand nirgends.
-                // KAPITELWEISE: Der Knopf nennt das KAPITEL („Kapitel 2026")
-                // und nicht ein Datum — ein Datum sagt nicht, dass dahinter
-                // alles zu diesem Kapitel steht.
                 HStack(spacing: 5) {
-                    Image(systemName: "bookmark")
-                    Text(tag.ueberschrift.isEmpty ? tag.datum.kurz : "Kapitel " + tag.ueberschrift)
+                    Image(systemName: tag.gesperrt ? "lock.fill" : "bookmark")
+                    Text(tag.vorwort ? (tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift)
+                         : tag.ueberschrift.isEmpty ? tag.datum.kurz : "Kapitel " + tag.ueberschrift)
                 }
             }
         }
@@ -2568,6 +2515,17 @@ struct ReiseView: View {
             KapitelseitenView(werk: werk, tagID: id)
         case .vorwort:
             VorwortView(werk: werk)
+        case let .textVor(fotoID):
+            EintragView(werk: werk, eintrag: EintragView.textVor(fotoID, werk: werk), sofortDiktieren: true)
+        case .befehle:
+            BefehleView(werk: werk) { ziel in
+                // Erst dieses Blatt zu, dann das nächste auf.
+                blatt = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { ziel() }
+            } oeffnen: { neu in
+                blatt = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { blatt = neu }
+            }
         case let .eintrag(id):
             if let eintrag = werk.reise.eintraege.first(where: { $0.id == id }) {
                 EintragView(werk: werk, eintrag: eintrag)
