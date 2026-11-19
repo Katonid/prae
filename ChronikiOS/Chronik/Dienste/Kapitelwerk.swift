@@ -921,4 +921,110 @@ extension Reisewerk {
         return satz
     }
 
+
+    // MARK: Texte an die Buchschrift angleichen (ab 1.0.29)
+
+    /// Nimmt aus allen vorhandenen Textkästen (außer Vorwort und fetten
+    /// Überschriftkästen) die fest eingetragene Schrift heraus — danach
+    /// folgen sie „Schrift und Ausrichtung → Fließtext". Die Ausrichtung
+    /// bleibt (sie gehört zum Satz: Text links vom Foto steht rechtsbündig).
+    /// Kästen, die danach mehr Platz brauchen, wachsen nach unten.
+    @discardableResult
+    func textschriftAngleichen() -> Int {
+        merken()
+        var ids: [UUID] = []
+        for t in reise.tage.indices where !reise.tage[t].vorwort {
+            for p in reise.tage[t].seiten.indices {
+                for b in reise.tage[t].seiten[p].bloecke.indices {
+                    var blk = reise.tage[t].seiten[p].bloecke[b]
+                    guard case .text = blk.inhalt, blk.abweichung.fett != true else { continue }
+                    let vorher = blk.abweichung
+                    blk.abweichung.familie = nil
+                    blk.abweichung.groesse = nil
+                    blk.abweichung.zeilenabstand = nil
+                    blk.abweichung.absatzabstand = nil
+                    blk.abweichung.farbe = nil
+                    blk.abweichung.kursiv = nil
+                    blk.abweichung.versalien = nil
+                    blk.abweichung.sperrung = nil
+                    blk.abweichung.trennung = nil
+                    guard blk.abweichung != vorher else { continue }
+                    reise.tage[t].seiten[p].bloecke[b] = blk
+                    ids.append(blk.id)
+                }
+            }
+        }
+        for id in ids { _ = hoeheAnTextAnpassen(id, merken: false, auffrischen: false) }
+        befundeAuffrischen(erzwingen: true)
+        sofortSichern()
+        meldung = .init(text: ids.isEmpty
+            ? "Alle Textkästen folgen schon der Schrift des Buches."
+            : "\(ids.count) Textkästen folgen jetzt der Schrift unter \u{201E}Fließtext\u{201C}. Wo ein Kasten zu groß oder zu klein geworden ist: \u{201E}Ab hier neu aufbauen\u{201C} oder \u{201E}Automatisch neu verteilen\u{201C}.")
+        return ids.count
+    }
+
+    /// Die Striche zwischen Erinnerung und Foto (1.0.24–1.0.28) von allen
+    /// Seiten nehmen (ab 1.0.29). Einmal beim Öffnen, danach gibt es keine.
+    func erinnerungsstricheEntfernen() {
+        var weg = 0
+        for t in reise.tage.indices {
+            for p in reise.tage[t].seiten.indices {
+                let vorher = reise.tage[t].seiten[p].bloecke.count
+                reise.tage[t].seiten[p].bloecke.removeAll { $0.inhalt == .linie && $0.zuFoto != nil }
+                weg += vorher - reise.tage[t].seiten[p].bloecke.count
+            }
+        }
+        if weg > 0 { sofortSichern() }
+    }
+
+    // MARK: Alle Texte als ein Text (ab 1.0.29)
+
+    /// Alle Texte des Buches in Buchfolge, ohne Formatmarken — zum
+    /// Markieren und Kopieren (Ansage des Nutzers 11/2026: „alle Texte, die
+    /// ich erstellt habe, … an einer Stelle so anzeigen …, dass ich sie
+    /// komplett markieren kann und kopieren kann").
+    func alleTexteAlsText(mitUnterschriften: Bool) -> String {
+        var teile: [String] = []
+        let titel = reise.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !titel.isEmpty { teile.append(titel.uppercased()) }
+        for tag in reise.tage {
+            var kapitel: [String] = []
+            if tag.vorwort {
+                let t = Auszeichnung.ohne(tag.text).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty { kapitel.append(t) }
+            } else {
+                let z = Auszeichnung.ohne(tag.zeitungstext).trimmingCharacters(in: .whitespacesAndNewlines)
+                let zt = tag.zeitungstitel.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !z.isEmpty || !zt.isEmpty { kapitel.append(([zt, z].filter { !$0.isEmpty }).joined(separator: "\n")) }
+                for m in tag.meldungen {
+                    let mt = m.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let mx = Auszeichnung.ohne(m.text).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !mt.isEmpty || !mx.isEmpty { kapitel.append(([mt, mx].filter { !$0.isEmpty }).joined(separator: "\n")) }
+                }
+                for e in reise.kapiteleintraege(tag.datum) {
+                    let t = Auszeichnung.ohne(e.text).trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !t.isEmpty || !e.titel.isEmpty else { continue }
+                    let kopf = e.foto != nil ? (e.titel.isEmpty ? "(Erinnerung zum Foto)" : e.titel + " (Erinnerung zum Foto)")
+                        : e.kopfzeile
+                    kapitel.append(kopf + "\n" + t)
+                }
+                if reise.kapiteleintraege(tag.datum).isEmpty {
+                    let frei = Auszeichnung.ohne(tag.text).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !frei.isEmpty { kapitel.append(frei) }
+                }
+                if mitUnterschriften {
+                    let zeilen = tag.fotos.compactMap { reise.foto($0) }
+                        .map { Auszeichnung.ohne($0.unterschrift).trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                    if !zeilen.isEmpty { kapitel.append("Bildunterschriften:\n" + zeilen.map { "\u{2013} " + $0 }.joined(separator: "\n")) }
+                }
+            }
+            guard !kapitel.isEmpty else { continue }
+            let name = tag.vorwort ? (tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift)
+                : (tag.ueberschrift.isEmpty ? tag.datum.mittel : "Kapitel " + tag.ueberschrift)
+            teile.append(name.uppercased() + "\n\n" + kapitel.joined(separator: "\n\n"))
+        }
+        return teile.joined(separator: "\n\n\n")
+    }
+
 }

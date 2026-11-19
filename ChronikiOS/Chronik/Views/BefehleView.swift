@@ -81,6 +81,11 @@ struct BefehleView: View {
              "ki korrektur rechtschreibung tippfehler leerzeichen", "text.badge.checkmark", .blatt(.texte))
         dazu(t, "Einen Text als fertig markieren", "Alle Texte \u{2192} Text nach rechts wischen",
              "fertig abgeschlossen schützen", "checkmark.seal", .blatt(.texte))
+        dazu(t, "Alle Texte zum Markieren und Kopieren (Export)", "Plusmenü \u{2192} Alle Texte zum Kopieren",
+             "export exportieren kopieren zwischenablage markieren alle texte teilen", "doc.on.clipboard", .blatt(.texteExport))
+        dazu(t, "Schrift der Fototexte und aller Texte auf einmal ändern",
+             "Ganzes Buch \u{2192} Schrift und Ausrichtung \u{2192} Fließtext \u{2192} \u{201E}Auf alle vorhandenen Texte übertragen\u{201C}",
+             "schriftgröße global alle texte erinnerungen größe schrift ändern", "textformat.size", .blatt(.typografie))
         dazu(t, "Texte aus einer Datei einlesen", "Plusmenü \u{2192} Texte aus einer Datei",
              "word pdf import datei", "doc.text", .blatt(.textimport))
 

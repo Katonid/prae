@@ -75,6 +75,24 @@ struct TypografieView: View {
 
                 schriftAbschnitt
 
+                // ALLE VORHANDENEN TEXTE (ab 1.0.29, gemeldet 11/2026: die
+                // Schriftgröße der Fototexte ließ sich „nicht nachträglich
+                // global ändern, sondern nur für jeden Text einzeln"). Bis
+                // 1.0.28 trug jeder gesetzte Textkasten seine Schrift fest in
+                // sich; neue Kästen tun das nicht mehr, ältere holt dieser
+                // Knopf zurück an die Einstellung.
+                if rolle == .flieText {
+                    Section {
+                        Button {
+                            werk.textschriftAngleichen()
+                        } label: {
+                            Label("Auf alle vorhandenen Texte übertragen", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    } footer: {
+                        Text("Erinnerungen an Fotos, freie Texte und Textkästen auf allen Seiten übernehmen Schriftart, Größe, Zeilenabstand und Farbe von hier \u{2014} auch in gesperrten Kapiteln. Fette Überschriften, die Ausrichtung und das Vorwort (eigene Schrift im Vorwort-Fenster) bleiben. \u{201E}Zurück\u{201C} macht es rückgängig.")
+                    }
+                }
+
                 Section {
                     probe
                 } header: {

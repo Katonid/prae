@@ -12,6 +12,7 @@ struct TexteView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
     @State private var bearbeiten: Texteintrag?
+    @State private var export = false
 
     var body: some View {
         NavigationStack {
@@ -44,10 +45,19 @@ struct TexteView: View {
                 }
             }
             .navigationTitle("Texte")
+            .sheet(isPresented: $export) { TexteExportView(werk: werk) }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Fertig") { schliessen() }
+                }
+                // Alle Texte zum Markieren und Kopieren (ab 1.0.29).
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        export = true
+                    } label: {
+                        Label("Alle Texte zum Kopieren", systemImage: "doc.on.clipboard")
+                    }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {

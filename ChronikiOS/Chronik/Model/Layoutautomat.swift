@@ -2745,48 +2745,39 @@ extension Layoutautomat {
             textUnten = k.rahmen.y + k.rahmen.hoehe
             bloecke.append(angelegt(k, an: bild).mitEbene(ebene + 50))
         }
-        // WOZU GEHÖRT DER TEXT? (ab 1.0.24, Frage des Nutzers 11/2026: „Oder
-        // kann er theoretisch auch neben einem Bild stehen? Wenn ja, dann
-        // müssen wir … sicherstellen …, zu welchem Bild der Text gehört.")
-        // Ein Strich in der Akzentfarbe in der Fuge ZWISCHEN Text und Bild:
-        // daneben senkrecht über die Höhe des Textes, darunter waagerecht
-        // über seinem Anfang. Er hängt am Foto (`zuFoto`) wie der Text.
-        let luft = Double(teilung.lage == .unten ? t.minY - r.maxY : (teilung.lage == .rechts
-            ? t.minX - r.maxX : r.minX - t.maxX))
-        // Nah am Text, nicht im weißen Rand des Fotos.
-        let mitte = max(min(luft / 2, fuge * 0.6), 1.5)
-        let strich: Rahmen
-        switch teilung.lage {
-        case .unten:
-            strich = Rahmen(x: Double(t.minX), y: Double(t.minY) - mitte + 1, breite: min(36, Double(t.width) * 0.3), hoehe: 1.2)
-        case .rechts:
-            strich = Rahmen(x: Double(t.minX) - mitte, y: Double(t.minY) + 2, breite: 1.2,
-                            hoehe: max(textUnten - Double(t.minY) - 4, 8))
-        case .links:
-            strich = Rahmen(x: Double(t.maxX) + mitte - 1.2, y: Double(t.minY) + 2, breite: 1.2,
-                            hoehe: max(textUnten - Double(t.minY) - 4, 8))
-        }
-        var linie = Block(inhalt: .linie, rahmen: strich, rand: stil.akzent)
-        linie.zuFoto = f.id
-        bloecke.append(angelegt(linie, an: bild).mitEbene(ebene + 50))
+        // Den Strich zwischen Text und Bild (1.0.24) gibt es seit 1.0.29
+        // nicht mehr — Ansage des Nutzers 11/2026: Beim Verschieben oder
+        // Vergrößern blieb er stehen, wo er war; „ich glaube, dass ich dann
+        // stattdessen auf diesen Strich verzichten kann." Die Zuordnung
+        // zeigen Nähe, Ausrichtung zum Bild hin und das gemeinsame Wandern.
+        _ = textUnten
         return bloecke
     }
 
     // MARK: Bausteine
 
+    // NUR WAS ABWEICHT (KAPITELWEISE, ab 1.0.29). Bis 1.0.28 schrieb jeder
+    // Textkasten ALLE Schriftwerte fest in sich hinein — eine spätere
+    // Änderung unter „Schrift und Ausrichtung → Fließtext" erreichte keinen
+    // vorhandenen Kasten. Gemeldet 11/2026: „Ich habe es jetzt nicht
+    // geschafft, die Schriftgröße der bestehenden Texte zu den Fotos
+    // nachträglich global zu ändern, sondern nur für jeden Text einzeln."
+    // Jetzt steht im Kasten nur, was vom Fließtext ABWEICHT (meist die
+    // Ausrichtung); alles andere folgt der Einstellung des Buches.
     private func abweichung(_ bild: Schriftbild) -> Schriftabweichung {
+        let g = typografie.flieText
         var a = Schriftabweichung()
-        a.familie = bild.familie
-        a.groesse = bild.groesse
-        a.zeilenabstand = bild.zeilenabstand
-        a.absatzabstand = bild.absatzabstand
-        a.ausrichtung = bild.ausrichtung
-        a.farbe = bild.farbe
-        a.fett = bild.fett
-        a.kursiv = bild.kursiv
-        a.versalien = bild.versalien
-        a.sperrung = bild.sperrung
-        a.trennung = bild.trennung
+        if bild.familie != g.familie { a.familie = bild.familie }
+        if bild.groesse != g.groesse { a.groesse = bild.groesse }
+        if bild.zeilenabstand != g.zeilenabstand { a.zeilenabstand = bild.zeilenabstand }
+        if bild.absatzabstand != g.absatzabstand { a.absatzabstand = bild.absatzabstand }
+        if bild.ausrichtung != g.ausrichtung { a.ausrichtung = bild.ausrichtung }
+        if bild.farbe != g.farbe { a.farbe = bild.farbe }
+        if bild.fett != g.fett { a.fett = bild.fett }
+        if bild.kursiv != g.kursiv { a.kursiv = bild.kursiv }
+        if bild.versalien != g.versalien { a.versalien = bild.versalien }
+        if bild.sperrung != g.sperrung { a.sperrung = bild.sperrung }
+        if bild.trennung != g.trennung { a.trennung = bild.trennung }
         return a
     }
 

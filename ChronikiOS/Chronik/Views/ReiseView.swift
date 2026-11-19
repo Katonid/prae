@@ -193,6 +193,8 @@ struct ReiseView: View {
         // Funktionssuche.
         case textVor(UUID)
         case befehle
+        // Ab 1.0.29: alle Texte zum Markieren und Kopieren.
+        case texteExport
         // Das Vorwort (ab 1.0.15).
         case vorwort
 
@@ -244,6 +246,7 @@ struct ReiseView: View {
             case let .eintrag(id): return "eintrag-\(id)"
             case let .textVor(id): return "textvor-\(id)"
             case .befehle: return "befehle"
+            case .texteExport: return "texteexport"
             }
         }
     }
@@ -315,7 +318,12 @@ struct ReiseView: View {
             // wegfällt und was bleibt, steht jetzt hier.
             Text("In diesem Abschnitt wurde von Hand gearbeitet. Alle seine Seiten werden so gesetzt, wie die App es von selbst tun würde: Verschobene, gedrehte und in der Größe geänderte Bilder und Texte sowie von Hand eingefügte Seiten (auch PDF-Seiten) fallen weg. Texte, Erinnerungen, Fotos und Bildunterschriften bleiben. Mit „Zurück“ oben lässt sich das rückgängig machen.")
         }
-        .task { werk.fehlendeSeitenNachholen() }
+        .task {
+            werk.fehlendeSeitenNachholen()
+            // Die Striche zwischen Erinnerung und Foto (1.0.24–1.0.28) gehen
+            // einmal von allen Seiten (ab 1.0.29).
+            werk.erinnerungsstricheEntfernen()
+        }
         // NACHSEHEN, OB DIE BILDER DA SIND — UND SIE ANSTOSSEN (ab 1.0.71).
         // Wie oft und wie lange, entscheidet `Reisewerk.bilderPruefen`; hier
         // wird es nur angestoßen, wenn ein Buch aufgeht.
@@ -1726,6 +1734,7 @@ struct ReiseView: View {
                     Button("Text vor dem gewählten Foto\u{2026}", systemImage: "text.insert") { blatt = .textVor(fotoID) }
                 }
                 Button("Alle Texte\u{2026}", systemImage: "list.bullet.rectangle") { blatt = .texte }
+                Button("Alle Texte zum Kopieren\u{2026}", systemImage: "doc.on.clipboard") { blatt = .texteExport }
                 Button("Texte aus einer Datei\u{2026}", systemImage: "doc.text") { blatt = .textimport }
             }
             Section("Fotos") {
@@ -2515,6 +2524,8 @@ struct ReiseView: View {
             KapitelseitenView(werk: werk, tagID: id)
         case .vorwort:
             VorwortView(werk: werk)
+        case .texteExport:
+            TexteExportView(werk: werk)
         case let .textVor(fotoID):
             EintragView(werk: werk, eintrag: EintragView.textVor(fotoID, werk: werk), sofortDiktieren: true)
         case .befehle:
