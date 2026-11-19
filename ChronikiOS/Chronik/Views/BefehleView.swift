@@ -69,6 +69,11 @@ struct BefehleView: View {
              foto == nil ? "Erst ein Foto antippen, dann unten \u{201E}Erinnerung einsprechen\u{201C}" : "Foto gewählt \u{2192} unten \u{201E}Erinnerung\u{201C}",
              "kommentar diktat mikrofon bild foto text", "mic.fill",
              foto.map { .blatt(.erinnerung($0)) } ?? .hinweis)
+        if let tag = werk.tag, !werk.fehlendeTexte(tag.id).isEmpty {
+            dazu(t, "Fehlende Texte dieses Kapitels einsetzen", "Kapitel-Menü \u{2192} Fehlende Texte einsetzen",
+                 "text fehlt erscheint nicht taucht nicht auf einsetzen", "text.badge.plus",
+                 .tun { werk.fehlendeTexteEinsetzen(tag.id) })
+        }
         dazu(t, "Alle Texte ansehen und bearbeiten", "Plusmenü \u{2192} Alle Texte",
              "bearbeiten ändern liste gespeichert speicher erinnerungen löschen", "list.bullet.rectangle", .blatt(.texte))
         dazu(t, "Einen Text auf der Seite bearbeiten",
