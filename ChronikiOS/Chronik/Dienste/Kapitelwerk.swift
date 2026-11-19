@@ -54,6 +54,9 @@ extension Reisewerk {
         if let fotoID = eintrag.foto ?? vorher?.foto,
            hatHandarbeit(kapitelID) || reise.tage[stelle].gesperrt {
             erinnerungEinhaengen(fotoID)
+        } else if eintrag.foto == nil, hatHandarbeit(kapitelID) || reise.tage[stelle].gesperrt {
+            // Ein freier Text auf einer Seite mit Handarbeit (ab 1.0.31).
+            freienTextEinhaengen(eintrag.id)
         }
         sofortSichern()
         // Automatische Textpflege (ab 1.0.12) — im Hintergrund, nur für
@@ -89,7 +92,9 @@ extension Reisewerk {
             return
         }
         if hatHandarbeit(id) {
-            meldung = .init(text: "Das Kapitel \u{201E}\(reise.tage[stelle].ueberschrift)\u{201C} trägt Handarbeit und wurde deshalb nicht neu gesetzt. Über \u{201E}Automatisch neu verteilen\u{201C} kommt der geänderte Text auf die Seite.")
+            // Verständlicher (ab 1.0.31, Frage des Nutzers: „Was soll der
+            // Text am oberen Rand bedeuten? Das Kapitel trägt Handarbeit.").
+            meldung = .init(text: "Gespeichert. Im Kapitel \u{201E}\(reise.tage[stelle].ueberschrift)\u{201C} hast du Seiten von Hand gestaltet \u{2014} deshalb setzt die App es nicht von selbst neu. Neue Texte und Erinnerungen kommen trotzdem gleich an ihre Stelle.")
         } else {
             neuAnordnen(id, erzwingen: true)
         }
@@ -347,6 +352,9 @@ extension Reisewerk {
                 if !vorherGemerkt { merken(); vorherGemerkt = true }
                 reise.eintraege[i].vorfassung = vorher
                 reise.eintraege[i].text = neu
+                // Steht der Text schon auf einer Seite, die nicht neu gesetzt
+                // wird (Handarbeit), dort mitändern (ab 1.0.31).
+                textAufSeitenErsetzen(alt: vorher, neu: neu)
                 geaendert += 1
                 kapitel.insert(reise.kapitelbeginn(reise.eintraege[i].tagesdatum))
             }
@@ -1206,6 +1214,121 @@ extension Reisewerk {
         if gesperrt > 0 { satz += " \(gesperrt) Fotos in gesperrten Kapiteln blieben, wie sie sind." }
         meldung = .init(text: satz)
         return satz
+    }
+
+
+    // MARK: Freier Text auf eine Seite mit Handarbeit (ab 1.0.31)
+
+    /// FREIEN TEXT AN SEINE STELLE (ab 1.0.31, gemeldet 11/2026: „Ich habe
+    /// jetzt zweimal versucht, einen Text erstellen zu lassen, der vom Datum
+    /// her vor ein angetipptes Foto sortiert werden sollte. Er erscheint
+    /// aber leider nicht auf der Seite … Ich möchte vor allem jetzt nicht die
+    /// bereits arrangierten ersten Fotos wieder neu verschieben lassen.").
+    /// Wie die Erinnerung (1.0.21) nur für dieses eine Stück: Ziel ist das
+    /// erste Foto des Kapitels auf einer Seite, das vom Zeitpunkt des Textes
+    /// an oder später aufgenommen ist — der Text steht ÜBER ihm, das Foto
+    /// gibt dafür oben einen Streifen ab (Unterkante bleibt, Unterschrift und
+    /// Erinnerung bleiben, wo sie sind). Gibt es kein späteres Foto, kommt
+    /// der Text UNTER das letzte. Sonst ändert sich auf der Seite nichts.
+    func freienTextEinhaengen(_ eintragID: UUID) {
+        guard let e = reise.eintraege.first(where: { $0.id == eintragID }), e.foto == nil else { return }
+        let t = reise.tagIndex(fuer: e.tagesdatum)
+        let rumpf = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !stehtAufSeite(e, kapitel: t) else { return }
+        // Fotos auf den Seiten des Kapitels, mit Stelle.
+        var kandidaten: [(seite: Int, block: Int, wann: Date)] = []
+        for (p, seite) in reise.tage[t].seiten.enumerated() {
+            for (i, b) in seite.bloecke.enumerated() {
+                guard let id = b.fotoID, let f = reise.foto(id), !f.grafik else { continue }
+                kandidaten.append((p, i, f.aufnahme ?? .distantFuture))
+            }
+        }
+        guard !kandidaten.isEmpty else {
+            meldung = .init(text: "Gespeichert. Im Kapitel steht noch kein Foto, an das der Text kommen könnte \u{2014} er erscheint beim nächsten Neuverteilen.")
+            return
+        }
+        kandidaten.sort { $0.wann < $1.wann }
+        let oben: Bool
+        let ziel: (seite: Int, block: Int, wann: Date)
+        if let erstes = kandidaten.first(where: { $0.wann >= e.zeit }) {
+            ziel = erstes; oben = true
+        } else {
+            ziel = kandidaten.last!; oben = false
+        }
+        var foto = reise.tage[t].seiten[ziel.seite].bloecke[ziel.block]
+        let r = foto.rahmen
+        // Erst messen, dann Platz nehmen: höchstens 55 % der Fotohöhe.
+        let probe = automat.textfeld(kopf: e.kopfzeile, rumpf: rumpf, x: r.x, y: r.y, breite: r.breite)
+        let luft = reise.gestaltung.fugePt
+        let nimm = min(probe.hoehe + luft, r.hoehe * 0.55)
+        let feld: (bloecke: [Block], hoehe: Double)
+        if oben {
+            feld = automat.textfeld(kopf: e.kopfzeile, rumpf: rumpf, x: r.x, y: r.y, breite: r.breite)
+            foto.rahmen = Rahmen(x: r.x, y: r.y + nimm, breite: r.breite, hoehe: r.hoehe - nimm)
+        } else {
+            feld = automat.textfeld(kopf: e.kopfzeile, rumpf: rumpf, x: r.x, y: r.y + r.hoehe - nimm + luft, breite: r.breite)
+            foto.rahmen = Rahmen(x: r.x, y: r.y, breite: r.breite, hoehe: r.hoehe - nimm)
+        }
+        foto.vonHand = true
+        reise.tage[t].seiten[ziel.seite].bloecke[ziel.block] = foto
+        let ebene = (reise.tage[t].seiten[ziel.seite].bloecke.map(\.ebene).max() ?? 0) + 1
+        reise.tage[t].seiten[ziel.seite].bloecke += feld.bloecke.map { b in
+            var n = b; n.vonHand = true; n.ebene = ebene; return n
+        }
+        seitenzeiger = ziel.seite
+        meldung = .init(text: oben
+            ? "Der Text steht jetzt über dem Foto, vor das er gehört. Das Foto hat dafür oben etwas Platz abgegeben \u{2014} Größe und Lage lassen sich wie immer anpassen."
+            : "Der Text steht jetzt unter dem letzten Foto des Kapitels.")
+    }
+
+    /// Ersetzt einen ganzen Textkasten mit genau diesem Wortlaut (nach der
+    /// automatischen Textpflege, ab 1.0.31).
+    func textAufSeitenErsetzen(alt: String, neu: String) {
+        let a = alt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !a.isEmpty else { return }
+        for t in reise.tage.indices {
+            for p in reise.tage[t].seiten.indices {
+                for b in reise.tage[t].seiten[p].bloecke.indices {
+                    if case let .text(w) = reise.tage[t].seiten[p].bloecke[b].inhalt,
+                       w.trimmingCharacters(in: .whitespacesAndNewlines) == a {
+                        reise.tage[t].seiten[p].bloecke[b].inhalt = .text(neu)
+                    }
+                }
+            }
+        }
+    }
+
+
+    /// Steht ein Eintrag (oder ein Stück davon, oder seine Kopfzeile) schon
+    /// auf einer Seite seines Kapitels?
+    func stehtAufSeite(_ e: Texteintrag, kapitel t: Int) -> Bool {
+        let rumpf = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return reise.tage[t].seiten.contains { s in
+            s.bloecke.contains { b in
+                guard let w = b.text?.trimmingCharacters(in: .whitespacesAndNewlines), !w.isEmpty else { return false }
+                return (!rumpf.isEmpty && (w == rumpf || rumpf.contains(w))) || w == e.kopfzeile
+            }
+        }
+    }
+
+    /// Freie Texte dieses Kapitels, die auf keiner Seite stehen.
+    func fehlendeTexte(_ kapitelID: UUID) -> [Texteintrag] {
+        guard let t = tagIndex(kapitelID) else { return [] }
+        return reise.kapiteleintraege(reise.tage[t].datum).filter { $0.foto == nil && !stehtAufSeite($0, kapitel: t) }
+    }
+
+    /// Setzt alle fehlenden freien Texte eines Kapitels an ihre Stelle, ohne
+    /// das Kapitel neu zu setzen (ab 1.0.31).
+    func fehlendeTexteEinsetzen(_ kapitelID: UUID) {
+        let liste = fehlendeTexte(kapitelID)
+        guard !liste.isEmpty else {
+            meldung = .init(text: "Alle Texte dieses Kapitels stehen schon auf einer Seite.")
+            return
+        }
+        merken()
+        for e in liste { freienTextEinhaengen(e.id) }
+        sofortSichern()
+        meldung = .init(text: liste.count == 1 ? "1 Text steht jetzt an seiner Stelle." : "\(liste.count) Texte stehen jetzt an ihrer Stelle.")
     }
 
 }

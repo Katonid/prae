@@ -2670,6 +2670,34 @@ extension Layoutautomat {
         return seiten
     }
 
+    /// KAPITELWEISE (ab 1.0.31): ein freies Textfeld wie im Fluss —
+    /// Goldstrich, Kopfzeile (fett), Text —, oben links bei (x, y), in
+    /// dieser Breite. Für Texte, die auf eine Seite mit Handarbeit kommen
+    /// (`Reisewerk.freienTextEinhaengen`). Rückgabe: Blöcke und Gesamthöhe.
+    func textfeld(kopf: String, rumpf: String, x: Double, y: Double, breite: Double) -> (bloecke: [Block], hoehe: Double) {
+        var kopfbild = typografie[.unterueberschrift]
+        kopfbild.groesse = 12.5
+        kopfbild.ausrichtung = .links
+        kopfbild.fett = true
+        kopfbild.zeilenabstand = 1.15
+        var textbild = typografie.flieText
+        textbild.ausrichtung = .links
+        var bloecke = [Block(inhalt: .linie, rahmen: Rahmen(x: x, y: y + 1, breite: 24, hoehe: 1.2),
+                             rand: stil.akzent)]
+        var ty = y + 9
+        if !kopf.isEmpty {
+            let k = textblock(kopf, bild: kopfbild, x: x, y: ty, breite: breite)
+            bloecke.append(k)
+            ty += k.rahmen.hoehe + 3
+        }
+        if !rumpf.isEmpty {
+            let r = textblock(rumpf, bild: textbild, x: x, y: ty, breite: breite)
+            bloecke.append(r)
+            ty += r.rahmen.hoehe
+        }
+        return (bloecke, ty - y)
+    }
+
     /// KAPITELWEISE (ab 1.0.21): Foto und Erinnerung in ein GEGEBENES Feld
     /// setzen — für eine Seite, die von Hand gestaltet ist und deshalb nicht
     /// neu gesetzt wird (`Reisewerk.erinnerungEinhaengen`). Dieselben drei

@@ -2076,6 +2076,14 @@ struct ReiseView: View {
                         Button("Zeitung und Meldungen\u{2026}", systemImage: "newspaper") { blatt = .kapitelseiten(tag.id) }
                     }
                     Button("Neuer Text\u{2026}", systemImage: "plus.bubble") { blatt = .neuerText }
+                    // Ab 1.0.31: Texte, die (vor 1.0.31 oder in einem Kapitel
+                    // mit Handarbeit) noch auf keiner Seite stehen.
+                    let fehlen = werk.fehlendeTexte(tag.id).count
+                    if fehlen > 0 {
+                        Button("Fehlende Texte einsetzen (\(fehlen))", systemImage: "text.badge.plus") {
+                            werk.fehlendeTexteEinsetzen(tag.id)
+                        }
+                    }
                 }
                 Section(tag.gesperrt ? "Neu verteilen \u{2014} gesperrt" : "Neu verteilen") {
                     if tag.vorwort {

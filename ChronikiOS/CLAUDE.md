@@ -641,6 +641,31 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Kapitel ohne Handarbeit neu gesetzt, die übrigen in der Meldung genannt;
   gesperrte Kapitel unberührt. Fotos aus Dateien (ohne Mediathekseintrag)
   erreicht das nicht.
+- **Freie Texte erscheinen auch bei Handarbeit** (ab 1.0.31, gemeldet
+  11/2026 mit Bildschirmfoto: „Was soll der Text am oberen Rand bedeuten?
+  Das Kapitel trägt Handarbeit. Ich habe jetzt zweimal versucht, einen Text
+  erstellen zu lassen, der vom Datum her vor ein angetipptes Foto sortiert
+  werden sollte. Er erscheint aber leider nicht … Ich möchte … nicht die
+  bereits arrangierten ersten Fotos wieder neu verschieben lassen."). Dieselbe
+  Lücke wie bei Erinnerungen vor 1.0.21, nur für freie Texte:
+  `kapitelAuffrischen` setzt ein Kapitel mit Handarbeit nicht neu.
+  - `freienTextEinhaengen` (Kapitelwerk, aus `eintragSichern` bei Handarbeit
+    oder Sperre): Ziel = erstes Foto des Kapitels auf einer Seite mit
+    Aufnahme ≥ Zeitpunkt des Textes; der Text (`Layoutautomat.textfeld`:
+    Goldstrich, Kopfzeile, Text wie im Fluss) steht ÜBER ihm, das Foto gibt
+    oben einen Streifen ab (≤ 55 % seiner Höhe, Unterkante bleibt — so
+    bleiben Unterschrift und Erinnerung, wo sie sind). Ohne späteres Foto:
+    UNTER dem letzten. Nichts sonst auf der Seite bewegt sich.
+  - Für ältere Texte, die nirgends stehen: Kapitel-Menü → „Fehlende Texte
+    einsetzen (n)" (`fehlendeTexte`, `stehtAufSeite`), auch in der
+    Funktionssuche. Nicht automatisch beim Öffnen — ein auf der Seite
+    abweichender Wortlaut ergäbe sonst ein Doppel.
+  - Nach der automatischen Textpflege wird ein Kasten mit genau dem alten
+    Wortlaut mitgeändert (`textAufSeitenErsetzen`).
+  - Die Meldung bei Handarbeit sagt jetzt, was gemeint ist („Im Kapitel …
+    hast du Seiten von Hand gestaltet — deshalb setzt die App es nicht von
+    selbst neu. Neue Texte und Erinnerungen kommen trotzdem gleich an ihre
+    Stelle.").
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -691,7 +716,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -785,3 +810,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Abgleich für eingelesene Fotos. **Nicht gemessen:** auf einem Gerät; ob
   Insta360Datum wirklich nur `creationDate` ändert (aus dem Befund
   geschlossen: Fotos von Apple zeigt das neue Datum, die Chronik das alte).
+- **1.0.31 (Build 32)**, 11/2026: freie Texte kommen auch bei Handarbeit
+  sofort an ihre Stelle (über ihr Foto), „Fehlende Texte einsetzen".
+  **Nicht gemessen:** auf einem Gerät.
