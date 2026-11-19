@@ -42,6 +42,10 @@ struct KapitelseitenView: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Fertig") {
                             werk.neuAnordnen(tagID, erzwingen: false)
+                            // Mit Handarbeit (oder gesperrt) setzt das Neuanordnen
+                            // nicht neu — dann werden nur die Geburtstagsseiten
+                            // erneuert (ab 1.0.30).
+                            werk.geburtstagsseitenErneuern(tagID)
                             werk.sofortSichern()
                             schliessen()
                         }

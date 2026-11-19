@@ -12,6 +12,7 @@ struct TexteView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
     @State private var bearbeiten: Texteintrag?
+    @State private var export = false
 
     var body: some View {
         NavigationStack {
@@ -44,10 +45,19 @@ struct TexteView: View {
                 }
             }
             .navigationTitle("Texte")
+            .sheet(isPresented: $export) { TexteExportView(werk: werk) }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Fertig") { schliessen() }
+                }
+                // Alle Texte zum Markieren und Kopieren (ab 1.0.29).
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        export = true
+                    } label: {
+                        Label("Alle Texte zum Kopieren", systemImage: "doc.on.clipboard")
+                    }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -175,6 +185,22 @@ struct EintragView: View {
         if let foto = werk.reise.foto(fotoID) {
             if let wann = foto.aufnahme {
                 neu.zeit = wann.addingTimeInterval(1)
+            } else if let tag = werk.reise.tage.first(where: { $0.fotos.contains(fotoID) }) {
+                neu.zeit = tag.datum.mittag
+            }
+        }
+        return neu
+    }
+
+    /// Ein FREIER Text eine Minute vor einem Foto (ab 1.0.28, Wunsch des
+    /// Nutzers 11/2026: Texte, die sich „auf einen ganzen Abschnitt von
+    /// Bildern beziehen"). Er hängt an keinem Foto, steht in der Zeitfolge
+    /// aber direkt vor ihm — als eigenes Textfeld vor der Bildgruppe.
+    static func textVor(_ fotoID: UUID, werk: Reisewerk) -> Texteintrag {
+        var neu = Texteintrag()
+        if let foto = werk.reise.foto(fotoID) {
+            if let wann = foto.aufnahme {
+                neu.zeit = wann.addingTimeInterval(-60)
             } else if let tag = werk.reise.tage.first(where: { $0.fotos.contains(fotoID) }) {
                 neu.zeit = tag.datum.mittag
             }
@@ -448,6 +474,9 @@ struct KapitelrasterView: View {
     @State private var raster = Zeitraster()
     @State private var person = ""
     @State private var geladen = false
+    // Der Geburtstag für die Geburtstagsseiten (ab 1.0.30).
+    @State private var mitGeburtstag = false
+    @State private var geburtsdatum = Zeitraster.datum(2009, 1, 1)
 
     var body: some View {
         NavigationStack {
@@ -477,6 +506,34 @@ struct KapitelrasterView: View {
                     Text(raster.vorgabe == .lebensjahr
                          ? "Jedes Kapitel ist ein Lebensjahr, von Geburtstag zu Geburtstag. Es heißt nach dem Jahr (\u{201E}2019\u{201C}), darunter steht \u{201E}\(person.isEmpty ? "Du wirst" : person + " wird") 10 Jahre alt\u{201C} und als Datum der Geburtstag."
                          : "Fotos kommen nach ihrem Aufnahmetag in ein Kapitel, Texte nach ihrem Zeitstempel. Grundeinstellung: ein Kapitel je Kalenderjahr.")
+                }
+
+                // GEBURTSTAG (ab 1.0.30, Ansage des Nutzers 11/2026: „Nachdem
+                // ich den Geburtstag eingegeben habe, soll jährlich an diesem
+                // Tag … automatisch eine Seite angelegt werden für die
+                // Zeitungsseite und eine zweite Seite mit Meldungen").
+                Section {
+                    if raster.vorgabe != .lebensjahr {
+                        TextField("Name, z. B. Simon", text: $person)
+                        Toggle("Geburtstag eintragen", isOn: $mitGeburtstag)
+                        if mitGeburtstag {
+                            DatePicker("Geboren am", selection: $geburtsdatum, displayedComponents: .date)
+                        }
+                    }
+                    Button {
+                        werk.reise.person = person.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if raster.vorgabe != .lebensjahr {
+                            werk.reise.geburtsdatum = mitGeburtstag ? geburtsdatum : nil
+                        }
+                        werk.geburtstagsseitenAnlegen()
+                    } label: {
+                        Label("Geburtstagsseiten in allen Jahren anlegen", systemImage: "gift")
+                    }
+                    .disabled(raster.vorgabe != .lebensjahr && !mitGeburtstag)
+                } header: {
+                    Text("Geburtstag")
+                } footer: {
+                    Text("In jedem Kapitel, in das ein Geburtstag fällt, stehen am Geburtstag zwei Seiten: die Titelseite einer Zeitung und \u{201E}Was an diesem Tag geschah\u{201C}. Solange dort noch nichts eingesetzt ist, sagt ein Platzhalter, wie es geht (Kapitel-Menü \u{2192} Zeitung und Meldungen). Beim Neuverteilen kommen sie von selbst an ihren Tag; gesperrte Kapitel bleiben, wie sie sind.")
                 }
 
                 Section("Vorschau") {
@@ -513,6 +570,7 @@ struct KapitelrasterView: View {
                 if !geladen {
                     raster = werk.reise.zeitraster
                     person = werk.reise.person
+                    if let g = werk.reise.geburtsdatum { geburtsdatum = g; mitGeburtstag = true }
                     geladen = true
                 }
             }

@@ -99,6 +99,8 @@ struct Layoutautomat {
     // des Kapitels), gesetzt von `Reise.automat`. Im Lebensbuch stehen sie
     // nach ihrem Datum zwischen den Fotos.
     var kapiteltexte: [Tagesdatum: [Texteintrag]] = [:]
+    /// KAPITELWEISE (ab 1.0.30): der Geburtstag, der in ein Kapitel fällt.
+    var geburtstage: [Tagesdatum: (datum: Date, alter: Int)] = [:]
 
     private var satz: CGRect { gestaltung.satzspiegel(format) }
 
@@ -2122,8 +2124,34 @@ extension Layoutautomat {
         } else {
             fluss = Self.zeitfolge(fotos: fotos, eintraege: eintraege)
         }
-        var seiten = sonderseiten(tag)
-        seiten.append(contentsOf: flussseiten(tag, fluss, mitKopf: seiten.isEmpty))
+        // GEBURTSTAGSSEITEN AM GEBURTSTAG (ab 1.0.30, Ansage des Nutzers
+        // 11/2026: „Nachdem ich den Geburtstag eingegeben habe, soll jährlich
+        // an diesem Tag in den bereits vorhandenen Jahren automatisch eine
+        // Seite angelegt werden für die Zeitungsseite und eine zweite Seite
+        // mit Meldungen aus aller Welt."). Im Kalenderjahr stehen sie in der
+        // Zeitfolge AM Geburtstag; fällt er auf den Kapitelbeginn (Raster
+        // „Lebensjahr"), stehen sie vorn mit dem Kapitelkopf — wie bisher.
+        var seiten: [Seite]
+        if let gb = geburtstage[tag.datum] {
+            let kal = Zeitraster.kalender
+            let teilVor = fotos.filter { ($0.aufnahme ?? .distantFuture) < gb.datum }
+            let teilNach = fotos.filter { ($0.aufnahme ?? .distantFuture) >= gb.datum }
+            let eVor = eintraege.filter { $0.zeit < gb.datum }
+            let eNach = eintraege.filter { $0.zeit >= gb.datum }
+            var vor: [Fluss] = eintraege.isEmpty ? teilVor.map { .foto($0) } : Self.zeitfolge(fotos: teilVor, eintraege: eVor)
+            var nach: [Fluss] = eintraege.isEmpty ? teilNach.map { .foto($0) } : Self.zeitfolge(fotos: teilNach, eintraege: eNach)
+            if eintraege.isEmpty {
+                let frei = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !frei.isEmpty { nach.append(.text(kopf: "", rumpf: frei, zu: nil)) }
+            }
+            if kal.isDate(gb.datum, inSameDayAs: tag.datum.mittag) { nach = vor + nach; vor = [] }
+            seiten = flussseiten(tag, vor, mitKopf: true)
+            seiten += geburtstagsseiten(tag, datum: gb.datum, alter: gb.alter, mitKopf: seiten.isEmpty)
+            seiten += flussseiten(tag, nach, mitKopf: false)
+        } else {
+            seiten = sonderseiten(tag)
+            seiten.append(contentsOf: flussseiten(tag, fluss, mitKopf: seiten.isEmpty))
+        }
         if seiten.isEmpty {
             var y = satz.minY
             seiten.append(Seite(bloecke: lebenskopf(tag, y: &y, gross: true)))
@@ -2745,48 +2773,39 @@ extension Layoutautomat {
             textUnten = k.rahmen.y + k.rahmen.hoehe
             bloecke.append(angelegt(k, an: bild).mitEbene(ebene + 50))
         }
-        // WOZU GEHÖRT DER TEXT? (ab 1.0.24, Frage des Nutzers 11/2026: „Oder
-        // kann er theoretisch auch neben einem Bild stehen? Wenn ja, dann
-        // müssen wir … sicherstellen …, zu welchem Bild der Text gehört.")
-        // Ein Strich in der Akzentfarbe in der Fuge ZWISCHEN Text und Bild:
-        // daneben senkrecht über die Höhe des Textes, darunter waagerecht
-        // über seinem Anfang. Er hängt am Foto (`zuFoto`) wie der Text.
-        let luft = Double(teilung.lage == .unten ? t.minY - r.maxY : (teilung.lage == .rechts
-            ? t.minX - r.maxX : r.minX - t.maxX))
-        // Nah am Text, nicht im weißen Rand des Fotos.
-        let mitte = max(min(luft / 2, fuge * 0.6), 1.5)
-        let strich: Rahmen
-        switch teilung.lage {
-        case .unten:
-            strich = Rahmen(x: Double(t.minX), y: Double(t.minY) - mitte + 1, breite: min(36, Double(t.width) * 0.3), hoehe: 1.2)
-        case .rechts:
-            strich = Rahmen(x: Double(t.minX) - mitte, y: Double(t.minY) + 2, breite: 1.2,
-                            hoehe: max(textUnten - Double(t.minY) - 4, 8))
-        case .links:
-            strich = Rahmen(x: Double(t.maxX) + mitte - 1.2, y: Double(t.minY) + 2, breite: 1.2,
-                            hoehe: max(textUnten - Double(t.minY) - 4, 8))
-        }
-        var linie = Block(inhalt: .linie, rahmen: strich, rand: stil.akzent)
-        linie.zuFoto = f.id
-        bloecke.append(angelegt(linie, an: bild).mitEbene(ebene + 50))
+        // Den Strich zwischen Text und Bild (1.0.24) gibt es seit 1.0.29
+        // nicht mehr — Ansage des Nutzers 11/2026: Beim Verschieben oder
+        // Vergrößern blieb er stehen, wo er war; „ich glaube, dass ich dann
+        // stattdessen auf diesen Strich verzichten kann." Die Zuordnung
+        // zeigen Nähe, Ausrichtung zum Bild hin und das gemeinsame Wandern.
+        _ = textUnten
         return bloecke
     }
 
     // MARK: Bausteine
 
+    // NUR WAS ABWEICHT (KAPITELWEISE, ab 1.0.29). Bis 1.0.28 schrieb jeder
+    // Textkasten ALLE Schriftwerte fest in sich hinein — eine spätere
+    // Änderung unter „Schrift und Ausrichtung → Fließtext" erreichte keinen
+    // vorhandenen Kasten. Gemeldet 11/2026: „Ich habe es jetzt nicht
+    // geschafft, die Schriftgröße der bestehenden Texte zu den Fotos
+    // nachträglich global zu ändern, sondern nur für jeden Text einzeln."
+    // Jetzt steht im Kasten nur, was vom Fließtext ABWEICHT (meist die
+    // Ausrichtung); alles andere folgt der Einstellung des Buches.
     private func abweichung(_ bild: Schriftbild) -> Schriftabweichung {
+        let g = typografie.flieText
         var a = Schriftabweichung()
-        a.familie = bild.familie
-        a.groesse = bild.groesse
-        a.zeilenabstand = bild.zeilenabstand
-        a.absatzabstand = bild.absatzabstand
-        a.ausrichtung = bild.ausrichtung
-        a.farbe = bild.farbe
-        a.fett = bild.fett
-        a.kursiv = bild.kursiv
-        a.versalien = bild.versalien
-        a.sperrung = bild.sperrung
-        a.trennung = bild.trennung
+        if bild.familie != g.familie { a.familie = bild.familie }
+        if bild.groesse != g.groesse { a.groesse = bild.groesse }
+        if bild.zeilenabstand != g.zeilenabstand { a.zeilenabstand = bild.zeilenabstand }
+        if bild.absatzabstand != g.absatzabstand { a.absatzabstand = bild.absatzabstand }
+        if bild.ausrichtung != g.ausrichtung { a.ausrichtung = bild.ausrichtung }
+        if bild.farbe != g.farbe { a.farbe = bild.farbe }
+        if bild.fett != g.fett { a.fett = bild.fett }
+        if bild.kursiv != g.kursiv { a.kursiv = bild.kursiv }
+        if bild.versalien != g.versalien { a.versalien = bild.versalien }
+        if bild.sperrung != g.sperrung { a.sperrung = bild.sperrung }
+        if bild.trennung != g.trennung { a.trennung = bild.trennung }
         return a
     }
 
@@ -2838,7 +2857,9 @@ extension Layoutautomat {
                                  rahmen: Rahmen(x: x, y: Double(y), breite: breite, hoehe: hoehe)))
             y += CGFloat(hoehe) + 3
         }
-        if datum {
+        // Die Datumszeile nur, wenn eine eingetragen ist (ab 1.0.30) — der
+        // Zeitraum eines Kalenderjahres unter „2009" sagte nichts.
+        if datum, !(tag.datumstext ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let hoehe = typografie.datum.zeilenhoehe + 2
             bloecke.append(Block(inhalt: .datum,
                                  rahmen: Rahmen(x: x, y: Double(y), breite: breite, hoehe: hoehe)))
@@ -2869,9 +2890,11 @@ extension Layoutautomat {
 
     // MARK: Zeitungsseite
 
-    private func zeitungsseite(_ tag: Reisetag, zeitung: Foto) -> Seite {
+    private func zeitungsseite(_ tag: Reisetag, zeitung: Foto, ueberschrift: String? = nil) -> Seite {
         var y = satz.minY
-        var bloecke = lebenskopf(tag, y: &y, gross: true)
+        // Mitten im Jahr (ab 1.0.30): eine Seitenüberschrift statt des
+        // Kapitelkopfs mit der großen Jahreszahl.
+        var bloecke = ueberschrift.map { seitenueberschrift($0, y: &y) } ?? lebenskopf(tag, y: &y, gross: true)
         let spalte = Double(satz.width) * 0.29
         let zeitungX = Double(satz.minX) + spalte + fuge * 2.5
         let platzBreite = Double(satz.maxX) - zeitungX
@@ -2893,7 +2916,10 @@ extension Layoutautomat {
         bloecke.append(Block(inhalt: .linie, rahmen: Rahmen(x: sx, y: sy, breite: 26, hoehe: 1.4),
                              rand: stil.akzent))
         sy += 10
-        let titel = tag.zeitungstitel.trimmingCharacters(in: .whitespacesAndNewlines)
+        var titel = tag.zeitungstitel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if titel.isEmpty, let gb = geburtstage[tag.datum] {
+            titel = gb.alter <= 0 ? "Der Tag deiner Geburt" : "Der Tag deines \(gb.alter). Geburtstags"
+        }
         if !titel.isEmpty {
             var bild = typografie[.unterueberschrift]
             bild.groesse = 15
@@ -2910,6 +2936,52 @@ extension Layoutautomat {
             bloecke.append(textblock(text, bild: bild, x: sx, y: sy, breite: spalte,
                                      hoechstens: Double(satz.maxY) - sy))
         }
+        return Seite(bloecke: bloecke)
+    }
+
+    // MARK: Geburtstagsseiten (ab 1.0.30)
+
+    /// Zeitung und Meldungen eines Geburtstags. Fehlt noch etwas, steht eine
+    /// Platzhalterseite da, die sagt, wo es eingesetzt wird — angelegt ist
+    /// die Seite damit schon (Wunsch des Nutzers). Alle tragen
+    /// `Seite.geburtstag`.
+    func geburtstagsseiten(_ tag: Reisetag, datum: Date, alter: Int, mitKopf: Bool) -> [Seite] {
+        let tagText = Zeitraster.text(datum, "d. MMMM yyyy")
+        let ueberschrift = alter <= 0 ? "Der Tag deiner Geburt" : "Dein \(alter). Geburtstag"
+        var seiten: [Seite] = []
+        if let id = tag.zeitung, let zeitung = fotoIndex[id] {
+            seiten.append(zeitungsseite(tag, zeitung: zeitung, ueberschrift: mitKopf ? nil : ueberschrift))
+        } else {
+            seiten.append(platzhalterseite(tag, mitKopf: mitKopf, ueberschrift: ueberschrift,
+                hinweis: "Hier kommt die Titelseite einer Zeitung vom \(tagText).\n\nEinsetzen: Kapitel-Menü (unten rechts) \u{2192} \u{201E}Zeitung und Meldungen\u{201C}. Solange nichts eingesetzt ist, steht dieser Hinweis auch im PDF."))
+        }
+        let meldungen = tag.meldungen.filter {
+            !$0.titel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || $0.foto != nil
+        }
+        if meldungen.isEmpty {
+            seiten.append(platzhalterseite(tag, mitKopf: false, ueberschrift: "Was an diesem Tag geschah",
+                hinweis: "Hier kommen Meldungen aus aller Welt vom \(tagText) \u{2014} je Meldung Bild, Überschrift und Text.\n\nEinsetzen: Kapitel-Menü (unten rechts) \u{2192} \u{201E}Zeitung und Meldungen\u{201C}."))
+        } else {
+            seiten.append(contentsOf: meldungsseiten(tag, meldungen))
+        }
+        return seiten.map { var s = $0; s.geburtstag = true; return s }
+    }
+
+    private func platzhalterseite(_ tag: Reisetag, mitKopf: Bool, ueberschrift: String, hinweis: String) -> Seite {
+        var y = satz.minY
+        var bloecke = mitKopf ? lebenskopf(tag, y: &y, gross: true) : seitenueberschrift(ueberschrift, y: &y)
+        var bild = typografie.flieText
+        bild.ausrichtung = .mitte
+        bild.kursiv = true
+        bild.farbe = Farbwert(rot: 0.55, gruen: 0.55, blau: 0.55)
+        let breite = Double(satz.width) * 0.6
+        let x = Double(satz.midX) - breite / 2
+        let hoehe = Textmass.hoehe(hinweis, bild: bild, breite: breite)
+        bloecke.append(Block(inhalt: .text(hinweis),
+                             rahmen: Rahmen(x: x, y: Double(satz.midY) - hoehe / 2, breite: breite, hoehe: hoehe),
+                             abweichung: abweichung(bild)))
         return Seite(bloecke: bloecke)
     }
 

@@ -541,6 +541,10 @@ struct Seite: Identifiable, Codable, Hashable {
     // zweites Feld am Tag müsste an jeder davon einzeln beachtet werden,
     // und die eine vergessene Stelle wäre wieder ein stiller Verlust.
     var vonHandAngelegt: Bool = false
+    // KAPITELWEISE (ab 1.0.30): eine Geburtstagsseite (Zeitung oder
+    // Meldungen) — sie steht am Geburtstag MITTEN im Kapitel und wird bei
+    // „Ab hier …" an diese Stelle zurückgestellt (`geburtstagsseitenEinordnen`).
+    var geburtstag: Bool = false
 
     // Eine Korrektur des Wasserzeichens auf DIESER Seite (ab 1.0.54).
     // `nil` heißt: ganz automatisch — Lage und Winkel kommen wie bisher
@@ -573,6 +577,7 @@ struct Seite: Identifiable, Codable, Hashable {
         hintergrund = b.wahlweise(.hintergrund)
         ohneSeitenzahl = b.wert(.ohneSeitenzahl, false)
         vonHandAngelegt = b.wert(.vonHandAngelegt, false)
+        geburtstag = b.wert(.geburtstag, false)
         wasserzeichen = b.wahlweise(.wasserzeichen)
     }
 

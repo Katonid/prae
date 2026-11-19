@@ -88,6 +88,13 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // KAPITELWEISE (ab 1.0.26): Abstand zwischen Vorworttext und Foto in
     // Punkt (außerhalb des weißen Fotorands). `nil` = 6 pt.
     var vorwortabstand: Double?
+    // KAPITELWEISE (ab 1.0.28, Wunsch des Nutzers 11/2026: „ein Kapitel,
+    // nachdem ich es fertig bearbeitet habe, so sperren können, dass es nicht
+    // versehentlich noch einmal zurückgesetzt [wird]"). Gesperrt heißt: KEIN
+    // Neusetzen — weder „Automatisch neu verteilen" noch „Alles neu
+    // verteilen", Stilwechsel, Seitenmuster, „Ab hier …" oder Neueinteilen.
+    // Bearbeiten von Hand bleibt möglich (Sperre = Schutz vor dem Automaten).
+    var gesperrt: Bool = false
     // In welcher Zeitzone die Uhrzeiten dieses Tages gelten (Kennung, z. B.
     // `America/Toronto`). Gesetzt beim Einlesen der Reisespur; leer heißt,
     // dass es niemand feststellen konnte. **Die Uhrzeiten selbst sind schon
@@ -127,6 +134,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         vorwort = b.wert(.vorwort, false)
         vorwortschrift = b.wahlweise(.vorwortschrift)
         vorwortabstand = b.wahlweise(.vorwortabstand)
+        gesperrt = b.wert(.gesperrt, false)
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
@@ -195,6 +203,10 @@ struct Reise: Identifiable, Codable {
     // Wessen Buch es ist — für „Simon wird 10 Jahre alt" im Raster
     // „Lebensjahr".
     var person: String = ""
+    // KAPITELWEISE (ab 1.0.30): der Geburtstag, unabhängig vom Zeitraster —
+    // für die Geburtstagsseiten (Zeitung, Meldungen) MITTEN in einem
+    // Kalenderjahr. Im Raster „Lebensjahr" ist er der Beginn des Rasters.
+    var geburtsdatum: Date?
     // Die Texte mit Zeitstempel. Der Text eines Kapitels wird daraus
     // zusammengesetzt (`kapiteltext`).
     var eintraege: [Texteintrag] = []
@@ -328,6 +340,7 @@ struct Reise: Identifiable, Codable {
         fotos = b.wert(.fotos, [])
         zeitraster = b.wert(.zeitraster, Zeitraster())
         person = b.wert(.person, "")
+        geburtsdatum = b.wahlweise(.geburtsdatum)
         eintraege = b.wert(.eintraege, [Texteintrag]())
         typografie = b.wert(.typografie, Typografie())
         gestaltung = b.wert(.gestaltung, Gestaltung())
@@ -469,11 +482,47 @@ struct Reise: Identifiable, Codable {
         zeitraster.kapitel(zeitraster.index(fuer: datum.mittag))
     }
 
+    /// Der Geburtstag, der gilt: im Raster „Lebensjahr" dessen Beginn, sonst
+    /// das eingetragene Geburtsdatum.
+    var geburtstag: Date? {
+        zeitraster.vorgabe == .lebensjahr ? zeitraster.beginn : geburtsdatum
+    }
+
+    /// Fällt ein Geburtstag in dieses Kapitel? Dann sein Datum und das Alter
+    /// (ab 1.0.30). Am 29. Februar Geborene feiern in anderen Jahren am 28.
+    func geburtstagIm(_ tag: Reisetag) -> (datum: Date, alter: Int)? {
+        guard !tag.vorwort, let geboren = geburtstag else { return nil }
+        let kal = Zeitraster.kalender
+        let k = zeitraster.index(fuer: tag.datum.mittag)
+        let anfang = kal.startOfDay(for: zeitraster.kapitelbeginn(k))
+        let ende = kal.startOfDay(for: zeitraster.kapitelbeginn(k + 1))
+        let g = kal.dateComponents([.year, .month, .day], from: geboren)
+        guard let gJahr = g.year, let gMonat = g.month, let gTag = g.day else { return nil }
+        let von = kal.component(.year, from: anfang)
+        let bis = kal.component(.year, from: ende)
+        for jahr in von ... max(von, bis) {
+            var teile = DateComponents(year: jahr, month: gMonat, day: gTag, hour: 12)
+            if gMonat == 2 && gTag == 29, kal.range(of: .day, in: .month,
+                for: kal.date(from: DateComponents(year: jahr, month: 2, day: 1)) ?? anfang)?.count == 28 {
+                teile.day = 28
+            }
+            guard let tagDatum = kal.date(from: teile) else { continue }
+            if tagDatum >= anfang, tagDatum < ende, jahr >= gJahr {
+                return (tagDatum, jahr - gJahr)
+            }
+        }
+        return nil
+    }
+
     func neuesKapitel(_ beginn: Tagesdatum) -> Reisetag {
         var tag = Reisetag(datum: beginn)
         let k = kapitel(beginn)
         tag.ueberschrift = k.standardTitel
-        tag.datumstext = k.zeitraum
+        // Keine Datumszeile mehr (ab 1.0.30, Ansage des Nutzers 11/2026 zu
+        // „1. Januar – 31. Dezember 2009" unter „2009": „komplett sinnfrei
+        // … ein Überbleibsel aus der Reisebuch-App"). Sie lässt sich je
+        // Kapitel unter „Text und Fotos" eintragen.
+        tag.datumstext = nil
         tag.karteZeigen = false
         // Im Lebensjahr: „Simon wird 10 Jahre alt", und als Datumszeile der
         // Geburtstag selbst.

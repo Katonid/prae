@@ -116,8 +116,14 @@ private struct TagZeile: View {
         VStack(alignment: .leading, spacing: 2) {
             // KAPITELWEISE: Ein Eintrag ist ein Kapitel — seine Überschrift
             // („2009") steht oben, der Zeitraum darunter.
-            Text(tag.ueberschrift.isEmpty ? tag.datum.mittel : tag.ueberschrift)
-                .font(.subheadline.weight(.semibold))
+            // Ein gesperrtes Kapitel trägt ein Schloss (ab 1.0.28).
+            HStack(spacing: 4) {
+                Text(tag.ueberschrift.isEmpty ? tag.datum.mittel : tag.ueberschrift)
+                    .font(.subheadline.weight(.semibold))
+                if tag.gesperrt {
+                    Image(systemName: "lock.fill").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
             Text(tag.datumstext ?? reise.kapitel(tag.datum).zeitraum)
                 .font(.caption)
                 .foregroundStyle(.secondary)

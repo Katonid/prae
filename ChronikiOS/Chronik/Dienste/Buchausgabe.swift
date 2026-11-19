@@ -268,6 +268,10 @@ extension Reise {
         }
         for k in texte.keys { texte[k]?.sort { $0.zeit < $1.zeit } }
         werkzeug.kapiteltexte = texte
+        // Geburtstage je Kapitel (ab 1.0.30).
+        if geburtstag != nil {
+            for tag in tage { if let gb = geburtstagIm(tag) { werkzeug.geburtstage[tag.datum] = gb } }
+        }
         return werkzeug
     }
 

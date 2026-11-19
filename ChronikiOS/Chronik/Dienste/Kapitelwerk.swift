@@ -50,7 +50,8 @@ extension Reisewerk {
         gewaehlterTag = kapitelID
         // Eine Erinnerung zu einem Foto auf einer Seite mit Handarbeit kommt
         // trotzdem sofort neben ihr Foto (ab 1.0.21).
-        if let fotoID = eintrag.foto ?? vorher?.foto, hatHandarbeit(kapitelID) {
+        if let fotoID = eintrag.foto ?? vorher?.foto,
+           hatHandarbeit(kapitelID) || reise.tage[stelle].gesperrt {
             erinnerungEinhaengen(fotoID)
         }
         sofortSichern()
@@ -69,7 +70,7 @@ extension Reisewerk {
         let beginn = reise.kapitelbeginn(eintrag.tagesdatum)
         if let kapitel = reise.tage.first(where: { $0.datum == beginn }) {
             kapitelAuffrischen(kapitel.id)
-            if let fotoID = eintrag.foto, hatHandarbeit(kapitel.id) { erinnerungEinhaengen(fotoID) }
+            if let fotoID = eintrag.foto, hatHandarbeit(kapitel.id) || kapitel.gesperrt { erinnerungEinhaengen(fotoID) }
             leeresKapitelEntfernen(kapitel.id)
         }
         sofortSichern()
@@ -81,6 +82,11 @@ extension Reisewerk {
         guard let stelle = tagIndex(id) else { return }
         let datum = reise.tage[stelle].datum
         reise.tage[stelle].text = reise.kapiteltext(datum)
+        if reise.tage[stelle].gesperrt {
+            meldung = .init(text: "Gespeichert. Das Kapitel ist gesperrt und wird deshalb nicht neu gesetzt "
+                            + "\u{2014} ein neuer Text erscheint erst nach dem Entsperren (oder als Erinnerung am Foto sofort).")
+            return
+        }
         if hatHandarbeit(id) {
             meldung = .init(text: "Das Kapitel \u{201E}\(reise.tage[stelle].ueberschrift)\u{201C} trägt Handarbeit und wurde deshalb nicht neu gesetzt. Über \u{201E}Automatisch neu verteilen\u{201C} kommt der geänderte Text auf die Seite.")
         } else {
@@ -122,6 +128,15 @@ extension Reisewerk {
     /// die Oberfläche vorher.
     @discardableResult
     func kapitelNeuEinteilen(altesRaster: Zeitraster? = nil) -> String {
+        // Gesperrte Kapitel würden dabei aufgelöst — dann lieber gar nicht
+        // (ab 1.0.28).
+        let zu = reise.tage.filter(\.gesperrt)
+        guard zu.isEmpty else {
+            let satz = "\(zu.count) Kapitel sind gesperrt. Das Neueinteilen setzt ALLE Kapitel neu zusammen "
+                + "\u{2014} zuerst die Sperre aufheben (Kapitel-Menü \u{2192} \u{201E}Sperre aufheben\u{201C})."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
         let vorher = reise.tage
         let index = reise.fotoIndex
         var neu: [Reisetag] = []
@@ -385,6 +400,7 @@ extension Reisewerk {
             meldung = .init(text: satz, schwer: true)
             return satz
         }
+        if reise.tage[stelle.tag].gesperrt { return gesperrtMelden(stelle.tag) }
         guard automat.istLebensbuch else {
             let satz = "\u{201E}Ab hier neu verteilen\u{201C} gibt es im Stil \u{201E}Lebensbuch\u{201C}. In anderen Stilen: \u{201E}Automatisch neu verteilen\u{201C}."
             meldung = .init(text: satz, schwer: true)
@@ -428,7 +444,9 @@ extension Reisewerk {
 
         // 2. Feste Seiten und was darauf steht.
         let vorn = Array(reise.tage[t].seiten[0...p])
-        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand }
+        // Geburtstagsseiten (ab 1.0.30) bleiben stehen wie Handarbeit und
+        // werden danach an ihren Tag zurückgestellt.
+        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand || $0.geburtstag }
         var fotos = Set<UUID>()
         var texte = Set<String>()
         for s in vorn + spaeter {
@@ -441,7 +459,7 @@ extension Reisewerk {
         // 3. Den Rest neu setzen.
         let neu = automat.restseiten(reise.tage[t], ohneFotos: fotos, ohneTexte: texte)
         let vorher = reise.tage[t].seiten.count
-        reise.tage[t].seiten = vorn + neu + spaeter
+        reise.tage[t].seiten = geburtstagsseitenEinordnen(vorn + neu + Array(spaeter), kapitel: t, fest: vorn.count)
         seitenzeiger = p
         sofortSichern()
         var satz = "Ab Seite \(p + 1) des Kapitels neu verteilt: \(neu.count) Seiten neu gesetzt"
@@ -736,6 +754,7 @@ extension Reisewerk {
             return satz
         }
         let t = stelle.tag, p = stelle.seite
+        if reise.tage[t].gesperrt { return gesperrtMelden(t) }
         let tag = reise.tage[t]
         // Die Zeitfolge des Kapitels — dieselbe, nach der gesetzt wird.
         let fotos = tag.fotos.compactMap { reise.foto($0) }.filter { !$0.abgelegt }
@@ -800,7 +819,9 @@ extension Reisewerk {
 
         // 3. Fest: frühere Seiten, das Bleibende hier, spätere Handarbeitsseiten.
         let vorn = Array(reise.tage[t].seiten[..<p])
-        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand }
+        // Geburtstagsseiten (ab 1.0.30) bleiben stehen wie Handarbeit und
+        // werden danach an ihren Tag zurückgestellt.
+        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand || $0.geburtstag }
         var festFotos = Set<UUID>()
         var festTexte = Set<String>()
         for b in vorn.flatMap(\.bloecke) + bleiben + spaeter.flatMap(\.bloecke) {
@@ -819,7 +840,8 @@ extension Reisewerk {
             neueSeite.bloecke += neu.removeFirst().bloecke.map { $0.mitEbene($0.ebene + hoechste + 1) }
         }
         let vorher = reise.tage[t].seiten.count
-        reise.tage[t].seiten = vorn + [neueSeite] + neu + spaeter
+        reise.tage[t].seiten = geburtstagsseitenEinordnen(vorn + [neueSeite] + neu + Array(spaeter), kapitel: t,
+                                                          fest: vorn.count + 1)
         gewaehlterBlock = nil
         seitenzeiger = p
         sofortSichern()
@@ -880,6 +902,217 @@ extension Reisewerk {
         meldung = .init(text: "Dieser Text ließ sich keinem Eintrag zuordnen \u{2014} die Änderung steht nur auf der Seite "
                         + "und ginge beim Neuverteilen verloren. Sicherer: Text antippen \u{2192} \u{201E}Text bearbeiten\u{201C}.",
                         schwer: true)
+    }
+
+
+    // MARK: Kapitel sperren (ab 1.0.28)
+
+    func sperreUmschalten(_ id: UUID) {
+        guard let i = tagIndex(id) else { return }
+        merken()
+        reise.tage[i].gesperrt.toggle()
+        let name = reise.tage[i].vorwort ? "Das Vorwort" : "Kapitel \u{201E}\(reise.tage[i].ueberschrift)\u{201C}"
+        meldung = .init(text: reise.tage[i].gesperrt
+            ? "\(name) ist gesperrt: Es wird nicht mehr automatisch neu gesetzt. Von Hand bearbeiten geht weiter."
+            : "\(name) ist wieder frei.")
+        sofortSichern()
+    }
+
+    @discardableResult
+    func gesperrtMelden(_ stelle: Int) -> String {
+        let name = reise.tage[stelle].vorwort ? "Das Vorwort" : "Kapitel \u{201E}\(reise.tage[stelle].ueberschrift)\u{201C}"
+        let satz = "\(name) ist gesperrt und wird nicht neu gesetzt. Entsperren: Kapitel-Menü \u{2192} \u{201E}Sperre aufheben\u{201C}."
+        meldung = .init(text: satz, schwer: true)
+        return satz
+    }
+
+
+    // MARK: Texte an die Buchschrift angleichen (ab 1.0.29)
+
+    /// Nimmt aus allen vorhandenen Textkästen (außer Vorwort und fetten
+    /// Überschriftkästen) die fest eingetragene Schrift heraus — danach
+    /// folgen sie „Schrift und Ausrichtung → Fließtext". Die Ausrichtung
+    /// bleibt (sie gehört zum Satz: Text links vom Foto steht rechtsbündig).
+    /// Kästen, die danach mehr Platz brauchen, wachsen nach unten.
+    @discardableResult
+    func textschriftAngleichen() -> Int {
+        merken()
+        var ids: [UUID] = []
+        for t in reise.tage.indices where !reise.tage[t].vorwort {
+            for p in reise.tage[t].seiten.indices {
+                for b in reise.tage[t].seiten[p].bloecke.indices {
+                    var blk = reise.tage[t].seiten[p].bloecke[b]
+                    guard case .text = blk.inhalt, blk.abweichung.fett != true else { continue }
+                    let vorher = blk.abweichung
+                    blk.abweichung.familie = nil
+                    blk.abweichung.groesse = nil
+                    blk.abweichung.zeilenabstand = nil
+                    blk.abweichung.absatzabstand = nil
+                    blk.abweichung.farbe = nil
+                    blk.abweichung.kursiv = nil
+                    blk.abweichung.versalien = nil
+                    blk.abweichung.sperrung = nil
+                    blk.abweichung.trennung = nil
+                    guard blk.abweichung != vorher else { continue }
+                    reise.tage[t].seiten[p].bloecke[b] = blk
+                    ids.append(blk.id)
+                }
+            }
+        }
+        for id in ids { _ = hoeheAnTextAnpassen(id, merken: false, auffrischen: false) }
+        befundeAuffrischen(erzwingen: true)
+        sofortSichern()
+        meldung = .init(text: ids.isEmpty
+            ? "Alle Textkästen folgen schon der Schrift des Buches."
+            : "\(ids.count) Textkästen folgen jetzt der Schrift unter \u{201E}Fließtext\u{201C}. Wo ein Kasten zu groß oder zu klein geworden ist: \u{201E}Ab hier neu aufbauen\u{201C} oder \u{201E}Automatisch neu verteilen\u{201C}.")
+        return ids.count
+    }
+
+    /// Die Striche zwischen Erinnerung und Foto (1.0.24–1.0.28) von allen
+    /// Seiten nehmen (ab 1.0.29). Einmal beim Öffnen, danach gibt es keine.
+    func erinnerungsstricheEntfernen() {
+        var weg = 0
+        for t in reise.tage.indices {
+            for p in reise.tage[t].seiten.indices {
+                let vorher = reise.tage[t].seiten[p].bloecke.count
+                reise.tage[t].seiten[p].bloecke.removeAll { $0.inhalt == .linie && $0.zuFoto != nil }
+                weg += vorher - reise.tage[t].seiten[p].bloecke.count
+            }
+        }
+        if weg > 0 { sofortSichern() }
+    }
+
+    // MARK: Alle Texte als ein Text (ab 1.0.29)
+
+    /// Alle Texte des Buches in Buchfolge, ohne Formatmarken — zum
+    /// Markieren und Kopieren (Ansage des Nutzers 11/2026: „alle Texte, die
+    /// ich erstellt habe, … an einer Stelle so anzeigen …, dass ich sie
+    /// komplett markieren kann und kopieren kann").
+    func alleTexteAlsText(mitUnterschriften: Bool) -> String {
+        var teile: [String] = []
+        let titel = reise.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !titel.isEmpty { teile.append(titel.uppercased()) }
+        for tag in reise.tage {
+            var kapitel: [String] = []
+            if tag.vorwort {
+                let t = Auszeichnung.ohne(tag.text).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty { kapitel.append(t) }
+            } else {
+                let z = Auszeichnung.ohne(tag.zeitungstext).trimmingCharacters(in: .whitespacesAndNewlines)
+                let zt = tag.zeitungstitel.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !z.isEmpty || !zt.isEmpty { kapitel.append(([zt, z].filter { !$0.isEmpty }).joined(separator: "\n")) }
+                for m in tag.meldungen {
+                    let mt = m.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let mx = Auszeichnung.ohne(m.text).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !mt.isEmpty || !mx.isEmpty { kapitel.append(([mt, mx].filter { !$0.isEmpty }).joined(separator: "\n")) }
+                }
+                for e in reise.kapiteleintraege(tag.datum) {
+                    let t = Auszeichnung.ohne(e.text).trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !t.isEmpty || !e.titel.isEmpty else { continue }
+                    let kopf = e.foto != nil ? (e.titel.isEmpty ? "(Erinnerung zum Foto)" : e.titel + " (Erinnerung zum Foto)")
+                        : e.kopfzeile
+                    kapitel.append(kopf + "\n" + t)
+                }
+                if reise.kapiteleintraege(tag.datum).isEmpty {
+                    let frei = Auszeichnung.ohne(tag.text).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !frei.isEmpty { kapitel.append(frei) }
+                }
+                if mitUnterschriften {
+                    let zeilen = tag.fotos.compactMap { reise.foto($0) }
+                        .map { Auszeichnung.ohne($0.unterschrift).trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                    if !zeilen.isEmpty { kapitel.append("Bildunterschriften:\n" + zeilen.map { "\u{2013} " + $0 }.joined(separator: "\n")) }
+                }
+            }
+            guard !kapitel.isEmpty else { continue }
+            let name = tag.vorwort ? (tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift)
+                : (tag.ueberschrift.isEmpty ? tag.datum.mittel : "Kapitel " + tag.ueberschrift)
+            teile.append(name.uppercased() + "\n\n" + kapitel.joined(separator: "\n\n"))
+        }
+        return teile.joined(separator: "\n\n\n")
+    }
+
+
+    // MARK: Geburtstagsseiten (ab 1.0.30)
+
+    /// Stellt die Geburtstagsseiten eines Kapitels an ihren Tag: vor die
+    /// erste Seite (ab `fest`), auf der ein Foto vom Geburtstag oder später
+    /// steht — nie vor den Kapitelkopf. Ohne solches Foto ans Ende.
+    func geburtstagsseitenEinordnen(_ seiten: [Seite], kapitel t: Int, fest: Int = 0) -> [Seite] {
+        guard let gb = reise.geburtstagIm(reise.tage[t]) else { return seiten }
+        let geburtstag = seiten.enumerated().filter { $0.offset >= fest && $0.element.geburtstag }.map(\.element)
+        guard !geburtstag.isEmpty else { return seiten }
+        var rest = seiten.enumerated().filter { !($0.offset >= fest && $0.element.geburtstag) }.map(\.element)
+        var stelle = rest.count
+        for (i, seite) in rest.enumerated() where i >= fest {
+            let spaeter = seite.bloecke.contains { b in
+                guard let id = b.fotoID, let f = reise.foto(id), !f.grafik, let wann = f.aufnahme else { return false }
+                return wann >= gb.datum
+            }
+            if spaeter { stelle = i; break }
+        }
+        if stelle == 0, rest.first?.bloecke.contains(where: { $0.inhalt == .titel }) == true { stelle = 1 }
+        rest.insert(contentsOf: geburtstag, at: min(stelle, rest.count))
+        return rest
+    }
+
+    /// Legt in jedem Kapitel, in das ein Geburtstag fällt und das noch keine
+    /// Geburtstagsseiten hat, Zeitung und Meldungen an — als Platzhalter,
+    /// solange nichts eingesetzt ist. Gesperrte Kapitel bleiben, wie sie
+    /// sind. Antwort: ein Satz für die Meldung.
+    @discardableResult
+    func geburtstagsseitenAnlegen() -> String {
+        guard reise.geburtstag != nil else {
+            let satz = "Zuerst den Geburtstag eintragen (Ganzes Buch \u{2192} Kapitel und Zeitraster)."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        merken()
+        var neu = 0, gesperrt = 0
+        for t in reise.tage.indices {
+            let tag = reise.tage[t]
+            guard let gb = reise.geburtstagIm(tag), !tag.seiten.contains(where: \.geburtstag) else { continue }
+            if tag.gesperrt { gesperrt += 1; continue }
+            let seiten = automat.geburtstagsseiten(tag, datum: gb.datum, alter: gb.alter, mitKopf: tag.seiten.isEmpty)
+            reise.tage[t].seiten = geburtstagsseitenEinordnen(reise.tage[t].seiten + seiten, kapitel: t)
+            neu += 1
+        }
+        sofortSichern()
+        var satz = neu == 0 ? "Alle Kapitel haben schon ihre Geburtstagsseiten."
+            : "In \(neu) Kapiteln sind Seiten für Zeitung und Meldungen am Geburtstag angelegt."
+        if gesperrt > 0 { satz += " \(gesperrt) gesperrte Kapitel blieben, wie sie sind." }
+        meldung = .init(text: satz)
+        return satz
+    }
+
+    /// Die Zeitraum-Zeile unter der Kapitelüberschrift („1. Januar –
+    /// 31. Dezember 2009") verschwindet (ab 1.0.30) — einmal beim Öffnen,
+    /// im Stil Lebensbuch, wo sie der Zeitraum des Rasters war.
+    func zeitraumzeilenEntfernen() {
+        guard automat.istLebensbuch, reise.zeitraster.vorgabe != .lebensjahr else { return }
+        var geaendert = false
+        for t in reise.tage.indices where !reise.tage[t].vorwort {
+            guard let text = reise.tage[t].datumstext, text == reise.kapitel(reise.tage[t].datum).zeitraum else { continue }
+            reise.tage[t].datumstext = nil
+            for p in reise.tage[t].seiten.indices {
+                reise.tage[t].seiten[p].bloecke.removeAll { $0.inhalt == .datum }
+            }
+            geaendert = true
+        }
+        if geaendert { sofortSichern() }
+    }
+
+
+    /// Setzt die Geburtstagsseiten eines Kapitels an ihrer Stelle neu — nach
+    /// einer Änderung an Zeitung oder Meldungen, wenn das Kapitel sonst nicht
+    /// neu gesetzt wird (Handarbeit, Sperre). Nichts anderes ändert sich.
+    func geburtstagsseitenErneuern(_ id: UUID) {
+        guard let t = tagIndex(id), let gb = reise.geburtstagIm(reise.tage[t]),
+              let erste = reise.tage[t].seiten.firstIndex(where: \.geburtstag) else { return }
+        let neu = automat.geburtstagsseiten(reise.tage[t], datum: gb.datum, alter: gb.alter, mitKopf: erste == 0)
+        var seiten = reise.tage[t].seiten.filter { !$0.geburtstag }
+        seiten.insert(contentsOf: neu, at: min(erste, seiten.count))
+        reise.tage[t].seiten = seiten
     }
 
 }

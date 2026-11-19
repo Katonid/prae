@@ -522,6 +522,109 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   (vorher 0,9 bzw. 1,0 als Untergrenze). Der Wert ist ein Faktor auf die
   Schriftgröße und wird als feste Zeilenhöhe gesetzt (`Schriftbild.attribute`,
   min = max) — darunter überlappen sich die Zeilen, das ist dann gewollt.
+- **Bedienung nach dem Gegenstand, Funktionssuche** (ab 1.0.28, Ansage des
+  Nutzers 11/2026: „die Bedienung der App [wird] immer unübersichtlicher …
+  Funktionen, von denen ich weiß, dass sie vorhanden sind, [springen] mir
+  nicht auf den ersten Blick entgegen … Dann frage ich dich und bin
+  überrascht, in welchem Menü sie gelandet sind."). **Die Regel für jede neue
+  Funktion:**
+  - Plus (`hinzufuegenMenue`) = HINZUFÜGEN: Abschnitte „Texte" (Neuer Text,
+    Text vor dem gewählten Foto, Alle Texte, Texte aus Datei), „Fotos"
+    (Mediathek, Dateien, Fotoablage), „Auf die gewählte Seite"; Reisebuch-
+    Erbe (Buch aufbauen, Reisespur, Fernweh) unter „Weitere Quellen".
+  - „Ganzes Buch" (`gestaltenMenue`) = gilt für das ganze Buch: „Aufbau"
+    (Vorwort, Kapitel und Zeitraster, Titel/Umschlag), „Aussehen" (Karten,
+    Wetter, Vorlagen unter „Weitere"), „Neu verteilen" (Alles neu verteilen —
+    bis 1.0.27 unter „Mehr"!), „Druck".
+  - Kapitel-Menü unten rechts (`tagMenue`) = dieses Kapitel: „Inhalt",
+    „Neu verteilen" (gesperrt → ausgegraut), „Kapitel" (Sperre, Seiten
+    setzen, Seiten, Seite anfügen, Reisepunkte). Zeitung/Vorwort nicht mehr
+    im Plusmenü.
+  - „Mehr" = Prüfen, Ausgeben, Sichern, Hilfe.
+  - **Funktionssuche** (`Views/BefehleView.swift`, Lupe oben, `Blatt.befehle`):
+    Suchfeld über ~45 Funktionen in Alltagswörtern („fett", „aufrücken",
+    „sperren", „zurückholen"); jede Zeile nennt, wo die Funktion sonst steht,
+    und führt sie aus, wo es geht (sonst Weg als Hinweis, etwa bei Gesten).
+    **Neue Funktionen dort eintragen.** Umschalten auf ein anderes Blatt: erst
+    schließen, nach 0,45 s öffnen.
+  - Unten bei gewähltem Foto zusätzlich „Text davor" (`Blatt.textVor`,
+    `EintragView.textVor`: freier Eintrag 60 s vor der Aufnahme, kein
+    `foto` — steht als eigenes Feld VOR der Bildgruppe; Antwort auf „Texte …
+    auf einen ganzen Abschnitt von Bildern").
+- **Kapitel sperren** (ab 1.0.28, Ansage des Nutzers 11/2026: „ein Kapitel,
+  nachdem ich es fertig bearbeitet habe, so sperren können, dass es nicht
+  versehentlich noch einmal zurückgesetzt [wird]"). `Reisetag.gesperrt`,
+  Kapitel-Menü „Kapitel sperren (fertig)" / „Sperre aufheben"
+  (`sperreUmschalten`), Schloss im Kapitel-Knopf und in der Kapitelliste.
+  Geprüft in `seitenNeuSetzen` — JEDER Weg zum Neusetzen läuft dort durch
+  (Neuanordnen, Alles neu verteilen, Stil, Muster, Wetter, Doppelte …) —,
+  dazu Meldung in `neuAnordnen(erzwingen:)`, `abHierNeuVerteilen`,
+  `abHierNeuAufbauen`; `kapitelNeuEinteilen` verweigert ganz, solange ein
+  Kapitel gesperrt ist; `kapitelAuffrischen` setzt nicht neu (Meldung),
+  Erinnerungen kommen trotzdem lokal ans Foto. Handarbeit bleibt möglich.
+- **Kein Strich mehr zwischen Erinnerung und Foto** (ab 1.0.29, Ansage des
+  Nutzers 11/2026: Beim Verschieben oder Vergrößern blieb der Strich aus
+  1.0.24 stehen — „dass ich dann stattdessen auf diesen Strich verzichten
+  kann"). `notizbloecke` setzt keinen mehr; vorhandene nimmt
+  `erinnerungsstricheEntfernen` beim Öffnen des Buches einmal von allen
+  Seiten (`.linie` mit `zuFoto`).
+- **Schrift der vorhandenen Texte global ändern** (ab 1.0.29, gemeldet
+  11/2026: „die Schriftgröße der bestehenden Texte zu den Fotos nachträglich
+  global zu ändern … nur für jeden Text einzeln"). Ursache:
+  `Layoutautomat.abweichung` schrieb ALLE Schriftwerte in jeden gesetzten
+  Textkasten — „Schrift und Ausrichtung → Fließtext" erreichte keinen
+  vorhandenen. Jetzt steht im Kasten nur, was vom Fließtext ABWEICHT. Für
+  ältere Kästen: Typografie, Rolle Fließtext → „Auf alle vorhandenen Texte
+  übertragen" (`textschriftAngleichen`: entfernt Familie, Größe,
+  Zeilen-/Absatzabstand, Farbe, Kursiv, Versalien, Sperrung, Trennung aus
+  allen `.text`-Kästen außer Vorwort und fetten Überschriften; Ausrichtung
+  bleibt; Kästen wachsen bei Bedarf, `hoeheAnTextAnpassen`).
+- **Alle Texte zum Kopieren** (ab 1.0.29, Ansage des Nutzers 11/2026: „alle
+  Texte … an einer Stelle so anzeigen …, dass ich sie komplett markieren
+  kann und kopieren"). `Views/TexteExportView.swift`, Text aus
+  `alleTexteAlsText(mitUnterschriften:)` (Buchfolge: Vorwort; je Kapitel
+  Zeitung, Meldungen, Einträge mit Kopfzeile — Erinnerungen benannt —,
+  wahlweise Bildunterschriften; ohne Formatmarken). „Alles kopieren",
+  Teilen. Erreichbar: Plusmenü → Texte, „Alle Texte" (Knopf oben),
+  Funktionssuche.
+- **Keine Zeitraum-Zeile unter dem Kapitel** (ab 1.0.29, Ansage des Nutzers
+  11/2026 zu „1. Januar – 31. Dezember 2009" unter „2009": „komplett
+  sinnfrei … ein Überbleibsel aus der Reisebuch-App … Die Möglichkeit einer
+  zweiten Überschrift würde ich als Option aber gerne noch beibehalten.").
+  `neuesKapitel` setzt `datumstext` nicht mehr; `lebenskopf` zeigt die
+  Datumszeile nur, wenn eine eingetragen ist (sonst fiele sie auf den
+  Datumsstil des Buches zurück). Vorhandene: `zeitraumzeilenEntfernen` beim
+  Öffnen (nur Lebensbuch, nicht im Raster Lebensjahr — dort ist sie der
+  Geburtstag) nimmt `datumstext == Zeitraum` und die `.datum`-Blöcke weg.
+  Die zweite Überschrift (`unterueberschrift`) bleibt wie sie war.
+- **Geburtstagsseiten im Kalenderjahr** (ab 1.0.29, Ansage des Nutzers
+  11/2026: „Nachdem ich den Geburtstag eingegeben habe, soll jährlich an
+  diesem Tag in den bereits vorhandenen Jahren automatisch eine Seite
+  angelegt werden für die Zeitungsseite und eine zweite Seite mit Meldungen
+  aus aller Welt.").
+  - `Reise.geburtsdatum` (unabhängig vom Raster), `Reise.geburtstag`
+    (Lebensjahr: Rasterbeginn), `geburtstagIm(tag)` → Datum und Alter, wenn
+    ein Geburtstag ins Kapitel fällt (29.2. → 28.2.). Eingabe: Ganzes Buch →
+    Kapitel und Zeitraster → Abschnitt „Geburtstag" (Name, Datum, Knopf
+    „Geburtstagsseiten in allen Jahren anlegen").
+  - `Layoutautomat.geburtstage` (gesetzt in `Reise.automat`); `lebensseiten`
+    teilt den Fluss AM Geburtstag (Fotos nach `aufnahme`, Einträge nach
+    `zeit`) und stellt `geburtstagsseiten` dazwischen; fällt er auf den
+    Kapitelbeginn (Lebensjahr), stehen sie vorn mit dem Kapitelkopf.
+    Mitten im Jahr bekommt die Zeitungsseite eine Seitenüberschrift
+    („Dein 10. Geburtstag") statt der großen Jahreszahl, die Spalte links
+    „Der Tag deines 10. Geburtstags".
+  - Fehlt Zeitung oder Meldungen: PLATZHALTERSEITE mit grauem Hinweis, wie
+    man einsetzt. **Steht im PDF, solange nichts eingesetzt ist** (sagt der
+    Hinweis selbst).
+  - `Seite.geburtstag` markiert sie. `geburtstagsseitenAnlegen` fügt sie in
+    bestehende Kapitel ohne Neusetzen ein (gesperrte nicht);
+    `geburtstagsseitenEinordnen` stellt sie vor die erste Seite mit einem
+    Foto vom Geburtstag oder später (nie vor den Kapitelkopf) — benutzt
+    auch von „Ab hier neu aufbauen" und „Ab der gewählten Seite neu
+    verteilen", die Geburtstagsseiten wie Handarbeit stehen lassen.
+    `geburtstagsseitenErneuern` nach „Fertig" in Zeitung und Meldungen,
+    wenn das Kapitel sonst nicht neu gesetzt wird.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -572,7 +675,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -655,4 +758,10 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.26 (Build 27)**, 11/2026: Fett/kursiv als eigenes Merkmal, bleibt
   erhalten; Vorwort mit engerem, einstellbarem Abstand um Fotos. **Nicht gemessen:** auf einem Gerät.
 - **1.0.27 (Build 28)**, 11/2026: Zeilenabstand-Regler bis 0,5.
+  **Nicht gemessen:** auf einem Gerät.
+- **1.0.28 (Build 29)**, 11/2026: Menüs nach dem Gegenstand, Funktionssuche,
+  „Text davor", Kapitel sperren. **Nicht gemessen:** auf einem Gerät.
+- **1.0.29 (Build 30)**, 11/2026: Strich an Erinnerungen weg, Textschrift
+  global änderbar (auch für vorhandene Kästen), alle Texte zum Kopieren,
+  keine Zeitraum-Zeile, Geburtstagsseiten im Kalenderjahr.
   **Nicht gemessen:** auf einem Gerät.
