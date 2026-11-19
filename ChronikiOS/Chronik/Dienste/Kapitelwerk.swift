@@ -1331,4 +1331,68 @@ extension Reisewerk {
         meldung = .init(text: liste.count == 1 ? "1 Text steht jetzt an seiner Stelle." : "\(liste.count) Texte stehen jetzt an ihrer Stelle.")
     }
 
+
+    // MARK: Ein einzelnes Foto ins gestaltete Kapitel (ab 1.0.32)
+
+    /// Stellt ein Foto, das im Kapitel ist, aber auf keiner Seite steht,
+    /// neben seinen zeitlichen Nachbarn: Dessen Rahmen wird geteilt — bei
+    /// einem breiten Rahmen nebeneinander, bei einem hohen übereinander;
+    /// der Nachbar behält die erste Hälfte (seine Unterschrift und
+    /// Erinnerung bleiben, wo sie sind), das neue Foto bekommt die zweite.
+    /// Nachbar = das erste Foto auf einer Seite, das später aufgenommen ist,
+    /// sonst das letzte. Sonst bewegt sich nichts.
+    @discardableResult
+    func fotoEinzelnEinsetzen(_ fotoID: UUID) -> Bool {
+        guard let neu = reise.foto(fotoID),
+              let t = reise.tage.firstIndex(where: { $0.fotos.contains(fotoID) }) else { return false }
+        var kandidaten: [(seite: Int, block: Int, wann: Date)] = []
+        for (p, seite) in reise.tage[t].seiten.enumerated() {
+            for (i, b) in seite.bloecke.enumerated() {
+                guard let id = b.fotoID, id != fotoID, let f = reise.foto(id), !f.grafik else { continue }
+                kandidaten.append((p, i, f.aufnahme ?? .distantFuture))
+            }
+        }
+        guard !kandidaten.isEmpty else { return false }
+        kandidaten.sort { $0.wann < $1.wann }
+        let wann = neu.aufnahme ?? .distantFuture
+        let ziel = kandidaten.first { $0.wann >= wann } ?? kandidaten.last!
+        var nachbar = reise.tage[t].seiten[ziel.seite].bloecke[ziel.block]
+        let r = nachbar.rahmen
+        let luft = reise.gestaltung.fugePt + Druckmass.pt(max(reise.gestaltung.fotorand, 0)) * 2
+        let neuerRahmen: Rahmen
+        // Das neue Foto kommt VOR den späteren Nachbarn (links bzw. oben),
+        // HINTER den letzten (rechts bzw. unten).
+        let davor = ziel.wann >= wann
+        if r.breite >= r.hoehe {
+            let b = (r.breite - luft) / 2
+            if davor {
+                neuerRahmen = Rahmen(x: r.x, y: r.y, breite: b, hoehe: r.hoehe)
+                nachbar.rahmen = Rahmen(x: r.x + b + luft, y: r.y, breite: b, hoehe: r.hoehe)
+            } else {
+                nachbar.rahmen = Rahmen(x: r.x, y: r.y, breite: b, hoehe: r.hoehe)
+                neuerRahmen = Rahmen(x: r.x + b + luft, y: r.y, breite: b, hoehe: r.hoehe)
+            }
+        } else {
+            let h = (r.hoehe - luft) / 2
+            if davor {
+                neuerRahmen = Rahmen(x: r.x, y: r.y, breite: r.breite, hoehe: h)
+                nachbar.rahmen = Rahmen(x: r.x, y: r.y + h + luft, breite: r.breite, hoehe: h)
+            } else {
+                nachbar.rahmen = Rahmen(x: r.x, y: r.y, breite: r.breite, hoehe: h)
+                neuerRahmen = Rahmen(x: r.x, y: r.y + h + luft, breite: r.breite, hoehe: h)
+            }
+        }
+        nachbar.vonHand = true
+        reise.tage[t].seiten[ziel.seite].bloecke[ziel.block] = nachbar
+        var block = nachbar
+        block.id = UUID()
+        block.inhalt = .foto(fotoID)
+        block.rahmen = neuerRahmen
+        block.ausschnitt = Bildausschnitt()
+        block.vonHand = true
+        reise.tage[t].seiten[ziel.seite].bloecke.append(block)
+        seitenzeiger = ziel.seite
+        return true
+    }
+
 }

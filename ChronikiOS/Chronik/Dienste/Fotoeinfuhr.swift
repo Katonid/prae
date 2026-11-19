@@ -39,6 +39,9 @@ struct Einfuhrbericht {
     var abgewiesen: Int = 0
     var neueTage: Int = 0
     var schonVorhanden: Int = 0
+    // KAPITELWEISE (ab 1.0.32): neue Fotos in Kapiteln mit Handarbeit.
+    var eingeschoben: Int = 0
+    var wartenAufNeuverteilen: Int = 0
 
     // Der Bericht ist keine Zierde. Beim Einlesen von zweihundert Fotos
     // fällt sonst niemandem auf, dass dreißig davon keinen Ort tragen — und
@@ -50,7 +53,13 @@ struct Einfuhrbericht {
                           ? "1 Foto war schon im Buch und wurde übersprungen."
                           : "\(schonVorhanden) Fotos waren schon im Buch und wurden übersprungen.")
         }
-        if neueTage > 0 { zeilen.append("\(neueTage) neue Tage angelegt.") }
+        if neueTage > 0 { zeilen.append("\(neueTage) neue Kapitel angelegt.") }
+        if eingeschoben > 0 {
+            zeilen.append("\(eingeschoben) Fotos stehen jetzt neben ihrem zeitlichen Nachbarn auf der Seite \u{2014} der Rest des Kapitels blieb, wie du ihn gestaltet hast.")
+        }
+        if wartenAufNeuverteilen > 0 {
+            zeilen.append("\(wartenAufNeuverteilen) Fotos gehören zu Kapiteln mit Handarbeit und stehen noch auf keiner Seite \u{2014} dort \u{201E}Ab hier neu aufbauen\u{201C} ab der passenden Stelle.")
+        }
         if ortAusMediathek > 0 {
             zeilen.append("Bei \(ortAusMediathek) Fotos kam der Ort aus der Fotomediathek.")
         }
@@ -131,9 +140,13 @@ extension Reisewerk {
             f.aufnahme.map { Self.fingerabdruck($0, breite: f.breite, hoehe: f.hoehe) }
         })
         merken()
+        var neueFotos: [UUID] = []
 
         for stelle in 0 ..< anzahl {
             if anzahl > 1 { beschaeftigt = "Foto \(stelle + 1) von \(anzahl)" }
+            // Absturzspur (ab 1.0.32, gemeldet: Absturz nach dem Wählen eines
+            // einzelnen Fotos — Ursache aus dem Quelltext nicht zu finden).
+            Absturzspur.beginnt("Fotos einlesen: Foto \(stelle + 1) von \(anzahl) holen und ablegen")
             guard let bild = await naechstes(stelle) else {
                 bericht.abgewiesen += 1
                 continue
@@ -250,6 +263,7 @@ extension Reisewerk {
             if !bekannteTage.contains(schluessel) { neueSchluessel.insert(schluessel) }
             let tagstelle = reise.tagIndex(fuer: datum)
             reise.tage[tagstelle].fotos.append(foto.id)
+            neueFotos.append(foto.id)
         }
 
         // Was kein Datum hat, geht an den Tag, den der Nutzer vorher
@@ -285,8 +299,34 @@ extension Reisewerk {
             }
             spurAktualisieren(reise.tage[stelle].id)
         }
+        Absturzspur.beginnt("Fotos einlesen: \(neueFotos.count) neue Fotos \u{2014} unberührte Kapitel neu setzen")
         alleNeuAnordnen(nurUnberuehrte: true)
+        Absturzspur.beginnt("Fotos einlesen: neue Fotos in gestaltete Kapitel einschieben")
+        // KAPITELWEISE (ab 1.0.32, gemeldet 11/2026: „ein weiteres Foto …
+        // Da es mir sehr unsicher ist, die Fotos aus der Mediathek jetzt …
+        // neu einzulesen, weil ich befürchte, dass dann alles andere wieder
+        // verschoben wird"). Kapitel mit Handarbeit setzt das Einlesen nicht
+        // neu — ein neues Foto stand dort bisher auf KEINER Seite. Bis zu
+        // sechs neue je Kapitel kommen jetzt neben ihren zeitlichen Nachbarn
+        // (`fotoEinzelnEinsetzen`); bei mehr wäre das Zerteilen einzelner
+        // Rahmen kein Satz mehr — dann sagt der Bericht, wo neu aufzubauen ist.
+        var jeKapitel: [UUID: [UUID]] = [:]
+        for id in neueFotos {
+            guard let t = reise.tage.firstIndex(where: { $0.fotos.contains(id) }) else { continue }
+            let tag = reise.tage[t]
+            guard tag.seiten.contains(where: { $0.vonHand }) || tag.gesperrt else { continue }
+            guard !tag.seiten.contains(where: { $0.bloecke.contains { $0.fotoID == id } }) else { continue }
+            jeKapitel[tag.id, default: []].append(id)
+        }
+        for (_, ids) in jeKapitel {
+            if ids.count <= 6 {
+                for id in ids where fotoEinzelnEinsetzen(id) { bericht.eingeschoben += 1 }
+            } else {
+                bericht.wartenAufNeuverteilen += ids.count
+            }
+        }
         sofortSichern()
+        Absturzspur.endet()
         return bericht
     }
 
