@@ -140,6 +140,29 @@ extension Reisewerk {
             }
             var befund = Bildleser.befund(datei: bild.daten)
 
+            // KAPITELWEISE (ab 1.0.30): DAS DATUM DER MEDIATHEK GEHT VOR.
+            // Gemeldet 11/2026: Bildschirmfotos aus alten Videos, deren
+            // Zeitstempel danach in der Mediathek geändert wurde (Fotos von
+            // Apple zeigt sie richtig einsortiert), landeten im Kapitel des
+            // Tages, an dem sie entstanden — die Datei trägt weiter ihr
+            // Erstellungsdatum; geändert wird nur der Eintrag in der
+            // Mediathek. Was dort steht, ist, was der Nutzer sieht und
+            // gewollt hat.
+            if let kennung = bild.kennung,
+               Self.mediathekStand == .authorized || Self.mediathekStand == .limited,
+               let wann = PHAsset.fetchAssets(withLocalIdentifiers: [kennung], options: nil).firstObject?.creationDate
+            {
+                // Erst ab anderthalb Tagen Abstand: Das EXIF-Datum ist
+                // Ortszeit ohne Zone, die Mediathek ein echter Zeitpunkt —
+                // ein paar Stunden Unterschied sind die Zeitzone, kein
+                // geändertes Datum.
+                if befund.aufnahme.map({ abs($0.timeIntervalSince(wann)) > 36 * 3600 }) ?? true {
+                    befund.aufnahme = wann
+                    befund.tagesschluessel = Tagesdatum(wann).schluessel
+                    bericht.datumAusMediathek += 1
+                }
+            }
+
             // Fehlt der Ort, wird er am Mediathekseintrag nachgeschlagen.
             // Das ist der einzige Weg, der auch bei Fotos greift, aus denen
             // iOS die Koordinaten herausgenommen hat.

@@ -1,4 +1,5 @@
 import Foundation
+import Photos
 import UIKit
 
 // KAPITELWEISE — WAS DIESE APP VOM REISEBUCH UNTERSCHEIDET.
@@ -1113,6 +1114,98 @@ extension Reisewerk {
         var seiten = reise.tage[t].seiten.filter { !$0.geburtstag }
         seiten.insert(contentsOf: neu, at: min(erste, seiten.count))
         reise.tage[t].seiten = seiten
+    }
+
+
+    // MARK: Aufnahmedatum aus der Mediathek (ab 1.0.30)
+
+    /// Gleicht das Aufnahmedatum aller Fotos aus der Mediathek mit deren
+    /// Eintrag in der Mediathek ab und stellt Fotos mit geändertem Datum in
+    /// ihr richtiges Kapitel (Anlass: Zeitstempel nachträglich in der
+    /// Mediathek geändert, etwa mit Insta360Datum). Gesperrte Kapitel
+    /// bleiben unberührt. Kapitel ohne Handarbeit werden neu gesetzt; in
+    /// solchen mit Handarbeit steht ein hinzugekommenes Foto erst nach
+    /// „Ab hier neu aufbauen" oder „Automatisch neu verteilen" auf einer
+    /// Seite — die Meldung nennt sie.
+    func aufnahmedatenAbgleichen() async -> String {
+        var stand = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        if stand == .notDetermined { stand = await PHPhotoLibrary.requestAuthorization(for: .readWrite) }
+        guard stand == .authorized || stand == .limited else {
+            let satz = "Ohne Zugriff auf die Mediathek lässt sich das Datum nicht abgleichen (Einstellungen \u{2192} Kapitelweise \u{2192} Fotos)."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        let kennungen = reise.fotos.compactMap(\.mediathek)
+        guard !kennungen.isEmpty else {
+            let satz = "Kein Foto dieses Buches kennt seinen Mediathekseintrag (eingelesen vor 1.0.11 oder aus Dateien)."
+            meldung = .init(text: satz)
+            return satz
+        }
+        var daten: [String: Date] = [:]
+        let treffer = PHAsset.fetchAssets(withLocalIdentifiers: kennungen, options: nil)
+        treffer.enumerateObjects { eintrag, _, _ in
+            if let wann = eintrag.creationDate { daten[eintrag.localIdentifier] = wann }
+        }
+        merken()
+        var geaendert = 0, verschoben = 0, gesperrt = 0
+        var betroffen = Set<UUID>()
+        for foto in reise.fotos {
+            guard let kennung = foto.mediathek, let wann = daten[kennung] else { continue }
+            // Erst ab anderthalb Tagen: Wenige Stunden sind die Zeitzone
+            // (EXIF = Ortszeit ohne Zone), kein geändertes Datum.
+            if let alt = foto.aufnahme, abs(alt.timeIntervalSince(wann)) <= 36 * 3600 { continue }
+            let altesKapitel = reise.tage.firstIndex { $0.fotos.contains(foto.id) }
+            let zielDatum = Tagesdatum(wann)
+            let zielBeginn = reise.kapitelbeginn(zielDatum)
+            let zielGesperrt = reise.tage.first { $0.datum == zielBeginn }?.gesperrt ?? false
+            if let a = altesKapitel, reise.tage[a].gesperrt || zielGesperrt { gesperrt += 1; continue }
+            var neu = foto
+            neu.aufnahme = wann
+            neu.tagesschluessel = zielDatum.schluessel
+            reise.setzeFoto(neu)
+            geaendert += 1
+            let ziel = reise.tagIndex(fuer: zielDatum)
+            if let a = altesKapitel.flatMap({ alt in reise.tage.firstIndex { $0.fotos.contains(foto.id) } ?? alt }),
+               reise.tage[a].id != reise.tage[ziel].id {
+                reise.tage[a].fotos.removeAll { $0 == foto.id }
+                for s in reise.tage[a].seiten.indices {
+                    let bloecke = reise.tage[a].seiten[s].bloecke
+                    var weg = Set<UUID>()
+                    for b in bloecke where b.fotoID == foto.id {
+                        weg.insert(b.id)
+                        for i in anhaengsel(b, in: bloecke) { weg.insert(bloecke[i].id) }
+                    }
+                    reise.tage[a].seiten[s].bloecke.removeAll { weg.contains($0.id) }
+                }
+                betroffen.insert(reise.tage[a].id)
+                verschoben += 1
+            }
+            let z = reise.tage.firstIndex { $0.datum == zielBeginn } ?? ziel
+            if !reise.tage[z].fotos.contains(foto.id) { reise.tage[z].fotos.append(foto.id) }
+            betroffen.insert(reise.tage[z].id)
+        }
+        // Fotos im Kapitel nach der Zeit; Kapitel ohne Handarbeit neu setzen.
+        let index = reise.fotoIndex
+        var vonHand: [String] = []
+        for id in betroffen {
+            guard let t = tagIndex(id) else { continue }
+            reise.tage[t].fotos.sort { (index[$0]?.aufnahme ?? .distantFuture) < (index[$1]?.aufnahme ?? .distantFuture) }
+            if hatHandarbeit(id) {
+                vonHand.append(reise.tage[t].ueberschrift)
+            } else {
+                neuAnordnen(id, erzwingen: false)
+            }
+        }
+        sofortSichern()
+        var satz = geaendert == 0
+            ? "Alle Fotos tragen schon das Datum aus der Mediathek."
+            : "\(geaendert) Fotos tragen jetzt das Datum aus der Mediathek, \(verschoben) davon stehen in einem anderen Kapitel."
+        if !vonHand.isEmpty {
+            satz += " Kapitel mit Handarbeit (\(vonHand.sorted().joined(separator: ", "))): dort \u{201E}Automatisch neu verteilen\u{201C} oder \u{201E}Ab hier neu aufbauen\u{201C}, damit die Fotos an ihre Stelle kommen."
+        }
+        if gesperrt > 0 { satz += " \(gesperrt) Fotos in gesperrten Kapiteln blieben, wie sie sind." }
+        meldung = .init(text: satz)
+        return satz
     }
 
 }

@@ -1742,6 +1742,11 @@ struct ReiseView: View {
             Section("Fotos") {
                 Button("Fotos aus der Mediathek\u{2026}", systemImage: "photo.on.rectangle") { blatt = .fotos }
                 Button("Bilder aus Dateien\u{2026}", systemImage: "folder") { blatt = .dateien }
+                // Ab 1.0.30: Zeitstempel, die in der Mediathek geändert
+                // wurden (etwa mit Insta360Datum), übernehmen.
+                Button("Datum aus der Mediathek abgleichen", systemImage: "calendar.badge.clock") {
+                    Task { await werk.aufnahmedatenAbgleichen() }
+                }
                 Button {
                     blatt = .ablage
                 } label: {

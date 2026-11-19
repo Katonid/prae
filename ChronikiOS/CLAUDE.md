@@ -625,6 +625,22 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     verteilen", die Geburtstagsseiten wie Handarbeit stehen lassen.
     `geburtstagsseitenErneuern` nach „Fertig" in Zeitung und Meldungen,
     wenn das Kapitel sonst nicht neu gesetzt wird.
+- **Das Datum der Mediathek geht vor** (ab 1.0.30, gemeldet 11/2026:
+  Bildschirmfotos aus alten Videos, Zeitstempel danach mit Insta360Datum in
+  der Mediathek geändert — Fotos von Apple sortiert sie richtig ein, die
+  Chronik nach dem Erstellungstag). Ursache: `fotosAufnehmen` nahm das Datum
+  zuerst aus der DATEI (EXIF); die Mediathek fragte es nur, wenn dort nichts
+  stand. Geändert wird aber nur der Eintrag in der Mediathek. Jetzt: Hat das
+  Foto einen Mediathekseintrag (`bild.kennung`) und die App Zugriff, gilt
+  dessen `creationDate`, sobald es um mehr als 36 h vom EXIF-Datum abweicht
+  (darunter ist es die Zeitzone — EXIF ist Ortszeit ohne Zone). Für schon
+  eingelesene Fotos: Plusmenü → Fotos → „Datum aus der Mediathek abgleichen"
+  (`aufnahmedatenAbgleichen`, Kapitelwerk): gleiche Schwelle, Foto samt
+  Unterschrift/Erinnerung von den Seiten des alten Kapitels, ins neue
+  (`tagIndex(fuer:)`, legt es bei Bedarf an), Fotos nach Zeit sortiert,
+  Kapitel ohne Handarbeit neu gesetzt, die übrigen in der Meldung genannt;
+  gesperrte Kapitel unberührt. Fotos aus Dateien (ohne Mediathekseintrag)
+  erreicht das nicht.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -675,7 +691,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -765,3 +781,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   global änderbar (auch für vorhandene Kästen), alle Texte zum Kopieren,
   keine Zeitraum-Zeile, Geburtstagsseiten im Kalenderjahr.
   **Nicht gemessen:** auf einem Gerät.
+- **1.0.30 (Build 31)**, 11/2026: Datum aus der Mediathek geht vor,
+  Abgleich für eingelesene Fotos. **Nicht gemessen:** auf einem Gerät; ob
+  Insta360Datum wirklich nur `creationDate` ändert (aus dem Befund
+  geschlossen: Fotos von Apple zeigt das neue Datum, die Chronik das alte).
