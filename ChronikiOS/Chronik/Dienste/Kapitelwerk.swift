@@ -444,7 +444,9 @@ extension Reisewerk {
 
         // 2. Feste Seiten und was darauf steht.
         let vorn = Array(reise.tage[t].seiten[0...p])
-        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand }
+        // Geburtstagsseiten (ab 1.0.30) bleiben stehen wie Handarbeit und
+        // werden danach an ihren Tag zurückgestellt.
+        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand || $0.geburtstag }
         var fotos = Set<UUID>()
         var texte = Set<String>()
         for s in vorn + spaeter {
@@ -457,7 +459,7 @@ extension Reisewerk {
         // 3. Den Rest neu setzen.
         let neu = automat.restseiten(reise.tage[t], ohneFotos: fotos, ohneTexte: texte)
         let vorher = reise.tage[t].seiten.count
-        reise.tage[t].seiten = vorn + neu + spaeter
+        reise.tage[t].seiten = geburtstagsseitenEinordnen(vorn + neu + Array(spaeter), kapitel: t, fest: vorn.count)
         seitenzeiger = p
         sofortSichern()
         var satz = "Ab Seite \(p + 1) des Kapitels neu verteilt: \(neu.count) Seiten neu gesetzt"
@@ -817,7 +819,9 @@ extension Reisewerk {
 
         // 3. Fest: frühere Seiten, das Bleibende hier, spätere Handarbeitsseiten.
         let vorn = Array(reise.tage[t].seiten[..<p])
-        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand }
+        // Geburtstagsseiten (ab 1.0.30) bleiben stehen wie Handarbeit und
+        // werden danach an ihren Tag zurückgestellt.
+        let spaeter = reise.tage[t].seiten.dropFirst(p + 1).filter { $0.vonHand || $0.geburtstag }
         var festFotos = Set<UUID>()
         var festTexte = Set<String>()
         for b in vorn.flatMap(\.bloecke) + bleiben + spaeter.flatMap(\.bloecke) {
@@ -836,7 +840,8 @@ extension Reisewerk {
             neueSeite.bloecke += neu.removeFirst().bloecke.map { $0.mitEbene($0.ebene + hoechste + 1) }
         }
         let vorher = reise.tage[t].seiten.count
-        reise.tage[t].seiten = vorn + [neueSeite] + neu + spaeter
+        reise.tage[t].seiten = geburtstagsseitenEinordnen(vorn + [neueSeite] + neu + Array(spaeter), kapitel: t,
+                                                          fest: vorn.count + 1)
         gewaehlterBlock = nil
         seitenzeiger = p
         sofortSichern()
@@ -1025,6 +1030,89 @@ extension Reisewerk {
             teile.append(name.uppercased() + "\n\n" + kapitel.joined(separator: "\n\n"))
         }
         return teile.joined(separator: "\n\n\n")
+    }
+
+
+    // MARK: Geburtstagsseiten (ab 1.0.30)
+
+    /// Stellt die Geburtstagsseiten eines Kapitels an ihren Tag: vor die
+    /// erste Seite (ab `fest`), auf der ein Foto vom Geburtstag oder später
+    /// steht — nie vor den Kapitelkopf. Ohne solches Foto ans Ende.
+    func geburtstagsseitenEinordnen(_ seiten: [Seite], kapitel t: Int, fest: Int = 0) -> [Seite] {
+        guard let gb = reise.geburtstagIm(reise.tage[t]) else { return seiten }
+        let geburtstag = seiten.enumerated().filter { $0.offset >= fest && $0.element.geburtstag }.map(\.element)
+        guard !geburtstag.isEmpty else { return seiten }
+        var rest = seiten.enumerated().filter { !($0.offset >= fest && $0.element.geburtstag) }.map(\.element)
+        var stelle = rest.count
+        for (i, seite) in rest.enumerated() where i >= fest {
+            let spaeter = seite.bloecke.contains { b in
+                guard let id = b.fotoID, let f = reise.foto(id), !f.grafik, let wann = f.aufnahme else { return false }
+                return wann >= gb.datum
+            }
+            if spaeter { stelle = i; break }
+        }
+        if stelle == 0, rest.first?.bloecke.contains(where: { $0.inhalt == .titel }) == true { stelle = 1 }
+        rest.insert(contentsOf: geburtstag, at: min(stelle, rest.count))
+        return rest
+    }
+
+    /// Legt in jedem Kapitel, in das ein Geburtstag fällt und das noch keine
+    /// Geburtstagsseiten hat, Zeitung und Meldungen an — als Platzhalter,
+    /// solange nichts eingesetzt ist. Gesperrte Kapitel bleiben, wie sie
+    /// sind. Antwort: ein Satz für die Meldung.
+    @discardableResult
+    func geburtstagsseitenAnlegen() -> String {
+        guard reise.geburtstag != nil else {
+            let satz = "Zuerst den Geburtstag eintragen (Ganzes Buch \u{2192} Kapitel und Zeitraster)."
+            meldung = .init(text: satz, schwer: true)
+            return satz
+        }
+        merken()
+        var neu = 0, gesperrt = 0
+        for t in reise.tage.indices {
+            let tag = reise.tage[t]
+            guard let gb = reise.geburtstagIm(tag), !tag.seiten.contains(where: \.geburtstag) else { continue }
+            if tag.gesperrt { gesperrt += 1; continue }
+            let seiten = automat.geburtstagsseiten(tag, datum: gb.datum, alter: gb.alter, mitKopf: tag.seiten.isEmpty)
+            reise.tage[t].seiten = geburtstagsseitenEinordnen(reise.tage[t].seiten + seiten, kapitel: t)
+            neu += 1
+        }
+        sofortSichern()
+        var satz = neu == 0 ? "Alle Kapitel haben schon ihre Geburtstagsseiten."
+            : "In \(neu) Kapiteln sind Seiten für Zeitung und Meldungen am Geburtstag angelegt."
+        if gesperrt > 0 { satz += " \(gesperrt) gesperrte Kapitel blieben, wie sie sind." }
+        meldung = .init(text: satz)
+        return satz
+    }
+
+    /// Die Zeitraum-Zeile unter der Kapitelüberschrift („1. Januar –
+    /// 31. Dezember 2009") verschwindet (ab 1.0.30) — einmal beim Öffnen,
+    /// im Stil Lebensbuch, wo sie der Zeitraum des Rasters war.
+    func zeitraumzeilenEntfernen() {
+        guard automat.istLebensbuch, reise.zeitraster.vorgabe != .lebensjahr else { return }
+        var geaendert = false
+        for t in reise.tage.indices where !reise.tage[t].vorwort {
+            guard let text = reise.tage[t].datumstext, text == reise.kapitel(reise.tage[t].datum).zeitraum else { continue }
+            reise.tage[t].datumstext = nil
+            for p in reise.tage[t].seiten.indices {
+                reise.tage[t].seiten[p].bloecke.removeAll { $0.inhalt == .datum }
+            }
+            geaendert = true
+        }
+        if geaendert { sofortSichern() }
+    }
+
+
+    /// Setzt die Geburtstagsseiten eines Kapitels an ihrer Stelle neu — nach
+    /// einer Änderung an Zeitung oder Meldungen, wenn das Kapitel sonst nicht
+    /// neu gesetzt wird (Handarbeit, Sperre). Nichts anderes ändert sich.
+    func geburtstagsseitenErneuern(_ id: UUID) {
+        guard let t = tagIndex(id), let gb = reise.geburtstagIm(reise.tage[t]),
+              let erste = reise.tage[t].seiten.firstIndex(where: \.geburtstag) else { return }
+        let neu = automat.geburtstagsseiten(reise.tage[t], datum: gb.datum, alter: gb.alter, mitKopf: erste == 0)
+        var seiten = reise.tage[t].seiten.filter { !$0.geburtstag }
+        seiten.insert(contentsOf: neu, at: min(erste, seiten.count))
+        reise.tage[t].seiten = seiten
     }
 
 }

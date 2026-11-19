@@ -323,6 +323,8 @@ struct ReiseView: View {
             // Die Striche zwischen Erinnerung und Foto (1.0.24–1.0.28) gehen
             // einmal von allen Seiten (ab 1.0.29).
             werk.erinnerungsstricheEntfernen()
+            // Die Zeitraum-Zeile unter „2009" (ab 1.0.30).
+            werk.zeitraumzeilenEntfernen()
         }
         // NACHSEHEN, OB DIE BILDER DA SIND — UND SIE ANSTOSSEN (ab 1.0.71).
         // Wie oft und wie lange, entscheidet `Reisewerk.bilderPruefen`; hier

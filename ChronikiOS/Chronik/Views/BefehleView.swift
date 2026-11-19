@@ -135,6 +135,8 @@ struct BefehleView: View {
         }
         dazu(k, "Das ganze Buch neu verteilen", "Ganzes Buch \u{2192} Alles neu verteilen",
              "alles neu verteilen gesamt buch", "arrow.triangle.2.circlepath", .blatt(.neuverteilen))
+        dazu(k, "Geburtstag eintragen, Geburtstagsseiten anlegen", "Ganzes Buch \u{2192} Kapitel und Zeitraster \u{2192} Geburtstag",
+             "geburtstag zeitung meldungen titelseite seiten anlegen", "gift", .blatt(.kapitelraster))
         dazu(k, "Kapitel und Zeitraster (Jahre, Lebensjahre)", "Ganzes Buch \u{2192} Kapitel und Zeitraster",
              "jahr lebensjahr geburtstag einteilen zeitraum raster", "rectangle.split.3x1", .blatt(.kapitelraster))
 

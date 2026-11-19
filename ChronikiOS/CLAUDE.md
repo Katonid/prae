@@ -587,6 +587,44 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   wahlweise Bildunterschriften; ohne Formatmarken). „Alles kopieren",
   Teilen. Erreichbar: Plusmenü → Texte, „Alle Texte" (Knopf oben),
   Funktionssuche.
+- **Keine Zeitraum-Zeile unter dem Kapitel** (ab 1.0.29, Ansage des Nutzers
+  11/2026 zu „1. Januar – 31. Dezember 2009" unter „2009": „komplett
+  sinnfrei … ein Überbleibsel aus der Reisebuch-App … Die Möglichkeit einer
+  zweiten Überschrift würde ich als Option aber gerne noch beibehalten.").
+  `neuesKapitel` setzt `datumstext` nicht mehr; `lebenskopf` zeigt die
+  Datumszeile nur, wenn eine eingetragen ist (sonst fiele sie auf den
+  Datumsstil des Buches zurück). Vorhandene: `zeitraumzeilenEntfernen` beim
+  Öffnen (nur Lebensbuch, nicht im Raster Lebensjahr — dort ist sie der
+  Geburtstag) nimmt `datumstext == Zeitraum` und die `.datum`-Blöcke weg.
+  Die zweite Überschrift (`unterueberschrift`) bleibt wie sie war.
+- **Geburtstagsseiten im Kalenderjahr** (ab 1.0.29, Ansage des Nutzers
+  11/2026: „Nachdem ich den Geburtstag eingegeben habe, soll jährlich an
+  diesem Tag in den bereits vorhandenen Jahren automatisch eine Seite
+  angelegt werden für die Zeitungsseite und eine zweite Seite mit Meldungen
+  aus aller Welt.").
+  - `Reise.geburtsdatum` (unabhängig vom Raster), `Reise.geburtstag`
+    (Lebensjahr: Rasterbeginn), `geburtstagIm(tag)` → Datum und Alter, wenn
+    ein Geburtstag ins Kapitel fällt (29.2. → 28.2.). Eingabe: Ganzes Buch →
+    Kapitel und Zeitraster → Abschnitt „Geburtstag" (Name, Datum, Knopf
+    „Geburtstagsseiten in allen Jahren anlegen").
+  - `Layoutautomat.geburtstage` (gesetzt in `Reise.automat`); `lebensseiten`
+    teilt den Fluss AM Geburtstag (Fotos nach `aufnahme`, Einträge nach
+    `zeit`) und stellt `geburtstagsseiten` dazwischen; fällt er auf den
+    Kapitelbeginn (Lebensjahr), stehen sie vorn mit dem Kapitelkopf.
+    Mitten im Jahr bekommt die Zeitungsseite eine Seitenüberschrift
+    („Dein 10. Geburtstag") statt der großen Jahreszahl, die Spalte links
+    „Der Tag deines 10. Geburtstags".
+  - Fehlt Zeitung oder Meldungen: PLATZHALTERSEITE mit grauem Hinweis, wie
+    man einsetzt. **Steht im PDF, solange nichts eingesetzt ist** (sagt der
+    Hinweis selbst).
+  - `Seite.geburtstag` markiert sie. `geburtstagsseitenAnlegen` fügt sie in
+    bestehende Kapitel ohne Neusetzen ein (gesperrte nicht);
+    `geburtstagsseitenEinordnen` stellt sie vor die erste Seite mit einem
+    Foto vom Geburtstag oder später (nie vor den Kapitelkopf) — benutzt
+    auch von „Ab hier neu aufbauen" und „Ab der gewählten Seite neu
+    verteilen", die Geburtstagsseiten wie Handarbeit stehen lassen.
+    `geburtstagsseitenErneuern` nach „Fertig" in Zeitung und Meldungen,
+    wenn das Kapitel sonst nicht neu gesetzt wird.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -724,5 +762,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.28 (Build 29)**, 11/2026: Menüs nach dem Gegenstand, Funktionssuche,
   „Text davor", Kapitel sperren. **Nicht gemessen:** auf einem Gerät.
 - **1.0.29 (Build 30)**, 11/2026: Strich an Erinnerungen weg, Textschrift
-  global änderbar (auch für vorhandene Kästen), alle Texte zum Kopieren.
+  global änderbar (auch für vorhandene Kästen), alle Texte zum Kopieren,
+  keine Zeitraum-Zeile, Geburtstagsseiten im Kalenderjahr.
   **Nicht gemessen:** auf einem Gerät.
