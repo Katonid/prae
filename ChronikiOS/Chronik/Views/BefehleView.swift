@@ -95,6 +95,9 @@ struct BefehleView: View {
              "importieren laden album galerie nachladen neue fotos", "photo.on.rectangle", .blatt(.fotos))
         dazu(f, "Bilder oder PDF aus Dateien", "Plusmenü \u{2192} Bilder aus Dateien",
              "pdf datei scan dokument", "folder", .blatt(.dateien))
+        dazu(f, "Datum aus der Mediathek übernehmen (falsch einsortierte Fotos)", "Plusmenü \u{2192} Datum aus der Mediathek abgleichen",
+             "datum zeitstempel falsch einsortiert kapitel insta360 mediathek geändert aufnahmedatum", "calendar.badge.clock",
+             .tun { Task { await werk.aufnahmedatenAbgleichen() } })
         dazu(f, "Fotoablage: gelöschte Fotos zurückholen", "Plusmenü \u{2192} Fotoablage",
              "gelöscht zurückholen ohne kapitel ablage wiederherstellen", "tray", .blatt(.ablage))
         dazu(f, "Doppelte Fotos suchen", "Mehr \u{2192} Doppelte Fotos suchen",
