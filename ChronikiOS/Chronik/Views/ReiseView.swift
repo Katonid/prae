@@ -323,6 +323,7 @@ struct ReiseView: View {
             // Die Striche zwischen Erinnerung und Foto (1.0.24–1.0.28) gehen
             // einmal von allen Seiten (ab 1.0.29).
             werk.erinnerungsstricheEntfernen()
+            werk.emojiMarkenAufraeumen()
             // Die Zeitraum-Zeile unter „2009" (ab 1.0.30).
             werk.zeitraumzeilenEntfernen()
         }

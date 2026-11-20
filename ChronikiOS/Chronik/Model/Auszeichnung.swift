@@ -101,7 +101,14 @@ enum Auszeichnung {
                 }
             case ("gr", true): if !jetzt.groessen.isEmpty { jetzt.groessen.removeLast() }
             case ("schrift", false):
-                jetzt.schriften.append((wert ?? "").replacingOccurrences(of: "+", with: " "))
+                // Die Emoji-Schrift ist KEINE Wahl des Nutzers (ab 1.0.34):
+                // iOS setzt Emojis im Textfeld selbst in „Apple Color
+                // Emoji", und bis 1.0.33 schrieb `auszeichnen` das als
+                // Schriftmarke mit. Ausdrücklich in dieser Schrift gesetzt,
+                // erschien das Emoji auf der Seite nicht. Ohne Marke findet
+                // CoreText die Emoji-Schrift von selbst.
+                let name = (wert ?? "").replacingOccurrences(of: "+", with: " ")
+                jetzt.schriften.append(name.localizedCaseInsensitiveContains("emoji") ? "" : name)
             case ("schrift", true): if !jetzt.schriften.isEmpty { jetzt.schriften.removeLast() }
             default: break
             }
@@ -252,6 +259,19 @@ enum Auszeichnung {
         text.enumerateAttributes(in: NSRange(location: 0, length: text.length)) { werte, bereich, _ in
             let stueck = ns.substring(with: bereich)
             var f = Format()
+            // Ein Emoji setzt iOS selbst in seine Emoji-Schrift — das ist
+            // kein Format (ab 1.0.34). Nur Unterstreichung zählt dort.
+            if let schrift = werte[.font] as? UIFont,
+               schrift.familyName.localizedCaseInsensitiveContains("emoji")
+                || schrift.fontName.localizedCaseInsensitiveContains("emoji") {
+                if let linie = werte[.underlineStyle] as? Int, linie != 0 { f.unterstrichen = 1 }
+                if (werte[.kwFett] as? Bool) == true, !grundFett { f.fett = 1 }
+                if (werte[.kwKursiv] as? Bool) == true, !grundKursiv { f.kursiv = 1 }
+                if f.istLeer { ergebnis += stueck } else {
+                    ergebnis += oeffnen(f) + stueck + schliessen(f)
+                }
+                return
+            }
             if let schrift = werte[.font] as? UIFont {
                 let merkmale = schrift.fontDescriptor.symbolicTraits
                 // Erst das eigene Merkmal (ab 1.0.26), dann die Schrift.
@@ -302,4 +322,15 @@ extension NSAttributedString.Key {
     static let kwFett = NSAttributedString.Key("kapitelweise.fett")
     static let kwKursiv = NSAttributedString.Key("kapitelweise.kursiv")
     static let kwSchrift = NSAttributedString.Key("kapitelweise.schrift")
+}
+
+extension Auszeichnung {
+    /// Entfernt Schriftmarken, die nur die Emoji-Schrift von iOS nennen
+    /// (ab 1.0.34) — der Inhalt bleibt. Siehe `zerlegen`.
+    static func emojiMarkenEntfernen(_ text: String) -> String {
+        guard text.contains("[schrift="), text.localizedCaseInsensitiveContains("emoji") else { return text }
+        return text.replacingOccurrences(
+            of: "\\[schrift=[^\\]\\[]*[Ee]moji[^\\]\\[]*\\]([^\\[]*)\\[/schrift\\]",
+            with: "$1", options: .regularExpression)
+    }
 }
