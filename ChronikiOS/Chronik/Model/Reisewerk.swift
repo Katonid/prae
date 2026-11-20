@@ -34,6 +34,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // wählt es ausdrücklich.
     @Published var gewaehlteSeite: UUID?
     @Published var seitenzeiger: Int = 0
+    /// KAPITELWEISE (ab 1.0.35): Ein neuer freier Text, angelegt bei
+    /// gewähltem Foto („Text davor"), kommt auf DIESE Seite neben dieses
+    /// Foto — Eintrag → Foto. Nicht gespeichert; gilt bis zum Sichern.
+    var textBeiFoto: [UUID: UUID] = [:]
     @Published var meldung: Meldung?
     // Dateien entfernter Doppel, gelöscht erst beim Schließen (ab 1.0.128).
     private(set) var zuLoeschen: Set<String> = []
@@ -2087,6 +2091,20 @@ final class Reisewerk: ObservableObject, Identifiable {
             erinnerungEinhaengen(fotoID)
             meldung = .init(text: alle.count == 1 ? "Die Erinnerung ist gelöscht. \u{201E}Zurück\u{201C} holt sie wieder."
                             : "\(alle.count) Erinnerungen zu diesem Foto sind gelöscht. \u{201E}Zurück\u{201C} holt sie wieder.")
+            return
+        }
+        // KAPITELWEISE (ab 1.0.35, gemeldet 11/2026: „Wenn ich einen Text
+        // durch Antippen lösche … verbleibt er trotzdem noch im Speicher und
+        // wird beim nächsten … Befehl wieder an die Stelle gesetzt"). Wie bei
+        // der Erinnerung (1.0.21): Wer einen freien Textkasten löscht, meint
+        // den Text. Der Eintrag geht mit, samt Kopfzeile, Goldstrich und
+        // weiteren Stücken auf den Seiten des Kapitels.
+        if bloecke[stelle.block].zuFoto == nil, case .text = bloecke[stelle.block].inhalt,
+           !reise.tage[stelle.tag].vorwort,
+           let e = eintrag(zuText: bloecke[stelle.block]), e.foto == nil {
+            freienTextLoeschen(e, kapitel: stelle.tag, block: id)
+            if gewaehlterBlock == id { gewaehlterBlock = nil }
+            meldung = .init(text: "Der Text ist gelöscht \u{2014} von der Seite und aus der Textliste. \u{201E}Zurück\u{201C} holt ihn wieder.")
             return
         }
         // Seit 1.0.22 geht auch die Bildunterschrift mit — allein stünde sie

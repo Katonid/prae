@@ -709,6 +709,35 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Marken beim Öffnen des Buches einmal aus Einträgen, Vorwort, Zeitung,
   Meldungen, Unterschriften und Textkästen (`emojiMarkenEntfernen`, unter
   Linux geprüft). **Ursache aus dem Quelltext geschlossen, nicht gemessen.**
+- **Ein gelöschter Text ist weg** (ab 1.0.35, gemeldet 11/2026: „Wenn ich
+  einen Text durch Antippen lösche … verbleibt er trotzdem noch im Speicher
+  und wird beim nächsten Texte neu aufbauen Befehl wieder an die Stelle
+  gesetzt"). Dieselbe Lücke wie bei Erinnerungen (1.0.21) und Fotos (1.0.22):
+  `blockLoeschen` nahm bei einem freien Textkasten nur den Kasten. Jetzt
+  findet es den Eintrag (`eintrag(zuText:)`, nicht im Vorwort, nicht bei
+  `zuFoto`) und ruft `freienTextLoeschen` (Kapitelwerk): Eintrag weg, dazu
+  auf allen Seiten des Kapitels seine Textstücke (gleicher Wortlaut oder
+  Stück ab 12 Zeichen), die Kopfzeile (mit Titel überall, nur-Datum nur
+  direkt über einem gelöschten Stück — die kann ein anderer Text desselben
+  Tages tragen) und den Goldstrich darüber. „Zurück" holt alles. Umgekehrt
+  nimmt `eintragLoeschen` (Textliste, Editor) den Text bei Handarbeit/Sperre
+  jetzt auch von der Seite.
+- **„Text davor" lässt das Foto in Ruhe** (ab 1.0.35, Ansage des Nutzers
+  11/2026: „dann soll sich die Größe und die Position und das Format des
+  Bildes nicht ändern … bin ich ja sowieso an der Stelle dabei, die Seite
+  per Hand zu gestalten … dass der Text nicht einfach in einem für ihn
+  passenden, möglichst quadratischen Textfeld erscheint"). `EintragView.textVor`
+  merkt das Foto in `Reisewerk.textBeiFoto` (nicht gespeichert);
+  `eintragSichern` setzt einen solchen NEUEN Text nie neu (auch ohne
+  Handarbeit), sondern `freienTextEinhaengen(_:beiFoto:)` legt ihn auf die
+  Seite DIESES Fotos. Für alle freien Texte, die eingehängt werden, gilt
+  jetzt: Das Foto bleibt unverändert (bis 1.0.34 gab es oben einen
+  Streifen ab); `textfeldAufSeite` nimmt die schmalste Breite ab 110 pt, bei
+  der der Text nicht höher als breit wird, und sucht im Satzspiegel (Raster
+  8 pt) den freien Platz, der der Stelle über (bzw. unter) dem Foto am
+  nächsten ist; ist nichts frei, liegt das Feld in der oberen linken Ecke
+  des Fotos (Meldung sagt es). **Nicht gemessen:** auf einem Gerät; Album-
+  seiten sind meist voll, dann liegt der Text über dem Foto.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -759,7 +788,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -865,3 +894,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.34 (Build 35)**, 11/2026: Emojis erscheinen auf den Seiten
   (Emoji-Schrift nicht mehr als Marke gespeichert, alte Marken entfernt).
   **Nicht gemessen:** auf einem Gerät.
+- **1.0.35 (Build 36)**, 11/2026: gelöschter Text geht aus Seite, Textliste
+  und Speicher; „Text davor" ändert das Foto nicht und setzt ein
+  quadratisches Textfeld. **Nicht gemessen:** auf einem Gerät.

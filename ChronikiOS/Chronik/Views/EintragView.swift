@@ -198,6 +198,7 @@ struct EintragView: View {
     /// aber direkt vor ihm — als eigenes Textfeld vor der Bildgruppe.
     static func textVor(_ fotoID: UUID, werk: Reisewerk) -> Texteintrag {
         var neu = Texteintrag()
+        werk.textBeiFoto[neu.id] = fotoID
         if let foto = werk.reise.foto(fotoID) {
             if let wann = foto.aufnahme {
                 neu.zeit = wann.addingTimeInterval(-60)
