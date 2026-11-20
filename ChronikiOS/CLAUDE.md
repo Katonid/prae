@@ -779,6 +779,35 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   und im Inspektor unter „Auf welcher Seite", dazu in der Funktionssuche.
   **Achtung:** „Kapitel und Zeitraster → neu einteilen" ordnet wieder nach
   Aufnahmedatum — das Foto käme zurück. **Nicht gemessen:** auf einem Gerät.
+- **Geburtstagsseiten auch in gesperrten Kapiteln** (ab 1.0.38, Ansage des
+  Nutzers 11/2026: Kapitel gesperrt, „Für meine Fotos und die Texte soll das
+  auch weiterhin gelten. Allerdings muss ich ja noch die Geburtstagsseiten
+  erstellen. Dies soll bitte trotzdem möglich sein"). `geburtstagsseitenAnlegen`
+  überspringt gesperrte Kapitel nicht mehr (fügt nur Seiten ein, setzt nichts
+  neu); `geburtstagsseitenErneuern` (nach „Fertig" in Zeitung und Meldungen)
+  legt sie an, wenn es noch keine gibt. Die Sperre schützt weiter alles
+  andere (`seitenNeuSetzen`).
+- **Meldungen auf einmal einlesen, Satz als Fluss** (ab 1.0.38, Ansage des
+  Nutzers 11/2026: „Meldungen des Tages mit oder ohne Foto in die App
+  hineinladen …, sodass diese automatisch eine Anordnung auf der Seite trifft,
+  sodass man die Texte gut lesen kann und auch erkennen kann, welches Bild zu
+  welchem [Text] gehört").
+  - `Meldung.ausText` (unter Linux an Beispielen geprüft): Absätze (Leerzeile)
+    = je eine Meldung, erste Zeile ≤ 90 Zeichen = Überschrift; ohne
+    Leerzeilen jede Zeile eine Meldung; „1964 – …"/„1964: …" → Jahreszahl als
+    Überschrift; Aufzählungszeichen fallen weg.
+  - `KapitelseitenView`, Abschnitt „Mehrere Meldungen auf einmal": aus der
+    Zwischenablage, aus einer Textdatei (derselbe `fileImporter`, Typen nach
+    `textdateiwahl`), „Bilder der Reihe nach zuordnen" (Mehrfachwahl, an
+    Meldungen ohne Bild in Reihenfolge, übrige Bilder als neue Meldungen).
+    Leere Meldungen fallen beim Einfügen weg.
+  - `meldungsseiten`: statt 2×2-Raster zwei Spalten im Fluss; jede Meldung ist
+    ein Stück (`meldungsstueck`: Bild ≤ 34 % der Satzhöhe, 6 pt darunter
+    Goldbalken + Überschrift, Text) und kommt in die niedrigere Spalte;
+    zwischen Meldungen 4 Fugen. Ohne Bild nur so hoch wie der Text; lange
+    Texte werden nicht mehr auf eine Viertelseite gekürzt.
+  - **Nicht gemessen:** auf einem Gerät; wie Texte aus Webseiten (Wikipedia
+    „Was geschah am …") tatsächlich zerlegt werden.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -829,7 +858,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -944,3 +973,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.37 (Build 38)**, 11/2026: Fotos und andere Blöcke ins vorige/nächste
   Kapitel verschieben oder kopieren, Erinnerung zieht mit.
   **Nicht gemessen:** auf einem Gerät.
+- **1.0.38 (Build 39)**, 11/2026: Geburtstagsseiten auch in gesperrten
+  Kapiteln, Meldungen aus Zwischenablage/Textdatei, Bilder der Reihe nach,
+  Meldungen als zweispaltiger Fluss. **Nicht gemessen:** auf einem Gerät.

@@ -1134,8 +1134,12 @@ extension Reisewerk {
 
     /// Legt in jedem Kapitel, in das ein Geburtstag fällt und das noch keine
     /// Geburtstagsseiten hat, Zeitung und Meldungen an — als Platzhalter,
-    /// solange nichts eingesetzt ist. Gesperrte Kapitel bleiben, wie sie
-    /// sind. Antwort: ein Satz für die Meldung.
+    /// solange nichts eingesetzt ist. Auch in GESPERRTEN Kapiteln (ab
+    /// 1.0.38, Ansage des Nutzers 11/2026: Kapitel gesperrt, „Für meine
+    /// Fotos und die Texte soll das auch weiterhin gelten. Allerdings muss
+    /// ich ja noch die Geburtstagsseiten erstellen. Dies soll bitte trotzdem
+    /// möglich sein") — es kommen nur Seiten dazu, an den übrigen ändert
+    /// sich nichts. Antwort: ein Satz für die Meldung.
     @discardableResult
     func geburtstagsseitenAnlegen() -> String {
         guard reise.geburtstag != nil else {
@@ -1148,7 +1152,7 @@ extension Reisewerk {
         for t in reise.tage.indices {
             let tag = reise.tage[t]
             guard let gb = reise.geburtstagIm(tag), !tag.seiten.contains(where: \.geburtstag) else { continue }
-            if tag.gesperrt { gesperrt += 1; continue }
+            if tag.gesperrt { gesperrt += 1 }
             let seiten = automat.geburtstagsseiten(tag, datum: gb.datum, alter: gb.alter, mitKopf: tag.seiten.isEmpty)
             reise.tage[t].seiten = geburtstagsseitenEinordnen(reise.tage[t].seiten + seiten, kapitel: t)
             neu += 1
@@ -1156,7 +1160,7 @@ extension Reisewerk {
         sofortSichern()
         var satz = neu == 0 ? "Alle Kapitel haben schon ihre Geburtstagsseiten."
             : "In \(neu) Kapiteln sind Seiten für Zeitung und Meldungen am Geburtstag angelegt."
-        if gesperrt > 0 { satz += " \(gesperrt) gesperrte Kapitel blieben, wie sie sind." }
+        if gesperrt > 0 { satz += " Davon \(gesperrt) gesperrte \u{2014} dort kamen nur diese Seiten dazu, Fotos und Texte blieben, wie sie sind." }
         meldung = .init(text: satz)
         return satz
     }
@@ -1183,8 +1187,15 @@ extension Reisewerk {
     /// einer Änderung an Zeitung oder Meldungen, wenn das Kapitel sonst nicht
     /// neu gesetzt wird (Handarbeit, Sperre). Nichts anderes ändert sich.
     func geburtstagsseitenErneuern(_ id: UUID) {
-        guard let t = tagIndex(id), let gb = reise.geburtstagIm(reise.tage[t]),
-              let erste = reise.tage[t].seiten.firstIndex(where: \.geburtstag) else { return }
+        guard let t = tagIndex(id), let gb = reise.geburtstagIm(reise.tage[t]) else { return }
+        // Noch keine Geburtstagsseiten (etwa im gesperrten Kapitel, ab
+        // 1.0.38): anlegen und an ihren Tag stellen.
+        guard let erste = reise.tage[t].seiten.firstIndex(where: \.geburtstag) else {
+            let seiten = automat.geburtstagsseiten(reise.tage[t], datum: gb.datum, alter: gb.alter,
+                                                   mitKopf: reise.tage[t].seiten.isEmpty)
+            reise.tage[t].seiten = geburtstagsseitenEinordnen(reise.tage[t].seiten + seiten, kapitel: t)
+            return
+        }
         let neu = automat.geburtstagsseiten(reise.tage[t], datum: gb.datum, alter: gb.alter, mitKopf: erste == 0)
         var seiten = reise.tage[t].seiten.filter { !$0.geburtstag }
         seiten.insert(contentsOf: neu, at: min(erste, seiten.count))

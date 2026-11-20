@@ -144,6 +144,10 @@ struct BefehleView: View {
             if !tag.vorwort {
                 dazu(k, "Zeitung und Meldungen", "Kapitel-Menü \u{2192} Zeitung und Meldungen",
                      "zeitung titelseite geburtstag meldungen weltgeschichte", "newspaper", .blatt(.kapitelseiten(tag.id)))
+                dazu(k, "Meldungen des Tages einfügen (Text, Bilder)",
+                     "Kapitel-Menü \u{2192} Zeitung und Meldungen \u{2192} \u{201E}Mehrere Meldungen auf einmal\u{201C}",
+                     "meldungen einfügen zwischenablage kopieren textdatei laden importieren bilder tag geschah",
+                     "doc.on.clipboard", .blatt(.kapitelseiten(tag.id)))
             }
             dazu(k, "Seiten des Kapitels (einfügen, löschen, Reihenfolge)", "Kapitel-Menü \u{2192} Seiten",
                  "seite einfügen löschen reihenfolge leere seite", "rectangle.stack", .blatt(.seiten(tag.id)))
