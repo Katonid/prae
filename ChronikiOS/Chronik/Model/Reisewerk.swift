@@ -555,11 +555,15 @@ final class Reisewerk: ObservableObject, Identifiable {
     @discardableResult
     func vorlageAnwenden(_ vorlage: Vorlage,
                          auchHandarbeit: Bool = false,
-                         formatMitrechnen: Bool? = nil) -> String
+                         formatMitrechnen: Bool? = nil,
+                         formatVerteilen: Bool = false) -> String
     {
         merken()
         if vorlage.art == .druckerei, let mitrechnen = formatMitrechnen {
-            if mitrechnen {
+            if mitrechnen && formatVerteilen {
+                // KAPITELWEISE (ab 1.0.39): Gestaltung behalten, Höhe verteilen.
+                self.formatVerteilen(auf: vorlage.werte.format)
+            } else if mitrechnen {
                 Formatwechsel.umrechnen(&reise, auf: vorlage.werte.format)
             } else {
                 reise.format = vorlage.werte.format
