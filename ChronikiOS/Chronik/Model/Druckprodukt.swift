@@ -272,7 +272,7 @@ struct Druckprodukt: Identifiable, Hashable {
         } else if let e = einzelteil {
             zeilen.append("Der Umschlag ist bei diesem Produkt KEIN Bogen mit Rücken, sondern ein eigenes Teil (\(Druckvorgabe.zahl(e.breite)) \u{00D7} \(Druckvorgabe.zahl(e.hoehe)) mm mit \(Druckvorgabe.zahl(e.anschnitt)) mm Beschnitt). Das kann diese App nicht als Umschlag ausgeben \u{2014} die Umschlag-Einstellungen bleiben, wie sie sind.")
         }
-        if !istSaal {
+        if anbieter == "WhiteWall" {
             var satz = "WhiteWalls Exportvorgabe verlangt ein PDF ohne Transparenz. "
             satz += "Das stellt sich NICHT von selbst um: \u{201E}Ohne Transparenz\u{201C} "
             satz += "beim Ausgeben nimmt die Wasserzeichen ganz heraus \u{2014} ob das "
@@ -284,7 +284,7 @@ struct Druckprodukt: Identifiable, Hashable {
 
     // MARK: - Nachschlagen
 
-    static let alle: [Druckprodukt] = Saalprodukte.alle + Whitewallprodukte.alle
+    static let alle: [Druckprodukt] = Saalprodukte.alle + Whitewallprodukte.alle + Druckhausprodukte.alle
 
     /// Die Anbieter in der Reihenfolge, in der sie im Blatt stehen.
     static var anbieterliste: [String] {

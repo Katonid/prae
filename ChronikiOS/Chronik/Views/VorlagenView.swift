@@ -357,6 +357,7 @@ private struct Anwendenseite: View {
 
     enum Formatweg: String, CaseIterable, Identifiable {
         case mitrechnen
+        case verteilen
         case nurFormat
         case lassen
 
@@ -365,6 +366,7 @@ private struct Anwendenseite: View {
         var name: String {
             switch self {
             case .mitrechnen: return "Format wechseln und Inhalt mitrechnen"
+            case .verteilen: return "Gestaltung behalten, Höhe verteilen"
             case .nurFormat: return "Nur das Format wechseln"
             case .lassen: return "Format lassen, wie es ist"
             }
@@ -444,7 +446,8 @@ private struct Anwendenseite: View {
                     let satz = werk.vorlageAnwenden(
                         vorlage,
                         auchHandarbeit: auchHandarbeit,
-                        formatMitrechnen: formatwunsch
+                        formatMitrechnen: formatwunsch,
+                        formatVerteilen: formatweg == .verteilen && formatAnders
                     )
                     schliessen()
                     fertig(satz)
@@ -463,7 +466,7 @@ private struct Anwendenseite: View {
     private var formatwunsch: Bool? {
         guard formatAnders else { return nil }
         switch formatweg {
-        case .mitrechnen: return true
+        case .mitrechnen, .verteilen: return true
         case .nurFormat: return false
         case .lassen: return nil
         }

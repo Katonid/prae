@@ -486,6 +486,26 @@ struct Wechselblatt: View {
                     }
                 }
 
+                // GESTALTUNG BEHALTEN (ab 1.0.39, Kapitelweise): Bei
+                // unähnlichen Formaten (Saal 21 × 27 → A4) bliebe beim
+                // Mitrechnen auf jeder gestalteten Seite ein Streifen leer.
+                if !vorschau.aehnlich {
+                    Section {
+                        Button {
+                            werk.merken()
+                            werk.formatVerteilen(auf: vorschau.neu)
+                            danach?.anwenden(auf: &werk.reise)
+                            werk.meldung = .init(text: "Format gewechselt. Jede Seite behält ihre Gestaltung; der neue Platz ist auf die Abstände verteilt. Mit \u{201E}Widerrufen\u{201C} zurückzunehmen.")
+                            schliessen()
+                            fertig()
+                        } label: {
+                            Label("Gestaltung behalten, Höhe verteilen (empfohlen)", systemImage: "arrow.up.and.down.text.horizontal")
+                        }
+                    } footer: {
+                        Text("Fotos und Texte behalten Größe, Ausschnitt und Drehung, wie beim Mitrechnen. Zusätzlich rücken sie im Verhältnis auseinander, sodass die gewonnene Fläche gleichmäßig zwischen ihnen liegt statt als leerer Streifen am Rand. Bildunterschriften und Erinnerungen bleiben an ihrem Foto. Nichts wird neu angeordnet \u{2014} auch gesperrte Kapitel nicht; das Vorwort fließt neu.")
+                    }
+                }
+
                 Section {
                     Button("Format wechseln und Inhalt mitrechnen") {
                         werk.merken()

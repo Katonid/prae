@@ -1810,3 +1810,78 @@ extension Reisewerk {
     }
 
 }
+
+// MARK: - Formatwechsel: Gestaltung behalten, Höhe verteilen (ab 1.0.39)
+
+extension Reisewerk {
+    /// Ansage des Nutzers 11/2026 (Wechsel von Saal 21 × 27 auf DIN A4 beim
+    /// Druckhaus): „Ich möchte diesen Prozess allerdings möglichst
+    /// beschwerdefrei überstehen … dass von mir geplante Anordnungen doch
+    /// nicht übertragen werden." `Formatwechsel.umrechnen` skaliert mit dem
+    /// KLEINEREN Verhältnis (hier 1) und lässt alles oben stehen — auf jeder
+    /// gestalteten Seite bliebe unten ein leerer Streifen.
+    ///
+    /// Hier zuerst genau das (Größen, Schriften, Ränder wie beim Umrechnen),
+    /// dann wird jede GRUPPE (Block samt Bildunterschrift und Erinnerung,
+    /// `anhaengsel`) mit ihrem Mittelpunkt im Verhältnis vom alten auf den
+    /// neuen Satzspiegel verschoben — Größe, Ausschnitt, Drehung, Ebene
+    /// bleiben. Der zusätzliche Platz verteilt sich so gleichmäßig auf die
+    /// Lücken. Was die ganze Seite bedeckt (≥ 95 % in beiden Richtungen),
+    /// wird auf die neue Seite gezogen. Gilt auch für gesperrte Kapitel —
+    /// es wird nichts neu angeordnet. Das Vorwort fließt danach neu.
+    func formatVerteilen(auf neu: Seitenformat) {
+        let alt = reise.format
+        let altSatz = reise.gestaltung.satzspiegel(alt)
+        let altSeite = CGRect(x: 0, y: 0, width: Druckmass.pt(alt.breite), height: Druckmass.pt(alt.hoehe))
+        let f = Formatwechsel.faktor(von: alt, auf: neu)
+        Formatwechsel.umrechnen(&reise, auf: neu)
+        func mal(_ r: CGRect) -> CGRect {
+            CGRect(x: r.minX * f, y: r.minY * f, width: r.width * f, height: r.height * f)
+        }
+        let von = mal(altSatz)
+        let vonSeite = mal(altSeite)
+        let nach = reise.gestaltung.satzspiegel(neu)
+        let nachSeite = CGRect(x: 0, y: 0, width: Druckmass.pt(neu.breite), height: Druckmass.pt(neu.hoehe))
+
+        func verteilt(_ bloecke: [Block], von: CGRect, nach: CGRect) -> [Block] {
+            var bloecke = bloecke
+            var vergeben = Set<Int>()
+            var gruppen: [(Int, [Int])] = []
+            for (i, b) in bloecke.enumerated() where b.fotoID != nil {
+                let dran = anhaengsel(b, in: bloecke).filter { !vergeben.contains($0) }
+                vergeben.formUnion(dran)
+                gruppen.append((i, dran))
+            }
+            for i in bloecke.indices where !vergeben.contains(i) && !gruppen.contains(where: { $0.0 == i }) {
+                gruppen.append((i, []))
+            }
+            for (i, dran) in gruppen where !vergeben.contains(i) {
+                let r = bloecke[i].rahmen.rect
+                if r.width >= vonSeite.width * 0.95, r.height >= vonSeite.height * 0.95 {
+                    let sx = nachSeite.width / max(vonSeite.width, 1)
+                    let sy = nachSeite.height / max(vonSeite.height, 1)
+                    bloecke[i].rahmen = Rahmen(x: Double(r.minX * sx), y: Double(r.minY * sy),
+                                               breite: Double(r.width * sx), hoehe: Double(r.height * sy))
+                    continue
+                }
+                let mx = nach.minX + (r.midX - von.minX) / max(von.width, 1) * nach.width
+                let my = nach.minY + (r.midY - von.minY) / max(von.height, 1) * nach.height
+                let dx = Double(mx - r.midX), dy = Double(my - r.midY)
+                for k in [i] + dran {
+                    bloecke[k].rahmen.x += dx
+                    bloecke[k].rahmen.y += dy
+                }
+            }
+            return bloecke
+        }
+
+        for t in reise.tage.indices {
+            for p in reise.tage[t].seiten.indices {
+                reise.tage[t].seiten[p].bloecke = verteilt(reise.tage[t].seiten[p].bloecke, von: von, nach: nach)
+            }
+        }
+        reise.schmutztitelbloecke = verteilt(reise.schmutztitelbloecke, von: vonSeite, nach: nachSeite)
+        reise.schlussbloecke = verteilt(reise.schlussbloecke, von: vonSeite, nach: nachSeite)
+        if let v = reise.vorwortIndex { vorwortNachfuehren(v) }
+    }
+}
