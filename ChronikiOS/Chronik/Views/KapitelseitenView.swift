@@ -283,6 +283,9 @@ struct KapitelseitenView: View {
             if let i = werk.reise.tage[stelle].meldungen.firstIndex(where: { $0.id == kennung }) {
                 werk.reise.tage[stelle].meldungen[i].foto = id
             }
+        case .meldungenReihe:
+            // Geht über `reiheSetzen`, nie hierher.
+            break
         }
     }
 
