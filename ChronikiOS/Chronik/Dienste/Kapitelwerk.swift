@@ -55,6 +55,13 @@ extension Reisewerk {
            hatHandarbeit(kapitelID) || reise.tage[stelle].gesperrt {
             erinnerungEinhaengen(fotoID)
         } else if eintrag.foto == nil, hatHandarbeit(kapitelID) || reise.tage[stelle].gesperrt {
+            // Ein GEÄNDERTER Text: erst den alten Wortlaut auf der Seite
+            // ersetzen (ab 1.0.33) — sonst fand `freienTextEinhaengen` ihn
+            // an der Kopfzeile, hielt ihn für „steht schon da", und auf der
+            // Seite blieb der alte Text.
+            if let vorher, vorher.foto == nil {
+                eintragAufSeitenErneuern(vorher: vorher, nachher: eintrag)
+            }
             // Ein freier Text auf einer Seite mit Handarbeit (ab 1.0.31).
             freienTextEinhaengen(eintrag.id)
         }
@@ -1393,6 +1400,113 @@ extension Reisewerk {
         reise.tage[t].seiten[ziel.seite].bloecke.append(block)
         seitenzeiger = ziel.seite
         return true
+    }
+
+
+    // MARK: Geänderter Text auf gestalteten Seiten (ab 1.0.33)
+
+    /// Ersetzt auf den Seiten des Kapitels den alten Wortlaut eines Eintrags
+    /// durch den neuen (gemeldet 11/2026 mit Bildschirmfoto: Text über das
+    /// Bearbeiten-Symbol geändert, „Beim Abspeichern erscheint aber nicht
+    /// der neue Text aus dem Speicher an der Stelle, sondern weiterhin der
+    /// alte."). Der Kasten mit genau dem alten Text bekommt den neuen; war
+    /// der alte über mehrere Kästen geteilt, bekommt der erste den ganzen
+    /// neuen Text und die übrigen Stücke gehen weg. Die Kopfzeile wird
+    /// mitgeändert. Der Kasten wächst, wenn der neue Text länger ist.
+    func eintragAufSeitenErneuern(vorher: Texteintrag, nachher: Texteintrag) {
+        let alt = vorher.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let neu = nachher.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let t = reise.tage.firstIndex(where: { $0.datum == reise.kapitelbeginn(vorher.tagesdatum) }) else { return }
+        var erster: UUID?
+        var stuecke: [UUID] = []
+        for p in reise.tage[t].seiten.indices {
+            for b in reise.tage[t].seiten[p].bloecke.indices {
+                let block = reise.tage[t].seiten[p].bloecke[b]
+                guard block.zuFoto == nil, case let .text(w) = block.inhalt else { continue }
+                let sauber = w.trimmingCharacters(in: .whitespacesAndNewlines)
+                if sauber == vorher.kopfzeile, vorher.kopfzeile != nachher.kopfzeile {
+                    reise.tage[t].seiten[p].bloecke[b].inhalt = .text(nachher.kopfzeile)
+                    continue
+                }
+                guard alt != neu, !alt.isEmpty, !sauber.isEmpty else { continue }
+                if sauber == alt || (sauber.count >= 20 && alt.contains(sauber)) {
+                    if erster == nil {
+                        erster = block.id
+                        reise.tage[t].seiten[p].bloecke[b].inhalt = .text(neu)
+                    } else {
+                        stuecke.append(block.id)
+                    }
+                }
+            }
+        }
+        if !stuecke.isEmpty {
+            for p in reise.tage[t].seiten.indices {
+                reise.tage[t].seiten[p].bloecke.removeAll { stuecke.contains($0.id) }
+            }
+        }
+        if let erster { _ = hoeheAnTextAnpassen(erster, merken: false) }
+    }
+
+
+    /// Einträge, deren Kopfzeile auf einer Seite steht, deren Text dort aber
+    /// nicht (mehr) zu finden ist — der Kasten trägt einen alten Wortlaut.
+    func veralteteTexte(_ kapitelID: UUID) -> [Texteintrag] {
+        guard let t = tagIndex(kapitelID) else { return [] }
+        return reise.kapiteleintraege(reise.tage[t].datum).filter { e in
+            guard e.foto == nil else { return false }
+            let rumpf = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !rumpf.isEmpty else { return false }
+            var kopf = false, text = false
+            for s in reise.tage[t].seiten {
+                for b in s.bloecke {
+                    guard let w = b.text?.trimmingCharacters(in: .whitespacesAndNewlines), !w.isEmpty else { continue }
+                    if w == e.kopfzeile { kopf = true }
+                    if w == rumpf || rumpf.contains(w) && w != e.kopfzeile { text = true }
+                }
+            }
+            return kopf && !text
+        }
+    }
+
+    /// TEXTE AUF DEN SEITEN AUFFRISCHEN (ab 1.0.33): Wo unter einer
+    /// Kopfzeile noch ein alter Wortlaut steht, kommt der gespeicherte
+    /// hinein (der Kasten direkt unter der Kopfzeile, gleiche linke Kante);
+    /// Texte, die gar nicht auf einer Seite stehen, kommen an ihre Stelle.
+    /// Sonst ändert sich nichts.
+    func texteAufSeitenAuffrischen(_ kapitelID: UUID) {
+        guard let t = tagIndex(kapitelID) else { return }
+        let veraltet = veralteteTexte(kapitelID)
+        let fehlend = fehlendeTexte(kapitelID)
+        guard !veraltet.isEmpty || !fehlend.isEmpty else {
+            meldung = .init(text: "Alle Texte dieses Kapitels stehen auf den Seiten so, wie sie gespeichert sind.")
+            return
+        }
+        merken()
+        var erneuert = 0
+        for e in veraltet {
+            let rumpf = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            seiten: for p in reise.tage[t].seiten.indices {
+                let bloecke = reise.tage[t].seiten[p].bloecke
+                guard let kopf = bloecke.first(where: { $0.text?.trimmingCharacters(in: .whitespacesAndNewlines) == e.kopfzeile })
+                else { continue }
+                let darunter = bloecke.enumerated().filter { _, b in
+                    b.id != kopf.id && b.zuFoto == nil && b.text != nil
+                        && abs(b.rahmen.x - kopf.rahmen.x) < 4 && b.rahmen.y > kopf.rahmen.y
+                }.min { $0.element.rahmen.y < $1.element.rahmen.y }
+                if let treffer = darunter {
+                    reise.tage[t].seiten[p].bloecke[treffer.offset].inhalt = .text(rumpf)
+                    _ = hoeheAnTextAnpassen(treffer.element.id, merken: false)
+                    erneuert += 1
+                    break seiten
+                }
+            }
+        }
+        for e in fehlend { freienTextEinhaengen(e.id) }
+        sofortSichern()
+        var teile: [String] = []
+        if erneuert > 0 { teile.append(erneuert == 1 ? "1 Text zeigt jetzt den gespeicherten Wortlaut" : "\(erneuert) Texte zeigen jetzt den gespeicherten Wortlaut") }
+        if !fehlend.isEmpty { teile.append(fehlend.count == 1 ? "1 fehlender Text steht jetzt an seiner Stelle" : "\(fehlend.count) fehlende Texte stehen jetzt an ihrer Stelle") }
+        meldung = .init(text: teile.joined(separator: "; ") + ".")
     }
 
 }
