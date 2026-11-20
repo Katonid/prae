@@ -65,6 +65,9 @@ struct BefehleView: View {
              foto == nil ? "Erst ein Foto antippen, dann unten \u{201E}Text davor\u{201C}" : "Foto gewählt \u{2192} unten \u{201E}Text davor\u{201C}",
              "abschnitt mehrere bilder einleitung gruppe überschrift", "text.insert",
              foto.map { .blatt(.textVor($0)) } ?? .hinweis)
+        dazu(t, "Foto in ein anderes Kapitel verschieben oder kopieren",
+             "Foto antippen \u{2192} unten das Menü \u{201E}Foto\u{201C} \u{2192} \u{201E}Ins vorige Kapitel\u{201C} / \u{201E}Ins nächste Kapitel\u{201C}",
+             "kapitel jahr vorziehen verschieben kopieren schummeln anderes jahr dezember januar", "arrow.left.to.line", .hinweis)
         dazu(t, "Datum oder Goldstrich über einem Text zeigen",
              "Text bearbeiten \u{2192} \u{201E}Darstellung im Buch\u{201C} (beides zunächst aus)",
              "datum kopfzeile strich linie goldstrich zeigen ausblenden", "calendar", .hinweis)

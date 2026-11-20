@@ -763,6 +763,22 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     und die Striche über Texten ab, die beides nicht zeigen sollen; ohne
     Kopfzeile rückt der Text an ihre Stelle (wiederholbar, was gewünscht
     ist, bleibt). **Nicht gemessen:** auf einem Gerät.
+- **Verschieben und Kopieren über die Kapitelgrenze** (ab 1.0.37, Ansage
+  des Nutzers 11/2026: „ein bisschen schummeln … ein Foto, das im Januar
+  eines Jahres geschossen wurde, auf die Dezemberseite des vorangegangenen
+  Jahres vorziehen … Verschieben oder Kopieren offenbar nur kapitelweise").
+  `Reisewerk.blockInsNachbarkapitel(_:richtung:kopie:)`: zurück auf die
+  LETZTE Seite des vorigen Kapitels, vor auf die ERSTE des nächsten (Vorwort
+  ist kein Nachbar; `nachbarkapitel`). Beim Verschieben gehen Unterschrift
+  und Erinnerung mit; ein Foto wechselt `tag.fotos` (`fotoDemTagZuordnen`),
+  das Aufnahmedatum bleibt — beim Neuverteilen steht es im neuen Kapitel
+  hinten (Zeitfolge). Damit die Erinnerung mitkommt, ordnet
+  `Reise.eintragKapitel` einen Eintrag mit `foto` dem Kapitel zu, in dessen
+  `tag.fotos` das Foto steht (`kapiteleintraege`, `Reise.automat`); sonst
+  nach Zeitpunkt. Im Blockmenü (Abschnitte „Verschieben" und „Kopieren")
+  und im Inspektor unter „Auf welcher Seite", dazu in der Funktionssuche.
+  **Achtung:** „Kapitel und Zeitraster → neu einteilen" ordnet wieder nach
+  Aufnahmedatum — das Foto käme zurück. **Nicht gemessen:** auf einem Gerät.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -813,7 +829,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -924,4 +940,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   quadratisches Textfeld. **Nicht gemessen:** auf einem Gerät.
 - **1.0.36 (Build 37)**, 11/2026: Datumszeile löschen lässt den Text stehen;
   Datum und Goldstrich über Texten zunächst aus, im Editor einschaltbar.
+  **Nicht gemessen:** auf einem Gerät.
+- **1.0.37 (Build 38)**, 11/2026: Fotos und andere Blöcke ins vorige/nächste
+  Kapitel verschieben oder kopieren, Erinnerung zieht mit.
   **Nicht gemessen:** auf einem Gerät.

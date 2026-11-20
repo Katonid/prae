@@ -398,6 +398,21 @@ struct BlockInspektor: View {
                     }
                     .buttonStyle(.bordered)
                 }
+                // Über die Kapitelgrenze (ab 1.0.37).
+                if let name = werk.nachbarkapitelName(block.id, richtung: -1) {
+                    Button {
+                        werk.blockInsNachbarkapitel(block.id, richtung: -1)
+                    } label: {
+                        Label("Ins vorige Kapitel (\(name), letzte Seite)", systemImage: "arrow.left.to.line")
+                    }
+                }
+                if let name = werk.nachbarkapitelName(block.id, richtung: 1) {
+                    Button {
+                        werk.blockInsNachbarkapitel(block.id, richtung: 1)
+                    } label: {
+                        Label("Ins nächste Kapitel (\(name), erste Seite)", systemImage: "arrow.right.to.line")
+                    }
+                }
                 if lage.anzahl > 2 {
                     Menu("Auf eine bestimmte Seite …") {
                         ForEach(0..<lage.anzahl, id: \.self) { nummer in

@@ -263,8 +263,9 @@ extension Reise {
         // KAPITELWEISE (ab 1.0.8): die Texteinträge je Kapitel, damit der
         // Satz sie nach ihrem Datum zwischen die Fotos stellen kann.
         var texte: [Tagesdatum: [Texteintrag]] = [:]
+        let fk = fotoKapitel
         for eintrag in eintraege {
-            texte[kapitelbeginn(eintrag.tagesdatum), default: []].append(eintrag)
+            texte[eintragKapitel(eintrag, fotoKapitel: fk), default: []].append(eintrag)
         }
         for k in texte.keys { texte[k]?.sort { $0.zeit < $1.zeit } }
         werkzeug.kapiteltexte = texte

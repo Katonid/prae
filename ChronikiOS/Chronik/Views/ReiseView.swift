@@ -1652,6 +1652,17 @@ struct ReiseView: View {
             Button("Auf eine neue Seite", systemImage: "doc.badge.plus") {
                 werk.blockAufNeueSeite(block.id)
             }
+            // Über die Kapitelgrenze (ab 1.0.37).
+            if let name = werk.nachbarkapitelName(block.id, richtung: -1) {
+                Button("Ins vorige Kapitel \u{2013} \(name), letzte Seite", systemImage: "arrow.left.to.line") {
+                    werk.blockInsNachbarkapitel(block.id, richtung: -1)
+                }
+            }
+            if let name = werk.nachbarkapitelName(block.id, richtung: 1) {
+                Button("Ins nächste Kapitel \u{2013} \(name), erste Seite", systemImage: "arrow.right.to.line") {
+                    werk.blockInsNachbarkapitel(block.id, richtung: 1)
+                }
+            }
             if lage.anzahl > 2 {
                 Menu("Auf Seite \u{2026}") {
                     ForEach(0..<lage.anzahl, id: \.self) { nummer in
@@ -1679,6 +1690,16 @@ struct ReiseView: View {
                 if lage.jetzt + 1 < lage.anzahl {
                     Button("Auf die nächste Seite", systemImage: "square.on.square.dashed") {
                         werk.blockKopieren(block.id, aufSeite: lage.jetzt + 1)
+                    }
+                }
+                if let name = werk.nachbarkapitelName(block.id, richtung: -1) {
+                    Button("Ins vorige Kapitel \u{2013} \(name)", systemImage: "arrow.left.to.line") {
+                        werk.blockInsNachbarkapitel(block.id, richtung: -1, kopie: true)
+                    }
+                }
+                if let name = werk.nachbarkapitelName(block.id, richtung: 1) {
+                    Button("Ins nächste Kapitel \u{2013} \(name)", systemImage: "arrow.right.to.line") {
+                        werk.blockInsNachbarkapitel(block.id, richtung: 1, kopie: true)
                     }
                 }
                 if lage.anzahl > 1 {
