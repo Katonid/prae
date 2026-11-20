@@ -26,6 +26,12 @@ struct Texteintrag: Codable, Identifiable, Hashable {
     /// Der Wortlaut nach der letzten automatischen Prüfung. Steht der Text
     /// noch genau so da, wird er nicht noch einmal geprüft.
     var geprueft: String?
+    /// KAPITELWEISE (ab 1.0.36, Ansage des Nutzers 11/2026: „die Option,
+    /// das Datum anzuzeigen und diesen unsinnigen Strich … standardmäßig
+    /// deaktiviert lassen. Erst auf Bedarf … bei der Bearbeitung des Textes
+    /// … aktivieren"). Beide aus, auch für ältere Einträge.
+    var datumZeigen: Bool = false
+    var strichZeigen: Bool = false
 
     init() {}
 
@@ -45,12 +51,22 @@ struct Texteintrag: Codable, Identifiable, Hashable {
         foto = b.wahlweise(.foto)
         fertig = b.wert(.fertig, false)
         geprueft = b.wahlweise(.geprueft)
+        datumZeigen = b.wert(.datumZeigen, false)
+        strichZeigen = b.wert(.strichZeigen, false)
     }
 
     var tagesdatum: Tagesdatum { Tagesdatum(zeit) }
 
-    /// Die Kopfzeile im Buch: „Überschrift – 16. Oktober 2019" oder nur das Datum.
+    /// Die Kopfzeile im Buch: die Überschrift, mit `datumZeigen` dazu das
+    /// Datum („Überschrift – 16. Oktober 2019" oder nur das Datum). Ohne
+    /// beides leer — dann steht keine Kopfzeile auf der Seite.
     var kopfzeile: String {
+        datumZeigen ? kopfMitDatum : titel.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Die Kopfzeile, wie sie bis 1.0.35 immer gesetzt wurde (mit Datum) —
+    /// für die Textausgabe und zum Wiederfinden alter Kästen.
+    var kopfMitDatum: String {
         let datum = Zeitraster.text(zeit, "d. MMMM yyyy")
         let t = titel.trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? datum : "\(t) \u{2013} \(datum)"
@@ -59,10 +75,9 @@ struct Texteintrag: Codable, Identifiable, Hashable {
     /// Wie der Eintrag im Kapiteltext steht: eine Kopfzeile mit Datum (und
     /// Überschrift), darunter der Text.
     var satz: String {
-        let datum = Zeitraster.text(zeit, "d. MMMM yyyy")
-        let t = titel.trimmingCharacters(in: .whitespacesAndNewlines)
-        let kopf = t.isEmpty ? datum : "\(t) \u{2013} \(datum)"
+        let kopf = kopfzeile
         let rumpf = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if kopf.isEmpty { return rumpf }
         return rumpf.isEmpty ? kopf : kopf + "\n" + rumpf
     }
 }

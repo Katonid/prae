@@ -101,6 +101,14 @@ struct Layoutautomat {
     var kapiteltexte: [Tagesdatum: [Texteintrag]] = [:]
     /// KAPITELWEISE (ab 1.0.30): der Geburtstag, der in ein Kapitel fällt.
     var geburtstage: [Tagesdatum: (datum: Date, alter: Int)] = [:]
+    /// KAPITELWEISE (ab 1.0.36): die Texte (Wortlaut), über die ein
+    /// Goldstrich gehört — nur die, bei denen er eingeschaltet ist.
+    var mitStrich: Set<String> = []
+    func strichUeber(_ rumpf: String, kopf: String) -> Bool {
+        let r = rumpf.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !r.isEmpty else { return false }
+        return mitStrich.contains { $0 == r || $0.contains(r) }
+    }
 
     private var satz: CGRect { gestaltung.satzspiegel(format) }
 
@@ -2649,9 +2657,11 @@ extension Layoutautomat {
                         bloecke.append(angelegt(unterschrift, an: bild))
                     }
                 } else {
-                    bloecke.append(Block(inhalt: .linie,
-                                         rahmen: Rahmen(x: x, y: y0 + 1, breite: 24, hoehe: 1.2),
-                                         rand: stil.akzent))
+                    if strichUeber(stueck.rumpf, kopf: stueck.kopf) {
+                        bloecke.append(Block(inhalt: .linie,
+                                             rahmen: Rahmen(x: x, y: y0 + 1, breite: 24, hoehe: 1.2),
+                                             rand: stil.akzent))
+                    }
                     var ty = y0 + textzugabe
                     if !stueck.kopf.isEmpty {
                         let k = textblock(stueck.kopf, bild: kopfbild, x: x, y: ty, breite: b)
@@ -2674,7 +2684,23 @@ extension Layoutautomat {
     /// Goldstrich, Kopfzeile (fett), Text —, oben links bei (x, y), in
     /// dieser Breite. Für Texte, die auf eine Seite mit Handarbeit kommen
     /// (`Reisewerk.freienTextEinhaengen`). Rückgabe: Blöcke und Gesamthöhe.
-    func textfeld(kopf: String, rumpf: String, x: Double, y: Double, breite: Double) -> (bloecke: [Block], hoehe: Double) {
+    /// Der kurze Goldstrich über einem Textfeld (ab 1.0.36 nur auf Wunsch).
+    func goldstrich(x: Double, y: Double) -> Block {
+        Block(inhalt: .linie, rahmen: Rahmen(x: x, y: y, breite: 24, hoehe: 1.2), rand: stil.akzent)
+    }
+
+    /// Eine Kopfzeile allein, wie im Textfeld gesetzt.
+    func kopfblock(_ kopf: String, x: Double, y: Double, breite: Double) -> Block {
+        var kopfbild = typografie[.unterueberschrift]
+        kopfbild.groesse = 12.5
+        kopfbild.ausrichtung = .links
+        kopfbild.fett = true
+        kopfbild.zeilenabstand = 1.15
+        return textblock(kopf, bild: kopfbild, x: x, y: y, breite: breite)
+    }
+
+    func textfeld(kopf: String, rumpf: String, x: Double, y: Double, breite: Double,
+                  strich: Bool = false) -> (bloecke: [Block], hoehe: Double) {
         var kopfbild = typografie[.unterueberschrift]
         kopfbild.groesse = 12.5
         kopfbild.ausrichtung = .links
@@ -2682,9 +2708,12 @@ extension Layoutautomat {
         kopfbild.zeilenabstand = 1.15
         var textbild = typografie.flieText
         textbild.ausrichtung = .links
-        var bloecke = [Block(inhalt: .linie, rahmen: Rahmen(x: x, y: y + 1, breite: 24, hoehe: 1.2),
-                             rand: stil.akzent)]
-        var ty = y + 9
+        var bloecke: [Block] = []
+        var ty = y
+        if strich {
+            bloecke.append(goldstrich(x: x, y: y + 1))
+            ty = y + 9
+        }
         if !kopf.isEmpty {
             let k = textblock(kopf, bild: kopfbild, x: x, y: ty, breite: breite)
             bloecke.append(k)

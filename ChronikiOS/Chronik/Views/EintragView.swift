@@ -264,6 +264,21 @@ struct EintragView: View {
                     }
                 }
 
+                if eintrag.foto == nil {
+                    Section {
+                        Toggle(isOn: $eintrag.datumZeigen) {
+                            Label("Datum über dem Text zeigen", systemImage: "calendar")
+                        }
+                        Toggle(isOn: $eintrag.strichZeigen) {
+                            Label("Goldstrich über dem Text", systemImage: "minus")
+                        }
+                    } header: {
+                        Text("Darstellung im Buch")
+                    } footer: {
+                        Text("Beides ist zunächst aus. Eine Überschrift steht über dem Text, sobald oben eine eingetragen ist.")
+                    }
+                }
+
                 Section {
                     Button {
                         ueberarbeiten = true

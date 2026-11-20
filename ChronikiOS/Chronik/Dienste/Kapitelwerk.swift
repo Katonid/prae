@@ -74,6 +74,7 @@ extension Reisewerk {
             // Seite blieb der alte Text.
             if let vorher, vorher.foto == nil {
                 eintragAufSeitenErneuern(vorher: vorher, nachher: eintrag)
+                kopfUndStrichNachfuehren(vorher: vorher, nachher: eintrag)
             }
             // Ein freier Text auf einer Seite mit Handarbeit (ab 1.0.31).
             freienTextEinhaengen(eintrag.id)
@@ -906,7 +907,8 @@ extension Reisewerk {
         return liste.first {
             let t = $0.text.trimmingCharacters(in: .whitespacesAndNewlines)
             return !t.isEmpty && (t.contains(wort) || wort.contains(t))
-        } ?? liste.first { $0.kopfzeile == wort || $0.titel.trimmingCharacters(in: .whitespacesAndNewlines) == wort }
+        } ?? liste.first { ($0.kopfzeile == wort && !wort.isEmpty) || $0.kopfMitDatum == wort
+            || $0.titel.trimmingCharacters(in: .whitespacesAndNewlines) == wort }
     }
 
     /// Schreibt eine Änderung aus einem Textkasten in seinen Eintrag zurück.
@@ -1084,7 +1086,7 @@ extension Reisewerk {
                     let t = Auszeichnung.ohne(e.text).trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !t.isEmpty || !e.titel.isEmpty else { continue }
                     let kopf = e.foto != nil ? (e.titel.isEmpty ? "(Erinnerung zum Foto)" : e.titel + " (Erinnerung zum Foto)")
-                        : e.kopfzeile
+                        : e.kopfMitDatum
                     kapitel.append(kopf + "\n" + t)
                 }
                 if reise.kapiteleintraege(tag.datum).isEmpty {
@@ -1348,7 +1350,7 @@ extension Reisewerk {
         let kopf = e.kopfzeile
         let feld = textfeldAufSeite(kopf: kopf, rumpf: rumpf, satz: satz,
                                     andere: seite.bloecke.map(\.rahmen.rect),
-                                    foto: foto.rect, oben: oben)
+                                    foto: foto.rect, oben: oben, strich: e.strichZeigen)
         let ebene = (seite.bloecke.map(\.ebene).max() ?? 0) + 1
         reise.tage[t].seiten[ziel.seite].bloecke += feld.bloecke.map { b in
             var n = b; n.vonHand = true; n.ebene = ebene; return n
@@ -1365,16 +1367,16 @@ extension Reisewerk {
     /// (bzw. unter) dem Foto; ist keiner frei, in die obere linke Ecke des
     /// Fotos, damit er gleich zu sehen ist.
     func textfeldAufSeite(kopf: String, rumpf: String, satz: CGRect, andere: [CGRect],
-                          foto: CGRect, oben: Bool) -> (bloecke: [Block], frei: Bool) {
+                          foto: CGRect, oben: Bool, strich: Bool = false) -> (bloecke: [Block], frei: Bool) {
         let minimal = min(110.0, Double(satz.width))
         var breite = Double(satz.width)
         var w = minimal
         while w <= Double(satz.width) {
-            let h = automat.textfeld(kopf: kopf, rumpf: rumpf, x: 0, y: 0, breite: w).hoehe
+            let h = automat.textfeld(kopf: kopf, rumpf: rumpf, x: 0, y: 0, breite: w, strich: strich).hoehe
             if h <= w { breite = w; break }
             w += 6
         }
-        let hoehe = min(automat.textfeld(kopf: kopf, rumpf: rumpf, x: 0, y: 0, breite: breite).hoehe,
+        let hoehe = min(automat.textfeld(kopf: kopf, rumpf: rumpf, x: 0, y: 0, breite: breite, strich: strich).hoehe,
                         Double(satz.height))
         let luft = reise.gestaltung.fugePt
         let wunsch = CGPoint(x: foto.midX,
@@ -1403,7 +1405,7 @@ extension Reisewerk {
             let y = min(max(Double(foto.minY) + luft, Double(satz.minY)), Double(satz.maxY) - hoehe)
             ort = CGPoint(x: x, y: y)
         }
-        let feld = automat.textfeld(kopf: kopf, rumpf: rumpf, x: Double(ort.x), y: Double(ort.y), breite: breite)
+        let feld = automat.textfeld(kopf: kopf, rumpf: rumpf, x: Double(ort.x), y: Double(ort.y), breite: breite, strich: strich)
         return (feld.bloecke, beste != nil)
     }
 
@@ -1431,7 +1433,7 @@ extension Reisewerk {
             // kann ein anderer Text des Tages auch tragen) nur direkt über
             // einem gelöschten Stück.
             let stuecke = weg.map { bloecke[$0].rahmen }
-            for (i, b) in bloecke.enumerated() where wort(b) == kopf {
+            for (i, b) in bloecke.enumerated() where (wort(b) == kopf && !kopf.isEmpty) || wort(b) == e.kopfMitDatum {
                 let darueber = stuecke.contains { r in
                     abs(r.x - b.rahmen.x) < 2 && r.y >= b.rahmen.y && r.y - (b.rahmen.y + b.rahmen.hoehe) < 12
                 }
@@ -1609,6 +1611,131 @@ extension Reisewerk {
         if let erster { _ = hoeheAnTextAnpassen(erster, merken: false) }
     }
 
+
+    // MARK: Datum und Strich nur auf Wunsch (ab 1.0.36)
+
+    /// Der Kasten mit dem Text eines Eintrags auf den Seiten seines Kapitels.
+    private func rumpfkasten(_ e: Texteintrag, kapitel t: Int) -> (seite: Int, block: Int)? {
+        let rumpf = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rumpf.isEmpty else { return nil }
+        for (p, s) in reise.tage[t].seiten.enumerated() {
+            for (i, b) in s.bloecke.enumerated() where b.zuFoto == nil {
+                guard let w = b.text?.trimmingCharacters(in: .whitespacesAndNewlines), !w.isEmpty else { continue }
+                if w == rumpf || (w.count >= 12 && rumpf.contains(w)) { return (p, i) }
+            }
+        }
+        return nil
+    }
+
+    /// Schaltet im Editor jemand Datum oder Strich ein oder aus, wird es auf
+    /// einer gestalteten Seite gleich nachgezogen: Kopfzeile über dem Text
+    /// einsetzen, ändern oder wegnehmen, Goldstrich darüber setzen oder
+    /// wegnehmen. Sonst bewegt sich nichts (nur wenn über dem Text kein Platz
+    /// ist, rückt der Text um die Kopfzeile nach unten).
+    func kopfUndStrichNachfuehren(vorher: Texteintrag, nachher: Texteintrag) {
+        guard vorher.kopfzeile != nachher.kopfzeile || vorher.strichZeigen != nachher.strichZeigen,
+              nachher.foto == nil,
+              let t = reise.tage.firstIndex(where: { $0.datum == reise.kapitelbeginn(nachher.tagesdatum) }),
+              let stelle = rumpfkasten(nachher, kapitel: t) else { return }
+        let p = stelle.seite
+        var bloecke = reise.tage[t].seiten[p].bloecke
+        var rumpf = bloecke[stelle.block]
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        func direktUeber(_ b: Block, _ r: Block) -> Bool {
+            abs(b.rahmen.x - r.rahmen.x) < 2 && b.rahmen.y < r.rahmen.y
+                && r.rahmen.y - (b.rahmen.y + b.rahmen.hoehe) < 14
+        }
+        // Alte Kopfzeile und alter Strich weg.
+        let altKopf = [vorher.kopfzeile, vorher.kopfMitDatum, nachher.kopfzeile].filter { !$0.isEmpty }
+        let kopfAlt = bloecke.first { b in
+            b.zuFoto == nil && direktUeber(b, rumpf)
+                && altKopf.contains(b.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\u{0}")
+        }
+        let oben = kopfAlt ?? rumpf
+        bloecke.removeAll { b in
+            b.id == kopfAlt?.id
+                || (b.inhalt == .linie && b.zuFoto == nil && b.rahmen.breite <= 30 && b.rahmen.hoehe <= 2
+                    && (direktUeber(b, oben) || direktUeber(b, rumpf)))
+        }
+        guard let ri = bloecke.firstIndex(where: { $0.id == rumpf.id }) else { return }
+        // Neue Kopfzeile.
+        var obenY = rumpf.rahmen.y
+        if !nachher.kopfzeile.isEmpty {
+            var kopf = automat.kopfblock(nachher.kopfzeile, x: rumpf.rahmen.x, y: 0, breite: rumpf.rahmen.breite)
+            if let kopfAlt { kopf.id = kopfAlt.id; kopf.abweichung = kopfAlt.abweichung }
+            let h = kopf.rahmen.hoehe + 3
+            if let kopfAlt {
+                kopf.rahmen.y = kopfAlt.rahmen.y
+            } else if rumpf.rahmen.y - h >= Double(satz.minY) {
+                kopf.rahmen.y = rumpf.rahmen.y - h
+            } else {
+                kopf.rahmen.y = rumpf.rahmen.y
+                rumpf.rahmen.y += h
+                bloecke[ri] = rumpf
+            }
+            kopf.vonHand = true; kopf.ebene = rumpf.ebene; kopf.drehung = rumpf.drehung
+            bloecke.append(kopf)
+            obenY = kopf.rahmen.y
+        }
+        if nachher.strichZeigen {
+            var strich = automat.goldstrich(x: rumpf.rahmen.x, y: max(obenY - 8, Double(satz.minY) - 8))
+            strich.vonHand = true; strich.ebene = rumpf.ebene
+            bloecke.append(strich)
+        }
+        reise.tage[t].seiten[p].bloecke = bloecke
+    }
+
+    /// Beim Öffnen (ab 1.0.36): Kopfzeilen MIT Datum und Goldstriche über
+    /// freien Texten, die beides nicht (mehr) zeigen sollen, von den Seiten
+    /// nehmen. Steht danach keine Kopfzeile mehr da, rückt der Text an ihre
+    /// Stelle. Wiederholt sich gefahrlos: Was gewünscht ist, bleibt.
+    func kopfzeilenAufraeumen() {
+        var geaendert = false
+        for t in reise.tage.indices where !reise.tage[t].vorwort {
+            for e in reise.kapiteleintraege(reise.tage[t].datum) where e.foto == nil {
+                guard let stelle = rumpfkasten(e, kapitel: t) else { continue }
+                let p = stelle.seite
+                var bloecke = reise.tage[t].seiten[p].bloecke
+                var rumpf = bloecke[stelle.block]
+                func direktUeber(_ b: Block, _ r: Block) -> Bool {
+                    abs(b.rahmen.x - r.rahmen.x) < 2 && b.rahmen.y < r.rahmen.y
+                        && r.rahmen.y - (b.rahmen.y + b.rahmen.hoehe) < 14
+                }
+                var oben = rumpf
+                if !e.datumZeigen, e.kopfMitDatum != e.kopfzeile,
+                   let k = bloecke.firstIndex(where: { b in
+                       b.zuFoto == nil && direktUeber(b, rumpf)
+                           && b.text?.trimmingCharacters(in: .whitespacesAndNewlines) == e.kopfMitDatum }) {
+                    if e.kopfzeile.isEmpty {
+                        let alt = bloecke[k]
+                        bloecke.remove(at: k)
+                        if let ri = bloecke.firstIndex(where: { $0.id == rumpf.id }) {
+                            rumpf.rahmen.y = alt.rahmen.y
+                            bloecke[ri] = rumpf
+                        }
+                    } else {
+                        bloecke[k].inhalt = .text(e.kopfzeile)
+                        oben = bloecke[k]
+                    }
+                    geaendert = true
+                } else if let k = bloecke.first(where: { b in
+                    b.zuFoto == nil && direktUeber(b, rumpf)
+                        && b.text?.trimmingCharacters(in: .whitespacesAndNewlines) == e.kopfzeile }) {
+                    oben = k
+                }
+                if !e.strichZeigen {
+                    let vorher = bloecke.count
+                    bloecke.removeAll { b in
+                        b.inhalt == .linie && b.zuFoto == nil && b.rahmen.breite <= 30 && b.rahmen.hoehe <= 2
+                            && (direktUeber(b, oben) || direktUeber(b, rumpf))
+                    }
+                    if bloecke.count != vorher { geaendert = true }
+                }
+                reise.tage[t].seiten[p].bloecke = bloecke
+            }
+        }
+        if geaendert { sofortSichern() }
+    }
 
     /// Einträge, deren Kopfzeile auf einer Seite steht, deren Text dort aber
     /// nicht (mehr) zu finden ist — der Kasten trägt einen alten Wortlaut.
