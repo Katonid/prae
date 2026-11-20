@@ -998,6 +998,44 @@ extension Reisewerk {
         if weg > 0 { sofortSichern() }
     }
 
+    // MARK: Emoji-Marken entfernen (ab 1.0.34)
+
+    /// Bis 1.0.33 schrieb das Formatfeld die Ersatzschrift, die iOS für
+    /// Emojis nimmt, als `[schrift=Apple+Color+Emoji]` in den Text. Auf der
+    /// Seite zeichnete diese Schrift mit kursiver Grundschrift nichts
+    /// (gemeldet 11/2026: „Emojis … im Speicher vorhanden, aber … nicht
+    /// übernommen"). Nimmt die Marken einmal aus allen Texten und Kästen.
+    func emojiMarkenAufraeumen() {
+        var geaendert = false
+        func putz(_ t: inout String) {
+            let n = Auszeichnung.emojiMarkenEntfernen(t)
+            if n != t { t = n; geaendert = true }
+        }
+        for e in reise.eintraege.indices {
+            putz(&reise.eintraege[e].text)
+            putz(&reise.eintraege[e].titel)
+        }
+        for t in reise.tage.indices {
+            putz(&reise.tage[t].text)
+            putz(&reise.tage[t].zeitungstext)
+            for m in reise.tage[t].meldungen.indices {
+                putz(&reise.tage[t].meldungen[m].text)
+                putz(&reise.tage[t].meldungen[m].titel)
+            }
+            for p in reise.tage[t].seiten.indices {
+                for b in reise.tage[t].seiten[p].bloecke.indices {
+                    if case .text(var wort) = reise.tage[t].seiten[p].bloecke[b].inhalt {
+                        let vorher = wort
+                        putz(&wort)
+                        if wort != vorher { reise.tage[t].seiten[p].bloecke[b].inhalt = .text(wort) }
+                    }
+                }
+            }
+        }
+        for f in reise.fotos.indices { putz(&reise.fotos[f].unterschrift) }
+        if geaendert { sofortSichern() }
+    }
+
     // MARK: Alle Texte als ein Text (ab 1.0.29)
 
     /// Alle Texte des Buches in Buchfolge, ohne Formatmarken — zum
