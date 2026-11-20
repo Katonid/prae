@@ -2206,6 +2206,61 @@ final class Reisewerk: ObservableObject, Identifiable {
         return true
     }
 
+    // KAPITELWEISE (ab 1.0.37, Ansage des Nutzers 11/2026: „ein Foto, das
+    // im Januar eines Jahres geschossen wurde, auf die Dezemberseite des
+    // vorangegangenen Jahres vorziehen … Verschieben oder Kopieren offenbar
+    // nur kapitelweise"). Verschieben und Kopieren über die Kapitelgrenze:
+    // zurück auf die LETZTE Seite des vorigen Kapitels, vor auf die ERSTE
+    // des nächsten. Ein Foto wechselt damit das Kapitel (`tag.fotos`), seine
+    // Erinnerung geht mit (`Reise.eintragKapitel`); das Aufnahmedatum bleibt.
+    // Das Vorwort ist kein Nachbar.
+    func nachbarkapitel(_ id: UUID, richtung: Int) -> Int? {
+        guard let stelle = block(id), !reise.tage[stelle.tag].vorwort else { return nil }
+        let ziel = stelle.tag + richtung
+        guard reise.tage.indices.contains(ziel), !reise.tage[ziel].vorwort,
+              !reise.tage[ziel].seiten.isEmpty else { return nil }
+        return ziel
+    }
+
+    func nachbarkapitelName(_ id: UUID, richtung: Int) -> String? {
+        nachbarkapitel(id, richtung: richtung).map { reise.tage[$0].ueberschrift }
+    }
+
+    @discardableResult
+    func blockInsNachbarkapitel(_ id: UUID, richtung: Int, kopie: Bool = false) -> Bool {
+        guard let stelle = block(id), let ziel = nachbarkapitel(id, richtung: richtung) else { return false }
+        let vorlage = reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block]
+        if kopie && !kopierbar(vorlage) { return false }
+        merken()
+        let zielseite = richtung < 0 ? reise.tage[ziel].seiten.count - 1 : 0
+        let alt = reise.tage[stelle.tag].seiten[stelle.seite].bloecke
+        let mit = kopie ? [] : anhaengsel(vorlage, in: alt)
+        var neu = vorlage
+        if kopie { neu.id = UUID() }
+        neu.vonHand = true
+        reise.tage[ziel].seiten[zielseite].bloecke.append(neu)
+        reise.tage[ziel].seiten[zielseite].heben(neu.id)
+        for i in mit {
+            var m = alt[i]; m.vonHand = true
+            reise.tage[ziel].seiten[zielseite].bloecke.append(m)
+        }
+        if !kopie {
+            for i in (mit + [stelle.block]).sorted(by: >) {
+                reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: i)
+            }
+        }
+        if let fotoID = neu.fotoID { fotoDemTagZuordnen(fotoID, tag: ziel) }
+        reise.tage[ziel].text = reise.kapiteltext(reise.tage[ziel].datum)
+        reise.tage[stelle.tag].text = reise.kapiteltext(reise.tage[stelle.tag].datum)
+        gewaehlterTag = reise.tage[ziel].id
+        gewaehlterBlock = neu.id
+        seitenzeiger = zielseite
+        meldung = .init(text: (kopie ? "Kopiert" : "Verschoben") + " auf "
+                        + (richtung < 0 ? "die letzte" : "die erste") + " Seite von \u{201E}\(reise.tage[ziel].ueberschrift)\u{201C}."
+                        + (neu.fotoID != nil && !kopie ? " Das Foto gehört jetzt zu diesem Kapitel, auch beim Neuverteilen." : ""))
+        return true
+    }
+
     // Auf welche Seiten dieser Block überhaupt kann — und auf welcher er
     // gerade steht. Gebraucht an zwei Stellen (Inspektor und Blockmenü);
     // zwei Fassungen zählten irgendwann verschieden.

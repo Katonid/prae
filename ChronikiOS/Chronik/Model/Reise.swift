@@ -537,9 +537,27 @@ struct Reise: Identifiable, Codable {
 
     /// Die Texteinträge eines Kapitels, nach der Zeit.
     func kapiteleintraege(_ beginn: Tagesdatum) -> [Texteintrag] {
-        eintraege
-            .filter { kapitelbeginn($0.tagesdatum) == beginn }
+        let fk = fotoKapitel
+        return eintraege
+            .filter { eintragKapitel($0, fotoKapitel: fk) == beginn }
             .sorted { $0.zeit < $1.zeit }
+    }
+
+    /// KAPITELWEISE (ab 1.0.37): In welchem Kapitel ein Foto steht — ein
+    /// Foto darf von Hand in ein anderes Kapitel gezogen werden als sein
+    /// Aufnahmedatum sagt (Ansage des Nutzers 11/2026: ein Januarfoto auf die
+    /// Dezemberseite des Vorjahres).
+    var fotoKapitel: [UUID: Tagesdatum] {
+        var k: [UUID: Tagesdatum] = [:]
+        for tag in tage where !tag.vorwort { for f in tag.fotos where k[f] == nil { k[f] = tag.datum } }
+        return k
+    }
+
+    /// Das Kapitel eines Eintrags: eine Erinnerung geht mit ihrem Foto, alle
+    /// anderen nach ihrem Zeitpunkt.
+    func eintragKapitel(_ e: Texteintrag, fotoKapitel fk: [UUID: Tagesdatum]) -> Tagesdatum {
+        if let f = e.foto, let k = fk[f] { return k }
+        return kapitelbeginn(e.tagesdatum)
     }
 
     static let vorwortdatum = Tagesdatum(jahr: 1900, monat: 1, tag: 1)
