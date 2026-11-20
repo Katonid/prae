@@ -17,12 +17,16 @@ struct KapitelseitenView: View {
     private enum Ziel: Equatable {
         case zeitung
         case meldung(UUID)
+        /// Mehrere Bilder der Reihe nach an Meldungen ohne Bild (ab 1.0.38).
+        case meldungenReihe
     }
 
     @State private var mediathekFuer: Ziel?
     @State private var dateienFuer: Ziel?
     @State private var dateiwahl = false
     @State private var fehler: String?
+    @State private var textdateiwahl = false
+    @State private var hinweis: String?
 
     private var stelle: Int? { werk.tagIndex(tagID) }
 
@@ -34,6 +38,9 @@ struct KapitelseitenView: View {
                     meldungsabschnitt(stelle)
                     if let fehler {
                         Section { Text(fehler).foregroundStyle(.red) }
+                    }
+                    if let hinweis {
+                        Section { Text(hinweis).foregroundStyle(.secondary) }
                     }
                 }
                 .navigationTitle("Zeitung und Meldungen")
@@ -53,9 +60,13 @@ struct KapitelseitenView: View {
                 }
                 .sheet(isPresented: Binding(get: { mediathekFuer != nil },
                                             set: { if !$0 { mediathekFuer = nil } })) {
-                    Fotowahl(hoechstzahl: 1) { treffer in
+                    Fotowahl(hoechstzahl: mediathekFuer == .meldungenReihe ? 0 : 1) { treffer in
                         let ziel = mediathekFuer
                         mediathekFuer = nil
+                        if ziel == .meldungenReihe {
+                            Task { @MainActor in await reiheSetzen(treffer) }
+                            return
+                        }
                         guard let ziel, let erstes = treffer.first else { return }
                         Task { @MainActor in
                             guard let datei = await Self.ladeDatei(erstes) else {
@@ -68,10 +79,23 @@ struct KapitelseitenView: View {
                     }
                     .ignoresSafeArea()
                 }
-                .fileImporter(isPresented: $dateiwahl, allowedContentTypes: [.image, .pdf]) { ergebnis in
-                    guard case .success(let adresse) = ergebnis, let ziel = dateienFuer else { return }
+                .fileImporter(isPresented: $dateiwahl,
+                              allowedContentTypes: textdateiwahl ? [.plainText, .text, .utf8PlainText] : [.image, .pdf]) { ergebnis in
+                    let alsText = textdateiwahl
+                    textdateiwahl = false
+                    guard case .success(let adresse) = ergebnis else { return }
                     let offen = adresse.startAccessingSecurityScopedResource()
                     defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
+                    if alsText {
+                        guard let inhalt = (try? String(contentsOf: adresse, encoding: .utf8))
+                                ?? (try? String(contentsOf: adresse, encoding: .isoLatin1)) else {
+                            fehler = "Die Textdatei ließ sich nicht lesen."
+                            return
+                        }
+                        meldungenEinfuegen(inhalt)
+                        return
+                    }
+                    guard let ziel = dateienFuer else { return }
                     setzen(werk.grafikAblegen(vonDatei: adresse), fuer: ziel)
                 }
             } else {
@@ -131,7 +155,33 @@ struct KapitelseitenView: View {
         } header: {
             Text("Was an diesem Tag geschah")
         } footer: {
-            Text("Je Seite vier Meldungen im Raster, jede mit Bild, Überschrift und Text. Mehr Meldungen ergeben weitere Seiten.")
+            Text("Jede Meldung steht als Block aus Bild, Überschrift und Text in zwei Spalten; Meldungen ohne Bild brauchen nur so viel Platz wie ihr Text. Mehr Meldungen ergeben weitere Seiten.")
+        }
+        Section {
+            Button {
+                if let text = UIPasteboard.general.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    meldungenEinfuegen(text)
+                } else {
+                    fehler = "In der Zwischenablage steht kein Text. Erst den Text kopieren (z. B. aus Safari oder Notizen), dann hier einfügen."
+                }
+            } label: {
+                Label("Meldungen aus der Zwischenablage einfügen", systemImage: "doc.on.clipboard")
+            }
+            Button {
+                textdateiwahl = true
+                dateiwahl = true
+            } label: {
+                Label("Meldungen aus einer Textdatei \u{2026}", systemImage: "doc.text")
+            }
+            Button {
+                mediathekFuer = .meldungenReihe
+            } label: {
+                Label("Bilder der Reihe nach zuordnen \u{2026}", systemImage: "photo.stack")
+            }
+        } header: {
+            Text("Mehrere Meldungen auf einmal")
+        } footer: {
+            Text("Eingefügter Text wird zerlegt: Absätze (durch eine Leerzeile getrennt) sind je eine Meldung, ihre erste kurze Zeile die Überschrift. Ohne Leerzeilen ist jede Zeile eine Meldung; eine Jahreszahl am Anfang (\u{201E}1964 \u{2013} \u{2026}\u{201C}) wird zur Überschrift. Die Bilder gehen in der gewählten Reihenfolge an die Meldungen ohne Bild; übrige Bilder werden neue Meldungen.")
         }
     }
 
@@ -171,6 +221,51 @@ struct KapitelseitenView: View {
         } label: {
             Label(beschriftung, systemImage: "photo.badge.plus")
         }
+    }
+
+    private func meldungenEinfuegen(_ text: String) {
+        guard let stelle else { return }
+        let neu = Meldung.ausText(text)
+        guard !neu.isEmpty else {
+            fehler = "Im Text war keine Meldung zu finden."
+            return
+        }
+        fehler = nil
+        werk.merken()
+        // Leere Meldungen (frisch angelegt, nichts eingetragen) fallen weg.
+        werk.reise.tage[stelle].meldungen.removeAll {
+            $0.foto == nil && $0.titel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && $0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        werk.reise.tage[stelle].meldungen += neu
+        hinweis = neu.count == 1 ? "1 Meldung eingefügt." : "\(neu.count) Meldungen eingefügt. Bilder dazu: \u{201E}Bilder der Reihe nach zuordnen\u{201C} oder je Meldung \u{201E}Bild wählen\u{201C}."
+    }
+
+    private func reiheSetzen(_ treffer: [PHPickerResult]) async {
+        guard let stelle, !treffer.isEmpty else { return }
+        var ids: [UUID] = []
+        for t in treffer {
+            guard let datei = await Self.ladeDatei(t) else { continue }
+            if let id = werk.grafikAblegen(vonDatei: datei) { ids.append(id) }
+            try? FileManager.default.removeItem(at: datei)
+        }
+        guard !ids.isEmpty else {
+            fehler = "Die Bilder ließen sich nicht laden."
+            return
+        }
+        fehler = nil
+        werk.merken()
+        var rest = ids[...]
+        for i in werk.reise.tage[stelle].meldungen.indices where werk.reise.tage[stelle].meldungen[i].foto == nil {
+            guard let id = rest.popFirst() else { break }
+            werk.reise.tage[stelle].meldungen[i].foto = id
+        }
+        for id in rest {
+            var m = Meldung()
+            m.foto = id
+            werk.reise.tage[stelle].meldungen.append(m)
+        }
+        hinweis = "\(ids.count) Bilder zugeordnet" + (rest.isEmpty ? "." : ", \(rest.count) davon als neue Meldungen.")
     }
 
     private func setzen(_ id: UUID?, fuer ziel: Ziel) {

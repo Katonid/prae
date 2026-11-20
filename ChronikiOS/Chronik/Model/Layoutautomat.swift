@@ -3044,60 +3044,88 @@ extension Layoutautomat {
 
     // MARK: Meldungen
 
+    // Seit 1.0.38 ein Fluss in zwei Spalten statt eines starren 2×2-Rasters
+    // (Ansage des Nutzers 11/2026: Meldungen „mit oder ohne Foto …, sodass
+    // diese automatisch eine Anordnung auf der Seite trifft, sodass man die
+    // Texte gut lesen kann und auch erkennen kann, welches Bild zu welchem
+    // [Text] gehört"). Jede Meldung ist ein Stück: Bild, darunter direkt
+    // Goldbalken, Überschrift und Text (innen 5–6 pt, zwischen Meldungen
+    // 4 Fugen — so ist klar, was zusammengehört). Eine Meldung ohne Bild ist
+    // nur so hoch wie ihr Text, statt eine Viertelseite zu belegen; das
+    // Raster ließ dort Lücken und schnitt lange Texte ab. Jedes Stück kommt
+    // in die Spalte, die gerade weniger hoch ist; passt es auf der Seite
+    // nicht mehr, beginnt eine neue.
     private func meldungsseiten(_ tag: Reisetag, _ meldungen: [Meldung]) -> [Seite] {
+        let spalten = meldungen.count == 1 ? 1 : 2
+        let luft = fuge * 4
+        let spaltenB = (Double(satz.width) - luft * Double(spalten - 1)) / Double(spalten)
         var seiten: [Seite] = []
-        var rest = meldungen[...]
-        var erste = true
-        while !rest.isEmpty {
-            let gruppe = Array(rest.prefix(4))
-            rest = rest.dropFirst(4)
+        var bloecke: [Block] = []
+        var oben = Double(satz.minY)
+        var hoehen: [Double] = []
+        func neueSeite(erste: Bool) {
+            if !bloecke.isEmpty { seiten.append(Seite(bloecke: bloecke)) }
+            bloecke = []
             var y = satz.minY
-            var bloecke: [Block] = []
-            if erste {
-                bloecke = seitenueberschrift("Was an diesem Tag geschah", y: &y)
-            }
-            erste = false
-            let spalten = gruppe.count == 1 ? 1 : 2
-            let zeilen = (gruppe.count + spalten - 1) / spalten
-            let luft = fuge * 4
-            let zelleB = (Double(satz.width) - luft * Double(spalten - 1)) / Double(spalten)
-            let zelleH = (Double(satz.maxY - y) - luft * Double(zeilen - 1)) / Double(zeilen)
-            var titelbild = typografie.titel
-            titelbild.groesse = 14
-            titelbild.ausrichtung = .links
-            titelbild.zeilenabstand = 1.1
-            var textbild = typografie.flieText
-            textbild.kursiv = false
-            textbild.groesse = 9.2
-            textbild.ausrichtung = .links
-            for (n, meldung) in gruppe.enumerated() {
-                let x = Double(satz.minX) + Double(n % spalten) * (zelleB + luft)
-                var zy = Double(y) + Double(n / spalten) * (zelleH + luft)
-                let unten = zy + zelleH
-                if let id = meldung.foto, let foto = fotoIndex[id] {
-                    let h = min(zelleB / max(foto.seitenverhaeltnis, 0.6), zelleH * 0.52)
-                    bloecke.append(Block(inhalt: .foto(foto.id),
-                                         rahmen: Rahmen(x: x, y: zy, breite: zelleB, hoehe: h),
-                                         fotorand: 0))
-                    zy += h + 8
-                }
-                let titel = meldung.titel.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !titel.isEmpty {
-                    bloecke.append(Block(inhalt: .linie, rahmen: Rahmen(x: x, y: zy, breite: 2.2, hoehe: 15),
-                                         rand: stil.akzent, grund: stil.akzent))
-                    let block = textblock(titel, bild: titelbild, x: x + 8, y: zy, breite: zelleB - 8)
-                    bloecke.append(block)
-                    zy += block.rahmen.hoehe + 5
-                }
-                let text = meldung.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !text.isEmpty {
-                    bloecke.append(textblock(text, bild: textbild, x: x, y: zy, breite: zelleB,
-                                             hoechstens: unten - zy))
-                }
-            }
-            seiten.append(Seite(bloecke: bloecke))
+            if erste { bloecke = seitenueberschrift("Was an diesem Tag geschah", y: &y) }
+            oben = Double(y)
+            hoehen = Array(repeating: oben, count: spalten)
         }
+        neueSeite(erste: true)
+        let unten = Double(satz.maxY)
+        for meldung in meldungen {
+            let probe = meldungsstueck(meldung, x: 0, y: 0, breite: spaltenB, hoechstens: unten - oben)
+            var s = hoehen.indices.min { hoehen[$0] < hoehen[$1] } ?? 0
+            if hoehen[s] + probe.hoehe > unten + 0.5, hoehen.contains(where: { $0 > oben + 0.5 }) {
+                neueSeite(erste: false)
+                s = 0
+            }
+            let x = Double(satz.minX) + Double(s) * (spaltenB + luft)
+            let stueck = meldungsstueck(meldung, x: x, y: hoehen[s], breite: spaltenB, hoechstens: unten - hoehen[s])
+            bloecke += stueck.bloecke
+            hoehen[s] += stueck.hoehe + luft
+        }
+        if !bloecke.isEmpty { seiten.append(Seite(bloecke: bloecke)) }
         return seiten
+    }
+
+    /// Eine Meldung als zusammenhängendes Stück: Bild (höchstens 34 % der
+    /// Satzhöhe), Goldbalken mit Überschrift, Text.
+    private func meldungsstueck(_ meldung: Meldung, x: Double, y: Double, breite: Double,
+                                hoechstens: Double) -> (bloecke: [Block], hoehe: Double) {
+        var titelbild = typografie.titel
+        titelbild.groesse = 14
+        titelbild.ausrichtung = .links
+        titelbild.zeilenabstand = 1.1
+        var textbild = typografie.flieText
+        textbild.kursiv = false
+        textbild.groesse = 9.2
+        textbild.ausrichtung = .links
+        var bloecke: [Block] = []
+        var zy = y
+        if let id = meldung.foto, let foto = fotoIndex[id] {
+            let h = min(breite / max(foto.seitenverhaeltnis, 0.6), Double(satz.height) * 0.34)
+            bloecke.append(Block(inhalt: .foto(foto.id),
+                                 rahmen: Rahmen(x: x, y: zy, breite: breite, hoehe: h),
+                                 fotorand: 0))
+            zy += h + 6
+        }
+        let titel = meldung.titel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !titel.isEmpty {
+            let block = textblock(titel, bild: titelbild, x: x + 8, y: zy, breite: breite - 8)
+            bloecke.append(Block(inhalt: .linie, rahmen: Rahmen(x: x, y: zy, breite: 2.2, hoehe: min(block.rahmen.hoehe, 30)),
+                                 rand: stil.akzent, grund: stil.akzent))
+            bloecke.append(block)
+            zy += block.rahmen.hoehe + 4
+        }
+        let text = meldung.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty {
+            let block = textblock(text, bild: textbild, x: x, y: zy, breite: breite,
+                                  hoechstens: max(y + hoechstens - zy, textbild.zeilenhoehe))
+            bloecke.append(block)
+            zy += block.rahmen.hoehe
+        }
+        return (bloecke, zy - y)
     }
 
     // MARK: Fotos — groß, gedreht, überlappend
