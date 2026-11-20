@@ -2102,6 +2102,29 @@ final class Reisewerk: ObservableObject, Identifiable {
         if bloecke[stelle.block].zuFoto == nil, case .text = bloecke[stelle.block].inhalt,
            !reise.tage[stelle.tag].vorwort,
            let e = eintrag(zuText: bloecke[stelle.block]), e.foto == nil {
+            // Nur die KOPFZEILE (Überschrift/Datum) gelöscht: Der Text bleibt
+            // (gemeldet 11/2026 zu 1.0.35: „wird ein hinzugefügter Text
+            // leider auch mitgelöscht, wenn ich den entsprechenden
+            // Datumseintrag lösche"). Datum und Überschrift gehen aus dem
+            // Eintrag, damit sie beim Neuaufbau nicht wiederkommen.
+            let wort = bloecke[stelle.block].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let rumpf = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if wort != rumpf, wort == e.kopfzeile || wort == e.kopfMitDatum,
+               let i = reise.eintraege.firstIndex(where: { $0.id == e.id }) {
+                let kasten = bloecke[stelle.block]
+                reise.tage[stelle.tag].seiten[stelle.seite].bloecke.removeAll { b in
+                    b.id == id || (b.inhalt == .linie && b.zuFoto == nil && b.rahmen.breite <= 30 && b.rahmen.hoehe <= 2
+                        && abs(b.rahmen.x - kasten.rahmen.x) < 2 && b.rahmen.y <= kasten.rahmen.y
+                        && kasten.rahmen.y - b.rahmen.y < 14)
+                }
+                reise.eintraege[i].datumZeigen = false
+                reise.eintraege[i].titel = ""
+                reise.eintraege[i].strichZeigen = false
+                reise.tage[stelle.tag].text = reise.kapiteltext(reise.tage[stelle.tag].datum)
+                if gewaehlterBlock == id { gewaehlterBlock = nil }
+                meldung = .init(text: "Die Zeile über dem Text ist weg, der Text bleibt. Datum oder Überschrift lassen sich im Text wieder einschalten (\u{201E}Text bearbeiten\u{201C}).")
+                return
+            }
             freienTextLoeschen(e, kapitel: stelle.tag, block: id)
             if gewaehlterBlock == id { gewaehlterBlock = nil }
             meldung = .init(text: "Der Text ist gelöscht \u{2014} von der Seite und aus der Textliste. \u{201E}Zurück\u{201C} holt ihn wieder.")

@@ -268,6 +268,9 @@ extension Reise {
         }
         for k in texte.keys { texte[k]?.sort { $0.zeit < $1.zeit } }
         werkzeug.kapiteltexte = texte
+        // Goldstrich nur über Texten, die ihn wollen (ab 1.0.36).
+        werkzeug.mitStrich = Set(eintraege.filter { $0.strichZeigen && $0.foto == nil }
+            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
         // Geburtstage je Kapitel (ab 1.0.30).
         if geburtstag != nil {
             for tag in tage { if let gb = geburtstagIm(tag) { werkzeug.geburtstage[tag.datum] = gb } }

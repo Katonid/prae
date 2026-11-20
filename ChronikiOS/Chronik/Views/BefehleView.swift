@@ -65,6 +65,9 @@ struct BefehleView: View {
              foto == nil ? "Erst ein Foto antippen, dann unten \u{201E}Text davor\u{201C}" : "Foto gewählt \u{2192} unten \u{201E}Text davor\u{201C}",
              "abschnitt mehrere bilder einleitung gruppe überschrift", "text.insert",
              foto.map { .blatt(.textVor($0)) } ?? .hinweis)
+        dazu(t, "Datum oder Goldstrich über einem Text zeigen",
+             "Text bearbeiten \u{2192} \u{201E}Darstellung im Buch\u{201C} (beides zunächst aus)",
+             "datum kopfzeile strich linie goldstrich zeigen ausblenden", "calendar", .hinweis)
         dazu(t, "Erinnerung zu einem Foto einsprechen",
              foto == nil ? "Erst ein Foto antippen, dann unten \u{201E}Erinnerung einsprechen\u{201C}" : "Foto gewählt \u{2192} unten \u{201E}Erinnerung\u{201C}",
              "kommentar diktat mikrofon bild foto text", "mic.fill",
