@@ -40,7 +40,13 @@ extension Reisewerk {
         }
         let stelle = reise.tagIndex(fuer: eintrag.tagesdatum)
         let kapitelID = reise.tage[stelle].id
-        kapitelAuffrischen(kapitelID)
+        let zielFoto = textBeiFoto.removeValue(forKey: eintrag.id)
+        let vorOrt = vorher == nil && eintrag.foto == nil && zielFoto != nil && !reise.tage[stelle].vorwort
+        if vorOrt {
+            reise.tage[stelle].text = reise.kapiteltext(reise.tage[stelle].datum)
+        } else {
+            kapitelAuffrischen(kapitelID)
+        }
         if let vorher {
             let alt = reise.kapitelbeginn(vorher.tagesdatum)
             if alt != reise.tage[stelle].datum, let altes = reise.tage.first(where: { $0.datum == alt }) {
@@ -49,9 +55,16 @@ extension Reisewerk {
             }
         }
         gewaehlterTag = kapitelID
+        // Ein NEUER freier Text bei gewähltem Foto (ab 1.0.35, Ansage des
+        // Nutzers 11/2026: „dann soll sich die Größe und die Position und das
+        // Format des Bildes nicht ändern … Wenn ich diesen Text einfüge, bin
+        // ich ja sowieso an der Stelle dabei, die Seite per Hand zu
+        // gestalten."): kein Neusetzen, ein Textfeld auf der Seite des Fotos.
+        if vorOrt {
+            freienTextEinhaengen(eintrag.id, beiFoto: zielFoto)
         // Eine Erinnerung zu einem Foto auf einer Seite mit Handarbeit kommt
         // trotzdem sofort neben ihr Foto (ab 1.0.21).
-        if let fotoID = eintrag.foto ?? vorher?.foto,
+        } else if let fotoID = eintrag.foto ?? vorher?.foto,
            hatHandarbeit(kapitelID) || reise.tage[stelle].gesperrt {
             erinnerungEinhaengen(fotoID)
         } else if eintrag.foto == nil, hatHandarbeit(kapitelID) || reise.tage[stelle].gesperrt {
@@ -77,8 +90,15 @@ extension Reisewerk {
     func eintragLoeschen(_ id: UUID) {
         guard let eintrag = reise.eintraege.first(where: { $0.id == id }) else { return }
         merken()
-        reise.eintraege.removeAll { $0.id == id }
         let beginn = reise.kapitelbeginn(eintrag.tagesdatum)
+        // Ein freier Text auf einer gestalteten Seite geht auch von dort weg
+        // (ab 1.0.35) — sonst stünde er nach dem Löschen in der Textliste
+        // weiter auf der Seite.
+        if eintrag.foto == nil, let t = reise.tage.firstIndex(where: { $0.datum == beginn }),
+           hatHandarbeit(reise.tage[t].id) || reise.tage[t].gesperrt {
+            freienTextLoeschen(eintrag, kapitel: t)
+        }
+        reise.eintraege.removeAll { $0.id == id }
         if let kapitel = reise.tage.first(where: { $0.datum == beginn }) {
             kapitelAuffrischen(kapitel.id)
             if let fotoID = eintrag.foto, hatHandarbeit(kapitel.id) || kapitel.gesperrt { erinnerungEinhaengen(fotoID) }
@@ -1275,55 +1295,159 @@ extension Reisewerk {
     /// gibt dafür oben einen Streifen ab (Unterkante bleibt, Unterschrift und
     /// Erinnerung bleiben, wo sie sind). Gibt es kein späteres Foto, kommt
     /// der Text UNTER das letzte. Sonst ändert sich auf der Seite nichts.
-    func freienTextEinhaengen(_ eintragID: UUID) {
+    func freienTextEinhaengen(_ eintragID: UUID, beiFoto: UUID? = nil) {
         guard let e = reise.eintraege.first(where: { $0.id == eintragID }), e.foto == nil else { return }
-        let t = reise.tagIndex(fuer: e.tagesdatum)
+        var t = reise.tagIndex(fuer: e.tagesdatum)
         let rumpf = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !stehtAufSeite(e, kapitel: t) else { return }
-        // Fotos auf den Seiten des Kapitels, mit Stelle.
-        var kandidaten: [(seite: Int, block: Int, wann: Date)] = []
-        for (p, seite) in reise.tage[t].seiten.enumerated() {
-            for (i, b) in seite.bloecke.enumerated() {
-                guard let id = b.fotoID, let f = reise.foto(id), !f.grafik else { continue }
-                kandidaten.append((p, i, f.aufnahme ?? .distantFuture))
+        var ziel: (seite: Int, block: Int)?
+        var oben = true
+        // Das angetippte Foto (ab 1.0.35) — auch wenn es auf einer Seite
+        // eines anderen Kapitels steht als der Zeitstempel sagt.
+        if let beiFoto {
+            suche: for (k, tag) in reise.tage.enumerated() {
+                for (p, seite) in tag.seiten.enumerated() {
+                    if let i = seite.bloecke.firstIndex(where: { $0.fotoID == beiFoto }) {
+                        ziel = (p, i); t = k
+                        break suche
+                    }
+                }
             }
         }
-        guard !kandidaten.isEmpty else {
-            meldung = .init(text: "Gespeichert. Im Kapitel steht noch kein Foto, an das der Text kommen könnte \u{2014} er erscheint beim nächsten Neuverteilen.")
-            return
+        guard !stehtAufSeite(e, kapitel: t) else { return }
+        if ziel == nil {
+            // Fotos auf den Seiten des Kapitels, mit Stelle.
+            var kandidaten: [(seite: Int, block: Int, wann: Date)] = []
+            for (p, seite) in reise.tage[t].seiten.enumerated() {
+                for (i, b) in seite.bloecke.enumerated() {
+                    guard let id = b.fotoID, let f = reise.foto(id), !f.grafik else { continue }
+                    kandidaten.append((p, i, f.aufnahme ?? .distantFuture))
+                }
+            }
+            guard !kandidaten.isEmpty else {
+                meldung = .init(text: "Gespeichert. Im Kapitel steht noch kein Foto, an das der Text kommen könnte \u{2014} er erscheint beim nächsten Neuverteilen.")
+                return
+            }
+            kandidaten.sort { $0.wann < $1.wann }
+            if let erstes = kandidaten.first(where: { $0.wann >= e.zeit }) {
+                ziel = (erstes.seite, erstes.block); oben = true
+            } else {
+                ziel = (kandidaten.last!.seite, kandidaten.last!.block); oben = false
+            }
         }
-        kandidaten.sort { $0.wann < $1.wann }
-        let oben: Bool
-        let ziel: (seite: Int, block: Int, wann: Date)
-        if let erstes = kandidaten.first(where: { $0.wann >= e.zeit }) {
-            ziel = erstes; oben = true
-        } else {
-            ziel = kandidaten.last!; oben = false
-        }
-        var foto = reise.tage[t].seiten[ziel.seite].bloecke[ziel.block]
-        let r = foto.rahmen
-        // Erst messen, dann Platz nehmen: höchstens 55 % der Fotohöhe.
-        let probe = automat.textfeld(kopf: e.kopfzeile, rumpf: rumpf, x: r.x, y: r.y, breite: r.breite)
-        let luft = reise.gestaltung.fugePt
-        let nimm = min(probe.hoehe + luft, r.hoehe * 0.55)
-        let feld: (bloecke: [Block], hoehe: Double)
-        if oben {
-            feld = automat.textfeld(kopf: e.kopfzeile, rumpf: rumpf, x: r.x, y: r.y, breite: r.breite)
-            foto.rahmen = Rahmen(x: r.x, y: r.y + nimm, breite: r.breite, hoehe: r.hoehe - nimm)
-        } else {
-            feld = automat.textfeld(kopf: e.kopfzeile, rumpf: rumpf, x: r.x, y: r.y + r.hoehe - nimm + luft, breite: r.breite)
-            foto.rahmen = Rahmen(x: r.x, y: r.y, breite: r.breite, hoehe: r.hoehe - nimm)
-        }
-        foto.vonHand = true
-        reise.tage[t].seiten[ziel.seite].bloecke[ziel.block] = foto
-        let ebene = (reise.tage[t].seiten[ziel.seite].bloecke.map(\.ebene).max() ?? 0) + 1
+        guard let ziel else { return }
+        // Seit 1.0.35 bleibt das Foto, wie es ist (Ansage des Nutzers
+        // 11/2026: „dann soll sich die Größe und die Position und das Format
+        // des Bildes nicht ändern … dass der Text nicht einfach in einem für
+        // ihn passenden, möglichst quadratischen Textfeld erscheint, sondern
+        // ich erst alles noch einmal zurechtziehen muss"). Bis 1.0.34 gab das
+        // Foto oben einen Streifen in seiner vollen Breite ab — ein breites,
+        // flaches Feld, und das Foto war beschnitten.
+        let seite = reise.tage[t].seiten[ziel.seite]
+        let foto = seite.bloecke[ziel.block].rahmen
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        let kopf = e.kopfzeile
+        let feld = textfeldAufSeite(kopf: kopf, rumpf: rumpf, satz: satz,
+                                    andere: seite.bloecke.map(\.rahmen.rect),
+                                    foto: foto.rect, oben: oben)
+        let ebene = (seite.bloecke.map(\.ebene).max() ?? 0) + 1
         reise.tage[t].seiten[ziel.seite].bloecke += feld.bloecke.map { b in
             var n = b; n.vonHand = true; n.ebene = ebene; return n
         }
         seitenzeiger = ziel.seite
-        meldung = .init(text: oben
-            ? "Der Text steht jetzt über dem Foto, vor das er gehört. Das Foto hat dafür oben etwas Platz abgegeben \u{2014} Größe und Lage lassen sich wie immer anpassen."
-            : "Der Text steht jetzt unter dem letzten Foto des Kapitels.")
+        meldung = .init(text: feld.frei
+            ? "Der Text steht jetzt in einem eigenen Feld neben dem Foto. Das Foto ist unverändert."
+            : "Auf der Seite war kein freier Platz \u{2014} der Text liegt jetzt über dem Foto. Schieb ihn an seine Stelle oder mach das Foto kleiner; das Foto selbst ist unverändert.")
+    }
+
+    /// Ein Textfeld in passender, möglichst QUADRATISCHER Größe (ab 1.0.35):
+    /// die schmalste Breite, bei der der Text nicht höher als breit wird.
+    /// Lage: ein freier Platz der Seite möglichst nah an der Stelle über
+    /// (bzw. unter) dem Foto; ist keiner frei, in die obere linke Ecke des
+    /// Fotos, damit er gleich zu sehen ist.
+    func textfeldAufSeite(kopf: String, rumpf: String, satz: CGRect, andere: [CGRect],
+                          foto: CGRect, oben: Bool) -> (bloecke: [Block], frei: Bool) {
+        let minimal = min(110.0, Double(satz.width))
+        var breite = Double(satz.width)
+        var w = minimal
+        while w <= Double(satz.width) {
+            let h = automat.textfeld(kopf: kopf, rumpf: rumpf, x: 0, y: 0, breite: w).hoehe
+            if h <= w { breite = w; break }
+            w += 6
+        }
+        let hoehe = min(automat.textfeld(kopf: kopf, rumpf: rumpf, x: 0, y: 0, breite: breite).hoehe,
+                        Double(satz.height))
+        let luft = reise.gestaltung.fugePt
+        let wunsch = CGPoint(x: foto.midX,
+                             y: oben ? foto.minY - luft - hoehe / 2 : foto.maxY + luft + hoehe / 2)
+        var beste: (punkt: CGPoint, wert: Double)?
+        let schritt = 8.0
+        var y = Double(satz.minY)
+        while y + hoehe <= Double(satz.maxY) + 0.5 {
+            var x = Double(satz.minX)
+            while x + breite <= Double(satz.maxX) + 0.5 {
+                let r = CGRect(x: x, y: y, width: breite, height: hoehe).insetBy(dx: -luft / 2, dy: -luft / 2)
+                let frei = !andere.contains { $0.intersects(r) }
+                if frei {
+                    let d = hypot(Double(r.midX - wunsch.x), Double(r.midY - wunsch.y))
+                    if beste == nil || d < beste!.wert { beste = (CGPoint(x: x, y: y), d) }
+                }
+                x += schritt
+            }
+            y += schritt
+        }
+        let ort: CGPoint
+        if let beste {
+            ort = beste.punkt
+        } else {
+            let x = min(max(Double(foto.minX) + luft, Double(satz.minX)), Double(satz.maxX) - breite)
+            let y = min(max(Double(foto.minY) + luft, Double(satz.minY)), Double(satz.maxY) - hoehe)
+            ort = CGPoint(x: x, y: y)
+        }
+        let feld = automat.textfeld(kopf: kopf, rumpf: rumpf, x: Double(ort.x), y: Double(ort.y), breite: breite)
+        return (feld.bloecke, beste != nil)
+    }
+
+    /// Löscht einen freien Text (ab 1.0.35): den Eintrag und alles, was von
+    /// ihm auf den Seiten des Kapitels steht — Textstücke, Kopfzeile und den
+    /// Goldstrich über der Kopfzeile (bzw. über dem Text).
+    func freienTextLoeschen(_ e: Texteintrag, kapitel t: Int, block gewaehlt: UUID? = nil) {
+        let rumpf = e.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let kopf = e.kopfzeile
+        let betitelt = !e.titel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        for p in reise.tage[t].seiten.indices {
+            let bloecke = reise.tage[t].seiten[p].bloecke
+            func wort(_ b: Block) -> String? {
+                guard b.zuFoto == nil, let w = b.text?.trimmingCharacters(in: .whitespacesAndNewlines), !w.isEmpty else { return nil }
+                return w
+            }
+            var weg = Set<Int>()
+            // 1. Die Textstücke (und der gewählte Kasten selbst).
+            for (i, b) in bloecke.enumerated() {
+                if b.id == gewaehlt { weg.insert(i); continue }
+                guard let w = wort(b), !rumpf.isEmpty else { continue }
+                if w == rumpf || (w.count >= 12 && rumpf.contains(w)) { weg.insert(i) }
+            }
+            // 2. Die Kopfzeile: mit eigenem Titel überall, sonst (nur Datum —
+            // kann ein anderer Text des Tages auch tragen) nur direkt über
+            // einem gelöschten Stück.
+            let stuecke = weg.map { bloecke[$0].rahmen }
+            for (i, b) in bloecke.enumerated() where wort(b) == kopf {
+                let darueber = stuecke.contains { r in
+                    abs(r.x - b.rahmen.x) < 2 && r.y >= b.rahmen.y && r.y - (b.rahmen.y + b.rahmen.hoehe) < 12
+                }
+                if betitelt || darueber { weg.insert(i) }
+            }
+            // 3. Der Goldstrich knapp über dem obersten gelöschten Kasten.
+            let oberkanten = weg.map { bloecke[$0].rahmen }
+            for (k, l) in bloecke.enumerated() where l.inhalt == .linie && l.zuFoto == nil {
+                if oberkanten.contains(where: { abs(l.rahmen.x - $0.x) < 2 && l.rahmen.y <= $0.y && $0.y - l.rahmen.y < 14 }) {
+                    weg.insert(k)
+                }
+            }
+            for i in weg.sorted(by: >) { reise.tage[t].seiten[p].bloecke.remove(at: i) }
+        }
+        reise.eintraege.removeAll { $0.id == e.id }
+        reise.tage[t].text = reise.kapiteltext(reise.tage[t].datum)
     }
 
     /// Ersetzt einen ganzen Textkasten mit genau diesem Wortlaut (nach der
