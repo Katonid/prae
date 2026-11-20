@@ -2078,10 +2078,12 @@ struct ReiseView: View {
                     Button("Neuer Text\u{2026}", systemImage: "plus.bubble") { blatt = .neuerText }
                     // Ab 1.0.31: Texte, die (vor 1.0.31 oder in einem Kapitel
                     // mit Handarbeit) noch auf keiner Seite stehen.
-                    let fehlen = werk.fehlendeTexte(tag.id).count
+                    // Ab 1.0.33 zusammen mit veralteten Texten: was gespeichert
+                    // ist, aber so nicht auf der Seite steht.
+                    let fehlen = werk.fehlendeTexte(tag.id).count + werk.veralteteTexte(tag.id).count
                     if fehlen > 0 {
-                        Button("Fehlende Texte einsetzen (\(fehlen))", systemImage: "text.badge.plus") {
-                            werk.fehlendeTexteEinsetzen(tag.id)
+                        Button("Texte auf den Seiten auffrischen (\(fehlen))", systemImage: "text.badge.checkmark") {
+                            werk.texteAufSeitenAuffrischen(tag.id)
                         }
                     }
                 }
