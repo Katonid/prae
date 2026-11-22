@@ -38,6 +38,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     /// gewähltem Foto („Text davor"), kommt auf DIESE Seite neben dieses
     /// Foto — Eintrag → Foto. Nicht gespeichert; gilt bis zum Sichern.
     var textBeiFoto: [UUID: UUID] = [:]
+    /// KAPITELWEISE (ab 1.0.40): die Fotos des letzten Einlesens — neue UND
+    /// die als „schon im Buch" übersprungenen —, für „Zuletzt eingelesene
+    /// Fotos". Nicht gespeichert.
+    @Published var zuletztEingelesen: [UUID] = []
     @Published var meldung: Meldung?
     // Dateien entfernter Doppel, gelöscht erst beim Schließen (ab 1.0.128).
     private(set) var zuLoeschen: Set<String> = []

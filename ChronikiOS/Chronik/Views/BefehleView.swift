@@ -68,6 +68,10 @@ struct BefehleView: View {
         dazu(t, "Foto in ein anderes Kapitel verschieben oder kopieren",
              "Foto antippen \u{2192} unten das Menü \u{201E}Foto\u{201C} \u{2192} \u{201E}Ins vorige Kapitel\u{201C} / \u{201E}Ins nächste Kapitel\u{201C}",
              "kapitel jahr vorziehen verschieben kopieren schummeln anderes jahr dezember januar", "arrow.left.to.line", .hinweis)
+        dazu(t, "Zuletzt eingelesene Fotos finden",
+             "Plusmenü \u{2192} Fotos \u{2192} Zuletzt eingelesene Fotos",
+             "zuletzt eingelesen importiert neu finden wo schon vorhanden übersprungen suchen",
+             "clock.arrow.circlepath", .blatt(.zuletzt))
         dazu(t, "Datum oder Goldstrich über einem Text zeigen",
              "Text bearbeiten \u{2192} \u{201E}Darstellung im Buch\u{201C} (beides zunächst aus)",
              "datum kopfzeile strich linie goldstrich zeigen ausblenden", "calendar", .hinweis)

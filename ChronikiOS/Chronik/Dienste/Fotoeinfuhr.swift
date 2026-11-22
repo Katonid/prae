@@ -53,6 +53,9 @@ struct Einfuhrbericht {
                           ? "1 Foto war schon im Buch und wurde übersprungen."
                           : "\(schonVorhanden) Fotos waren schon im Buch und wurden übersprungen.")
         }
+        if aufgenommen + schonVorhanden > 0 {
+            zeilen.append("Wo sie stehen: Plusmenü \u{2192} Fotos \u{2192} \u{201E}Zuletzt eingelesene Fotos\u{201C}.")
+        }
         if neueTage > 0 { zeilen.append("\(neueTage) neue Kapitel angelegt.") }
         if eingeschoben > 0 {
             zeilen.append("\(eingeschoben) Fotos stehen jetzt neben ihrem zeitlichen Nachbarn auf der Seite \u{2014} der Rest des Kapitels blieb, wie du ihn gestaltet hast.")
@@ -139,6 +142,19 @@ extension Reisewerk {
         var bekannteAufnahmen = Set(reise.fotos.filter { !$0.grafik }.compactMap { f in
             f.aufnahme.map { Self.fingerabdruck($0, breite: f.breite, hoehe: f.hoehe) }
         })
+        // Welches vorhandene Foto ein übersprungenes ist (ab 1.0.40) — damit
+        // „Zuletzt eingelesene Fotos" es zeigen kann. Gemeldet 11/2026:
+        // „mir gesagt wird, dass diese bereits im Projekt enthalten seien.
+        // Ich finde sie aber an keiner Stelle."
+        var idNachKennung: [String: UUID] = [:]
+        var idNachAufnahme: [String: UUID] = [:]
+        for f in reise.fotos {
+            if let k = f.mediathek { idNachKennung[k] = f.id }
+            if !f.grafik, let wann = f.aufnahme {
+                idNachAufnahme[Self.fingerabdruck(wann, breite: f.breite, hoehe: f.hoehe)] = f.id
+            }
+        }
+        var vorhandene: [UUID] = []
         merken()
         var neueFotos: [UUID] = []
 
@@ -219,11 +235,15 @@ extension Reisewerk {
 
             if let kennung = bild.kennung, bekannteKennungen.contains(kennung) {
                 bericht.schonVorhanden += 1
+                if let id = idNachKennung[kennung] { vorhandene.append(id) }
                 continue
             }
             if let wann = befund.aufnahme,
                bekannteAufnahmen.contains(Self.fingerabdruck(wann, breite: befund.breite, hoehe: befund.hoehe)) {
                 bericht.schonVorhanden += 1
+                if let id = idNachAufnahme[Self.fingerabdruck(wann, breite: befund.breite, hoehe: befund.hoehe)] {
+                    vorhandene.append(id)
+                }
                 continue
             }
 
@@ -325,6 +345,14 @@ extension Reisewerk {
                 bericht.wartenAufNeuverteilen += ids.count
             }
         }
+        // Zuletzt eingelesen (ab 1.0.40): neue zuerst, dann übersprungene.
+        var liste: [UUID] = []
+        for id in neueFotos + vorhandene where !liste.contains(id) { liste.append(id) }
+        if !liste.isEmpty { zuletztEingelesen = liste }
+        // Das erste neue Foto, das auf einer Seite steht, wird gezeigt und
+        // gewählt — sonst sucht man es (gemeldet 11/2026: „unter einem
+        // bestehenden Bild platziert … zunächst nicht erkannt").
+        if let erstes = neueFotos.first(where: { fundort($0).block != nil }) { fotoZeigen(erstes) }
         sofortSichern()
         Absturzspur.endet()
         return bericht

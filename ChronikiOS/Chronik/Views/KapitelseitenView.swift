@@ -60,7 +60,7 @@ struct KapitelseitenView: View {
                 }
                 .sheet(isPresented: Binding(get: { mediathekFuer != nil },
                                             set: { if !$0 { mediathekFuer = nil } })) {
-                    Fotowahl(hoechstzahl: mediathekFuer == .meldungenReihe ? 0 : 1) { treffer in
+                    Fotowahl(hoechstzahl: mediathekFuer == .meldungenReihe ? 0 : 1, selbstSchliessen: false) { treffer in
                         let ziel = mediathekFuer
                         mediathekFuer = nil
                         if ziel == .meldungenReihe {

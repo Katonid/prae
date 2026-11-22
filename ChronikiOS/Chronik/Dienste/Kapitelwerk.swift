@@ -1572,6 +1572,9 @@ extension Reisewerk {
         block.rahmen = neuerRahmen
         block.ausschnitt = Bildausschnitt()
         block.vonHand = true
+        // Obenauf (ab 1.0.40): mit der Ebene des Nachbarn lag es teils
+        // unter überlappenden Fotos und war nicht zu sehen.
+        block.ebene = (reise.tage[t].seiten[ziel.seite].bloecke.map(\.ebene).max() ?? 0) + 1
         reise.tage[t].seiten[ziel.seite].bloecke.append(block)
         seitenzeiger = ziel.seite
         return true
@@ -1883,5 +1886,79 @@ extension Reisewerk {
         reise.schmutztitelbloecke = verteilt(reise.schmutztitelbloecke, von: vonSeite, nach: nachSeite)
         reise.schlussbloecke = verteilt(reise.schlussbloecke, von: vonSeite, nach: nachSeite)
         if let v = reise.vorwortIndex { vorwortNachfuehren(v) }
+    }
+}
+
+// MARK: - Zuletzt eingelesene Fotos finden (ab 1.0.40)
+
+extension Reisewerk {
+    enum Fotofundort: Equatable {
+        case aufSeite(kapitel: Int, seite: Int)
+        case nurImKapitel(Int)
+        case ablage
+    }
+
+    /// Wo ein Foto steht: auf welcher Seite (erste Fundstelle), nur in der
+    /// Fotoliste eines Kapitels (auf keiner Seite), oder in der Ablage.
+    func fundort(_ fotoID: UUID) -> (ort: Fotofundort, block: UUID?) {
+        for t in reise.tage.indices {
+            for p in reise.tage[t].seiten.indices {
+                if let b = reise.tage[t].seiten[p].bloecke.first(where: { $0.fotoID == fotoID }) {
+                    return (.aufSeite(kapitel: t, seite: p), b.id)
+                }
+            }
+        }
+        if let t = reise.tage.firstIndex(where: { $0.fotos.contains(fotoID) }) { return (.nurImKapitel(t), nil) }
+        return (.ablage, nil)
+    }
+
+    func fundortText(_ fotoID: UUID) -> String {
+        switch fundort(fotoID).ort {
+        case let .aufSeite(t, p):
+            return "\(reise.tage[t].ueberschrift), Seite \(p + 1) des Kapitels"
+        case let .nurImKapitel(t):
+            return "Im Kapitel \u{201E}\(reise.tage[t].ueberschrift)\u{201C}, aber auf keiner Seite"
+        case .ablage:
+            return "In der Fotoablage (keinem Kapitel zugeordnet)"
+        }
+    }
+
+    /// Springt zur Seite des Fotos und wählt es.
+    func fotoZeigen(_ fotoID: UUID) {
+        let f = fundort(fotoID)
+        guard case let .aufSeite(t, p) = f.ort else { return }
+        gewaehlterTag = reise.tage[t].id
+        seitenzeiger = p
+        gewaehlteSeite = reise.tage[t].seiten[p].id
+        sprungZuSeite = reise.tage[t].seiten[p].id
+        gewaehlterBlock = f.block
+    }
+
+    /// Bringt ein Foto, das auf keiner Seite steht, auf eine Seite: in sein
+    /// Kapitel (aus der Ablage nach Aufnahmedatum), dort neben seinen
+    /// zeitlichen Nachbarn; ein Kapitel ohne Handarbeit wird neu gesetzt.
+    @discardableResult
+    func fotoAufSeiteBringen(_ fotoID: UUID) -> Bool {
+        guard let foto = reise.foto(fotoID) else { return false }
+        merken()
+        if case .ablage = fundort(fotoID).ort {
+            let datum = foto.aufnahme.map { Tagesdatum($0) } ?? reise.tage.last(where: { !$0.vorwort })?.datum
+            guard let datum else { return false }
+            let t = reise.tagIndex(fuer: datum)
+            reise.tage[t].fotos.append(fotoID)
+            let index = reise.fotoIndex
+            reise.tage[t].fotos.sort { (index[$0]?.aufnahme ?? .distantFuture) < (index[$1]?.aufnahme ?? .distantFuture) }
+        }
+        guard case let .nurImKapitel(t) = fundort(fotoID).ort else { fotoZeigen(fotoID); return true }
+        let id = reise.tage[t].id
+        if !hatHandarbeit(id) && !reise.tage[t].gesperrt {
+            neuAnordnen(id, erzwingen: false)
+        } else if !fotoEinzelnEinsetzen(fotoID) {
+            meldung = .init(text: "Im Kapitel steht noch kein Foto, neben das es kommen könnte \u{2014} \u{201E}Automatisch neu verteilen\u{201C} setzt es.", schwer: true)
+            return false
+        }
+        sofortSichern()
+        fotoZeigen(fotoID)
+        return true
     }
 }

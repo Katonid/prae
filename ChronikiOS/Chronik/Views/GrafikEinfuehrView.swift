@@ -119,23 +119,29 @@ struct BildAusFotosView: View {
     var body: some View {
         // Der Wähler zeigt sich SELBST — dieselbe Regel wie überall, wo ein
         // fremder Dienst ein Fenster aufmacht.
-        Fotowahl { treffer in
+        Fotowahl(selbstSchliessen: false) { treffer in
             Absturzspur.beginnt("Mediathek: \(treffer.count) Bild(er) gewählt")
-            Task { await einsetzen(treffer) }
+            // Seite VOR dem Schließen merken, dann genau EINMAL schließen
+            // (ab 1.0.40). Die Arbeit läuft am Werk weiter, nicht am Blatt.
+            let seite = werk.einsetzbareSeite
+            let w = werk
+            schliessen()
+            Task { @MainActor in await Self.einsetzen(treffer, seite: seite, werk: w) }
         }
         .ignoresSafeArea()
         .onAppear { Absturzspur.beginnt("Mediathek-Wähler steht \u{2014} Auswahl läuft") }
     }
 
-    private func einsetzen(_ treffer: [PHPickerResult]) async {
+    @MainActor
+    private static func einsetzen(_ treffer: [PHPickerResult], seite: UUID?, werk: Reisewerk) async {
         guard !treffer.isEmpty else {
-            schliessen()
+            Absturzspur.endet()
             return
         }
-        guard let seite = werk.einsetzbareSeite else {
+        guard let seite else {
             werk.meldung = .init(text: "Erst eine Seite antippen, dann das Bild wählen.",
                                  schwer: true)
-            schliessen()
+            Absturzspur.endet()
             return
         }
         var gesetzt = 0
@@ -184,14 +190,14 @@ struct BildAusFotosView: View {
             satz += " \(gescheitert) ließen sich nicht lesen."
         }
         werk.meldung = .init(text: satz)
-        schliessen()
+        Absturzspur.endet()
     }
 
     // Die Endung als RÜCKFALL. Seit 1.0.105 gilt zuerst die Endung der
     // Datei, die die Mediathek wirklich geliefert hat: Was hier steht, ist
     // nur eine Aussage darüber, was sie ANBIETET — geliefert werden kann
     // etwas anderes, und dann läge ein JPEG unter dem Namen „heic".
-    private func endung(_ eintrag: PHPickerResult) -> String {
+    private static func endung(_ eintrag: PHPickerResult) -> String {
         let typen = eintrag.itemProvider.registeredTypeIdentifiers
         if typen.contains(UTType.png.identifier) { return "png" }
         if typen.contains(UTType.heic.identifier) { return "heic" }
@@ -214,7 +220,7 @@ struct BildAusFotosView: View {
     // **Die URL im Rückruf gilt NUR, solange der Rückruf läuft** — sie
     // wird deshalb sofort in einen eigenen Ordner kopiert. Das ist eine
     // Kopie von Datei zu Datei und kostet keinen Arbeitsspeicher.
-    private func ladeDatei(_ eintrag: PHPickerResult) async -> URL? {
+    private static func ladeDatei(_ eintrag: PHPickerResult) async -> URL? {
         let anbieter = eintrag.itemProvider
         guard anbieter.hasItemConformingToTypeIdentifier(UTType.image.identifier) else {
             return nil
