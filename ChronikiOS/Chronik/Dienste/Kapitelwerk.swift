@@ -2083,3 +2083,57 @@ extension Reisewerk {
         return (eingeordnet, gesetzt)
     }
 }
+
+// MARK: - Platzhalter-Reste entfernen (ab 1.0.44)
+
+extension Reisewerk {
+    /// Beim Öffnen: Platzhalter-Hinweise und Zeitung/Meldungs-Texte aus dem
+    /// Kapiteltext nehmen (siehe `Platzhalterreste`); Textkästen außerhalb
+    /// der Geburtstagsseiten, die nur daraus bestanden, verschwinden, Seiten
+    /// ohne Block danach auch. Kapitel ohne Handarbeit werden neu gesetzt.
+    /// Wiederholbar: Sauberes bleibt, wie es ist.
+    func platzhalterResteEntfernen() {
+        var geaendert = false
+        for t in reise.tage.indices where !reise.tage[t].vorwort {
+            let tag = reise.tage[t]
+            let fremd = Platzhalterreste.fremdeTexte(tag)
+            var kapitelGeaendert = false
+            if reise.kapiteleintraege(tag.datum).isEmpty {
+                let sauber = Platzhalterreste.bereinigt(tag.text, fremd: fremd)
+                if sauber != tag.text.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    reise.tage[t].text = sauber
+                    kapitelGeaendert = true
+                }
+            }
+            for p in reise.tage[t].seiten.indices where !reise.tage[t].seiten[p].geburtstag {
+                let vorher = reise.tage[t].seiten[p].bloecke
+                var bloecke: [Block] = []
+                for var b in vorher {
+                    // Nur Kästen mit einem PLATZHALTER-Hinweis werden
+                    // angefasst — Zeitungs- und Meldungsseiten anderer Stile
+                    // (`sonderseiten`, ohne Geburtstagsmarke) tragen die
+                    // echten Texte und bleiben.
+                    if case let .text(inhalt) = b.inhalt, Platzhalterreste.hatHinweis(inhalt) {
+                        let sauber = Platzhalterreste.bereinigt(inhalt, fremd: fremd)
+                        if sauber.isEmpty { continue }
+                        b.inhalt = .text(sauber)
+                    }
+                    bloecke.append(b)
+                }
+                if bloecke.count != vorher.count || bloecke != vorher {
+                    reise.tage[t].seiten[p].bloecke = bloecke
+                    kapitelGeaendert = true
+                }
+            }
+            if kapitelGeaendert {
+                // Leere Seiten (nichts mehr darauf) fallen weg.
+                reise.tage[t].seiten.removeAll { $0.bloecke.isEmpty && !$0.geburtstag }
+                if !hatHandarbeit(reise.tage[t].id) && !reise.tage[t].gesperrt {
+                    neuAnordnen(reise.tage[t].id, erzwingen: false)
+                }
+                geaendert = true
+            }
+        }
+        if geaendert { sofortSichern() }
+    }
+}

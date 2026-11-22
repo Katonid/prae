@@ -920,6 +920,22 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     `fotoEinzelnEinsetzen`.
   - **Nicht gemessen:** auf einem Gerät; die Einordnung nimmt an, dass die
     festen Seiten in sich zeitlich geordnet sind (frühestes Foto je Seite).
+- **Platzhalter-Seiten am Kapitelende** (behoben 1.0.43, gemeldet 11/2026
+  mit Bildschirmfoto: „Seit einigen Versionen werden am Ende eines
+  Jahreskapitels mehrere dieser unsinnigen Seiten eingefügt … die zwei dafür
+  vorgesehenen Seiten … sind auch bereits angelegt"). Ursache:
+  `wortlautSichern` holte bei einem Kapitel OHNE Texteinträge ALLEN Text von
+  den Seiten als Kapiteltext zurück (`Neuverteilung.fliesstexte`) — auch die
+  grauen Hinweise der Geburtstags-Platzhalter und die Texte von Zeitung und
+  Meldungen. Der Satz hängte den Kapiteltext ans Kapitelende; jedes weitere
+  Neusetzen sammelte ihn erneut ein, er vermehrte sich. Jetzt: Geburtstags-
+  seiten zählen nicht mit, und Stücke, die nur aus Platzhalter- oder
+  Zeitungs-/Meldungstext bestehen, fallen heraus (`Model/Platzhalterreste.swift`,
+  Muster unter Linux geprüft). Beim Öffnen räumt `platzhalterResteEntfernen`
+  den Kapiteltext auf, entfernt außerhalb der Geburtstagsseiten Kästen mit
+  Platzhalter-Hinweis (nur solche — Zeitungsseiten anderer Stile tragen
+  echte Texte ohne Geburtstagsmarke), leere Seiten fallen weg, Kapitel ohne
+  Handarbeit werden neu gesetzt. **Nicht gemessen:** auf einem Gerät.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -1102,5 +1118,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   einem Gerät.
 - **1.0.43 (Build 44)**, 11/2026: neue Fotos in gestalteten Kapiteln nach
   Datum, freie Seiten rücken nach, feste (Text/Handarbeit) bleiben;
-  gesperrte Kapitel beim Einlesen unberührt. **Nicht gemessen:** auf einem
+  gesperrte Kapitel beim Einlesen unberührt; keine Platzhalter-Seiten mehr
+  am Kapitelende. **Nicht gemessen:** auf einem
   Gerät.
