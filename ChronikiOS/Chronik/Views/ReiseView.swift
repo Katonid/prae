@@ -175,6 +175,8 @@ struct ReiseView: View {
         case spur(UUID)
         case seiten(UUID)
         case ablage
+        // Zuletzt eingelesene Fotos (ab 1.0.40).
+        case zuletzt
         // Doppelte Fotos (ab 1.0.128).
         case duplikate
         // KAPITELWEISE: Texte mit Zeitstempel und das Zeitraster.
@@ -236,6 +238,7 @@ struct ReiseView: View {
             case let .spur(id): return "spur-\(id)"
             case let .seiten(id): return "seiten-\(id)"
             case .ablage: return "ablage"
+            case .zuletzt: return "zuletzt"
             case .duplikate: return "duplikate"
             case .texte: return "texte"
             case .neuerText: return "neuertext"
@@ -1770,6 +1773,11 @@ struct ReiseView: View {
                 Button("Datum aus der Mediathek abgleichen", systemImage: "calendar.badge.clock") {
                     Task { await werk.aufnahmedatenAbgleichen() }
                 }
+                // Ab 1.0.40: Wo stehen die zuletzt eingelesenen Fotos?
+                Button(werk.zuletztEingelesen.isEmpty
+                       ? "Zuletzt eingelesene Fotos\u{2026}"
+                       : "Zuletzt eingelesene Fotos (\(werk.zuletztEingelesen.count))\u{2026}",
+                       systemImage: "clock.arrow.circlepath") { blatt = .zuletzt }
                 Button {
                     blatt = .ablage
                 } label: {
@@ -2552,6 +2560,8 @@ struct ReiseView: View {
             SeitenView(werk: werk, tagID: id)
         case .ablage:
             AblageView(werk: werk)
+        case .zuletzt:
+            ZuletztView(werk: werk)
         case .duplikate:
             DuplikateView(werk: werk)
         case .texte:

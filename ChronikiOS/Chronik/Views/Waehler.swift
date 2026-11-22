@@ -13,6 +13,12 @@ import UniformTypeIdentifiers
 // leer. Eine Reise-App, die keine Orte bekommt, hat keine Karte.
 struct Fotowahl: UIViewControllerRepresentable {
     var hoechstzahl: Int = 0
+    /// KAPITELWEISE (ab 1.0.40): `false`, wo das Blatt selbst schließt
+    /// (SwiftUI). Sonst schließt es sich zweimal, und der zweite Befehl trifft
+    /// das Fenster DARUNTER — dieselbe Falle wie bei der Schriftwahl (1.0.19).
+    /// Gemeldet 11/2026: „ein Foto auf eine bestimmte Seite zu importieren …
+    /// jedes Mal … stürzt die App ab" (`BildAusFotosView`).
+    var selbstSchliessen: Bool = true
     var fertig: ([PHPickerResult]) -> Void
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
@@ -31,14 +37,18 @@ struct Fotowahl: UIViewControllerRepresentable {
 
     func updateUIViewController(_ waehler: PHPickerViewController, context: Context) {}
 
-    func makeCoordinator() -> Bote { Bote(fertig: fertig) }
+    func makeCoordinator() -> Bote { Bote(selbstSchliessen: selbstSchliessen, fertig: fertig) }
 
     final class Bote: NSObject, PHPickerViewControllerDelegate {
+        let selbstSchliessen: Bool
         let fertig: ([PHPickerResult]) -> Void
-        init(fertig: @escaping ([PHPickerResult]) -> Void) { self.fertig = fertig }
+        init(selbstSchliessen: Bool, fertig: @escaping ([PHPickerResult]) -> Void) {
+            self.selbstSchliessen = selbstSchliessen
+            self.fertig = fertig
+        }
 
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-            picker.dismiss(animated: true)
+            if selbstSchliessen { picker.dismiss(animated: true) }
             fertig(results)
         }
     }
