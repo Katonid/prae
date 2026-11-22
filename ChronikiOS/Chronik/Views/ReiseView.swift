@@ -2322,6 +2322,13 @@ struct ReiseView: View {
             let anzeige = Task { @MainActor in
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .milliseconds(200))
+                    // KAPITELWEISE (ab 1.0.42, gemeldet 11/2026: „die
+                    // Statusnachricht, dass irgendetwas geschrieben wird, geht
+                    // leider nicht von alleine weg"). Wird die Anzeige am Ende
+                    // abgebrochen, wacht sie aus dem Schlaf noch einmal auf —
+                    // NACH `arbeit = nil` — und setzte den letzten Stand
+                    // wieder. Deshalb nach dem Schlaf zuerst nachsehen.
+                    guard !Task.isCancelled else { break }
                     if let stand = melder.stand { arbeit = stand }
                 }
             }
@@ -2331,10 +2338,33 @@ struct ReiseView: View {
                 Tempomesser.melde("Buchdatei schreiben", dauer: befund.dauer,
                                   zusatz: "\(befund.bilder) Bilder \u{00B7} "
                                       + Buchdatei.groesse(befund.bytes))
-                buchdatei = Buchwunsch(ort: befund.ort)
-                if !befund.fehlende.isEmpty {
-                    werk.meldung = .init(text: befund.satz, schwer: true)
+                // NACHGEPRÜFT (ab 1.0.42, Frage des Nutzers: „ich weiß
+                // nicht, ob die Datei am Ende wirklich in Ordnung ist"): Die
+                // fertige Datei wird wieder geöffnet und Bild für Bild
+                // gezählt — derselbe Weg wie vor dem Einlesen.
+                arbeit = Buchdatei.Fortschritt(text: "Datei wird geprüft\u{2026}")
+                let ort = befund.ort
+                let pruefung = await Task.detached(priority: .userInitiated) {
+                    Result { try Buchdatei.pruefen(ort) }
+                }.value
+                switch pruefung {
+                case .success(let p) where p.fehlendeBilder == 0 && p.bilder == befund.bilder:
+                    var satz = "Buchdatei geschrieben und geprüft: \u{201E}\(ort.lastPathComponent)\u{201C}, "
+                        + "\(p.bilder) Bilder, \(Buchdatei.groesse(befund.bytes)) \u{2014} vollständig. "
+                        + "Im folgenden Fenster \u{201E}In Dateien sichern\u{201C} wählen."
+                    if !befund.fehlende.isEmpty { satz += "\n" + befund.satz }
+                    werk.meldung = .init(text: satz, schwer: !befund.fehlende.isEmpty)
+                case .success(let p):
+                    werk.meldung = .init(text: "Die Buchdatei ist unvollständig: \(p.bilder) Bilder verzeichnet, "
+                                         + "\(p.fehlendeBilder) davon fehlen in der Datei. Bitte noch einmal sichern.",
+                                         schwer: true)
+                case .failure(let fehler):
+                    werk.meldung = .init(text: "Die fertige Buchdatei ließ sich nicht wieder öffnen: "
+                                         + fehler.localizedDescription + " Bitte noch einmal sichern.",
+                                         schwer: true)
                 }
+                arbeit = nil
+                buchdatei = Buchwunsch(ort: befund.ort)
             } catch is CancellationError {
                 werk.meldung = .init(text: "Die Buchdatei wurde abgebrochen. "
                                      + "Es ist nichts liegen geblieben.", schwer: false)

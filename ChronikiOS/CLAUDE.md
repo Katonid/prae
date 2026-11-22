@@ -883,6 +883,18 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     `ziehGruppe` = Block + `anhaengsel`, auch die Griffe); geschrieben wird
     EINMAL beim Loslassen. Größe ändern und Drehen schreiben weiter je
     Ereignis. **Nicht gemessen:** auf einem Gerät; ob das reicht.
+- **„Buchdatei wird geschrieben" bleibt stehen; Datei wird geprüft** (ab
+  1.0.42, gemeldet 11/2026: „Allerdings weiß ich nicht, ob die Datei am Ende
+  wirklich in Ordnung ist. Denn die Statusnachricht … geht leider nicht von
+  alleine weg."). Ursache (`ReiseView.buchSichern`, ebenso
+  `RegalView`-Einlesen): Die Anzeige-Aufgabe liest den Stand alle 200 ms;
+  beim Abbruch am Ende wacht sie aus `Task.sleep` noch einmal auf — NACH
+  `arbeit = nil` — und setzte den letzten Stand wieder. Jetzt nach dem
+  Schlaf `guard !Task.isCancelled else { break }`. Dazu: Die fertige Datei
+  wird mit `Buchdatei.pruefen` wieder geöffnet und gezählt; die Meldung nennt
+  Name, Bilder, Größe und „vollständig" (oder was fehlt), danach öffnet das
+  Teilen-Blatt. Im Regal („Alle Bücher sichern") gilt eine Datei erst nach
+  bestandener Prüfung als gesichert. **Nicht gemessen:** auf einem Gerät.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -933,7 +945,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -1060,3 +1072,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.41 (Build 42)**, 11/2026: Bilder bleiben nicht mehr weiß, Verschieben
   ohne Schreiben ins Buch bei jedem Bildpunkt. **Nicht gemessen:** auf einem
   Gerät.
+- **1.0.42 (Build 43)**, 11/2026: Statusanzeige beim Sichern als Datei
+  verschwindet, fertige Buchdatei wird nachgeprüft. **Nicht gemessen:** auf
+  einem Gerät.
