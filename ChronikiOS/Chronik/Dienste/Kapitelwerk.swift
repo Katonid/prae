@@ -1953,6 +1953,8 @@ extension Reisewerk {
         let id = reise.tage[t].id
         if !hatHandarbeit(id) && !reise.tage[t].gesperrt {
             neuAnordnen(id, erzwingen: false)
+        } else if neueFotosEinordnen(kapitel: t, neu: [fotoID]).fotos > 0 {
+            // Ab 1.0.43: nach Datum, freie Seiten rücken nach.
         } else if !fotoEinzelnEinsetzen(fotoID) {
             meldung = .init(text: "Im Kapitel steht noch kein Foto, neben das es kommen könnte \u{2014} \u{201E}Automatisch neu verteilen\u{201C} setzt es.", schwer: true)
             return false
@@ -1960,5 +1962,178 @@ extension Reisewerk {
         sofortSichern()
         fotoZeigen(fotoID)
         return true
+    }
+}
+
+// MARK: - Neue Fotos nach Datum einordnen, freie Seiten rücken nach (ab 1.0.43)
+
+extension Reisewerk {
+    /// Ansage des Nutzers 11/2026 vor einem großen Nachimport: „Wäre es nicht
+    /// möglich, die Fotos, die auf einer unbearbeiteten Seite eingefügt
+    /// würden, so zu verwenden, dass sie die anderen Fotos weiter nach hinten
+    /// schieben? Also, wenn auf einer Seite schon Text ist, habe ich sie
+    /// bearbeitet. Wenn noch nicht, können die Fotos ab da doch auch neu
+    /// angeordnet werden."
+    ///
+    /// Eine Seite ist FEST, wenn auf ihr etwas von Hand gemacht wurde
+    /// (`Seite.vonHand`), wenn Text darauf steht (Text, Erinnerung,
+    /// Kapitelkopf, Datum …; nicht Bildunterschriften) oder wenn sie eine
+    /// Geburtstagsseite ist. Alle anderen sind FREI. Jedes neue Foto gehört
+    /// nach seinem Aufnahmedatum in eine LÜCKE zwischen zwei festen Seiten
+    /// (hinter die letzte feste Seite, deren frühestes Foto nicht später
+    /// ist). Die freien Seiten dieser Lücke werden mit ihren bisherigen und
+    /// den neuen Fotos nach Datum neu gesetzt — die Fotos rücken nach hinten,
+    /// es entstehen bei Bedarf Seiten. Gibt es in der Lücke keine freie
+    /// Seite, kommen neue Seiten genau dort hinein. Feste Seiten bleiben
+    /// unberührt. Antwort: (eingeordnete Fotos, neu gesetzte Seiten).
+    @discardableResult
+    func neueFotosEinordnen(kapitel t: Int, neu: [UUID]) -> (fotos: Int, seiten: Int) {
+        guard reise.tage.indices.contains(t), !reise.tage[t].gesperrt, !neu.isEmpty else { return (0, 0) }
+        let index = reise.fotoIndex
+        func wann(_ id: UUID) -> Date { index[id]?.aufnahme ?? .distantFuture }
+        func fest(_ s: Seite) -> Bool {
+            if s.vonHand || s.geburtstag { return true }
+            return s.bloecke.contains { b in
+                switch b.inhalt {
+                case .bildunterschrift, .kartenunterschrift: return false
+                default: return b.inhalt.istText
+                }
+            }
+        }
+        let seiten = reise.tage[t].seiten
+        let istFest = seiten.map(fest)
+        // Lücke je Seite: Zahl der festen Seiten davor.
+        var lueckeDerSeite: [Int] = []
+        var zaehler = 0
+        for f in istFest {
+            if f { zaehler += 1; lueckeDerSeite.append(-1) } else { lueckeDerSeite.append(zaehler) }
+        }
+        let festeSeiten = seiten.indices.filter { istFest[$0] }
+        // Frühestes Foto jeder festen Seite (ohne Foto: wie die Seite davor).
+        var fruehestes: [Date] = []
+        var bisher = Date.distantPast
+        for p in festeSeiten {
+            let zeiten = seiten[p].bloecke.compactMap(\.fotoID).filter { !neu.contains($0) }.map(wann)
+            if let m = zeiten.min() { bisher = m }
+            fruehestes.append(bisher)
+        }
+        // Jedes neue Foto in seine Lücke.
+        var neuJeLuecke: [Int: [UUID]] = [:]
+        for id in neu {
+            let w = wann(id)
+            var g = fruehestes.lastIndex { $0 <= w }.map { $0 + 1 } ?? 0
+            // Nie VOR die erste Seite, wenn sie fest ist (Kapitelkopf,
+            // Geburtstag am Kapitelbeginn).
+            if istFest.first == true { g = max(g, 1) }
+            neuJeLuecke[g, default: []].append(id)
+        }
+        // Texte gehören zu festen Seiten — im Neusatz nie.
+        var ohneTexte = Set(reise.kapiteleintraege(reise.tage[t].datum).map {
+            $0.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        })
+        ohneTexte.insert(reise.tage[t].text.trimmingCharacters(in: .whitespacesAndNewlines))
+        var ergebnis: [Seite] = []
+        var eingeordnet = 0, gesetzt = 0
+        var p = 0
+        var luecke = 0
+        func setze(_ fotos: Set<UUID>) -> [Seite] {
+            let ohne = Set(reise.tage[t].fotos).subtracting(fotos)
+            return automat.restseiten(reise.tage[t], ohneFotos: ohne, ohneTexte: ohneTexte)
+                .map { var s = $0; s.vonHandAngelegt = false; return s }
+        }
+        while p <= seiten.count {
+            // Ende einer Lücke erreicht (feste Seite oder Kapitelende)?
+            let lueckeEnde = p == seiten.count || istFest[p]
+            if lueckeEnde {
+                // Was in dieser Lücke frei war, ist schon gesammelt (unten);
+                // hier nur die Lücke OHNE freie Seiten mit neuen Fotos.
+                if let dazu = neuJeLuecke[luecke], !dazu.isEmpty,
+                   !(lueckeDerSeite.contains(luecke)) {
+                    let neuSeiten = setze(Set(dazu))
+                    ergebnis += neuSeiten
+                    eingeordnet += dazu.count
+                    gesetzt += neuSeiten.count
+                    neuJeLuecke[luecke] = nil
+                }
+                if p == seiten.count { break }
+                ergebnis.append(seiten[p])
+                luecke += 1
+                p += 1
+                continue
+            }
+            // Ein Lauf freier Seiten.
+            var ende = p
+            while ende < seiten.count && !istFest[ende] { ende += 1 }
+            let lauf = Array(seiten[p..<ende])
+            if let dazu = neuJeLuecke[luecke], !dazu.isEmpty {
+                var fotos = Set(dazu)
+                for s in lauf { for b in s.bloecke { if let id = b.fotoID { fotos.insert(id) } } }
+                let neuSeiten = setze(fotos)
+                ergebnis += neuSeiten
+                eingeordnet += dazu.count
+                gesetzt += neuSeiten.count
+                neuJeLuecke[luecke] = nil
+            } else {
+                ergebnis += lauf
+            }
+            p = ende
+        }
+        guard eingeordnet > 0 else { return (0, 0) }
+        reise.tage[t].seiten = ergebnis
+        return (eingeordnet, gesetzt)
+    }
+}
+
+// MARK: - Platzhalter-Reste entfernen (ab 1.0.44)
+
+extension Reisewerk {
+    /// Beim Öffnen: Platzhalter-Hinweise und Zeitung/Meldungs-Texte aus dem
+    /// Kapiteltext nehmen (siehe `Platzhalterreste`); Textkästen außerhalb
+    /// der Geburtstagsseiten, die nur daraus bestanden, verschwinden, Seiten
+    /// ohne Block danach auch. Kapitel ohne Handarbeit werden neu gesetzt.
+    /// Wiederholbar: Sauberes bleibt, wie es ist.
+    func platzhalterResteEntfernen() {
+        var geaendert = false
+        for t in reise.tage.indices where !reise.tage[t].vorwort {
+            let tag = reise.tage[t]
+            let fremd = Platzhalterreste.fremdeTexte(tag)
+            var kapitelGeaendert = false
+            if reise.kapiteleintraege(tag.datum).isEmpty {
+                let sauber = Platzhalterreste.bereinigt(tag.text, fremd: fremd)
+                if sauber != tag.text.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    reise.tage[t].text = sauber
+                    kapitelGeaendert = true
+                }
+            }
+            for p in reise.tage[t].seiten.indices where !reise.tage[t].seiten[p].geburtstag {
+                let vorher = reise.tage[t].seiten[p].bloecke
+                var bloecke: [Block] = []
+                for var b in vorher {
+                    // Nur Kästen mit einem PLATZHALTER-Hinweis werden
+                    // angefasst — Zeitungs- und Meldungsseiten anderer Stile
+                    // (`sonderseiten`, ohne Geburtstagsmarke) tragen die
+                    // echten Texte und bleiben.
+                    if case let .text(inhalt) = b.inhalt, Platzhalterreste.hatHinweis(inhalt) {
+                        let sauber = Platzhalterreste.bereinigt(inhalt, fremd: fremd)
+                        if sauber.isEmpty { continue }
+                        b.inhalt = .text(sauber)
+                    }
+                    bloecke.append(b)
+                }
+                if bloecke.count != vorher.count || bloecke != vorher {
+                    reise.tage[t].seiten[p].bloecke = bloecke
+                    kapitelGeaendert = true
+                }
+            }
+            if kapitelGeaendert {
+                // Leere Seiten (nichts mehr darauf) fallen weg.
+                reise.tage[t].seiten.removeAll { $0.bloecke.isEmpty && !$0.geburtstag }
+                if !hatHandarbeit(reise.tage[t].id) && !reise.tage[t].gesperrt {
+                    neuAnordnen(reise.tage[t].id, erzwingen: false)
+                }
+                geaendert = true
+            }
+        }
+        if geaendert { sofortSichern() }
     }
 }

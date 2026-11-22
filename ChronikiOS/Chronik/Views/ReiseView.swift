@@ -328,6 +328,7 @@ struct ReiseView: View {
             werk.erinnerungsstricheEntfernen()
             werk.emojiMarkenAufraeumen()
             werk.kopfzeilenAufraeumen()
+            werk.platzhalterResteEntfernen()
             // Die Zeitraum-Zeile unter „2009" (ab 1.0.30).
             werk.zeitraumzeilenEntfernen()
         }

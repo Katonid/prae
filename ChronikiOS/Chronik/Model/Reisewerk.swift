@@ -826,7 +826,14 @@ final class Reisewerk: ObservableObject, Identifiable {
             reise.tage[stelle].text = reise.kapiteltext(tag.datum)
             return false
         }
-        let stuecke = Neuverteilung.fliesstexte(tag)
+        // KAPITELWEISE (ab 1.0.44): Geburtstagsseiten (Zeitung, Meldungen,
+        // Platzhalter) gehören nicht zum Kapiteltext — eingesammelt standen
+        // ihre Texte danach am Kapitelende und vermehrten sich bei jedem
+        // Neusetzen (`Platzhalterreste`).
+        var ohneGeburtstag = tag
+        ohneGeburtstag.seiten = tag.seiten.filter { !$0.geburtstag }
+        let stuecke = Neuverteilung.fliesstexte(ohneGeburtstag)
+            .filter { !Platzhalterreste.istFremd($0, tag: tag) }
         guard !stuecke.isEmpty else { return false }
         let original = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
         var geraten = 0

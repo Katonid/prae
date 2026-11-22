@@ -895,6 +895,47 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Name, Bilder, Größe und „vollständig" (oder was fehlt), danach öffnet das
   Teilen-Blatt. Im Regal („Alle Bücher sichern") gilt eine Datei erst nach
   bestandener Prüfung als gesichert. **Nicht gemessen:** auf einem Gerät.
+- **Neue Fotos nach Datum einordnen, freie Seiten rücken nach** (ab 1.0.43,
+  Ansage des Nutzers 11/2026 vor einem großen Nachimport: „Wäre es nicht
+  möglich, die Fotos, die auf einer unbearbeiteten Seite eingefügt würden,
+  so zu verwenden, dass sie die anderen Fotos weiter nach hinten schieben?
+  Also, wenn auf einer Seite schon Text ist, habe ich sie bearbeitet. Wenn
+  noch nicht, können die Fotos ab da doch auch neu angeordnet werden.").
+  - `Reisewerk.neueFotosEinordnen(kapitel:neu:)` (Ende von Kapitelwerk):
+    Seite FEST = `Seite.vonHand` ODER Text darauf (jeder `istText`-Block außer
+    Bild-/Kartenunterschrift — also auch Kapitelkopf, Erinnerung) ODER
+    Geburtstagsseite; sonst FREI. Lücke = Zahl der festen Seiten davor. Jedes
+    neue Foto kommt in die Lücke hinter der letzten festen Seite, deren
+    frühestes (altes) Foto nicht später ist (nie vor eine feste erste Seite).
+    Die freien Seiten einer betroffenen Lücke werden mit ihren Fotos plus den
+    neuen per `restseiten` (alle anderen Fotos und alle Texte ausgeschlossen)
+    nach Datum neu gesetzt; ohne freie Seite entstehen neue Seiten genau
+    dort. Feste Seiten bleiben Bit für Bit.
+  - `fotosAufnehmen`: In Kapiteln mit Handarbeit ersetzt das das Einschieben
+    neben den Nachbarn (`fotoEinzelnEinsetzen`, höchstens 6) für ALLE neuen
+    Fotos. **Gesperrte Kapitel fasst das Einlesen nicht mehr an** (bis 1.0.42
+    teilte es dort Nachbarfotos); ihre neuen Fotos stehen in „Zuletzt
+    eingelesene Fotos" (`Einfuhrbericht.imGesperrten`). „Auf eine Seite
+    bringen" nutzt zuerst `neueFotosEinordnen`, dann wie bisher
+    `fotoEinzelnEinsetzen`.
+  - **Nicht gemessen:** auf einem Gerät; die Einordnung nimmt an, dass die
+    festen Seiten in sich zeitlich geordnet sind (frühestes Foto je Seite).
+- **Platzhalter-Seiten am Kapitelende** (behoben 1.0.43, gemeldet 11/2026
+  mit Bildschirmfoto: „Seit einigen Versionen werden am Ende eines
+  Jahreskapitels mehrere dieser unsinnigen Seiten eingefügt … die zwei dafür
+  vorgesehenen Seiten … sind auch bereits angelegt"). Ursache:
+  `wortlautSichern` holte bei einem Kapitel OHNE Texteinträge ALLEN Text von
+  den Seiten als Kapiteltext zurück (`Neuverteilung.fliesstexte`) — auch die
+  grauen Hinweise der Geburtstags-Platzhalter und die Texte von Zeitung und
+  Meldungen. Der Satz hängte den Kapiteltext ans Kapitelende; jedes weitere
+  Neusetzen sammelte ihn erneut ein, er vermehrte sich. Jetzt: Geburtstags-
+  seiten zählen nicht mit, und Stücke, die nur aus Platzhalter- oder
+  Zeitungs-/Meldungstext bestehen, fallen heraus (`Model/Platzhalterreste.swift`,
+  Muster unter Linux geprüft). Beim Öffnen räumt `platzhalterResteEntfernen`
+  den Kapiteltext auf, entfernt außerhalb der Geburtstagsseiten Kästen mit
+  Platzhalter-Hinweis (nur solche — Zeitungsseiten anderer Stile tragen
+  echte Texte ohne Geburtstagsmarke), leere Seiten fallen weg, Kapitel ohne
+  Handarbeit werden neu gesetzt. **Nicht gemessen:** auf einem Gerät.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -945,7 +986,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -1075,3 +1116,8 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.42 (Build 43)**, 11/2026: Statusanzeige beim Sichern als Datei
   verschwindet, fertige Buchdatei wird nachgeprüft. **Nicht gemessen:** auf
   einem Gerät.
+- **1.0.43 (Build 44)**, 11/2026: neue Fotos in gestalteten Kapiteln nach
+  Datum, freie Seiten rücken nach, feste (Text/Handarbeit) bleiben;
+  gesperrte Kapitel beim Einlesen unberührt; keine Platzhalter-Seiten mehr
+  am Kapitelende. **Nicht gemessen:** auf einem
+  Gerät.

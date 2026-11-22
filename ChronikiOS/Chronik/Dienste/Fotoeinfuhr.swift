@@ -42,6 +42,9 @@ struct Einfuhrbericht {
     // KAPITELWEISE (ab 1.0.32): neue Fotos in Kapiteln mit Handarbeit.
     var eingeschoben: Int = 0
     var wartenAufNeuverteilen: Int = 0
+    // Ab 1.0.43.
+    var neuGesetzteSeiten: Int = 0
+    var imGesperrten: Int = 0
 
     // Der Bericht ist keine Zierde. Beim Einlesen von zweihundert Fotos
     // fällt sonst niemandem auf, dass dreißig davon keinen Ort tragen — und
@@ -58,7 +61,10 @@ struct Einfuhrbericht {
         }
         if neueTage > 0 { zeilen.append("\(neueTage) neue Kapitel angelegt.") }
         if eingeschoben > 0 {
-            zeilen.append("\(eingeschoben) Fotos stehen jetzt neben ihrem zeitlichen Nachbarn auf der Seite \u{2014} der Rest des Kapitels blieb, wie du ihn gestaltet hast.")
+            zeilen.append("\(eingeschoben) Fotos sind in gestalteten Kapiteln nach Datum eingeordnet; dafür wurden \(neuGesetzteSeiten) Seiten ohne eigene Gestaltung neu gesetzt. Seiten mit Text oder Handarbeit blieben, wie sie waren.")
+        }
+        if imGesperrten > 0 {
+            zeilen.append("\(imGesperrten) Fotos gehören zu gesperrten Kapiteln und stehen noch auf keiner Seite (\u{201E}Zuletzt eingelesene Fotos\u{201C}).")
         }
         if wartenAufNeuverteilen > 0 {
             zeilen.append("\(wartenAufNeuverteilen) Fotos gehören zu Kapiteln mit Handarbeit und stehen noch auf keiner Seite \u{2014} dort \u{201E}Ab hier neu aufbauen\u{201C} ab der passenden Stelle.")
@@ -330,20 +336,32 @@ extension Reisewerk {
         // sechs neue je Kapitel kommen jetzt neben ihren zeitlichen Nachbarn
         // (`fotoEinzelnEinsetzen`); bei mehr wäre das Zerteilen einzelner
         // Rahmen kein Satz mehr — dann sagt der Bericht, wo neu aufzubauen ist.
-        var jeKapitel: [UUID: [UUID]] = [:]
+        //
+        // Seit 1.0.43 (Ansage des Nutzers 11/2026: „wenn auf einer Seite
+        // schon Text ist, habe ich sie bearbeitet. Wenn noch nicht, können
+        // die Fotos ab da doch auch neu angeordnet werden"): Gestaltete
+        // Kapitel ordnen ALLE neuen Fotos nach Datum ein — feste Seiten
+        // (Handarbeit, Text, Geburtstag) bleiben, die freien Seiten
+        // dazwischen werden samt neuer Fotos neu gesetzt
+        // (`neueFotosEinordnen`). Gesperrte Kapitel fasst das Einlesen gar
+        // nicht an; ihre neuen Fotos stehen in „Zuletzt eingelesene Fotos".
+        var jeKapitel: [Int: [UUID]] = [:]
         for id in neueFotos {
             guard let t = reise.tage.firstIndex(where: { $0.fotos.contains(id) }) else { continue }
             let tag = reise.tage[t]
             guard tag.seiten.contains(where: { $0.vonHand }) || tag.gesperrt else { continue }
             guard !tag.seiten.contains(where: { $0.bloecke.contains { $0.fotoID == id } }) else { continue }
-            jeKapitel[tag.id, default: []].append(id)
+            jeKapitel[t, default: []].append(id)
         }
-        for (_, ids) in jeKapitel {
-            if ids.count <= 6 {
-                for id in ids where fotoEinzelnEinsetzen(id) { bericht.eingeschoben += 1 }
-            } else {
-                bericht.wartenAufNeuverteilen += ids.count
+        for (t, ids) in jeKapitel {
+            if reise.tage[t].gesperrt {
+                bericht.imGesperrten += ids.count
+                continue
             }
+            let r = neueFotosEinordnen(kapitel: t, neu: ids)
+            bericht.eingeschoben += r.fotos
+            bericht.neuGesetzteSeiten += r.seiten
+            bericht.wartenAufNeuverteilen += ids.count - r.fotos
         }
         // Zuletzt eingelesen (ab 1.0.40): neue zuerst, dann übersprungene.
         var liste: [UUID] = []
