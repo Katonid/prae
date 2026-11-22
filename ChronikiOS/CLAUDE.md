@@ -936,6 +936,20 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Platzhalter-Hinweis (nur solche — Zeitungsseiten anderer Stile tragen
   echte Texte ohne Geburtstagsmarke), leere Seiten fallen weg, Kapitel ohne
   Handarbeit werden neu gesetzt. **Nicht gemessen:** auf einem Gerät.
+- **Bundseite tauschen** (ab 1.0.44, Ansage des Nutzers 11/2026 nach dem
+  Wechsel von Saal — Seite 1 LINKS, Innenseite des Umschlags — zum Druckhaus
+  Bochum — Seite 1 RECHTS: „dass eine linke Seite rechts ist … Ich habe
+  jetzt instinktiv an der Innenfalz mehr Abstand gelassen … dass der Inhalt
+  einer Seite komplett nach rechts oder links wandert"). `bundseiteTauschen`
+  (Kapitelwerk): je Seite dx = Seitenbreite − rechte Kante − linke Kante
+  aller Blöcke, also tauschen linker und rechter freier Rand die Plätze;
+  nichts wird gespiegelt, Anordnung und Größen bleiben; Blöcke ≥ 95 % der
+  Seitenbreite (Hintergründe) bleiben und zählen nicht. Ganzes Buch → Druck →
+  „Bundseite tauschen" (alle Seiten / gewählte Seite), Kapitel-Menü →
+  „Bundseite tauschen (gewählte Seite)", Funktionssuche. „Zurück" nimmt es
+  zurück. **Nicht automatisch** beim Produktwechsel — ob eine Seite von Hand
+  einseitig gestaltet wurde, weiß die App nicht. **Nicht gemessen:** auf
+  einem Gerät.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -986,7 +1000,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -1121,3 +1135,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   gesperrte Kapitel beim Einlesen unberührt; keine Platzhalter-Seiten mehr
   am Kapitelende. **Nicht gemessen:** auf einem
   Gerät.
+- **1.0.44 (Build 45)**, 11/2026: Bundseite tauschen (Inhalt rückt zur
+  anderen Seite, für alle Seiten oder die gewählte). **Nicht gemessen:** auf
+  einem Gerät.

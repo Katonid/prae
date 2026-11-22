@@ -2137,3 +2137,67 @@ extension Reisewerk {
         if geaendert { sofortSichern() }
     }
 }
+
+// MARK: - Bundseite tauschen (ab 1.0.44)
+
+extension Reisewerk {
+    /// Ansage des Nutzers 11/2026 nach dem Wechsel von Saal (Seite 1 LINKS,
+    /// die Innenseite des Umschlags) zum Druckhaus Bochum (Seite 1 RECHTS):
+    /// „dass eine linke Seite rechts ist und die darauf folgende rechte
+    /// Seite die Rückseite links ist. Ich habe jetzt instinktiv an der
+    /// Innenfalz mehr Abstand gelassen … Bau bitte die Funktion ein, dass der
+    /// Inhalt einer Seite komplett nach rechts oder links wandert, je nachdem,
+    /// wo diese neue Seite nun zu liegen kommt."
+    ///
+    /// Der Inhalt einer Seite wird als Ganzes waagerecht verschoben, so dass
+    /// der freie Rand links und der freie Rand rechts die Plätze tauschen:
+    /// dx = Seitenbreite − rechte Kante − linke Kante (über alle Blöcke).
+    /// Die Anordnung untereinander bleibt, nichts wird gespiegelt. Blöcke,
+    /// die die ganze Seitenbreite bedecken (≥ 95 %, Hintergründe), bleiben
+    /// stehen und zählen nicht mit. Antwort: Zahl der verschobenen Seiten.
+    @discardableResult
+    func bundseiteTauschen(_ stellen: [(tag: Int, seite: Int)]) -> Int {
+        let breite = Druckmass.pt(reise.format.breite)
+        var anzahl = 0
+        for (t, p) in stellen {
+            guard reise.tage.indices.contains(t), reise.tage[t].seiten.indices.contains(p) else { continue }
+            let bloecke = reise.tage[t].seiten[p].bloecke
+            let beweglich = bloecke.indices.filter { bloecke[$0].rahmen.breite < breite * 0.95 }
+            guard let links = beweglich.map({ bloecke[$0].rahmen.x }).min(),
+                  let rechts = beweglich.map({ bloecke[$0].rahmen.x + bloecke[$0].rahmen.breite }).max()
+            else { continue }
+            let dx = breite - rechts - links
+            guard abs(dx) > 0.5 else { continue }
+            for i in beweglich {
+                reise.tage[t].seiten[p].bloecke[i].rahmen.x += dx
+            }
+            anzahl += 1
+        }
+        return anzahl
+    }
+
+    /// Alle Seiten aller Kapitel (samt Vorwort).
+    func bundseiteTauschenUeberall() {
+        merken()
+        var stellen: [(tag: Int, seite: Int)] = []
+        for t in reise.tage.indices {
+            for p in reise.tage[t].seiten.indices { stellen.append((t, p)) }
+        }
+        let n = bundseiteTauschen(stellen)
+        sofortSichern()
+        meldung = .init(text: "Auf \(n) Seiten ist der Inhalt zur anderen Seite gerückt: Der breitere Rand liegt jetzt dort, wo vorher der schmalere war. Anordnung und Größen sind unverändert. \u{201E}Zurück\u{201C} nimmt es zurück.")
+    }
+
+    /// Nur die gewählte Seite.
+    func bundseiteTauschenGewaehlt() {
+        guard let id = gewaehlteSeite, let stelle = seitenstelle(id) else {
+            meldung = .init(text: "Erst eine Seite antippen, dann \u{201E}Bundseite tauschen\u{201C}.", schwer: true)
+            return
+        }
+        merken()
+        let n = bundseiteTauschen([(stelle.tag, stelle.seite)])
+        sofortSichern()
+        meldung = .init(text: n == 0 ? "Auf dieser Seite gab es nichts zu verschieben."
+                        : "Der Inhalt dieser Seite ist zur anderen Seite gerückt. \u{201E}Zurück\u{201C} nimmt es zurück.")
+    }
+}
