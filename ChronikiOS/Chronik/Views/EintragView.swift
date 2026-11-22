@@ -126,6 +126,15 @@ struct EintragView: View {
     @Environment(\.dismiss) private var schliessen
     @State private var ueberarbeiten = false
     @State private var loeschenFragen = false
+    // KAPITELWEISE (ab 1.0.45, gemeldet 11/2026: „Manchmal gehen Texte, die
+    // ich eingebe, einfach verloren, wenn ich nach dem Eingeben das Fenster
+    // schließe"). Gesichert wurde nur über „Sichern"; Wegwischen des
+    // Fensters und „Abbrechen" warfen den Text ohne Rückfrage weg. Jetzt:
+    // Schließt sich das Fenster mit Änderungen, wird gesichert; „Abbrechen"
+    // fragt bei Änderungen nach.
+    @State private var ausgang: Texteintrag?
+    @State private var erledigt = false
+    @State private var verwerfenFragen = false
     // Diktieren wie in Fernweh (ab 1.0.3): Knopf unten rechts im Textfeld,
     // was gerade gehört wird, steht darunter; fester Text wird angehängt.
     @StateObject private var diktat = Diktat()
@@ -210,6 +219,17 @@ struct EintragView: View {
     }
 
     private var istNeu: Bool { !werk.reise.eintraege.contains { $0.id == eintrag.id } }
+
+    private var leer: Bool {
+        eintrag.titel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && eintrag.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && diktat.zwischentext.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var geaendert: Bool {
+        guard let ausgang else { return false }
+        return ausgang != eintrag || !diktat.zwischentext.isEmpty
+    }
 
     var body: some View {
         NavigationStack {
@@ -315,6 +335,7 @@ struct EintragView: View {
                 }
             }
             .onAppear {
+                if ausgang == nil { ausgang = eintrag }
                 if sofortDiktieren, !diktat.laeuft {
                     Task { await diktat.umschalten(hinweise: diktatHinweise) }
                 }
@@ -326,16 +347,35 @@ struct EintragView: View {
             }
             .onDisappear {
                 UIApplication.shared.isIdleTimerDisabled = false
+                // Weggewischt oder anders geschlossen, ohne zu sichern: Was
+                // geschrieben (und gerade diktiert) wurde, bleibt erhalten.
+                if !erledigt, geaendert, !leer {
+                    var stand = eintrag
+                    let rest = diktat.zwischentext.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !rest.isEmpty {
+                        stand.text += (stand.text.isEmpty || stand.text.hasSuffix(" ") ? "" : " ") + rest
+                    }
+                    erledigt = true
+                    werk.eintragSichern(stand)
+                }
                 Task { await diktat.stoppen() }
             }
             .navigationTitle(eintrag.foto != nil ? "Erinnerung zum Foto" : (istNeu ? "Neuer Text" : "Text"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { schliessen() }
+                    Button("Abbrechen") {
+                        if geaendert && !leer {
+                            verwerfenFragen = true
+                        } else {
+                            erledigt = true
+                            schliessen()
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") {
+                        erledigt = true
                         Task { @MainActor in
                             // Was noch im Diktat steckt, gehört zum Text.
                             await diktat.stoppen()
@@ -355,9 +395,27 @@ struct EintragView: View {
             }
             .confirmationDialog("Diesen Text löschen?", isPresented: $loeschenFragen, titleVisibility: .visible) {
                 Button("Löschen", role: .destructive) {
+                    erledigt = true
                     werk.eintragLoeschen(eintrag.id)
                     schliessen()
                 }
+            }
+            .confirmationDialog("Änderungen verwerfen?", isPresented: $verwerfenFragen, titleVisibility: .visible) {
+                Button("Sichern") {
+                    erledigt = true
+                    Task { @MainActor in
+                        await diktat.stoppen()
+                        werk.eintragSichern(eintrag)
+                        schliessen()
+                    }
+                }
+                Button("Verwerfen", role: .destructive) {
+                    erledigt = true
+                    schliessen()
+                }
+                Button("Weiter schreiben", role: .cancel) {}
+            } message: {
+                Text("Der Text ist noch nicht gesichert.")
             }
         }
     }

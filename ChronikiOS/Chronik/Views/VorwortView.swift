@@ -22,6 +22,11 @@ struct VorwortView: View {
     @State private var text = ""
     @State private var fotos: [UUID] = []
     @State private var geladen = false
+    // Schließen sichert (ab 1.0.45, gemeldet 11/2026: „Manchmal gehen
+    // Texte … verloren, wenn ich nach dem Eingeben das Fenster schließe").
+    @State private var ausgang: String?
+    @State private var erledigt = false
+    @State private var verwerfenFragen = false
     @State private var mediathek = false
     @State private var auswahl: [PhotosPickerItem] = []
     @State private var laedt = false
@@ -39,6 +44,28 @@ struct VorwortView: View {
     @State private var schrift = Schriftbild()
 
     private var gibtEs: Bool { werk.reise.vorwortIndex != nil }
+
+    /// Was sich ändern kann, als ein Vergleichswert.
+    private var stand: String {
+        titel + "\u{1F}" + text + "\u{1F}" + fotos.map(\.uuidString).joined(separator: ",")
+            + "\u{1F}" + String(fotoabstand) + "\u{1F}" + String(leerzeilenBehalten)
+    }
+
+    private var geaendert: Bool {
+        guard let ausgang else { return false }
+        return ausgang != stand
+            && !(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && fotos.isEmpty)
+    }
+
+    private func sichern() {
+        erledigt = true
+        let t = titel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let gesetzt = leerzeilenBehalten ? text : Self.ohneLeerzeilen(text)
+        let buch = werk.automat.vorwortbild()
+        werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: gesetzt, fotos: fotos,
+                            schrift: schrift == buch ? nil : schrift,
+                            abstand: fotoabstand)
+    }
 
     var body: some View {
         NavigationStack {
@@ -148,24 +175,37 @@ struct VorwortView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { schliessen() }
+                    Button("Abbrechen") {
+                        if geaendert {
+                            verwerfenFragen = true
+                        } else {
+                            erledigt = true
+                            schliessen()
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") {
-                        let t = titel.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let gesetzt = leerzeilenBehalten ? text : Self.ohneLeerzeilen(text)
-                        let buch = werk.automat.vorwortbild()
-                        werk.vorwortSichern(titel: t.isEmpty ? "Vorwort" : t, text: gesetzt, fotos: fotos,
-                                            schrift: schrift == buch ? nil : schrift,
-                                            abstand: fotoabstand)
+                        sichern()
                         schliessen()
                     }
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && fotos.isEmpty)
                 }
             }
+            .onDisappear {
+                if !erledigt, geaendert { sichern() }
+            }
+            .confirmationDialog("Änderungen verwerfen?", isPresented: $verwerfenFragen, titleVisibility: .visible) {
+                Button("Sichern") { sichern(); schliessen() }
+                Button("Verwerfen", role: .destructive) { erledigt = true; schliessen() }
+                Button("Weiter schreiben", role: .cancel) {}
+            } message: {
+                Text("Das Vorwort ist noch nicht gesichert.")
+            }
             .onAppear {
                 guard !geladen else { return }
                 geladen = true
+                defer { ausgang = stand }
                 if let i = werk.reise.vorwortIndex {
                     let tag = werk.reise.tage[i]
                     titel = tag.ueberschrift.isEmpty ? "Vorwort" : tag.ueberschrift
