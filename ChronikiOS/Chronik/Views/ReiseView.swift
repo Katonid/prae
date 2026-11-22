@@ -1892,6 +1892,15 @@ struct ReiseView: View {
                 Button("Fotobuch der Druckerei wählen\u{2026}", systemImage: "printer") { blatt = .seitenformat }
                 Button("Seitenformat\u{2026}", systemImage: "square.resize") { blatt = .seitenformat }
                 Button("Ränder und Druckzugaben\u{2026}", systemImage: "ruler") { blatt = .gestaltung }
+                // Ab 1.0.44: nach einem Wechsel, bei dem Seite 1 die Seite
+                // wechselt (Saal: links, Druckhaus: rechts).
+                Menu {
+                    Button("Alle Seiten des Buches", systemImage: "book") { werk.bundseiteTauschenUeberall() }
+                    Button("Nur die gewählte Seite", systemImage: "doc") { werk.bundseiteTauschenGewaehlt() }
+                        .disabled(werk.gewaehlteSeite == nil)
+                } label: {
+                    Label("Bundseite tauschen", systemImage: "arrow.left.and.right")
+                }
             }
         } label: {
             Label("Ganzes Buch", systemImage: "book.closed")
@@ -2188,6 +2197,11 @@ struct ReiseView: View {
                     .disabled(!frei)
                     Button("Seiten\u{2026}", systemImage: "rectangle.stack") { blatt = .seiten(tag.id) }
                     Button("Seite anfügen", systemImage: "plus.rectangle.on.rectangle") { werk.seiteHinzufuegen(tag.id) }
+                    // Ab 1.0.44.
+                    Button("Bundseite tauschen (gewählte Seite)", systemImage: "arrow.left.and.right") {
+                        werk.bundseiteTauschenGewaehlt()
+                    }
+                    .disabled(werk.gewaehlteSeite == nil)
                     Button("Reisepunkte\u{2026}", systemImage: "mappin.and.ellipse") { blatt = .spur(tag.id) }
                 }
             } label: {

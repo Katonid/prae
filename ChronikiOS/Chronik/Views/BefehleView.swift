@@ -197,6 +197,10 @@ struct BefehleView: View {
              "checkmark.seal", .blatt(.druckpruefung))
         dazu(d, "Fotobuch der Druckerei, Seitenformat", "Ganzes Buch \u{2192} Fotobuch der Druckerei wählen",
              "druckerei format saal whitewall größe", "printer", .blatt(.seitenformat))
+        dazu(d, "Bundseite tauschen (Inhalt nach links/rechts rücken)",
+             "Ganzes Buch \u{2192} Druck \u{2192} Bundseite tauschen",
+             "bund innen außen links rechts seite tauschen spiegeln rand falz druckhaus seitenlage",
+             "arrow.left.and.right", .tun { werk.bundseiteTauschenUeberall() })
         dazu(d, "Buch als Datei sichern", "Mehr \u{2192} Buch als Datei sichern (alle Bücher: im Regal)",
              "sicherung backup datei sichern", "shippingbox", .hinweis)
         dazu(d, "Rückgängig", "Pfeil oben links (\u{201E}Zurück\u{201C})", "rückgängig zurück widerrufen undo",
