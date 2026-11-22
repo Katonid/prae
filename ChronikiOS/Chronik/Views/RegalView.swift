@@ -253,6 +253,13 @@ struct RegalView: View {
             let anzeige = Task { @MainActor in
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .milliseconds(200))
+                    // KAPITELWEISE (ab 1.0.42, gemeldet 11/2026: „die
+                    // Statusnachricht, dass irgendetwas geschrieben wird, geht
+                    // leider nicht von alleine weg"). Wird die Anzeige am Ende
+                    // abgebrochen, wacht sie aus dem Schlaf noch einmal auf —
+                    // NACH `arbeit = nil` — und setzte den letzten Stand
+                    // wieder. Deshalb nach dem Schlaf zuerst nachsehen.
+                    guard !Task.isCancelled else { break }
                     if let stand = melder.stand { arbeit = stand }
                 }
             }
@@ -429,9 +436,18 @@ struct RegalView: View {
             for (n, reise) in liste.enumerated() {
                 if halt.an { break }
                 arbeit = Buchdatei.Fortschritt(text: "Buch \(n + 1) von \(liste.count): \(reise.anzeigename)")
-                let lauf = Task.detached(priority: .userInitiated) { try Buchdatei.schreiben(reise) }
+                // Seit 1.0.42 wird jede fertige Datei wieder geöffnet und
+                // gezählt, bevor sie als gesichert gilt.
+                let lauf = Task.detached(priority: .userInitiated) { () throws -> URL in
+                    let geschrieben = try Buchdatei.schreiben(reise)
+                    let p = try Buchdatei.pruefen(geschrieben.ort)
+                    guard p.fehlendeBilder == 0, p.bilder == geschrieben.bilder else {
+                        throw CocoaError(.fileReadCorruptFile)
+                    }
+                    return geschrieben.ort
+                }
                 do {
-                    orte.append(try await lauf.value.ort)
+                    orte.append(try await lauf.value)
                 } catch {
                     fehler.append(reise.anzeigename)
                 }
