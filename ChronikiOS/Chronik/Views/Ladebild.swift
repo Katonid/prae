@@ -43,11 +43,21 @@ struct Ladebild<Inhalt: View>: View {
         "\(datei)|\(kante)|\(String(format: "%.2f", farbkraft))"
     }
 
+    // KAPITELWEISE (ab 1.0.41, gemeldet 11/2026 mit Bildschirmfoto: „Häufig
+    // werden die Bilder nur weiß angezeigt und erhalten erst wieder einen
+    // Inhalt, wenn ich die Zoom-Stufe der Seite verändert habe"). Ursache:
+    // Lag das Bild beim ersten Zeichnen im Vorrat, kehrte die Aufgabe sofort
+    // zurück und merkte sich NICHTS. Räumte der Vorrat danach auf
+    // (`NSCache`, 120 Bilder, Speicherdruck), zeigte `body` ein leeres Feld —
+    // und die Aufgabe lief erst wieder, als sich der Schlüssel änderte, also
+    // beim Zoomen (die Kante hängt am Maßstab). Jetzt: Auch ein Treffer im
+    // Vorrat wird festgehalten, und ein älteres Bild (andere Kante) bleibt
+    // stehen, bis das neue da ist — beim Zoomen wird es nicht kurz weiß.
     private var bild: UIImage? {
         if let da = Bildarchiv.shared.ausVorrat(datei, kante: kante, farbkraft: farbkraft) {
             return da
         }
-        return geholtFuer == schluessel ? geholt : nil
+        return geholt
     }
 
     var body: some View {
@@ -65,17 +75,29 @@ struct Ladebild<Inhalt: View>: View {
         .task(id: schluessel) {
             // Liegt es schon im Vorrat, ist nichts zu tun — `body` hat es
             // dann ohnehin gezeigt.
-            guard Bildarchiv.shared.ausVorrat(datei, kante: kante,
-                                              farbkraft: farbkraft) == nil else { return }
+            if let da = Bildarchiv.shared.ausVorrat(datei, kante: kante, farbkraft: farbkraft) {
+                geholt = da
+                geholtFuer = schluessel
+                return
+            }
             let anfang = Date()
-            let neu = await Bildarchiv.shared.holen(datei, reise: reise, kante: kante,
-                                                    farbkraft: farbkraft)
-            // Die Aufgabe kann abgebrochen worden sein, weil die Seite aus
-            // dem Bild gescrollt ist. Dann schreibt sie nichts mehr.
-            guard !Task.isCancelled else { return }
-            messer?.melde(messname, dauer: Date().timeIntervalSince(anfang))
-            geholt = neu
-            geholtFuer = schluessel
+            // Bis zu drei Versuche: Scheitert das Holen (Speicherdruck,
+            // Datei gerade gesperrt), bliebe das Feld sonst bis zum
+            // nächsten Zoomen weiß.
+            for versuch in 0 ..< 3 {
+                let neu = await Bildarchiv.shared.holen(datei, reise: reise, kante: kante,
+                                                        farbkraft: farbkraft)
+                // Die Aufgabe kann abgebrochen worden sein, weil die Seite
+                // aus dem Bild gescrollt ist. Dann schreibt sie nichts mehr.
+                guard !Task.isCancelled else { return }
+                if let neu {
+                    messer?.melde(messname, dauer: Date().timeIntervalSince(anfang))
+                    geholt = neu
+                    geholtFuer = schluessel
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(300 * (versuch + 1)))
+            }
         }
     }
 }
