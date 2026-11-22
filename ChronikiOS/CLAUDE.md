@@ -865,6 +865,24 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     Einlesen wird das erste neue Foto gezeigt und gewählt; der Bericht nennt
     den Weg zur Liste.
   - `fotoEinzelnEinsetzen` legt das neue Foto OBENAUF (Ebene max + 1).
+- **Weiße Bilder, träges Verschieben** (ab 1.0.41, gemeldet 11/2026 mit
+  Bildschirmfoto: „Häufig werden die Bilder nur weiß angezeigt und erhalten
+  erst wieder einen Inhalt, wenn ich die Zoom-Stufe der Seite verändert habe
+  … dass die App recht träge reagiert, wenn ich ein Bild anfasse und es
+  verschieben möchte").
+  - `Ladebild`: Lag das Bild beim ersten Zeichnen im Vorrat, kehrte die
+    Aufgabe zurück, ohne es festzuhalten; räumte der `NSCache` (120 Bilder,
+    Speicherdruck) danach auf, blieb das Feld leer, bis sich der Schlüssel
+    änderte — beim Zoomen (Kante hängt am Maßstab). Jetzt wird auch der
+    Vorratstreffer in `geholt` gehalten, ein älteres Bild (andere Kante)
+    bleibt bis zum neuen stehen, das Holen versucht es bis zu dreimal.
+  - Verschieben (`SeitenflaecheView.verschieben`): Bis 1.0.40 schrieb jedes
+    Bildpunkt-Ereignis ins Buch (`schiebeMitUnterschrift` → `reise`
+    veröffentlicht, alle sichtbaren Seiten neu, Blocksuche über alle Kapitel,
+    Sichern neu geplant). Jetzt läuft nur die Ansicht mit (`ziehVersatz` für
+    `ziehGruppe` = Block + `anhaengsel`, auch die Griffe); geschrieben wird
+    EINMAL beim Loslassen. Größe ändern und Drehen schreiben weiter je
+    Ereignis. **Nicht gemessen:** auf einem Gerät; ob das reicht.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -915,7 +933,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -1039,3 +1057,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.40 (Build 41)**, 11/2026: Absturz beim Bild aus der Mediathek auf
   die gewählte Seite (doppeltes Schließen), „Zuletzt eingelesene Fotos" mit
   Fundort und Sprung, neue Fotos obenauf. **Nicht gemessen:** auf einem Gerät.
+- **1.0.41 (Build 42)**, 11/2026: Bilder bleiben nicht mehr weiß, Verschieben
+  ohne Schreiben ins Buch bei jedem Bildpunkt. **Nicht gemessen:** auf einem
+  Gerät.

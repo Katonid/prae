@@ -65,6 +65,17 @@ struct SeitenflaecheView: View, Equatable {
     // über die Seite — solange die Geste läuft und keinen Takt länger.
     @State private var fangSenkrecht: Einrasten.Linie?
     @State private var fangWaagerecht: Einrasten.Linie?
+    // KAPITELWEISE (ab 1.0.41, gemeldet 11/2026: „dass die App recht träge
+    // reagiert, wenn ich ein Bild anfasse und es verschieben möchte"). Bis
+    // 1.0.40 schrieb jedes Bildpunkt-Ereignis ins Buch (`schiebeMitUnterschrift`)
+    // — das ganze Buch veröffentlichte sich neu, jede sichtbare Seite rechnete
+    // nach, die Suche nach dem Block lief über alle Kapitel, und das Sichern
+    // wurde neu geplant. Beim VERSCHIEBEN läuft jetzt nur die Ansicht mit
+    // (Versatz für den Block samt Unterschrift und Erinnerung); ins Buch
+    // geschrieben wird EINMAL beim Loslassen.
+    @State private var ziehVersatz: CGSize = .zero
+    @State private var ziehGruppe: Set<UUID> = []
+    @State private var ziehZiel: Rahmen?
     // Einrasten lässt sich abschalten. Das ist die zweite Hälfte des
     // Wunsches („im Einzelfall auch veränderbar"): Eine Hilfe, aus der
     // sich nicht aussteigen lässt, ist eine Bevormundung — und es gibt
@@ -388,6 +399,7 @@ struct SeitenflaecheView: View, Equatable {
                 // denselben Inhalt zeigen nie dasselbe.**
                 if werk.textBearbeitung != block.id {
                     blockAnsicht(block)
+                        .offset(ziehGruppe.contains(block.id) ? ziehVersatz : .zero)
                 }
             }
 
@@ -528,6 +540,7 @@ struct SeitenflaecheView: View, Equatable {
                werk.textBearbeitung != block.id
             {
                 Griffzeichnung(block: block, massstab: massstab, abstand: griffabstand)
+                    .offset(ziehGruppe.contains(block.id) ? ziehVersatz : .zero)
             }
 
             // Die Ziehfläche liegt NUR über dem gewählten Block, und das ist
@@ -929,6 +942,9 @@ struct SeitenflaecheView: View, Equatable {
         // die nächste Bewegung täte etwas, das niemand angefasst hat.
         if gegriffen == nil || gestenstart != wert.startLocation {
             gestenstart = wert.startLocation
+            ziehVersatz = .zero
+            ziehGruppe = []
+            ziehZiel = nil
             griffFestlegen(wert.startLocation, block: block)
         }
         guard let art = gegriffen else {
@@ -942,7 +958,7 @@ struct SeitenflaecheView: View, Equatable {
         }
         switch art {
         case .verschieben:
-            verschieben(block, wert: wert)
+            verschieben(block, wert: wert, endgueltig: endgueltig)
         case .drehen:
             // UNGEDREHT: `drehen` setzt den Winkel absolut, gemessen im
             // ruhenden Koordinatensystem der Seite. Mit dem
@@ -1007,6 +1023,9 @@ struct SeitenflaecheView: View, Equatable {
         gegriffen = nil
         ausgangsrahmen = nil
         gestenstart = nil
+        ziehVersatz = .zero
+        ziehGruppe = []
+        ziehZiel = nil
         ausgangsausschnitt = nil
         fangSenkrecht = nil
         fangWaagerecht = nil
@@ -1014,7 +1033,7 @@ struct SeitenflaecheView: View, Equatable {
 
     // MARK: - Schieben
 
-    private func verschieben(_ block: Block, wert: DragGesture.Value) {
+    private func verschieben(_ block: Block, wert: DragGesture.Value, endgueltig: Bool = false) {
         // OHNE Teilung durch den Maßstab. Eine Geste wird im SEITENRAUM
         // gemeldet, und der liegt innerhalb des `scaleEffect` — die
         // Strecke ist also schon in Seitenpunkten. Bis 1.0.4 wurde hier
@@ -1058,8 +1077,21 @@ struct SeitenflaecheView: View, Equatable {
         fangWaagerecht = gefangen.waagerecht
         let neu = ausgang.verschoben(dx: gefangen.dx, dy: gefangen.dy)
             .begrenzt(auf: format)
-        // DIE BILDUNTERSCHRIFT GEHT MIT (ab 1.0.86) — sie gehört zum Bild.
-        werk.schiebeMitUnterschrift(block.id, auf: neu)
+        if endgueltig {
+            // DIE BILDUNTERSCHRIFT GEHT MIT (ab 1.0.86) — sie gehört zum
+            // Bild. Seit 1.0.41 einmal, beim Loslassen.
+            werk.schiebeMitUnterschrift(block.id, auf: neu)
+            ziehVersatz = .zero
+            ziehGruppe = []
+            ziehZiel = nil
+            return
+        }
+        if ziehGruppe.isEmpty {
+            let bloecke = buchseite.seite.bloecke
+            ziehGruppe = Set([block.id] + werk.anhaengsel(block, in: bloecke).map { bloecke[$0].id })
+        }
+        ziehVersatz = CGSize(width: neu.x - ausgang.x, height: neu.y - ausgang.y)
+        ziehZiel = neu
     }
 
     // MARK: - Drehen
