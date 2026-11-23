@@ -216,7 +216,7 @@ enum Ausgabeguete {
                                   seite: buchseite.kurzname, hintergrund: false,
                                   pixel: pixelzahl(foto: foto, kante: eigene)))
             }
-            let grund = buchseite.seite.hintergrund ?? reise.gestaltung.hintergrund
+            let grund = buchseite.grund(reise.gestaltung.hintergrund)
             guard grund.art == .foto, let id = grund.fotoID, let foto = reise.foto(id)
             else { continue }
             // Die Fläche, über die das Bild läuft: der Bogen — oder, wenn

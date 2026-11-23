@@ -524,7 +524,7 @@ enum Druckpruefung {
             if buchseite.teil == .rueckseite || buchseite.teil == .titel {
                 return reise.umschlag.hintergrund ?? reise.gestaltung.hintergrund
             }
-            return buchseite.seite.hintergrund ?? reise.gestaltung.hintergrund
+            return buchseite.grund(reise.gestaltung.hintergrund)
         }
         func spannt(_ grund: Seitenhintergrund) -> UUID? {
             guard grund.art == .foto, grund.ueberDoppelseite else { return nil }

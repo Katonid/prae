@@ -216,7 +216,7 @@ struct SeitenflaecheView: View, Equatable {
     // Fehler auszugeben, was richtig ist — und nach der dritten falschen
     // Marke sieht niemand mehr hin.
     private var hintergrund: Seitenhintergrund {
-        buchseite.seite.hintergrund ?? werk.reise.gestaltung.hintergrund
+        buchseite.grund(werk.reise.gestaltung.hintergrund)
     }
 
     // Die Blöcke DIESER Seite, an denen die Druckprüfung etwas

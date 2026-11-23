@@ -17,6 +17,7 @@ struct BlockInspektor: View {
     // zwei Menüs weiter.
     @Binding var blatt: ReiseView.Blatt?
     @State private var hintergrundOffen = false
+    @State private var kapitelgrundOffen = false
     @State private var zeichenOffen = false
     @State private var ausschnittOffen = false
     // EIN BLATT UND KEIN VERWEIS (ab 1.0.29). Der Inspektor ist eine
@@ -147,6 +148,11 @@ struct BlockInspektor: View {
                 )
             }
         }
+        .sheet(isPresented: $kapitelgrundOffen) {
+            if let tag = werk.tag {
+                HintergrundView(werk: werk, kapitel: tag.id)
+            }
+        }
         .sheet(isPresented: $hintergrundOffen) {
             if let tag = werk.tag, !tag.seiten.isEmpty {
                 HintergrundView(
@@ -158,7 +164,9 @@ struct BlockInspektor: View {
     }
 
     private func hintergrundname(_ tag: Reisetag, _ stelle: Int) -> String {
-        guard let eigener = seite(tag, stelle)?.hintergrund else { return "wie im Buch" }
+        guard let eigener = seite(tag, stelle)?.hintergrund else {
+            return tag.hintergrund == nil ? "wie im Buch" : "wie im Kapitel"
+        }
         return eigener.art.name
     }
 
@@ -225,6 +233,12 @@ struct BlockInspektor: View {
                         hintergrundOffen = true
                     } label: {
                         LabeledContent("Hintergrund", value: hintergrundname(tag, stelle))
+                    }
+                    Button {
+                        kapitelgrundOffen = true
+                    } label: {
+                        LabeledContent("Hintergrund des Kapitels",
+                                       value: tag.hintergrund.map { $0.art.name } ?? "wie im Buch")
                     }
                     // Nur, wenn es überhaupt ein Wasserzeichen gibt: Eine
                     // Zeile, hinter der ein Satz steht statt einer

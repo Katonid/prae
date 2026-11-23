@@ -95,6 +95,14 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // verteilen", Stilwechsel, Seitenmuster, „Ab hier …" oder Neueinteilen.
     // Bearbeiten von Hand bleibt möglich (Sperre = Schutz vor dem Automaten).
     var gesperrt: Bool = false
+    // KAPITELWEISE (ab 1.0.48, Wunsch des Nutzers 11/2026: „dass alle
+    // Doppelseiten des Buches denselben Hintergrund tragen. Oder aber, dass
+    // dieser für jedes Kapitel individuell festgelegt werden kann"). Leer
+    // heißt: Es gilt der des Buches. Eine einzelne Seite darf weiterhin
+    // einen eigenen haben — Seite vor Kapitel vor Buch
+    // (`Buchseite.grund`). Bewusst NICHT an `gesperrt` gebunden: Der
+    // Hintergrund verschiebt nichts und setzt nichts neu.
+    var hintergrund: Seitenhintergrund?
     // In welcher Zeitzone die Uhrzeiten dieses Tages gelten (Kennung, z. B.
     // `America/Toronto`). Gesetzt beim Einlesen der Reisespur; leer heißt,
     // dass es niemand feststellen konnte. **Die Uhrzeiten selbst sind schon
@@ -135,6 +143,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         vorwortschrift = b.wahlweise(.vorwortschrift)
         vorwortabstand = b.wahlweise(.vorwortabstand)
         gesperrt = b.wert(.gesperrt, false)
+        hintergrund = b.wahlweise(.hintergrund)
         zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
