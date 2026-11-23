@@ -284,7 +284,7 @@ struct Druckprodukt: Identifiable, Hashable {
 
     // MARK: - Nachschlagen
 
-    static let alle: [Druckprodukt] = Saalprodukte.alle + Whitewallprodukte.alle + Druckhausprodukte.alle
+    static let alle: [Druckprodukt] = Saalprodukte.alle + Whitewallprodukte.alle + Druckhausprodukte.alle + Mybuchdruckprodukte.alle
 
     /// Die Anbieter in der Reihenfolge, in der sie im Blatt stehen.
     static var anbieterliste: [String] {
