@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // Der Hintergrund — für das ganze Buch oder für eine einzelne Seite.
 //
@@ -19,6 +20,13 @@ struct HintergrundView: View {
     var kapitel: UUID? = nil
     @Environment(\.dismiss) private var schliessen
     @State private var fotowahl = false
+    // BILD AUS DATEIEN (ab 1.0.49, Ansage des Nutzers 11/2026: „für die
+    // Hintergrundbilder auch Dateien einlesen können und nicht nur den
+    // Zugriff auf die Fotogalerie"). Der Wähler hängt an DIESER Ansicht und
+    // nicht im Fotoraster-Blatt: Ein Dateiwähler in einem Blatt im Blatt,
+    // das sich danach selbst schließt, ist genau der doppelte Schließbefehl
+    // aus 1.0.17 (Vorwort) — der zweite trifft das falsche Blatt.
+    @State private var dateiwahl = false
     @State private var kapitelblatt: Kapitelwahl?
     @State private var einheitlichFragen = false
 
@@ -173,8 +181,11 @@ struct HintergrundView: View {
                             Button {
                                 fotowahl = true
                             } label: {
-                                LabeledContent("Foto",
+                                LabeledContent("Aus den Fotos des Buches",
                                                value: grund.fotoID == nil ? "keines gewählt" : "gewählt")
+                            }
+                            Button("Bild aus Dateien\u{2026}", systemImage: "folder") {
+                                dateiwahl = true
                             }
                             VStack(alignment: .leading) {
                                 LabeledContent("Schleier",
@@ -215,6 +226,26 @@ struct HintergrundView: View {
                         if id != nil, id != $0.fotoID { $0.ueberDoppelseite = true }
                         $0.fotoID = id
                     }
+                }
+            }
+            .fileImporter(isPresented: $dateiwahl,
+                          allowedContentTypes: [.image, .pdf],
+                          allowsMultipleSelection: false) { ergebnis in
+                guard case .success(let adressen) = ergebnis, let adresse = adressen.first else { return }
+                let offen = adresse.startAccessingSecurityScopedResource()
+                defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
+                // Abgelegt als GRAFIK: Sie gehört keinem Kapitel, steht in
+                // keiner Fotoliste und wird beim Einordnen nach Datum nicht
+                // verteilt. Aus einer PDF wird die erste Seite genommen.
+                guard let id = werk.grafikAblegen(vonDatei: adresse) else {
+                    werk.meldung = .init(text: "Die Datei ließ sich nicht als Bild lesen.", schwer: true)
+                    return
+                }
+                aendern {
+                    $0.art = .foto
+                    $0.fotoID = id
+                    $0.ueberDoppelseite = true
+                    $0.ausschnitt = .voll
                 }
             }
             .sheet(item: $kapitelblatt) { wahl in
