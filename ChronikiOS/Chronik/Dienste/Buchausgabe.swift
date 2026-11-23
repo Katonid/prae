@@ -128,6 +128,20 @@ struct Buchseite: Identifiable, Equatable {
 
     var bogennummer: Int { bogen }
 
+    /// Der Hintergrund des KAPITELS dieser Seite (ab 1.0.48) — vergeben in
+    /// `seitenfolge`, wie Nummer und Bogen, weil erst dort feststeht, wer
+    /// neben wem liegt. Leer heißt: Es gilt der des Buches.
+    var kapitelgrund: Seitenhintergrund?
+
+    /// DIE EINE STELLE, an der entschieden wird, was hinter dieser Seite
+    /// liegt: die Seite selbst, sonst ihr Kapitel, sonst das Buch. Bis
+    /// 1.0.47 stand `seite.hintergrund ?? gestaltung.hintergrund` an vier
+    /// Stellen (Bühne, PDF, Druckprüfung, Ausgabegüte) — mit dem Kapitel
+    /// dazwischen wäre jede davon eine Gelegenheit gewesen, es zu vergessen.
+    func grund(_ buch: Seitenhintergrund) -> Seitenhintergrund {
+        seite.hintergrund ?? kapitelgrund ?? buch
+    }
+
     /// An welcher Seite diese Seite gebunden wird (ab 1.0.76).
     ///
     /// Gebraucht vom Sicherheitsabstand: Eine Druckerei verlangt innen
@@ -593,7 +607,41 @@ extension Reise {
             case .innen: folge[stelle].bogen = Bogenlage.bogen(seite.nummer)
             }
         }
+        kapitelgruendeVergeben(&folge)
         return folge
+    }
+
+    // KAPITELHINTERGRÜNDE (ab 1.0.48).
+    //
+    // Der Außenbogen folgt dem Umschlag und bekommt keinen. Alle anderen
+    // Seiten eines Kapitels tragen dessen Hintergrund.
+    //
+    // **Der Bogen am Kapitelwechsel.** Beginnt ein Kapitel auf einer
+    // RECHTEN Seite, liegt links daneben noch die letzte Seite des
+    // vorigen. Gingen dann beide Bilder „über die Doppelseite", zeigte
+    // jede Seite die Hälfte eines ANDEREN Bildes — im aufgeschlagenen Buch
+    // ein harter Schnitt mitten im Bild. Auf einem solchen Bogen füllt
+    // deshalb jede Seite IHR Bild für sich. Das gilt nur, wenn ein
+    // Kapitelhintergrund den Unterschied macht; einen von Hand gesetzten
+    // Seitenhintergrund rührt das nicht an (den meldet die Druckprüfung).
+    private func kapitelgruendeVergeben(_ folge: inout [Buchseite]) {
+        let buch = gestaltung.hintergrund
+        var jeBogen: [Int: [Int]] = [:]
+        for stelle in folge.indices {
+            guard folge[stelle].teil != .rueckseite, folge[stelle].teil != .titel else { continue }
+            folge[stelle].kapitelgrund = folge[stelle].tag?.hintergrund
+            if folge[stelle].bogen > 0 { jeBogen[folge[stelle].bogen, default: []].append(stelle) }
+        }
+        for stellen in jeBogen.values where stellen.count == 2 {
+            let a = stellen[0], b = stellen[1]
+            guard folge[a].kapitelgrund != nil || folge[b].kapitelgrund != nil,
+                  folge[a].grund(buch) != folge[b].grund(buch) else { continue }
+            for s in [a, b] where folge[s].seite.hintergrund == nil {
+                var eigen = folge[s].grund(buch)
+                eigen.ueberDoppelseite = false
+                folge[s].kapitelgrund = eigen
+            }
+        }
     }
 
     var seitenfolge: [Buchseite] {
@@ -1484,7 +1532,7 @@ enum Buchausgabe {
         // wird in voller Ausgabegüte von der Platte geholt, und für eine
         // Umschlaghälfte wäre das ein ganzes Bild umsonst.
         if !ohneGrund {
-            var grund = buchseite.seite.hintergrund ?? reise.gestaltung.hintergrund
+            var grund = buchseite.grund(reise.gestaltung.hintergrund)
             if let eigenes = buchseite.seite.papier {
                 grund.farbe = eigenes
                 grund.art = .einfarbig

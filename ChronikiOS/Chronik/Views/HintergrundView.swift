@@ -14,8 +14,15 @@ struct HintergrundView: View {
     // weil er ein eigenes Stück Papier ist. Dieselbe Ansicht, drittes
     // Ziel — drei Bildschirme für dieselbe Entscheidung liefen auseinander.
     var fuerUmschlag: Bool = false
+    // Oder um ein KAPITEL (ab 1.0.48): Seite vor Kapitel vor Buch. Wieder
+    // dieselbe Ansicht — viertes Ziel, dieselbe Entscheidung.
+    var kapitel: UUID? = nil
     @Environment(\.dismiss) private var schliessen
     @State private var fotowahl = false
+    @State private var kapitelblatt: Kapitelwahl?
+    @State private var einheitlichFragen = false
+
+    struct Kapitelwahl: Identifiable { let id: UUID }
     // Was das Strecken kostet — GEMESSEN, nicht geschätzt (siehe
     // `Model/Farbkraft.swift`). Gerechnet wird in `.task(id:)` und nicht im
     // Körper: Der läuft bei jedem Neuzeichnen.
@@ -25,7 +32,24 @@ struct HintergrundView: View {
     // Regler darunter zeichnen ihn bei jedem Bildpunkt neu.
     @State private var ausschnittbild: UIImage?
 
-    private var istBuch: Bool { seite == nil && !fuerUmschlag }
+    private var istBuch: Bool { seite == nil && !fuerUmschlag && kapitel == nil }
+    private var istKapitel: Bool { kapitel != nil && seite == nil && !fuerUmschlag }
+
+    // Das Kapitel, um das es geht — ausdrücklich gewählt oder das der Seite.
+    private var kapitelIndex: Int? {
+        if let kapitel { return werk.tagIndex(kapitel) }
+        if let seite { return werk.tagIndex(seite.tag) }
+        return nil
+    }
+
+    // Was gilt, wenn hier nichts Eigenes gesetzt ist: für eine Seite ihr
+    // Kapitel (oder das Buch), für ein Kapitel das Buch.
+    private var geerbt: Seitenhintergrund {
+        if seite != nil, let t = kapitelIndex, let eigen = werk.reise.tage[t].hintergrund {
+            return eigen
+        }
+        return werk.reise.gestaltung.hintergrund
+    }
 
     private var grund: Seitenhintergrund {
         if fuerUmschlag {
@@ -37,11 +61,18 @@ struct HintergrundView: View {
         {
             return eigener
         }
-        return werk.reise.gestaltung.hintergrund
+        if istKapitel, let t = kapitelIndex, let eigen = werk.reise.tage[t].hintergrund {
+            return eigen
+        }
+        return geerbt
     }
 
     private var eigenerGesetzt: Bool {
         if fuerUmschlag { return werk.reise.umschlag.hintergrund != nil }
+        if istKapitel {
+            guard let t = kapitelIndex else { return false }
+            return werk.reise.tage[t].hintergrund != nil
+        }
         guard let seite, let t = werk.tagIndex(seite.tag),
               werk.reise.tage[t].seiten.indices.contains(seite.stelle) else { return false }
         return werk.reise.tage[t].seiten[seite.stelle].hintergrund != nil
@@ -61,11 +92,12 @@ struct HintergrundView: View {
                 if !istBuch {
                     Section {
                         Toggle(fuerUmschlag ? "Eigener Hintergrund für den Umschlag"
+                                            : istKapitel ? "Eigener Hintergrund für dieses Kapitel"
                                             : "Eigener Hintergrund für diese Seite",
                                isOn: Binding(
                                    get: { eigenerGesetzt },
                                    set: { an in
-                                       setzen(an ? werk.reise.gestaltung.hintergrund : nil)
+                                       setzen(an ? (fuerUmschlag ? werk.reise.gestaltung.hintergrund : geerbt) : nil)
                                    }
                                ))
                     } footer: {
@@ -73,9 +105,25 @@ struct HintergrundView: View {
                     }
                 }
 
+                if istBuch {
+                    kapitelabschnitt
+                }
+
                 if aenderbar {
                     Section("Art") {
-                        Picker("Hintergrund", selection: binden(\.art)) {
+                        Picker("Hintergrund", selection: Binding(
+                            get: { grund.art },
+                            set: { neu in
+                                aendern {
+                                    // Ein Foto läuft ab 1.0.48 von sich aus
+                                    // über die Doppelseite (Ansage des
+                                    // Nutzers, 11/2026). Der Schalter
+                                    // darunter bleibt für die Ausnahme.
+                                    if neu == .foto, $0.art != .foto { $0.ueberDoppelseite = true }
+                                    $0.art = neu
+                                }
+                            }
+                        )) {
                             ForEach(Seitenhintergrund.Art.allCases) { art in
                                 Text(art.name).tag(art)
                             }
@@ -162,8 +210,24 @@ struct HintergrundView: View {
             }
             .sheet(isPresented: $fotowahl) {
                 HintergrundfotoView(werk: werk) { id in
-                    aendern { $0.fotoID = id }
+                    aendern {
+                        // Ein neu gewähltes Bild geht über die Doppelseite.
+                        if id != nil, id != $0.fotoID { $0.ueberDoppelseite = true }
+                        $0.fotoID = id
+                    }
                 }
+            }
+            .sheet(item: $kapitelblatt) { wahl in
+                HintergrundView(werk: werk, kapitel: wahl.id)
+            }
+            .confirmationDialog("Überall denselben Hintergrund?",
+                                isPresented: $einheitlichFragen, titleVisibility: .visible) {
+                Button("Eigene Kapitel- und Seitenhintergründe entfernen", role: .destructive) {
+                    einheitlichMachen()
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("Danach tragen alle Doppelseiten den Hintergrund des Buches. Umschlag und Titelseite bleiben, wie sie sind.")
             }
             .task(id: kraftschluessel) {
                 // ABSEITS DES HAUPTFADENS (ab 1.0.104). Ein `.task` läuft
@@ -179,6 +243,72 @@ struct HintergrundView: View {
                 ausschnittbild = b
             }
         }
+    }
+
+    // MARK: - Je Kapitel
+
+    // Ansage des Nutzers, 11/2026: „Die Option soll sein, dass alle
+    // Doppelseiten des Buches denselben Hintergrund tragen. Oder aber, dass
+    // dieser für jedes Kapitel individuell festgelegt werden kann." Beides
+    // steht deshalb HIER, beim Hintergrund des Buches: die Liste der
+    // Kapitel und der Knopf, der alle Abweichungen wieder einsammelt.
+    private var kapitelabschnitt: some View {
+        Section {
+            ForEach(werk.reise.tage) { tag in
+                Button {
+                    kapitelblatt = Kapitelwahl(id: tag.id)
+                } label: {
+                    LabeledContent(kapitelname(tag),
+                                   value: tag.hintergrund.map { $0.art.name } ?? "wie im Buch")
+                }
+            }
+            Button("Überall denselben Hintergrund\u{2026}", systemImage: "rectangle.on.rectangle") {
+                einheitlichFragen = true
+            }
+            .disabled(abweichungen == 0)
+        } header: {
+            Text("Je Kapitel")
+        } footer: {
+            Text(kapitelhinweis)
+        }
+    }
+
+    private func kapitelname(_ tag: Reisetag) -> String {
+        tag.ueberschrift.isEmpty ? tag.datum.mittel : tag.ueberschrift
+    }
+
+    private var abweichungen: Int {
+        werk.reise.tage.reduce(0) { summe, tag in
+            summe + (tag.hintergrund == nil ? 0 : 1)
+                + tag.seiten.filter { $0.hintergrund != nil }.count
+        }
+    }
+
+    private var kapitelhinweis: String {
+        let kapitel = werk.reise.tage.filter { $0.hintergrund != nil }.count
+        let seiten = abweichungen - kapitel
+        var text = "Ein Kapitel ohne eigenen Hintergrund trägt den des Buches. "
+        text += "Eine einzelne Seite darf wiederum vom Kapitel abweichen (Inspektor rechts). "
+        text += "Beginnt ein Kapitel auf einer rechten Seite, liegt links daneben noch das "
+        text += "vorige — auf diesem einen Bogen füllt deshalb jede Seite ihr Bild für sich, "
+        text += "statt zwei halbe Bilder nebeneinanderzustellen."
+        if kapitel + seiten == 0 {
+            text += "\n\nZurzeit tragen alle Doppelseiten denselben Hintergrund."
+        } else {
+            text += "\n\nEigene Hintergründe: \(kapitel) Kapitel, \(seiten) einzelne Seiten."
+        }
+        return text
+    }
+
+    private func einheitlichMachen() {
+        for t in werk.reise.tage.indices {
+            werk.reise.tage[t].hintergrund = nil
+            for s in werk.reise.tage[t].seiten.indices {
+                werk.reise.tage[t].seiten[s].hintergrund = nil
+                werk.reise.tage[t].seiten[s].papier = nil
+            }
+        }
+        werk.meldung = .init(text: "Alle Doppelseiten tragen jetzt den Hintergrund des Buches.", schwer: false)
     }
 
     // MARK: - Bildausschnitt
@@ -508,6 +638,10 @@ struct HintergrundView: View {
             text += " Auf dem Umschlag hat der Schalter keine Wirkung: Der ist EIN Stück "
             text += "Papier, und das Bild läuft dort ohnehin über Rückseite, Rücken und "
             text += "Titelseite."
+        } else if istKapitel {
+            text += " Beginnt das Kapitel auf einer rechten Seite, füllt das Bild dort die "
+            text += "Seite für sich — links daneben liegt noch das vorige Kapitel, und zwei "
+            text += "halbe Bilder nebeneinander sähen aus wie ein Schnitt."
         } else if istBuch {
             text += " Die linke Hälfte des ersten Bogens wird nie gedruckt — dort liegt im "
             text += "gebundenen Buch die Innenseite des Umschlags, solange der Umschlag nicht "
@@ -522,6 +656,7 @@ struct HintergrundView: View {
 
     private var titelzeile: String {
         if fuerUmschlag { return "Hintergrund des Umschlags" }
+        if istKapitel { return "Hintergrund des Kapitels" }
         return istBuch ? "Hintergrund des Buches" : "Hintergrund der Seite"
     }
 
@@ -531,9 +666,16 @@ struct HintergrundView: View {
                 ? "Der Umschlag weicht vom Buch ab. Ausschalten stellt den Hintergrund des Buches wieder her."
                 : "Der Umschlag folgt dem Hintergrund des Buches. Er gilt für Rückseite, Rücken und Titelseite zusammen — es ist ein Stück Papier."
         }
+        if istKapitel {
+            return eigenerGesetzt
+                ? "Dieses Kapitel weicht vom Buch ab. Einzelne Seiten mit eigenem Hintergrund behalten ihren. Ausschalten stellt den Hintergrund des Buches wieder her."
+                : "Dieses Kapitel folgt dem Hintergrund des Buches."
+        }
+        let woher = (kapitelIndex.flatMap { werk.reise.tage[$0].hintergrund }) == nil
+            ? "des Buches" : "des Kapitels"
         return eigenerGesetzt
-            ? "Diese Seite weicht vom Buch ab. Ausschalten stellt den Hintergrund des Buches wieder her."
-            : "Diese Seite folgt dem Hintergrund des Buches."
+            ? "Diese Seite weicht ab. Ausschalten stellt den Hintergrund \(woher) wieder her."
+            : "Diese Seite folgt dem Hintergrund \(woher)."
     }
 
     private func binden<W>(_ pfad: WritableKeyPath<Seitenhintergrund, W>) -> Binding<W> {
@@ -552,6 +694,10 @@ struct HintergrundView: View {
     private func setzen(_ neu: Seitenhintergrund?) {
         if fuerUmschlag {
             werk.reise.umschlag.hintergrund = neu
+            return
+        }
+        if istKapitel {
+            if let t = kapitelIndex { werk.reise.tage[t].hintergrund = neu }
             return
         }
         if let seite, let t = werk.tagIndex(seite.tag),
