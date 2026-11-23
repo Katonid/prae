@@ -77,6 +77,15 @@ struct DuplikateView: View {
             }
         }
         if let titel = reise.titelfoto { ids.insert(titel) }
+        // Hintergrundbilder zählen mit (ab 1.0.49): Seit sie auch aus
+        // Dateien kommen, liegen sie als Grafik in der Fotoliste — ein
+        // Doppel davon darf nicht ausgerechnet das Bild hinter dem Buch sein.
+        var gruende: [Seitenhintergrund?] = [reise.gestaltung.hintergrund, reise.umschlag.hintergrund]
+        for tag in reise.tage {
+            gruende.append(tag.hintergrund)
+            gruende.append(contentsOf: tag.seiten.map(\.hintergrund))
+        }
+        for grund in gruende { if let id = grund?.fotoID { ids.insert(id) } }
         return ids
     }
 
