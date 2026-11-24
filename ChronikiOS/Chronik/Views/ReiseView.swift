@@ -33,6 +33,10 @@ struct ReiseView: View {
     // Aufsetzen, und wer sie aufaddiert, beschleunigt mit jedem Bildpunkt
     // (dieselbe Lehre wie beim Bildausschnitt in 1.0.8).
     @State private var zoomAnfang: Double?
+    // Ob die UIKit-Lupe an der Rollfläche hängt (ab 1.0.52,
+    // `Zweifingerlupe`). Solange nicht, bleibt die SwiftUI-Geste die Lupe —
+    // nie beide zugleich, sonst zöge jede Bewegung doppelt.
+    @State private var lupeAngebracht = false
     // Wie breit die Bühne ist. GEMESSEN und gemerkt, nicht geschätzt:
     // Daran hängt der eingepasste Maßstab, und den brauchen die Lupen und
     // die Geste auch außerhalb des `GeometryReader`.
@@ -407,6 +411,15 @@ struct ReiseView: View {
                             Color.clear
                         }
                     )
+                    .background(
+                        Zweifingerlupe(
+                            erlaubt: seitenzoomErlaubt,
+                            bewegung: { phase, faktor, punkt in
+                                lupenbewegung(phase, faktor: faktor, start: punkt)
+                            },
+                            angebracht: { lupeAngebracht = $0 }
+                        )
+                    )
                     // Der Zoom WÄHREND der Geste ist eine reine Skalierung um
                     // den Punkt, auf den die Finger zeigen. Damit steht dieser
                     // Punkt fest, ohne dass etwas gerechnet wird — und die
@@ -444,7 +457,7 @@ struct ReiseView: View {
                     // Rollfläche —, und der greift. Der Unterschied zwischen
                     // beiden ist dieses eine Wort.
                     .simultaneousGesture(seitenzoom,
-                                         including: seitenzoomErlaubt ? .all : .subviews)
+                                         including: seitenzoomErlaubt && !lupeAngebracht ? .all : .subviews)
                 }
                 .coordinateSpace(.named(Self.buehnenraum))
                 .background(Self.leinwand)
@@ -975,46 +988,58 @@ struct ReiseView: View {
                 // „Zoomgeste" bei 60/s und „Seite" bei 0/s, kommt die
                 // Geste an und die Seiten zeichnen sich nicht mit; laufen
                 // beide gleich hoch, ist es umgekehrt.
-                werk.messer.melde("Zoomgeste")
-                if zoomAnfang == nil { gesteBeginnen(wert) }
-                let anfang = zoomAnfang ?? massstabJetzt
-                // `magnification` ist die GESAMTE Bewegung seit dem
-                // Aufsetzen — gerechnet wird vom Anfangswert aus, sonst
-                // beschleunigt der Zoom mit jedem Bildpunkt (die Lehre aus
-                // 1.0.8, und dort stand sie schon zweimal).
-                lupe = gedeckelt(anfang * wert.magnification) / anfang
+                lupenbewegung(.laeuft, faktor: wert.magnification, start: wert.startLocation)
             }
             .onEnded { wert in
-                let anfang = zoomAnfang ?? massstabJetzt
-                let neu = gedeckelt(anfang * wert.magnification)
-                lupe = 1
-                lupenanker = .center
-                zoomAnfang = nil
-                if let gegriffen = zoomgriff {
-                    zoomAuf(neu, griff: gegriffen, brennpunkt: brennpunkt)
-                } else {
-                    zoom = neu
-                }
-                zoomgriff = nil
+                lupenbewegung(.endet, faktor: wert.magnification, start: wert.startLocation)
             }
     }
 
-    private func gesteBeginnen(_ wert: MagnifyGesture.Value) {
+    // Beide Lupen — die UIKit-Lupe (ab 1.0.52) und die SwiftUI-Geste als
+    // Rückfall — enden HIER. Zwei Fassungen derselben Rechnung liefen
+    // auseinander.
+    private func lupenbewegung(_ phase: Zweifingerlupe.Phase, faktor: Double, start: CGPoint) {
+        switch phase {
+        case .beginnt, .laeuft:
+            werk.messer.melde("Zoomgeste")
+            if zoomAnfang == nil { gesteBeginnen(start) }
+            let anfang = zoomAnfang ?? massstabJetzt
+            // Der Faktor ist die GESAMTE Bewegung seit dem Aufsetzen —
+            // gerechnet wird vom Anfangswert aus, sonst beschleunigt der
+            // Zoom mit jedem Bildpunkt (die Lehre aus 1.0.8).
+            lupe = gedeckelt(anfang * faktor) / anfang
+        case .endet:
+            guard zoomAnfang != nil else { return }
+            let anfang = zoomAnfang ?? massstabJetzt
+            let neu = gedeckelt(anfang * faktor)
+            lupe = 1
+            lupenanker = .center
+            zoomAnfang = nil
+            if let gegriffen = zoomgriff {
+                zoomAuf(neu, griff: gegriffen, brennpunkt: brennpunkt)
+            } else {
+                zoom = neu
+            }
+            zoomgriff = nil
+        }
+    }
+
+    private func gesteBeginnen(_ startpunkt: CGPoint) {
         let anfang = massstabJetzt
         zoomAnfang = anfang
         let inhalt = lage.groesse
-        zoomgriff = massstaebe.griff(bei: wert.startLocation, inhalt: inhalt,
+        zoomgriff = massstaebe.griff(bei: startpunkt, inhalt: inhalt,
                                      massstab: anfang)
-        brennpunkt = CGPoint(x: lage.ursprung.x + wert.startLocation.x,
-                             y: lage.ursprung.y + wert.startLocation.y)
+        brennpunkt = CGPoint(x: lage.ursprung.x + startpunkt.x,
+                             y: lage.ursprung.y + startpunkt.y)
         zoominhalt = inhalt
         zoomversatz = lage.ursprung
         // Der Anker wird SELBST gerechnet und nicht aus `startAnchor`
         // genommen: Worauf sich diese Zahl genau bezieht, steht nirgends
         // verbindlich, und der Punkt im Inhalt ist hier ohnehin bekannt.
         lupenanker = UnitPoint(
-            x: inhalt.width > 0 ? wert.startLocation.x / inhalt.width : 0.5,
-            y: inhalt.height > 0 ? wert.startLocation.y / inhalt.height : 0.5
+            x: inhalt.width > 0 ? startpunkt.x / inhalt.width : 0.5,
+            y: inhalt.height > 0 ? startpunkt.y / inhalt.height : 0.5
         )
     }
 
