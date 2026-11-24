@@ -3228,6 +3228,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Erst beim Schließen des Buches von der Platte — bis dahin kann
     // „Widerrufen" die Fotos zurückbringen. Gelöscht wird nur, was dann
     // KEIN Foto des Buches mehr nennt.
+    // Für den Ersatz eines Fotos durch seine bearbeitete Fassung (ab
+    // 1.0.50): Die alte Datei geht erst beim Schließen — „Zurück" braucht sie.
+    func spaeterLoeschen(_ datei: String) { zuLoeschen.insert(datei) }
+
     func dateienFreigeben() {
         let benutzt = Set(reise.fotos.map(\.datei))
         for datei in zuLoeschen where !benutzt.contains(datei) {
