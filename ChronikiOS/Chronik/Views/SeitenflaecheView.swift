@@ -794,7 +794,6 @@ struct SeitenflaecheView: View, Equatable {
         return min(grundgreifweite, max(10 / massstab, kurz * 0.35))
     }
 
-    @ViewBuilder
     // Der Block, wie er WÄHREND einer Geste aussieht. Bei der Drehung
     // drehen Unterschrift und Erinnerung um die Mitte des Bildes mit —
     // dieselbe Rechnung wie `Reisewerk.drehe`, die beim Loslassen schreibt.
@@ -820,6 +819,7 @@ struct SeitenflaecheView: View, Equatable {
         ziehDrehung = nil
     }
 
+    @ViewBuilder
     private func blockAnsicht(_ block: Block) -> some View {
         let rahmen = block.rahmen
         let wirkung = block.wirkung(werk.reise.gestaltung)
@@ -1723,7 +1723,8 @@ struct BlockInhaltView: View {
                 startPoint: .top, endPoint: .bottom
             )
         case let .foto(id):
-            FotoKachel(werk: werk, block: block, fotoID: id, massstab: massstab)
+            FotoKachel(werk: werk, block: block, fotoID: id, massstab: massstab,
+                       kantenmass: kantenmass)
         case .karte:
             KartenKachel(werk: werk, block: block, tag: tag)
         }
@@ -1735,6 +1736,8 @@ struct FotoKachel: View {
     let block: Block
     let fotoID: UUID
     var massstab: Double = 1
+    // Siehe `BlockInhaltView.kantenmass` (ab 1.0.51).
+    var kantenmass: CGSize? = nil
     // Der Maßstab des Bildschirms, an dem DIESE Ansicht hängt — nicht der
     // von `UIScreen.main`. Hängt ein Beamer am iPad, wäre das die falsche
     // Auskunft.
