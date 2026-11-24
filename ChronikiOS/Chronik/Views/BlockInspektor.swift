@@ -644,7 +644,7 @@ struct BlockInspektor: View {
                               : "Ausschnitt auf der Seite verschieben",
                           systemImage: "crop")
                 }
-                Text("Zwei Finger auf dem gewählten Foto vergrößern den Ausschnitt im Rahmen; \u{201E}Ausschnitt verschieben\u{201C} rückt ihn zurecht. Die Kanten und Ecken ziehen dagegen den RAHMEN — den Platz auf der Seite.")
+                Text("Der Regler \u{201E}Vergrößerung\u{201C} vergrößert den Ausschnitt im Rahmen; \u{201E}Ausschnitt verschieben\u{201C} rückt ihn zurecht. Zwei Finger zoomen immer die Seite. Die Kanten und Ecken ziehen dagegen den RAHMEN — den Platz auf der Seite.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading) {

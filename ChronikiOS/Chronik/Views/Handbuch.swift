@@ -166,7 +166,7 @@ enum Handbuch {
             Handbucheintrag(
                 id: "zoom",
                 titel: "Näher heran",
-                text: "Zwei Finger auf der Seite. Der Knopf unten nennt den Maßstab und schaltet zwischen Einpassen und Originalgröße. Liegt ein Foto ausgewählt unter den Fingern, zoomen sie das Bild in seinem Rahmen statt die Seite.",
+                text: "Zwei Finger auf der Seite. Der Knopf unten nennt den Maßstab und schaltet zwischen Einpassen und Originalgröße. Das geht immer, auch wenn ein Foto oder Textfeld ausgewählt ist.",
                 weg: "Zwei Finger, oder der Prozentknopf unten",
                 ziel: nil,
                 stichworte: ["vergrößern", "maßstab", "einpassen", "lupe"]),
@@ -230,8 +230,8 @@ enum Handbuch {
             Handbucheintrag(
                 id: "ausschnitt",
                 titel: "Bildausschnitt statt Rahmen",
-                text: "Zwei Finger über dem gewählten Foto verschieben und zoomen das Bild IM Rahmen. Die Griffe an den Kanten ändern dagegen den Rahmen auf der Seite. Gefüllt wird immer: Was übersteht, wird beschnitten.",
-                weg: "Zwei Finger über dem gewählten Foto",
+                text: "Der Regler \u{201E}Vergrößerung\u{201C} im Inspektor und \u{201E}Ausschnitt verschieben\u{201C} zoomen und verschieben das Bild IM Rahmen. Die Griffe an den Kanten ändern dagegen den Rahmen auf der Seite. Gefüllt wird immer: Was übersteht, wird beschnitten.",
+                weg: "Inspektor \u{2192} Vergrößerung, \u{201E}Ausschnitt verschieben\u{201C}",
                 ziel: nil,
                 stichworte: ["zuschneiden", "crop", "bildausschnitt", "zoom"]),
             Handbucheintrag(

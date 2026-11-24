@@ -85,6 +85,7 @@ struct SeitenflaecheView: View, Equatable {
     // das Sichern wurde neu geplant. Jetzt steht der Zwischenstand hier, und
     // geschrieben wird EINMAL beim Loslassen (`vorschau(_:)` zeichnet ihn).
     @State private var vorschauBlock: UUID?
+    @State private var zoomstandBeimAufsetzen = 0
     @State private var ziehRahmen: Rahmen?
     @State private var ziehAusschnitt: Bildausschnitt?
     @State private var ziehDrehung: Double?
@@ -597,11 +598,10 @@ struct SeitenflaecheView: View, Equatable {
                         einfachtipp(punkt)
                     }
                     .gesture(ziehgeste(block))
-                    // Zwei Finger über dem gewählten FOTO vergrößern den
-                    // Ausschnitt im Rahmen. `simultaneousGesture`, damit
-                    // sie sich mit dem Ziehen nicht ausschließt: Das eine
-                    // ist ein Finger, das andere zwei.
-                    .simultaneousGesture(zoomgeste(block), including: block.fotoID == nil ? .subviews : .all)
+                    // Zwei Finger zoomen seit 1.0.53 IMMER die Seite
+                    // (`ReiseView.seitenzoomErlaubt`); der Zoom des
+                    // Ausschnitts im Rahmen (`zoomgeste`) hängt nicht mehr
+                    // hier. Er geht über den Regler im Inspektor.
             }
 
             // Ein Textkasten, aus dem unten etwas herausfällt, sagt das.
@@ -982,6 +982,7 @@ struct SeitenflaecheView: View, Equatable {
         // bliebe nach einer abgebrochenen Geste der alte Griff stehen, und
         // die nächste Bewegung täte etwas, das niemand angefasst hat.
         if gegriffen == nil || gestenstart != wert.startLocation {
+            zoomstandBeimAufsetzen = Zweifingerlupe.zoomzaehler
             gestenstart = wert.startLocation
             ziehVersatz = .zero
             ziehGruppe = []
@@ -989,6 +990,16 @@ struct SeitenflaecheView: View, Equatable {
             griffFestlegen(wert.startLocation, block: block)
         }
         guard let art = gegriffen else {
+            if endgueltig { gestenendeAufraeumen(wert) }
+            return
+        }
+        // Kam ein zweiter Finger dazu und zoomt die Seite, gehört die
+        // Bewegung nicht dem Block (ab 1.0.53): verwerfen, nichts schreiben.
+        if Zweifingerlupe.zoomLaeuft || Zweifingerlupe.zoomzaehler != zoomstandBeimAufsetzen {
+            ziehVersatz = .zero
+            vorschauBeenden()
+            fangSenkrecht = nil
+            fangWaagerecht = nil
             if endgueltig { gestenendeAufraeumen(wert) }
             return
         }

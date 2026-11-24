@@ -1064,6 +1064,32 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   einem Gerät; ob SwiftUI den `ScrollView` wirklich als `UIScrollView` in der
   Kette der Oberansichten baut (sonst greift der Rückfall, und es ist wie
   vorher).
+- **Zoomen immer, ohne Springen (1.0.53,** Ansage des Nutzers 11/2026: „ein
+  Zoom auf der Seite [geht] nur …, wenn kein Textfeld und kein Bild aktiviert
+  ist. Das ändere bitte. Ein Zoomen soll jederzeit möglich sein, denn das
+  Heranziehen eines Bildes mache ich sowieso gegebenenfalls mit dem
+  Schieberegler. Auch ist es so, dass beim Zoomen die Seite verspringt und
+  zunächst eine andere angezeigt wird.").
+  - `ReiseView.seitenzoomErlaubt` ist immer `true`. Der Zweifinger-Zoom des
+    Ausschnitts (`SeitenflaecheView.zoomgeste`) hängt nicht mehr an der
+    Ziehfläche (Funktion bleibt ungenutzt stehen); der Ausschnitt geht über
+    den Regler „Vergrößerung" im Inspektor. Texte in Inspektor, Handbuch und
+    Bedienungskarte angepasst. **Nicht wieder an zwei Finger hängen.**
+  - Liegt der erste Finger auf einem gewählten Block, wird seine
+    Ziehbewegung verworfen, sobald ein Zoom beginnt
+    (`Zweifingerlupe.zoomzaehler`/`zoomLaeuft`, verglichen mit
+    `zoomstandBeimAufsetzen` in `ziehen`) — sonst wanderte der Block mit.
+  - Springen: Bis 1.0.52 rollte die Bühne nach dem Zoom per `scrollTo` auf
+    eine SEITE mit Anker; der `LazyVStack` kennt die Lage nicht gebauter
+    Seiten nur geschätzt. Jetzt setzt `Lupengriff.rollen(soll:)` den
+    `contentOffset` der `UIScrollView` direkt aus `Zoomanker.sollversatz`
+    (Ursprung des Inhalts im Sichtfeld → Versatz = Lage des Trägers −
+    Soll, geklemmt). Angewandt im `layoutSubviews` des Trägers (derselbe
+    Durchgang, in dem der neue Maßstab gesetzt wird — kein Bild mit falscher
+    Seite dazwischen) und nachgereicht nach 0/50/150/300 ms, solange niemand
+    selbst schiebt. `scrollTo` nur noch als Rückfall ohne Rollfläche.
+    **Nicht gemessen:** auf einem Gerät; ob `adjustedContentInset` und die
+    Lage des Trägers so stimmen (Soll/Ist steht unter „Bedienung prüfen").
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -1114,7 +1140,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45), 1.0.45 (46), 1.0.46 (47), 1.0.47 (48), 1.0.48 (49), 1.0.49 (50), 1.0.50 (51), 1.0.51 (52), 1.0.52 (53). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45), 1.0.45 (46), 1.0.46 (47), 1.0.47 (48), 1.0.48 (49), 1.0.49 (50), 1.0.50 (51), 1.0.51 (52), 1.0.52 (53), 1.0.53 (54). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -1275,3 +1301,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.52 (Build 53)**, 11/2026: Seitenzoom mit zwei Fingern über den
   Zweifinger-Erkenner von UIKit an der Rollfläche. **Nicht gemessen:** auf
   einem Gerät.
+- **1.0.53 (Build 54)**, 11/2026: Zoomen mit zwei Fingern jederzeit (auch
+  mit gewähltem Foto oder Textfeld), nach dem Zoom kein Springen auf eine
+  andere Seite. **Nicht gemessen:** auf einem Gerät.

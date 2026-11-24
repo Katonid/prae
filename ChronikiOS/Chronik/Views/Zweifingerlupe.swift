@@ -24,6 +24,14 @@ import UIKit
 struct Zweifingerlupe: UIViewRepresentable {
     enum Phase { case beginnt, laeuft, endet }
 
+    // WIRD GERADE GEZOOMT? (ab 1.0.53) Seit zwei Finger immer die Seite
+    // zoomen, kann der erste Finger zugleich auf einem gewählten Block
+    // liegen und ihn ziehen. `SeitenflaecheView.ziehen` fragt diese Zahl:
+    // Hat seit dem Aufsetzen ein Zoom begonnen, wird die Ziehbewegung
+    // verworfen statt geschrieben.
+    static var zoomzaehler = 0
+    static var zoomLaeuft = false
+
     /// Ob gezoomt werden darf (über einem gewählten Foto gehören zwei Finger
     /// dem Bildausschnitt).
     var erlaubt: Bool
@@ -31,6 +39,9 @@ struct Zweifingerlupe: UIViewRepresentable {
     /// DIESER Ansicht (= des Bühneninhalts, ungezoomt).
     var bewegung: (Phase, Double, CGPoint) -> Void
     var angebracht: (Bool) -> Void
+    /// Über diesen Griff rollt `ReiseView` nach dem Zoomen DIREKT
+    /// (ab 1.0.53) — siehe `Lupengriff`.
+    var griff: Lupengriff
 
     func makeCoordinator() -> Lenker { Lenker() }
 
@@ -47,6 +58,7 @@ struct Zweifingerlupe: UIViewRepresentable {
         context.coordinator.erlaubt = erlaubt
         context.coordinator.bewegung = bewegung
         context.coordinator.angebracht = angebracht
+        griff.lenker = context.coordinator
     }
 
     static func dismantleUIView(_ ansicht: Traeger, coordinator: Lenker) {
@@ -55,6 +67,15 @@ struct Zweifingerlupe: UIViewRepresentable {
 
     final class Traeger: UIView {
         weak var lenker: Lenker?
+        // Hier und nicht später: `layoutSubviews` läuft im SELBEN
+        // Durchgang, in dem SwiftUI den Inhalt auf den neuen Maßstab
+        // bringt, also bevor das Bild auf den Schirm kommt. Wird die
+        // Rollfläche erst danach gestellt, steht für einen Augenblick die
+        // falsche Seite da.
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            lenker?.ausstehendAnwenden(nurBeiNeuerGroesse: true)
+        }
         override func didMoveToWindow() {
             super.didMoveToWindow()
             if window != nil { lenker?.anbringen() } else { lenker?.abnehmen() }
@@ -69,6 +90,46 @@ struct Zweifingerlupe: UIViewRepresentable {
         private var erkenner: UIPinchGestureRecognizer?
         private weak var rolle: UIScrollView?
         private var start: CGPoint = .zero
+        // Wohin nach dem Zoom gerollt werden soll: der Ursprung des Inhalts
+        // im Sichtfeld (`Zoomanker.sollversatz`). Gilt eine kurze Weile,
+        // weil der `LazyVStack` seine Höhe nach dem ersten Durchgang noch
+        // einmal nachrechnen kann.
+        private var ausstehend: CGPoint?
+        private var groesseBeimWunsch: CGSize = .zero
+        private var wunschnummer = 0
+
+        func rollen(soll: CGPoint) {
+            guard rolle != nil, let traeger else { return }
+            wunschnummer += 1
+            let nummer = wunschnummer
+            ausstehend = soll
+            groesseBeimWunsch = traeger.bounds.size
+            for verzug in [0.0, 0.05, 0.15, 0.3] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + verzug) { [weak self] in
+                    guard let self, self.wunschnummer == nummer else { return }
+                    self.ausstehendAnwenden(nurBeiNeuerGroesse: false)
+                    if verzug >= 0.3 { self.ausstehend = nil }
+                }
+            }
+        }
+
+        func ausstehendAnwenden(nurBeiNeuerGroesse: Bool) {
+            guard let soll = ausstehend, let rolle, let traeger else { return }
+            if nurBeiNeuerGroesse, traeger.bounds.size == groesseBeimWunsch { return }
+            // Wer inzwischen selbst schiebt, hat das letzte Wort.
+            if rolle.isDragging || rolle.isDecelerating { ausstehend = nil; return }
+            let lage = traeger.convert(CGPoint.zero, to: rolle)
+            let rand = rolle.adjustedContentInset
+            let breite = max(rolle.contentSize.width, lage.x + traeger.bounds.width)
+            let hoehe = max(rolle.contentSize.height, lage.y + traeger.bounds.height)
+            let maxX = max(-rand.left, breite - rolle.bounds.width + rand.right)
+            let maxY = max(-rand.top, hoehe - rolle.bounds.height + rand.bottom)
+            let ziel = CGPoint(x: min(max(lage.x - soll.x, -rand.left), maxX),
+                               y: min(max(lage.y - soll.y, -rand.top), maxY))
+            if abs(rolle.contentOffset.x - ziel.x) > 0.5 || abs(rolle.contentOffset.y - ziel.y) > 0.5 {
+                rolle.setContentOffset(ziel, animated: false)
+            }
+        }
 
         func anbringen() {
             guard erkenner == nil, let traeger else { return }
@@ -99,6 +160,8 @@ struct Zweifingerlupe: UIViewRepresentable {
             guard let traeger else { return }
             switch g.state {
             case .began:
+                Zweifingerlupe.zoomzaehler += 1
+                Zweifingerlupe.zoomLaeuft = true
                 start = g.location(in: traeger)
                 // Das Schieben ruht, solange gezoomt wird: Sonst wanderte
                 // der Inhalt unter den Fingern weg, und der Brennpunkt,
@@ -108,6 +171,7 @@ struct Zweifingerlupe: UIViewRepresentable {
             case .changed:
                 bewegung(.laeuft, Double(g.scale), start)
             case .ended, .cancelled, .failed:
+                Zweifingerlupe.zoomLaeuft = false
                 rolle?.panGestureRecognizer.isEnabled = true
                 bewegung(.endet, Double(g.scale), start)
             default:
@@ -121,5 +185,25 @@ struct Zweifingerlupe: UIViewRepresentable {
                                shouldRecognizeSimultaneouslyWith anderer: UIGestureRecognizer) -> Bool {
             true
         }
+    }
+}
+
+/// Ein Griff, über den `ReiseView` die Rollfläche stellen kann (ab 1.0.53).
+///
+/// Bis 1.0.52 rollte die Bühne nach dem Zoomen über `scrollTo` auf eine
+/// SEITE mit Anker. Ein `LazyVStack` kennt die Lage einer Seite, die er noch
+/// nicht gebaut hat, aber nur geschätzt — gemeldet 11/2026: „beim Zoomen
+/// [verspringt] die Seite und zunächst [wird] eine andere angezeigt".
+/// Jetzt wird der Versatz der Rollfläche direkt gesetzt, aus derselben
+/// Rechnung (`Zoomanker.sollversatz`); `scrollTo` bleibt nur als Rückfall.
+final class Lupengriff {
+    weak var lenker: Zweifingerlupe.Lenker?
+
+    /// `false`, wenn keine Rollfläche greifbar ist — dann rollt der Aufrufer
+    /// selbst.
+    func rollen(soll: CGPoint) -> Bool {
+        guard let lenker else { return false }
+        lenker.rollen(soll: soll)
+        return true
     }
 }

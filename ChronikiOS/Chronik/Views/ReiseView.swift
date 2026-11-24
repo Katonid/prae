@@ -37,6 +37,7 @@ struct ReiseView: View {
     // `Zweifingerlupe`). Solange nicht, bleibt die SwiftUI-Geste die Lupe —
     // nie beide zugleich, sonst zöge jede Bewegung doppelt.
     @State private var lupeAngebracht = false
+    @State private var lupengriff = Lupengriff()
     // Wie breit die Bühne ist. GEMESSEN und gemerkt, nicht geschätzt:
     // Daran hängt der eingepasste Maßstab, und den brauchen die Lupen und
     // die Geste auch außerhalb des `GeometryReader`.
@@ -417,7 +418,8 @@ struct ReiseView: View {
                             bewegung: { phase, faktor, punkt in
                                 lupenbewegung(phase, faktor: faktor, start: punkt)
                             },
-                            angebracht: { lupeAngebracht = $0 }
+                            angebracht: { lupeAngebracht = $0 },
+                            griff: lupengriff
                         )
                     )
                     // Der Zoom WÄHREND der Geste ist eine reine Skalierung um
@@ -1065,6 +1067,12 @@ struct ReiseView: View {
         // `guard griff.imBlatt` — und wo nicht gerollt wird, behält die
         // Rolle ihren Versatz, während der Inhalt wächst: der gemeldete
         // Sprung in die linke obere Ecke. Siehe `Zoomanker.Griff.imBlatt`.
+        // DIREKT, wenn die Rollfläche greifbar ist (ab 1.0.53) — siehe
+        // `Lupengriff`. Die Gegenprobe „Soll/Ist" läuft wie nach `scrollTo`.
+        if lupeAngebracht, lupengriff.rollen(soll: soll) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { sollIstNachtragen() }
+            return
+        }
         guard let elementkennung = kennung(ziel.stelle) else { return }
         rollnummer += 1
         rollwunsch = Rollwunsch(kennung: elementkennung, anker: ziel.anker,
@@ -1197,10 +1205,14 @@ struct ReiseView: View {
             : UIColor(white: 0.82, alpha: 1)
     })
 
-    // Über einem gewählten FOTO gehören die zwei Finger dem Bildausschnitt.
-    private var seitenzoomErlaubt: Bool {
-        werk.ausschnittsmodus == nil && gewaehlterBlock?.fotoID == nil
-    }
+    // ZWEI FINGER ZOOMEN IMMER DIE SEITE (ab 1.0.53, Ansage des Nutzers
+    // 11/2026: „Ein Zoomen soll jederzeit möglich sein, denn das Heranziehen
+    // eines Bildes mache ich sowieso gegebenenfalls mit dem Schieberegler.").
+    // Bis 1.0.52 gehörten sie über einem gewählten Foto dem Bildausschnitt
+    // und waren im Ausschnittsmodus gesperrt — mit gewähltem Block ging die
+    // Seite also nicht zu zoomen. Der Ausschnitt geht über den Inspektor
+    // (Regler) und „Ausschnitt verschieben".
+    private var seitenzoomErlaubt: Bool { true }
 
     // MARK: - Werkzeuge
     //
