@@ -92,6 +92,11 @@ struct Foto: Identifiable, Codable, Hashable {
     // das Foto kam. Daran erkennt das nächste Einlesen, dass es schon im
     // Buch ist — auch wenn es inzwischen bearbeitet wurde.
     var mediathek: String?
+    // KAPITELWEISE (ab 1.0.50): der Dateiname beim Einlesen („IMG_1234").
+    // Zusammen mit der Aufnahmesekunde erkennt das nächste Einlesen daran
+    // eine BEARBEITETE Fassung desselben Bildes (`Dienste/Fotoersatz.swift`)
+    // — die Maße allein taugen dafür nicht, ein Zuschnitt ändert sie.
+    var name: String?
 
     // Ein Leser von Hand — dieselbe Vorsorge wie bei Reise und Reisetag
     // (siehe `Model/Nachsicht.swift`). Ohne ihn machte jedes neue Feld am
@@ -116,6 +121,7 @@ struct Foto: Identifiable, Codable, Hashable {
         abgelegt = b.wert(.abgelegt, false)
         grafik = b.wert(.grafik, false)
         mediathek = b.wahlweise(.mediathek)
+        name = b.wahlweise(.name)
     }
 
     // Von Hand geschrieben, weil der eigene Leser den erzeugten Erzeuger

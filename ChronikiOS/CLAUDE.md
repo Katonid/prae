@@ -1006,6 +1006,30 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   Die Doppelsuche zählt Hintergrundbilder als benutzt
   (`DuplikateView.benutzteFotos`); `bezuegeUmbiegen` biegt ohnehin jede
   Kennung im ganzen Buch um.
+- **Bearbeitete Fotos ersetzen ihr Original (1.0.50,** Ansage des Nutzers
+  11/2026: „Wenn ein Bild den gleichen Titel und Zeitstempel hat, dann soll
+  geprüft werden, ob ein Neuimport anders ist und dann das Original ersetzen
+  … in Größe und Position genau an derselben Stelle"). `Dienste/Fotoersatz.swift`,
+  aufgerufen in `fotosAufnehmen` VOR den alten Doppel-Prüfungen.
+  - Vorgänger (`vorgaenger`): gleicher Mediathekseintrag (eine Bearbeitung
+    in „Fotos" behält ihn) ODER gleiche Aufnahmesekunde + gleicher
+    Namenskern (`namenskern`: ohne Endung, klein, „IMG_E" → „IMG_"). Der
+    Name ist Pflicht, sobald beide Seiten einen haben — sonst ersetzte ein
+    Serienbild derselben Sekunde das Original. `Foto.name` gibt es erst ab
+    1.0.50; für ältere Fotos wird der Name am Mediathekseintrag
+    nachgeschlagen (`originalFilename`), sonst gilt „gleiche Sekunde und
+    Maße". Grafiken (Vorwort, Zeitung, Hintergründe) nie.
+  - Vergleich (`gleichesBild`, abseits des Hauptfadens): gleiche Bytes →
+    gleich; sonst 64 × 64-Fassungen, gleich bei mittlerer Abweichung < 1,5
+    und größter < 40 (je Kanal, 0–255) und gleichem Seitenverhältnis.
+    Grund: Die Mediathek kann dasselbe Bild anders verpackt herausgeben.
+    **Schwellen nicht gemessen** — ersetzt es Unverändertes oder übersieht
+    eine kleine Retusche, hier nachjustieren.
+  - Ersatz (`fotoErsetzen`): neue Datei unter DERSELBEN Foto-Kennung, Maße
+    neu; Datum/Ort bleiben (nur Fehlendes ergänzt); Blöcke behalten Rahmen,
+    Drehung, Ebene, nur der Ausschnitt wird begrenzt. Alte Datei erst beim
+    Schließen weg (`spaeterLoeschen`), „Zurück" holt das Original. Der
+    Bericht zählt `ersetzt`; die Fotos stehen in „Zuletzt eingelesene Fotos".
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -1056,7 +1080,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45), 1.0.45 (46), 1.0.46 (47), 1.0.47 (48), 1.0.48 (49), 1.0.49 (50). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45), 1.0.45 (46), 1.0.46 (47), 1.0.47 (48), 1.0.48 (49), 1.0.49 (50), 1.0.50 (51). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -1208,3 +1232,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   einem Gerät.
 - **1.0.49 (Build 50)**, 11/2026: Hintergrundbild aus Dateien (Bild oder
   PDF). **Nicht gemessen:** auf einem Gerät.
+- **1.0.50 (Build 51)**, 11/2026: bearbeitete Fotos ersetzen beim Einlesen
+  ihr Original an derselben Stelle. **Nicht gemessen:** auf einem Gerät; die
+  Vergleichsschwellen.

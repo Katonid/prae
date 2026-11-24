@@ -39,6 +39,8 @@ struct Einfuhrbericht {
     var abgewiesen: Int = 0
     var neueTage: Int = 0
     var schonVorhanden: Int = 0
+    // Durch eine bearbeitete Fassung ersetzt (ab 1.0.50).
+    var ersetzt: Int = 0
     // KAPITELWEISE (ab 1.0.32): neue Fotos in Kapiteln mit Handarbeit.
     var eingeschoben: Int = 0
     var wartenAufNeuverteilen: Int = 0
@@ -51,12 +53,17 @@ struct Einfuhrbericht {
     // die Spur dieser Tage ist dann unerklärlich kurz.
     var text: String {
         var zeilen: [String] = ["\(aufgenommen) Fotos eingelesen."]
+        if ersetzt > 0 {
+            zeilen.append(ersetzt == 1
+                          ? "1 Foto war schon im Buch, aber bearbeitet \u{2014} es ersetzt das alte an derselben Stelle, in derselben Größe."
+                          : "\(ersetzt) Fotos waren schon im Buch, aber bearbeitet \u{2014} sie ersetzen die alten an derselben Stelle, in derselben Größe.")
+        }
         if schonVorhanden > 0 {
             zeilen.append(schonVorhanden == 1
-                          ? "1 Foto war schon im Buch und wurde übersprungen."
-                          : "\(schonVorhanden) Fotos waren schon im Buch und wurden übersprungen.")
+                          ? "1 Foto war unverändert schon im Buch und wurde übersprungen."
+                          : "\(schonVorhanden) Fotos waren unverändert schon im Buch und wurden übersprungen.")
         }
-        if aufgenommen + schonVorhanden > 0 {
+        if aufgenommen + schonVorhanden + ersetzt > 0 {
             zeilen.append("Wo sie stehen: Plusmenü \u{2192} Fotos \u{2192} \u{201E}Zuletzt eingelesene Fotos\u{201C}.")
         }
         if neueTage > 0 { zeilen.append("\(neueTage) neue Kapitel angelegt.") }
@@ -161,6 +168,7 @@ extension Reisewerk {
             }
         }
         var vorhandene: [UUID] = []
+        var ersetzteFotos: [UUID] = []
         merken()
         var neueFotos: [UUID] = []
 
@@ -239,6 +247,27 @@ extension Reisewerk {
                 continue
             }
 
+            // SCHON IM BUCH — UNVERÄNDERT ODER BEARBEITET? (ab 1.0.50)
+            //
+            // Ansage des Nutzers, 11/2026: „Wenn ein Bild den gleichen
+            // Titel und Zeitstempel hat, dann soll geprüft werden, ob ein
+            // Neuimport anders ist und dann das Original ersetzen … in
+            // Größe und Position genau an derselben Stelle." Bis 1.0.49
+            // hieß „gleicher Eintrag" oder „gleiche Sekunde und Maße"
+            // immer: überspringen.
+            if let alt = vorgaenger(kennung: bild.kennung, name: bild.name, befund: befund,
+                                    idNachKennung: idNachKennung) {
+                if await Self.gleichesBild(bild.daten, pfad: Bildarchiv.shared.pfad(reise.id, datei: alt.datei)) {
+                    bericht.schonVorhanden += 1
+                    vorhandene.append(alt.id)
+                } else if fotoErsetzen(alt.id, durch: bild, befund: befund) {
+                    bericht.ersetzt += 1
+                    ersetzteFotos.append(alt.id)
+                } else {
+                    bericht.abgewiesen += 1
+                }
+                continue
+            }
             if let kennung = bild.kennung, bekannteKennungen.contains(kennung) {
                 bericht.schonVorhanden += 1
                 if let id = idNachKennung[kennung] { vorhandene.append(id) }
@@ -271,6 +300,7 @@ extension Reisewerk {
                 ortsquelle: befund.koordinate == nil ? .keiner : befund.quelle
             )
             foto.mediathek = bild.kennung
+            foto.name = bild.name.map(Self.namenskern)
             if let k = bild.kennung { bekannteKennungen.insert(k) }
             if let wann = foto.aufnahme {
                 bekannteAufnahmen.insert(Self.fingerabdruck(wann, breite: foto.breite, hoehe: foto.hoehe))
@@ -365,12 +395,12 @@ extension Reisewerk {
         }
         // Zuletzt eingelesen (ab 1.0.40): neue zuerst, dann übersprungene.
         var liste: [UUID] = []
-        for id in neueFotos + vorhandene where !liste.contains(id) { liste.append(id) }
+        for id in neueFotos + ersetzteFotos + vorhandene where !liste.contains(id) { liste.append(id) }
         if !liste.isEmpty { zuletztEingelesen = liste }
         // Das erste neue Foto, das auf einer Seite steht, wird gezeigt und
         // gewählt — sonst sucht man es (gemeldet 11/2026: „unter einem
         // bestehenden Bild platziert … zunächst nicht erkannt").
-        if let erstes = neueFotos.first(where: { fundort($0).block != nil }) { fotoZeigen(erstes) }
+        if let erstes = (neueFotos + ersetzteFotos).first(where: { fundort($0).block != nil }) { fotoZeigen(erstes) }
         sofortSichern()
         Absturzspur.endet()
         return bericht
