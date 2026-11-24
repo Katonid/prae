@@ -76,6 +76,20 @@ struct SeitenflaecheView: View, Equatable {
     @State private var ziehVersatz: CGSize = .zero
     @State private var ziehGruppe: Set<UUID> = []
     @State private var ziehZiel: Rahmen?
+    // GRÖSSE, DREHUNG, AUSSCHNITT UND ZOOM LAUFEN SEIT 1.0.51 EBENSO NUR IN
+    // DER ANSICHT MIT (gemeldet 11/2026: „dass die App leider etwas träge
+    // reagiert, zum Beispiel wenn ich Fotos verschiebe oder die Größe von
+    // Textfeldern ändere"). Bis dahin schrieben diese vier bei jedem
+    // Bildpunkt ins Buch — dieselbe Last wie beim Verschieben vor 1.0.41:
+    // `reise` veröffentlichte sich neu, jede sichtbare Seite rechnete nach,
+    // das Sichern wurde neu geplant. Jetzt steht der Zwischenstand hier, und
+    // geschrieben wird EINMAL beim Loslassen (`vorschau(_:)` zeichnet ihn).
+    @State private var vorschauBlock: UUID?
+    @State private var ziehRahmen: Rahmen?
+    @State private var ziehAusschnitt: Bildausschnitt?
+    @State private var ziehDrehung: Double?
+    @State private var drehAusgang: Double = 0
+    @State private var drehMitte: CGPoint = .zero
     // Einrasten lässt sich abschalten. Das ist die zweite Hälfte des
     // Wunsches („im Einzelfall auch veränderbar"): Eine Hilfe, aus der
     // sich nicht aussteigen lässt, ist eine Bevormundung — und es gibt
@@ -398,7 +412,7 @@ struct SeitenflaecheView: View, Equatable {
                 // übereinander liegend". **Merke: Zwei Zeichner für
                 // denselben Inhalt zeigen nie dasselbe.**
                 if werk.textBearbeitung != block.id {
-                    blockAnsicht(block)
+                    blockAnsicht(vorschau(block))
                         .offset(ziehGruppe.contains(block.id) ? ziehVersatz : .zero)
                 }
             }
@@ -539,7 +553,7 @@ struct SeitenflaecheView: View, Equatable {
             if bearbeitbar, let block = gewaehlterBlock, werk.ausschnittsmodus != block.id,
                werk.textBearbeitung != block.id
             {
-                Griffzeichnung(block: block, massstab: massstab, abstand: griffabstand)
+                Griffzeichnung(block: vorschau(block), massstab: massstab, abstand: griffabstand)
                     .offset(ziehGruppe.contains(block.id) ? ziehVersatz : .zero)
             }
 
@@ -781,12 +795,39 @@ struct SeitenflaecheView: View, Equatable {
     }
 
     @ViewBuilder
+    // Der Block, wie er WÄHREND einer Geste aussieht. Bei der Drehung
+    // drehen Unterschrift und Erinnerung um die Mitte des Bildes mit —
+    // dieselbe Rechnung wie `Reisewerk.drehe`, die beim Loslassen schreibt.
+    private func vorschau(_ block: Block) -> Block {
+        guard let ziel = vorschauBlock else { return block }
+        var b = block
+        if block.id == ziel {
+            if let r = ziehRahmen { b.rahmen = r }
+            if let a = ziehAusschnitt { b.ausschnitt = a }
+            if let d = ziehDrehung { b.drehung = d }
+        } else if let d = ziehDrehung, ziehGruppe.contains(block.id) {
+            let delta = d - drehAusgang
+            b.rahmen = b.rahmen.gedreht(um: drehMitte, grad: delta)
+            b.drehung += delta
+        }
+        return b
+    }
+
+    private func vorschauBeenden() {
+        vorschauBlock = nil
+        ziehRahmen = nil
+        ziehAusschnitt = nil
+        ziehDrehung = nil
+    }
+
     private func blockAnsicht(_ block: Block) -> some View {
         let rahmen = block.rahmen
         let wirkung = block.wirkung(werk.reise.gestaltung)
         let randPt = Druckmass.pt(wirkung.fotorand)
 
-        BlockInhaltView(werk: werk, block: block, tag: buchseite.tag, massstab: massstab)
+        BlockInhaltView(werk: werk, block: block, tag: buchseite.tag, massstab: massstab,
+                        kantenmass: block.id == vorschauBlock
+                            ? ausgangsrahmen.map { CGSize(width: $0.breite, height: $0.hoehe) } : nil)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
             .padding(randPt)
             .background {
@@ -965,9 +1006,10 @@ struct SeitenflaecheView: View, Equatable {
             // zurückgedrehten Punkt wäre er relativ zur schon gesetzten
             // Drehung, und der Block liefe dem Finger davon.
             drehen(block, zeigt: CGPoint(x: wert.location.x - block.rahmen.x,
-                                         y: wert.location.y - block.rahmen.y))
+                                         y: wert.location.y - block.rahmen.y),
+                   endgueltig: endgueltig)
         default:
-            groesseAendern(block, wert: wert)
+            groesseAendern(block, wert: wert, endgueltig: endgueltig)
         }
         if endgueltig { gestenendeAufraeumen(wert) }
     }
@@ -1029,6 +1071,7 @@ struct SeitenflaecheView: View, Equatable {
         ausgangsausschnitt = nil
         fangSenkrecht = nil
         fangWaagerecht = nil
+        vorschauBeenden()
     }
 
     // MARK: - Schieben
@@ -1099,7 +1142,7 @@ struct SeitenflaecheView: View, Equatable {
     // Gedreht wird um die MITTE, und der Winkel kommt aus dem Zeiger von der
     // Mitte zum Finger — nicht aus der Wegstrecke. Eine Drehung aus der
     // Verschiebung dreht am Rand schneller als in der Mitte.
-    private func drehen(_ block: Block, zeigt: CGPoint) {
+    private func drehen(_ block: Block, zeigt: CGPoint, endgueltig: Bool) {
         let mitte = CGPoint(x: block.rahmen.breite / 2, y: block.rahmen.hoehe / 2)
         let zeiger = CGPoint(x: zeigt.x - mitte.x, y: zeigt.y - mitte.y)
         var grad = atan2(zeiger.x, -zeiger.y) * 180 / .pi
@@ -1113,12 +1156,23 @@ struct SeitenflaecheView: View, Equatable {
         // Zeile dreht um die Mitte des Bildes mit, statt schief darunter
         // stehen zu bleiben — und unter einem stark gedrehten Bild zu
         // verschwinden.
-        werk.drehe(block.id, auf: grad)
+        if endgueltig {
+            werk.drehe(block.id, auf: grad)
+            return
+        }
+        if vorschauBlock != block.id {
+            vorschauBlock = block.id
+            drehAusgang = block.drehung
+            drehMitte = block.rahmen.mitte
+            let bloecke = buchseite.seite.bloecke
+            ziehGruppe = Set([block.id] + werk.anhaengsel(block, in: bloecke).map { bloecke[$0].id })
+        }
+        ziehDrehung = grad
     }
 
     // MARK: - Größe
 
-    private func groesseAendern(_ block: Block, wert: DragGesture.Value) {
+    private func groesseAendern(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
         guard let ausgang = ausgangsrahmen, let art = gegriffen else { return }
         let richtung = art.zieht
         let dx = wert.translation.width
@@ -1187,15 +1241,23 @@ struct SeitenflaecheView: View, Equatable {
         fangSenkrecht = senkrecht
         fangWaagerecht = waagerecht
 
+        // Wird ein Foto größer gezogen, bleibt sein Ausschnitt gültig —
+        // aber nur, wenn er den neuen Rahmen noch füllt.
+        var ausschnitt: Bildausschnitt?
+        if let id = block.fotoID, let foto = werk.reise.foto(id) {
+            ausschnitt = block.ausschnitt.begrenzt(
+                bildgroesse: CGSize(width: foto.breite, height: foto.hoehe),
+                rahmen: neu.rect)
+        }
+        guard endgueltig else {
+            vorschauBlock = block.id
+            ziehRahmen = neu
+            ziehAusschnitt = ausschnitt
+            return
+        }
         werk.aendere(block.id, merken: false) { b in
             b.rahmen = neu
-            // Wird ein Foto größer gezogen, bleibt sein Ausschnitt gültig —
-            // aber nur, wenn er den neuen Rahmen noch füllt.
-            if let id = b.fotoID, let foto = werk.reise.foto(id) {
-                b.ausschnitt = b.ausschnitt.begrenzt(
-                    bildgroesse: CGSize(width: foto.breite, height: foto.hoehe),
-                    rahmen: neu.rect)
-            }
+            if let ausschnitt { b.ausschnitt = ausschnitt }
         }
     }
 
@@ -1211,10 +1273,16 @@ struct SeitenflaecheView: View, Equatable {
         var neu = ausgang
         neu.versatzX += wert.translation.width / max(rahmen.width, 1)
         neu.versatzY += wert.translation.height / max(rahmen.height, 1)
-        werk.aendere(block.id, merken: false) {
-            $0.ausschnitt = neu.begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
+        let begrenzt = neu.begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
+        guard endgueltig else {
+            vorschauBlock = block.id
+            ziehAusschnitt = begrenzt
+            return
         }
-        if endgueltig { ausgangsausschnitt = nil }
+        // Einmal gemerkt, beim Loslassen — eine Handbewegung, ein Schritt
+        // zurück.
+        werk.aendere(block.id, merken: true) { $0.ausschnitt = begrenzt }
+        ausgangsausschnitt = nil
     }
 
     // MARK: - Zwei Finger vergrößern das Bild IM Rahmen
@@ -1252,9 +1320,16 @@ struct SeitenflaecheView: View, Equatable {
         var neu = ausgang
         neu.zoom = ausgang.zoom * faktor
         let begrenzt = neu.begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
+        guard endgueltig else {
+            vorschauBlock = block.id
+            ziehAusschnitt = begrenzt
+            return
+        }
         werk.aendere(block.id, merken: false) { $0.ausschnitt = begrenzt }
         werk.letzterGriff = String(format: "Bild im Rahmen \u{00B7} Zoom %.2f", begrenzt.zoom)
-        if endgueltig { ausgangsausschnitt = nil }
+        ausgangsausschnitt = nil
+        // Läuft daneben keine Ziehbewegung, ist die Vorschau damit vorbei.
+        if gegriffen == nil { vorschauBeenden() } else { ziehAusschnitt = nil }
     }
 }
 
@@ -1550,6 +1625,11 @@ struct BlockInhaltView: View {
     // Wie weit die Seite vergrößert ist — gebraucht von allem, was
     // gerastert wird: Text, Foto, Wasserzeichen. Siehe `Bildschaerfe`.
     var massstab: Double = 1
+    // Während einer Größenänderung (ab 1.0.51): das Maß, nach dem die
+    // Bildauflösung gewählt wird — das vom Aufsetzen. Sonst sprang die
+    // Kante alle paar Bildpunkte auf die nächste 200er-Stufe, und jedes
+    // Mal wurde das Foto neu von der Platte geholt und entpackt.
+    var kantenmass: CGSize? = nil
 
     private var wirkung: Blockwirkung { block.wirkung(werk.reise.gestaltung) }
 
@@ -1713,7 +1793,7 @@ struct FotoKachel: View {
     // eine Kachel in einer Reihe misst ein paar hundert Punkte und wird
     // so fein, wie sie darf.
     private func vorschaukante(_ groesse: CGSize) -> Int {
-        Bildschaerfe.kante(groesse, geraet: Double(geraet), massstab: massstab,
+        Bildschaerfe.kante(kantenmass ?? groesse, geraet: Double(geraet), massstab: massstab,
                            groesste: 2000)
     }
 }

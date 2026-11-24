@@ -1030,6 +1030,22 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     Drehung, Ebene, nur der Ausschnitt wird begrenzt. Alte Datei erst beim
     Schließen weg (`spaeterLoeschen`), „Zurück" holt das Original. Der
     Bericht zählt `ersetzt`; die Fotos stehen in „Zuletzt eingelesene Fotos".
+- **Größe, Drehung, Ausschnitt und Zoom nur in der Ansicht (1.0.51,**
+  gemeldet 11/2026: „dass die App leider etwas träge reagiert, zum Beispiel
+  wenn ich Fotos verschiebe oder die Größe von Textfeldern ändere"). Was
+  1.0.41 fürs Verschieben tat, gilt jetzt für alle Gesten in
+  `SeitenflaecheView`: Zwischenstand in `vorschauBlock`/`ziehRahmen`/
+  `ziehAusschnitt`/`ziehDrehung`, gezeichnet über `vorschau(_:)` (Block und
+  Griffe; beim Drehen drehen Unterschrift/Erinnerung um `drehMitte` mit —
+  dieselbe Rechnung wie `Reisewerk.drehe`), geschrieben EINMAL beim
+  Loslassen (`groesseAendern`/`drehen`/`ausschnittSchieben`/`bildZoomen` mit
+  `endgueltig`), aufgeräumt in `gestenendeAufraeumen` → `vorschauBeenden`.
+  Dazu `BlockInhaltView.kantenmass`: Während der Größenänderung bleibt die
+  Bildauflösung die vom Aufsetzen — sonst sprang `Bildschaerfe.kante` alle
+  paar Punkte auf die nächste 200er-Stufe und das Foto wurde jedes Mal neu
+  geholt und entpackt. Der Inspektor zeigt die neuen Maße erst nach dem
+  Loslassen. **Nicht gemessen:** auf einem Gerät; ob das Verschieben selbst
+  noch durch etwas anderes bremst (der Körper der Seite läuft je Bildpunkt).
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -1080,7 +1096,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45), 1.0.45 (46), 1.0.46 (47), 1.0.47 (48), 1.0.48 (49), 1.0.49 (50), 1.0.50 (51). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45), 1.0.45 (46), 1.0.46 (47), 1.0.47 (48), 1.0.48 (49), 1.0.49 (50), 1.0.50 (51), 1.0.51 (52). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -1235,3 +1251,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
 - **1.0.50 (Build 51)**, 11/2026: bearbeitete Fotos ersetzen beim Einlesen
   ihr Original an derselben Stelle. **Nicht gemessen:** auf einem Gerät; die
   Vergleichsschwellen.
+- **1.0.51 (Build 52)**, 11/2026: Größe ändern, Drehen, Ausschnitt schieben
+  und Zoomen schreiben erst beim Loslassen ins Buch; Bildauflösung bleibt
+  während der Größenänderung fest. **Nicht gemessen:** auf einem Gerät.
