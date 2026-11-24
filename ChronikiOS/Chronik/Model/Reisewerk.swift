@@ -416,7 +416,20 @@ final class Reisewerk: ObservableObject, Identifiable {
         sicherungsauftrag = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
-            self?.sofortSichern()
+            self?.imHintergrundSichern()
+        }
+    }
+
+    // Das selbsttätige Sichern nach einer Änderung (ab 1.0.54): Auf dem
+    // Hauptfaden wird nur der Stand festgehalten (eine Kopie, die nichts
+    // kostet, solange niemand schreibt); JSON und Platte laufen in der
+    // Schreibreihe von `Ablage`.
+    private func imHintergrundSichern() {
+        var kopie = reise
+        kopie.geaendert = Date()
+        Ablage.imHintergrundSichern(kopie) { [weak self] fehler in
+            self?.meldung = Meldung(text: "Das Buch ließ sich nicht sichern: \(fehler.localizedDescription)",
+                                    schwer: true)
         }
     }
 
