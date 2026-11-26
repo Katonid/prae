@@ -43,7 +43,7 @@ struct BefehleView: View {
 
     private var gewaehltesFoto: UUID? {
         guard let id = werk.gewaehlterBlock, let b = werk.blockWert(id), let f = b.fotoID,
-              werk.reise.foto(f)?.grafik == false else { return nil }
+              werk.foto(f)?.grafik == false else { return nil }
         return f
     }
 

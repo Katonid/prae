@@ -1466,7 +1466,7 @@ struct ReiseView: View {
                 // einsprechen zu können, der dann neben dieses Foto sortiert
                 // wird"). Das Diktat startet sofort; der Text steht danach
                 // direkt hinter dem Foto, auf derselben Seite.
-                if werk.reise.foto(fotoID)?.grafik == false {
+                if werk.foto(fotoID)?.grafik == false {
                     // Direkter Zugriff auf eingesprochene Texte (ab 1.0.21,
                     // Ansage des Nutzers 11/2026: „Ich brauche eine direkte
                     // Zugriffsmöglichkeit auf den eingesprochenen Text.").
@@ -1499,7 +1499,7 @@ struct ReiseView: View {
                         .buttonStyle(.borderedProminent)
                     }
                 }
-                if werk.reise.foto(fotoID)?.grafik == false {
+                if werk.foto(fotoID)?.grafik == false {
                     // Ein Text über einen ganzen Abschnitt (ab 1.0.28): ein
                     // freier Eintrag eine Minute VOR diesem Foto — er steht
                     // dann als eigenes Feld vor der Bildgruppe.
@@ -1807,7 +1807,7 @@ struct ReiseView: View {
         Menu {
             Section("Texte") {
                 Button("Neuer Text\u{2026}", systemImage: "square.and.pencil") { blatt = .neuerText }
-                if let fotoID = gewaehlterBlock?.fotoID, werk.reise.foto(fotoID)?.grafik == false {
+                if let fotoID = gewaehlterBlock?.fotoID, werk.foto(fotoID)?.grafik == false {
                     Button("Text vor dem gewählten Foto\u{2026}", systemImage: "text.insert") { blatt = .textVor(fotoID) }
                 }
                 Button("Alle Texte\u{2026}", systemImage: "list.bullet.rectangle") { blatt = .texte }

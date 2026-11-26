@@ -125,11 +125,11 @@ struct DuplikateView: View {
             }
             ForEach(befund.gruppen) { gruppe in
                 Section(gruppe.grund.satz) {
-                    if let bleibt = werk.reise.foto(gruppe.behalten) {
+                    if let bleibt = werk.foto(gruppe.behalten) {
                         zeile(bleibt, bleibt: true)
                     }
                     ForEach(gruppe.weg, id: \.self) { id in
-                        if let weg = werk.reise.foto(id) { zeile(weg, bleibt: false) }
+                        if let weg = werk.foto(id) { zeile(weg, bleibt: false) }
                     }
                 }
             }

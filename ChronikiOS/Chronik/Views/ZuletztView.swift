@@ -23,7 +23,7 @@ struct ZuletztView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(werk.zuletztEingelesen, id: \.self) { id in
-                    if let foto = werk.reise.foto(id) {
+                    if let foto = werk.foto(id) {
                         zeile(foto)
                     }
                 }

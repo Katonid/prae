@@ -634,7 +634,7 @@ struct BlockInspektor: View {
 
     @ViewBuilder
     private func fotoAbschnitt(_ block: Block, fotoID: UUID) -> some View {
-        if let foto = werk.reise.foto(fotoID) {
+        if let foto = werk.foto(fotoID) {
             Section("Bild") {
                 Button {
                     werk.ausschnittsmodus = werk.ausschnittsmodus == block.id ? nil : block.id
@@ -737,9 +737,9 @@ struct BlockInspektor: View {
         switch block.inhalt {
         case let .bildunterschrift(id):
             return Binding(
-                get: { werk.reise.foto(id)?.unterschriftAusrichtung ?? gilt },
+                get: { werk.foto(id)?.unterschriftAusrichtung ?? gilt },
                 set: { neu in
-                    guard var foto = werk.reise.foto(id) else { return }
+                    guard var foto = werk.foto(id) else { return }
                     foto.unterschriftAusrichtung = neu
                     werk.reise.setzeFoto(foto)
                 }

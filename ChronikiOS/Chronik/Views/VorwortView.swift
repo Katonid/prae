@@ -116,7 +116,7 @@ struct VorwortView: View {
                         HStack(spacing: 12) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 6).fill(Color(.systemGray5))
-                                if let foto = werk.reise.foto(id) {
+                                if let foto = werk.foto(id) {
                                     Ladebild(datei: foto.datei, reise: werk.reise.id, kante: 160) { bild in
                                         Image(uiImage: bild).resizable().scaledToFill()
                                     }
@@ -215,7 +215,7 @@ struct VorwortView: View {
                     // Fotos aus 1.0.15–1.0.18 tragen keine Aufnahmezeit:
                     // einmal aus der abgelegten Datei nachlesen.
                     for id in fotos {
-                        guard var foto = werk.reise.foto(id), foto.aufnahme == nil, foto.grafik else { continue }
+                        guard var foto = werk.foto(id), foto.aufnahme == nil, foto.grafik else { continue }
                         let adresse = Bildarchiv.shared.pfad(werk.reise.id, datei: foto.datei)
                         if let zeit = Bildleser.befund(datei: adresse).aufnahme {
                             foto.aufnahme = zeit
@@ -401,7 +401,7 @@ struct VorwortView: View {
     private func zeitlichOrdnen() {
         var stelle: [UUID: Int] = [:]
         for (i, id) in fotos.enumerated() where stelle[id] == nil { stelle[id] = i }
-        let zeit: (UUID) -> Date? = { werk.reise.foto($0)?.aufnahme }
+        let zeit: (UUID) -> Date? = { werk.foto($0)?.aufnahme }
         fotos.sort { a, b in
             switch (zeit(a), zeit(b)) {
             case let (x?, y?) where x != y: return x < y
@@ -413,7 +413,7 @@ struct VorwortView: View {
     }
 
     private var ohneZeit: Int {
-        fotos.filter { werk.reise.foto($0)?.aufnahme == nil }.count
+        fotos.filter { werk.foto($0)?.aufnahme == nil }.count
     }
 
 }

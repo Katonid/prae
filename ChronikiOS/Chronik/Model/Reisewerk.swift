@@ -1204,6 +1204,40 @@ final class Reisewerk: ObservableObject, Identifiable {
 
     // MARK: - Blöcke
 
+    // EIN FOTO NACH SEINER KENNUNG — OHNE DIE GANZE LISTE (ab 1.0.56).
+    //
+    // `Reise.foto(_:)` sucht der Reihe nach durch ALLE Fotos des Buches.
+    // Die Seiten fragen das bei jedem Zeichnen für jedes Bild, mehrfach;
+    // bei sieben Jahren mit Tausenden Fotos ist das die Arbeit, die mit dem
+    // Buch wächst. Hier merkt sich das Werk, an welcher Stelle der Liste
+    // welche Kennung steht. Gelesen wird trotzdem IMMER aus der Liste
+    // selbst — die Stelle ist nur ein Hinweis, der geprüft wird (dieselbe
+    // Kennung an dieser Stelle?). Stimmt er nicht mehr (Fotos dazu, weg,
+    // umsortiert), wird er einmal neu aufgebaut. So kann der Vorrat nie
+    // ein veraltetes Foto liefern.
+    private var fotostellen: [UUID: Int] = [:]
+    private var fotostellenAnzahl = -1
+
+    func foto(_ id: UUID) -> Foto? {
+        let liste = reise.fotos
+        if let i = fotostellen[id], liste.indices.contains(i), liste[i].id == id {
+            return liste[i]
+        }
+        // Gar nicht im Vorrat, und die Liste ist so lang wie beim letzten
+        // Aufbau: Meist eine Kennung, die es nicht (mehr) gibt. Dann wie
+        // früher der Reihe nach suchen, statt jedes Mal neu aufzubauen.
+        if fotostellen[id] == nil, liste.count == fotostellenAnzahl {
+            return liste.first { $0.id == id }
+        }
+        fotostellenAnzahl = liste.count
+        var neu: [UUID: Int] = [:]
+        neu.reserveCapacity(liste.count)
+        for (i, f) in liste.enumerated() { neu[f.id] = i }
+        fotostellen = neu
+        guard let i = neu[id] else { return nil }
+        return liste[i]
+    }
+
     func block(_ id: UUID) -> (tag: Int, seite: Int, block: Int)? {
         for (t, tag) in reise.tage.enumerated() {
             for (s, seite) in tag.seiten.enumerated() {

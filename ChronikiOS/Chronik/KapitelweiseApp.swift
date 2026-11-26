@@ -133,10 +133,20 @@ final class Regal: ObservableObject {
     }
 
     private func spaeterNachlesen() {
+        // SOLANGE EIN BUCH OFFEN IST, WIRD DAS REGAL NICHT NEU GELESEN
+        // (ab 1.0.56, gemeldet 11/2026: „Die App ist wieder sehr viel träger
+        // geworden … 7 Jahre abgespeichert … noch 10 vor mir"). Jedes
+        // selbsttätige Sichern ändert die Datei in iCloud; die Abfrage
+        // meldete das, und zwei Sekunden später las `neuLesen` JEDES Buch
+        // von der Platte und entzifferte sein ganzes JSON — auf dem
+        // Hauptfaden, nach jeder Änderung, mit jedem Kapitel teurer. Das
+        // Regal ist hinter dem offenen Buch gar nicht zu sehen; gelesen
+        // wird es beim Schließen (`schliessen` → `neuLesen`).
+        guard offen == nil else { return }
         nachschlag?.cancel()
         nachschlag = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self?.offen == nil else { return }
             self?.neuLesen()
         }
     }

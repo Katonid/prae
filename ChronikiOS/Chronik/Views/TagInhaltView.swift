@@ -157,7 +157,7 @@ struct TagInhaltView: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(tag.fotos, id: \.self) { id in
-                if let foto = werk.reise.foto(id) {
+                if let foto = werk.foto(id) {
                     FotoZeile(werk: werk, foto: foto)
                 }
             }

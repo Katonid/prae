@@ -1255,7 +1255,7 @@ struct SeitenflaecheView: View, Equatable {
         // Wird ein Foto größer gezogen, bleibt sein Ausschnitt gültig —
         // aber nur, wenn er den neuen Rahmen noch füllt.
         var ausschnitt: Bildausschnitt?
-        if let id = block.fotoID, let foto = werk.reise.foto(id) {
+        if let id = block.fotoID, let foto = werk.foto(id) {
             ausschnitt = block.ausschnitt.begrenzt(
                 bildgroesse: CGSize(width: foto.breite, height: foto.hoehe),
                 rahmen: neu.rect)
@@ -1273,7 +1273,7 @@ struct SeitenflaecheView: View, Equatable {
     }
 
     private func ausschnittSchieben(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
-        guard let id = block.fotoID, let foto = werk.reise.foto(id) else { return }
+        guard let id = block.fotoID, let foto = werk.foto(id) else { return }
         if ausgangsausschnitt == nil { ausgangsausschnitt = block.ausschnitt }
         guard let ausgang = ausgangsausschnitt else { return }
         let rahmen = block.rahmen.rect
@@ -1315,7 +1315,7 @@ struct SeitenflaecheView: View, Equatable {
     }
 
     private func bildZoomen(_ block: Block, faktor: Double, endgueltig: Bool) {
-        guard let id = block.fotoID, let foto = werk.reise.foto(id) else { return }
+        guard let id = block.fotoID, let foto = werk.foto(id) else { return }
         if ausgangsausschnitt == nil {
             ausgangsausschnitt = block.ausschnitt
             // Einmal je Geste gemerkt, nicht je Bildpunkt — sonst wäre der
@@ -1528,7 +1528,7 @@ struct HintergrundFlaeche: View {
                 Papierkorn(staerke: hintergrund.koernung, saat: seite.id.saat)
             case .foto:
                 hintergrund.farbe.farbe
-                if let id = hintergrund.fotoID, let foto = werk.reise.foto(id) {
+                if let id = hintergrund.fotoID, let foto = werk.foto(id) {
                     // Über die Doppelseite deckt dasselbe Bild die
                     // doppelte Breite ab — mit derselben Kante wäre es auf
                     // dem Bildschirm halb so fein. Das PDF holt ohnehin die
@@ -1764,7 +1764,7 @@ struct FotoKachel: View {
             // ALLE Aufrufe samt Gesamtdauer; ein Treffer im Zwischenspeicher
             // kostet nichts und fällt in der Summe nicht auf. Steht im
             // Befund „Fotos 12× 900 ms", ist die Frage beantwortet.
-            if let foto = werk.reise.foto(fotoID) {
+            if let foto = werk.foto(fotoID) {
                 // GEHOLT WIRD ABSEITS DES HAUPTFADENS (ab 1.0.81) — siehe
                 // `Ladebild`. Bis 1.0.80 stand hier ein synchroner Griff
                 // auf die Platte, mitten im Körper der Seite; beim Scrollen
