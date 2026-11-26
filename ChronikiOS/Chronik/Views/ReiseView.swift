@@ -507,6 +507,13 @@ struct ReiseView: View {
                     rollwunsch = nil
                     DispatchQueue.main.async {
                         leser.scrollTo(wunsch.kennung, anchor: wunsch.anker)
+                        // Noch einmal, sobald der `LazyVStack` die Seiten um
+                        // das Ziel herum wirklich gebaut hat (ab 1.0.55):
+                        // Der erste Sprung rechnet mit GESCHÄTZTEN Höhen —
+                        // daher „zunächst eine andere Seite".
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                            leser.scrollTo(wunsch.kennung, anchor: wunsch.anker)
+                        }
                         // Und danach die Gegenprobe: Steht der Inhalt dort,
                         // wo er stehen sollte? Einmal je Zoom, nicht laufend.
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
@@ -1067,12 +1074,16 @@ struct ReiseView: View {
         // `guard griff.imBlatt` — und wo nicht gerollt wird, behält die
         // Rolle ihren Versatz, während der Inhalt wächst: der gemeldete
         // Sprung in die linke obere Ecke. Siehe `Zoomanker.Griff.imBlatt`.
-        // DIREKT, wenn die Rollfläche greifbar ist (ab 1.0.53) — siehe
-        // `Lupengriff`. Die Gegenprobe „Soll/Ist" läuft wie nach `scrollTo`.
-        if lupeAngebracht, lupengriff.rollen(soll: soll) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { sollIstNachtragen() }
-            return
-        }
+        // WIEDER ÜBER DIE SEITE UNTER DEN FINGERN (ab 1.0.55). 1.0.53 setzte
+        // den Versatz der Rollfläche direkt aus `Zoomanker.sollversatz` —
+        // einer Rechnung vom BUCHANFANG aus. Weicht das Modell je Reihe auch
+        // nur um ein paar Punkte von dem ab, was der `LazyVStack` wirklich
+        // baut, wächst der Fehler mit jeder Seite; im Kapitel 2016 lag das
+        // Ziel hinter dem Buchende, und die Klemme stellte die Rolle ans
+        // Ende (gemeldet 11/2026: „die App springt ständig ans Ende des
+        // Buches"). `scrollTo` auf die Reihe mit Anker ist RELATIV zu der
+        // Seite, auf die man zeigt — ein Fehler darin bleibt innerhalb
+        // dieser Seite. **Nicht wieder den absoluten Versatz setzen.**
         guard let elementkennung = kennung(ziel.stelle) else { return }
         rollnummer += 1
         rollwunsch = Rollwunsch(kennung: elementkennung, anker: ziel.anker,

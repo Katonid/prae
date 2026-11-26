@@ -1115,6 +1115,21 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
     zuerst bei dem, was jede Änderung im HAUPTFADEN über das ganze Buch tut
     (`reise` veröffentlicht sich, `seitenfolge` über alle Kapitel,
     `block(id)` sucht über alle Kapitel).
+- **Kein Sprung ans Buchende nach dem Zoom (1.0.55,** gemeldet 11/2026: „Ich
+  bearbeite hier gerade ein Kapitel 2016 und die App springt ständig ans Ende
+  des Buches."). Ursache (aus dem Quelltext geschlossen): der direkte
+  Versatz aus 1.0.53 (`Lupengriff.rollen`) rechnete die Lage ABSOLUT vom
+  Buchanfang (`Zoomanker.sollversatz` = Rand + Reihe × Schritt). Jede
+  Abweichung des Modells vom wirklich gebauten `LazyVStack` wächst mit der
+  Reihennummer; tief im Buch lag das Ziel hinter dem Ende, die Klemme stellte
+  die Rolle ans Ende. Jetzt rollt `zoomAuf` wieder per `scrollTo` auf die
+  Reihe unter den Fingern (relativ, Fehler bleibt in dieser Seite), dazu ein
+  zweites `scrollTo` nach 120 ms, wenn die Nachbarseiten gebaut sind (gegen
+  „zunächst eine andere Seite"). `Lupengriff`/`rollen` bleiben im Quelltext,
+  werden aber nicht mehr gerufen. **Lehre: Nie einen absoluten Versatz aus
+  einem Modell der Reihenhöhen setzen — der Fehler multipliziert sich mit der
+  Seitenzahl.** **Nicht gemessen:** auf einem Gerät; ob das kurze Bild einer
+  anderen Seite beim Zoomen damit ganz weg ist.
 - **Handarbeit zurücksetzen, je Abschnitt** (ab 1.0.20 nur umbenannt;
   Frage des Nutzers 11/2026: „dass es tatsächlich eine Funktion gibt,
   manuelle Verschiebungen quasi wieder zurückzusetzen … nicht nur global …
@@ -1165,7 +1180,7 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   das des Reisebuchs, zwei Apps dürfen keinen Typ gemeinsam exportieren.
 - Versionierung: `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` je zweimal im
   pbxproj, je Arbeitseinheit Patch UND Build +1. Verlauf: 1.0.0 (1), 1.0.1 (2),
-  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45), 1.0.45 (46), 1.0.46 (47), 1.0.47 (48), 1.0.48 (49), 1.0.49 (50), 1.0.50 (51), 1.0.51 (52), 1.0.52 (53), 1.0.53 (54), 1.0.54 (55). `DEVELOPMENT_TEAM = F4989GSTWS`,
+  1.0.2 (3), 1.0.3 (4), 1.0.4 (5), 1.0.5 (6), 1.0.6 (7), 1.0.7 (8), 1.0.8 (9), 1.0.9 (10), 1.0.10 (11), 1.0.11 (12), 1.0.12 (13), 1.0.13 (14), 1.0.14 (15), 1.0.15 (16), 1.0.16 (17), 1.0.17 (18), 1.0.18 (19), 1.0.19 (20), 1.0.20 (21), 1.0.21 (22), 1.0.22 (23), 1.0.23 (24), 1.0.24 (25), 1.0.25 (26), 1.0.26 (27), 1.0.27 (28), 1.0.28 (29), 1.0.29 (30), 1.0.30 (31), 1.0.31 (32), 1.0.32 (33), 1.0.33 (34), 1.0.34 (35), 1.0.35 (36), 1.0.36 (37), 1.0.37 (38), 1.0.38 (39), 1.0.39 (40), 1.0.40 (41), 1.0.41 (42), 1.0.42 (43), 1.0.43 (44), 1.0.44 (45), 1.0.45 (46), 1.0.46 (47), 1.0.47 (48), 1.0.48 (49), 1.0.49 (50), 1.0.50 (51), 1.0.51 (52), 1.0.52 (53), 1.0.53 (54), 1.0.54 (55), 1.0.55 (56). `DEVELOPMENT_TEAM = F4989GSTWS`,
   `ITSAppUsesNonExemptEncryption = NO` (Info.plist UND Build-Einstellung).
   Mac Catalyst wie im Reisebuch.
 
@@ -1331,3 +1346,6 @@ allem, was das Reisebuch an Bearbeitung, Prüfung und PDF kann:
   andere Seite. **Nicht gemessen:** auf einem Gerät.
 - **1.0.54 (Build 55)**, 11/2026: selbsttätiges Sichern abseits des
   Hauptfadens, JSON ohne Einrückung. **Nicht gemessen:** auf einem Gerät.
+- **1.0.55 (Build 56)**, 11/2026: nach dem Zoom kein Sprung ans Buchende
+  mehr (Rollen wieder relativ zur Seite unter den Fingern). **Nicht
+  gemessen:** auf einem Gerät.
