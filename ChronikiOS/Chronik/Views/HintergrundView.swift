@@ -549,7 +549,7 @@ struct HintergrundView: View {
 
     private func probenbild() async -> UIImage? {
         guard grund.art == .foto, let id = grund.fotoID,
-              let foto = werk.reise.foto(id)
+              let foto = werk.foto(id)
         else { return nil }
         return await Bildarchiv.shared.holen(foto.datei, reise: werk.reise.id, kante: 900,
                                              farbkraft: grund.farbkraftfaktor)
@@ -621,7 +621,7 @@ struct HintergrundView: View {
     // geht über jeden Bildpunkt des Probebildes.
     private func gemessenerRandanteil() async -> Double? {
         guard grund.art == .foto, let id = grund.fotoID,
-              let foto = werk.reise.foto(id),
+              let foto = werk.foto(id),
               let bild = await Bildarchiv.shared.holen(foto.datei, reise: werk.reise.id,
                                                        kante: 600)
         else { return nil }

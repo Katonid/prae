@@ -191,7 +191,7 @@ struct EintragView: View {
     static func erinnerung(zu fotoID: UUID, werk: Reisewerk) -> Texteintrag {
         var neu = Texteintrag()
         neu.foto = fotoID
-        if let foto = werk.reise.foto(fotoID) {
+        if let foto = werk.foto(fotoID) {
             if let wann = foto.aufnahme {
                 neu.zeit = wann.addingTimeInterval(1)
             } else if let tag = werk.reise.tage.first(where: { $0.fotos.contains(fotoID) }) {
@@ -208,7 +208,7 @@ struct EintragView: View {
     static func textVor(_ fotoID: UUID, werk: Reisewerk) -> Texteintrag {
         var neu = Texteintrag()
         werk.textBeiFoto[neu.id] = fotoID
-        if let foto = werk.reise.foto(fotoID) {
+        if let foto = werk.foto(fotoID) {
             if let wann = foto.aufnahme {
                 neu.zeit = wann.addingTimeInterval(-60)
             } else if let tag = werk.reise.tage.first(where: { $0.fotos.contains(fotoID) }) {
@@ -234,7 +234,7 @@ struct EintragView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let fotoID = eintrag.foto, let foto = werk.reise.foto(fotoID) {
+                if let fotoID = eintrag.foto, let foto = werk.foto(fotoID) {
                     Section {
                         Ladebild(datei: foto.datei, reise: werk.reise.id, kante: 900) { bild in
                             Image(uiImage: bild).resizable().scaledToFit()

@@ -1017,7 +1017,7 @@ struct UmschlagView: View {
 
     private var mitTitelfoto: Bool {
         guard let id = werk.reise.titelfoto else { return false }
-        return werk.reise.foto(id) != nil
+        return werk.foto(id) != nil
     }
 
     private var titellagewert: Double {

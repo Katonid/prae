@@ -110,7 +110,7 @@ struct KapitelseitenView: View {
     private func zeitungsabschnitt(_ stelle: Int) -> some View {
         let tag = werk.reise.tage[stelle]
         Section {
-            if let id = tag.zeitung, let foto = werk.reise.foto(id) {
+            if let id = tag.zeitung, let foto = werk.foto(id) {
                 Ladebild(datei: foto.datei, reise: werk.reise.id, kante: 600) { bild in
                     Image(uiImage: bild).resizable().scaledToFit()
                 }
@@ -191,7 +191,7 @@ struct KapitelseitenView: View {
             HStack(alignment: .top, spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 6).fill(Color(.systemGray5))
-                    if let id = meldung.foto, let foto = werk.reise.foto(id) {
+                    if let id = meldung.foto, let foto = werk.foto(id) {
                         Ladebild(datei: foto.datei, reise: werk.reise.id, kante: 160) { bild in
                             Image(uiImage: bild).resizable().scaledToFill()
                         }
